@@ -4,6 +4,7 @@ status: draft
 created: 2026-09-04
 updated: 2026-09-07
 audience: investors and stakeholders
+who: BIPA
 ---
 
 # Product Brief: beergame
