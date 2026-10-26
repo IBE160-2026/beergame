@@ -22,4 +22,5 @@ Forklare hvordan sesjonsloggingen fungerer, og endre brukerskillen `sesjonslogg`
 - Ikke testet i en ekte økt utover denne loggføringen. Beergame har ikke hatt `issues.md` før nå; åpne punkter fra `999-…-product-brief.md` er ikke overført.
 
 ### Åpne punkter
+- Konkurrentverifisering står igjen: `.docs/planning-artifacts/research/competition.md` (commit `062cfb5`) inneholder bare spørsmålet «What competition exists?». Ført inn i `issues.md` etter at jeg først feilaktig hadde antatt at researchen var gjort ut fra commit-meldingen. Opprinnelig punkt fra `999-2026-09-07-16-11-51-product-brief.md`.
 - Skillen skriver til `.logs/<bruker-slug>/`, mens website-prosjektets `AGENTS.md` og `docs/70-logg/README.md` sier at logger skal ligge i `docs/70-logg/<bruker>/` (markørfila `.pytagoras-docs`, RYDDELISTE sak 3). Skillen må kunne peke på riktig loggrot i website-prosjektet før `.logs/` fjernes fra kodrepoene.
