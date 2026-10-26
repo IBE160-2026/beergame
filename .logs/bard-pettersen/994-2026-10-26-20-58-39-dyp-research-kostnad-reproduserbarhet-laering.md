@@ -25,3 +25,19 @@ Tre ferdige rapporter (`status: complete`) i `.docs/planning-artifacts/research/
 - Prototype som måler tokens/kostnad/latens/ugyldige ordre, og Sterman-parametre fra primærkilde — Issue #8.
 - Briefen må rettes etter funnene (læringspåstand som hypotese m.m.) — lagt som kommentar på eksisterende Issue #2.
 - Eksisterende åpne issues #1, #3 og #4 (konkurrentverifisering, posisjonering A/B) er uendret og ikke berørt av denne økten.
+
+## 2026-10-26 kl. 22:26 — Bård Pettersen
+
+### Oppgave
+Brukeren ba om at den tekniske researchen også sjekker OpenRouter, siden det er AI-leverandøren de bruker.
+
+### Plan
+- Avgrenset utdyping (Deepen) av kostnadsrapporten: leste OpenRouters offisielle dokumentasjon selv (pris/gebyr, parametre, ruting, caching, structured output, rate limits, personvern/ZDR, fallbacks, reasoning), uten subagenter og uten ny verifiseringsrunde.
+
+### Resultat
+- Ny seksjon 4 «OpenRouter as the AI provider» og anbefaling 7–9 i `technical-ai-agent-cost-per-beer-game-session-2026-10-26/research.md`; rå-funn i `digests/openrouter-deepen-r4-a.md` (ukommittert).
+- Hovedfunn: OpenRouter tar listepris pluss 5,5 % gebyr ved kjøp av kreditt (8 % på Business), så Haiku 5.5-økt går fra ca. 3,0 til ca. 3,1 cent. Ikke-støttede parametre droppes stille uten `require_parameters`. Standardruting lastbalanserer og faller tilbake mellom leverandører, og standard `data_collection` er «allow», så studentdata krever `deny` og/eller ZDR. EU-ruting krever Business-plan. Determinisme er ikke garantert, så beslutningsloggen må også lagre svarende modell og leverandør.
+- Konklusjonen om at kostnad ikke er blokkereren er uendret. Dokumentasjonen er eneste kilde (medium konfidens); ikke uavhengig verifisert.
+
+### Åpne punkter
+- OpenRouter-oppfølging lagt som kommentar på Issue #8 (prototype: temperature/seed-oppførsel, latens, DPA og EU-ruting).
