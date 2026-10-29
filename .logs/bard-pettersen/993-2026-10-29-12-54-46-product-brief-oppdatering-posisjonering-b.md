@@ -24,3 +24,21 @@ Starte med `/bmad-help`, få A vs B-posisjoneringen forklart, pressure-teste B m
 - Issue #6 (læringsmåleplan i PRD) oppdatert med terskelen fra briefen.
 - Issue #1, #4, #5, #7, #8, #9 er uendret åpne.
 - Neste BMad-steg: PRD (`bmad-prd`).
+
+## 2026-10-29 kl. 13:50 — Bård Pettersen
+
+### Oppgave
+Sjekke om andre ølspill faktisk kjører LLM-drevne boter med suksess (setningen «The moat is not the AI model» i briefen), og deretter løfte fungerende LLM-boter som kjernen i differensieringen.
+
+### Plan
+- Lese egen research (`llm-r2-i.md`, `ai-bots-r1-d.md`, `bots-r2-g.md`) og gjøre to raske nettsøk for nyere funn.
+- Skrive om moat-punktet, executive summary, fallback og risiko 1 i briefen, med løftet formulert som noe vi må bevise, ikke et bevist faktum.
+
+### Resultat
+- Funn: ingen vedlikeholdt løsning med LLM-boter til studenter. LLM-spillere finnes bare i forskningsdemoer (GenAI Beer Game uten menneskeplass, Long/Simchi-Levi, SupplyNet-prototype uten kode, Happily.ai-markedsføring) og en forlatt Hugging Face Space (Lilli98, «Build error»). Nettsøk 2026-10-29 ga ingen nye produkter.
+- `brief.md` endret (ikke committet): moat-punktet («getting LLM opponents to work»), forsvarbar posisjon, executive summary («working AI opponents plus the explanation»), ny fallback-linje i Success Criteria, risiko 1.
+- Issue #11 opprettet, #10 kommentert.
+
+### Åpne punkter
+- Issue #11: bevis at LLM-motstandere fungerer som undervisningsmotstandere (variasjon ca. 12–13 %, ugyldige ordre, troverdighet, realistisk bullwhip).
+- Issue #10, #8 og #6 er uendret åpne; briefen er fortsatt ukommittert.
