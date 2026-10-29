@@ -1,8 +1,8 @@
 ---
 title: "Addendum: beergame product brief"
-status: draft
+status: final
 created: 2026-09-07
-updated: 2026-09-07
+updated: 2026-10-29
 ---
 
 # Addendum
@@ -31,14 +31,30 @@ All claims in "The Problem" and "Why Now" trace to these. Nothing in the brief i
 
 The behavioural-fidelity argument rests on these. This is an active research area, not a novel idea — treat it as validation of feasibility, not as proprietary insight.
 
-- **[Effects of LLM Agent Capability and Capability Gradients on the Bullwhip Effect in the Supply Chain](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5266281)** (Jin, Jiang, Tian — SSRN). GPT-4 lowers bullwhip 58% and total supply chain cost 24% relative to GPT-3.5; DeepSeek-R1 achieves 44% and 18%. Information sharing and vendor-managed inventory mitigate bullwhip by 37% and 63% respectively. Useful because it shows agent *capability* is a tunable difficulty dial — a weaker model is a more human opponent.
+- **Unverified, do not cite:** SSRN 5266281 (Jin, Jiang, Tian, "Effects of LLM Agent Capability and Capability Gradients on the Bullwhip Effect"). It was not found in Crossref, DataCite, OpenAlex or web search, and SSRN blocked access (research 2026-10-26, [38]). The figures earlier quoted from it (58%, 24%, 44%, 18%, 37%, 63%) are unconfirmed and were removed from the brief. The idea that weaker models are more human opponents is therefore also unsupported.
+- **Long et al., Harvard/MIT/Georgia Tech GenAI Beer Game** (competitive research [34]): best configuration cuts cost up to 80% against student teams. Default LLM configurations vary 26–52% run to run (the paper's text says 26–45%); guardrails or post-training bring it to about 12–13%. Human-likeness was not measured.
+- **Mixed evidence on behaviour** ([36][37]): LLMs reproduce the direction of human biases and act myopically, but with different response distributions. Treat "LLM opponents preserve the bullwhip effect" as unproven.
 - **[AIM-Bench: Evaluating Decision-making Biases of Agentic LLM as Inventory Manager](https://arxiv.org/pdf/2508.11416)** — LLM agents exhibit documented human decision biases in inventory roles.
 - **[Reliability and Effectiveness of Autonomous AI Agents in Supply Chain Management](https://arxiv.org/html/2605.17036)** — notes a second amplification layer: not only do order levels amplify upstream, the *dispersion and tail risk* of the decisions themselves amplify across otherwise identical runs. Relevant risk for reproducibility if a lecturer needs comparable results across a cohort.
 - **[A Deep Q-Network for the Beer Game](https://www.researchgate.net/publication/349540140_A_Deep_Q-Network_for_the_Beer_Game)** and **[The beer game bullwhip effect mitigation: a deep RL approach](https://www.tandfonline.com/doi/full/10.1080/00207543.2025.2479831)** — the RL alternative. Cheaper to run per game than LLM inference and fully deterministic, but produces optimising rather than human-like play. Worth considering as a cost-control option for agents whose behavioural realism matters less.
 
 ## Competitive landscape
 
-Surveyed at the level of public product pages, **not** hands-on feature testing. Verification is an open item; `bmad-deep-recon` (competitive) is the right tool for it.
+Surveyed at the level of public product pages and client code, **not** hands-on feature testing. Full teardown, 52 sources and confidence levels: `.docs/planning-artifacts/research/competitive-beer-game-competitors-2026-10-26/research.md`.
+
+**Added by the 2026-10-26 research (not in the table below):**
+
+| Product | Notes | Price |
+|---|---|---|
+| **En Dash** (beergame.endash.us) | Free, solo against 3 AI roles, 4-role sandbox, replay route, 10 scripted debrief questions. Solo bots are one-line ordering rules in client code; multiplayer bot logic unseen. Fixed demand. Show HN 2026-08-25, 1 point; reads as a consulting lead magnet but is actively built | Free |
+| **Zensimu / beergameapp.com** | Computer fills roles with a net-stock rule, timer auto-play, free single-player plan, automated report, SSO on Enterprise. Small profitable Danish firm | 2024: €17.5 per participant; no current public price |
+| **Forio Root Beer (Harvard)** | Optional computer-controlled player, single-player mode | $168 per person |
+| **Skill Dynamics** | Solo against "AI bots", logic unseen behind a lead form | — |
+| **siemsene/beergame** (open source) | "Beer-GPT" robo-players, a simple rule, not an LLM; reports about 200 players a day | Free |
+
+transentis also offers "AI players" (logic undocumented), free solo play and CSV/JSON/PDF export, and its company is pivoting to the Metapad AI platform.
+
+**Correction.** The earlier line "no product treats this as repeatable practice" is false as worded. Defensible restatement as of 2026-10-26: no maintained, learner-facing beer game is documented as using LLM-driven opponents with a human seat or an LLM-generated decision-level debrief. One abandoned Hugging Face prototype (human Distributor against GPT-4o-mini agents) and research systems without a human seat exist.
 
 | Product | Notes | Price |
 |---|---|---|
@@ -56,7 +72,7 @@ Surveyed at the level of public product pages, **not** hands-on feature testing.
 
 ## The positioning fork
 
-Raised in discovery, not yet decided by the founder. `brief.md` is written toward **B**.
+**Decided 2026-10-29: B**, carried as an untested hypothesis. A forge session (`.docs/forge/beergame-positioning-b/`) pressure-tested it. The core premise, that repetition and debrief are both needed and reinforce each other, stayed unproven: no study separates them, and the founder has no time to test it in semester one. No kill threshold was set beyond the brief's median-replays bar. The research verdict is that B holds only if the debrief and progression layer is the product; the fallback is a debrief-first product with simple bots. The original fork follows for reference.
 
 **A — "The beer game, finally without friction."**
 Solve the documented complaints: automated mechanics, variable demand, real debrief. AI bots are a convenience feature that fills empty seats.
@@ -91,6 +107,17 @@ Raised or implied in discovery, parked rather than dropped:
 
 - Product name.
 - Market sizing — how many courses worldwide actually run this exercise.
-- Feature-by-feature competitor verification, particularly whether any incumbent already offers bot-filled roles.
-- Whether reproducibility across a cohort (same demand curve, comparable results) is a hard requirement for lecturers. If yes, it constrains agent design — see the dispersion finding in the research above.
-- RL agents versus LLM agents as a cost-control strategy.
+- Hands-on verification of En Dash multiplayer bots, Skill Dynamics and Zensimu solo. (Bot-filled roles at incumbents are now confirmed from public sources.)
+- Whether reproducibility across a cohort is a hard requirement for lecturers. No public evidence either way (user-voice research); 5–8 lecturer interviews are needed.
+- RL agents: out of the first version. Training cost is high and RL plays as a cost-minimiser, not like a human.
+
+## Decisions and design notes from the 2026-10-29 update
+
+- **Opponent default.** The founder chose LLM opponents as the default, with rule-based bots selectable per class. Research recommended the reverse (rules by default, LLM for debrief and optional personas). The choice is kept; the consequences below must be handled in the PRD and architecture.
+- **Cost (modelled, not measured).** Assumes 3 AI roles × 36 turns = 108 calls, 2,000 input and 150 output tokens per call. Per session: Haiku 5.5 about $0.03, gpt-5-mini $0.09, Sonnet 5.5 $0.59; DeepSeek V4.1 Flash about $0.016. Reasoning-length outputs raise Haiku to about $0.13 and Sonnet to about $2.60. Debrief is one call, about $0.003 on Haiku. OpenRouter adds 5.5% to 8%. Suggested guardrail: at or below $0.10 per session, to be verified by a prototype (issue #8). Replays that reuse recorded decisions cost nothing.
+- **Reproducibility.** No LLM vendor guarantees determinism. Some Claude models reject temperature and seed settings. Log every decision with seed, model, provider and prompt version. Pin an exact model slug. Freeze the model during any measurement study.
+- **Validation.** Validate every LLM order in code; a schema-valid order is not necessarily a legal game move.
+- **Debrief design.** Compute all numbers from the decision log and let the LLM narrate. Have the student attempt an explanation first. Hallucination in LLM explanations is a documented risk.
+- **Learning evidence.** Thin: Jeong and Hong 2011 (abstract only), Fu and Gonzalez 2006 and Martin 2004 (snippets). Paich and Sterman 1993 found repetition did not bring insight. PRD measurement design: arms of single session, replay only, replay plus AI debrief; pre/post stock-flow test; scored explanations; transfer to an unseen demand pattern.
+- **Privacy.** Set data collection to deny and zero data retention on OpenRouter, and prepare a data-processing agreement before the first institutional sale.
+- **Pricing anchors.** Free floor (transentis, En Dash); $10–20 per student (eBeer); $168 per person (Forio). A student tier competes with free.
