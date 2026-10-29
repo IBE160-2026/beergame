@@ -6,7 +6,6 @@ updated: 2026-10-29
 audience: investors and stakeholders
 who: BIPA
 ---
-
 # Product Brief: beergame
 
 > **Working name.** "beergame" is the repo name, not a product name. Naming is an open item — see Open Questions.
@@ -17,7 +16,7 @@ The MIT Beer Distribution Game has taught supply chain dynamics for sixty years,
 
 We are rebuilding it as a browser-based product that works on a laptop, an iPad or a phone — and that removes the constraint underneath every one of those complaints: the requirement that four people sit down together at the same hour. AI opponents fill any empty role, which turns a once-per-semester group event into something a single student can replay as many times as it takes for the pattern to click. The opponents are LLM agents by default, with simple rule-based bots available as a lecturer setting where cheap, comparable results matter more than realism.
 
-Our bet, stated as a bet: **the product is the explanation, not the opponents.** After every run, an AI debrief walks through the student's own decisions and why they produced the outcome. Whether repetition plus that debrief actually teaches students more than one good session is untested. It is the first thing this venture has to prove, and the first classroom is the founder's own: he teaches the course this ships into.
+Our bet, stated as a bet: **the product is working AI opponents plus the explanation.** Bot-filled seats are common; LLM opponents that behave well enough to teach with are not, and making them work is the first thing we build. After every run, an AI debrief walks through the student's own decisions and why they produced the outcome. Whether repetition against those opponents plus that debrief actually teaches students more than one good session is untested. It is the first thing this venture has to prove, and the first classroom is the founder's own: he/she teaches the course this ships into.
 
 Lecturers set up classes and run live multiplayer sessions the way they always have. Students replay solo between sessions. Cheap per student, licensed at institutional rates to schools.
 
@@ -46,9 +45,9 @@ A web application, responsive across desktop, tablet and phone, with accounts an
 
 **For lecturers.** Create a class, invite or roster students, launch a live session, watch it unfold, and run a debrief built from real data rather than recollection. Any unfilled role is taken by an AI opponent, so a session starts on time with the students who actually showed up. Lecturers choose the opponent type per class (LLM or rule-based) and the demand pattern (fixed series, step or random). A shared per-class seed makes live sessions comparable.
 
-**For students.** Play solo against AI opponents whenever they like, as often as they like. Demand varies between runs, so the answer cannot be memorised. After each run, an AI debrief walks through the decisions: here is where you over-ordered, here is what it cost four weeks later, here is what the other roles saw when you did it. Numbers in the debrief are computed in code from the decision log; the LLM only narrates them.
+**For students.** Play solo against AI opponents whenever they like, as often as they like. Demand varies between runs, so the answer cannot be memorised. After each run, an AI debrief walks through the decisions: here is where you over-ordered, here is what it cost four weeks later, here is what the other roles saw when you did it. Numbers in the debrief are computed in code from the decision log; the LLM only narrates them. During or after the debrief, the lecturer can choose that students must complete a set of precreated tasks, which will be evaluated by AI. The lecturer may choose to grade the students either as A to F or passed/not passed, also done by AI. Groupwise or independently.
 
-**The core move is repetition plus explanation.** One session shows that the bullwhip effect exists. The hypothesis is that repeated play with a decision-level debrief teaches why your own instincts cause it. No study separates repetition from debrief, so we treat this as a hypothesis to measure, not a fact.
+**The core move is repetition plus explanation.** One session shows that the bullwhip effect exists. The hypothesis is that repeated play with a decision-level debrief teaches why your own instincts cause it. No study separates repetition from debrief, so we treat this as a hypothesis to measure, not a fact. This is a choice to be made be the lecturer.
 
 ## What Makes This Different
 
@@ -56,8 +55,8 @@ Honest version, because the alternative gets found out in due diligence:
 
 - **The moat is not the simulation.** Beer game mechanics are sixty years old and public.
 - **The moat is not bot-filled seats.** Competitors, mostly free, already do that.
-- **The moat is not the AI model.** Any competitor can call the same providers.
-- **The position we can defend is the explanation layer**: documented opponent personas, per-run demand variation, a decision-level debrief, and lecturer analytics built on a logged decision history. Repetition is partly delivered by others already; explanation is what remains open. If the debrief is not clearly better than a scripted one, positioning B loses its edge.
+- **The moat is not access to the AI model, it is making LLM opponents work.** Any competitor can call the same providers, but no maintained product is documented as shipping LLM-driven opponents to learners. The published attempts are research demos with no human seat (GenAI Beer Game) or an abandoned prototype (a Hugging Face Space). Raw LLMs are the problem: unstable between runs, and they tend to optimise better than humans instead of mis-ordering like them. We make them work as teaching opponents with order guardrails, documented personas, fixed prompt versions, full decision logging and a rule-based fallback. `[ASSUMPTION] Not yet demonstrated. The first prototype must log run-to-run variation (target: about 12–13%, the guardrailed level in published research), invalid-order rate and whether students experience the opponents as plausible.`
+- **The position we can defend is working LLM opponents plus the explanation layer**: documented opponent personas, per-run demand variation, a decision-level debrief, and lecturer analytics built on a logged decision history. Repetition is partly delivered by others already; explanation is what remains open. If the debrief is not clearly better than a scripted one, positioning B loses its edge.
 - **The near-term unfair advantage is distribution and dogfooding**: a founder who teaches the course and ships into his own classroom before selling to anyone else.
 
 **The honest risk:** several competent competitors are free, and the closest one, En Dash, is actively built.
@@ -86,21 +85,26 @@ The strategic logic: students are the most price-resistant segment and the compe
 `[ASSUMPTION] Targets below are placeholders — the shape is proposed, the numbers need your judgement.`
 
 **Learning (the claim the product rests on)**
+
 - Median solo replays per student per course > 3. If students play once and stop, the core thesis is wrong. This is the threshold the first course will measure.
 - Students can explain the causal chain behind their outcome. In the founder's first course we log replays per student and collect a simple written explanation task. We do not run a split-cohort test in semester one. A proper design (single session vs replay vs replay plus AI debrief, with a pre/post test and transfer to an unseen demand pattern) belongs in the PRD.
+- LLM opponents work as teaching opponents: run-to-run variation near the guardrailed level (about 12–13%), a low invalid-order rate, and students rating them as plausible. If they do not, we demote the LLM to an optional setting and ship documented rule-based personas as the default, and the differentiation falls back on the explanation layer.
 - If replays stay low or explanations do not improve, the fallback is a debrief-first product with simple bots, not a stronger bot engine.
 
 **Product**
+
 - A lecturer can go from signup to a running class session in under 10 minutes, unaided.
 - Sessions start on time with fewer than four humans present.
 
 **Business**
+
 - First paying institution outside the founder's own. This is the real validation milestone.
 - Cost per AI-driven game session stays below the student price point. Replays that reuse recorded decisions call no model.
 
 ## Scope
 
 **In, for the first version**
+
 - Accounts and authentication
 - Lecturer-created classes and live multiplayer sessions
 - AI opponents filling any unoccupied role, LLM by default with a rule-based option per class
@@ -111,6 +115,7 @@ The strategic logic: students are the most price-resistant segment and the compe
 - Responsive web: desktop, tablet, phone
 
 **Explicitly out of the first version**
+
 - Native apps
 - LMS integration (Canvas, Blackboard, Moodle)
 - Multi-tier or networked supply chain variants beyond the classic four roles
@@ -123,7 +128,7 @@ The strategic logic: students are the most price-resistant segment and the compe
 
 Stated plainly, because investors find these anyway.
 
-1. **The competition is free and competent, and closer than we thought.** Several maintained browser versions already offer bot-filled roles, solo play and a scripted debrief at no cost. Our edge is the quality of the explanation, which has not been tested against a buyer.
+1. **The competition is free and competent, and closer than we thought.** Several maintained browser versions already offer bot-filled roles, solo play and a scripted debrief at no cost. Our edge is working LLM opponents and the quality of the explanation, neither of which has been tested against a buyer.
 2. **The core thesis may be wrong.** Nothing published separates the effect of repetition from the effect of a good debrief, and one study found repetition raised performance without insight. A good one-shot debrief may be enough, in which case the replay infrastructure is over-engineering.
 3. **The educator who wrote the obituary built his own replacement** with automated mechanics, variable demand and better feedback, and no AI at all. That is live proof that the simpler product may satisfy the need.
 4. **Unit economics are modelled, not measured.** A game costs cents on small models, but reasoning-length outputs, retries and price changes can move it by an order of magnitude. A prototype that logs tokens and invalid orders will settle this.
@@ -132,6 +137,7 @@ Stated plainly, because investors find these anyway.
 7. **Institutional sales are slow.** Budget cycles, procurement and possibly tender. First cash is far off while inference cost starts on day one. Institutional buyers will also ask for a data-processing agreement.
 
 **Open questions for the founder**
+
 - **Positioning.** Decided: B, repetition plus explanation, carried as an untested hypothesis. See the fallback under Success Criteria.
 - Product name.
 - Price points, both tiers.
