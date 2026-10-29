@@ -41,3 +41,23 @@ Brukeren ba om at den tekniske researchen også sjekker OpenRouter, siden det er
 
 ### Åpne punkter
 - OpenRouter-oppfølging lagt som kommentar på Issue #8 (prototype: temperature/seed-oppførsel, latens, DPA og EU-ruting).
+
+## 2026-10-29 kl. 11:56 — Bård Pettersen
+
+### Oppgave
+Brukeren ba om å bruke billigere modeller enn Haiku (f.eks. DeepSeek) via OpenRouter og lage logikk som bytter modell ukentlig etter lavest kostnad per oppgave, og presiserte at dette er en del av researchen.
+
+### Plan
+- Hentet OpenRouters offentlige modell- og ZDR-endepunktlister (ingen API-nøkkel), filtrerte på ZDR, seed, temperature, structured outputs, oppetid og kontekst, og regnet estimert kostnad per økt.
+- Skrev et kjørbart referanseprogram (screen, decide, selftest) og dokumenterte designet som seksjon 5 i den tekniske rapporten.
+
+### Resultat
+- Nye filer i `.docs/planning-artifacts/research/technical-ai-agent-cost-per-beer-game-session-2026-10-26/` (ukommittert): `model-switcher/model_switcher.py`, `model-switcher/screen-2026-10-29.json`, `digests/openrouter-switcher-r5-b.md`; `research.md` har ny seksjon 5 og anbefaling 10–13.
+- Funn (øyeblikksbilde 2026-10-29): Haiku 5.5 mangler seed og temperature på alle ZDR-endepunkter; DeepSeek V4.1 Flash koster anslått 0,0157–0,0178 USD per økt (ca. 40–47 % under Haiku) og støtter seed/temperature; samme modell varierer 10,7 ganger i pris mellom leverandører, så bytteren må velge endepunkt (modell + leverandør + kvantisering). gpt-oss-20b og mistral-nemo er 80–85 % billigere, men ingen kilde viser spillkvalitet for noen av dem.
+- Bytter-logikk: screen, skyggeevaluering på seedede golden games, beslutning på kostnad per gyldig oppgave med kvalitetsgrenser, 15 % hysterese og 7 dagers nedkjøling, canary og rollback. Økter låses til ett endepunkt, og læringsstudien krever frosset modell. Selvtesten (9 beslutningstilfeller, 4 rollback-tilfeller) består. Alle terskler er plassholdere.
+- Break-even: ukentlig evaluering koster anslått 3,60 USD og lønner seg først over ca. 260 økter per uke.
+- Ikke verifisert av egen verifiserer; estimerte kostnader bygger på antatte tokentall og ignorerer reasoning-tokens.
+
+### Åpne punkter
+- Evalueringsharness, kalibrering av fidelity-bånd og tester av billige modeller på spillet — Issue #9.
+- OpenRouter-test av seed/temperature for billige kandidater og latens per endepunkt — kommentar på Issue #8.
