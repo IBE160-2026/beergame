@@ -1,0 +1,366 @@
+{
+ "assumed_tokens": {
+  "input": 216000,
+  "output": 16200
+ },
+ "required": [
+  "seed",
+  "structured_outputs",
+  "temperature"
+ ],
+ "gates": {
+  "min_uptime_1d": 99.0,
+  "min_context": 32768
+ },
+ "eligible_endpoints": 291,
+ "dropped": {
+  "not a text model in /models": 137,
+  "missing required parameter": 476,
+  "uptime below gate": 65,
+  "endpoint status not OK": 51,
+  "free, zero or sentinel price": 3,
+  "context below gate": 10
+ },
+ "baseline": {
+  "model": "anthropic/claude-haiku-5.5",
+  "zdr_endpoints": 6,
+  "est_cost": 0.029699999999999997,
+  "passes_required_params": false,
+  "missing_params": [
+   "seed",
+   "temperature"
+  ]
+ },
+ "top": [
+  {
+   "model": "mistralai/mistral-nemo",
+   "provider": "DekaLLM",
+   "quant": "fp8",
+   "est_cost": 0.004374,
+   "in_per_m": 0.018,
+   "out_per_m": 0.03,
+   "uptime_1d": 99.65205288796103,
+   "reasoning": false,
+   "cache": false
+  },
+  {
+   "model": "openai/gpt-oss-20b",
+   "provider": "AkashML",
+   "quant": "fp4",
+   "est_cost": 0.00594,
+   "in_per_m": 0.02,
+   "out_per_m": 0.09999999999999999,
+   "uptime_1d": 100,
+   "reasoning": true,
+   "cache": false
+  },
+  {
+   "model": "mistralai/mistral-nemo",
+   "provider": "DeepInfra",
+   "quant": "fp8",
+   "est_cost": 0.006750000000000001,
+   "in_per_m": 0.029,
+   "out_per_m": 0.03,
+   "uptime_1d": 100,
+   "reasoning": false,
+   "cache": false
+  },
+  {
+   "model": "mistralai/mistral-nemo",
+   "provider": "Parasail",
+   "quant": "fp8",
+   "est_cost": 0.006966,
+   "in_per_m": 0.03,
+   "out_per_m": 0.03,
+   "uptime_1d": 99.78783592644979,
+   "reasoning": false,
+   "cache": false
+  },
+  {
+   "model": "openai/gpt-oss-20b",
+   "provider": "DekaLLM",
+   "quant": "bf16",
+   "est_cost": 0.008532000000000001,
+   "in_per_m": 0.029,
+   "out_per_m": 0.14,
+   "uptime_1d": 99.72164231036882,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "openai/gpt-oss-20b",
+   "provider": "CoreWeave",
+   "quant": "fp4",
+   "est_cost": 0.008586,
+   "in_per_m": 0.03,
+   "out_per_m": 0.13,
+   "uptime_1d": 100,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "openai/gpt-oss-20b",
+   "provider": "DeepInfra",
+   "quant": "bf16",
+   "est_cost": 0.008747999999999999,
+   "in_per_m": 0.03,
+   "out_per_m": 0.14,
+   "uptime_1d": 99.49799196787149,
+   "reasoning": true,
+   "cache": false
+  },
+  {
+   "model": "inference-net/schematron-v2-turbo",
+   "provider": "InferenceNet",
+   "quant": "bf16",
+   "est_cost": 0.00891,
+   "in_per_m": 0.03,
+   "out_per_m": 0.15,
+   "uptime_1d": 99.52830188679245,
+   "reasoning": false,
+   "cache": true
+  },
+  {
+   "model": "openai/gpt-oss-120b",
+   "provider": "Near AI",
+   "quant": "fp4",
+   "est_cost": 0.00891,
+   "in_per_m": 0.03,
+   "out_per_m": 0.15,
+   "uptime_1d": 100,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "openai/gpt-oss-120b",
+   "provider": "CoreWeave",
+   "quant": "fp4",
+   "est_cost": 0.009234,
+   "in_per_m": 0.03,
+   "out_per_m": 0.16999999999999998,
+   "uptime_1d": 100,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "openai/gpt-oss-120b",
+   "provider": "DekaLLM",
+   "quant": "bf16",
+   "est_cost": 0.009396,
+   "in_per_m": 0.03,
+   "out_per_m": 0.18,
+   "uptime_1d": 99.93055555555556,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "google/gemma-3-4b-it",
+   "provider": "Parasail",
+   "quant": "bf16",
+   "est_cost": 0.00945,
+   "in_per_m": 0.04,
+   "out_per_m": 0.049999999999999996,
+   "uptime_1d": 99.79064898813678,
+   "reasoning": false,
+   "cache": true
+  },
+  {
+   "model": "openai/gpt-oss-120b",
+   "provider": "AkashML",
+   "quant": "bf16",
+   "est_cost": 0.0095094,
+   "in_per_m": 0.03,
+   "out_per_m": 0.187,
+   "uptime_1d": 100,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "z-ai/glm-5.3-flash",
+   "provider": "OpenInference",
+   "quant": "fp4",
+   "est_cost": 0.0114021,
+   "in_per_m": 0.048100000000000004,
+   "out_per_m": 0.0625,
+   "uptime_1d": 100,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "mistralai/mistral-small-24b-instruct-2501",
+   "provider": "DeepInfra",
+   "quant": "fp8",
+   "est_cost": 0.012095999999999999,
+   "in_per_m": 0.049999999999999996,
+   "out_per_m": 0.08,
+   "uptime_1d": 100,
+   "reasoning": false,
+   "cache": false
+  },
+  {
+   "model": "google/gemma-3-4b-it",
+   "provider": "DeepInfra",
+   "quant": "bf16",
+   "est_cost": 0.012419999999999999,
+   "in_per_m": 0.049999999999999996,
+   "out_per_m": 0.09999999999999999,
+   "uptime_1d": 100,
+   "reasoning": false,
+   "cache": false
+  },
+  {
+   "model": "inference-net/schematron-v2-small",
+   "provider": "InferenceNet",
+   "quant": "bf16",
+   "est_cost": 0.014525999999999999,
+   "in_per_m": 0.049999999999999996,
+   "out_per_m": 0.22999999999999998,
+   "uptime_1d": 100,
+   "reasoning": false,
+   "cache": true
+  },
+  {
+   "model": "openai/gpt-oss-120b",
+   "provider": "Crusoe",
+   "quant": "bf16",
+   "est_cost": 0.014849999999999999,
+   "in_per_m": 0.049999999999999996,
+   "out_per_m": 0.25,
+   "uptime_1d": 100,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "openai/gpt-oss-120b",
+   "provider": "Mancer 2",
+   "quant": "fp8",
+   "est_cost": 0.014849999999999999,
+   "in_per_m": 0.049999999999999996,
+   "out_per_m": 0.25,
+   "uptime_1d": 99.58333333333333,
+   "reasoning": true,
+   "cache": false
+  },
+  {
+   "model": "z-ai/glm-5.3-flash",
+   "provider": "Wafer",
+   "quant": "nvfp4",
+   "est_cost": 0.014904,
+   "in_per_m": 0.054,
+   "out_per_m": 0.19999999999999998,
+   "uptime_1d": 100,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "ibm-granite/granite-4.2-8b",
+   "provider": "CoreWeave",
+   "quant": "bf16",
+   "est_cost": 0.01539,
+   "in_per_m": 0.06,
+   "out_per_m": 0.15,
+   "uptime_1d": 100,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "deepseek/deepseek-v4.1-flash-1017",
+   "provider": "Morph",
+   "quant": "fp8",
+   "est_cost": 0.015708599999999996,
+   "in_per_m": 0.044,
+   "out_per_m": 0.38299999999999995,
+   "uptime_1d": 99.86111111111111,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "deepseek/deepseek-v4.1-flash",
+   "provider": "Morph",
+   "quant": "fp8",
+   "est_cost": 0.015708599999999996,
+   "in_per_m": 0.044,
+   "out_per_m": 0.38299999999999995,
+   "uptime_1d": 99.79166666666667,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "inclusionai/ling-3.0-flash-vl",
+   "provider": "DeepInfra",
+   "quant": "fp16",
+   "est_cost": 0.015875999999999998,
+   "in_per_m": 0.06,
+   "out_per_m": 0.18,
+   "uptime_1d": 100,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "deepseek/deepseek-v4-flash-0731",
+   "provider": "DeepInfra",
+   "quant": "fp8",
+   "est_cost": 0.015875999999999998,
+   "in_per_m": 0.06,
+   "out_per_m": 0.18,
+   "uptime_1d": 100,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "meta-llama/llama-3.2-3b-instruct",
+   "provider": "Parasail",
+   "quant": "bf16",
+   "est_cost": 0.016146,
+   "in_per_m": 0.049999999999999996,
+   "out_per_m": 0.33,
+   "uptime_1d": 100,
+   "reasoning": false,
+   "cache": false
+  },
+  {
+   "model": "deepseek/deepseek-v4.1-flash-1017",
+   "provider": "Wafer",
+   "quant": "mxfp4",
+   "est_cost": 0.016308,
+   "in_per_m": 0.038000000000000006,
+   "out_per_m": 0.5,
+   "uptime_1d": 100,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "deepseek/deepseek-v4.1-flash",
+   "provider": "Wafer",
+   "quant": "mxfp4",
+   "est_cost": 0.01782,
+   "in_per_m": 0.045,
+   "out_per_m": 0.5,
+   "uptime_1d": 100,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "nvidia/nemotron-3.5-lightning",
+   "provider": "CoreWeave",
+   "quant": "bf16",
+   "est_cost": 0.01836,
+   "in_per_m": 0.07,
+   "out_per_m": 0.19999999999999998,
+   "uptime_1d": 100,
+   "reasoning": true,
+   "cache": true
+  },
+  {
+   "model": "google/gemma-3-12b-it",
+   "provider": "NextBit",
+   "quant": "int4",
+   "est_cost": 0.01863,
+   "in_per_m": 0.075,
+   "out_per_m": 0.15,
+   "uptime_1d": 100,
+   "reasoning": false,
+   "cache": true
+  }
+ ]
+}
