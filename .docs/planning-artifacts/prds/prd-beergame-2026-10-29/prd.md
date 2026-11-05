@@ -20,7 +20,7 @@ inputs:
 
 This PRD defines what v1 of beergame must do: a Norwegian-language, mobile-first web product that runs the MIT Beer Distribution Game for a whole course, from invitation to a downloadable report. Formal grading is deliberately left to v2. The readers are the founder, who is also the first lecturer customer, and the downstream workflows that turn this into UX specifications, architecture and stories.
 
-It builds on the final product brief and does not repeat its market case. Every domain noun is defined once in §3 Glossary and used verbatim afterwards. Features in §4 hold globally numbered functional requirements (FR-1 to FR-78), each with testable consequences. Inferences the founder has not confirmed carry an inline `[ASSUMPTION]` tag and are indexed in §13. Technical detail, cost tables, regulatory sources and rejected alternatives live in `addendum.md` in this folder.
+It builds on the final product brief and does not repeat its market case. Every domain noun is defined once in §3 Glossary and used verbatim afterwards. Features in §4 hold globally numbered functional requirements (FR-1 to FR-83), each with testable consequences. Inferences the founder has not confirmed carry an inline `[ASSUMPTION]` tag and are indexed in §13. Technical detail, cost tables, regulatory sources and rejected alternatives live in `addendum.md` in this folder.
 
 ## 1. Vision
 
@@ -207,7 +207,7 @@ A Lecturer can create a Class session prefilled with classic Game settings and s
 
 #### FR-12: Change game settings
 A Lecturer can change every Game setting before the Start date. Founder decision 2026-11-05: the Lecturer configures the game as they wish, with all parameters available.
-- Settings: starting inventory, supply-line contents, order delay, shipping delay and Factory production delay (each 1 to 3 Weeks), costs, number of Weeks, Demand pattern (FR-13), Information visibility (FR-78) and capacity.
+- Settings: starting inventory, supply-line contents, order delay, shipping delay and Factory production delay (each 1 to 3 Weeks), costs, number of Weeks, Demand pattern (FR-13), Information visibility (FR-83) and capacity.
 - Capacity is an optional maximum number of units a Seat can ship per Week, off by default, set for one Seat or for all. Units a Seat cannot ship stay as backlog. In a four-Role chain each Seat has one customer, so no allocation rule is needed. `[ASSUMPTION: capacity design from research; one platform precedent, no human evidence]`
 - Out-of-range values are rejected with the allowed range shown. `[ASSUMPTION: ranges set in UX/architecture, e.g. 20–60 Weeks]`
 - The only preset is "Classic" (FR-11). An advanced course has no preset of its own: the Lecturer decides what is different, and may keep the Classic values. Founder decision 2026-11-05.
@@ -219,7 +219,7 @@ A Lecturer can choose a Demand pattern: fixed series, step (start level, new lev
 - Every Class game in the Class session uses the same demand series.
 - The seed is shown to the Lecturer and stored with the Class session.
 
-#### FR-78: Choose information visibility
+#### FR-83: Choose information visibility
 A Lecturer can set Information visibility for the Class session, per Game settings. Founder decision 2026-11-05: a Seat seeing the inventory of its upstream neighbour is part of v1.
 - Default: off, so a Seat sees only its own numbers (FR-23).
 - A Lecturer can switch on that each Seat sees the current inventory (and backlog) of the Seat directly upstream, shown on the Seat's screen next to its own numbers.
@@ -286,7 +286,7 @@ From the Start date, every Student sees their Class game, Role and the other Sea
 
 #### FR-23: Weekly state shown to a Seat
 A Student sees, for their own Seat: current inventory or backlog, incoming order this Week, incoming delivery this Week, the contents of their supply line, their own Order history, their running Total cost and the current Week number.
-- The Student does not see other Seats' inventory, backlog or Orders during the Class game, except what the Lecturer has switched on in Information visibility (FR-78).
+- The Student does not see other Seats' inventory, backlog or Orders during the Class game, except what the Lecturer has switched on in Information visibility (FR-83).
 - On a 360-pixel-wide screen, all of this plus the Order input is visible without horizontal scrolling.
 
 #### FR-24: Place an order
@@ -763,7 +763,7 @@ The founder has no capacity for a split-group study in the first semester. The p
 - FR-10 — Lecturers can invite Assistant lecturers.
 - FR-11 — Classic default Game settings values.
 - FR-12 — Parameter ranges; capacity design.
-- FR-78 — Customer-demand visibility option.
+- FR-83 — Customer-demand visibility option.
 - FR-17 — Share of Weeks required, default 80%; no approval action in the product.
 - FR-18 — 24-hour deadline reminders.
 - FR-19 — Lab hours emailed on creation.
