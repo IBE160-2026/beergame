@@ -2,7 +2,7 @@
 title: "Addendum: beergame product brief"
 status: final
 created: 2026-09-07
-updated: 2026-10-29
+updated: 2026-11-05
 ---
 
 # Addendum
@@ -121,3 +121,14 @@ Raised or implied in discovery, parked rather than dropped:
 - **Learning evidence.** Thin: Jeong and Hong 2011 (abstract only), Fu and Gonzalez 2006 and Martin 2004 (snippets). Paich and Sterman 1993 found repetition did not bring insight. PRD measurement design: arms of single session, replay only, replay plus AI debrief; pre/post stock-flow test; scored explanations; transfer to an unseen demand pattern.
 - **Privacy.** Set data collection to deny and zero data retention on OpenRouter, and prepare a data-processing agreement before the first institutional sale.
 - **Pricing anchors.** Free floor (transentis, En Dash); $10–20 per student (eBeer); $168 per person (Forio). A student tier competes with free.
+
+## Decisions from the PRD, 2026-11-05
+
+The PRD (`.docs/planning-artifacts/prds/prd-beergame-2026-10-29/`) is the authority on these, and the sections above keep the reasoning as it stood before them.
+
+- **Repetition.** Voluntary replays are out of the first version; every student plays one harder second round. The kill bar of median replays above 3 is replaced by second-round behaviour and a question about wanting another round.
+- **LLM players.** The end-of-pilot rule that made rule-based players the default is replaced by a play guard that runs during play. A smart AI player is acceptable. "Personas" gave way to documented AI player behaviour.
+- **Grading.** Formal grading moves to version 2. The first version has non-counting AI feedback, an optional A–F indication and a PDF report.
+- **Live sessions.** Class games run on the group's own schedule within deadlines, with lab hours. One turn model covers both.
+- **Scope.** The lecturer can set every game parameter. Norwegian is the only language, not "anything multi-language" left out. Feide and LMS integration stay out.
+- **Term.** "AI opponent" became "AI player", because the roles are partners in one chain.
