@@ -12,7 +12,7 @@ Coaching-runden går gjennom de delene av PRD-utkastet der founders vurdering be
 |---|---|---|
 | 1 | Brukerreisene | Ferdig |
 | 2 | Kvalitetskravene til AI-spillerne | Neste |
-| 3 | Testen og KI-vurderingen | Ikke startet |
+| 3 | Testen og KI-vurderingen | Ferdig |
 | 4 | Standardparametre og replay-scenarier | Ikke startet |
 | Etterpå | Finalisering av PRD-en | Ikke startet |
 
@@ -42,20 +42,19 @@ Spørsmål:
 6. Hvor lenge kan en student vente på en AI-spiller? Utkastet sier 8 sekunder.
 7. Når skal avgjørelsen tas: etter en prototype før piloten, eller etter selve piloten?
 
-## Tema 3: Testen og KI-vurderingen
+## Tema 3: Testen og KI-vurderingen (ferdig)
 
-**Mål:** gjøre testen og KI-vurderingen konkrete nok til å bygges.
+**PRD:** FR-51 til FR-56, nye FR-78 og FR-79, SM-7, åpent spørsmål 7. Forskningen ligger i `.docs/planning-artifacts/research/academic-lit-beer-game-test-questions-systems-thinkin-2026-11-05/research.md`.
 
-**PRD:** FR-51 til FR-56, SM-2, SM-7, åpent spørsmål 7.
+Runden førte til disse beslutningene:
 
-Spørsmål:
-
-1. Hvilke temaer og spørsmålstyper skal den første spørsmålsbanken ha, og hvem skriver den?
-2. Hvor mye skal de tilpassede spørsmålene telle? Utkastet sier 30 %.
-3. Skal testen tas under oppsyn, for eksempel i en spilletime, eller hvor som helst?
-4. Er 60 minutter og ett forsøk riktig?
-5. Hvilke grenser skal gjelde for den veiledende bokstaven?
-6. Hvem skårer utvalget som kontrollerer KI-vurderingen (SM-7), og hvordan ser rubrikken ut?
+- Testen spør etter det å huske spillet ikke gir: mengder, sammenheng mellom grafer og forklaring av mekanismen.
+- Testen tas uten oppsyn. Interaktive grafer, tabeller og diagrammer kommer i tillegg til tekstfelt og flervalg. Det skal gjøre testen vanskeligere å løse med KI, men det er ikke dokumentert. En generell KI prøves derfor på testen før piloten.
+- Studenten kan lukke testen og jobbe så mye hen vil fram til fristen. Læreren kan i stedet kreve én økt med tidsgrense.
+- De tilpassede spørsmålene teller 30 % som standard og bygger på faste maler.
+- KI-en vurderer etter en sensorveiledning. Claude skriver utkast til standardversjonen under implementeringen, og founder godkjenner. Læreren kan endre den for sin klasseøkt.
+- KI-en kontrolleres i en egen kontrolltest med teststudenter før piloten (ny FR-80). Founder skårer den alene. Terskelen på 80 % i SM-7 bekreftes etter den første kontrolltesten.
+- Bokstavgrensene er en lærerinnstilling.
 
 ## Tema 4: Standardparametre og replay-scenarier
 
