@@ -38,7 +38,19 @@ Source: technical research 2026-10-26 (`research/technical-ai-agent-cost-per-bee
 
 - Research recommends three arms: one session plus human debrief / Replay only / Replay plus AI Debrief, with pre/post stock-and-flow items (Sweeney & Sterman bathtub tasks), a scored explanation, and transfer to an unseen Demand pattern. No published study crosses repetition with debrief or tests transfer.
 - The pilot uses the light-touch design in PRD §9.1. A later Class session can randomise Debrief detail within the class. Freeze the model during any study (FR-68).
-- Performance (Total cost) and understanding dissociate (Paich & Sterman 1993; Atkins 2002), which is why the Grade rests on the Closing quiz and SM-C1 exists.
+- Performance (Total cost) and understanding dissociate (Paich & Sterman 1993; Atkins 2002), which is why game cost does not count in the AI assessment and SM-C1 exists.
+
+## T. Individual test design (coaching topic 3, for UX, architecture and writing the question set)
+
+Source: `.docs/planning-artifacts/research/academic-lit-beer-game-test-questions-systems-thinkin-2026-11-05/research.md`. Much of the evidence is thin; confidence is flagged per claim there.
+
+- **Why quantities and consistency.** In Booth Sweeney & Sterman (2000), Students who had played the beer game scored higher on a stock-flow task (46% vs 33%), but only on parts that reward remembering that it oscillates. They did no better on conservation of material or on consistency between graphs. The direction is confirmed by later papers; the exact numbers come from the conference version.
+- **Model for Interactive items.** The Manufacturing Case: orders step from 10,000 to 11,000 a week, 4-week production delay, desired inventory 50,000. Production must overshoot orders, and the overshoot equals the lost inventory (4,000 units). Also: given inflow and outflow, draw the stock. Scoring criteria in the study: equilibrium start, lag, overshoot, area conservation, inventory first falling, then recovering, and consistency.
+- **Multiple choice.** Evidence for two-tier items (answer plus reason) is small; a reason tier is optional. No evidence on negative marking.
+- **Long answers.** No published rubric for free-text mechanism answers was found, so the Scoring guide is new work. Start from 5–8 coded criteria in the style of the study.
+- **AI scoring.** Holistic agreement with humans is moderate (QWK about 0.6 for open-weight models); scoring many traits separately is much worse (0.32–0.41); bias direction differs between studies. This is why FR-54 gives one overall score per answer. A constant offset can be detected on a small sample (often 10 or fewer).
+- **Adapted items.** No study of items built from a student's own game was found; they are a design bet. A Student's estimated supply-line weight could be computed from the Decision log but is not scored in v1, since nothing validates it as a measure.
+- **Scoring guide.** Claude drafts the default during implementation and the founder approves it; a Lecturer can edit it for a Class session.
 
 ## R. Regulatory detail (for architecture, DPO dialogue and sales)
 
@@ -75,6 +87,8 @@ Regulation: AI proposing grades on a test that counts is likely high-risk under 
 - **AI as final grader:** rejected for every version.
 - **Voluntary extra Replays in v1:** removed by the founder on 2026-11-05. The brief's kill bar (median solo Replays above 3) cannot be measured in v1; PRD SM-1 and SM-10 replace it for now.
 - **Explanation as a separate step before the Debrief:** rejected by the founder on 2026-11-05; the Student explains during the Debrief. The research advises explaining before seeing the analysis, so the PRD places the step before the demand reveal.
+- **Supervised Individual test, at least in the pilot** (research recommendation R5): rejected by the founder on 2026-11-05; the test is unsupervised, with Interactive items that are harder to solve with outside AI tools. The research does not show that they are, so the PRD tests it before the pilot (open question 7).
+- **One sitting with a 60-minute limit as the default:** replaced by the founder on 2026-11-05; Students can come back as often as they want until the Test deadline, and one sitting with a time limit remains a Lecturer setting.
 - **Join by code without accounts** (competitor norm): rejected because Grades, Replays and Cross-class statistics need persistent identities.
 - **Feide and Canvas in v1:** deferred by the founder.
 - **Player chat:** deferred to v2; in v1 the classic no-talking rule holds.
