@@ -446,7 +446,7 @@ A Student can open the Individual test once they have completed the Replay, unti
 
 #### FR-52: Question set and item weights
 The product provides a Norwegian question set for the Individual test with an Item weight for each question, covering stocks and flows, delays and the supply line, demand amplification and its causes, and the Student's own decisions.
-- Core items include multiple-choice questions scored by answer key, Interactive items (FR-78) and long-answer questions.
+- Core items include multiple-choice questions scored by answer key, Interactive items (FR-80) and long-answer questions.
 - Multiple-choice questions cover definitions and causes, with wrong options built from known misperceptions, including a cause unrelated to the chain.
 - Long-answer questions ask the Student to explain the behaviour from the structure of the chain (delay, supply line, own ordering rule), not from what other players did.
 - A Lecturer can review the question set before the Start date, exclude questions and change Item weights; weights always sum to 100%.
@@ -458,7 +458,7 @@ The Individual test includes Adapted items generated from the Student's own Clas
 - Adapted items carry a fixed total Item weight set by the Lecturer, default 30%, so scores stay comparable between Students with different games.
 - A Lecturer can preview Adapted items for any Student before the Test opens for them.
 
-#### FR-78: Interactive items
+#### FR-80: Interactive items
 The Individual test includes Interactive items where the Student answers in an interactive graph, table or diagram, for example by drawing a stock after a jump in demand, filling in a table of weekly stocks, or connecting the causes in a diagram.
 - At least one Interactive item uses a business other than the beer chain, so it tests reasoning rather than recall of the game.
 - Interactive items are scored on quantities and consistency (units added equal units missing; the stock agrees with its flows), never on whether the answer looks like oscillation. `[ASSUMPTION: scored by computed rules, not by the LLM]`
@@ -466,18 +466,18 @@ The Individual test includes Interactive items where the Student answers in an i
 - Every Interactive item can be answered by keyboard and screen reader, for example through a table alternative (NFR-6).
 - `[ASSUMPTION: works on a phone from 360 pixels wide, as FR-73 requires, but best on a laptop]`
 
-#### FR-79: Scoring guide
+#### FR-81: Scoring guide
 The AI assessment scores long-answer and Adapted items against one Scoring guide, which states for each question or question template what is asked for, how the parts weigh, and what strong and weak answers look like.
 - The default guide is written during implementation and approved by the founder before the first Class session.
 - A Lecturer can edit the guide for a Class session. `[ASSUMPTION: edits are possible until the Test deadline; the version in force at the deadline scores the whole Class session, as the model is fixed by FR-68]`
-- An edited guide is checked only if a Control test is run with it (FR-80).
+- An edited guide is checked only if a Control test is run with it (FR-82).
 
 ### 4.12 AI assessment and reports
 
 **Description:** After the Test deadline, the AI gives each Student a score and written feedback on the Individual test. The AI assessment is formative: it counts toward nothing, and no human has to review it. Students and Lecturers can download a PDF report of the games, the Debrief and the test. All formal grading is out of v1 (§8.3); if a course grades this work, it does so outside the product under its own rules. Realizes UJ-8.
 
 #### FR-54: AI assessment
-After the Test deadline, the system produces an AI assessment for each submitted Individual test: the score on answer-key and Interactive items, one overall score with written feedback for each long-answer and Adapted item following the Scoring guide (FR-79), and a total score using the Item weights. `[ASSUMPTION: produced after the Test deadline so feedback does not leak to Students who have not taken the test]`
+After the Test deadline, the system produces an AI assessment for each submitted Individual test: the score on answer-key and Interactive items, one overall score with written feedback for each long-answer and Adapted item following the Scoring guide (FR-81), and a total score using the Item weights. `[ASSUMPTION: produced after the Test deadline so feedback does not leak to Students who have not taken the test]`
 - Each piece of feedback quotes the part of the Student's answer it refers to.
 - Every fact about the Student's games matches the Decision log.
 - The AI assessment contains no pass/fail result, and no letter unless the Indicative letter is turned on (FR-56).
@@ -527,7 +527,7 @@ A Lecturer can export the Completion status of a Class session as a CSV or Excel
 A Lecturer can turn off the AI assessment for a Class session, for example if the Institution's data protection officer requires it.
 - Answer-key and Interactive items are still scored automatically, and the Student report is still available.
 
-#### FR-80: Control test
+#### FR-82: Control test
 The Admin can set up a Control test: a separate run of the Individual test taken by test students, used to check the AI assessment against human scoring before real Students depend on it.
 - Test students are marked as such. Their games, answers and scores never appear in a Class session's overview, Class report, Cross-class statistics or Completion export.
 - A human scores each long-answer and Adapted item with the Scoring guide without seeing the AI's score. The product then shows both scores side by side, with exact agreement, agreement within one step and any systematic offset.
@@ -680,8 +680,8 @@ Student personal data in a Class session is deleted automatically a set period a
 - Lecturer overview and one-way Messages (FR-39, FR-40).
 - Group and Personal debrief with the Explanation inside it, Debrief quiz (FR-41 to FR-47).
 - One Replay with a harder Replay scenario (FR-48 to FR-50).
-- Individual test with weighted Core, Interactive and Adapted items and one Scoring guide (FR-51 to FR-53, FR-78, FR-79).
-- Non-counting AI assessment with optional Indicative letter, downloadable PDF Student reports, Completion export, Control test (FR-54 to FR-61, FR-80).
+- Individual test with weighted Core, Interactive and Adapted items and one Scoring guide (FR-51 to FR-53, FR-80, FR-81).
+- Non-counting AI assessment with optional Indicative letter, downloadable PDF Student reports, Completion export, Control test (FR-54 to FR-61, FR-82).
 - Game insight, Class report, Cross-class statistics, rerun (FR-62 to FR-66).
 - Decision log, model pinning, spending controls, plausibility rating, anonymised export (FR-67 to FR-71).
 - Norwegian, mobile-first, data rights and retention (FR-72 to FR-77).
@@ -721,7 +721,7 @@ Founder decision, 2026-11-05: everything concerning formal grading moves to v2. 
 - **SM-4 Completion.** 100% of Class games end by the Play deadline; at least 95% of registered Students submit the Individual test by the Test deadline. Validates FR-36 to FR-38.
 - **SM-5 Setup time.** A Lecturer who has used the product once creates a Class session with defaults in under 10 minutes; uploading a Canvas export and sending Invitations takes under 5 minutes. Validates FR-7, FR-8, FR-11.
 - **SM-6 AI cost.** At most USD 0.10 per Class game and USD 0.50 per Student per Class session. Validates FR-69.
-- **SM-7 AI assessment quality.** In a Control test (FR-80) of at least 30 tests before the pilot, including Adapted items, scored by the founder alone with the Scoring guide, the AI's score for long answers is within one step of the guide's scale for at least 80%; no feedback cites a fact that contradicts the Decision log. The founder also reports exact agreement and any systematic offset. If this is not met, the AI assessment is switched off until it is. `[ASSUMPTION: 30 tests; 80% is provisional and confirmed after the first Control test, since no published benchmark exists; test students' answers resemble real Students' answers well enough]` Validates FR-54, FR-79, FR-80.
+- **SM-7 AI assessment quality.** In a Control test (FR-82) of at least 30 tests before the pilot, including Adapted items, scored by the founder alone with the Scoring guide, the AI's score for long answers is within one step of the guide's scale for at least 80%; no feedback cites a fact that contradicts the Decision log. The founder also reports exact agreement and any systematic offset. If this is not met, the AI assessment is switched off until it is. `[ASSUMPTION: 30 tests; 80% is provisional and confirmed after the first Control test, since no published benchmark exists; test students' answers resemble real Students' answers well enough]` Validates FR-54, FR-81, FR-82.
 - **SM-8 First external Institution.** One paying Institution other than the founder's own, using a Class session end to end.
 - **SM-9 Report use.** At least 50% of Students download their Student report, and a Lecturer can produce every report for a Class session without help. `[ASSUMPTION: placeholder]` Validates FR-57 to FR-59.
 - **SM-10 Appetite for repetition.** Share of Students who answer yes to wanting another round (FR-50), reported separately for obligatory and non-obligatory Class sessions. No target in v1; it informs whether v2 adds voluntary Replays. Validates the repetition half of the bet.
@@ -740,18 +740,18 @@ The founder has no capacity for a split-group study in the first semester. The p
 
 ## 10. Rollout
 
-- **Pilot:** one Class session in the founder's own course (about 250 Students). Preconditions: data processing agreement with the founder's Institution; DPIA support pack; prototype evidence for SM-3(a) and SM-6 on test games (issue #8); one rehearsal Class session with test users; one Control test (FR-80). If the Control test does not meet SM-7, the pilot runs with the AI assessment switched off (FR-61).
+- **Pilot:** one Class session in the founder's own course (about 250 Students). Preconditions: data processing agreement with the founder's Institution; DPIA support pack; prototype evidence for SM-3(a) and SM-6 on test games (issue #8); one rehearsal Class session with test users; one Control test (FR-82). If the Control test does not meet SM-7, the pilot runs with the AI assessment switched off (FR-61).
 - **Launch to further Institutions:** after SM-7 is met and the pilot meets SM-4 and SM-5, and the founder accepts the SM-3 results; WCAG 2.1 AA conformance report available; licences kept under the Norwegian procurement threshold (NOK 500,000 excluding VAT) where possible.
 
 ## 11. Risks
 
 - **AI players do not behave like human players** (too erratic or too good). Mitigation: order bounds, fallback, Rule-based mode, SM-3 decision rule.
 - **The AI assessment is used as a grade anyway**, which could make it regulated high-risk AI. Mitigation: the Indicative letter is off by default, labels in the product and in every Student report, reports without the AI assessment section by default (FR-58), Completion export without AI scores (FR-60), switch-off (FR-61).
-- **The AI assessment is wrong and no human has checked it.** Mitigation: quotes from the answer, facts checked against the Decision log, Control test (FR-80, SM-7), plain statement that it can be wrong and counts toward nothing, switch-off (FR-61).
+- **The AI assessment is wrong and no human has checked it.** Mitigation: quotes from the answer, facts checked against the Decision log, Control test (FR-82, SM-7), plain statement that it can be wrong and counts toward nothing, switch-off (FR-61).
 - **Without a grade, Students skip the steps.** The flow only works if students finish it. Mitigation: the Lecturer can mark the Class session as obligatory (FR-17).
 - **Groups never meet for the Group debrief.** Mitigation: fallback to Personal debrief (FR-43).
 - **Debriefs reveal the Demand pattern to Students still playing.** Mitigation: Lecturer option to hold Debriefs (FR-42).
-- **Students use outside AI tools in the Individual test.** This weakens the learning evidence (SM-2, SM-7) more than it threatens fairness, now that the test does not count toward a grade. The test is unsupervised and open for days, and studies of unsupervised written exams show AI answers often go undetected. v1 relies on Interactive items (FR-78) and Adapted items tied to the Student's own games. No evidence shows that Interactive items stop these tools, which can read screenshots, so the founder tries a general AI on the test before the pilot (open question 7).
+- **Students use outside AI tools in the Individual test.** This weakens the learning evidence (SM-2, SM-7) more than it threatens fairness, now that the test does not count toward a grade. The test is unsupervised and open for days, and studies of unsupervised written exams show AI answers often go undetected. v1 relies on Interactive items (FR-80) and Adapted items tied to the Student's own games. No evidence shows that Interactive items stop these tools, which can read screenshots, so the founder tries a general AI on the test before the pilot (open question 7).
 - **Many Takeovers hollow out the Class game.** Mitigation: Lecturer sees Takeovers in the overview; Inactivity limit adjustable; Reclaim.
 - **AI cost runs away with long reasoning or retries.** Mitigation: per-Class session limit with fallback (FR-69).
 
@@ -804,9 +804,9 @@ The founder has no capacity for a split-group study in the first semester. The p
 - FR-72 — Bokmål only.
 - FR-73 — Long answers best on a laptop.
 - FR-77 — Retention default, e.g. 12 months.
-- FR-78 — Interactive items scored by computed rules; best on a laptop.
-- FR-79 — Lecturer can edit the Scoring guide until the Test deadline; one version scores the whole Class session.
-- FR-80 — Admin runs Control tests in v1; test students are people outside the course who play a Class game and Replay.
+- FR-80 — Interactive items scored by computed rules; best on a laptop.
+- FR-81 — Lecturer can edit the Scoring guide until the Test deadline; one version scores the whole Class session.
+- FR-82 — Admin runs Control tests in v1; test students are people outside the course who play a Class game and Replay.
 - §2.2 — Higher education only.
 - NFR-2 — 8-second latency placeholder.
 - NFR-3 — 400 Students per Class session, 5 concurrent Class sessions.

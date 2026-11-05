@@ -44,7 +44,7 @@ Spørsmål:
 
 ## Tema 3: Testen og KI-vurderingen (ferdig)
 
-**PRD:** FR-51 til FR-56, nye FR-78 og FR-79, SM-7, åpent spørsmål 7. Forskningen ligger i `.docs/planning-artifacts/research/academic-lit-beer-game-test-questions-systems-thinkin-2026-11-05/research.md`.
+**PRD:** FR-51 til FR-56, nye FR-80 og FR-81, SM-7, åpent spørsmål 7. Forskningen ligger i `.docs/planning-artifacts/research/academic-lit-beer-game-test-questions-systems-thinkin-2026-11-05/research.md`.
 
 Runden førte til disse beslutningene:
 
@@ -53,7 +53,7 @@ Runden førte til disse beslutningene:
 - Studenten kan lukke testen og jobbe så mye hen vil fram til fristen. Læreren kan i stedet kreve én økt med tidsgrense.
 - De tilpassede spørsmålene teller 30 % som standard og bygger på faste maler.
 - KI-en vurderer etter en sensorveiledning. Claude skriver utkast til standardversjonen under implementeringen, og founder godkjenner. Læreren kan endre den for sin klasseøkt.
-- KI-en kontrolleres i en egen kontrolltest med teststudenter før piloten (ny FR-80). Founder skårer den alene. Terskelen på 80 % i SM-7 bekreftes etter den første kontrolltesten.
+- KI-en kontrolleres i en egen kontrolltest med teststudenter før piloten (ny FR-82). Founder skårer den alene. Terskelen på 80 % i SM-7 bekreftes etter den første kontrolltesten.
 - Bokstavgrensene er en lærerinnstilling.
 
 ## Tema 4: Standardparametre og replay-scenarier
