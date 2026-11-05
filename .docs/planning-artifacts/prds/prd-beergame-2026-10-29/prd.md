@@ -20,7 +20,7 @@ inputs:
 
 This PRD defines what v1 of beergame must do: a Norwegian-language, mobile-first web product that runs the MIT Beer Distribution Game for a whole course, from invitation to a downloadable report. Formal grading is deliberately left to v2. The readers are the founder, who is also the first lecturer customer, and the downstream workflows that turn this into UX specifications, architecture and stories.
 
-It builds on the final product brief and does not repeat its market case. Every domain noun is defined once in §3 Glossary and used verbatim afterwards. Features in §4 hold globally numbered functional requirements (FR-1 to FR-77), each with testable consequences. Inferences the founder has not confirmed carry an inline `[ASSUMPTION]` tag and are indexed in §13. Technical detail, cost tables, regulatory sources and rejected alternatives live in `addendum.md` in this folder.
+It builds on the final product brief and does not repeat its market case. Every domain noun is defined once in §3 Glossary and used verbatim afterwards. Features in §4 hold globally numbered functional requirements (FR-1 to FR-78), each with testable consequences. Inferences the founder has not confirmed carry an inline `[ASSUMPTION]` tag and are indexed in §13. Technical detail, cost tables, regulatory sources and rejected alternatives live in `addendum.md` in this folder.
 
 ## 1. Vision
 
@@ -58,7 +58,7 @@ The bet, carried over from the brief: **the product is working AI players plus t
   Two months into the course, Bård registers the Class "class-of-1994", exports the student list from Canvas as an Excel file, uploads it, and sends Invitations valid for two weeks. Over the next days the Roster fills up; students accept, set a password and fill in their profile. After two weeks, 238 have registered and 12 stand as unregistered. Bård manually registers two students who reported problems; the other ten stay out. **Edge case:** four addresses in the file are malformed; the upload lists them by row and accepts the rest.
 
 - **UJ-3. Bård sets up the games in the last week.**
-  A week before the start, Bård creates the Class session with default Game settings (an advanced course would get harder settings) and LLM players, and marks it as obligatory for the course. The system splits the 240 enrolled students at random into 60 Class games of four and gives each student a random Role. Bård sets the start date and the deadlines and schedules four Lab hours in the computer lab. **Edge case:** with 241 students one Class game gets one student and three AI players.
+  A week before the start, Bård creates the Class session with default Game settings (a Lecturer of an advanced course may choose other settings) and LLM players, and marks it as obligatory for the course. The system splits the 240 enrolled students at random into 60 Class games of four and gives each student a random Role. Bård sets the start date and the deadlines and schedules four Lab hours in the computer lab. **Edge case:** with 241 students one Class game gets one student and three AI players.
 
 - **UJ-4. Sara's group plays, mostly on its own schedule.**
   Sara, a logistics student, sees on the start date that the Wholesaler Seat in game 17 is Sara's, with three classmates in the other Seats. They agree to start Tuesday evening, each on their own phone. Every Week Sara sees inventory, backlog, incoming order and delivery, enters one order, and sees which Roles the game is still waiting for. They play 15 Weeks, stop, and continue on Thursday in a Lab hour with Bård in the room. Sara can see that they are in Week 27, but not how many Weeks remain. **Edge case:** Jonas, the Factory, stops answering; 24 hours after the Week opened for that Seat, an AI player takes over automatically, marked as AI, and the game goes on.
@@ -93,12 +93,13 @@ The bet, carried over from the brief: **the product is working AI players plus t
 - **Class** — a group of Students taught together (one course in one year), owned by one or more Lecturers. Has a Roster and one or more Class sessions.
 - **Roster** — the list of student email addresses in a Class, with each address's registration status (invited, registered, unregistered).
 - **Class session** — one run of the exercise for a Class: its Game settings, AI mode, Debrief mode, Individual test, deadlines, Lab hours and Games. Rerunning the exercise creates a new Class session.
-- **Game settings** — the parameters every Class game in a Class session shares: starting inventory, supply-line contents, delays, Demand pattern, costs and number of Weeks.
+- **Game settings** — the parameters every Class game in a Class session shares: starting inventory, supply-line contents, delays, Demand pattern, costs, number of Weeks, Information visibility and capacity.
+- **Information visibility** — a Game setting that decides which numbers a Seat may see about its neighbouring Seats, for example the upstream Seat's inventory.
 - **Demand pattern** — the customer demand series the Retailer faces: fixed series, step, or random from a seed.
 - **Game** — one supply chain of four Seats played over Weeks. Either a Class game or a Replay.
 - **Class game** — a Game played by a group of up to four Students of the same Class session, with AI players in any empty Seat.
 - **Replay** — a Game a single Student plays after the Debrief against three AI players, using a Replay scenario. Each Student plays one Replay in v1.
-- **Replay scenario** — Game settings for a Replay that are harder than the Class game, through different starting conditions and Demand pattern.
+- **Replay scenario** — the Game settings of a Replay. The Lecturer sets any Game setting differently from the Class game, so the Replay is harder or different through starting conditions, delays, Demand pattern or Information visibility.
 - **Role** — Retailer, Wholesaler, Distributor or Factory.
 - **Seat** — one Role in one Game. Occupied by a Student or an AI player.
 - **Week** — one turn of a Game. All Seats order in the same Week; the Week advances when every Seat has placed its Order.
@@ -201,19 +202,32 @@ A Lecturer can add other Lecturers as co-owners of a Class and invite Assistant 
 
 #### FR-11: Create a class session with defaults
 A Lecturer can create a Class session prefilled with classic Game settings and save it without changing anything.
-- Defaults: four Roles; starting inventory 12 per Seat; 4 units in every supply-line slot; order delay 1 Week; shipping delay 2 Weeks; Factory production delay 2 Weeks; customer demand 4 per Week stepping to 8 in Week 5; holding cost 0.50 and backorder cost 1.00 per unit per Week; 36 Weeks. `[ASSUMPTION: defaults to be confirmed against the founder's course material]`
+- Defaults: four Roles; starting inventory 12 per Seat; 4 units in every supply-line slot; order delay 2 Weeks; shipping delay 2 Weeks; Factory production delay 2 Weeks; customer demand 4 per Week stepping to 8 in Week 5; holding cost 0.50 and backorder cost 1.00 per unit per Week; 36 Weeks. Confirmed by the founder against the course material (2026-11-05). The initial supply line holds 4 units in every slot, so the longer order delay adds slots; the exact slot layout is set in architecture.
 - A Lecturer who has used the product once can create a Class session with defaults in under 10 minutes without help (SM-5).
 
 #### FR-12: Change game settings
-A Lecturer can change any Game setting before the Start date: starting inventory, supply-line contents, delays, costs, number of Weeks and Demand pattern.
+A Lecturer can change every Game setting before the Start date. Founder decision 2026-11-05: the Lecturer configures the game as they wish, with all parameters available.
+- Settings: starting inventory, supply-line contents, order delay, shipping delay and Factory production delay (each 1 to 3 Weeks), costs, number of Weeks, Demand pattern (FR-13), Information visibility (FR-78) and capacity.
+- Capacity is an optional maximum number of units a Seat can ship per Week, off by default, set for one Seat or for all. Units a Seat cannot ship stay as backlog. In a four-Role chain each Seat has one customer, so no allocation rule is needed. `[ASSUMPTION: capacity design from research; one platform precedent, no human evidence]`
 - Out-of-range values are rejected with the allowed range shown. `[ASSUMPTION: ranges set in UX/architecture, e.g. 20–60 Weeks]`
-- A Lecturer can pick a named harder preset instead of editing values. `[ASSUMPTION: at least one "advanced course" preset]`
+- The only preset is "Classic" (FR-11). An advanced course has no preset of its own: the Lecturer decides what is different, and may keep the Classic values. Founder decision 2026-11-05.
 - Game settings are locked from the Start date.
 
 #### FR-13: Choose a demand pattern
-A Lecturer can choose a Demand pattern: fixed series, step (start level, new level, Week of change) or random (mean, spread, seed).
+A Lecturer can choose a Demand pattern: fixed series, step (start level, new level, Week of change) or random. Random demand is drawn each Week from a discrete uniform distribution over the whole numbers from mean minus spread to mean plus spread (never below 0), with a seed.
+- The Lecturer can combine them: a step in the mean with random noise around it.
 - Every Class game in the Class session uses the same demand series.
 - The seed is shown to the Lecturer and stored with the Class session.
+
+#### FR-78: Choose information visibility
+A Lecturer can set Information visibility for the Class session, per Game settings. Founder decision 2026-11-05: a Seat seeing the inventory of its upstream neighbour is part of v1.
+- Default: off, so a Seat sees only its own numbers (FR-23).
+- A Lecturer can switch on that each Seat sees the current inventory (and backlog) of the Seat directly upstream, shown on the Seat's screen next to its own numbers.
+- A Lecturer can also switch on the same view of the Seat directly downstream. Founder decision 2026-11-05: good idea, because the research finds downstream information the best-supported variant (see addendum).
+- A Lecturer can switch on customer demand for every Seat (FR-14 otherwise limits it to the Retailer). `[ASSUMPTION: this option, from the research]`
+- The setting applies to every Class game of the Class session and can differ in the Replay scenario (FR-49).
+- AI players receive exactly the numbers a Student in that Seat would see, and the Decision log records what was visible (FR-67).
+- The Student sees which neighbour numbers are shown, labelled with the Role and the Week they refer to.
 
 #### FR-14: Hidden end and demand
 Students are never shown the number of Weeks in a Game or the customer demand series while playing.
@@ -272,7 +286,7 @@ From the Start date, every Student sees their Class game, Role and the other Sea
 
 #### FR-23: Weekly state shown to a Seat
 A Student sees, for their own Seat: current inventory or backlog, incoming order this Week, incoming delivery this Week, the contents of their supply line, their own Order history, their running Total cost and the current Week number.
-- The Student does not see other Seats' inventory, backlog or Orders during the Class game.
+- The Student does not see other Seats' inventory, backlog or Orders during the Class game, except what the Lecturer has switched on in Information visibility (FR-78).
 - On a 360-pixel-wide screen, all of this plus the Order input is visible without horizontal scrolling.
 
 #### FR-24: Place an order
@@ -420,9 +434,11 @@ A Student who has passed the Debrief quiz can start the Replay at any time befor
 - The Replay can be paused and resumed on any device; AI players order at once, so there is no waiting.
 
 #### FR-49: Replay scenario
-The Replay uses a Replay scenario that is harder than the Class game through different starting conditions (for example starting with backlog or low inventory) and Demand pattern (for example a larger or later step, or random demand).
-- The system provides a default Replay scenario per Game settings preset; the Lecturer can pick another scenario from a list. `[ASSUMPTION: system-provided scenarios]`
-- Every Replay uses a fresh demand seed.
+The Replay uses a Replay scenario that differs from the Class game and is harder, through starting conditions (for example starting with backlog or low inventory), delays, Information visibility or Demand pattern (for example a larger or later step, or random demand).
+- Default: the Class game's Demand pattern with larger variance, meaning random demand drawn from a discrete uniform distribution around the Class game's mean in each Week (mean 4, then 8 from Week 5) with a spread of 2, so each Week's demand is the mean minus 2 to plus 2. The average demand stays the same as in the Class game, so Total cost can be compared. Founder decision 2026-11-05: larger variance in demand; distribution chosen by the product team. `[ASSUMPTION: spread of 2]`
+- The Lecturer can set every Game setting freely for the Replay scenario, starting from the Class session's settings. Founder decision 2026-11-05: the Lecturer configures all parameters as they wish.
+- The Lecturer can accept the default or change any setting.
+- Every Replay uses a fresh demand seed per Student, stored in the Decision log, so a Student cannot rely on remembering the Class game's demand.
 - The end of the Replay and its demand stay hidden while playing (as FR-14).
 
 #### FR-50: Replay feedback
@@ -626,7 +642,7 @@ Student personal data in a Class session is deleted automatically a set period a
 ## 7. Non-Goals (Explicit)
 
 - Not an open consumer product: no public sign-up, free tier, individual subscriptions or in-app payment in v1.
-- Not a general simulation platform: only the classic four-Role Beer Game in v1; no custom topologies, other games or Lecturer-authored Replay scenarios.
+- Not a general simulation platform: only the classic four-Role Beer Game in v1; no custom topologies or other games. The Lecturer does set the Game settings and the Replay scenario's settings freely (FR-12, FR-49).
 - No Feide login, Canvas/LTI or other LMS integration in v1.
 - No communication between players in v1, and no student-to-lecturer chat. (v2: Students replay in the same group with communication.)
 - No formal grading of any kind in v1: no examiners, grades or appeals (planned for v2, §8.3). The AI assessment and its optional Indicative letter are never a grade.
@@ -664,7 +680,7 @@ Student personal data in a Class session is deleted automatically a set period a
 - Information-sharing variant of the game (a classic second session; v2 candidate).
 - Institution admin role (the Admin handles institutions in v1).
 - Billing, licences and invoicing in the product.
-- Lecturer-authored questions and Replay scenarios beyond excluding questions and changing Item weights.
+- Lecturer-authored questions beyond excluding questions and changing Item weights.
 - PDF export of the Class report.
 - Voluntary extra Replays. `[NOTE FOR PM]` The founder removed them from v1 on 2026-11-05, so v1 tests one repetition, not many, and the brief's kill bar (median solo Replays above 3) cannot be measured. SM-10 collects a first signal for the v2 decision.
 
@@ -731,14 +747,13 @@ The founder has no capacity for a split-group study in the first semester. The p
 2. Prices for Institutions and whether Students ever pay directly.
 3. v2: compliance path for formal grading with an AI proposal: meet high-risk obligations, or have Examiners grade without it? When does Norwegian law apply?
 4. Does the final Commission guidance keep the AI assessment and the Student report outside Annex III 3(b)? Check when it is published (expected end of 2026).
-5. Default Game settings: confirm the classic values (FR-11) against the founder's course material, including order delay of 1 or 2 Weeks, and define the "advanced course" preset.
-6. Which Replay scenarios to provide (FR-49)?
-7. Is the Individual test taken supervised or anywhere? It matters for the learning evidence (SM-2).
-8. How must the obligatory requirement be described in the course plan, and does it count as an exam-eligibility requirement under the Universities Act § 11-4? The Lecturer and the Institution decide.
-9. Which other applications will receive the Student report, and must they be able to verify that it is authentic?
-10. Do lecturers in other courses need identical results across Class sessions (interviews, issue #7)?
-11. Which LLM and provider meet the privacy constraints in §6.1 and the cost in §6.3 (issues #8, #9)?
-12. Should the Admin role later split into platform admin and institution admin?
+5. Is a spread of 2 around the Class game's mean the right default demand variance for the Replay (FR-49)? Check against the first pilot's Replay results.
+6. Is the Individual test taken supervised or anywhere? It matters for the learning evidence (SM-2).
+7. How must the obligatory requirement be described in the course plan, and does it count as an exam-eligibility requirement under the Universities Act § 11-4? The Lecturer and the Institution decide.
+8. Which other applications will receive the Student report, and must they be able to verify that it is authentic?
+9. Do lecturers in other courses need identical results across Class sessions (interviews, issue #7)?
+10. Which LLM and provider meet the privacy constraints in §6.1 and the cost in §6.3 (issues #8, #9)?
+11. Should the Admin role later split into platform admin and institution admin?
 
 ## 13. Assumptions Index
 
@@ -747,7 +762,8 @@ The founder has no capacity for a split-group study in the first semester. The p
 - FR-7 — Canvas export accepted without editing; format to be confirmed.
 - FR-10 — Lecturers can invite Assistant lecturers.
 - FR-11 — Classic default Game settings values.
-- FR-12 — Parameter ranges; at least one "advanced course" preset.
+- FR-12 — Parameter ranges; capacity design.
+- FR-78 — Customer-demand visibility option.
 - FR-17 — Share of Weeks required, default 80%; no approval action in the product.
 - FR-18 — 24-hour deadline reminders.
 - FR-19 — Lab hours emailed on creation.
@@ -763,7 +779,7 @@ The founder has no capacity for a split-group study in the first semester. The p
 - FR-45 — Structured Debrief with bounded follow-up.
 - FR-46 — Unlimited Debrief quiz retries.
 - FR-48 — Replay in the same Role.
-- FR-49 — System-provided Replay scenarios.
+- FR-49 — Default Replay demand spread of 2.
 - FR-51 — Individual test in one sitting, 60 minutes, one submission.
 - FR-53 — Adapted items weigh 30% by default.
 - FR-54 — AI assessment produced after the Test deadline.

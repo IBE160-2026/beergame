@@ -13,7 +13,7 @@ Coaching-runden går gjennom de delene av PRD-utkastet der founders vurdering be
 | 1 | Brukerreisene | Ferdig |
 | 2 | Kvalitetskravene til AI-spillerne | Neste |
 | 3 | Testen og KI-vurderingen | Ikke startet |
-| 4 | Standardparametre og replay-scenarier | Ikke startet |
+| 4 | Standardparametre og replay-scenarier | Ferdig |
 | Etterpå | Finalisering av PRD-en | Ikke startet |
 
 ## Tema 1: Brukerreisene (ferdig)
