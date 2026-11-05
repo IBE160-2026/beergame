@@ -21,6 +21,9 @@ Source: technical research 2026-10-26 (`research/technical-ai-agent-cost-per-bee
 - **Reproducibility:** no provider guarantees determinism; current Claude models reject temperature/seed; OpenRouter silently ignores unsupported parameters and may fall back to another provider. Hence: Rule-based players for comparable Class sessions, log everything, pin model per Class session (PRD FR-67, FR-68).
 - **Model switcher:** reference code in `research/.../model-switcher/model_switcher.py`; all thresholds are placeholders (invalid-order Wilson 95% upper bound ≤ 2%, behaviour inside a fidelity band, p95 ≤ 8 s, switch only if ≥ 15% cheaper, 7-day cooldown, 5% canary). Weekly automatic switching pays off only above about 260 Games per week (issue #9).
 - **Rule-based player:** Sterman (1989) anchoring-and-adjustment heuristic. The fitted parameters have not been retrieved from the primary source (issue #8); values from calculator sites must not be used.
+- **Prompt design (founder, 2026-11-05):** the prompt sent on an AI player's turn holds the game rules implicitly, as a supply chain manager's job, and the Seat's own data plus what arrives from downstream and upstream. The model is not told it plays a game, that there are four Seats, or that Weeks advance after all Seats have ordered. The beer game is a team game with no winners; the model is asked for the best Order given the information. The prompt is calibrated by testing before launch. Effort (thinking level) is a Lecturer setting (PRD FR-78); note that reasoning raises cost about 4.4× (above) and latency, so the 8 s limit and cost envelope need testing per Effort level.
+- **Order format:** every request asks for JSON with a schema; non-matching answers are retried at most 5 times, then the Rule-based Order is used (PRD FR-32). Worst case is 6 calls for one Order, which matters for both cost and the latency limit.
+- **Play guard design (PRD FR-79):** per Week and Seat the system computes (i) the Rule-based Order and (ii) a near-optimal Order, which may use information the LLM never sees (full chain state and demand), and records the LLM Order relative to both. Seat-level statistics over a window of Weeks (95% confidence interval was the founder's example) decide the switch. Caveats for the architect: a Seat has only 36 Weeks and the Weeks are autocorrelated, so a confidence interval on a mean is weak; consider a rolling window and a minimum number of Weeks before the guard can switch; the Rule-based reference itself needs primary-source parameters (issue #8). The reference players and distance measure are to be set in the prototype (issues #9, #11).
 
 ## B. Game mechanics reference (for UX and architecture)
 
@@ -65,7 +68,9 @@ Regulation: AI proposing grades on a test that counts is likely high-risk under 
 
 ## X. Rejected or deferred alternatives
 
-- **Rule-based players by default** (research recommendation): rejected by the founder on 2026-10-29; LLM players are the differentiator. Kept as a per-Class session option and as the fallback if SM-3 fails.
+- **Rule-based players by default** (research recommendation): rejected by the founder on 2026-10-29; LLM players are the differentiator. Kept as a per-Class session option and as the fallback inside the Play guard (FR-79).
+- **End-of-pilot rule "Rule-based becomes the default if SM-3 is not met":** replaced by the founder on 2026-11-05 with the Play guard, which monitors LLM play while a Class session runs and switches a Seat when its Orders leave the accepted band.
+- **LLM players tuned to imitate Students (draft SM-C3):** dropped by the founder on 2026-11-05; a smart AI player is acceptable, and the Play guard only stops near-optimal play.
 - **Formal grading in v1:** moved to v2 by the founder on 2026-11-05; see §V. v1 has a non-counting AI assessment and PDF Student reports instead.
 - **AI as final grader:** rejected for every version.
 - **Voluntary extra Replays in v1:** removed by the founder on 2026-11-05. The brief's kill bar (median solo Replays above 3) cannot be measured in v1; PRD SM-1 and SM-10 replace it for now.

@@ -105,9 +105,11 @@ The bet, carried over from the brief: **the product is working AI players plus t
 - **Order** — the single decision a Seat makes each Week: how many units to order from upstream (for the Factory: to produce).
 - **Total cost** — the sum of holding and backorder costs over a Game, per Seat and for the chain.
 - **AI player** — software occupying a Seat. Either an LLM player or a Rule-based player. Always disclosed as AI. The brief's "AI opponent" means the same thing.
-- **LLM player** — an AI player whose Orders come from a large language model, validated in code.
+- **LLM player** — an AI player whose Orders come from a large language model, checked against a response schema and the game rules in code.
 - **Rule-based player** — an AI player whose Orders follow a documented deterministic rule.
 - **AI mode** — the Class session setting that decides whether AI players are LLM players (default) or Rule-based players.
+- **Effort** — the Class session setting that sets how much an LLM player thinks before it answers.
+- **Play guard** — the system check that compares an LLM player's weekly Orders with reference players and switches the Seat to a Rule-based player when they fall outside the accepted band (FR-79).
 - **Inactivity limit** — how long a Seat may leave its Order open before an AI player takes over. Default 24 hours.
 - **Takeover** — an AI player taking over the Seat of a Student. **Reclaim** — the Student taking the Seat back.
 - **Lab hour** — a scheduled time when the Lecturer or an Assistant lecturer is present and Students can play.
@@ -224,6 +226,7 @@ Students are never shown the number of Weeks in a Game or the customer demand se
 #### FR-15: Choose AI mode
 A Lecturer can set the AI mode to LLM players (default) or Rule-based players for the Class session.
 - The AI mode applies to every AI player in the Class session's Class games and Replays.
+- A Lecturer who prefers not to use AI, or who needs fast and predictable play, chooses Rule-based players when the Class session is created. LLM players with an Effort level (FR-78) are the alternative.
 
 #### FR-16: Choose debrief mode
 A Lecturer can set Debrief mode (Group debrief by default, or Personal debrief).
@@ -302,30 +305,50 @@ The game arithmetic is correct by construction: inventory and backlog are never 
 
 ### 4.6 AI players
 
-**Description:** AI players are the product's first differentiator and the first thing built. LLM players are the default; Rule-based players are the Lecturer's choice when comparable, cheap or fully reproducible results matter more than realism. An AI player sees only what a Student in that Seat would see, its Orders are validated in code, and every decision is logged. Students always know which Seats are AI. Realizes UJ-4, UJ-5.
+**Description:** AI players are the product's first differentiator and the first thing built. LLM players are the default; Rule-based players are the Lecturer's choice when comparable, cheap or fully reproducible results matter more than realism. An AI player sees only what a Student in that Seat would see and decides as a supply chain manager would, without knowing it plays a game. Its Orders must match a fixed response schema, a Play guard (FR-79) compares them with reference players week by week, and every decision is logged. A smart LLM player is acceptable: the game is a team game with no winners, and the aim of every player is the best Order given the information available. Students always know which Seats are AI. Realizes UJ-4, UJ-5.
 
 #### FR-30: AI players fill seats
 The system places an AI player in every empty Seat of a Class game at the Start date, in the three other Seats of a Replay, and in a Seat at Takeover.
 
 #### FR-31: Same information as a human
-An AI player receives only the information a Student in that Seat would see (FR-23) plus the game rules.
+An AI player receives only the information a Student in that Seat would see (FR-23): its own data and what arrives from its downstream and upstream neighbours. The game rules are part of the prompt sent when it is the AI player's turn.
+- The prompt describes the situation of a supply chain manager. An AI player is not told that it plays a game, that there are four Seats, or that Weeks advance after all Seats have ordered.
 - No AI player receives customer demand unless it holds the Retailer Seat, or any other Seat's private state.
 - No AI player receives any Student's name, email or other personal data; Seats are referred to by Role.
 
 #### FR-32: Validated orders and fallback
-Every Order from an LLM player is checked against the game rules before it takes effect.
-- An Order that is missing, not a whole number, outside the allowed range, or later than 8 seconds is replaced by the Rule-based player's Order for that Week, and the replacement is marked in the Decision log. `[ASSUMPTION: 8-second limit]`
-- LLM players operate with an order bound so a single Order cannot exceed a set multiple of recent incoming orders. `[ASSUMPTION: 2×, per the research guardrail]`
+Every request to an LLM player asks for a response in a specific JSON format and carries the JSON schema; the Order is checked against the schema and the game rules before it takes effect.
+- A response that does not match the schema is retried, at most 5 times. When the retries are used up, the Rule-based player's Order is used for that Week, and the replacement is marked in the Decision log.
+- An Order that is missing, not a whole number or outside the allowed range counts as a response that does not match. `[ASSUMPTION: range violations handled like schema failures]`
+- An Order that arrives later than 8 seconds is replaced by the Rule-based player's Order. `[ASSUMPTION: 8-second limit; retries and the Effort setting (FR-78) may need a longer limit, to be set after the prototype, issue #8]`
+- The fallback applies to that Week only; the LLM player is asked again the next Week. `[ASSUMPTION: Week only, not the rest of the Game; not yet confirmed]`
+- LLM players operate with an order bound so a single Order cannot exceed a set multiple of recent incoming orders. `[ASSUMPTION: 2×, per the research guardrail; not yet revisited after the Play guard was decided]`
 
 #### FR-33: Documented AI behaviour
 Each AI player type has a short plain-language description of how it decides, visible to Lecturers.
 - The Rule-based player follows a documented anchoring-and-adjustment rule with published parameters.
 - The LLM player's description states that its behaviour varies between runs.
+- The description states that the LLM player is not told it is playing a game and may play better than a typical Student.
 
 #### FR-34: Disclosure of AI players
 Every AI player is labelled as AI wherever Seats are shown to Students, from the first moment the Student sees the Game.
 - A Seat that has been taken over shows that it is now played by an AI player.
+- A Seat whose LLM player has been switched to a Rule-based player by the Play guard (FR-79) shows this too.
 - AI-generated text (Debrief narration, Debrief quiz explanations, Adapted items, AI assessment) is marked as AI-generated.
+
+#### FR-78: Effort setting
+A Lecturer who has chosen LLM players can set an Effort level for the Class session, which sets how much the model thinks before it answers.
+- The Effort level applies to every LLM player in the Class session's Class games and Replays, and is stored with the Class session and in the Decision log.
+- The default Effort level and the effect of each level on speed and cost are set after the prototype. `[ASSUMPTION: levels and default decided by prototype testing, issues #8, #9]`
+- The prompt is calibrated by testing before launch, so that LLM players play sensibly at each offered Effort level.
+
+#### FR-79: Play guard
+The system compares every Order from an LLM player with two reference Orders computed for the same Week and the same information, and switches the Seat to a Rule-based player when the LLM player's Orders over time fall outside an accepted band.
+- The lower reference is the Rule-based player (FR-33), standing for average sensible play. The upper reference is a near-optimal player computed by the system, which may use information the LLM player never sees.
+- The comparison is made on weekly Orders, not on chain Total cost, because an LLM player does not see the whole chain.
+- The band: in at least 95% of Weeks the LLM player's Order is within average sensible play, not nonsense; and its Orders are never closer to the near-optimal reference than a set margin of 5%. `[ASSUMPTION: the founder's wording is read as two limits; the distance measure, the number of Weeks compared and the confidence level are set in prototype testing, issues #9, #11]`
+- A Seat the guard has switched stays Rule-based for the rest of the Game, is marked in the Decision log and shown to Students (FR-34). `[ASSUMPTION: switch is permanent for the Game; not yet confirmed]`
+- The guard applies to a Seat's LLM player only; it does not judge Students.
 
 ### 4.7 Inactivity, Takeover and deadlines
 
@@ -537,7 +560,7 @@ A Lecturer can create a new Class session in the same or another Class by copyin
 
 #### FR-67: Decision log
 The system stores every Order in every Game with: Game, Week, Seat, Role, the state the Seat saw, the Order, and whether a Student or an AI player placed it.
-- For LLM players it also stores model identifier (exact version), provider, prompt version, seed and temperature where supported, tokens, cost, response time, and whether the fallback replaced the Order.
+- For LLM players it also stores model identifier (exact version), provider, prompt version, Effort level, seed and temperature where supported, tokens, cost, response time, the number of retries, whether the fallback replaced the Order, the two reference Orders of the Play guard (FR-79), and the Week a Seat was switched.
 
 #### FR-68: Model pinned per class session
 All LLM players in a Class session and its Replays use the same model version and prompt version for the whole Class session.
@@ -583,7 +606,7 @@ Student personal data in a Class session is deleted automatically a set period a
 ## 5. Cross-Cutting Non-Functional Requirements
 
 - **NFR-1 Responsiveness.** A Week advances for connected Students within 2 seconds after the last Order (excluding AI player thinking time). Pages a Student uses during play load within 3 seconds on a 4G connection.
-- **NFR-2 AI player latency.** 95% of LLM player Orders arrive within 8 seconds; slower Orders are replaced by fallback (FR-32). `[ASSUMPTION: placeholder pending prototype, issue #8]`
+- **NFR-2 AI player latency.** 95% of LLM player Orders arrive within 8 seconds, retries included; slower Orders are replaced by fallback (FR-32). `[ASSUMPTION: placeholder pending prototype, issue #8; the limit may differ per Effort level (FR-78) and the coaching question on acceptable waiting time is still open]`
 - **NFR-3 Scale.** One Class session supports at least 400 Students (100 Class games); a full Lab hour with 250 Students playing at the same time works without degradation. The platform supports at least 5 such Class sessions at once. `[ASSUMPTION: launch scale]`
 - **NFR-4 Reliability.** No Class game waits longer than the Inactivity limit for an absent Student, and none stalls because an AI provider fails. Availability during Lab hours is at least 99.5%. Game state is never lost once a Week has been shown.
 - **NFR-5 Reconnection.** A Student who loses connection resumes at the current Week on any device without action from others.
@@ -645,7 +668,7 @@ Student personal data in a Class session is deleted automatically a set period a
 - Class session setup with classic defaults, adjustable Game settings, Demand pattern, AI mode, Debrief mode, Obligatory class session, dates and Lab hours (FR-11 to FR-19).
 - Random allocation into Class games of up to four with random Roles, optional student choice (FR-20 to FR-22).
 - Simultaneous-order gameplay with hidden end and a clear "waiting for" view (FR-23 to FR-29).
-- LLM players by default, Rule-based players per Class session, validation, fallback, disclosure (FR-30 to FR-34).
+- LLM players by default, Rule-based players per Class session, schema-checked Orders with retries and fallback, disclosure, Effort setting, Play guard (FR-30 to FR-34, FR-78, FR-79).
 - Automatic Takeover after the Inactivity limit, manual Takeover, Reclaim, Play deadline playout (FR-35 to FR-38).
 - Lecturer overview and one-way Messages (FR-39, FR-40).
 - Group and Personal debrief with the Explanation inside it, Debrief quiz (FR-41 to FR-47).
@@ -685,7 +708,7 @@ Founder decision, 2026-11-05: everything concerning formal grading moves to v2. 
 **Primary**
 - **SM-1 Second-round behaviour.** Share of Students whose Orders in the Replay take more account of the supply line and amplify demand less than in their Class game, computed from the Decision log and adjusted for the harder Replay scenario. Target: at least 60%. `[ASSUMPTION: measure and target set with the founder before the pilot]` Replaces the brief's kill bar, which needs voluntary Replays (§8.2). Validates FR-48 to FR-50.
 - **SM-2 Explanation gain.** Share of Students whose long answers in the Individual test explain the mechanism (delays, supply line, own Orders), compared with the share whose Explanation early in the Debrief does, scored by the founder with one rubric on an anonymised export (FR-71), not by the AI assessment. Target: at least double, and at least 60% in the Individual test. `[ASSUMPTION: rubric and targets set with the founder before the pilot]` Validates FR-41, FR-44, FR-52.
-- **SM-3 AI players fit for teaching.** (a) LLM Orders replaced by fallback: upper bound of the 95% confidence interval at most 2%. (b) Run-to-run variation (coefficient of variation) of chain Total cost on fixed test games: about 10–15% with order bounds. (c) Plausibility rating (FR-70): median at least 4 of 5. If (a)–(c) are not met by the end of the pilot, Rule-based players become the default and LLM players an option (the brief's fallback). Validates FR-30 to FR-34. Issues #8, #9, #11.
+- **SM-3 AI players fit for teaching.** (a) Share of LLM Orders replaced by fallback after the 5 retries (FR-32), and share of Seats switched by the Play guard (FR-79): both reported per Class session, no fixed limit in v1. `[ASSUMPTION: the earlier 2% bound is replaced by the retry rule; the founder may still want a limit]` (b) Run-to-run variation (coefficient of variation) of chain Total cost on fixed test games: about 10–15% with order bounds. `[ASSUMPTION: not yet discussed with the founder]` (c) Plausibility rating (FR-70): median at least 4 of 5. `[ASSUMPTION: not yet discussed with the founder]` The Play guard (FR-79) protects every Class session while it runs; there is no end-of-pilot rule that makes Rule-based players the default. Validates FR-30 to FR-34, FR-78, FR-79. Issues #8, #9, #11.
 
 **Secondary**
 - **SM-4 Completion.** 100% of Class games end by the Play deadline; at least 95% of registered Students submit the Individual test by the Test deadline. Validates FR-36 to FR-38.
@@ -699,7 +722,7 @@ Founder decision, 2026-11-05: everything concerning formal grading moves to v2. 
 **Counter-metrics (do not optimise)**
 - **SM-C1 Total cost.** Lower Total cost in Replays is not learning; performance and understanding are known to dissociate. Counterbalances SM-1.
 - **SM-C2 Average AI assessment score.** A generous AI pleases students and teaches nothing; rising scores are not evidence of learning. Counterbalances SM-7.
-- **SM-C3 AI player skill.** AI players that minimise cost remove the bullwhip the game exists to show; AI players are tuned for realistic behaviour, not to win. Counterbalances SM-3.
+- **SM-C3 AI player skill.** A smart LLM player is acceptable and is not tuned down to imitate Students, but near-optimal play would remove the bullwhip the game exists to show. The Play guard (FR-79) keeps LLM play away from near-optimal. Counterbalances SM-3.
 - **SM-C4 Debrief quiz attempts.** Fewer attempts is not better learning if questions get easier. Counterbalances SM-2.
 - **SM-C5 Takeovers.** Lowering the Inactivity limit makes games finish faster but replaces Students with AI players. Counterbalances SM-4.
 - **SM-C6 Completion under obligation.** An Obligatory class session raises completion without showing that the exercise is valuable. Counterbalances SM-4.
@@ -715,7 +738,7 @@ The founder has no capacity for a split-group study in the first semester. The p
 
 ## 11. Risks
 
-- **AI players do not behave like human players** (too erratic or too good). Mitigation: order bounds, fallback, Rule-based mode, SM-3 decision rule.
+- **AI players do not behave like human players** (too erratic or too good). Mitigation: schema-checked Orders with retries and fallback (FR-32), order bounds, the Play guard (FR-79), Rule-based mode (FR-15).
 - **The AI assessment is used as a grade anyway**, which could make it regulated high-risk AI. Mitigation: the Indicative letter is off by default, labels in the product and in every Student report, reports without the AI assessment section by default (FR-58), Completion export without AI scores (FR-60), switch-off (FR-61).
 - **The AI assessment is wrong and no human has checked it.** Mitigation: quotes from the answer, facts checked against the Decision log, sample check (SM-7), plain statement that it can be wrong and counts toward nothing, switch-off (FR-61).
 - **Without a grade, Students skip the steps.** The flow only works if students finish it. Mitigation: the Lecturer can mark the Class session as obligatory (FR-17).
@@ -739,6 +762,8 @@ The founder has no capacity for a split-group study in the first semester. The p
 10. Do lecturers in other courses need identical results across Class sessions (interviews, issue #7)?
 11. Which LLM and provider meet the privacy constraints in §6.1 and the cost in §6.3 (issues #8, #9)?
 12. Should the Admin role later split into platform admin and institution admin?
+13. AI player quality (coaching topic 2, left open): when a Seat falls back after 5 failed retries, is it for that Week only or for the rest of the Game; how long may a Student wait for an AI player (NFR-2, with retries and Effort); how much run-to-run variation is acceptable (SM-3b); how is plausibility measured (SM-3c); is the decision on LLM players taken after a prototype or after the pilot? (issues #8, #9, #11)
+14. Play guard (FR-79): which reference players are used, how the 95% and 5% limits are measured on weekly Orders, over how many Weeks, whether the switch is permanent for the Game.
 
 ## 13. Assumptions Index
 
@@ -752,7 +777,10 @@ The founder has no capacity for a split-group study in the first semester. The p
 - FR-18 — 24-hour deadline reminders.
 - FR-19 — Lab hours emailed on creation.
 - FR-27 — Turn notifications after 2 hours and 4 hours before Takeover.
-- FR-32 — 8-second limit for LLM Orders; order bound 2×.
+- FR-32 — 8-second limit for LLM Orders; order bound 2×; range violations handled like schema failures; fallback for that Week only.
+- FR-78 — Effort levels and default set after prototype testing.
+- FR-79 — Play guard limits (95%, 5%) read from the founder's wording; permanent switch for the Game.
+- SM-3 — 2% bound dropped, variation and plausibility targets not yet confirmed.
 - FR-36 — Inactivity clock starts once the game has started.
 - FR-37 — Reclaim allowed.
 - FR-38 — Unfinished Class games played out by AI at the Play deadline.

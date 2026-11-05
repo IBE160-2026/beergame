@@ -11,8 +11,8 @@ Coaching-runden går gjennom de delene av PRD-utkastet der founders vurdering be
 | Tema | Innhold | Status |
 |---|---|---|
 | 1 | Brukerreisene | Ferdig |
-| 2 | Kvalitetskravene til AI-spillerne | Neste |
-| 3 | Testen og KI-vurderingen | Ikke startet |
+| 2 | Kvalitetskravene til AI-spillerne | Ferdig (spørsmål 4–7 åpne) |
+| 3 | Testen og KI-vurderingen | Neste |
 | 4 | Standardparametre og replay-scenarier | Ikke startet |
 | Etterpå | Finalisering av PRD-en | Ikke startet |
 
@@ -26,7 +26,18 @@ Founder beskrev en konkret økt, og brukerreisene og kravene ble skrevet om ette
 - Studenten forklarer seg i debriefen.
 - V1 har ingen frivillige ekstra runder.
 
-## Tema 2: Kvalitetskravene til AI-spillerne (neste)
+## Tema 2: Kvalitetskravene til AI-spillerne (ferdig, med åpne spørsmål)
+
+Founder avsluttet temaet 2026-11-05 etter spørsmål 1–3. Beslutninger:
+
+- AI-spilleren vet ikke at den spiller et spill, ikke at det er fire plasser, og ikke at runden animeres når alle har bestilt. Reglene ligger implisitt i prompten, og den ser bare egne data og det som kommer fra nedstrøms og oppstrøms.
+- En smart AI-spiller er greit, selv om den demper bullwhip. SM-C3 er skrevet om.
+- Faglærer kan velge effort (tenkenivå) for modellen. Prompten kalibreres ved testing før lansering.
+- Valget av regelbaserte spillere, for eksempel av tidshensyn eller av prinsipp, er en innstilling faglærer gjør når klassen opprettes.
+- Regelen om at regelbaserte spillere blir standard etter piloten, er erstattet av en spillvakt (FR-79) som sammenligner ukentlige ordrer med en regelbasert og en nesten optimal referanse og bytter plassen til regelbasert utenfor båndet. 95 % innenfor fornuftig spill, og ikke nærmere enn 5 % til supersmart.
+- Ugyldige ordrer løses med JSON-skjema og opptil 5 nye forsøk, så regelbasert (FR-32). 2 %-grensen i SM-3(a) er fjernet.
+
+Åpent etter temaet: gjelder fallbacken bare uka eller resten av spillet, hvor lenge en student kan vente (spørsmål 6, med forsøk og effort), variasjon mellom kjøringer (spørsmål 4), måling av troverdighet (spørsmål 5), og når avgjørelsen tas (spørsmål 7). Se PRD §12 punkt 13 og 14.
 
 **Mål:** bestemme hva som skal til for å bruke LLM-spillere med 250 studenter, og når regelbaserte spillere blir standard i stedet.
 
