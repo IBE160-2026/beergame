@@ -14,7 +14,7 @@ who: BIPA
 
 The MIT Beer Distribution Game has taught supply chain dynamics for sixty years, and it is quietly disappearing from classrooms. Not because the lesson stopped mattering — the bullwhip effect is more relevant after five years of supply shocks than it ever was — but because the delivery is broken. In June 2026 an educator writing in *Times Higher Education* declared that the game "may have had its last orders": slow to run, surprisingly fragile, mechanically distracting, and, most damning of all, students finish a session unable to explain how their own decisions produced the outcome they just lived through.
 
-We are rebuilding it as a Norwegian-language web product, mobile-first and equally at home on a classroom laptop, that runs the whole exercise for a course of hundreds and removes the constraint underneath every one of those complaints: the requirement that four people sit down together at the same hour. AI players take any empty seat and step in for a student who goes missing, so a group can play on its own schedule within a deadline and no game stalls. The AI players are LLM agents by default, with simple rule-based bots available as a lecturer setting.
+We are rebuilding it as a Norwegian-language web product, mobile-first and equally at home on a classroom laptop, that runs the whole exercise for a course of hundreds and removes the constraint underneath every one of those complaints: the requirement that four people sit down together at the same hour. AI players take any empty seat and step in for a student who holds the others up, so a group can play on its own schedule within a deadline and no game is left unfinished. The AI players are LLM agents by default, with simple rule-based bots available as a lecturer setting.
 
 Our bet, stated as a bet: **the product is working AI players plus the explanation.** Bot-filled seats are common; LLM players that behave well enough to teach with are not, and making them work is the first thing we build. After the class game, an AI debrief walks through the group's decisions and why they produced the outcome. Each student then plays a harder second round alone and takes an individual test. Whether this teaches students more than one good session is untested. It is the first thing this venture has to prove, and the first classroom is the founder's own: the founder teaches the course this ships into.
 
@@ -45,7 +45,7 @@ A web application with accounts by invitation, Norwegian throughout, built for t
 
 **For lecturers.** Register a class, upload the student list from Canvas and send invitations weeks ahead. The system splits students at random into groups of up to four with random roles, and fills any empty seat with an AI player. Lecturers can leave the classic settings as they are or change every game parameter for the whole class, including delays, demand, capacity and what each role may see of its neighbours. They schedule lab hours, watch all games and whom each one is waiting for on one screen, and message students. Lecturers choose the AI player type per class (LLM or rule-based), and can make the exercise obligatory for the course. Obligation is met by completing the steps, never by an AI judgement. Afterwards they get full insight into each game, a class report and statistics across classes.
 
-**For students.** Play the class game with the group, in a lab hour or on the bus, with all four roles ordering in the same week and a clear view of whom the game waits for. A student who stays away for a day is replaced by an AI player and can take the seat back. Then comes the sequence that carries the lesson: a debrief with the group, where each student first explains what happened in their own words and then sees the data (here is where you over-ordered, here is what it cost four weeks later, here is what the other roles saw when you did it); a short quiz that must be answered correctly; a harder second round alone against AI players; and an individual test with interactive tasks and long answers, some built from the student's own games. Numbers in the debrief are computed in code from the decision log; the LLM only narrates them.
+**For students.** Play the class game with the group, in a lab hour or on the bus, with all four roles ordering in the same week and a clear view of whom the game waits for. A group can pause and agree when to continue. A student who holds the others up is replaced by an AI player and can take the seat back; if nobody plays, nothing happens until the deadline. Then comes the sequence that carries the lesson: a debrief with the group, where each student first explains what happened in their own words and then sees the data (here is where you over-ordered, here is what it cost four weeks later, here is what the other roles saw when you did it); a short quiz that must be answered correctly; a harder second round alone against AI players; and an individual test with interactive tasks and long answers, some built from the student's own games. Numbers in the debrief are computed in code from the decision log; the LLM only narrates them.
 
 **What counts.** Nothing the AI says counts. The AI gives each student a score and written feedback on the test, with an A–F indication the lecturer or the student can turn on. Each student and lecturer can download a PDF report of the games, the debrief and the test. Formal grading with examiners is planned for version 2, not the first version.
 
@@ -91,10 +91,10 @@ The strategic logic: students are the most price-resistant segment and the compe
 
 **Learning (the claim the product rests on)**
 
-- Students order better in the second round: at least 60% take more account of the supply line and amplify demand less than in the class game. The brief's earlier kill bar, median solo replays above 3, cannot be measured in the first version, which has one second round. The first course asks instead whether students wanted another round.
-- Students can explain the causal chain behind their outcome. We compare each student's explanation in the debrief with their long answers in the test, scored by the founder with one rubric. We do not run a split-cohort test in semester one.
+- Students order better in the second round: at least 60% amplify demand less than in the class game, measured against a rule-based reference. The brief's earlier kill bar, median solo replays above 3, cannot be measured in the first version, which has one second round. The first course asks instead whether students wanted another round.
+- Students can explain the causal chain behind their outcome. On a random sample, we compare each student's explanation in the debrief with the same question in the test, scored by the founder with a second scorer on a share. A short task on stocks and flows before the game is repeated in the test. We do not run a split-cohort test in semester one, so this shows the level students reach, not what caused it.
 - LLM players work for teaching. The play guard watches them while a class runs, so no end-of-pilot rule makes rule-based players the default; lecturers can choose rule-based players for any class. Run-to-run variation and student plausibility are reported.
-- If second-round behaviour or explanations do not improve, the fallback is a debrief-first product with simple bots, not a stronger bot engine.
+- These are conditions for launch to other schools, with targets fixed before the first order. If explanations hold up but the second round adds little, the fallback is a debrief-first product with simple bots, not a stronger bot engine. If neither shows, we do not launch and re-examine the thesis.
 
 **Product**
 
@@ -114,10 +114,10 @@ The strategic logic: students are the most price-resistant segment and the compe
 - Accounts by invitation; admin, lecturer, assistant lecturer and student roles
 - Classes from an uploaded student list, random groups and random roles
 - Class games played on the group's own schedule within deadlines, with lab hours
-- AI players in any empty seat and after a day of inactivity, LLM by default with a rule-based option per class, and a play guard
+- AI players in any empty seat and when a student holds the others up, a pause for the group, LLM by default with a rule-based option per class, and a play guard
 - Classic default settings, all game parameters settable by the lecturer, including capacity and information visibility
 - Group or personal debrief with the student's own explanation, computed in code and narrated by an LLM, then a quiz that must be answered correctly
-- One harder second round alone against AI players
+- One harder second round alone against AI players, with a short AI walkthrough
 - Individual test with non-counting AI feedback and an optional A–F indication
 - PDF report per student; completion list; optional obligatory setting
 - Lecturer overview, messages, class report and statistics across classes

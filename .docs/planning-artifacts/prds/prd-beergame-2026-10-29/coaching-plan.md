@@ -6,7 +6,7 @@ updated: 2026-11-05
 
 # Coaching-plan: PRD for beergame
 
-Coaching-runden går gjennom de delene av PRD-utkastet der founders vurdering betyr mest. Beslutningene føres inn i `prd.md` og logges i `.memlog.md`. Det som gjenstår, følges også opp i Issue #12.
+Coaching-runden går gjennom de delene av PRD-utkastet der founders vurdering betyr mest. Beslutningene føres inn i `prd.md` og logges i `.memlog.md`. Runden og finaliseringen er fullført 2026-11-05.
 
 | Tema | Innhold | Status |
 |---|---|---|
@@ -14,7 +14,7 @@ Coaching-runden går gjennom de delene av PRD-utkastet der founders vurdering be
 | 2 | Kvalitetskravene til AI-spillerne | Ferdig (spørsmål 4–7 åpne) |
 | 3 | Testen og KI-vurderingen | Ferdig |
 | 4 | Standardparametre og replay-scenarier | Ferdig |
-| Etterpå | Finalisering av PRD-en | Neste |
+| Etterpå | Finalisering av PRD-en | Ferdig |
 
 ## Tema 1: Brukerreisene (ferdig)
 
