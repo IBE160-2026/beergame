@@ -10,6 +10,7 @@ inputs:
   - .docs/planning-artifacts/research/ (competitive, user-voice, technical cost, academic-lit; 2026-10-26)
   - research-regulatory.md (this folder, 2026-10-29)
   - .docs/planning-artifacts/research/academic-lit-beer-game-test-questions-systems-thinkin-2026-11-05/research.md
+  - .docs/planning-artifacts/research/domain-beer-game-variants-and-setup-options-2026-11-05/research.md
   - founder brain dump, answers and coaching narration (2026-10-29, 2026-11-02, 2026-11-05)
 ---
 
@@ -65,7 +66,7 @@ The bet, carried over from the brief: **the product is working AI players plus t
   Sara, a logistics student, sees on the start date that the Wholesaler Seat in game 17 is Sara's, with three classmates in the other Seats. They agree to start Tuesday evening, each on their own phone. Every Week Sara sees inventory, backlog, incoming order and delivery, enters one order, and sees which Roles the game is still waiting for. They play 15 Weeks, stop, and continue on Thursday in a Lab hour with Bård in the room. Sara can see that they are in Week 27, but not how many Weeks remain. **Edge case:** Jonas, the Factory, stops answering; 24 hours after the Week opened for that Seat, an AI player takes over automatically, marked as AI, and the game goes on.
 
 - **UJ-5. Sara's group debriefs together, then Sara plays alone.**
-  When game 17 ends, the group opens the Group debrief together. First each writes, on their own phone, why the chain behaved as it did. Then the Debrief reveals customer demand (one step from 4 to 8), shows how orders grew from Retailer to Factory, and points at Sara's Week-11 order of 24 while 16 units were already on their way. Then each takes the Debrief quiz; Sara gets two questions wrong, reads why, and answers correctly on the second try. Over the weekend Sara plays the Replay alone against three AI players, starting with a backlog and facing a larger demand change.
+  When game 17 ends, the group opens the Group debrief together. First each writes, on their own phone, why the chain behaved as it did. Then the Debrief reveals customer demand (one step from 4 to 8), shows how orders grew from Retailer to Factory, and points at Sara's Week-11 order of 24 while 16 units were already on their way. Then each takes the Debrief quiz; Sara gets two questions wrong, reads why, and answers correctly on the second try. Over the weekend Sara plays the Replay alone against three AI players, with the same average demand as in the Class game but more variation from Week to Week.
 
 - **UJ-6. Sara takes the individual test.**
   The Individual test is open for a week. Sara works on it over several evenings, closing it and coming back: some multiple-choice questions; an interactive task where Sara draws the inventory of a bakery after a jump in orders and works out how many extra units it must produce; and three long answers that require arguing, from Sara's own game and Replay, why the chain oscillated and what to do differently. Sara submits before the Test deadline.
@@ -238,7 +239,7 @@ A Lecturer can set Information visibility for the Class session, per Game settin
 #### FR-14: Hidden end and demand
 Students are never shown the number of Weeks in a Game or the customer demand series while playing.
 - Students see the current Week number and their own history, not how many Weeks remain.
-- Only the Retailer Seat sees customer demand, one Week at a time.
+- Only the Retailer Seat sees customer demand, one Week at a time, unless the Lecturer has switched it on for every Seat (FR-83).
 - The Debrief reveals both (FR-44).
 
 #### FR-15: Choose AI mode
@@ -260,6 +261,7 @@ A Lecturer can mark a Class session as obligatory for the course, until the Star
 #### FR-18: Set dates
 A Lecturer can set the Start date, Play deadline, Debrief deadline and Test deadline.
 - Dates must be in this order.
+- The Test deadline defaults to 7 days after the Debrief deadline, and the Lecturer can change it. Founder decision 2026-11-05. `[ASSUMPTION: the 7 days count from the Debrief deadline]`
 - Students see their next deadline on their home screen and get an email 24 hours before each deadline that applies to them. `[ASSUMPTION: 24-hour reminders]`
 - A Lecturer can extend a deadline for the whole Class session or for one Student.
 
@@ -331,7 +333,7 @@ The system places an AI player in every empty Seat of a Class game at the Start 
 #### FR-31: Same information as a human
 An AI player receives only the information a Student in that Seat would see (FR-23): its own data and what arrives from its downstream and upstream neighbours. The game rules are part of the prompt sent when it is the AI player's turn.
 - The prompt describes the situation of a supply chain manager. An AI player is not told that it plays a game, that there are four Seats, or that Weeks advance after all Seats have ordered.
-- No AI player receives customer demand unless it holds the Retailer Seat, or any other Seat's private state.
+- No AI player receives customer demand unless it holds the Retailer Seat, or any other Seat's private state, except what Information visibility shows a Student in that Seat (FR-83).
 - No AI player receives any Student's name, email or other personal data; Seats are referred to by Role.
 
 #### FR-32: Validated orders and fallback
@@ -366,6 +368,8 @@ The system compares every Order from an LLM player with two reference Orders com
 - The comparison is made on weekly Orders, not on chain Total cost, because an LLM player does not see the whole chain.
 - The band: in at least 95% of Weeks the LLM player's Order is within average sensible play, not nonsense; and its Orders are never closer to the near-optimal reference than a set margin of 5%. `[ASSUMPTION: the founder's wording is read as two limits; the distance measure, the number of Weeks compared and the confidence level are set in prototype testing, issues #9, #11]`
 - A Seat the guard has switched stays Rule-based for the rest of the Game, is marked in the Decision log and shown to Students (FR-34). `[ASSUMPTION: switch is permanent for the Game; not yet confirmed]`
+- The guard also applies when the Lecturer has changed the Game settings, and the Rule-based reference is computed for the settings in use. Founder decision 2026-11-05.
+- The band is calibrated on Classic settings and the default Replay scenario. Under other settings, a large deviation from sensible play still switches the Seat. `[ASSUMPTION: what counts as large is set in prototype testing; the 5% limit is not applied on uncalibrated settings]`
 - The guard applies to a Seat's LLM player only; it does not judge Students.
 
 ### 4.7 Inactivity, Takeover and deadlines
@@ -478,7 +482,7 @@ At the end of the Replay the Student sees their Total cost, a chart of the run, 
 **Description:** Each Student shows what they learned in an individual test after the Replay: multiple-choice questions, Interactive items and long answers that require argument, some of them about the Student's own Class game and Replay. The test asks for what remembering the game cannot give: a quantity, a consistent set of graphs, or an explanation of the mechanism. It is not supervised; Interactive items and Adapted items are there to make it harder to answer with outside AI tools. The product provides the question set with Item weights. The test produces no grade in v1. Realizes UJ-6.
 
 #### FR-51: Test availability
-A Student can open the Individual test once they have completed the Replay, until the Test deadline, typically a few days to a week later (FR-18).
+A Student can open the Individual test once they have completed the Replay, until the Test deadline, by default 7 days after the Debrief deadline (FR-18).
 - By default the Student can close the test, return and work as much as they want until the Test deadline; answers are saved automatically and the Student submits once.
 - A Lecturer can instead require one sitting with a time limit.
 - `[ASSUMPTION: saved answers not yet submitted are submitted automatically at the Test deadline; no retakes]`
@@ -711,7 +715,7 @@ Student personal data in a Class session is deleted automatically a set period a
 
 - Accounts by Invitation; roles Admin, Lecturer, Assistant lecturer, Student; Admin area (FR-1 to FR-5).
 - Classes, Roster upload from Canvas export, Invitations with expiry and manual override, co-Lecturers, Assistant lecturers (FR-6 to FR-10).
-- Class session setup with classic defaults, adjustable Game settings, Demand pattern, AI mode, Debrief mode, Obligatory class session, dates and Lab hours (FR-11 to FR-19).
+- Class session setup with classic defaults, adjustable Game settings, Demand pattern, AI mode, Debrief mode, Obligatory class session, dates and Lab hours, Information visibility and capacity (FR-11 to FR-19, FR-83).
 - Random allocation into Class games of up to four with random Roles, optional student choice (FR-20 to FR-22).
 - Simultaneous-order gameplay with hidden end and a clear "waiting for" view (FR-23 to FR-29).
 - LLM players by default, Rule-based players per Class session, schema-checked Orders with retries and fallback, disclosure, Effort setting, Play guard (FR-30 to FR-34, FR-78, FR-79).
@@ -779,7 +783,7 @@ The founder has no capacity for a split-group study in the first semester. The p
 
 ## 10. Rollout
 
-- **Pilot:** one Class session in the founder's own course (about 250 Students). Preconditions: data processing agreement with the founder's Institution; DPIA support pack; prototype evidence for SM-3(a) and SM-6 on test games (issue #8); one rehearsal Class session with test users; one Control test (FR-82). If the Control test does not meet SM-7, the pilot runs with the AI assessment switched off (FR-61).
+- **Pilot:** one Class session in the founder's own course (about 250 Students). Preconditions: data processing agreement with the founder's Institution; DPIA support pack; prototype evidence for the retry rule (FR-32), the Play guard (FR-79) and SM-6 on test games (issues #8, #20); one rehearsal Class session with test users; one Control test (FR-82). If the Control test does not meet SM-7, the pilot runs with the AI assessment switched off (FR-61).
 - **Launch to further Institutions:** after SM-7 is met and the pilot meets SM-4 and SM-5, and the founder accepts the SM-3 results; WCAG 2.1 AA conformance report available; licences kept under the Norwegian procurement threshold (NOK 500,000 excluding VAT) where possible.
 
 ## 11. Risks
@@ -790,7 +794,7 @@ The founder has no capacity for a split-group study in the first semester. The p
 - **Without a grade, Students skip the steps.** The flow only works if students finish it. Mitigation: the Lecturer can mark the Class session as obligatory (FR-17).
 - **Groups never meet for the Group debrief.** Mitigation: fallback to Personal debrief (FR-43).
 - **Debriefs reveal the Demand pattern to Students still playing.** Mitigation: Lecturer option to hold Debriefs (FR-42).
-- **Students use outside AI tools in the Individual test.** This weakens the learning evidence (SM-2, SM-7) more than it threatens fairness, now that the test does not count toward a grade. The test is unsupervised and open for days, and studies of unsupervised written exams show AI answers often go undetected. v1 relies on Interactive items (FR-80) and Adapted items tied to the Student's own games. No evidence shows that Interactive items stop these tools, which can read screenshots, so the founder tries a general AI on the test before the pilot (open question 7).
+- **Students use outside AI tools in the Individual test.** This weakens the learning evidence (SM-2, SM-7) more than it threatens fairness, now that the test does not count toward a grade. The test is unsupervised and open for days, and studies of unsupervised written exams show AI answers often go undetected. v1 relies on Interactive items (FR-80) and Adapted items tied to the Student's own games. No evidence shows that Interactive items stop these tools, which can read screenshots, so the founder tries a general AI on the test before the pilot (open question 6).
 - **Many Takeovers hollow out the Class game.** Mitigation: Lecturer sees Takeovers in the overview; Inactivity limit adjustable; Reclaim.
 - **AI cost runs away with long reasoning or retries.** Mitigation: per-Class session limit with fallback (FR-69).
 
@@ -816,16 +820,15 @@ The founder has no capacity for a split-group study in the first semester. The p
 - FR-5 — Assistant lecturers see AI assessments.
 - FR-7 — Canvas export accepted without editing; format to be confirmed.
 - FR-10 — Lecturers can invite Assistant lecturers.
-- FR-11 — Classic default Game settings values.
 - FR-12 — Parameter ranges; capacity design.
 - FR-83 — Customer-demand visibility option.
 - FR-17 — Share of Weeks required, default 80%; no approval action in the product.
-- FR-18 — 24-hour deadline reminders.
+- FR-18 — 24-hour deadline reminders; the 7-day Test window counts from the Debrief deadline.
 - FR-19 — Lab hours emailed on creation.
 - FR-27 — Turn notifications after 2 hours and 4 hours before Takeover.
 - FR-32 — 8-second limit for LLM Orders; order bound 2×; range violations handled like schema failures; fallback for that Week only.
 - FR-78 — Effort levels and default set after prototype testing.
-- FR-79 — Play guard limits (95%, 5%) read from the founder's wording; permanent switch for the Game.
+- FR-79 — Play guard limits (95%, 5%) read from the founder's wording; permanent switch for the Game; what counts as large under changed settings.
 - SM-3 — 2% bound dropped, variation and plausibility targets not yet confirmed.
 - FR-36 — Inactivity clock starts once the game has started.
 - FR-37 — Reclaim allowed.

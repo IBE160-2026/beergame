@@ -88,7 +88,7 @@ Regulation: AI proposing grades on a test that counts is likely high-risk under 
 - **AI as final grader:** rejected for every version.
 - **Voluntary extra Replays in v1:** removed by the founder on 2026-11-05. The brief's kill bar (median solo Replays above 3) cannot be measured in v1; PRD SM-1 and SM-10 replace it for now.
 - **Explanation as a separate step before the Debrief:** rejected by the founder on 2026-11-05; the Student explains during the Debrief. The research advises explaining before seeing the analysis, so the PRD places the step before the demand reveal.
-- **Supervised Individual test, at least in the pilot** (research recommendation R5): rejected by the founder on 2026-11-05; the test is unsupervised, with Interactive items that are harder to solve with outside AI tools. The research does not show that they are, so the PRD tests it before the pilot (open question 7).
+- **Supervised Individual test, at least in the pilot** (research recommendation R5): rejected by the founder on 2026-11-05; the test is unsupervised, with Interactive items that are harder to solve with outside AI tools. The research does not show that they are, so the PRD tests it before the pilot (open question 6).
 - **One sitting with a 60-minute limit as the default:** replaced by the founder on 2026-11-05; Students can come back as often as they want until the Test deadline, and one sitting with a time limit remains a Lecturer setting.
 - **Join by code without accounts** (competitor norm): rejected because Grades, Replays and Cross-class statistics need persistent identities.
 - **Feide and Canvas in v1:** deferred by the founder.

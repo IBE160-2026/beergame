@@ -14,7 +14,7 @@ Coaching-runden går gjennom de delene av PRD-utkastet der founders vurdering be
 | 2 | Kvalitetskravene til AI-spillerne | Ferdig (spørsmål 4–7 åpne) |
 | 3 | Testen og KI-vurderingen | Ferdig |
 | 4 | Standardparametre og replay-scenarier | Ferdig |
-| Etterpå | Finalisering av PRD-en | Ikke startet |
+| Etterpå | Finalisering av PRD-en | Neste |
 
 ## Tema 1: Brukerreisene (ferdig)
 
@@ -37,7 +37,7 @@ Founder avsluttet temaet 2026-11-05 etter spørsmål 1–3. Beslutninger:
 - Regelen om at regelbaserte spillere blir standard etter piloten, er erstattet av en spillvakt (FR-79) som sammenligner ukentlige ordrer med en regelbasert og en nesten optimal referanse og bytter plassen til regelbasert utenfor båndet. 95 % innenfor fornuftig spill, og ikke nærmere enn 5 % til supersmart.
 - Ugyldige ordrer løses med JSON-skjema og opptil 5 nye forsøk, så regelbasert (FR-32). 2 %-grensen i SM-3(a) er fjernet.
 
-Åpent etter temaet: gjelder fallbacken bare uka eller resten av spillet, hvor lenge en student kan vente (spørsmål 6, med forsøk og effort), variasjon mellom kjøringer (spørsmål 4), måling av troverdighet (spørsmål 5), og når avgjørelsen tas (spørsmål 7). Se PRD §12 punkt 13 og 14.
+Åpent etter temaet: gjelder fallbacken bare uka eller resten av spillet, hvor lenge en student kan vente (spørsmål 6, med forsøk og effort), variasjon mellom kjøringer (spørsmål 4), måling av troverdighet (spørsmål 5), og når avgjørelsen tas (spørsmål 7). Se PRD §12 punkt 12 og 13.
 
 **Mål:** bestemme hva som skal til for å bruke LLM-spillere med 250 studenter, og når regelbaserte spillere blir standard i stedet.
 
@@ -55,7 +55,7 @@ Spørsmål:
 
 ## Tema 3: Testen og KI-vurderingen (ferdig)
 
-**PRD:** FR-51 til FR-56, nye FR-80 og FR-81, SM-7, åpent spørsmål 7. Forskningen ligger i `.docs/planning-artifacts/research/academic-lit-beer-game-test-questions-systems-thinkin-2026-11-05/research.md`.
+**PRD:** FR-51 til FR-56, nye FR-80 til FR-82, SM-7, åpent spørsmål 6. Forskningen ligger i `.docs/planning-artifacts/research/academic-lit-beer-game-test-questions-systems-thinkin-2026-11-05/research.md`.
 
 Runden førte til disse beslutningene:
 
@@ -67,18 +67,17 @@ Runden førte til disse beslutningene:
 - KI-en kontrolleres i en egen kontrolltest med teststudenter før piloten (ny FR-82). Founder skårer den alene. Terskelen på 80 % i SM-7 bekreftes etter den første kontrolltesten.
 - Bokstavgrensene er en lærerinnstilling.
 
-## Tema 4: Standardparametre og replay-scenarier
+## Tema 4: Standardparametre og replay-scenarier (ferdig)
 
-**Mål:** bekrefte spillverdiene mot kursmaterialet ditt.
+**PRD:** FR-11 til FR-13, FR-49, ny FR-83, åpent spørsmål 5. Forskningen ligger i `.docs/planning-artifacts/research/domain-beer-game-variants-and-setup-options-2026-11-05/research.md`.
 
-**PRD:** FR-11, FR-12, FR-49, åpne spørsmål 5 og 6.
+Runden førte til disse beslutningene:
 
-Spørsmål:
-
-1. Stemmer standardverdiene: startlager 12, 4 enheter per plass i forsyningslinjen, etterspørsel 4 som hopper til 8 i uke 5, lagerkostnad 0,50, restordrekostnad 1,00 og 36 uker?
-2. Er ordreforsinkelsen 1 eller 2 uker?
-3. Hva skal være annerledes i innstillingene for et videregående kurs?
-4. Hvordan skal replay-runden gjøres vanskeligere: startbetingelser, etterspørsel eller begge deler?
+- Standardverdiene er bekreftet, med ordreforsinkelse på 2 uker og 36 uker.
+- Læreren kan sette alle spillparametre selv, også for replay-runden. Eneste forhåndsvalg er Classic.
+- Innsyn hos nabo oppstrøms og nedstrøms er med i v1 og er av som standard (FR-83).
+- Kapasitetsgrenser er med som en valgfri innstilling.
+- Replay-runden har som standard samme snitt som klassespillet, men større variasjon i etterspørselen.
 
 ## Etterpå: Finalisering
 
