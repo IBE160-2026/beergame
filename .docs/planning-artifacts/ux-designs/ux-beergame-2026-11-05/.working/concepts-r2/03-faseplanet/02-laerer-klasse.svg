@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 1000" font-family="'Karla','Helvetica Neue',Arial,sans-serif">
+<title>Fase: Lag Klasse</title>
+<desc>Skjema for navn og emnekode, opplasting av Canvas-fil, valg av e-postkolonne, ugyldige rader og utsending av Invitasjoner med status.</desc>
+<style>@import url('https://fonts.googleapis.com/css2?family=STIX+Two+Text:wght@400;500;600;700&amp;family=Karla:wght@400;500;600;700&amp;display=swap');.d03-k{font-family:'Karla','Helvetica Neue',Arial,sans-serif;font-variant-numeric:lining-nums tabular-nums}.d03-s{font-family:'STIX Two Text','Times New Roman',serif;font-variant-numeric:lining-nums tabular-nums}</style>
+<g id="d03-02-rot">
+<rect x="0.0" y="0.0" width="1440.0" height="1000.0" fill="#F6F8FB"/>
+<text class="d03-s" x="48.0" y="54.0" font-size="22" fill="#16233B" font-weight="600">Fase</text>
+<text class="d03-s" x="110.0" y="53.0" font-size="30" fill="#16233B" font-weight="600">Lag Klasse</text>
+<text class="d03-k" x="1392.0" y="50.0" font-size="15" fill="#4A5A72" text-anchor="end">Faglærer Bård</text>
+<line x1="48.0" y1="74.0" x2="1392.0" y2="74.0" stroke="#D3DCE6" stroke-width="1"/>
+<text class="d03-k" x="48.0" y="112.0" font-size="14.5" fill="#16233B" font-weight="600">Navn på Klassen</text>
+<rect x="48.0" y="120.0" width="300.0" height="44.0" fill="#FFFFFF" stroke="#8494A8" stroke-width="1" rx="5"/>
+<text class="d03-k" x="60.0" y="147.5" font-size="16" fill="#16233B">class-of-1994</text>
+<text class="d03-k" x="364.0" y="112.0" font-size="14.5" fill="#16233B" font-weight="600">Emnekode</text>
+<rect x="364.0" y="120.0" width="150.0" height="44.0" fill="#FFFFFF" stroke="#8494A8" stroke-width="1" rx="5"/>
+<text class="d03-k" x="376.0" y="147.5" font-size="16" fill="#16233B">IBE160</text>
+<text class="d03-k" x="48.0" y="202.0" font-size="14.5" fill="#16233B" font-weight="600">Klasseliste fra Canvas</text>
+<rect x="48.0" y="212.0" width="466.0" height="72.0" fill="#FFFFFF" stroke="#8494A8" stroke-width="1" rx="5" stroke-dasharray="5 4"/>
+<text class="d03-k" x="64.0" y="242.0" font-size="16" fill="#16233B" font-weight="600">ibe160-canvas-eksport.xlsx</text>
+<text class="d03-k" x="64.0" y="266.0" font-size="14.5" fill="#4A5A72">250 rader lest</text>
+<text class="d03-k" x="498.0" y="242.0" font-size="14.5" fill="#14356F" font-weight="600" text-anchor="end">Bytt fil</text>
+<text class="d03-k" x="48.0" y="316.0" font-size="14.5" fill="#16233B" font-weight="600">Hvilken kolonne er e-post?</text>
+<rect x="48.0" y="326.0" width="136.0" height="40.0" fill="none" stroke="#8494A8" stroke-width="1" rx="5"/>
+<text class="d03-k" x="116.0" y="351.0" font-size="15" fill="#16233B" font-weight="600" text-anchor="middle">SIS Login ID</text>
+<rect x="192.0" y="326.0" width="80.0" height="40.0" fill="#14356F" stroke="#14356F" stroke-width="1" rx="5"/>
+<text class="d03-k" x="232.0" y="351.0" font-size="15" fill="#FFFFFF" font-weight="600" text-anchor="middle">Email</text>
+<rect x="280.0" y="326.0" width="96.0" height="40.0" fill="none" stroke="#8494A8" stroke-width="1" rx="5"/>
+<text class="d03-k" x="328.0" y="351.0" font-size="15" fill="#16233B" font-weight="600" text-anchor="middle">Section</text>
+<text class="d03-k" x="48.0" y="392.0" font-size="13.5" fill="#4A5A72">Første rad er overskrift. Eksempel fra kolonnen: ida.berg@student.example</text>
+<text class="d03-s" x="48.0" y="448.0" font-size="24" fill="#16233B" font-weight="600">Send Invitasjoner</text>
+<text class="d03-k" x="48.0" y="476.0" font-size="15.5" fill="#16233B">246 gyldige adresser får en lenke. Invitasjonen er gyldig i</text>
+<text class="d03-k" x="48.0" y="498.0" font-size="15.5" fill="#16233B">14 dager. Studentene registrerer seg selv.</text>
+<rect x="48.0" y="530.0" width="340.0" height="54.0" fill="#14356F" rx="7"/>
+<text class="d03-k" x="218.0" y="562.8" font-size="17" fill="#FFFFFF" font-weight="600" text-anchor="middle">Send 246 Invitasjoner</text>
+<text class="d03-k" x="48.0" y="612.0" font-size="14" fill="#4A5A72">Rett de 4 ugyldige radene først, eller send uten dem.</text>
+<text class="d03-s" x="48.0" y="672.0" font-size="24" fill="#16233B" font-weight="600">Status etter utsending</text>
+<rect x="48.0" y="690.0" width="441.6" height="14.0" fill="#14356F" rx="1.5"/>
+<rect x="491.6" y="690.0" width="2.0" height="14.0" fill="#5D7AA3" rx="1.5"/>
+<rect x="495.4" y="690.0" width="16.6" height="14.0" fill="#B3C1D3" rx="1.5"/>
+<text class="d03-k" x="48.0" y="732.0" font-size="15.5" fill="#16233B">Registrert</text>
+<text class="d03-s" x="514.0" y="732.0" font-size="17" fill="#16233B" font-weight="500" text-anchor="end">238</text>
+<line x1="48.0" y1="739.0" x2="514.0" y2="739.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="48.0" y="762.0" font-size="15.5" fill="#16233B">Manuelt registrert</text>
+<text class="d03-s" x="514.0" y="762.0" font-size="17" fill="#16233B" font-weight="500" text-anchor="end">2</text>
+<line x1="48.0" y1="769.0" x2="514.0" y2="769.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="48.0" y="792.0" font-size="15.5" fill="#16233B">Uregistrert</text>
+<text class="d03-s" x="514.0" y="792.0" font-size="17" fill="#16233B" font-weight="500" text-anchor="end">10</text>
+<line x1="48.0" y1="799.0" x2="514.0" y2="799.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="48.0" y="830.0" font-size="14" fill="#4A5A72">250 av 250 rader. Purring sendes med ett trykk til de uregistrerte.</text>
+<text class="d03-s" x="590.0" y="126.0" font-size="30" fill="#16233B" font-weight="600">Fire rader må rettes</text>
+<text class="d03-k" x="590.0" y="154.0" font-size="15.5" fill="#4A5A72">Radnummer fra filen din. Skriv inn riktig adresse, eller hopp over raden.</text>
+<text class="d03-k" x="590.0" y="200.0" font-size="13.5" fill="#4A5A72" font-weight="600">Rad</text>
+<text class="d03-k" x="650.0" y="200.0" font-size="13.5" fill="#4A5A72" font-weight="600">Student</text>
+<text class="d03-k" x="800.0" y="200.0" font-size="13.5" fill="#4A5A72" font-weight="600">I filen</text>
+<text class="d03-k" x="1030.0" y="200.0" font-size="13.5" fill="#4A5A72" font-weight="600">Feil</text>
+<text class="d03-k" x="1180.0" y="200.0" font-size="13.5" fill="#4A5A72" font-weight="600">Rett til</text>
+<line x1="590.0" y1="208.0" x2="1392.0" y2="208.0" stroke="#8494A8" stroke-width="1"/>
+<text class="d03-s" x="590.0" y="244.0" font-size="17" fill="#16233B" font-weight="600">37</text>
+<text class="d03-k" x="650.0" y="244.0" font-size="15.5" fill="#16233B">Mari Holm</text>
+<text class="d03-k" x="800.0" y="244.0" font-size="15" fill="#4A5A72">mari.holm@student</text>
+<text class="d03-k" x="1030.0" y="244.0" font-size="15" fill="#16233B">Mangler domene</text>
+<rect x="1180.0" y="220.0" width="212.0" height="36.0" fill="#FFFFFF" stroke="#8494A8" stroke-width="1" rx="4"/>
+<line x1="590.0" y1="264.0" x2="1392.0" y2="264.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-s" x="590.0" y="300.0" font-size="17" fill="#16233B" font-weight="600">88</text>
+<text class="d03-k" x="650.0" y="300.0" font-size="15.5" fill="#16233B">Jakob Lie</text>
+<text class="d03-k" x="800.0" y="300.0" font-size="15" fill="#4A5A72">jakob.lie.student.example</text>
+<text class="d03-k" x="1030.0" y="300.0" font-size="15" fill="#16233B">Mangler @</text>
+<rect x="1180.0" y="276.0" width="212.0" height="36.0" fill="#FFFFFF" stroke="#8494A8" stroke-width="1" rx="4"/>
+<line x1="590.0" y1="320.0" x2="1392.0" y2="320.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-s" x="590.0" y="356.0" font-size="17" fill="#16233B" font-weight="600">141</text>
+<text class="d03-k" x="650.0" y="356.0" font-size="15.5" fill="#16233B">Sofie Dahl</text>
+<text class="d03-k" x="800.0" y="356.0" font-size="15" fill="#4A5A72">sofie dahl@student.example</text>
+<text class="d03-k" x="1030.0" y="356.0" font-size="15" fill="#16233B">Mellomrom</text>
+<rect x="1180.0" y="332.0" width="212.0" height="36.0" fill="#FFFFFF" stroke="#8494A8" stroke-width="1" rx="4"/>
+<line x1="590.0" y1="376.0" x2="1392.0" y2="376.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-s" x="590.0" y="412.0" font-size="17" fill="#16233B" font-weight="600">203</text>
+<text class="d03-k" x="650.0" y="412.0" font-size="15.5" fill="#16233B">Emil Aas</text>
+<text class="d03-k" x="800.0" y="412.0" font-size="15" fill="#4A5A72">(tom)</text>
+<text class="d03-k" x="1030.0" y="412.0" font-size="15" fill="#16233B">Tom celle</text>
+<rect x="1180.0" y="388.0" width="212.0" height="36.0" fill="#FFFFFF" stroke="#8494A8" stroke-width="1" rx="4"/>
+<line x1="590.0" y1="432.0" x2="1392.0" y2="432.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="590.0" y="482.0" font-size="15" fill="#14356F" font-weight="600">Hopp over disse 4</text>
+<line x1="590.0" y1="486.0" x2="712.0" y2="486.0" stroke="#14356F" stroke-width="1"/>
+<text class="d03-s" x="590.0" y="544.0" font-size="24" fill="#16233B" font-weight="600">Slik leste vi filen</text>
+<text class="d03-k" x="590.0" y="574.0" font-size="13.5" fill="#4A5A72" font-weight="600">Rad</text>
+<text class="d03-k" x="650.0" y="574.0" font-size="13.5" fill="#4A5A72" font-weight="600">Student</text>
+<text class="d03-k" x="800.0" y="574.0" font-size="13.5" fill="#4A5A72" font-weight="600">E-post</text>
+<text class="d03-k" x="1180.0" y="574.0" font-size="13.5" fill="#4A5A72" font-weight="600">Sjekk</text>
+<line x1="590.0" y1="582.0" x2="1392.0" y2="582.0" stroke="#8494A8" stroke-width="1"/>
+<text class="d03-s" x="590.0" y="606.0" font-size="15" fill="#16233B">1</text>
+<text class="d03-k" x="650.0" y="606.0" font-size="15" fill="#16233B">Ida Berg</text>
+<text class="d03-k" x="800.0" y="606.0" font-size="15" fill="#4A5A72">ida.berg@student.example</text>
+<text class="d03-k" x="1180.0" y="606.0" font-size="15" fill="#16233B">Gyldig</text>
+<line x1="590.0" y1="616.0" x2="1392.0" y2="616.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-s" x="590.0" y="638.0" font-size="15" fill="#16233B">2</text>
+<text class="d03-k" x="650.0" y="638.0" font-size="15" fill="#16233B">Sara Nilsen</text>
+<text class="d03-k" x="800.0" y="638.0" font-size="15" fill="#4A5A72">sara.nilsen@student.example</text>
+<text class="d03-k" x="1180.0" y="638.0" font-size="15" fill="#16233B">Gyldig</text>
+<line x1="590.0" y1="648.0" x2="1392.0" y2="648.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-s" x="590.0" y="670.0" font-size="15" fill="#16233B">3</text>
+<text class="d03-k" x="650.0" y="670.0" font-size="15" fill="#16233B">Mikkel Moe</text>
+<text class="d03-k" x="800.0" y="670.0" font-size="15" fill="#4A5A72">mikkel.moe@student.example</text>
+<text class="d03-k" x="1180.0" y="670.0" font-size="15" fill="#16233B">Gyldig</text>
+<line x1="590.0" y1="680.0" x2="1392.0" y2="680.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-s" x="590.0" y="702.0" font-size="15" fill="#16233B">4</text>
+<text class="d03-k" x="650.0" y="702.0" font-size="15" fill="#16233B">Jonas Vik</text>
+<text class="d03-k" x="800.0" y="702.0" font-size="15" fill="#4A5A72">jonas.vik@student.example</text>
+<text class="d03-k" x="1180.0" y="702.0" font-size="15" fill="#16233B">Gyldig</text>
+<line x1="590.0" y1="712.0" x2="1392.0" y2="712.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-s" x="590.0" y="734.0" font-size="15" fill="#16233B">5</text>
+<text class="d03-k" x="650.0" y="734.0" font-size="15" fill="#16233B">Noah Strand</text>
+<text class="d03-k" x="800.0" y="734.0" font-size="15" fill="#4A5A72">noah.strand@student.example</text>
+<text class="d03-k" x="1180.0" y="734.0" font-size="15" fill="#16233B">Gyldig</text>
+<line x1="590.0" y1="744.0" x2="1392.0" y2="744.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="590.0" y="778.0" font-size="14" fill="#4A5A72">og 245 rader til. Demodata.</text>
+</g>
+</svg>

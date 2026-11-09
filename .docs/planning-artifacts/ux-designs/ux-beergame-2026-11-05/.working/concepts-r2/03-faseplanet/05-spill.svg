@@ -1,0 +1,386 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" font-family="'Karla','Helvetica Neue',Arial,sans-serif">
+<title>Fase: Saras skjerm i Uke 11 med 24 tastet inn</title>
+<desc>Telefon med faseplan, åpnet panel med alle tall, og laptop. Posisjon 3 blir 27 med ordre 24.</desc>
+<style>@import url('https://fonts.googleapis.com/css2?family=STIX+Two+Text:wght@400;500;600;700&amp;family=Karla:wght@400;500;600;700&amp;display=swap');.d03-k{font-family:'Karla','Helvetica Neue',Arial,sans-serif;font-variant-numeric:lining-nums tabular-nums}.d03-s{font-family:'STIX Two Text','Times New Roman',serif;font-variant-numeric:lining-nums tabular-nums}</style>
+<g id="d03-05-rot">
+<rect x="0.0" y="0.0" width="1600.0" height="1000.0" fill="#E8EDF3"/>
+<text class="d03-s" x="40.0" y="50.0" font-size="32" fill="#16233B" font-weight="600">Uke 11: du bestemmer hvor langt opp</text>
+<text class="d03-k" x="1560.0" y="50.0" font-size="15" fill="#4A5A72" text-anchor="end">Demodata</text>
+<g transform="translate(40.0 78.0) scale(1.0)">
+<rect x="0.0" y="0.0" width="390.0" height="844.0" fill="#F6F8FB" stroke="#9AA9BC" stroke-width="1.5" rx="30"/>
+<text class="d03-s" x="20.0" y="44.0" font-size="30" fill="#16233B" font-weight="600">Uke 11</text>
+<text class="d03-k" x="20.0" y="65.0" font-size="14" fill="#4A5A72">Grossist, Sara</text>
+<text class="d03-k" x="370.0" y="30.0" font-size="13" fill="#4A5A72" text-anchor="end">Totalkostnad</text>
+<text class="d03-s" x="370.0" y="52.0" font-size="21" fill="#16233B" font-weight="500" text-anchor="end">68,00 kr</text>
+<line x1="55.0" y1="84.0" x2="55.0" y2="434.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="125.0" y1="84.0" x2="125.0" y2="434.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="195.0" y1="84.0" x2="195.0" y2="434.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="265.0" y1="84.0" x2="265.0" y2="434.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="335.0" y1="84.0" x2="335.0" y2="434.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="20.0" y1="399.0" x2="370.0" y2="399.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="20.0" y1="329.0" x2="370.0" y2="329.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="20.0" y1="259.0" x2="370.0" y2="259.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="20.0" y1="189.0" x2="370.0" y2="189.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="20.0" y1="119.0" x2="370.0" y2="119.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="20.0" y1="84.0" x2="20.0" y2="434.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="90.0" y1="84.0" x2="90.0" y2="434.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="160.0" y1="84.0" x2="160.0" y2="434.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="230.0" y1="84.0" x2="230.0" y2="434.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="300.0" y1="84.0" x2="300.0" y2="434.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="370.0" y1="84.0" x2="370.0" y2="434.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="20.0" y1="434.0" x2="370.0" y2="434.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="20.0" y1="364.0" x2="370.0" y2="364.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="20.0" y1="294.0" x2="370.0" y2="294.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="20.0" y1="224.0" x2="370.0" y2="224.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="20.0" y1="154.0" x2="370.0" y2="154.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="20.0" y1="84.0" x2="370.0" y2="84.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="230.0" y1="84.0" x2="230.0" y2="434.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="20.0" y1="434.0" x2="370.0" y2="434.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-s" x="90.0" y="450.0" font-size="13" fill="#4A5A72" text-anchor="middle">−20</text>
+<text class="d03-s" x="230.0" y="450.0" font-size="13" fill="#4A5A72" text-anchor="middle">0</text>
+<text class="d03-s" x="370.0" y="450.0" font-size="13" fill="#4A5A72" text-anchor="middle">20</text>
+<text class="d03-s" x="23.0" y="291.0" font-size="13" fill="#4A5A72">20</text>
+<text class="d03-s" x="23.0" y="151.0" font-size="13" fill="#4A5A72">40</text>
+<text class="d03-k" x="24.0" y="428.0" font-size="13" fill="#4A5A72" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Restordre</text>
+<text class="d03-k" x="366.0" y="428.0" font-size="13" fill="#4A5A72" text-anchor="end" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Lager</text>
+<text class="d03-k" x="23.0" y="98.0" font-size="13" fill="#4A5A72" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">På vei</text>
+<line x1="20.0" y1="203.0" x2="251.0" y2="434.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-k" x="222.2" y="398.1" font-size="13" fill="#16233B" font-weight="500" text-anchor="middle" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round" transform="rotate(45 222.2 398.1)">Posisjon 3</text>
+<line x1="69.0" y1="84.0" x2="370.0" y2="385.0" stroke="#C9481A" stroke-width="1.3" stroke-dasharray="5 4"/>
+<text class="d03-k" x="289.3" y="297.2" font-size="13" fill="#16233B" font-weight="700" text-anchor="middle" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round" transform="rotate(45 289.3 297.2)">Posisjon 27</text>
+<line x1="314.0" y1="350.0" x2="300.0" y2="350.0" stroke="#47628F" stroke-width="2.09" stroke-linecap="round"/>
+<line x1="300.0" y1="350.0" x2="258.0" y2="350.0" stroke="#3B5787" stroke-width="2.21" stroke-linecap="round"/>
+<line x1="258.0" y1="350.0" x2="209.0" y2="350.0" stroke="#2E4C7F" stroke-width="2.34" stroke-linecap="round"/>
+<line x1="209.0" y1="350.0" x2="167.0" y2="350.0" stroke="#214077" stroke-width="2.47" stroke-linecap="round"/>
+<line x1="167.0" y1="350.0" x2="139.0" y2="322.0" stroke="#14356F" stroke-width="2.6" stroke-linecap="round"/>
+<circle cx="314.0" cy="350.0" r="1.8" fill="#8DA0BB"/>
+<circle cx="314.0" cy="350.0" r="1.8" fill="#8296B4"/>
+<circle cx="314.0" cy="350.0" r="1.8" fill="#778CAD"/>
+<circle cx="314.0" cy="350.0" r="1.8" fill="#6B82A6"/>
+<circle cx="314.0" cy="350.0" r="1.8" fill="#5F779E"/>
+<circle cx="314.0" cy="350.0" r="1.8" fill="#536D97"/>
+<circle cx="300.0" cy="350.0" r="1.8" fill="#47628F"/>
+<circle cx="258.0" cy="350.0" r="1.8" fill="#3B5787"/>
+<circle cx="209.0" cy="350.0" r="1.8" fill="#2E4C7F"/>
+<circle cx="167.0" cy="350.0" r="1.8" fill="#214077"/>
+<circle cx="139.0" cy="322.0" r="1.8" fill="#14356F"/>
+<text class="d03-k" x="314.0" y="367.0" font-size="13" fill="#4A5A72" font-weight="500" text-anchor="middle" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Uke 1</text>
+<line x1="139.0" y1="322.0" x2="139.0" y2="154.0" stroke="#C9481A" stroke-width="2.6" stroke-linecap="round"/>
+<line x1="139.0" y1="154.0" x2="142.9" y2="162.1" stroke="#C9481A" stroke-width="2.6" stroke-linecap="round"/>
+<line x1="139.0" y1="154.0" x2="135.1" y2="162.1" stroke="#C9481A" stroke-width="2.6" stroke-linecap="round"/>
+<text class="d03-s" x="148.0" y="238.0" font-size="18" fill="#16233B" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">+24</text>
+<circle cx="139.0" cy="322.0" r="6" fill="#C9481A" stroke="#F6F8FB" stroke-width="2"/>
+<text class="d03-k" x="129.0" y="341.0" font-size="14" fill="#16233B" font-weight="600" text-anchor="end" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Uke 11</text>
+<line x1="20.0" y1="503.6" x2="286.0" y2="503.6" stroke="#8494A8" stroke-width="1"/>
+<line x1="20.0" y1="490.2" x2="46.6" y2="490.2" stroke="#889CB9" stroke-width="0.83" stroke-linecap="round"/>
+<line x1="46.6" y1="490.2" x2="73.2" y2="490.2" stroke="#8195B4" stroke-width="0.86" stroke-linecap="round"/>
+<line x1="73.2" y1="490.2" x2="99.8" y2="490.2" stroke="#7A8FB0" stroke-width="0.89" stroke-linecap="round"/>
+<line x1="99.8" y1="490.2" x2="126.4" y2="490.2" stroke="#7289AB" stroke-width="0.92" stroke-linecap="round"/>
+<line x1="126.4" y1="490.2" x2="153.0" y2="490.2" stroke="#6B82A7" stroke-width="0.95" stroke-linecap="round"/>
+<line x1="153.0" y1="490.2" x2="179.6" y2="490.2" stroke="#637BA2" stroke-width="0.98" stroke-linecap="round"/>
+<line x1="179.6" y1="490.2" x2="206.2" y2="490.2" stroke="#5C759D" stroke-width="1.01" stroke-linecap="round"/>
+<line x1="206.2" y1="490.2" x2="232.8" y2="490.2" stroke="#546E99" stroke-width="1.04" stroke-linecap="round"/>
+<line x1="232.8" y1="490.2" x2="259.4" y2="490.2" stroke="#4C6794" stroke-width="1.07" stroke-linecap="round"/>
+<line x1="259.4" y1="490.2" x2="286.0" y2="485.7" stroke="#44608F" stroke-width="1.1" stroke-linecap="round"/>
+<line x1="20.0" y1="490.2" x2="46.6" y2="490.2" stroke="#768BAC" stroke-width="1.66" stroke-linecap="round"/>
+<line x1="46.6" y1="490.2" x2="73.2" y2="490.2" stroke="#6B82A6" stroke-width="1.72" stroke-linecap="round"/>
+<line x1="73.2" y1="490.2" x2="99.8" y2="490.2" stroke="#61799F" stroke-width="1.77" stroke-linecap="round"/>
+<line x1="99.8" y1="490.2" x2="126.4" y2="490.2" stroke="#566F99" stroke-width="1.83" stroke-linecap="round"/>
+<line x1="126.4" y1="490.2" x2="153.0" y2="490.2" stroke="#4C6692" stroke-width="1.89" stroke-linecap="round"/>
+<line x1="153.0" y1="490.2" x2="179.6" y2="492.4" stroke="#415C8B" stroke-width="1.95" stroke-linecap="round"/>
+<line x1="179.6" y1="492.4" x2="206.2" y2="499.1" stroke="#365384" stroke-width="2.01" stroke-linecap="round"/>
+<line x1="206.2" y1="499.1" x2="232.8" y2="507.0" stroke="#2B497D" stroke-width="2.07" stroke-linecap="round"/>
+<line x1="232.8" y1="507.0" x2="259.4" y2="513.7" stroke="#1F3F76" stroke-width="2.14" stroke-linecap="round"/>
+<line x1="259.4" y1="513.7" x2="286.0" y2="518.2" stroke="#14356F" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="286.0" y1="468.0" x2="286.0" y2="528.0" stroke="#D3DCE6" stroke-width="1"/>
+<circle cx="286.0" cy="518.2" r="3.2" fill="#C9481A"/>
+<text class="d03-k" x="292.0" y="522.2" font-size="13" fill="#16233B" font-weight="600">Netto −13</text>
+<text class="d03-k" x="292.0" y="489.7" font-size="13" fill="#4A5A72">På vei 16</text>
+<text class="d03-k" x="20.0" y="556.0" font-size="14.5" fill="#16233B">Lager 0 − Restordre 13 + På vei 16 = </text>
+<text class="d03-k" x="297.0" y="556.0" font-size="14.5" fill="#16233B" font-weight="700">Posisjon 3</text>
+<text class="d03-k" x="20.0" y="581.0" font-size="14.5" fill="#16233B">Posisjon 3 + ordre 24 = </text>
+<text class="d03-k" x="184.0" y="581.0" font-size="14.5" fill="#16233B" font-weight="700">Posisjon 27</text>
+<text class="d03-k" x="370.0" y="581.0" font-size="14.5" fill="#14356F" font-weight="600" text-anchor="end">Alle tall</text>
+<line x1="318.0" y1="584.5" x2="370.0" y2="584.5" stroke="#14356F" stroke-width="1"/>
+<rect x="20.0" y="600.0" width="96.0" height="60.0" fill="#FFFFFF" stroke="#14356F" stroke-width="1.4" rx="7"/>
+<text class="d03-s" x="68.0" y="642.0" font-size="36" fill="#16233B" font-weight="600" text-anchor="middle">24</text>
+<rect x="126.0" y="600.0" width="244.0" height="60.0" fill="#14356F" rx="7"/>
+<text class="d03-k" x="248.0" y="636.5" font-size="19" fill="#FFFFFF" font-weight="600" text-anchor="middle">Bestill 24</text>
+<rect x="20.0" y="680.0" width="52.3" height="42.0" fill="#E4EAF1" rx="6"/>
+<text class="d03-s" x="46.1" y="708.0" font-size="20" fill="#16233B" font-weight="500" text-anchor="middle">1</text>
+<rect x="79.5" y="680.0" width="52.3" height="42.0" fill="#E4EAF1" rx="6"/>
+<text class="d03-s" x="105.7" y="708.0" font-size="20" fill="#16233B" font-weight="500" text-anchor="middle">2</text>
+<rect x="139.0" y="680.0" width="52.3" height="42.0" fill="#E4EAF1" rx="6"/>
+<text class="d03-s" x="165.2" y="708.0" font-size="20" fill="#16233B" font-weight="500" text-anchor="middle">3</text>
+<rect x="198.5" y="680.0" width="52.3" height="42.0" fill="#E4EAF1" rx="6"/>
+<text class="d03-s" x="224.7" y="708.0" font-size="20" fill="#16233B" font-weight="500" text-anchor="middle">4</text>
+<rect x="258.0" y="680.0" width="52.3" height="42.0" fill="#E4EAF1" rx="6"/>
+<text class="d03-s" x="284.1" y="708.0" font-size="20" fill="#16233B" font-weight="500" text-anchor="middle">5</text>
+<rect x="317.5" y="680.0" width="52.3" height="42.0" fill="#E4EAF1" rx="6"/>
+<text class="d03-s" x="343.6" y="708.0" font-size="20" fill="#16233B" font-weight="500" text-anchor="middle">6</text>
+<rect x="20.0" y="729.0" width="52.3" height="42.0" fill="#E4EAF1" rx="6"/>
+<text class="d03-s" x="46.1" y="757.0" font-size="20" fill="#16233B" font-weight="500" text-anchor="middle">7</text>
+<rect x="79.5" y="729.0" width="52.3" height="42.0" fill="#E4EAF1" rx="6"/>
+<text class="d03-s" x="105.7" y="757.0" font-size="20" fill="#16233B" font-weight="500" text-anchor="middle">8</text>
+<rect x="139.0" y="729.0" width="52.3" height="42.0" fill="#E4EAF1" rx="6"/>
+<text class="d03-s" x="165.2" y="757.0" font-size="20" fill="#16233B" font-weight="500" text-anchor="middle">9</text>
+<rect x="198.5" y="729.0" width="52.3" height="42.0" fill="#E4EAF1" rx="6"/>
+<text class="d03-s" x="224.7" y="757.0" font-size="20" fill="#16233B" font-weight="500" text-anchor="middle">0</text>
+<rect x="258.0" y="729.0" width="111.8" height="42.0" fill="#E4EAF1" rx="6"/>
+<path d="M300.9,750.0 L307.9,742.0 L326.9,742.0 L326.9,758.0 L307.9,758.0 Z" fill="none" stroke="#16233B" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="312.9" y1="746.5" x2="319.9" y2="753.5" stroke="#16233B" stroke-width="1.4"/>
+<line x1="319.9" y1="746.5" x2="312.9" y2="753.5" stroke="#16233B" stroke-width="1.4"/>
+<text class="d03-k" x="20.0" y="792.0" font-size="13.5" fill="#4A5A72">Ida og Mikkel har bestilt. Jonas venter, 3 min.</text>
+<text class="d03-k" x="20.0" y="811.0" font-size="13.5" fill="#4A5A72">Ordren kan ikke endres etter at du har bestilt.</text>
+</g>
+<rect x="452.0" y="78.0" width="372.0" height="844.0" fill="#F6F8FB" stroke="#D3DCE6" stroke-width="1" rx="12"/>
+<text class="d03-s" x="472.0" y="116.0" font-size="24" fill="#16233B" font-weight="600">Alle tall</text>
+<text class="d03-k" x="804.0" y="114.0" font-size="15" fill="#14356F" font-weight="600" text-anchor="end">Lukk</text>
+<text class="d03-k" x="472.0" y="138.0" font-size="13.5" fill="#4A5A72">Ett trykk fra planet. Uke 11, Grossist.</text>
+<text class="d03-k" x="472.0" y="166.0" font-size="14.5" fill="#16233B">Lager</text>
+<text class="d03-s" x="804.0" y="166.0" font-size="16" fill="#16233B" font-weight="500" text-anchor="end">0</text>
+<line x1="472.0" y1="173.0" x2="804.0" y2="173.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="472.0" y="193.0" font-size="14.5" fill="#16233B">Restordre</text>
+<text class="d03-s" x="804.0" y="193.0" font-size="16" fill="#16233B" font-weight="500" text-anchor="end">13</text>
+<line x1="472.0" y1="200.0" x2="804.0" y2="200.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="472.0" y="220.0" font-size="14.5" fill="#16233B">Innkommende ordre</text>
+<text class="d03-s" x="804.0" y="220.0" font-size="16" fill="#16233B" font-weight="500" text-anchor="end">8</text>
+<line x1="472.0" y1="227.0" x2="804.0" y2="227.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="472.0" y="247.0" font-size="14.5" fill="#16233B">Levering</text>
+<text class="d03-s" x="804.0" y="247.0" font-size="16" fill="#16233B" font-weight="500" text-anchor="end">4</text>
+<line x1="472.0" y1="254.0" x2="804.0" y2="254.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="472.0" y="274.0" font-size="14.5" fill="#16233B">Sendt</text>
+<text class="d03-s" x="804.0" y="274.0" font-size="16" fill="#16233B" font-weight="500" text-anchor="end">4</text>
+<line x1="472.0" y1="281.0" x2="804.0" y2="281.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="472.0" y="301.0" font-size="14.5" fill="#16233B">På vei</text>
+<text class="d03-s" x="804.0" y="301.0" font-size="16" fill="#16233B" font-weight="500" text-anchor="end">16</text>
+<line x1="472.0" y1="308.0" x2="804.0" y2="308.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="472.0" y="328.0" font-size="14.5" fill="#16233B">Neste levering, ikke garantert</text>
+<text class="d03-s" x="804.0" y="328.0" font-size="16" fill="#16233B" font-weight="500" text-anchor="end">4</text>
+<line x1="472.0" y1="335.0" x2="804.0" y2="335.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="472.0" y="355.0" font-size="14.5" fill="#16233B">Posisjon</text>
+<text class="d03-s" x="804.0" y="355.0" font-size="16" fill="#16233B" font-weight="500" text-anchor="end">3</text>
+<line x1="472.0" y1="362.0" x2="804.0" y2="362.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="472.0" y="382.0" font-size="14.5" fill="#16233B">Totalkostnad</text>
+<text class="d03-s" x="804.0" y="382.0" font-size="16" fill="#16233B" font-weight="500" text-anchor="end">68,00 kr</text>
+<line x1="472.0" y1="389.0" x2="804.0" y2="389.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-s" x="472.0" y="421.0" font-size="16" fill="#16233B" font-weight="600">Slik kom du hit fra Uke 10</text>
+<line x1="526.0" y1="431.0" x2="526.0" y2="539.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="586.0" y1="431.0" x2="586.0" y2="539.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="646.0" y1="431.0" x2="646.0" y2="539.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="472.0" y1="485.0" x2="664.0" y2="485.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="496.0" y1="431.0" x2="496.0" y2="539.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="556.0" y1="431.0" x2="556.0" y2="539.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="616.0" y1="431.0" x2="616.0" y2="539.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="472.0" y1="515.0" x2="664.0" y2="515.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="472.0" y1="455.0" x2="664.0" y2="455.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="616.0" y1="431.0" x2="616.0" y2="539.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="472.0" y1="539.0" x2="664.0" y2="539.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="562.0" y1="503.0" x2="562.0" y2="455.0" stroke="#C9481A" stroke-width="2" stroke-linecap="round"/>
+<line x1="562.0" y1="455.0" x2="565.0" y2="461.3" stroke="#C9481A" stroke-width="2" stroke-linecap="round"/>
+<line x1="562.0" y1="455.0" x2="559.0" y2="461.3" stroke="#C9481A" stroke-width="2" stroke-linecap="round"/>
+<line x1="562.0" y1="455.0" x2="586.0" y2="479.0" stroke="#14356F" stroke-width="2" stroke-linecap="round"/>
+<line x1="586.0" y1="479.0" x2="579.4" y2="476.7" stroke="#14356F" stroke-width="2" stroke-linecap="round"/>
+<line x1="586.0" y1="479.0" x2="583.7" y2="472.4" stroke="#14356F" stroke-width="2" stroke-linecap="round"/>
+<line x1="586.0" y1="479.0" x2="538.0" y2="479.0" stroke="#4A5A72" stroke-width="2" stroke-linecap="round"/>
+<line x1="538.0" y1="479.0" x2="544.3" y2="476.0" stroke="#4A5A72" stroke-width="2" stroke-linecap="round"/>
+<line x1="538.0" y1="479.0" x2="544.3" y2="482.0" stroke="#4A5A72" stroke-width="2" stroke-linecap="round"/>
+<circle cx="562.0" cy="503.0" r="3.5" fill="#14356F"/>
+<text class="d03-k" x="570.0" y="518.0" font-size="13" fill="#4A5A72" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Uke 10</text>
+<circle cx="538.0" cy="479.0" r="5" fill="#C9481A" stroke="#F6F8FB" stroke-width="2"/>
+<text class="d03-k" x="530.0" y="495.0" font-size="13" fill="#16233B" font-weight="600" text-anchor="end" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Uke 11</text>
+<text class="d03-k" x="676.0" y="451.0" font-size="13.5" fill="#16233B">Opp 8: Ordre</text>
+<text class="d03-k" x="676.0" y="473.0" font-size="13.5" fill="#16233B">Skrått 4: Levering</text>
+<text class="d03-k" x="676.0" y="495.0" font-size="13.5" fill="#16233B">Venstre 8:</text>
+<text class="d03-k" x="676.0" y="513.0" font-size="13.5" fill="#16233B">Innkommende ordre</text>
+<text class="d03-s" x="472.0" y="567.0" font-size="16" fill="#16233B" font-weight="600">Inn og ut</text>
+<text class="d03-k" x="804.0" y="567.0" font-size="13" fill="#4A5A72" text-anchor="end">Avstanden er endringen i netto</text>
+<polygon points="472.0,621.7 499.0,621.7 499.0,621.7 472.0,621.7" fill="#14356F" fill-opacity="0.13"/>
+<polygon points="499.0,621.7 526.0,621.7 526.0,621.7 499.0,621.7" fill="#14356F" fill-opacity="0.13"/>
+<polygon points="526.0,621.7 553.0,621.7 553.0,621.7 526.0,621.7" fill="#14356F" fill-opacity="0.13"/>
+<polygon points="553.0,621.7 580.0,621.7 580.0,621.7 553.0,621.7" fill="#14356F" fill-opacity="0.13"/>
+<polygon points="580.0,621.7 607.0,621.7 607.0,621.7 580.0,621.7" fill="#14356F" fill-opacity="0.13"/>
+<polygon points="607.0,621.7 634.0,621.7 634.0,611.0 607.0,621.7" fill="#14356F" fill-opacity="0.13"/>
+<polygon points="634.0,621.7 661.0,621.7 661.0,589.7 634.0,611.0" fill="#14356F" fill-opacity="0.13"/>
+<polygon points="661.0,621.7 688.0,621.7 688.0,584.3 661.0,589.7" fill="#14356F" fill-opacity="0.13"/>
+<polygon points="688.0,621.7 715.0,621.7 715.0,589.7 688.0,584.3" fill="#14356F" fill-opacity="0.13"/>
+<polygon points="715.0,621.7 742.0,621.7 742.0,600.3 715.0,589.7" fill="#14356F" fill-opacity="0.13"/>
+<line x1="472.0" y1="643.0" x2="742.0" y2="643.0" stroke="#8494A8" stroke-width="1"/>
+<path d="M472.0,621.7 L499.0,621.7 L526.0,621.7 L553.0,621.7 L580.0,621.7 L607.0,621.7 L634.0,621.7 L661.0,621.7 L688.0,621.7 L715.0,621.7 L742.0,621.7" fill="none" stroke="#14356F" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M472.0,621.7 L499.0,621.7 L526.0,621.7 L553.0,621.7 L580.0,621.7 L607.0,621.7 L634.0,611.0 L661.0,589.7 L688.0,584.3 L715.0,589.7 L742.0,600.3" fill="none" stroke="#4A5A72" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/>
+<text class="d03-k" x="748.0" y="625.7" font-size="13" fill="#16233B" font-weight="600">Inn 4</text>
+<text class="d03-k" x="748.0" y="604.3" font-size="13" fill="#4A5A72">Ut 8</text>
+<text class="d03-s" x="472.0" y="671.0" font-size="16" fill="#16233B" font-weight="600">Dine ordre</text>
+<rect x="472.0" y="727.0" width="10.0" height="8.0" fill="#14356F" rx="1.5"/>
+<text class="d03-s" x="477.0" y="750.0" font-size="13" fill="#16233B" text-anchor="middle">4</text>
+<rect x="496.0" y="727.0" width="10.0" height="8.0" fill="#14356F" rx="1.5"/>
+<text class="d03-s" x="501.0" y="750.0" font-size="13" fill="#16233B" text-anchor="middle">4</text>
+<rect x="520.0" y="727.0" width="10.0" height="8.0" fill="#14356F" rx="1.5"/>
+<text class="d03-s" x="525.0" y="750.0" font-size="13" fill="#16233B" text-anchor="middle">4</text>
+<rect x="544.0" y="727.0" width="10.0" height="8.0" fill="#14356F" rx="1.5"/>
+<text class="d03-s" x="549.0" y="750.0" font-size="13" fill="#16233B" text-anchor="middle">4</text>
+<rect x="568.0" y="727.0" width="10.0" height="8.0" fill="#14356F" rx="1.5"/>
+<text class="d03-s" x="573.0" y="750.0" font-size="13" fill="#16233B" text-anchor="middle">4</text>
+<rect x="592.0" y="727.0" width="10.0" height="8.0" fill="#14356F" rx="1.5"/>
+<text class="d03-s" x="597.0" y="750.0" font-size="13" fill="#16233B" text-anchor="middle">4</text>
+<rect x="616.0" y="727.0" width="10.0" height="8.0" fill="#14356F" rx="1.5"/>
+<text class="d03-s" x="621.0" y="750.0" font-size="13" fill="#16233B" text-anchor="middle">4</text>
+<rect x="640.0" y="727.0" width="10.0" height="8.0" fill="#14356F" rx="1.5"/>
+<text class="d03-s" x="645.0" y="750.0" font-size="13" fill="#16233B" text-anchor="middle">4</text>
+<rect x="664.0" y="727.0" width="10.0" height="8.0" fill="#14356F" rx="1.5"/>
+<text class="d03-s" x="669.0" y="750.0" font-size="13" fill="#16233B" text-anchor="middle">4</text>
+<rect x="688.0" y="719.0" width="10.0" height="16.0" fill="#14356F" rx="1.5"/>
+<text class="d03-s" x="693.0" y="750.0" font-size="13" fill="#16233B" text-anchor="middle">8</text>
+<rect x="712.0" y="687.0" width="10.0" height="48.0" fill="#C9481A" rx="1.5"/>
+<text class="d03-s" x="717.0" y="750.0" font-size="13" fill="#16233B" font-weight="700" text-anchor="middle">24</text>
+<text class="d03-k" x="804.0" y="750.0" font-size="13" fill="#4A5A72" text-anchor="end">Uke 1 til nå</text>
+<text class="d03-k" x="472.0" y="787.0" font-size="14.5" fill="#14356F" font-weight="600">Hele banen som tabell</text>
+<line x1="472.0" y1="791.0" x2="618.0" y2="791.0" stroke="#14356F" stroke-width="1"/>
+<rect x="860.0" y="78.0" width="700.0" height="570.0" fill="#F6F8FB" stroke="#9AA9BC" stroke-width="1.5" rx="10"/>
+<line x1="836.0" y1="658.0" x2="1584.0" y2="658.0" stroke="#9AA9BC" stroke-width="2" stroke-linecap="round"/>
+<text class="d03-s" x="886.0" y="122.0" font-size="30" fill="#16233B" font-weight="600">Uke 11</text>
+<text class="d03-k" x="990.0" y="121.0" font-size="15" fill="#4A5A72">Grossist, Sara, spill 17</text>
+<text class="d03-k" x="1534.0" y="108.0" font-size="13" fill="#4A5A72" text-anchor="end">Totalkostnad</text>
+<text class="d03-s" x="1534.0" y="130.0" font-size="21" fill="#16233B" font-weight="500" text-anchor="end">68,00 kr</text>
+<line x1="924.0" y1="146.0" x2="924.0" y2="526.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1000.0" y1="146.0" x2="1000.0" y2="526.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1076.0" y1="146.0" x2="1076.0" y2="526.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1152.0" y1="146.0" x2="1152.0" y2="526.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1228.0" y1="146.0" x2="1228.0" y2="526.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="886.0" y1="488.0" x2="1266.0" y2="488.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="886.0" y1="412.0" x2="1266.0" y2="412.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="886.0" y1="336.0" x2="1266.0" y2="336.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="886.0" y1="260.0" x2="1266.0" y2="260.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="886.0" y1="184.0" x2="1266.0" y2="184.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="886.0" y1="146.0" x2="886.0" y2="526.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="962.0" y1="146.0" x2="962.0" y2="526.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1038.0" y1="146.0" x2="1038.0" y2="526.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1114.0" y1="146.0" x2="1114.0" y2="526.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1190.0" y1="146.0" x2="1190.0" y2="526.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1266.0" y1="146.0" x2="1266.0" y2="526.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="886.0" y1="526.0" x2="1266.0" y2="526.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="886.0" y1="450.0" x2="1266.0" y2="450.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="886.0" y1="374.0" x2="1266.0" y2="374.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="886.0" y1="298.0" x2="1266.0" y2="298.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="886.0" y1="222.0" x2="1266.0" y2="222.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="886.0" y1="146.0" x2="1266.0" y2="146.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1114.0" y1="146.0" x2="1114.0" y2="526.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="886.0" y1="526.0" x2="1266.0" y2="526.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-s" x="962.0" y="542.0" font-size="13" fill="#4A5A72" text-anchor="middle">−20</text>
+<text class="d03-s" x="1114.0" y="542.0" font-size="13" fill="#4A5A72" text-anchor="middle">0</text>
+<text class="d03-s" x="1266.0" y="542.0" font-size="13" fill="#4A5A72" text-anchor="middle">20</text>
+<text class="d03-s" x="889.0" y="371.0" font-size="13" fill="#4A5A72">20</text>
+<text class="d03-s" x="889.0" y="219.0" font-size="13" fill="#4A5A72">40</text>
+<text class="d03-k" x="890.0" y="520.0" font-size="13" fill="#4A5A72" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Restordre</text>
+<text class="d03-k" x="1262.0" y="520.0" font-size="13" fill="#4A5A72" text-anchor="end" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Lager</text>
+<text class="d03-k" x="889.0" y="160.0" font-size="13" fill="#4A5A72" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">På vei</text>
+<line x1="886.0" y1="275.2" x2="1136.8" y2="526.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-k" x="1105.2" y="487.4" font-size="13" fill="#16233B" font-weight="500" text-anchor="middle" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round" transform="rotate(45 1105.2 487.4)">Posisjon 3</text>
+<line x1="939.2" y1="146.0" x2="1266.0" y2="472.8" stroke="#C9481A" stroke-width="1.3" stroke-dasharray="5 4"/>
+<text class="d03-k" x="1178.0" y="377.8" font-size="13" fill="#16233B" font-weight="700" text-anchor="middle" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round" transform="rotate(45 1178.0 377.8)">Posisjon 27</text>
+<line x1="1205.2" y1="434.8" x2="1190.0" y2="434.8" stroke="#47628F" stroke-width="2.09" stroke-linecap="round"/>
+<line x1="1190.0" y1="434.8" x2="1144.4" y2="434.8" stroke="#3B5787" stroke-width="2.21" stroke-linecap="round"/>
+<line x1="1144.4" y1="434.8" x2="1091.2" y2="434.8" stroke="#2E4C7F" stroke-width="2.34" stroke-linecap="round"/>
+<line x1="1091.2" y1="434.8" x2="1045.6" y2="434.8" stroke="#214077" stroke-width="2.47" stroke-linecap="round"/>
+<line x1="1045.6" y1="434.8" x2="1015.2" y2="404.4" stroke="#14356F" stroke-width="2.6" stroke-linecap="round"/>
+<circle cx="1205.2" cy="434.8" r="1.8" fill="#8DA0BB"/>
+<circle cx="1205.2" cy="434.8" r="1.8" fill="#8296B4"/>
+<circle cx="1205.2" cy="434.8" r="1.8" fill="#778CAD"/>
+<circle cx="1205.2" cy="434.8" r="1.8" fill="#6B82A6"/>
+<circle cx="1205.2" cy="434.8" r="1.8" fill="#5F779E"/>
+<circle cx="1205.2" cy="434.8" r="1.8" fill="#536D97"/>
+<circle cx="1190.0" cy="434.8" r="1.8" fill="#47628F"/>
+<circle cx="1144.4" cy="434.8" r="1.8" fill="#3B5787"/>
+<circle cx="1091.2" cy="434.8" r="1.8" fill="#2E4C7F"/>
+<circle cx="1045.6" cy="434.8" r="1.8" fill="#214077"/>
+<circle cx="1015.2" cy="404.4" r="1.8" fill="#14356F"/>
+<line x1="1015.2" y1="404.4" x2="1015.2" y2="222.0" stroke="#C9481A" stroke-width="2.6" stroke-linecap="round"/>
+<line x1="1015.2" y1="222.0" x2="1019.1" y2="230.1" stroke="#C9481A" stroke-width="2.6" stroke-linecap="round"/>
+<line x1="1015.2" y1="222.0" x2="1011.3" y2="230.1" stroke="#C9481A" stroke-width="2.6" stroke-linecap="round"/>
+<text class="d03-s" x="1024.2" y="313.2" font-size="18" fill="#16233B" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">+24</text>
+<text class="d03-k" x="1205.2" y="451.8" font-size="13" fill="#4A5A72" font-weight="500" text-anchor="middle" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Uke 1</text>
+<circle cx="1015.2" cy="404.4" r="6" fill="#C9481A" stroke="#F6F8FB" stroke-width="2"/>
+<text class="d03-k" x="1005.2" y="423.4" font-size="14" fill="#16233B" font-weight="600" text-anchor="end" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Uke 11</text>
+<line x1="886.0" y1="577.2" x2="1176.0" y2="577.2" stroke="#8494A8" stroke-width="1"/>
+<line x1="886.0" y1="567.1" x2="915.0" y2="567.1" stroke="#889CB9" stroke-width="0.83" stroke-linecap="round"/>
+<line x1="915.0" y1="567.1" x2="944.0" y2="567.1" stroke="#8195B4" stroke-width="0.86" stroke-linecap="round"/>
+<line x1="944.0" y1="567.1" x2="973.0" y2="567.1" stroke="#7A8FB0" stroke-width="0.89" stroke-linecap="round"/>
+<line x1="973.0" y1="567.1" x2="1002.0" y2="567.1" stroke="#7289AB" stroke-width="0.92" stroke-linecap="round"/>
+<line x1="1002.0" y1="567.1" x2="1031.0" y2="567.1" stroke="#6B82A7" stroke-width="0.95" stroke-linecap="round"/>
+<line x1="1031.0" y1="567.1" x2="1060.0" y2="567.1" stroke="#637BA2" stroke-width="0.98" stroke-linecap="round"/>
+<line x1="1060.0" y1="567.1" x2="1089.0" y2="567.1" stroke="#5C759D" stroke-width="1.01" stroke-linecap="round"/>
+<line x1="1089.0" y1="567.1" x2="1118.0" y2="567.1" stroke="#546E99" stroke-width="1.04" stroke-linecap="round"/>
+<line x1="1118.0" y1="567.1" x2="1147.0" y2="567.1" stroke="#4C6794" stroke-width="1.07" stroke-linecap="round"/>
+<line x1="1147.0" y1="567.1" x2="1176.0" y2="563.8" stroke="#44608F" stroke-width="1.1" stroke-linecap="round"/>
+<line x1="886.0" y1="567.1" x2="915.0" y2="567.1" stroke="#768BAC" stroke-width="1.66" stroke-linecap="round"/>
+<line x1="915.0" y1="567.1" x2="944.0" y2="567.1" stroke="#6B82A6" stroke-width="1.72" stroke-linecap="round"/>
+<line x1="944.0" y1="567.1" x2="973.0" y2="567.1" stroke="#61799F" stroke-width="1.77" stroke-linecap="round"/>
+<line x1="973.0" y1="567.1" x2="1002.0" y2="567.1" stroke="#566F99" stroke-width="1.83" stroke-linecap="round"/>
+<line x1="1002.0" y1="567.1" x2="1031.0" y2="567.1" stroke="#4C6692" stroke-width="1.89" stroke-linecap="round"/>
+<line x1="1031.0" y1="567.1" x2="1060.0" y2="568.8" stroke="#415C8B" stroke-width="1.95" stroke-linecap="round"/>
+<line x1="1060.0" y1="568.8" x2="1089.0" y2="573.8" stroke="#365384" stroke-width="2.01" stroke-linecap="round"/>
+<line x1="1089.0" y1="573.8" x2="1118.0" y2="579.7" stroke="#2B497D" stroke-width="2.07" stroke-linecap="round"/>
+<line x1="1118.0" y1="579.7" x2="1147.0" y2="584.8" stroke="#1F3F76" stroke-width="2.14" stroke-linecap="round"/>
+<line x1="1147.0" y1="584.8" x2="1176.0" y2="588.1" stroke="#14356F" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="1176.0" y1="550.0" x2="1176.0" y2="596.0" stroke="#D3DCE6" stroke-width="1"/>
+<circle cx="1176.0" cy="588.1" r="3.2" fill="#C9481A"/>
+<text class="d03-k" x="1182.0" y="592.1" font-size="13" fill="#16233B" font-weight="600">Netto −13</text>
+<text class="d03-k" x="1182.0" y="567.8" font-size="13" fill="#4A5A72">På vei 16</text>
+<text class="d03-k" x="1300.0" y="170.0" font-size="14" fill="#16233B">Lager</text>
+<text class="d03-s" x="1534.0" y="170.0" font-size="15.5" fill="#16233B" font-weight="500" text-anchor="end">0</text>
+<line x1="1300.0" y1="176.0" x2="1534.0" y2="176.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="1300.0" y="195.0" font-size="14" fill="#16233B">Restordre</text>
+<text class="d03-s" x="1534.0" y="195.0" font-size="15.5" fill="#16233B" font-weight="500" text-anchor="end">13</text>
+<line x1="1300.0" y1="201.0" x2="1534.0" y2="201.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="1300.0" y="220.0" font-size="14" fill="#16233B">Innkommende ordre</text>
+<text class="d03-s" x="1534.0" y="220.0" font-size="15.5" fill="#16233B" font-weight="500" text-anchor="end">8</text>
+<line x1="1300.0" y1="226.0" x2="1534.0" y2="226.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="1300.0" y="245.0" font-size="14" fill="#16233B">Levering</text>
+<text class="d03-s" x="1534.0" y="245.0" font-size="15.5" fill="#16233B" font-weight="500" text-anchor="end">4</text>
+<line x1="1300.0" y1="251.0" x2="1534.0" y2="251.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="1300.0" y="270.0" font-size="14" fill="#16233B">Sendt</text>
+<text class="d03-s" x="1534.0" y="270.0" font-size="15.5" fill="#16233B" font-weight="500" text-anchor="end">4</text>
+<line x1="1300.0" y1="276.0" x2="1534.0" y2="276.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="1300.0" y="295.0" font-size="14" fill="#16233B">På vei</text>
+<text class="d03-s" x="1534.0" y="295.0" font-size="15.5" fill="#16233B" font-weight="500" text-anchor="end">16</text>
+<line x1="1300.0" y1="301.0" x2="1534.0" y2="301.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="1300.0" y="320.0" font-size="14" fill="#16233B">Neste levering</text>
+<text class="d03-s" x="1534.0" y="320.0" font-size="15.5" fill="#16233B" font-weight="500" text-anchor="end">4</text>
+<line x1="1300.0" y1="326.0" x2="1534.0" y2="326.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="1300.0" y="345.0" font-size="14" fill="#16233B">Posisjon</text>
+<text class="d03-s" x="1534.0" y="345.0" font-size="15.5" fill="#16233B" font-weight="500" text-anchor="end">3</text>
+<line x1="1300.0" y1="351.0" x2="1534.0" y2="351.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="1300.0" y="370.0" font-size="14" fill="#16233B">Totalkostnad</text>
+<text class="d03-s" x="1534.0" y="370.0" font-size="15.5" fill="#16233B" font-weight="500" text-anchor="end">68,00 kr</text>
+<line x1="1300.0" y1="376.0" x2="1534.0" y2="376.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<text class="d03-k" x="1300.0" y="409.0" font-size="14.5" fill="#16233B">−13 + 16 = Posisjon 3</text>
+<text class="d03-k" x="1300.0" y="431.0" font-size="14.5" fill="#16233B" font-weight="700">Posisjon 3 + 24 = 27</text>
+<rect x="1300.0" y="449.0" width="72.0" height="52.0" fill="#FFFFFF" stroke="#14356F" stroke-width="1.4" rx="6"/>
+<text class="d03-s" x="1336.0" y="486.0" font-size="32" fill="#16233B" font-weight="600" text-anchor="middle">24</text>
+<rect x="1382.0" y="449.0" width="152.0" height="52.0" fill="#14356F" rx="7"/>
+<text class="d03-k" x="1458.0" y="480.8" font-size="17" fill="#FFFFFF" font-weight="600" text-anchor="middle">Bestill 24</text>
+<text class="d03-k" x="1300.0" y="523.0" font-size="14" fill="#4A5A72">Ida og Mikkel har bestilt.</text>
+<text class="d03-k" x="1300.0" y="542.0" font-size="14" fill="#4A5A72">Jonas venter, 3 min.</text>
+<text class="d03-s" x="860.0" y="692.0" font-size="22" fill="#16233B" font-weight="600">Grafen er tastaturets ekko</text>
+<text class="d03-k" x="860.0" y="718.0" font-size="16" fill="#16233B">Hvert siffer du taster strekker pilen. Ved 24 når den diagonalen for Posisjon 27: 16</text>
+<text class="d03-k" x="860.0" y="741.0" font-size="16" fill="#16233B">på vei og 24 til gir 40 på vei, mens du fortsatt har 13 i Restordre.</text>
+<text class="d03-k" x="860.0" y="770.0" font-size="16" fill="#4A5A72">Grafen sier ikke om 24 er riktig. Den viser regnestykket og hvor du havner. Fra Uke</text>
+<text class="d03-k" x="860.0" y="793.0" font-size="16" fill="#4A5A72">12 ser du om punktet går over diagonalene eller langs dem.</text>
+<line x1="870.0" y1="860.0" x2="870.0" y2="828.0" stroke="#C9481A" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="870.0" y1="828.0" x2="873.0" y2="834.3" stroke="#C9481A" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="870.0" y1="828.0" x2="867.0" y2="834.3" stroke="#C9481A" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="1095.0" y1="828.0" x2="1121.0" y2="854.0" stroke="#14356F" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="1121.0" y1="854.0" x2="1114.4" y2="851.7" stroke="#14356F" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="1121.0" y1="854.0" x2="1118.7" y2="847.4" stroke="#14356F" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="1362.0" y1="844.0" x2="1330.0" y2="844.0" stroke="#4A5A72" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="1330.0" y1="844.0" x2="1336.3" y2="841.0" stroke="#4A5A72" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="1330.0" y1="844.0" x2="1336.3" y2="847.0" stroke="#4A5A72" stroke-width="2.2" stroke-linecap="round"/>
+<text class="d03-k" x="884.0" y="840.0" font-size="14" fill="#16233B" font-weight="700">Ordre: rett opp.</text>
+<text class="d03-k" x="884.0" y="859.0" font-size="14" fill="#4A5A72">Du bestemmer hvor langt.</text>
+<text class="d03-k" x="1131.0" y="840.0" font-size="14" fill="#16233B" font-weight="700">Levering: langs diagonalen.</text>
+<text class="d03-k" x="1131.0" y="859.0" font-size="14" fill="#4A5A72">Posisjon endres ikke.</text>
+<text class="d03-k" x="1372.0" y="840.0" font-size="14" fill="#16233B" font-weight="700">Innkommende ordre:</text>
+<text class="d03-k" x="1372.0" y="859.0" font-size="14" fill="#4A5A72">mot venstre</text>
+<text class="d03-k" x="860.0" y="906.0" font-size="14" fill="#14356F" font-weight="600">P3 Det som er på vei blir glemt · P1 Lager er en opphopning (panelet) · P7 Overreaksjon forsterker også</text>
+</g>
+</svg>

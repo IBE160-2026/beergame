@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 900" font-family="'Karla','Helvetica Neue',Arial,sans-serif">
+<title>Fase: registrering og hjem for student</title>
+<desc>To telefoner: registrering fra Invitasjon, og hjem under spill med faseplan, seter, seks steg, neste frist og Labtimer.</desc>
+<style>@import url('https://fonts.googleapis.com/css2?family=STIX+Two+Text:wght@400;500;600;700&amp;family=Karla:wght@400;500;600;700&amp;display=swap');.d03-k{font-family:'Karla','Helvetica Neue',Arial,sans-serif;font-variant-numeric:lining-nums tabular-nums}.d03-s{font-family:'STIX Two Text','Times New Roman',serif;font-variant-numeric:lining-nums tabular-nums}</style>
+<g id="d03-04-rot">
+<rect x="0.0" y="0.0" width="1000.0" height="900.0" fill="#E8EDF3"/>
+<text class="d03-s" x="40.0" y="40.0" font-size="26" fill="#16233B" font-weight="600">Student på mobil</text>
+<text class="d03-k" x="960.0" y="40.0" font-size="14" fill="#4A5A72" text-anchor="end">Demodata</text>
+<g transform="translate(60.0 58.0) scale(0.94)">
+<rect x="0.0" y="0.0" width="390.0" height="844.0" fill="#F6F8FB" stroke="#9AA9BC" stroke-width="1.5" rx="30"/>
+<text class="d03-s" x="20.0" y="60.0" font-size="24" fill="#16233B" font-weight="600">Fase</text>
+<text class="d03-k" x="20.0" y="118.0" font-size="16" fill="#4A5A72">Velkommen til</text>
+<text class="d03-s" x="20.0" y="150.0" font-size="26" fill="#16233B" font-weight="600">class-of-1994, IBE160</text>
+<text class="d03-k" x="20.0" y="186.0" font-size="16" fill="#16233B">Bård har invitert deg. Lag en konto, så får</text>
+<text class="d03-k" x="20.0" y="209.0" font-size="16" fill="#16233B">du Sete i et Klassespill når øvelsen</text>
+<text class="d03-k" x="20.0" y="232.0" font-size="16" fill="#16233B">starter.</text>
+<text class="d03-k" x="20.0" y="268.0" font-size="14.5" fill="#16233B" font-weight="600">Navn</text>
+<rect x="20.0" y="276.0" width="350.0" height="44.0" fill="#FFFFFF" stroke="#8494A8" stroke-width="1" rx="5"/>
+<text class="d03-k" x="32.0" y="303.5" font-size="16" fill="#16233B">Sara Nilsen</text>
+<text class="d03-k" x="20.0" y="348.0" font-size="14.5" fill="#16233B" font-weight="600">E-post fra Klasselisten</text>
+<rect x="20.0" y="356.0" width="350.0" height="44.0" fill="#FFFFFF" stroke="#8494A8" stroke-width="1" rx="5"/>
+<text class="d03-k" x="32.0" y="383.5" font-size="16" fill="#16233B">sara.nilsen@student.example</text>
+<text class="d03-k" x="20.0" y="428.0" font-size="14.5" fill="#16233B" font-weight="600">Velg passord</text>
+<rect x="20.0" y="436.0" width="350.0" height="44.0" fill="#FFFFFF" stroke="#8494A8" stroke-width="1" rx="5"/>
+<text class="d03-k" x="32.0" y="463.5" font-size="16" fill="#16233B">•••••••••••</text>
+<text class="d03-k" x="20.0" y="502.0" font-size="13.5" fill="#4A5A72">Minst 10 tegn.</text>
+<rect x="20.0" y="526.0" width="350.0" height="56.0" fill="#14356F" rx="7"/>
+<text class="d03-k" x="195.0" y="560.1" font-size="18" fill="#FFFFFF" font-weight="600" text-anchor="middle">Opprett konto</text>
+<text class="d03-s" x="20.0" y="620.0" font-size="18" fill="#16233B" font-weight="600">Slik går øvelsen</text>
+<text class="d03-k" x="20.0" y="646.0" font-size="15.5" fill="#16233B">Du driver ett ledd i en kjede og tar én</text>
+<text class="d03-k" x="20.0" y="668.0" font-size="15.5" fill="#16233B">beslutning hver Uke. Spillet går over flere</text>
+<text class="d03-k" x="20.0" y="690.0" font-size="15.5" fill="#16233B">dager, på din egen telefon.</text>
+<text class="d03-k" x="20.0" y="722.0" font-size="15.5" fill="#16233B" font-weight="600">Starter ti. 24. nov 2026.</text>
+<text class="d03-k" x="20.0" y="746.0" font-size="15.5" fill="#14356F" font-weight="600">Har du konto? Logg inn</text>
+</g>
+<g transform="translate(545.0 58.0) scale(0.94)">
+<rect x="0.0" y="0.0" width="390.0" height="844.0" fill="#F6F8FB" stroke="#9AA9BC" stroke-width="1.5" rx="30"/>
+<text class="d03-s" x="20.0" y="52.0" font-size="25" fill="#16233B" font-weight="600">Spill 17, Grossist</text>
+<text class="d03-k" x="20.0" y="74.0" font-size="14" fill="#4A5A72">Sara</text>
+<rect x="20.0" y="90.0" width="350.0" height="80.0" fill="#14356F" rx="7"/>
+<text class="d03-s" x="36.0" y="122.0" font-size="20" fill="#FFFFFF" font-weight="600">Spillet venter på deg</text>
+<text class="d03-k" x="36.0" y="147.0" font-size="14.5" fill="#DCE5F0">Uke 11. Jonas venter også, 3 min.</text>
+<line x1="20.0" y1="184.0" x2="20.0" y2="359.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="55.0" y1="184.0" x2="55.0" y2="359.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="90.0" y1="184.0" x2="90.0" y2="359.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="125.0" y1="184.0" x2="125.0" y2="359.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="160.0" y1="184.0" x2="160.0" y2="359.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="195.0" y1="184.0" x2="195.0" y2="359.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="20.0" y1="359.0" x2="195.0" y2="359.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="20.0" y1="324.0" x2="195.0" y2="324.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="20.0" y1="289.0" x2="195.0" y2="289.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="20.0" y1="254.0" x2="195.0" y2="254.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="20.0" y1="219.0" x2="195.0" y2="219.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="20.0" y1="184.0" x2="195.0" y2="184.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="125.0" y1="184.0" x2="125.0" y2="359.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="20.0" y1="359.0" x2="195.0" y2="359.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="20.0" y1="243.5" x2="135.5" y2="359.0" stroke="#8494A8" stroke-width="1"/>
+<line x1="167.0" y1="317.0" x2="160.0" y2="317.0" stroke="#47628F" stroke-width="1.81" stroke-linecap="round"/>
+<line x1="160.0" y1="317.0" x2="139.0" y2="317.0" stroke="#3B5787" stroke-width="1.91" stroke-linecap="round"/>
+<line x1="139.0" y1="317.0" x2="114.5" y2="317.0" stroke="#2E4C7F" stroke-width="2.01" stroke-linecap="round"/>
+<line x1="114.5" y1="317.0" x2="93.5" y2="317.0" stroke="#214077" stroke-width="2.1" stroke-linecap="round"/>
+<line x1="93.5" y1="317.0" x2="79.5" y2="303.0" stroke="#14356F" stroke-width="2.2" stroke-linecap="round"/>
+<circle cx="167.0" cy="317.0" r="1.4" fill="#8DA0BB"/>
+<circle cx="167.0" cy="317.0" r="1.4" fill="#8296B4"/>
+<circle cx="167.0" cy="317.0" r="1.4" fill="#778CAD"/>
+<circle cx="167.0" cy="317.0" r="1.4" fill="#6B82A6"/>
+<circle cx="167.0" cy="317.0" r="1.4" fill="#5F779E"/>
+<circle cx="167.0" cy="317.0" r="1.4" fill="#536D97"/>
+<circle cx="160.0" cy="317.0" r="1.4" fill="#47628F"/>
+<circle cx="139.0" cy="317.0" r="1.4" fill="#3B5787"/>
+<circle cx="114.5" cy="317.0" r="1.4" fill="#2E4C7F"/>
+<circle cx="93.5" cy="317.0" r="1.4" fill="#214077"/>
+<circle cx="79.5" cy="303.0" r="1.4" fill="#14356F"/>
+<circle cx="79.5" cy="303.0" r="4.5" fill="#C9481A" stroke="#F6F8FB" stroke-width="2"/>
+<text class="d03-s" x="209.0" y="204.0" font-size="18" fill="#16233B" font-weight="600">Posisjon 3</text>
+<text class="d03-k" x="209.0" y="226.0" font-size="14.5" fill="#16233B">Lager 0</text>
+<text class="d03-k" x="209.0" y="246.0" font-size="14.5" fill="#16233B">Restordre 13</text>
+<text class="d03-k" x="209.0" y="266.0" font-size="14.5" fill="#16233B">På vei 16</text>
+<text class="d03-k" x="209.0" y="296.0" font-size="15" fill="#14356F" font-weight="600">Åpne Uke 11</text>
+<line x1="209.0" y1="300.0" x2="289.0" y2="300.0" stroke="#14356F" stroke-width="1"/>
+<text class="d03-s" x="20.0" y="392.0" font-size="17" fill="#16233B" font-weight="600">Setene</text>
+<text class="d03-k" x="20.0" y="416.0" font-size="14.5" fill="#16233B">Detaljist</text>
+<text class="d03-k" x="130.0" y="416.0" font-size="14.5" fill="#16233B">Ida</text>
+<text class="d03-k" x="370.0" y="416.0" font-size="14.5" fill="#4A5A72" text-anchor="end">har bestilt</text>
+<text class="d03-k" x="20.0" y="438.0" font-size="14.5" fill="#16233B" font-weight="700">Grossist</text>
+<text class="d03-k" x="130.0" y="438.0" font-size="14.5" fill="#16233B" font-weight="700">Du</text>
+<text class="d03-k" x="370.0" y="438.0" font-size="14.5" fill="#4A5A72" text-anchor="end">venter på deg</text>
+<text class="d03-k" x="20.0" y="460.0" font-size="14.5" fill="#16233B">Distributør</text>
+<text class="d03-k" x="130.0" y="460.0" font-size="14.5" fill="#16233B">Mikkel</text>
+<text class="d03-k" x="370.0" y="460.0" font-size="14.5" fill="#4A5A72" text-anchor="end">har bestilt</text>
+<text class="d03-k" x="20.0" y="482.0" font-size="14.5" fill="#16233B">Fabrikk</text>
+<text class="d03-k" x="130.0" y="482.0" font-size="14.5" fill="#16233B">Jonas</text>
+<text class="d03-k" x="370.0" y="482.0" font-size="14.5" fill="#4A5A72" text-anchor="end">venter, 3 min</text>
+<text class="d03-s" x="20.0" y="520.0" font-size="17" fill="#16233B" font-weight="600">Dine seks steg</text>
+<circle cx="26.0" cy="539.0" r="5" fill="#14356F" stroke="#14356F" stroke-width="1.2"/>
+<line x1="26.0" y1="545.0" x2="26.0" y2="561.0" stroke="#8494A8" stroke-width="1"/>
+<text class="d03-k" x="40.0" y="544.0" font-size="14.5" fill="#16233B" font-weight="700">Klassespill</text>
+<text class="d03-k" x="370.0" y="544.0" font-size="13.5" fill="#4A5A72" text-anchor="end">Uke 11, pågår</text>
+<circle cx="26.0" cy="562.0" r="5" fill="none" stroke="#8494A8" stroke-width="1.2"/>
+<line x1="26.0" y1="568.0" x2="26.0" y2="584.0" stroke="#8494A8" stroke-width="1"/>
+<text class="d03-k" x="40.0" y="567.0" font-size="14.5" fill="#16233B">Debrief</text>
+<text class="d03-k" x="370.0" y="567.0" font-size="13.5" fill="#4A5A72" text-anchor="end">åpner når spillet er ferdig</text>
+<circle cx="26.0" cy="585.0" r="5" fill="none" stroke="#8494A8" stroke-width="1.2"/>
+<line x1="26.0" y1="591.0" x2="26.0" y2="607.0" stroke="#8494A8" stroke-width="1"/>
+<text class="d03-k" x="40.0" y="590.0" font-size="14.5" fill="#16233B">Quiz</text>
+<text class="d03-k" x="370.0" y="590.0" font-size="13.5" fill="#4A5A72" text-anchor="end">etter Debrief</text>
+<circle cx="26.0" cy="608.0" r="5" fill="none" stroke="#8494A8" stroke-width="1.2"/>
+<line x1="26.0" y1="614.0" x2="26.0" y2="630.0" stroke="#8494A8" stroke-width="1"/>
+<text class="d03-k" x="40.0" y="613.0" font-size="14.5" fill="#16233B">Replay</text>
+<text class="d03-k" x="370.0" y="613.0" font-size="13.5" fill="#4A5A72" text-anchor="end">etter Quiz</text>
+<circle cx="26.0" cy="631.0" r="5" fill="none" stroke="#8494A8" stroke-width="1.2"/>
+<line x1="26.0" y1="637.0" x2="26.0" y2="653.0" stroke="#8494A8" stroke-width="1"/>
+<text class="d03-k" x="40.0" y="636.0" font-size="14.5" fill="#16233B">Individuell test</text>
+<text class="d03-k" x="370.0" y="636.0" font-size="13.5" fill="#4A5A72" text-anchor="end">Testfrist fr. 18. des</text>
+<circle cx="26.0" cy="654.0" r="5" fill="none" stroke="#8494A8" stroke-width="1.2"/>
+<text class="d03-k" x="40.0" y="659.0" font-size="14.5" fill="#16233B">Rapport</text>
+<text class="d03-k" x="370.0" y="659.0" font-size="13.5" fill="#4A5A72" text-anchor="end">PDF når alt er levert</text>
+<text class="d03-k" x="20.0" y="698.0" font-size="13.5" fill="#4A5A72">Neste frist</text>
+<text class="d03-k" x="20.0" y="719.0" font-size="15.5" fill="#16233B" font-weight="600">Spillfrist ti. 8. des</text>
+<text class="d03-k" x="200.0" y="698.0" font-size="13.5" fill="#4A5A72">Neste Labtime</text>
+<text class="d03-k" x="200.0" y="719.0" font-size="15.5" fill="#16233B" font-weight="600">to. 26. nov 14:15</text>
+<text class="d03-k" x="200.0" y="739.0" font-size="14" fill="#4A5A72">Datalab A2</text>
+</g>
+</g>
+</svg>

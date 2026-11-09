@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 900" font-family="'Spectral','Iowan Old Style',Georgia,serif" id="d08-student-root" role="img" aria-labelledby="d08-student-title d08-student-desc"><title id="d08-student-title">Rapport: student på mobil</title><desc id="d08-student-desc">To telefoner: Saras registrering fra Invitasjonen og hjem under spill med Rolle, seter, de seks stegene, frist og Labtimer.</desc><style>@import url('https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600&amp;family=Libre+Franklin:wght@400;500;600&amp;display=swap');.d08-s{font-family:'Spectral','Iowan Old Style',Georgia,serif;font-feature-settings:'lnum' 1,'kern' 1}.d08-f{font-family:'Libre Franklin','Helvetica Neue',Arial,sans-serif;font-variant-numeric:lining-nums tabular-nums}.d08-p{font-family:'Libre Franklin','Helvetica Neue',Arial,sans-serif;font-variant-numeric:lining-nums proportional-nums}</style><rect x="0.0" y="0.0" width="1000.0" height="900.0" fill="#E7EDE8"/>
+<g transform="translate(60.0 28.0)">
+<rect x="0.0" y="0.0" width="390.0" height="844.0" fill="#F5F8F4" rx="30" stroke="#AEBDB3" stroke-width="1"/>
+<text x="20.0" y="54.0" class="d08-s" font-size="22" fill="#12302B" font-weight="500">Rapport</text>
+<text x="20.0" y="112.0" class="d08-s" font-size="26" fill="#12302B" font-weight="500">Du er invitert til</text>
+<text x="20.0" y="146.0" class="d08-s" font-size="26" fill="#12302B" font-weight="500">IBE160</text>
+<text x="20.0" y="186.0" class="d08-s" font-size="17" fill="#12302B">Faglærer Bård har invitert deg til en øvelse i</text>
+<text x="20.0" y="211.0" class="d08-s" font-size="17" fill="#12302B">forsyningskjeder. Dere spiller i grupper på fire,</text>
+<text x="20.0" y="236.0" class="d08-s" font-size="17" fill="#12302B">på tiden dere selv velger.</text>
+<text x="20.0" y="310.0" class="d08-f" font-size="14" fill="#12302B" font-weight="500">Navn</text>
+<rect x="20.0" y="320.0" width="350.0" height="50.0" fill="#E2E9E3" rx="3"/>
+<text x="32.0" y="351.0" class="d08-f" font-size="15" fill="#12302B">Sara Lunde</text>
+<text x="20.0" y="396.0" class="d08-f" font-size="14" fill="#12302B" font-weight="500">E-post</text>
+<rect x="20.0" y="406.0" width="350.0" height="50.0" fill="#E2E9E3" rx="3"/>
+<text x="32.0" y="437.0" class="d08-f" font-size="15" fill="#12302B">sara.lunde@student.example.no</text>
+<text x="20.0" y="482.0" class="d08-f" font-size="14" fill="#12302B" font-weight="500">Passord</text>
+<rect x="20.0" y="492.0" width="350.0" height="50.0" fill="#E2E9E3" rx="3"/>
+<text x="32.0" y="523.0" class="d08-f" font-size="15" fill="#12302B">••••••••••</text>
+<rect x="20.0" y="572.0" width="350.0" height="58.0" fill="#12302B" rx="4"/>
+<text x="195.0" y="607.0" class="d08-f" font-size="17" fill="#FBFCFA" font-weight="500" text-anchor="middle">Opprett konto</text>
+<text x="20.0" y="660.0" class="d08-f" font-size="14" fill="#43605A">E-posten kommer fra klasselisten. Invitasjonen er</text>
+<text x="20.0" y="680.0" class="d08-f" font-size="14" fill="#43605A">gyldig i 14 dager.</text>
+<text x="20.0" y="718.0" class="d08-f" font-size="14" fill="#43605A">Du får vite hvem som leser svarene dine før du skriver</text>
+<text x="20.0" y="738.0" class="d08-f" font-size="14" fill="#43605A">dem.</text>
+</g>
+<g transform="translate(550.0 28.0)">
+<rect x="0.0" y="0.0" width="390.0" height="844.0" fill="#F5F8F4" rx="30" stroke="#AEBDB3" stroke-width="1"/>
+<text x="20.0" y="54.0" class="d08-s" font-size="22" fill="#12302B" font-weight="500">Sara</text>
+<text x="370.0" y="52.0" class="d08-f" font-size="14" fill="#43605A" text-anchor="end">Grossist, spill 17</text>
+<rect x="20.0" y="72.0" width="350.0" height="96.0" fill="#E2E9E3" rx="4"/>
+<text x="34.0" y="102.0" class="d08-s" font-size="21" fill="#12302B" font-weight="500">Spillet venter på deg</text>
+<text x="34.0" y="128.0" class="d08-f" font-size="14" fill="#43605A">Uke 11. Ida og Mikkel har bestilt.</text>
+<text x="34.0" y="150.0" class="d08-f" font-size="14" fill="#43605A">Jonas har ikke bestilt ennå, 3 min.</text>
+<rect x="20.0" y="178.0" width="350.0" height="54.0" fill="#12302B" rx="4"/>
+<text x="195.0" y="210.6" class="d08-f" font-size="16" fill="#FBFCFA" font-weight="500" text-anchor="middle">Åpne Uke 11</text>
+<line x1="44.0" y1="335.9" x2="356.0" y2="335.9" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="37.0" y="340.5" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">−10</text>
+<line x1="44.0" y1="304.4" x2="356.0" y2="304.4" stroke="#43605A" stroke-width="1"/>
+<text x="37.0" y="309.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">0</text>
+<line x1="44.0" y1="272.9" x2="356.0" y2="272.9" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="37.0" y="277.5" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">10</text>
+<path d="M44.0 266.6L75.2 266.6L106.4 266.6L137.6 266.6L168.8 266.6L200.0 266.6L231.2 272.9L262.4 291.8L293.6 313.9L324.8 332.8L356.0 345.4" fill="none" stroke="#A5471C" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M356.0 345.4H231.2" fill="none" stroke="#43605A" stroke-width="0.75" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="231.2" y1="337.4" x2="231.2" y2="353.4" stroke="#43605A" stroke-width="0.75"/>
+<circle cx="356.0" cy="345.4" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="224.2" y="349.3" class="d08-s" font-size="14" fill="#12302B" stroke="#F5F8F4" stroke-width="3" stroke-linejoin="round" paint-order="stroke" text-anchor="end">Restordre <tspan font-weight="600">13</tspan> nå.</text>
+<text x="20.0" y="394.0" class="d08-s" font-size="17" fill="#12302B" font-weight="500">Setene</text>
+<text x="20.0" y="420.0" class="d08-f" font-size="14" fill="#12302B">Ida</text>
+<text x="370.0" y="420.0" class="d08-f" font-size="14" fill="#43605A" text-anchor="end">Detaljist</text>
+<text x="20.0" y="442.0" class="d08-f" font-size="14" fill="#12302B" font-weight="600">Sara (du)</text>
+<text x="370.0" y="442.0" class="d08-f" font-size="14" fill="#43605A" text-anchor="end">Grossist</text>
+<text x="20.0" y="464.0" class="d08-f" font-size="14" fill="#12302B">Mikkel</text>
+<text x="370.0" y="464.0" class="d08-f" font-size="14" fill="#43605A" text-anchor="end">Distributør</text>
+<text x="20.0" y="486.0" class="d08-f" font-size="14" fill="#12302B">Jonas</text>
+<text x="370.0" y="486.0" class="d08-f" font-size="14" fill="#43605A" text-anchor="end">Fabrikk</text>
+<text x="20.0" y="524.0" class="d08-s" font-size="17" fill="#12302B" font-weight="500">Stegene</text>
+<circle cx="26.0" cy="545.0" r="5" fill="#12302B" stroke="#12302B" stroke-width="1.25"/>
+<line x1="26.0" y1="551.0" x2="26.0" y2="569.0" stroke="#566F68" stroke-width="0.75"/>
+<text x="42.0" y="550.0" class="d08-f" font-size="14" fill="#12302B" font-weight="600">Klassespill</text>
+<text x="370.0" y="550.0" class="d08-f" font-size="13" fill="#43605A" text-anchor="end">Pågår</text>
+<circle cx="26.0" cy="570.0" r="5" fill="#F5F8F4" stroke="#43605A" stroke-width="1.25"/>
+<line x1="26.0" y1="576.0" x2="26.0" y2="594.0" stroke="#566F68" stroke-width="0.75"/>
+<text x="42.0" y="575.0" class="d08-f" font-size="14" fill="#12302B">Debrief</text>
+<text x="370.0" y="575.0" class="d08-f" font-size="13" fill="#43605A" text-anchor="end">Frist fr. 11. des</text>
+<circle cx="26.0" cy="595.0" r="5" fill="#F5F8F4" stroke="#43605A" stroke-width="1.25"/>
+<line x1="26.0" y1="601.0" x2="26.0" y2="619.0" stroke="#566F68" stroke-width="0.75"/>
+<text x="42.0" y="600.0" class="d08-f" font-size="14" fill="#12302B">Quiz</text>
+<text x="370.0" y="600.0" class="d08-f" font-size="13" fill="#43605A" text-anchor="end">Etter Debrief</text>
+<circle cx="26.0" cy="620.0" r="5" fill="#F5F8F4" stroke="#43605A" stroke-width="1.25"/>
+<line x1="26.0" y1="626.0" x2="26.0" y2="644.0" stroke="#566F68" stroke-width="0.75"/>
+<text x="42.0" y="625.0" class="d08-f" font-size="14" fill="#12302B">Replay</text>
+<text x="370.0" y="625.0" class="d08-f" font-size="13" fill="#43605A" text-anchor="end">Etter quiz</text>
+<circle cx="26.0" cy="645.0" r="5" fill="#F5F8F4" stroke="#43605A" stroke-width="1.25"/>
+<line x1="26.0" y1="651.0" x2="26.0" y2="669.0" stroke="#566F68" stroke-width="0.75"/>
+<text x="42.0" y="650.0" class="d08-f" font-size="14" fill="#12302B">Individuell test</text>
+<text x="370.0" y="650.0" class="d08-f" font-size="13" fill="#43605A" text-anchor="end">Frist fr. 18. des</text>
+<circle cx="26.0" cy="670.0" r="5" fill="#F5F8F4" stroke="#43605A" stroke-width="1.25"/>
+<text x="42.0" y="675.0" class="d08-f" font-size="14" fill="#12302B">Rapport</text>
+<text x="370.0" y="675.0" class="d08-f" font-size="13" fill="#43605A" text-anchor="end">PDF, når du er ferdig</text>
+<line x1="20.0" y1="702.0" x2="370.0" y2="702.0" stroke="#D2DCD4" stroke-width="1"/>
+<text x="20.0" y="726.0" class="d08-f" font-size="14" fill="#12302B" font-weight="600">Spillfrist ti. 8. des</text>
+<text x="20.0" y="748.0" class="d08-f" font-size="13" fill="#43605A">Labtimer, Datalab A2: to. 26. nov 14:15, ma. 30. nov</text>
+<text x="20.0" y="766.0" class="d08-f" font-size="13" fill="#43605A">10:15, to. 3. des 14:15, ma. 7. des 10:15</text>
+</g></svg>

@@ -1,0 +1,2414 @@
+{
+ "note": "Syntetiske demodata fra simulate.py med PRD FR-11-standarder. Merk som demodata i konseptene.",
+ "amplification": {
+  "Detaljist": 1.8,
+  "Grossist": 4.1,
+  "Distributør": 6.0,
+  "Fabrikk": 7.6
+ },
+ "total_cost_per_role": {
+  "Detaljist": 342.0,
+  "Grossist": 553.5,
+  "Distributør": 691.0,
+  "Fabrikk": 679.5
+ },
+ "chain_total_cost": 2266.0,
+ "weeks": [
+  {
+   "week": 1,
+   "demand": 4,
+   "seats": {
+    "Detaljist": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 6.0
+    },
+    "Grossist": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 6.0
+    },
+    "Distributør": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 6.0
+    },
+    "Fabrikk": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 6.0
+    }
+   }
+  },
+  {
+   "week": 2,
+   "demand": 4,
+   "seats": {
+    "Detaljist": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 12.0
+    },
+    "Grossist": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 12.0
+    },
+    "Distributør": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 12.0
+    },
+    "Fabrikk": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 12.0
+    }
+   }
+  },
+  {
+   "week": 3,
+   "demand": 4,
+   "seats": {
+    "Detaljist": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 18.0
+    },
+    "Grossist": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 18.0
+    },
+    "Distributør": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 18.0
+    },
+    "Fabrikk": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 18.0
+    }
+   }
+  },
+  {
+   "week": 4,
+   "demand": 4,
+   "seats": {
+    "Detaljist": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 24.0
+    },
+    "Grossist": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 24.0
+    },
+    "Distributør": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 24.0
+    },
+    "Fabrikk": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 24.0
+    }
+   }
+  },
+  {
+   "week": 5,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 8,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 4,
+     "sendt": 8,
+     "ordre": 6,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 4.0,
+     "kost_sum": 28.0
+    },
+    "Grossist": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 30.0
+    },
+    "Distributør": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 6,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 30.0
+    },
+    "Fabrikk": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 5,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 30.0
+    }
+   }
+  },
+  {
+   "week": 6,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 4,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 4,
+     "sendt": 8,
+     "ordre": 10,
+     "paa_vei_foer_ordre": 14,
+     "neste_levering": 4,
+     "ukekost": 2.0,
+     "kost_sum": 30.0
+    },
+    "Grossist": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 36.0
+    },
+    "Distributør": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 14,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 36.0
+    },
+    "Fabrikk": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 13,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 36.0
+    }
+   }
+  },
+  {
+   "week": 7,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 4,
+     "sendt": 8,
+     "ordre": 11,
+     "paa_vei_foer_ordre": 20,
+     "neste_levering": 4,
+     "ukekost": 0.0,
+     "kost_sum": 30.0
+    },
+    "Grossist": {
+     "lager": 10,
+     "restordre": 0,
+     "innkommende_ordre": 6,
+     "levering": 4,
+     "sendt": 6,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 5.0,
+     "kost_sum": 41.0
+    },
+    "Distributør": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 14,
+     "neste_levering": 4,
+     "ukekost": 6.0,
+     "kost_sum": 42.0
+    },
+    "Fabrikk": {
+     "lager": 10,
+     "restordre": 0,
+     "innkommende_ordre": 6,
+     "levering": 4,
+     "sendt": 6,
+     "ordre": 5,
+     "paa_vei_foer_ordre": 13,
+     "neste_levering": 4,
+     "ukekost": 5.0,
+     "kost_sum": 41.0
+    }
+   }
+  },
+  {
+   "week": 8,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 4,
+     "innkommende_ordre": 8,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 10,
+     "paa_vei_foer_ordre": 27,
+     "neste_levering": 6,
+     "ukekost": 4.0,
+     "kost_sum": 34.0
+    },
+    "Grossist": {
+     "lager": 4,
+     "restordre": 0,
+     "innkommende_ordre": 10,
+     "levering": 4,
+     "sendt": 10,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 2.0,
+     "kost_sum": 43.0
+    },
+    "Distributør": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 6,
+     "paa_vei_foer_ordre": 14,
+     "neste_levering": 6,
+     "ukekost": 6.0,
+     "kost_sum": 48.0
+    },
+    "Fabrikk": {
+     "lager": 10,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 14,
+     "neste_levering": 5,
+     "ukekost": 5.0,
+     "kost_sum": 46.0
+    }
+   }
+  },
+  {
+   "week": 9,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 6,
+     "innkommende_ordre": 8,
+     "levering": 6,
+     "sendt": 6,
+     "ordre": 8,
+     "paa_vei_foer_ordre": 31,
+     "neste_levering": 10,
+     "ukekost": 6.0,
+     "kost_sum": 40.0
+    },
+    "Grossist": {
+     "lager": 0,
+     "restordre": 3,
+     "innkommende_ordre": 11,
+     "levering": 4,
+     "sendt": 8,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 3.0,
+     "kost_sum": 46.0
+    },
+    "Distributør": {
+     "lager": 14,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 6,
+     "sendt": 4,
+     "ordre": 5,
+     "paa_vei_foer_ordre": 14,
+     "neste_levering": 4,
+     "ukekost": 7.0,
+     "kost_sum": 55.0
+    },
+    "Fabrikk": {
+     "lager": 11,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 5,
+     "sendt": 4,
+     "ordre": 6,
+     "paa_vei_foer_ordre": 13,
+     "neste_levering": 4,
+     "ukekost": 5.5,
+     "kost_sum": 51.5
+    }
+   }
+  },
+  {
+   "week": 10,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 4,
+     "innkommende_ordre": 8,
+     "levering": 10,
+     "sendt": 10,
+     "ordre": 11,
+     "paa_vei_foer_ordre": 29,
+     "neste_levering": 8,
+     "ukekost": 4.0,
+     "kost_sum": 44.0
+    },
+    "Grossist": {
+     "lager": 0,
+     "restordre": 9,
+     "innkommende_ordre": 10,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 8,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 4,
+     "ukekost": 9.0,
+     "kost_sum": 55.0
+    },
+    "Distributør": {
+     "lager": 14,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 3,
+     "paa_vei_foer_ordre": 15,
+     "neste_levering": 4,
+     "ukekost": 7.0,
+     "kost_sum": 62.0
+    },
+    "Fabrikk": {
+     "lager": 9,
+     "restordre": 0,
+     "innkommende_ordre": 6,
+     "levering": 4,
+     "sendt": 6,
+     "ordre": 5,
+     "paa_vei_foer_ordre": 15,
+     "neste_levering": 5,
+     "ukekost": 4.5,
+     "kost_sum": 56.0
+    }
+   }
+  },
+  {
+   "week": 11,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 4,
+     "innkommende_ordre": 8,
+     "levering": 8,
+     "sendt": 8,
+     "ordre": 10,
+     "paa_vei_foer_ordre": 32,
+     "neste_levering": 4,
+     "ukekost": 4.0,
+     "kost_sum": 48.0
+    },
+    "Grossist": {
+     "lager": 0,
+     "restordre": 13,
+     "innkommende_ordre": 8,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 24,
+     "paa_vei_foer_ordre": 16,
+     "neste_levering": 4,
+     "ukekost": 13.0,
+     "kost_sum": 68.0
+    },
+    "Distributør": {
+     "lager": 14,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 2,
+     "paa_vei_foer_ordre": 14,
+     "neste_levering": 6,
+     "ukekost": 7.0,
+     "kost_sum": 69.0
+    },
+    "Fabrikk": {
+     "lager": 9,
+     "restordre": 0,
+     "innkommende_ordre": 5,
+     "levering": 5,
+     "sendt": 5,
+     "ordre": 6,
+     "paa_vei_foer_ordre": 15,
+     "neste_levering": 4,
+     "ukekost": 4.5,
+     "kost_sum": 60.5
+    }
+   }
+  },
+  {
+   "week": 12,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 8,
+     "innkommende_ordre": 8,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 10,
+     "paa_vei_foer_ordre": 38,
+     "neste_levering": 4,
+     "ukekost": 8.0,
+     "kost_sum": 56.0
+    },
+    "Grossist": {
+     "lager": 0,
+     "restordre": 20,
+     "innkommende_ordre": 11,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 16,
+     "paa_vei_foer_ordre": 36,
+     "neste_levering": 4,
+     "ukekost": 20.0,
+     "kost_sum": 88.0
+    },
+    "Distributør": {
+     "lager": 12,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 6,
+     "sendt": 8,
+     "ordre": 8,
+     "paa_vei_foer_ordre": 10,
+     "neste_levering": 5,
+     "ukekost": 6.0,
+     "kost_sum": 75.0
+    },
+    "Fabrikk": {
+     "lager": 10,
+     "restordre": 0,
+     "innkommende_ordre": 3,
+     "levering": 4,
+     "sendt": 3,
+     "ordre": 6,
+     "paa_vei_foer_ordre": 17,
+     "neste_levering": 6,
+     "ukekost": 5.0,
+     "kost_sum": 65.5
+    }
+   }
+  },
+  {
+   "week": 13,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 12,
+     "innkommende_ordre": 8,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 8,
+     "paa_vei_foer_ordre": 44,
+     "neste_levering": 4,
+     "ukekost": 12.0,
+     "kost_sum": 68.0
+    },
+    "Grossist": {
+     "lager": 0,
+     "restordre": 26,
+     "innkommende_ordre": 10,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 16,
+     "paa_vei_foer_ordre": 48,
+     "neste_levering": 8,
+     "ukekost": 26.0,
+     "kost_sum": 114.0
+    },
+    "Distributør": {
+     "lager": 0,
+     "restordre": 7,
+     "innkommende_ordre": 24,
+     "levering": 5,
+     "sendt": 17,
+     "ordre": 20,
+     "paa_vei_foer_ordre": 13,
+     "neste_levering": 3,
+     "ukekost": 7.0,
+     "kost_sum": 82.0
+    },
+    "Fabrikk": {
+     "lager": 14,
+     "restordre": 0,
+     "innkommende_ordre": 2,
+     "levering": 6,
+     "sendt": 2,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 17,
+     "neste_levering": 5,
+     "ukekost": 7.0,
+     "kost_sum": 72.5
+    }
+   }
+  },
+  {
+   "week": 14,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 16,
+     "innkommende_ordre": 8,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 11,
+     "paa_vei_foer_ordre": 48,
+     "neste_levering": 4,
+     "ukekost": 16.0,
+     "kost_sum": 84.0
+    },
+    "Grossist": {
+     "lager": 0,
+     "restordre": 28,
+     "innkommende_ordre": 10,
+     "levering": 8,
+     "sendt": 8,
+     "ordre": 13,
+     "paa_vei_foer_ordre": 56,
+     "neste_levering": 17,
+     "ukekost": 28.0,
+     "kost_sum": 142.0
+    },
+    "Distributør": {
+     "lager": 0,
+     "restordre": 20,
+     "innkommende_ordre": 16,
+     "levering": 3,
+     "sendt": 3,
+     "ordre": 22,
+     "paa_vei_foer_ordre": 30,
+     "neste_levering": 2,
+     "ukekost": 20.0,
+     "kost_sum": 102.0
+    },
+    "Fabrikk": {
+     "lager": 11,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 5,
+     "sendt": 8,
+     "ordre": 5,
+     "paa_vei_foer_ordre": 16,
+     "neste_levering": 6,
+     "ukekost": 5.5,
+     "kost_sum": 78.0
+    }
+   }
+  },
+  {
+   "week": 15,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 20,
+     "innkommende_ordre": 8,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 12,
+     "paa_vei_foer_ordre": 55,
+     "neste_levering": 8,
+     "ukekost": 20.0,
+     "kost_sum": 104.0
+    },
+    "Grossist": {
+     "lager": 0,
+     "restordre": 19,
+     "innkommende_ordre": 8,
+     "levering": 17,
+     "sendt": 17,
+     "ordre": 12,
+     "paa_vei_foer_ordre": 52,
+     "neste_levering": 3,
+     "ukekost": 19.0,
+     "kost_sum": 161.0
+    },
+    "Distributør": {
+     "lager": 0,
+     "restordre": 34,
+     "innkommende_ordre": 16,
+     "levering": 2,
+     "sendt": 2,
+     "ordre": 22,
+     "paa_vei_foer_ordre": 50,
+     "neste_levering": 8,
+     "ukekost": 34.0,
+     "kost_sum": 136.0
+    },
+    "Fabrikk": {
+     "lager": 0,
+     "restordre": 3,
+     "innkommende_ordre": 20,
+     "levering": 6,
+     "sendt": 17,
+     "ordre": 17,
+     "paa_vei_foer_ordre": 15,
+     "neste_levering": 6,
+     "ukekost": 3.0,
+     "kost_sum": 81.0
+    }
+   }
+  },
+  {
+   "week": 16,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 20,
+     "innkommende_ordre": 8,
+     "levering": 8,
+     "sendt": 8,
+     "ordre": 9,
+     "paa_vei_foer_ordre": 59,
+     "neste_levering": 17,
+     "ukekost": 20.0,
+     "kost_sum": 124.0
+    },
+    "Grossist": {
+     "lager": 0,
+     "restordre": 27,
+     "innkommende_ordre": 11,
+     "levering": 3,
+     "sendt": 3,
+     "ordre": 15,
+     "paa_vei_foer_ordre": 61,
+     "neste_levering": 2,
+     "ukekost": 27.0,
+     "kost_sum": 188.0
+    },
+    "Distributør": {
+     "lager": 0,
+     "restordre": 39,
+     "innkommende_ordre": 13,
+     "levering": 8,
+     "sendt": 8,
+     "ordre": 22,
+     "paa_vei_foer_ordre": 64,
+     "neste_levering": 17,
+     "ukekost": 39.0,
+     "kost_sum": 175.0
+    },
+    "Fabrikk": {
+     "lager": 0,
+     "restordre": 19,
+     "innkommende_ordre": 22,
+     "levering": 6,
+     "sendt": 6,
+     "ordre": 23,
+     "paa_vei_foer_ordre": 26,
+     "neste_levering": 4,
+     "ukekost": 19.0,
+     "kost_sum": 100.0
+    }
+   }
+  },
+  {
+   "week": 17,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 11,
+     "innkommende_ordre": 8,
+     "levering": 17,
+     "sendt": 17,
+     "ordre": 6,
+     "paa_vei_foer_ordre": 51,
+     "neste_levering": 3,
+     "ukekost": 11.0,
+     "kost_sum": 135.0
+    },
+    "Grossist": {
+     "lager": 0,
+     "restordre": 37,
+     "innkommende_ordre": 12,
+     "levering": 2,
+     "sendt": 2,
+     "ordre": 14,
+     "paa_vei_foer_ordre": 74,
+     "neste_levering": 8,
+     "ukekost": 37.0,
+     "kost_sum": 225.0
+    },
+    "Distributør": {
+     "lager": 0,
+     "restordre": 34,
+     "innkommende_ordre": 12,
+     "levering": 17,
+     "sendt": 17,
+     "ordre": 17,
+     "paa_vei_foer_ordre": 69,
+     "neste_levering": 6,
+     "ukekost": 34.0,
+     "kost_sum": 209.0
+    },
+    "Fabrikk": {
+     "lager": 0,
+     "restordre": 37,
+     "innkommende_ordre": 22,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 28,
+     "paa_vei_foer_ordre": 45,
+     "neste_levering": 5,
+     "ukekost": 37.0,
+     "kost_sum": 137.0
+    }
+   }
+  },
+  {
+   "week": 18,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 16,
+     "innkommende_ordre": 8,
+     "levering": 3,
+     "sendt": 3,
+     "ordre": 9,
+     "paa_vei_foer_ordre": 54,
+     "neste_levering": 2,
+     "ukekost": 16.0,
+     "kost_sum": 151.0
+    },
+    "Grossist": {
+     "lager": 0,
+     "restordre": 38,
+     "innkommende_ordre": 9,
+     "levering": 8,
+     "sendt": 8,
+     "ordre": 15,
+     "paa_vei_foer_ordre": 80,
+     "neste_levering": 17,
+     "ukekost": 38.0,
+     "kost_sum": 263.0
+    },
+    "Distributør": {
+     "lager": 0,
+     "restordre": 43,
+     "innkommende_ordre": 15,
+     "levering": 6,
+     "sendt": 6,
+     "ordre": 19,
+     "paa_vei_foer_ordre": 80,
+     "neste_levering": 4,
+     "ukekost": 43.0,
+     "kost_sum": 252.0
+    },
+    "Fabrikk": {
+     "lager": 0,
+     "restordre": 54,
+     "innkommende_ordre": 22,
+     "levering": 5,
+     "sendt": 5,
+     "ordre": 31,
+     "paa_vei_foer_ordre": 68,
+     "neste_levering": 17,
+     "ukekost": 54.0,
+     "kost_sum": 191.0
+    }
+   }
+  },
+  {
+   "week": 19,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 22,
+     "innkommende_ordre": 8,
+     "levering": 2,
+     "sendt": 2,
+     "ordre": 9,
+     "paa_vei_foer_ordre": 61,
+     "neste_levering": 8,
+     "ukekost": 22.0,
+     "kost_sum": 173.0
+    },
+    "Grossist": {
+     "lager": 0,
+     "restordre": 27,
+     "innkommende_ordre": 6,
+     "levering": 17,
+     "sendt": 17,
+     "ordre": 8,
+     "paa_vei_foer_ordre": 78,
+     "neste_levering": 6,
+     "ukekost": 27.0,
+     "kost_sum": 290.0
+    },
+    "Distributør": {
+     "lager": 0,
+     "restordre": 53,
+     "innkommende_ordre": 14,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 20,
+     "paa_vei_foer_ordre": 95,
+     "neste_levering": 5,
+     "ukekost": 53.0,
+     "kost_sum": 305.0
+    },
+    "Fabrikk": {
+     "lager": 0,
+     "restordre": 54,
+     "innkommende_ordre": 17,
+     "levering": 17,
+     "sendt": 17,
+     "ordre": 28,
+     "paa_vei_foer_ordre": 82,
+     "neste_levering": 23,
+     "ukekost": 54.0,
+     "kost_sum": 245.0
+    }
+   }
+  },
+  {
+   "week": 20,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 22,
+     "innkommende_ordre": 8,
+     "levering": 8,
+     "sendt": 8,
+     "ordre": 10,
+     "paa_vei_foer_ordre": 62,
+     "neste_levering": 17,
+     "ukekost": 22.0,
+     "kost_sum": 195.0
+    },
+    "Grossist": {
+     "lager": 0,
+     "restordre": 30,
+     "innkommende_ordre": 9,
+     "levering": 6,
+     "sendt": 6,
+     "ordre": 9,
+     "paa_vei_foer_ordre": 80,
+     "neste_levering": 4,
+     "ukekost": 30.0,
+     "kost_sum": 320.0
+    },
+    "Distributør": {
+     "lager": 0,
+     "restordre": 63,
+     "innkommende_ordre": 15,
+     "levering": 5,
+     "sendt": 5,
+     "ordre": 19,
+     "paa_vei_foer_ordre": 110,
+     "neste_levering": 17,
+     "ukekost": 63.0,
+     "kost_sum": 368.0
+    },
+    "Fabrikk": {
+     "lager": 0,
+     "restordre": 50,
+     "innkommende_ordre": 19,
+     "levering": 23,
+     "sendt": 23,
+     "ordre": 26,
+     "paa_vei_foer_ordre": 87,
+     "neste_levering": 28,
+     "ukekost": 50.0,
+     "kost_sum": 295.0
+    }
+   }
+  },
+  {
+   "week": 21,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 13,
+     "innkommende_ordre": 8,
+     "levering": 17,
+     "sendt": 17,
+     "ordre": 8,
+     "paa_vei_foer_ordre": 55,
+     "neste_levering": 6,
+     "ukekost": 13.0,
+     "kost_sum": 208.0
+    },
+    "Grossist": {
+     "lager": 0,
+     "restordre": 35,
+     "innkommende_ordre": 9,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 10,
+     "paa_vei_foer_ordre": 85,
+     "neste_levering": 5,
+     "ukekost": 35.0,
+     "kost_sum": 355.0
+    },
+    "Distributør": {
+     "lager": 0,
+     "restordre": 54,
+     "innkommende_ordre": 8,
+     "levering": 17,
+     "sendt": 17,
+     "ordre": 15,
+     "paa_vei_foer_ordre": 112,
+     "neste_levering": 23,
+     "ukekost": 54.0,
+     "kost_sum": 422.0
+    },
+    "Fabrikk": {
+     "lager": 0,
+     "restordre": 42,
+     "innkommende_ordre": 20,
+     "levering": 28,
+     "sendt": 28,
+     "ordre": 23,
+     "paa_vei_foer_ordre": 85,
+     "neste_levering": 31,
+     "ukekost": 42.0,
+     "kost_sum": 337.0
+    }
+   }
+  },
+  {
+   "week": 22,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 15,
+     "innkommende_ordre": 8,
+     "levering": 6,
+     "sendt": 6,
+     "ordre": 8,
+     "paa_vei_foer_ordre": 57,
+     "neste_levering": 4,
+     "ukekost": 15.0,
+     "kost_sum": 223.0
+    },
+    "Grossist": {
+     "lager": 0,
+     "restordre": 40,
+     "innkommende_ordre": 10,
+     "levering": 5,
+     "sendt": 5,
+     "ordre": 12,
+     "paa_vei_foer_ordre": 90,
+     "neste_levering": 17,
+     "ukekost": 40.0,
+     "kost_sum": 395.0
+    },
+    "Distributør": {
+     "lager": 0,
+     "restordre": 40,
+     "innkommende_ordre": 9,
+     "levering": 23,
+     "sendt": 23,
+     "ordre": 10,
+     "paa_vei_foer_ordre": 104,
+     "neste_levering": 28,
+     "ukekost": 40.0,
+     "kost_sum": 462.0
+    },
+    "Fabrikk": {
+     "lager": 0,
+     "restordre": 30,
+     "innkommende_ordre": 19,
+     "levering": 31,
+     "sendt": 31,
+     "ordre": 21,
+     "paa_vei_foer_ordre": 77,
+     "neste_levering": 28,
+     "ukekost": 30.0,
+     "kost_sum": 367.0
+    }
+   }
+  },
+  {
+   "week": 23,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 19,
+     "innkommende_ordre": 8,
+     "levering": 4,
+     "sendt": 4,
+     "ordre": 9,
+     "paa_vei_foer_ordre": 61,
+     "neste_levering": 5,
+     "ukekost": 19.0,
+     "kost_sum": 242.0
+    },
+    "Grossist": {
+     "lager": 0,
+     "restordre": 31,
+     "innkommende_ordre": 8,
+     "levering": 17,
+     "sendt": 17,
+     "ordre": 8,
+     "paa_vei_foer_ordre": 85,
+     "neste_levering": 23,
+     "ukekost": 31.0,
+     "kost_sum": 426.0
+    },
+    "Distributør": {
+     "lager": 0,
+     "restordre": 22,
+     "innkommende_ordre": 10,
+     "levering": 28,
+     "sendt": 28,
+     "ordre": 9,
+     "paa_vei_foer_ordre": 86,
+     "neste_levering": 31,
+     "ukekost": 22.0,
+     "kost_sum": 484.0
+    },
+    "Fabrikk": {
+     "lager": 0,
+     "restordre": 17,
+     "innkommende_ordre": 15,
+     "levering": 28,
+     "sendt": 28,
+     "ordre": 17,
+     "paa_vei_foer_ordre": 70,
+     "neste_levering": 26,
+     "ukekost": 17.0,
+     "kost_sum": 384.0
+    }
+   }
+  },
+  {
+   "week": 24,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 22,
+     "innkommende_ordre": 8,
+     "levering": 5,
+     "sendt": 5,
+     "ordre": 9,
+     "paa_vei_foer_ordre": 65,
+     "neste_levering": 17,
+     "ukekost": 22.0,
+     "kost_sum": 264.0
+    },
+    "Grossist": {
+     "lager": 0,
+     "restordre": 16,
+     "innkommende_ordre": 8,
+     "levering": 23,
+     "sendt": 23,
+     "ordre": 6,
+     "paa_vei_foer_ordre": 70,
+     "neste_levering": 28,
+     "ukekost": 16.0,
+     "kost_sum": 442.0
+    },
+    "Distributør": {
+     "lager": 0,
+     "restordre": 3,
+     "innkommende_ordre": 12,
+     "levering": 31,
+     "sendt": 31,
+     "ordre": 5,
+     "paa_vei_foer_ordre": 64,
+     "neste_levering": 28,
+     "ukekost": 3.0,
+     "kost_sum": 487.0
+    },
+    "Fabrikk": {
+     "lager": 0,
+     "restordre": 1,
+     "innkommende_ordre": 10,
+     "levering": 26,
+     "sendt": 26,
+     "ordre": 9,
+     "paa_vei_foer_ordre": 61,
+     "neste_levering": 23,
+     "ukekost": 1.0,
+     "kost_sum": 385.0
+    }
+   }
+  },
+  {
+   "week": 25,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 0,
+     "restordre": 13,
+     "innkommende_ordre": 8,
+     "levering": 17,
+     "sendt": 17,
+     "ordre": 7,
+     "paa_vei_foer_ordre": 57,
+     "neste_levering": 23,
+     "ukekost": 13.0,
+     "kost_sum": 277.0
+    },
+    "Grossist": {
+     "lager": 3,
+     "restordre": 0,
+     "innkommende_ordre": 9,
+     "levering": 28,
+     "sendt": 25,
+     "ordre": 6,
+     "paa_vei_foer_ordre": 48,
+     "neste_levering": 31,
+     "ukekost": 1.5,
+     "kost_sum": 443.5
+    },
+    "Distributør": {
+     "lager": 17,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 28,
+     "sendt": 11,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 41,
+     "neste_levering": 26,
+     "ukekost": 8.5,
+     "kost_sum": 495.5
+    },
+    "Fabrikk": {
+     "lager": 13,
+     "restordre": 0,
+     "innkommende_ordre": 9,
+     "levering": 23,
+     "sendt": 10,
+     "ordre": 5,
+     "paa_vei_foer_ordre": 47,
+     "neste_levering": 21,
+     "ukekost": 6.5,
+     "kost_sum": 391.5
+    }
+   }
+  },
+  {
+   "week": 26,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 2,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 23,
+     "sendt": 21,
+     "ordre": 6,
+     "paa_vei_foer_ordre": 41,
+     "neste_levering": 25,
+     "ukekost": 1.0,
+     "kost_sum": 278.0
+    },
+    "Grossist": {
+     "lager": 25,
+     "restordre": 0,
+     "innkommende_ordre": 9,
+     "levering": 31,
+     "sendt": 9,
+     "ordre": 3,
+     "paa_vei_foer_ordre": 23,
+     "neste_levering": 11,
+     "ukekost": 12.5,
+     "kost_sum": 456.0
+    },
+    "Distributør": {
+     "lager": 37,
+     "restordre": 0,
+     "innkommende_ordre": 6,
+     "levering": 26,
+     "sendt": 6,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 19,
+     "neste_levering": 10,
+     "ukekost": 18.5,
+     "kost_sum": 514.0
+    },
+    "Fabrikk": {
+     "lager": 29,
+     "restordre": 0,
+     "innkommende_ordre": 5,
+     "levering": 21,
+     "sendt": 5,
+     "ordre": 1,
+     "paa_vei_foer_ordre": 31,
+     "neste_levering": 17,
+     "ukekost": 14.5,
+     "kost_sum": 406.0
+    }
+   }
+  },
+  {
+   "week": 27,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 19,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 25,
+     "sendt": 8,
+     "ordre": 5,
+     "paa_vei_foer_ordre": 22,
+     "neste_levering": 9,
+     "ukekost": 9.5,
+     "kost_sum": 287.5
+    },
+    "Grossist": {
+     "lager": 29,
+     "restordre": 0,
+     "innkommende_ordre": 7,
+     "levering": 11,
+     "sendt": 7,
+     "ordre": 3,
+     "paa_vei_foer_ordre": 15,
+     "neste_levering": 6,
+     "ukekost": 14.5,
+     "kost_sum": 470.5
+    },
+    "Distributør": {
+     "lager": 41,
+     "restordre": 0,
+     "innkommende_ordre": 6,
+     "levering": 10,
+     "sendt": 6,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 9,
+     "neste_levering": 5,
+     "ukekost": 20.5,
+     "kost_sum": 534.5
+    },
+    "Fabrikk": {
+     "lager": 42,
+     "restordre": 0,
+     "innkommende_ordre": 4,
+     "levering": 17,
+     "sendt": 4,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 15,
+     "neste_levering": 9,
+     "ukekost": 21.0,
+     "kost_sum": 427.0
+    }
+   }
+  },
+  {
+   "week": 28,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 20,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 9,
+     "sendt": 8,
+     "ordre": 5,
+     "paa_vei_foer_ordre": 18,
+     "neste_levering": 7,
+     "ukekost": 10.0,
+     "kost_sum": 297.5
+    },
+    "Grossist": {
+     "lager": 29,
+     "restordre": 0,
+     "innkommende_ordre": 6,
+     "levering": 6,
+     "sendt": 6,
+     "ordre": 1,
+     "paa_vei_foer_ordre": 12,
+     "neste_levering": 6,
+     "ukekost": 14.5,
+     "kost_sum": 485.0
+    },
+    "Distributør": {
+     "lager": 43,
+     "restordre": 0,
+     "innkommende_ordre": 3,
+     "levering": 5,
+     "sendt": 3,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 4,
+     "neste_levering": 4,
+     "ukekost": 21.5,
+     "kost_sum": 556.0
+    },
+    "Fabrikk": {
+     "lager": 51,
+     "restordre": 0,
+     "innkommende_ordre": 0,
+     "levering": 9,
+     "sendt": 0,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 6,
+     "neste_levering": 5,
+     "ukekost": 25.5,
+     "kost_sum": 452.5
+    }
+   }
+  },
+  {
+   "week": 29,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 19,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 7,
+     "sendt": 8,
+     "ordre": 6,
+     "paa_vei_foer_ordre": 16,
+     "neste_levering": 6,
+     "ukekost": 9.5,
+     "kost_sum": 307.0
+    },
+    "Grossist": {
+     "lager": 30,
+     "restordre": 0,
+     "innkommende_ordre": 5,
+     "levering": 6,
+     "sendt": 5,
+     "ordre": 2,
+     "paa_vei_foer_ordre": 7,
+     "neste_levering": 3,
+     "ukekost": 15.0,
+     "kost_sum": 500.0
+    },
+    "Distributør": {
+     "lager": 44,
+     "restordre": 0,
+     "innkommende_ordre": 3,
+     "levering": 4,
+     "sendt": 3,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 0,
+     "neste_levering": 0,
+     "ukekost": 22.0,
+     "kost_sum": 578.0
+    },
+    "Fabrikk": {
+     "lager": 56,
+     "restordre": 0,
+     "innkommende_ordre": 0,
+     "levering": 5,
+     "sendt": 0,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 1,
+     "neste_levering": 1,
+     "ukekost": 28.0,
+     "kost_sum": 480.5
+    }
+   }
+  },
+  {
+   "week": 30,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 17,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 6,
+     "sendt": 8,
+     "ordre": 6,
+     "paa_vei_foer_ordre": 16,
+     "neste_levering": 5,
+     "ukekost": 8.5,
+     "kost_sum": 315.5
+    },
+    "Grossist": {
+     "lager": 28,
+     "restordre": 0,
+     "innkommende_ordre": 5,
+     "levering": 3,
+     "sendt": 5,
+     "ordre": 2,
+     "paa_vei_foer_ordre": 6,
+     "neste_levering": 3,
+     "ukekost": 14.0,
+     "kost_sum": 514.0
+    },
+    "Distributør": {
+     "lager": 43,
+     "restordre": 0,
+     "innkommende_ordre": 1,
+     "levering": 0,
+     "sendt": 1,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 0,
+     "neste_levering": 0,
+     "ukekost": 21.5,
+     "kost_sum": 599.5
+    },
+    "Fabrikk": {
+     "lager": 57,
+     "restordre": 0,
+     "innkommende_ordre": 0,
+     "levering": 1,
+     "sendt": 0,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 0,
+     "neste_levering": 0,
+     "ukekost": 28.5,
+     "kost_sum": 509.0
+    }
+   }
+  },
+  {
+   "week": 31,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 14,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 5,
+     "sendt": 8,
+     "ordre": 7,
+     "paa_vei_foer_ordre": 17,
+     "neste_levering": 5,
+     "ukekost": 7.0,
+     "kost_sum": 322.5
+    },
+    "Grossist": {
+     "lager": 25,
+     "restordre": 0,
+     "innkommende_ordre": 6,
+     "levering": 3,
+     "sendt": 6,
+     "ordre": 3,
+     "paa_vei_foer_ordre": 5,
+     "neste_levering": 1,
+     "ukekost": 12.5,
+     "kost_sum": 526.5
+    },
+    "Distributør": {
+     "lager": 41,
+     "restordre": 0,
+     "innkommende_ordre": 2,
+     "levering": 0,
+     "sendt": 2,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 0,
+     "neste_levering": 0,
+     "ukekost": 20.5,
+     "kost_sum": 620.0
+    },
+    "Fabrikk": {
+     "lager": 57,
+     "restordre": 0,
+     "innkommende_ordre": 0,
+     "levering": 0,
+     "sendt": 0,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 0,
+     "neste_levering": 0,
+     "ukekost": 28.5,
+     "kost_sum": 537.5
+    }
+   }
+  },
+  {
+   "week": 32,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 11,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 5,
+     "sendt": 8,
+     "ordre": 8,
+     "paa_vei_foer_ordre": 19,
+     "neste_levering": 6,
+     "ukekost": 5.5,
+     "kost_sum": 328.0
+    },
+    "Grossist": {
+     "lager": 20,
+     "restordre": 0,
+     "innkommende_ordre": 6,
+     "levering": 1,
+     "sendt": 6,
+     "ordre": 6,
+     "paa_vei_foer_ordre": 7,
+     "neste_levering": 2,
+     "ukekost": 10.0,
+     "kost_sum": 536.5
+    },
+    "Distributør": {
+     "lager": 39,
+     "restordre": 0,
+     "innkommende_ordre": 2,
+     "levering": 0,
+     "sendt": 2,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 0,
+     "neste_levering": 0,
+     "ukekost": 19.5,
+     "kost_sum": 639.5
+    },
+    "Fabrikk": {
+     "lager": 57,
+     "restordre": 0,
+     "innkommende_ordre": 0,
+     "levering": 0,
+     "sendt": 0,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 0,
+     "neste_levering": 0,
+     "ukekost": 28.5,
+     "kost_sum": 566.0
+    }
+   }
+  },
+  {
+   "week": 33,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 9,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 6,
+     "sendt": 8,
+     "ordre": 7,
+     "paa_vei_foer_ordre": 21,
+     "neste_levering": 6,
+     "ukekost": 4.5,
+     "kost_sum": 332.5
+    },
+    "Grossist": {
+     "lager": 15,
+     "restordre": 0,
+     "innkommende_ordre": 7,
+     "levering": 2,
+     "sendt": 7,
+     "ordre": 7,
+     "paa_vei_foer_ordre": 11,
+     "neste_levering": 2,
+     "ukekost": 7.5,
+     "kost_sum": 544.0
+    },
+    "Distributør": {
+     "lager": 36,
+     "restordre": 0,
+     "innkommende_ordre": 3,
+     "levering": 0,
+     "sendt": 3,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 0,
+     "neste_levering": 0,
+     "ukekost": 18.0,
+     "kost_sum": 657.5
+    },
+    "Fabrikk": {
+     "lager": 57,
+     "restordre": 0,
+     "innkommende_ordre": 0,
+     "levering": 0,
+     "sendt": 0,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 0,
+     "neste_levering": 0,
+     "ukekost": 28.5,
+     "kost_sum": 594.5
+    }
+   }
+  },
+  {
+   "week": 34,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 7,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 6,
+     "sendt": 8,
+     "ordre": 6,
+     "paa_vei_foer_ordre": 22,
+     "neste_levering": 7,
+     "ukekost": 3.5,
+     "kost_sum": 336.0
+    },
+    "Grossist": {
+     "lager": 9,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 2,
+     "sendt": 8,
+     "ordre": 9,
+     "paa_vei_foer_ordre": 16,
+     "neste_levering": 3,
+     "ukekost": 4.5,
+     "kost_sum": 548.5
+    },
+    "Distributør": {
+     "lager": 30,
+     "restordre": 0,
+     "innkommende_ordre": 6,
+     "levering": 0,
+     "sendt": 6,
+     "ordre": 1,
+     "paa_vei_foer_ordre": 0,
+     "neste_levering": 0,
+     "ukekost": 15.0,
+     "kost_sum": 672.5
+    },
+    "Fabrikk": {
+     "lager": 57,
+     "restordre": 0,
+     "innkommende_ordre": 0,
+     "levering": 0,
+     "sendt": 0,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 0,
+     "neste_levering": 0,
+     "ukekost": 28.5,
+     "kost_sum": 623.0
+    }
+   }
+  },
+  {
+   "week": 35,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 6,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 7,
+     "sendt": 8,
+     "ordre": 9,
+     "paa_vei_foer_ordre": 21,
+     "neste_levering": 8,
+     "ukekost": 3.0,
+     "kost_sum": 339.0
+    },
+    "Grossist": {
+     "lager": 5,
+     "restordre": 0,
+     "innkommende_ordre": 7,
+     "levering": 3,
+     "sendt": 7,
+     "ordre": 9,
+     "paa_vei_foer_ordre": 22,
+     "neste_levering": 6,
+     "ukekost": 2.5,
+     "kost_sum": 551.0
+    },
+    "Distributør": {
+     "lager": 23,
+     "restordre": 0,
+     "innkommende_ordre": 7,
+     "levering": 0,
+     "sendt": 7,
+     "ordre": 4,
+     "paa_vei_foer_ordre": 1,
+     "neste_levering": 0,
+     "ukekost": 11.5,
+     "kost_sum": 684.0
+    },
+    "Fabrikk": {
+     "lager": 57,
+     "restordre": 0,
+     "innkommende_ordre": 0,
+     "levering": 0,
+     "sendt": 0,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 0,
+     "neste_levering": 0,
+     "ukekost": 28.5,
+     "kost_sum": 651.5
+    }
+   }
+  },
+  {
+   "week": 36,
+   "demand": 8,
+   "seats": {
+    "Detaljist": {
+     "lager": 6,
+     "restordre": 0,
+     "innkommende_ordre": 8,
+     "levering": 8,
+     "sendt": 8,
+     "ordre": 9,
+     "paa_vei_foer_ordre": 22,
+     "neste_levering": 7,
+     "ukekost": 3.0,
+     "kost_sum": 342.0
+    },
+    "Grossist": {
+     "lager": 5,
+     "restordre": 0,
+     "innkommende_ordre": 6,
+     "levering": 6,
+     "sendt": 6,
+     "ordre": 6,
+     "paa_vei_foer_ordre": 25,
+     "neste_levering": 7,
+     "ukekost": 2.5,
+     "kost_sum": 553.5
+    },
+    "Distributør": {
+     "lager": 14,
+     "restordre": 0,
+     "innkommende_ordre": 9,
+     "levering": 0,
+     "sendt": 9,
+     "ordre": 7,
+     "paa_vei_foer_ordre": 5,
+     "neste_levering": 0,
+     "ukekost": 7.0,
+     "kost_sum": 691.0
+    },
+    "Fabrikk": {
+     "lager": 56,
+     "restordre": 0,
+     "innkommende_ordre": 1,
+     "levering": 0,
+     "sendt": 1,
+     "ordre": 0,
+     "paa_vei_foer_ordre": 0,
+     "neste_levering": 0,
+     "ukekost": 28.0,
+     "kost_sum": 679.5
+    }
+   }
+  }
+ ],
+ "class_games": [
+  {
+   "spill": 1,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 4168,
+   "ki_seter": 2
+  },
+  {
+   "spill": 2,
+   "status": "venter",
+   "uke": 19,
+   "kjedekost": 2654,
+   "ki_seter": 0,
+   "venter_paa": "Grossist",
+   "navn": "Noah",
+   "ventet_timer": 23
+  },
+  {
+   "spill": 3,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 4159,
+   "ki_seter": 0
+  },
+  {
+   "spill": 4,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 1993,
+   "ki_seter": 1
+  },
+  {
+   "spill": 5,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 5813,
+   "ki_seter": 1
+  },
+  {
+   "spill": 6,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 3341,
+   "ki_seter": 0
+  },
+  {
+   "spill": 7,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 2166,
+   "ki_seter": 0
+  },
+  {
+   "spill": 8,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 3427,
+   "ki_seter": 0
+  },
+  {
+   "spill": 9,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 2624,
+   "ki_seter": 0
+  },
+  {
+   "spill": 10,
+   "status": "venter",
+   "uke": 31,
+   "kjedekost": 2683,
+   "ki_seter": 1,
+   "venter_paa": "Grossist",
+   "navn": "Oskar",
+   "ventet_timer": 16
+  },
+  {
+   "spill": 11,
+   "status": "pågår",
+   "uke": 30,
+   "kjedekost": 3947,
+   "ki_seter": 0
+  },
+  {
+   "spill": 12,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 3811,
+   "ki_seter": 0
+  },
+  {
+   "spill": 13,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 3111,
+   "ki_seter": 0
+  },
+  {
+   "spill": 14,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 3388,
+   "ki_seter": 0
+  },
+  {
+   "spill": 15,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 5909,
+   "ki_seter": 0
+  },
+  {
+   "spill": 16,
+   "status": "pågår",
+   "uke": 25,
+   "kjedekost": 1436,
+   "ki_seter": 0
+  },
+  {
+   "spill": 17,
+   "status": "pågår",
+   "uke": 11,
+   "kjedekost": 246,
+   "ki_seter": 0
+  },
+  {
+   "spill": 18,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 4171,
+   "ki_seter": 0
+  },
+  {
+   "spill": 19,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 6045,
+   "ki_seter": 1
+  },
+  {
+   "spill": 20,
+   "status": "pauset",
+   "uke": 29,
+   "kjedekost": 906,
+   "ki_seter": 1,
+   "fortsetter": "i kveld 19:00"
+  },
+  {
+   "spill": 21,
+   "status": "pauset",
+   "uke": 9,
+   "kjedekost": 771,
+   "ki_seter": 0,
+   "fortsetter": "i kveld 19:00"
+  },
+  {
+   "spill": 22,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 2843,
+   "ki_seter": 0
+  },
+  {
+   "spill": 23,
+   "status": "pågår",
+   "uke": 21,
+   "kjedekost": 992,
+   "ki_seter": 0
+  },
+  {
+   "spill": 24,
+   "status": "pågår",
+   "uke": 32,
+   "kjedekost": 4473,
+   "ki_seter": 0
+  },
+  {
+   "spill": 25,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 2667,
+   "ki_seter": 1
+  },
+  {
+   "spill": 26,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 2902,
+   "ki_seter": 1
+  },
+  {
+   "spill": 27,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 5521,
+   "ki_seter": 0
+  },
+  {
+   "spill": 28,
+   "status": "venter",
+   "uke": 24,
+   "kjedekost": 1863,
+   "ki_seter": 0,
+   "venter_paa": "Distributør",
+   "navn": "Mikkel",
+   "ventet_timer": 14
+  },
+  {
+   "spill": 29,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 3961,
+   "ki_seter": 1
+  },
+  {
+   "spill": 30,
+   "status": "venter",
+   "uke": 33,
+   "kjedekost": 3816,
+   "ki_seter": 0,
+   "venter_paa": "Detaljist",
+   "navn": "Ida",
+   "ventet_timer": 18
+  },
+  {
+   "spill": 31,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 3532,
+   "ki_seter": 0
+  },
+  {
+   "spill": 32,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 5700,
+   "ki_seter": 0
+  },
+  {
+   "spill": 33,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 2734,
+   "ki_seter": 0
+  },
+  {
+   "spill": 34,
+   "status": "pågår",
+   "uke": 16,
+   "kjedekost": 1138,
+   "ki_seter": 0
+  },
+  {
+   "spill": 35,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 5417,
+   "ki_seter": 0
+  },
+  {
+   "spill": 36,
+   "status": "pågår",
+   "uke": 14,
+   "kjedekost": 1690,
+   "ki_seter": 0
+  },
+  {
+   "spill": 37,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 2478,
+   "ki_seter": 0
+  },
+  {
+   "spill": 38,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 2306,
+   "ki_seter": 1
+  },
+  {
+   "spill": 39,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 5736,
+   "ki_seter": 0
+  },
+  {
+   "spill": 40,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 4055,
+   "ki_seter": 0
+  },
+  {
+   "spill": 41,
+   "status": "pågår",
+   "uke": 20,
+   "kjedekost": 2039,
+   "ki_seter": 0
+  },
+  {
+   "spill": 42,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 5155,
+   "ki_seter": 2
+  },
+  {
+   "spill": 43,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 4928,
+   "ki_seter": 0
+  },
+  {
+   "spill": 44,
+   "status": "pågår",
+   "uke": 6,
+   "kjedekost": 689,
+   "ki_seter": 2
+  },
+  {
+   "spill": 45,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 3936,
+   "ki_seter": 0
+  },
+  {
+   "spill": 46,
+   "status": "pågår",
+   "uke": 33,
+   "kjedekost": 3243,
+   "ki_seter": 0
+  },
+  {
+   "spill": 47,
+   "status": "pågår",
+   "uke": 10,
+   "kjedekost": 727,
+   "ki_seter": 0
+  },
+  {
+   "spill": 48,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 4008,
+   "ki_seter": 0
+  },
+  {
+   "spill": 49,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 6159,
+   "ki_seter": 1
+  },
+  {
+   "spill": 50,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 4602,
+   "ki_seter": 0
+  },
+  {
+   "spill": 51,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 5127,
+   "ki_seter": 0
+  },
+  {
+   "spill": 52,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 5841,
+   "ki_seter": 0
+  },
+  {
+   "spill": 53,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 4396,
+   "ki_seter": 2
+  },
+  {
+   "spill": 54,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 5566,
+   "ki_seter": 1
+  },
+  {
+   "spill": 55,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 4990,
+   "ki_seter": 1
+  },
+  {
+   "spill": 56,
+   "status": "pågår",
+   "uke": 14,
+   "kjedekost": 1645,
+   "ki_seter": 0
+  },
+  {
+   "spill": 57,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 4512,
+   "ki_seter": 0
+  },
+  {
+   "spill": 58,
+   "status": "pågår",
+   "uke": 21,
+   "kjedekost": 2423,
+   "ki_seter": 2
+  },
+  {
+   "spill": 59,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 3885,
+   "ki_seter": 0
+  },
+  {
+   "spill": 60,
+   "status": "ferdig",
+   "uke": 36,
+   "kjedekost": 2591,
+   "ki_seter": 0
+  }
+ ],
+ "funnel": {
+  "registrert": 240,
+  "klassespill_ferdig": 164,
+  "debrief_ferdig": 121,
+  "quiz_bestått": 97,
+  "replay_ferdig": 58,
+  "test_levert": 12,
+  "ki_vurdering_klar": 0
+ },
+ "roster": {
+  "paa_lista": 250,
+  "registrert": 238,
+  "manuelt_registrert": 2,
+  "uregistrert": 10,
+  "ugyldige_rader": 4
+ }
+}

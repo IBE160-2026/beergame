@@ -1,0 +1,270 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2100 1200" font-family="'Spectral','Iowan Old Style',Georgia,serif" id="d08-debrief-root" role="img" aria-labelledby="d08-debrief-title d08-debrief-desc"><title id="d08-debrief-title">Rapport: Debrief som artikkel</title><desc id="d08-debrief-desc">Gruppedebrief i fem steg som en lang artikkel: Forklaring, avsløring av etterspørselen som stille mellomtittel, alle fire Rollers ordre, ditt øyeblikk i Uke 11 og quiz, pluss delt skjerm. Alle tall fra loggen.</desc><style>@import url('https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600&amp;family=Libre+Franklin:wght@400;500;600&amp;display=swap');.d08-s{font-family:'Spectral','Iowan Old Style',Georgia,serif;font-feature-settings:'lnum' 1,'kern' 1}.d08-f{font-family:'Libre Franklin','Helvetica Neue',Arial,sans-serif;font-variant-numeric:lining-nums tabular-nums}.d08-p{font-family:'Libre Franklin','Helvetica Neue',Arial,sans-serif;font-variant-numeric:lining-nums proportional-nums}</style><rect x="0.0" y="0.0" width="2100.0" height="1200.0" fill="#F5F8F4"/>
+<text x="40.0" y="60.0" class="d08-s" font-size="44" fill="#12302B" font-weight="500">Du bestilte 24 da 16 var på vei</text>
+<text x="40.0" y="96.0" class="d08-s" font-size="18" fill="#43605A">Artikkelen om spill 17 fra ditt sete. Grossist, 36 uker. Tallene er hentet fra loggen. Teksten mellom dem er KI-generert og kan ta feil.</text>
+<text x="1270.0" y="66.0" class="d08-f" font-size="14" fill="#12302B" font-weight="500">Forklaring</text>
+<rect x="1270.0" y="76.0" width="150.0" height="2.0" fill="#12302B"/>
+<text x="1428.0" y="66.0" class="d08-f" font-size="14" fill="#12302B" font-weight="500">Etterspørselen</text>
+<rect x="1428.0" y="76.0" width="150.0" height="2.0" fill="#12302B"/>
+<text x="1586.0" y="66.0" class="d08-f" font-size="14" fill="#12302B" font-weight="500">Alle fire Roller</text>
+<rect x="1586.0" y="76.0" width="150.0" height="2.0" fill="#12302B"/>
+<text x="1744.0" y="66.0" class="d08-f" font-size="14" fill="#12302B" font-weight="500">Ditt øyeblikk</text>
+<rect x="1744.0" y="76.0" width="150.0" height="2.0" fill="#12302B"/>
+<text x="1902.0" y="66.0" class="d08-f" font-size="14" fill="#12302B" font-weight="500">Quiz</text>
+<rect x="1902.0" y="76.0" width="150.0" height="2.0" fill="#12302B"/>
+<line x1="40.0" y1="122.0" x2="2060.0" y2="122.0" stroke="#D2DCD4" stroke-width="1"/>
+<text x="40.0" y="160.0" class="d08-s" font-size="25" fill="#12302B" font-weight="500">Slik så det ut fra ditt sete</text>
+<text x="40.0" y="190.0" class="d08-s" font-size="16" fill="#12302B">Før du får se mer: dette er grafen du spilte med, til siste</text>
+<text x="40.0" y="213.0" class="d08-s" font-size="16" fill="#12302B">uke. Du så bare dette.</text>
+<line x1="66.0" y1="518.9" x2="440.0" y2="518.9" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="59.0" y="523.4" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">−30</text>
+<line x1="66.0" y1="413.5" x2="440.0" y2="413.5" stroke="#43605A" stroke-width="1"/>
+<text x="59.0" y="418.1" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">0</text>
+<line x1="66.0" y1="308.2" x2="440.0" y2="308.2" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="59.0" y="312.8" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">30</text>
+<path d="M66.0 371.4L76.7 371.4L87.4 371.4L98.1 371.4L108.7 371.4L119.4 371.4L130.1 378.4L140.8 399.5L151.5 424.1L162.2 445.1L172.9 459.2L183.5 483.7L194.2 504.8L204.9 511.8L215.6 480.2L226.3 508.3L237.0 543.4L247.7 546.9L258.3 508.3L269.0 518.9L279.7 536.4L290.4 554.0L301.1 522.4L311.8 469.7L322.5 403.0L333.1 325.8L343.8 311.7L354.5 311.7L365.2 308.2L375.9 315.2L386.6 325.8L397.3 343.3L407.9 360.9L418.6 381.9L429.3 396.0L440.0 396.0" fill="none" stroke="#A5471C" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="64.0" y="587.0" class="d08-f" font-size="13" fill="#566F68">Uke 1</text>
+<text x="162.2" y="587.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">10</text>
+<text x="269.0" y="587.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">20</text>
+<text x="375.9" y="587.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">30</text>
+<text x="440.0" y="587.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">36</text>
+<path d="M290.4 554.0H269.0" fill="none" stroke="#43605A" stroke-width="0.75" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="269.0" y1="546.0" x2="269.0" y2="562.0" stroke="#43605A" stroke-width="0.75"/>
+<circle cx="290.4" cy="554.0" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="262.0" y="557.8" class="d08-s" font-size="14" fill="#12302B" stroke="#F5F8F4" stroke-width="3" stroke-linejoin="round" paint-order="stroke" text-anchor="end">Restordre <tspan font-weight="600">40</tspan> i Uke 22.</text>
+<line x1="365.2" y1="246.0" x2="365.2" y2="308.2" stroke="#43605A" stroke-width="0.75"/>
+<circle cx="365.2" cy="308.2" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="358.2" y="257.9" class="d08-s" font-size="14" fill="#12302B" stroke="#F5F8F4" stroke-width="3" stroke-linejoin="round" paint-order="stroke" text-anchor="end">Lager <tspan font-weight="600">30</tspan> i Uke 29.</text>
+<line x1="66.0" y1="607.6" x2="84.0" y2="607.6" stroke="#A5471C" stroke-width="2.5"/>
+<text x="89.0" y="612.0" class="d08-f" font-size="13" fill="#43605A">Lager / restordre</text>
+<circle cx="204.8" cy="607.6" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="213.8" y="612.0" class="d08-f" font-size="13" fill="#43605A">Punktet kommentaren gjelder</text>
+<text x="40.0" y="648.0" class="d08-s" font-size="19" fill="#12302B" font-weight="500">Hva tror du skjedde?</text>
+<text x="40.0" y="672.0" class="d08-s" font-size="15" fill="#43605A">Skriv Forklaringen din først. Du kan ikke endre den etterpå.</text>
+<rect x="40.0" y="685.0" width="400.0" height="124.0" fill="#E2E9E3" rx="3"/>
+<text x="54.0" y="709.0" class="d08-s" font-size="15" fill="#12302B">Ida bestilte plutselig mye mer, og jeg fikk aldri nok varer.</text>
+<text x="54.0" y="731.0" class="d08-s" font-size="15" fill="#12302B">Så jeg måtte bestille stort for å ta igjen. Etterpå kom alt på</text>
+<text x="54.0" y="753.0" class="d08-s" font-size="15" fill="#12302B">en gang.</text>
+<text x="54.0" y="795.0" class="d08-f" font-size="13" fill="#43605A">Sara, lagret</text>
+<rect x="40.0" y="825.0" width="10.0" height="8.0" fill="none" rx="1" stroke="#43605A" stroke-width="1.1"/>
+<path d="M42 825V823a3 3 0 0 1 6 0V825" fill="none" stroke="#43605A" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="58.0" y="831.0" class="d08-f" font-size="13" fill="#43605A">Etterspørselen vises når alle har lagret.</text>
+<line x1="40.0" y1="853.0" x2="440.0" y2="853.0" stroke="#D2DCD4" stroke-width="1"/>
+<text x="40.0" y="883.0" class="d08-s" font-size="25" fill="#12302B" font-weight="500">Kundene kjøpte 8</text>
+<text x="40.0" y="911.0" class="d08-s" font-size="16" fill="#12302B">Fra Uke 5 og ut spillet. Det var hele endringen. Øvelsen</text>
+<text x="40.0" y="934.0" class="d08-s" font-size="16" fill="#12302B">heter Beer Game.</text>
+<line x1="66.0" y1="1013.0" x2="306.0" y2="1013.0" stroke="#43605A" stroke-width="1"/>
+<text x="59.0" y="1017.5" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">0</text>
+<line x1="66.0" y1="963.4" x2="306.0" y2="963.4" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="59.0" y="967.9" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">8</text>
+<path d="M66.0 988.2V988.2H72.9V988.2H79.7V988.2H86.6V963.4H93.4V963.4H100.3V963.4H107.1V963.4H114.0V963.4H120.9V963.4H127.7V963.4H134.6V963.4H141.4V963.4H148.3V963.4H155.1V963.4H162.0V963.4H168.9V963.4H175.7V963.4H182.6V963.4H189.4V963.4H196.3V963.4H203.1V963.4H210.0V963.4H216.9V963.4H223.7V963.4H230.6V963.4H237.4V963.4H244.3V963.4H251.1V963.4H258.0V963.4H264.9V963.4H271.7V963.4H278.6V963.4H285.4V963.4H292.3V963.4H299.1V963.4H306.0" fill="none" stroke="#12302B" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="64.0" y="1032.0" class="d08-f" font-size="13" fill="#566F68">Uke 1</text>
+<text x="306.0" y="1032.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">36</text>
+<path d="M93.4 963.4H320.0" fill="none" stroke="#43605A" stroke-width="0.75" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="320.0" y1="955.4" x2="320.0" y2="971.4" stroke="#43605A" stroke-width="0.75"/>
+<circle cx="93.4" cy="963.4" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="327.0" y="967.3" class="d08-s" font-size="14" fill="#12302B" stroke="#F5F8F4" stroke-width="3" stroke-linejoin="round" paint-order="stroke"><tspan font-weight="600">4</tspan> til <tspan font-weight="600">8</tspan>, i Uke 5.</text>
+<text x="480.0" y="160.0" class="d08-s" font-size="25" fill="#12302B" font-weight="500">Ordrene vokste for hvert ledd</text>
+<text x="480.0" y="190.0" class="d08-s" font-size="16" fill="#12302B">Kundene endret seg én gang. Ordrene svingte i ukevis, og de svingte mer og senere</text>
+<text x="480.0" y="213.0" class="d08-s" font-size="16" fill="#12302B">jo lenger de kom fra kundene.</text>
+<line x1="506.0" y1="794.0" x2="1040.0" y2="794.0" stroke="#43605A" stroke-width="1"/>
+<text x="499.0" y="798.5" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">0</text>
+<line x1="506.0" y1="630.5" x2="1040.0" y2="630.5" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="499.0" y="635.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">10</text>
+<line x1="506.0" y1="466.9" x2="1040.0" y2="466.9" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="499.0" y="471.5" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">20</text>
+<line x1="506.0" y1="303.4" x2="1040.0" y2="303.4" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="499.0" y="308.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">30</text>
+<path d="M506.0 728.6V728.6H521.3V728.6H536.5V728.6H551.8V695.9H567.0V630.5H582.3V614.1H597.5V630.5H612.8V663.2H628.1V614.1H643.3V630.5H658.6V630.5H673.8V663.2H689.1V614.1H704.3V597.8H719.6V646.8H734.9V695.9H750.1V646.8H765.4V646.8H780.6V630.5H795.9V663.2H811.1V663.2H826.4V646.8H841.7V646.8H856.9V679.5H872.2V695.9H887.4V712.2H902.7V712.2H917.9V695.9H933.2V695.9H948.5V679.5H963.7V663.2H979.0V679.5H994.2V695.9H1009.5V646.8H1024.7V646.8H1040.0" fill="none" stroke="#6C887C" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M506.0 728.6V728.6H521.3V728.6H536.5V728.6H551.8V695.9H567.0V728.6H582.3V728.6H597.5V695.9H612.8V712.2H628.1V744.9H643.3V761.3H658.6V663.2H673.8V466.9H689.1V434.2H704.3V434.2H719.6V434.2H734.9V516.0H750.1V483.3H765.4V466.9H780.6V483.3H795.9V548.7H811.1V630.5H826.4V646.8H841.7V712.2H856.9V728.6H872.2V794.0H887.4V794.0H902.7V794.0H917.9V794.0H933.2V794.0H948.5V794.0H963.7V794.0H979.0V794.0H994.2V777.6H1009.5V728.6H1024.7V679.5H1040.0" fill="none" stroke="#14705F" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M506.0 728.6V728.6H521.3V728.6H536.5V728.6H551.8V712.2H567.0V728.6H582.3V712.2H597.5V728.6H612.8V695.9H628.1V712.2H643.3V695.9H658.6V695.9H673.8V728.6H689.1V712.2H704.3V516.0H719.6V417.9H734.9V336.1H750.1V287.1H765.4V336.1H780.6V368.8H795.9V417.9H811.1V450.6H826.4V516.0H841.7V646.8H856.9V712.2H872.2V777.6H887.4V794.0H902.7V794.0H917.9V794.0H933.2V794.0H948.5V794.0H963.7V794.0H979.0V794.0H994.2V794.0H1009.5V794.0H1024.7V794.0H1040.0" fill="none" stroke="#12302B" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M506.0 728.6V728.6H521.3V728.6H536.5V728.6H551.8V728.6H567.0V728.6H582.3V728.6H597.5V728.6H612.8V728.6H628.1V663.2H643.3V401.5H658.6V532.4H673.8V532.4H689.1V581.4H704.3V597.8H719.6V548.7H734.9V565.1H750.1V548.7H765.4V663.2H780.6V646.8H795.9V630.5H811.1V597.8H826.4V663.2H841.7V695.9H856.9V695.9H872.2V744.9H887.4V744.9H902.7V777.6H917.9V761.3H933.2V761.3H948.5V744.9H963.7V695.9H979.0V679.5H994.2V646.8H1009.5V646.8H1024.7V695.9H1040.0" fill="none" stroke="#A5471C" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="504.0" y="813.0" class="d08-f" font-size="13" fill="#566F68">Uke 1</text>
+<text x="643.3" y="813.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">10</text>
+<text x="795.9" y="813.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">20</text>
+<text x="948.5" y="813.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">30</text>
+<text x="1040.0" y="813.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">36</text>
+<path d="M658.6 401.5H628.1" fill="none" stroke="#43605A" stroke-width="0.75" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="628.1" y1="393.5" x2="628.1" y2="409.5" stroke="#43605A" stroke-width="0.75"/>
+<circle cx="658.6" cy="401.5" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="621.1" y="405.4" class="d08-s" font-size="14" fill="#12302B" stroke="#F5F8F4" stroke-width="3" stroke-linejoin="round" paint-order="stroke" text-anchor="end">Du: <tspan font-weight="600">24</tspan> i Uke 11.</text>
+<path d="M704.3 434.2V328.4H643.3" fill="none" stroke="#43605A" stroke-width="0.75" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="704.3" cy="434.2" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="636.3" y="332.6" class="d08-s" font-size="14" fill="#12302B" stroke="#F5F8F4" stroke-width="3" stroke-linejoin="round" paint-order="stroke" text-anchor="end">Distributør: <tspan font-weight="600">22</tspan> i Uke 14.</text>
+<path d="M765.4 287.1H811.1" fill="none" stroke="#43605A" stroke-width="0.75" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="811.1" y1="279.1" x2="811.1" y2="295.1" stroke="#43605A" stroke-width="0.75"/>
+<circle cx="765.4" cy="287.1" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="818.1" y="290.9" class="d08-s" font-size="14" fill="#12302B" stroke="#F5F8F4" stroke-width="3" stroke-linejoin="round" paint-order="stroke">Fabrikk: <tspan font-weight="600">31</tspan> i Uke 18, sju uker etter deg.</text>
+<line x1="506.0" y1="833.6" x2="524.0" y2="833.6" stroke="#6C887C" stroke-width="1.75"/>
+<text x="529.0" y="838.0" class="d08-f" font-size="13" fill="#43605A">Detaljist</text>
+<line x1="593.2" y1="833.6" x2="611.2" y2="833.6" stroke="#A5471C" stroke-width="2.5"/>
+<text x="616.2" y="838.0" class="d08-f" font-size="13" fill="#43605A">Grossist (du)</text>
+<line x1="705.3" y1="833.6" x2="723.3" y2="833.6" stroke="#14705F" stroke-width="1.75"/>
+<text x="728.3" y="838.0" class="d08-f" font-size="13" fill="#43605A">Distributør</text>
+<line x1="803.6" y1="833.6" x2="821.6" y2="833.6" stroke="#12302B" stroke-width="1.75"/>
+<text x="826.6" y="838.0" class="d08-f" font-size="13" fill="#43605A">Fabrikk</text>
+<text x="1040.0" y="838.0" class="d08-f" font-size="13" fill="#12302B" font-weight="500" text-anchor="end">Vis som tabell</text>
+<line x1="954.9" y1="841.0" x2="1040.0" y2="841.0" stroke="#12302B" stroke-width="1"/>
+<text x="480.0" y="882.0" class="d08-s" font-size="19" fill="#12302B" font-weight="500">Forsterkningen, og klassen rundt deg</text>
+<text x="480.0" y="922.0" class="d08-f" font-size="14" fill="#12302B">Detaljist</text>
+<line x1="614.8" y1="918.0" x2="727.8" y2="918.0" stroke="#D2DCD4" stroke-width="2"/>
+<line x1="618.0" y1="918.0" x2="663.2" y2="918.0" stroke="#6C887C" stroke-width="5"/>
+<circle cx="634.2" cy="918.0" r="5.5" fill="#12302B" stroke="#F5F8F4" stroke-width="2"/>
+<text x="1040.0" y="922.0" class="d08-f" font-size="15" fill="#12302B" font-weight="600" text-anchor="end">1,8×</text>
+<text x="480.0" y="950.0" class="d08-f" font-size="14" fill="#12302B" font-weight="600">Grossist</text>
+<line x1="624.5" y1="946.0" x2="802.2" y2="946.0" stroke="#D2DCD4" stroke-width="2"/>
+<line x1="647.1" y1="946.0" x2="731.1" y2="946.0" stroke="#6C887C" stroke-width="5"/>
+<circle cx="708.5" cy="946.0" r="5.5" fill="#A5471C" stroke="#F5F8F4" stroke-width="2"/>
+<text x="1040.0" y="950.0" class="d08-f" font-size="15" fill="#12302B" font-weight="600" text-anchor="end">4,1×</text>
+<text x="480.0" y="978.0" class="d08-f" font-size="14" fill="#12302B">Distributør</text>
+<line x1="630.9" y1="974.0" x2="892.6" y2="974.0" stroke="#D2DCD4" stroke-width="2"/>
+<line x1="689.1" y1="974.0" x2="808.6" y2="974.0" stroke="#6C887C" stroke-width="5"/>
+<circle cx="769.8" cy="974.0" r="5.5" fill="#12302B" stroke="#F5F8F4" stroke-width="2"/>
+<text x="1040.0" y="978.0" class="d08-f" font-size="15" fill="#12302B" font-weight="600" text-anchor="end">6,0×</text>
+<text x="480.0" y="1006.0" class="d08-f" font-size="14" fill="#12302B">Fabrikk</text>
+<line x1="627.7" y1="1002.0" x2="986.3" y2="1002.0" stroke="#D2DCD4" stroke-width="2"/>
+<line x1="727.8" y1="1002.0" x2="870.0" y2="1002.0" stroke="#6C887C" stroke-width="5"/>
+<circle cx="821.5" cy="1002.0" r="5.5" fill="#12302B" stroke="#F5F8F4" stroke-width="2"/>
+<text x="1040.0" y="1006.0" class="d08-f" font-size="15" fill="#12302B" font-weight="600" text-anchor="end">7,6×</text>
+<line x1="576.0" y1="1025.6" x2="594.0" y2="1025.6" stroke="#6C887C" stroke-width="1.75"/>
+<text x="599.0" y="1030.0" class="d08-f" font-size="13" fill="#43605A">Midterste halvdel av 41 spill</text>
+<line x1="781.7" y1="1025.6" x2="799.7" y2="1025.6" stroke="#D2DCD4" stroke-width="1.75"/>
+<text x="804.7" y="1030.0" class="d08-f" font-size="13" fill="#43605A">Hele spennet</text>
+<text x="480.0" y="1062.0" class="d08-s" font-size="16" fill="#12302B">Alle fire Rollene i spill 17 ligger i den midterste halvdelen. Nesten alle gruppene</text>
+<text x="480.0" y="1085.0" class="d08-s" font-size="16" fill="#12302B">svinger likt, uten å ha snakket sammen. Da er det kjeden, ikke personene, som gir</text>
+<text x="480.0" y="1108.0" class="d08-s" font-size="16" fill="#12302B">mønsteret.</text>
+<text x="1080.0" y="160.0" class="d08-s" font-size="25" fill="#12302B" font-weight="500">Uke 11: tre tall og én ordre</text>
+<text x="1670.0" y="157.0" class="d08-f" font-size="13" fill="#43605A" font-weight="600" text-anchor="end">KI-generert, kan ta feil</text>
+<text x="1080.0" y="190.0" class="d08-s" font-size="16" fill="#12302B">Du så lager 0, restordre 13 og 8 i innkommende ordre. Du så også at 16 var på vei, så</text>
+<text x="1080.0" y="213.0" class="d08-s" font-size="16" fill="#12302B">posisjonen var 3. Du bestilte 24. Uka etter var 36 på vei, og du bestilte 16 til.</text>
+<line x1="1106.0" y1="508.7" x2="1670.0" y2="508.7" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="1099.0" y="513.2" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">−40</text>
+<line x1="1106.0" y1="462.0" x2="1670.0" y2="462.0" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="1099.0" y="466.6" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">−20</text>
+<line x1="1106.0" y1="415.3" x2="1670.0" y2="415.3" stroke="#43605A" stroke-width="1"/>
+<text x="1099.0" y="419.9" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">0</text>
+<line x1="1106.0" y1="368.7" x2="1670.0" y2="368.7" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="1099.0" y="373.2" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">20</text>
+<line x1="1106.0" y1="322.0" x2="1670.0" y2="322.0" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="1099.0" y="326.6" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">40</text>
+<line x1="1106.0" y1="275.3" x2="1670.0" y2="275.3" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="1099.0" y="279.9" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">60</text>
+<path d="M1106.0 359.3L1122.1 359.3L1138.2 359.3L1154.3 359.3L1170.5 359.3L1186.6 359.3L1202.7 364.0L1218.8 378.0L1234.9 394.3L1251.0 408.3L1267.1 408.3L1283.3 378.0L1299.4 364.0L1315.5 350.0L1331.6 338.3L1347.7 336.0L1363.8 329.0L1379.9 317.3L1396.1 296.3L1412.2 298.7L1428.3 298.7L1444.4 298.7L1460.5 289.3L1476.6 289.3L1492.7 296.3L1508.9 303.3L1525.0 312.7L1541.1 319.7L1557.2 329.0L1573.3 336.0L1589.4 345.3L1605.5 352.3L1621.7 354.7L1637.8 357.0L1653.9 352.3L1670.0 345.3" fill="none" stroke="#14705F" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1106.0 387.3L1122.1 387.3L1138.2 387.3L1154.3 387.3L1170.5 387.3L1186.6 387.3L1202.7 392.0L1218.8 406.0L1234.9 422.3L1251.0 436.3L1267.1 445.7L1283.3 462.0L1299.4 476.0L1315.5 480.7L1331.6 459.7L1347.7 478.3L1363.8 501.7L1379.9 504.0L1396.1 478.3L1412.2 485.3L1428.3 497.0L1444.4 508.7L1460.5 487.7L1476.6 452.7L1492.7 408.3L1508.9 357.0L1525.0 347.7L1541.1 347.7L1557.2 345.3L1573.3 350.0L1589.4 357.0L1605.5 368.7L1621.7 380.3L1637.8 394.3L1653.9 403.7L1670.0 403.7" fill="none" stroke="#A5471C" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="1104.0" y="537.0" class="d08-f" font-size="13" fill="#566F68">Uke 1</text>
+<text x="1251.0" y="537.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">10</text>
+<text x="1412.2" y="537.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">20</text>
+<text x="1573.3" y="537.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">30</text>
+<text x="1670.0" y="537.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">36</text>
+<line x1="1267.1" y1="299.7" x2="1267.1" y2="408.3" stroke="#43605A" stroke-width="0.75"/>
+<circle cx="1267.1" cy="408.3" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="1260.1" y="311.5" class="d08-s" font-size="14" fill="#12302B" stroke="#F5F8F4" stroke-width="3" stroke-linejoin="round" paint-order="stroke" text-anchor="end">Posisjon <tspan font-weight="600">3</tspan> i Uke 11.</text>
+<line x1="1444.4" y1="243.7" x2="1444.4" y2="298.7" stroke="#43605A" stroke-width="0.75"/>
+<circle cx="1444.4" cy="298.7" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="1451.4" y="255.5" class="d08-s" font-size="14" fill="#12302B" stroke="#F5F8F4" stroke-width="3" stroke-linejoin="round" paint-order="stroke">Posisjon <tspan font-weight="600">50</tspan> i Uke 22, med restordre <tspan font-weight="600">40</tspan></text>
+<text x="1451.4" y="273.5" class="d08-s" font-size="14" fill="#12302B" stroke="#F5F8F4" stroke-width="3" stroke-linejoin="round" paint-order="stroke">samtidig.</text>
+<line x1="1106.0" y1="557.6" x2="1124.0" y2="557.6" stroke="#A5471C" stroke-width="2.5"/>
+<text x="1129.0" y="562.0" class="d08-f" font-size="13" fill="#43605A">Lager / restordre, det du så</text>
+<line x1="1303.9" y1="557.6" x2="1321.9" y2="557.6" stroke="#14705F" stroke-width="1.75"/>
+<text x="1326.9" y="562.0" class="d08-f" font-size="13" fill="#43605A">Posisjon, med det som var på vei</text>
+<text x="1080.0" y="588.0" class="d08-s" font-size="15" fill="#12302B">Kostnaden din gikk fra 68,00 kr i Uke 11 til 395,00 kr i Uke 22. Mønsteret kalles «Stor ordre</text>
+<text x="1080.0" y="609.0" class="d08-s" font-size="15" fill="#12302B">mens mye allerede er på vei». Mekanismen er forsyningslinja: det du har bestilt, finnes selv</text>
+<text x="1080.0" y="630.0" class="d08-s" font-size="15" fill="#12302B">om du ikke ser det ennå.</text>
+<text x="1080.0" y="669.0" class="d08-s" font-size="19" fill="#12302B" font-weight="500">Samme kjede, Grossist teller alt på vei</text>
+<text x="1670.0" y="669.0" class="d08-f" font-size="13" fill="#12302B" font-weight="600" text-anchor="end">Simulert</text>
+<line x1="1106.0" y1="867.0" x2="1670.0" y2="867.0" stroke="#43605A" stroke-width="1"/>
+<text x="1099.0" y="871.5" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">0</text>
+<line x1="1106.0" y1="795.5" x2="1670.0" y2="795.5" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="1099.0" y="800.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">10</text>
+<line x1="1106.0" y1="723.9" x2="1670.0" y2="723.9" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="1099.0" y="728.5" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">20</text>
+<path d="M1106.0 838.4V838.4H1122.1V838.4H1138.2V838.4H1154.3V831.2H1170.5V831.2H1186.6V831.2H1202.7V816.9H1218.8V802.6H1234.9V788.3H1251.0V788.3H1267.1V788.3H1283.3V781.2H1299.4V781.2H1315.5V774.0H1331.6V781.2H1347.7V781.2H1363.8V781.2H1379.9V788.3H1396.1V788.3H1412.2V795.5H1428.3V802.6H1444.4V809.8H1460.5V802.6H1476.6V802.6H1492.7V802.6H1508.9V809.8H1525.0V809.8H1541.1V816.9H1557.2V824.1H1573.3V824.1H1589.4V824.1H1605.5V831.2H1621.7V824.1H1637.8V816.9H1653.9V809.8H1670.0" fill="none" stroke="#6C887C" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1106.0 838.4V838.4H1122.1V838.4H1138.2V838.4H1154.3V838.4H1170.5V838.4H1186.6V838.4H1202.7V838.4H1218.8V838.4H1234.9V809.8H1251.0V695.3H1267.1V752.5H1283.3V752.5H1299.4V774.0H1315.5V781.2H1331.6V759.7H1347.7V766.8H1363.8V759.7H1379.9V809.8H1396.1V802.6H1412.2V795.5H1428.3V781.2H1444.4V809.8H1460.5V824.1H1476.6V824.1H1492.7V845.5H1508.9V845.5H1525.0V859.8H1541.1V852.7H1557.2V852.7H1573.3V845.5H1589.4V824.1H1605.5V816.9H1621.7V802.6H1637.8V802.6H1653.9V824.1H1670.0" fill="none" stroke="#A5471C" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="1104.0" y="886.0" class="d08-f" font-size="13" fill="#566F68">Uke 1</text>
+<text x="1251.0" y="886.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">10</text>
+<text x="1412.2" y="886.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">20</text>
+<text x="1573.3" y="886.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">30</text>
+<text x="1670.0" y="886.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">36</text>
+<path d="M1267.1 695.3H1347.7" fill="none" stroke="#43605A" stroke-width="0.75" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="1347.7" y1="687.3" x2="1347.7" y2="703.3" stroke="#43605A" stroke-width="0.75"/>
+<circle cx="1267.1" cy="695.3" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="1354.7" y="699.2" class="d08-s" font-size="14" fill="#12302B" stroke="#F5F8F4" stroke-width="3" stroke-linejoin="round" paint-order="stroke">Du: <tspan font-weight="600">24</tspan>. Simulert: <tspan font-weight="600">11</tspan>.</text>
+<line x1="1106.0" y1="906.6" x2="1124.0" y2="906.6" stroke="#A5471C" stroke-width="2.5"/>
+<text x="1129.0" y="911.0" class="d08-f" font-size="13" fill="#43605A">Din ordre</text>
+<line x1="1195.8" y1="906.6" x2="1213.8" y2="906.6" stroke="#6C887C" stroke-width="1.75"/>
+<text x="1218.8" y="911.0" class="d08-f" font-size="13" fill="#43605A">Simulert</text>
+<circle cx="1286.6" cy="906.6" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="1295.6" y="911.0" class="d08-f" font-size="13" fill="#43605A">Punkt kommentaren gjelder</text>
+<text x="1080.0" y="937.0" class="d08-s" font-size="15" fill="#43605A">Kostnad for Grossist 464,50 kr mot dine 553,50 kr. Kjeden 1 507,00 kr mot 2 266,00 kr. Det</text>
+<text x="1080.0" y="958.0" class="d08-s" font-size="15" fill="#43605A">viser sammenhengen, ikke en fasit: en regel som jaget siste ordre for hardt, ga Fabrikk høyere</text>
+<text x="1080.0" y="979.0" class="d08-s" font-size="15" fill="#43605A">forsterkning (12×) enn dere fikk.</text>
+<text x="1080.0" y="1014.0" class="d08-s" font-size="19" fill="#12302B" font-weight="500">Hva de andre så i Uke 11</text>
+<text x="1080.0" y="1040.0" class="d08-f" font-size="13" fill="#43605A">Rolle</text>
+<text x="1230.0" y="1040.0" class="d08-f" font-size="13" fill="#43605A">Lager</text>
+<text x="1300.0" y="1040.0" class="d08-f" font-size="13" fill="#43605A">Restordre</text>
+<text x="1390.0" y="1040.0" class="d08-f" font-size="13" fill="#43605A">Inn. ordre</text>
+<text x="1480.0" y="1040.0" class="d08-f" font-size="13" fill="#43605A">Bestilte</text>
+<text x="1080.0" y="1061.0" class="d08-f" font-size="14" fill="#12302B">Detaljist</text>
+<text x="1230.0" y="1061.0" class="d08-f" font-size="14" fill="#12302B">0</text>
+<text x="1300.0" y="1061.0" class="d08-f" font-size="14" fill="#12302B">4</text>
+<text x="1390.0" y="1061.0" class="d08-f" font-size="14" fill="#12302B">8</text>
+<text x="1480.0" y="1061.0" class="d08-f" font-size="14" fill="#12302B">10</text>
+<text x="1080.0" y="1082.0" class="d08-f" font-size="14" fill="#12302B" font-weight="600">Grossist (du)</text>
+<text x="1230.0" y="1082.0" class="d08-f" font-size="14" fill="#12302B" font-weight="600">0</text>
+<text x="1300.0" y="1082.0" class="d08-f" font-size="14" fill="#12302B" font-weight="600">13</text>
+<text x="1390.0" y="1082.0" class="d08-f" font-size="14" fill="#12302B" font-weight="600">8</text>
+<text x="1480.0" y="1082.0" class="d08-f" font-size="14" fill="#12302B" font-weight="600">24</text>
+<text x="1080.0" y="1103.0" class="d08-f" font-size="14" fill="#12302B">Distributør</text>
+<text x="1230.0" y="1103.0" class="d08-f" font-size="14" fill="#12302B">14</text>
+<text x="1300.0" y="1103.0" class="d08-f" font-size="14" fill="#12302B">0</text>
+<text x="1390.0" y="1103.0" class="d08-f" font-size="14" fill="#12302B">4</text>
+<text x="1480.0" y="1103.0" class="d08-f" font-size="14" fill="#12302B">2</text>
+<text x="1080.0" y="1124.0" class="d08-f" font-size="14" fill="#12302B">Fabrikk</text>
+<text x="1230.0" y="1124.0" class="d08-f" font-size="14" fill="#12302B">9</text>
+<text x="1300.0" y="1124.0" class="d08-f" font-size="14" fill="#12302B">0</text>
+<text x="1390.0" y="1124.0" class="d08-f" font-size="14" fill="#12302B">5</text>
+<text x="1480.0" y="1124.0" class="d08-f" font-size="14" fill="#12302B">6</text>
+<text x="1548.0" y="1058.0" class="d08-s" font-size="14" fill="#12302B">Din 24 kom til</text>
+<text x="1548.0" y="1077.0" class="d08-s" font-size="14" fill="#12302B">Distributør i Uke 13.</text>
+<text x="1548.0" y="1096.0" class="d08-s" font-size="14" fill="#12302B">Deres ordre gikk fra</text>
+<text x="1548.0" y="1115.0" class="d08-s" font-size="14" fill="#12302B">8 til 20.</text>
+<text x="1710.0" y="160.0" class="d08-s" font-size="25" fill="#12302B" font-weight="500">Tre spørsmål</text>
+<text x="1710.0" y="190.0" class="d08-s" font-size="15" fill="#43605A">Debrief-quiz. Den teller ikke, og du kan ta den om igjen.</text>
+<text x="1710.0" y="219.0" class="d08-s" font-size="17" fill="#12302B" font-weight="500">Lager 0, restordre 13, 16 på vei. Hva er</text>
+<text x="1710.0" y="243.0" class="d08-s" font-size="17" fill="#12302B" font-weight="500">posisjonen?</text>
+<rect x="1710.0" y="260.0" width="350.0" height="36.0" fill="#EADBCF" rx="3"/>
+<text x="1722.0" y="284.0" class="d08-f" font-size="15" fill="#12302B" font-weight="500">−13</text>
+<text x="2048.0" y="284.0" class="d08-f" font-size="13" fill="#12302B" font-weight="500" text-anchor="end">Du svarte dette</text>
+<rect x="1710.0" y="302.0" width="350.0" height="36.0" fill="#E2E9E3" rx="3"/>
+<text x="1722.0" y="326.0" class="d08-f" font-size="15" fill="#12302B" font-weight="500">3</text>
+<text x="2048.0" y="326.0" class="d08-f" font-size="13" fill="#12302B" font-weight="600" text-anchor="end">Riktig svar</text>
+<rect x="1710.0" y="344.0" width="350.0" height="36.0" fill="none" rx="3" stroke="#D2DCD4" stroke-width="1"/>
+<text x="1722.0" y="368.0" class="d08-f" font-size="15" fill="#12302B" font-weight="500">16</text>
+<rect x="1710.0" y="386.0" width="350.0" height="36.0" fill="none" rx="3" stroke="#D2DCD4" stroke-width="1"/>
+<text x="1722.0" y="410.0" class="d08-f" font-size="15" fill="#12302B" font-weight="500">29</text>
+<text x="1710.0" y="457.0" class="d08-s" font-size="15" fill="#12302B">Du svarte −13, som er lager minus restordre. De 16 på</text>
+<text x="1710.0" y="479.0" class="d08-s" font-size="15" fill="#12302B">vei hører også med: de er allerede bestilt, og de</text>
+<text x="1710.0" y="501.0" class="d08-s" font-size="15" fill="#12302B">kommer. 0 − 13 + 16 = 3.</text>
+<rect x="1710.0" y="525.0" width="350.0" height="44.0" fill="#12302B" rx="4"/>
+<text x="1885.0" y="552.2" class="d08-f" font-size="15" fill="#FBFCFA" font-weight="500" text-anchor="middle">Neste spørsmål</text>
+<text x="1710.0" y="607.0" class="d08-s" font-size="25" fill="#12302B" font-weight="500">Delt skjerm</text>
+<text x="1710.0" y="635.0" class="d08-s" font-size="15" fill="#43605A">Det gruppa ser sammen. Forklaringen din og Uke 11</text>
+<text x="1710.0" y="656.0" class="d08-s" font-size="15" fill="#43605A">vises bare på din egen skjerm.</text>
+<rect x="1710.0" y="677.0" width="350.0" height="400.0" fill="#FBFCFA" rx="4" stroke="#AEBDB3" stroke-width="1"/>
+<text x="1724.0" y="707.0" class="d08-s" font-size="17" fill="#12302B" font-weight="500">Ordrene vokste for hvert ledd</text>
+<line x1="1724.0" y1="999.0" x2="2046.0" y2="999.0" stroke="#43605A" stroke-width="1"/>
+<line x1="1724.0" y1="917.2" x2="2046.0" y2="917.2" stroke="#D2DCD4" stroke-width="0.75"/>
+<line x1="1724.0" y1="835.5" x2="2046.0" y2="835.5" stroke="#D2DCD4" stroke-width="0.75"/>
+<line x1="1724.0" y1="753.7" x2="2046.0" y2="753.7" stroke="#D2DCD4" stroke-width="0.75"/>
+<path d="M1724.0 966.3V966.3H1733.2V966.3H1742.4V966.3H1751.6V949.9H1760.8V917.2H1770.0V909.1H1779.2V917.2H1788.4V933.6H1797.6V909.1H1806.8V917.2H1816.0V917.2H1825.2V933.6H1834.4V909.1H1843.6V900.9H1852.8V925.4H1862.0V949.9H1871.2V925.4H1880.4V925.4H1889.6V917.2H1898.8V933.6H1908.0V933.6H1917.2V925.4H1926.4V925.4H1935.6V941.8H1944.8V949.9H1954.0V958.1H1963.2V958.1H1972.4V949.9H1981.6V949.9H1990.8V941.8H2000.0V933.6H2009.2V941.8H2018.4V949.9H2027.6V925.4H2036.8V925.4H2046.0" fill="none" stroke="#6C887C" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1724.0 966.3V966.3H1733.2V966.3H1742.4V966.3H1751.6V949.9H1760.8V966.3H1770.0V966.3H1779.2V949.9H1788.4V958.1H1797.6V974.5H1806.8V982.6H1816.0V933.6H1825.2V835.5H1834.4V819.1H1843.6V819.1H1852.8V819.1H1862.0V860.0H1871.2V843.6H1880.4V835.5H1889.6V843.6H1898.8V876.4H1908.0V917.2H1917.2V925.4H1926.4V958.1H1935.6V966.3H1944.8V999.0H1954.0V999.0H1963.2V999.0H1972.4V999.0H1981.6V999.0H1990.8V999.0H2000.0V999.0H2009.2V999.0H2018.4V990.8H2027.6V966.3H2036.8V941.8H2046.0" fill="none" stroke="#14705F" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1724.0 966.3V966.3H1733.2V966.3H1742.4V966.3H1751.6V958.1H1760.8V966.3H1770.0V958.1H1779.2V966.3H1788.4V949.9H1797.6V958.1H1806.8V949.9H1816.0V949.9H1825.2V966.3H1834.4V958.1H1843.6V860.0H1852.8V810.9H1862.0V770.1H1871.2V745.5H1880.4V770.1H1889.6V786.4H1898.8V810.9H1908.0V827.3H1917.2V860.0H1926.4V925.4H1935.6V958.1H1944.8V990.8H1954.0V999.0H1963.2V999.0H1972.4V999.0H1981.6V999.0H1990.8V999.0H2000.0V999.0H2009.2V999.0H2018.4V999.0H2027.6V999.0H2036.8V999.0H2046.0" fill="none" stroke="#12302B" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1724.0 966.3V966.3H1733.2V966.3H1742.4V966.3H1751.6V966.3H1760.8V966.3H1770.0V966.3H1779.2V966.3H1788.4V966.3H1797.6V933.6H1806.8V802.8H1816.0V868.2H1825.2V868.2H1834.4V892.7H1843.6V900.9H1852.8V876.4H1862.0V884.5H1871.2V876.4H1880.4V933.6H1889.6V925.4H1898.8V917.2H1908.0V900.9H1917.2V933.6H1926.4V949.9H1935.6V949.9H1944.8V974.5H1954.0V974.5H1963.2V990.8H1972.4V982.6H1981.6V982.6H1990.8V974.5H2000.0V949.9H2009.2V941.8H2018.4V925.4H2027.6V925.4H2036.8V949.9H2046.0" fill="none" stroke="#A5471C" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="1724.0" y1="1018.6" x2="1742.0" y2="1018.6" stroke="#6C887C" stroke-width="1.75"/>
+<text x="1747.0" y="1023.0" class="d08-f" font-size="13" fill="#43605A">Detaljist 1,8×</text>
+<line x1="1841.5" y1="1018.6" x2="1859.5" y2="1018.6" stroke="#A5471C" stroke-width="1.75"/>
+<text x="1864.5" y="1023.0" class="d08-f" font-size="13" fill="#43605A">Grossist 4,1×</text>
+<line x1="1724.0" y1="1042.6" x2="1742.0" y2="1042.6" stroke="#14705F" stroke-width="1.75"/>
+<text x="1747.0" y="1047.0" class="d08-f" font-size="13" fill="#43605A">Distributør 6,0×</text>
+<line x1="1852.6" y1="1042.6" x2="1870.6" y2="1042.6" stroke="#12302B" stroke-width="1.75"/>
+<text x="1875.6" y="1047.0" class="d08-f" font-size="13" fill="#43605A">Fabrikk 7,6×</text>
+<text x="1710.0" y="1101.0" class="d08-f" font-size="13" fill="#566F68">Demodata. Alle tall fra loggen.</text></svg>

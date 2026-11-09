@@ -1,0 +1,910 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1400" font-family="'Karla','Helvetica Neue',Arial,sans-serif">
+<title>Fase: grafgrammatikk for Sara ved Uke 5, 11, 18 og 29</title>
+<desc>Faseplan med netto lager vannrett og På vei loddrett, samme skala, med smal tidsserie under. Viser fire tidspunkter, tre bevegelser, gradvis innføring, Klassespill mot Replay og simulert referanse.</desc>
+<style>@import url('https://fonts.googleapis.com/css2?family=STIX+Two+Text:wght@400;500;600;700&amp;family=Karla:wght@400;500;600;700&amp;display=swap');.d03-k{font-family:'Karla','Helvetica Neue',Arial,sans-serif;font-variant-numeric:lining-nums tabular-nums}.d03-s{font-family:'STIX Two Text','Times New Roman',serif;font-variant-numeric:lining-nums tabular-nums}</style>
+<g id="d03-10-rot">
+<rect x="0.0" y="0.0" width="2000.0" height="1400.0" fill="#F6F8FB"/>
+<text class="d03-s" x="55.0" y="66.0" font-size="38" fill="#16233B" font-weight="600">Samme plan fire ganger: hvert punkt er én Uke, og tiden er en bane</text>
+<text class="d03-k" x="55.0" y="98.0" font-size="17" fill="#4A5A72">Netto lager vannrett, På vei loddrett, samme skala på begge akser. Alt langs en diagonal har samme Posisjon. Nyeste uke er mørkest.</text>
+<text class="d03-k" x="1945.0" y="66.0" font-size="15" fill="#4A5A72" text-anchor="end">Demodata, Sara, Grossist, spill 17</text>
+<text class="d03-s" x="55.0" y="146.0" font-size="28" fill="#16233B" font-weight="600">Uke 5</text>
+<text class="d03-k" x="165.0" y="146.0" font-size="16" fill="#4A5A72">Posisjon 24 = 12 + 12</text>
+<line x1="55.0" y1="160.0" x2="55.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="105.0" y1="160.0" x2="105.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="155.0" y1="160.0" x2="155.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="205.0" y1="160.0" x2="205.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="255.0" y1="160.0" x2="255.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="305.0" y1="160.0" x2="305.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="355.0" y1="160.0" x2="355.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="405.0" y1="160.0" x2="405.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="455.0" y1="160.0" x2="455.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="55.0" y1="610.0" x2="455.0" y2="610.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="55.0" y1="560.0" x2="455.0" y2="560.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="55.0" y1="510.0" x2="455.0" y2="510.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="55.0" y1="460.0" x2="455.0" y2="460.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="55.0" y1="410.0" x2="455.0" y2="410.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="55.0" y1="360.0" x2="455.0" y2="360.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="55.0" y1="310.0" x2="455.0" y2="310.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="55.0" y1="260.0" x2="455.0" y2="260.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="55.0" y1="210.0" x2="455.0" y2="210.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="55.0" y1="160.0" x2="455.0" y2="160.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="80.0" y1="160.0" x2="80.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="130.0" y1="160.0" x2="130.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="180.0" y1="160.0" x2="180.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="230.0" y1="160.0" x2="230.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="280.0" y1="160.0" x2="280.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="330.0" y1="160.0" x2="330.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="380.0" y1="160.0" x2="380.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="430.0" y1="160.0" x2="430.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="55.0" y1="635.0" x2="455.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="55.0" y1="585.0" x2="455.0" y2="585.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="55.0" y1="535.0" x2="455.0" y2="535.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="55.0" y1="485.0" x2="455.0" y2="485.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="55.0" y1="435.0" x2="455.0" y2="435.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="55.0" y1="385.0" x2="455.0" y2="385.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="55.0" y1="335.0" x2="455.0" y2="335.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="55.0" y1="285.0" x2="455.0" y2="285.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="55.0" y1="235.0" x2="455.0" y2="235.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="55.0" y1="185.0" x2="455.0" y2="185.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="280.0" y1="160.0" x2="280.0" y2="635.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="55.0" y1="635.0" x2="455.0" y2="635.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-s" x="80.0" y="651.0" font-size="13" fill="#4A5A72" text-anchor="middle">−40</text>
+<text class="d03-s" x="180.0" y="651.0" font-size="13" fill="#4A5A72" text-anchor="middle">−20</text>
+<text class="d03-s" x="280.0" y="651.0" font-size="13" fill="#4A5A72" text-anchor="middle">0</text>
+<text class="d03-s" x="380.0" y="651.0" font-size="13" fill="#4A5A72" text-anchor="middle">20</text>
+<text class="d03-s" x="58.0" y="532.0" font-size="13" fill="#4A5A72">20</text>
+<text class="d03-s" x="58.0" y="432.0" font-size="13" fill="#4A5A72">40</text>
+<text class="d03-s" x="58.0" y="332.0" font-size="13" fill="#4A5A72">60</text>
+<text class="d03-s" x="58.0" y="232.0" font-size="13" fill="#4A5A72">80</text>
+<text class="d03-k" x="59.0" y="629.0" font-size="13" fill="#4A5A72" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Restordre</text>
+<text class="d03-k" x="451.0" y="629.0" font-size="13" fill="#4A5A72" text-anchor="end" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Lager</text>
+<text class="d03-k" x="58.0" y="174.0" font-size="13" fill="#4A5A72" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">På vei</text>
+<line x1="55.0" y1="290.0" x2="400.0" y2="635.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-k" x="306.9" y="534.9" font-size="13" fill="#16233B" font-weight="500" text-anchor="middle" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round" transform="rotate(45 306.9 534.9)">Posisjon 24</text>
+<circle cx="340.0" cy="575.0" r="1.8" fill="#415C8B"/>
+<circle cx="340.0" cy="575.0" r="1.8" fill="#365384"/>
+<circle cx="340.0" cy="575.0" r="1.8" fill="#2B497D"/>
+<circle cx="340.0" cy="575.0" r="1.8" fill="#1F3F76"/>
+<circle cx="340.0" cy="575.0" r="1.8" fill="#14356F"/>
+<circle cx="340.0" cy="575.0" r="6" fill="#C9481A" stroke="#F6F8FB" stroke-width="2"/>
+<text class="d03-k" x="351.0" y="566.0" font-size="14" fill="#16233B" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Uke 5</text>
+<line x1="55.0" y1="701.4" x2="371.0" y2="701.4" stroke="#8494A8" stroke-width="1"/>
+<line x1="327.0" y1="696.4" x2="338.0" y2="696.4" stroke="#5C759D" stroke-width="1.01" stroke-linecap="round"/>
+<line x1="338.0" y1="696.4" x2="349.0" y2="696.4" stroke="#546E99" stroke-width="1.04" stroke-linecap="round"/>
+<line x1="349.0" y1="696.4" x2="360.0" y2="696.4" stroke="#4C6794" stroke-width="1.07" stroke-linecap="round"/>
+<line x1="360.0" y1="696.4" x2="371.0" y2="696.4" stroke="#44608F" stroke-width="1.1" stroke-linecap="round"/>
+<line x1="327.0" y1="696.4" x2="338.0" y2="696.4" stroke="#365384" stroke-width="2.01" stroke-linecap="round"/>
+<line x1="338.0" y1="696.4" x2="349.0" y2="696.4" stroke="#2B497D" stroke-width="2.07" stroke-linecap="round"/>
+<line x1="349.0" y1="696.4" x2="360.0" y2="696.4" stroke="#1F3F76" stroke-width="2.14" stroke-linecap="round"/>
+<line x1="360.0" y1="696.4" x2="371.0" y2="696.4" stroke="#14356F" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="371.0" y1="660.0" x2="371.0" y2="722.0" stroke="#D3DCE6" stroke-width="1"/>
+<circle cx="371.0" cy="696.4" r="3.2" fill="#C9481A"/>
+<text class="d03-k" x="377.0" y="707.4" font-size="13" fill="#16233B" font-weight="600">Netto 12</text>
+<text class="d03-k" x="377.0" y="693.4" font-size="13" fill="#4A5A72">På vei 12</text>
+<text class="d03-k" x="55.0" y="744.0" font-size="13.5" fill="#14356F" font-weight="700">P1 Lager er en opphopning · P2 Forsinkelse</text>
+<text class="d03-k" x="55.0" y="765.0" font-size="14.5" fill="#16233B">Banen er ett punkt. Lager 12 og På vei 12 gir Posisjon</text>
+<text class="d03-k" x="55.0" y="785.0" font-size="14.5" fill="#16233B">24, og det som kommer inn går ut igjen.</text>
+<text class="d03-k" x="55.0" y="808.0" font-size="14.5" fill="#4A5A72">Til neste ordre: Neste ordre flytter punktet rett opp.</text>
+<text class="d03-k" x="55.0" y="828.0" font-size="14.5" fill="#4A5A72">Ingenting annet du gjør flytter det.</text>
+<text class="d03-s" x="530.0" y="146.0" font-size="28" fill="#16233B" font-weight="600">Uke 11</text>
+<text class="d03-k" x="640.0" y="146.0" font-size="16" fill="#4A5A72">Posisjon 3 = −13 + 16</text>
+<line x1="530.0" y1="160.0" x2="530.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="580.0" y1="160.0" x2="580.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="630.0" y1="160.0" x2="630.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="680.0" y1="160.0" x2="680.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="730.0" y1="160.0" x2="730.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="780.0" y1="160.0" x2="780.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="830.0" y1="160.0" x2="830.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="880.0" y1="160.0" x2="880.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="930.0" y1="160.0" x2="930.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="530.0" y1="610.0" x2="930.0" y2="610.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="530.0" y1="560.0" x2="930.0" y2="560.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="530.0" y1="510.0" x2="930.0" y2="510.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="530.0" y1="460.0" x2="930.0" y2="460.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="530.0" y1="410.0" x2="930.0" y2="410.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="530.0" y1="360.0" x2="930.0" y2="360.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="530.0" y1="310.0" x2="930.0" y2="310.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="530.0" y1="260.0" x2="930.0" y2="260.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="530.0" y1="210.0" x2="930.0" y2="210.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="530.0" y1="160.0" x2="930.0" y2="160.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="555.0" y1="160.0" x2="555.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="605.0" y1="160.0" x2="605.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="655.0" y1="160.0" x2="655.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="705.0" y1="160.0" x2="705.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="755.0" y1="160.0" x2="755.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="805.0" y1="160.0" x2="805.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="855.0" y1="160.0" x2="855.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="905.0" y1="160.0" x2="905.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="530.0" y1="635.0" x2="930.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="530.0" y1="585.0" x2="930.0" y2="585.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="530.0" y1="535.0" x2="930.0" y2="535.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="530.0" y1="485.0" x2="930.0" y2="485.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="530.0" y1="435.0" x2="930.0" y2="435.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="530.0" y1="385.0" x2="930.0" y2="385.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="530.0" y1="335.0" x2="930.0" y2="335.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="530.0" y1="285.0" x2="930.0" y2="285.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="530.0" y1="235.0" x2="930.0" y2="235.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="530.0" y1="185.0" x2="930.0" y2="185.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="755.0" y1="160.0" x2="755.0" y2="635.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="530.0" y1="635.0" x2="930.0" y2="635.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-s" x="555.0" y="651.0" font-size="13" fill="#4A5A72" text-anchor="middle">−40</text>
+<text class="d03-s" x="655.0" y="651.0" font-size="13" fill="#4A5A72" text-anchor="middle">−20</text>
+<text class="d03-s" x="755.0" y="651.0" font-size="13" fill="#4A5A72" text-anchor="middle">0</text>
+<text class="d03-s" x="855.0" y="651.0" font-size="13" fill="#4A5A72" text-anchor="middle">20</text>
+<text class="d03-s" x="533.0" y="532.0" font-size="13" fill="#4A5A72">20</text>
+<text class="d03-s" x="533.0" y="432.0" font-size="13" fill="#4A5A72">40</text>
+<text class="d03-s" x="533.0" y="332.0" font-size="13" fill="#4A5A72">60</text>
+<text class="d03-s" x="533.0" y="232.0" font-size="13" fill="#4A5A72">80</text>
+<text class="d03-k" x="534.0" y="629.0" font-size="13" fill="#4A5A72" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Restordre</text>
+<text class="d03-k" x="926.0" y="629.0" font-size="13" fill="#4A5A72" text-anchor="end" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Lager</text>
+<text class="d03-k" x="533.0" y="174.0" font-size="13" fill="#4A5A72" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">På vei</text>
+<line x1="530.0" y1="395.0" x2="770.0" y2="635.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-k" x="634.3" y="492.3" font-size="13" fill="#16233B" font-weight="500" text-anchor="middle" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round" transform="rotate(45 634.3 492.3)">Posisjon 3</text>
+<line x1="530.0" y1="275.0" x2="890.0" y2="635.0" stroke="#C9481A" stroke-width="1.2" stroke-dasharray="5 4"/>
+<text class="d03-k" x="655.9" y="393.9" font-size="13" fill="#16233B" font-weight="700" text-anchor="middle" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round" transform="rotate(45 655.9 393.9)">Posisjon 27</text>
+<line x1="690.0" y1="555.0" x2="690.0" y2="435.0" stroke="#C9481A" stroke-width="2.4" stroke-linecap="round"/>
+<line x1="690.0" y1="435.0" x2="693.5" y2="442.2" stroke="#C9481A" stroke-width="2.4" stroke-linecap="round"/>
+<line x1="690.0" y1="435.0" x2="686.5" y2="442.2" stroke="#C9481A" stroke-width="2.4" stroke-linecap="round"/>
+<text class="d03-s" x="698.0" y="490.0" font-size="16" fill="#16233B" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">+24</text>
+<line x1="815.0" y1="575.0" x2="805.0" y2="575.0" stroke="#415C8B" stroke-width="2.29" stroke-linecap="round"/>
+<line x1="805.0" y1="575.0" x2="775.0" y2="575.0" stroke="#365384" stroke-width="2.42" stroke-linecap="round"/>
+<line x1="775.0" y1="575.0" x2="740.0" y2="575.0" stroke="#2B497D" stroke-width="2.54" stroke-linecap="round"/>
+<line x1="740.0" y1="575.0" x2="710.0" y2="575.0" stroke="#1F3F76" stroke-width="2.67" stroke-linecap="round"/>
+<line x1="710.0" y1="575.0" x2="690.0" y2="555.0" stroke="#14356F" stroke-width="2.8" stroke-linecap="round"/>
+<circle cx="815.0" cy="575.0" r="1.8" fill="#8094B3"/>
+<circle cx="815.0" cy="575.0" r="1.8" fill="#768BAC"/>
+<circle cx="815.0" cy="575.0" r="1.8" fill="#6B82A6"/>
+<circle cx="815.0" cy="575.0" r="1.8" fill="#61799F"/>
+<circle cx="815.0" cy="575.0" r="1.8" fill="#566F99"/>
+<circle cx="815.0" cy="575.0" r="1.8" fill="#4C6692"/>
+<circle cx="805.0" cy="575.0" r="1.8" fill="#415C8B"/>
+<circle cx="775.0" cy="575.0" r="1.8" fill="#365384"/>
+<circle cx="740.0" cy="575.0" r="1.8" fill="#2B497D"/>
+<circle cx="710.0" cy="575.0" r="1.8" fill="#1F3F76"/>
+<circle cx="690.0" cy="555.0" r="1.8" fill="#14356F"/>
+<circle cx="690.0" cy="555.0" r="6" fill="#C9481A" stroke="#F6F8FB" stroke-width="2"/>
+<text class="d03-k" x="701.0" y="546.0" font-size="14" fill="#16233B" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Uke 11</text>
+<line x1="530.0" y1="701.4" x2="846.0" y2="701.4" stroke="#8494A8" stroke-width="1"/>
+<line x1="736.0" y1="696.4" x2="747.0" y2="696.4" stroke="#889CB9" stroke-width="0.83" stroke-linecap="round"/>
+<line x1="747.0" y1="696.4" x2="758.0" y2="696.4" stroke="#8195B4" stroke-width="0.86" stroke-linecap="round"/>
+<line x1="758.0" y1="696.4" x2="769.0" y2="696.4" stroke="#7A8FB0" stroke-width="0.89" stroke-linecap="round"/>
+<line x1="769.0" y1="696.4" x2="780.0" y2="696.4" stroke="#7289AB" stroke-width="0.92" stroke-linecap="round"/>
+<line x1="780.0" y1="696.4" x2="791.0" y2="696.4" stroke="#6B82A7" stroke-width="0.95" stroke-linecap="round"/>
+<line x1="791.0" y1="696.4" x2="802.0" y2="696.4" stroke="#637BA2" stroke-width="0.98" stroke-linecap="round"/>
+<line x1="802.0" y1="696.4" x2="813.0" y2="696.4" stroke="#5C759D" stroke-width="1.01" stroke-linecap="round"/>
+<line x1="813.0" y1="696.4" x2="824.0" y2="696.4" stroke="#546E99" stroke-width="1.04" stroke-linecap="round"/>
+<line x1="824.0" y1="696.4" x2="835.0" y2="696.4" stroke="#4C6794" stroke-width="1.07" stroke-linecap="round"/>
+<line x1="835.0" y1="696.4" x2="846.0" y2="694.7" stroke="#44608F" stroke-width="1.1" stroke-linecap="round"/>
+<line x1="736.0" y1="696.4" x2="747.0" y2="696.4" stroke="#768BAC" stroke-width="1.66" stroke-linecap="round"/>
+<line x1="747.0" y1="696.4" x2="758.0" y2="696.4" stroke="#6B82A6" stroke-width="1.72" stroke-linecap="round"/>
+<line x1="758.0" y1="696.4" x2="769.0" y2="696.4" stroke="#61799F" stroke-width="1.77" stroke-linecap="round"/>
+<line x1="769.0" y1="696.4" x2="780.0" y2="696.4" stroke="#566F99" stroke-width="1.83" stroke-linecap="round"/>
+<line x1="780.0" y1="696.4" x2="791.0" y2="696.4" stroke="#4C6692" stroke-width="1.89" stroke-linecap="round"/>
+<line x1="791.0" y1="696.4" x2="802.0" y2="697.2" stroke="#415C8B" stroke-width="1.95" stroke-linecap="round"/>
+<line x1="802.0" y1="697.2" x2="813.0" y2="699.7" stroke="#365384" stroke-width="2.01" stroke-linecap="round"/>
+<line x1="813.0" y1="699.7" x2="824.0" y2="702.6" stroke="#2B497D" stroke-width="2.07" stroke-linecap="round"/>
+<line x1="824.0" y1="702.6" x2="835.0" y2="705.1" stroke="#1F3F76" stroke-width="2.14" stroke-linecap="round"/>
+<line x1="835.0" y1="705.1" x2="846.0" y2="706.7" stroke="#14356F" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="846.0" y1="660.0" x2="846.0" y2="722.0" stroke="#D3DCE6" stroke-width="1"/>
+<circle cx="846.0" cy="706.7" r="3.2" fill="#C9481A"/>
+<text class="d03-k" x="852.0" y="717.7" font-size="13" fill="#16233B" font-weight="600">Netto −13</text>
+<text class="d03-k" x="852.0" y="691.7" font-size="13" fill="#4A5A72">På vei 16</text>
+<text class="d03-k" x="530.0" y="744.0" font-size="13.5" fill="#14356F" font-weight="700">P3 Det som er på vei blir glemt</text>
+<text class="d03-k" x="530.0" y="765.0" font-size="14.5" fill="#16233B">Netto er −13, men 16 er på vei, så Posisjon er 3. Med</text>
+<text class="d03-k" x="530.0" y="785.0" font-size="14.5" fill="#16233B">ordre 24 flyttes du til diagonalen for 27.</text>
+<text class="d03-k" x="530.0" y="808.0" font-size="14.5" fill="#4A5A72">Til neste ordre: Regn ut Posisjon før du svarer på</text>
+<text class="d03-k" x="530.0" y="828.0" font-size="14.5" fill="#4A5A72">Restordre. Restordre alene er bare halve bildet.</text>
+<text class="d03-s" x="1005.0" y="146.0" font-size="28" fill="#16233B" font-weight="600">Uke 18</text>
+<text class="d03-k" x="1115.0" y="146.0" font-size="16" fill="#4A5A72">Posisjon 42 = −38 + 80</text>
+<line x1="1005.0" y1="160.0" x2="1005.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1055.0" y1="160.0" x2="1055.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1105.0" y1="160.0" x2="1105.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1155.0" y1="160.0" x2="1155.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1205.0" y1="160.0" x2="1205.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1255.0" y1="160.0" x2="1255.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1305.0" y1="160.0" x2="1305.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1355.0" y1="160.0" x2="1355.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1405.0" y1="160.0" x2="1405.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1005.0" y1="610.0" x2="1405.0" y2="610.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1005.0" y1="560.0" x2="1405.0" y2="560.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1005.0" y1="510.0" x2="1405.0" y2="510.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1005.0" y1="460.0" x2="1405.0" y2="460.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1005.0" y1="410.0" x2="1405.0" y2="410.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1005.0" y1="360.0" x2="1405.0" y2="360.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1005.0" y1="310.0" x2="1405.0" y2="310.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1005.0" y1="260.0" x2="1405.0" y2="260.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1005.0" y1="210.0" x2="1405.0" y2="210.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1005.0" y1="160.0" x2="1405.0" y2="160.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1030.0" y1="160.0" x2="1030.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1080.0" y1="160.0" x2="1080.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1130.0" y1="160.0" x2="1130.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1180.0" y1="160.0" x2="1180.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1230.0" y1="160.0" x2="1230.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1280.0" y1="160.0" x2="1280.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1330.0" y1="160.0" x2="1330.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1380.0" y1="160.0" x2="1380.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="635.0" x2="1405.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="585.0" x2="1405.0" y2="585.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="535.0" x2="1405.0" y2="535.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="485.0" x2="1405.0" y2="485.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="435.0" x2="1405.0" y2="435.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="385.0" x2="1405.0" y2="385.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="335.0" x2="1405.0" y2="335.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="285.0" x2="1405.0" y2="285.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="235.0" x2="1405.0" y2="235.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="185.0" x2="1405.0" y2="185.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1230.0" y1="160.0" x2="1230.0" y2="635.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="1005.0" y1="635.0" x2="1405.0" y2="635.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-s" x="1030.0" y="651.0" font-size="13" fill="#4A5A72" text-anchor="middle">−40</text>
+<text class="d03-s" x="1130.0" y="651.0" font-size="13" fill="#4A5A72" text-anchor="middle">−20</text>
+<text class="d03-s" x="1230.0" y="651.0" font-size="13" fill="#4A5A72" text-anchor="middle">0</text>
+<text class="d03-s" x="1330.0" y="651.0" font-size="13" fill="#4A5A72" text-anchor="middle">20</text>
+<text class="d03-s" x="1008.0" y="532.0" font-size="13" fill="#4A5A72">20</text>
+<text class="d03-s" x="1008.0" y="432.0" font-size="13" fill="#4A5A72">40</text>
+<text class="d03-s" x="1008.0" y="332.0" font-size="13" fill="#4A5A72">60</text>
+<text class="d03-s" x="1008.0" y="232.0" font-size="13" fill="#4A5A72">80</text>
+<text class="d03-k" x="1009.0" y="629.0" font-size="13" fill="#4A5A72" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Restordre</text>
+<text class="d03-k" x="1401.0" y="629.0" font-size="13" fill="#4A5A72" text-anchor="end" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Lager</text>
+<text class="d03-k" x="1008.0" y="174.0" font-size="13" fill="#4A5A72" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">På vei</text>
+<line x1="1005.0" y1="200.0" x2="1405.0" y2="600.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-k" x="1176.5" y="364.5" font-size="13" fill="#16233B" font-weight="500" text-anchor="middle" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round" transform="rotate(45 1176.5 364.5)">Posisjon 42</text>
+<line x1="1290.0" y1="575.0" x2="1280.0" y2="575.0" stroke="#899CB9" stroke-width="1.47" stroke-linecap="round"/>
+<line x1="1280.0" y1="575.0" x2="1250.0" y2="575.0" stroke="#8094B3" stroke-width="1.58" stroke-linecap="round"/>
+<line x1="1250.0" y1="575.0" x2="1215.0" y2="575.0" stroke="#768BAC" stroke-width="1.7" stroke-linecap="round"/>
+<line x1="1215.0" y1="575.0" x2="1185.0" y2="575.0" stroke="#6B82A6" stroke-width="1.81" stroke-linecap="round"/>
+<line x1="1185.0" y1="575.0" x2="1165.0" y2="555.0" stroke="#61799F" stroke-width="1.93" stroke-linecap="round"/>
+<line x1="1165.0" y1="555.0" x2="1130.0" y2="455.0" stroke="#566F99" stroke-width="2.05" stroke-linecap="round"/>
+<line x1="1130.0" y1="455.0" x2="1100.0" y2="395.0" stroke="#4C6692" stroke-width="2.17" stroke-linecap="round"/>
+<line x1="1100.0" y1="395.0" x2="1090.0" y2="355.0" stroke="#415C8B" stroke-width="2.29" stroke-linecap="round"/>
+<line x1="1090.0" y1="355.0" x2="1135.0" y2="375.0" stroke="#365384" stroke-width="2.42" stroke-linecap="round"/>
+<line x1="1135.0" y1="375.0" x2="1095.0" y2="330.0" stroke="#2B497D" stroke-width="2.54" stroke-linecap="round"/>
+<line x1="1095.0" y1="330.0" x2="1045.0" y2="265.0" stroke="#1F3F76" stroke-width="2.67" stroke-linecap="round"/>
+<line x1="1045.0" y1="265.0" x2="1040.0" y2="235.0" stroke="#14356F" stroke-width="2.8" stroke-linecap="round"/>
+<circle cx="1290.0" cy="575.0" r="1.8" fill="#B3C1D3"/>
+<circle cx="1290.0" cy="575.0" r="1.8" fill="#B3C1D3"/>
+<circle cx="1290.0" cy="575.0" r="1.8" fill="#ACBBCF"/>
+<circle cx="1290.0" cy="575.0" r="1.8" fill="#A4B4CA"/>
+<circle cx="1290.0" cy="575.0" r="1.8" fill="#9CADC4"/>
+<circle cx="1290.0" cy="575.0" r="1.8" fill="#93A5BF"/>
+<circle cx="1280.0" cy="575.0" r="1.8" fill="#899CB9"/>
+<circle cx="1250.0" cy="575.0" r="1.8" fill="#8094B3"/>
+<circle cx="1215.0" cy="575.0" r="1.8" fill="#768BAC"/>
+<circle cx="1185.0" cy="575.0" r="1.8" fill="#6B82A6"/>
+<circle cx="1165.0" cy="555.0" r="1.8" fill="#61799F"/>
+<circle cx="1130.0" cy="455.0" r="1.8" fill="#566F99"/>
+<circle cx="1100.0" cy="395.0" r="1.8" fill="#4C6692"/>
+<circle cx="1090.0" cy="355.0" r="1.8" fill="#415C8B"/>
+<circle cx="1135.0" cy="375.0" r="1.8" fill="#365384"/>
+<circle cx="1095.0" cy="330.0" r="1.8" fill="#2B497D"/>
+<circle cx="1045.0" cy="265.0" r="1.8" fill="#1F3F76"/>
+<circle cx="1040.0" cy="235.0" r="1.8" fill="#14356F"/>
+<text class="d03-k" x="1172.0" y="569.0" font-size="13" fill="#4A5A72" font-weight="500" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Uke 11</text>
+<circle cx="1040.0" cy="235.0" r="6" fill="#C9481A" stroke="#F6F8FB" stroke-width="2"/>
+<text class="d03-k" x="1051.0" y="228.0" font-size="14" fill="#16233B" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Uke 18</text>
+<line x1="1005.0" y1="701.4" x2="1321.0" y2="701.4" stroke="#8494A8" stroke-width="1"/>
+<line x1="1134.0" y1="696.4" x2="1145.0" y2="696.4" stroke="#B3C1D3" stroke-width="0.66" stroke-linecap="round"/>
+<line x1="1145.0" y1="696.4" x2="1156.0" y2="696.4" stroke="#AEBDD0" stroke-width="0.68" stroke-linecap="round"/>
+<line x1="1156.0" y1="696.4" x2="1167.0" y2="696.4" stroke="#A9B8CD" stroke-width="0.7" stroke-linecap="round"/>
+<line x1="1167.0" y1="696.4" x2="1178.0" y2="696.4" stroke="#A3B3C9" stroke-width="0.72" stroke-linecap="round"/>
+<line x1="1178.0" y1="696.4" x2="1189.0" y2="696.4" stroke="#9CADC5" stroke-width="0.75" stroke-linecap="round"/>
+<line x1="1189.0" y1="696.4" x2="1200.0" y2="696.4" stroke="#96A8C1" stroke-width="0.78" stroke-linecap="round"/>
+<line x1="1200.0" y1="696.4" x2="1211.0" y2="696.4" stroke="#8FA2BD" stroke-width="0.8" stroke-linecap="round"/>
+<line x1="1211.0" y1="696.4" x2="1222.0" y2="696.4" stroke="#889CB9" stroke-width="0.83" stroke-linecap="round"/>
+<line x1="1222.0" y1="696.4" x2="1233.0" y2="696.4" stroke="#8195B4" stroke-width="0.86" stroke-linecap="round"/>
+<line x1="1233.0" y1="696.4" x2="1244.0" y2="694.7" stroke="#7A8FB0" stroke-width="0.89" stroke-linecap="round"/>
+<line x1="1244.0" y1="694.7" x2="1255.0" y2="686.4" stroke="#7289AB" stroke-width="0.92" stroke-linecap="round"/>
+<line x1="1255.0" y1="686.4" x2="1266.0" y2="681.5" stroke="#6B82A7" stroke-width="0.95" stroke-linecap="round"/>
+<line x1="1266.0" y1="681.5" x2="1277.0" y2="678.2" stroke="#637BA2" stroke-width="0.98" stroke-linecap="round"/>
+<line x1="1277.0" y1="678.2" x2="1288.0" y2="679.8" stroke="#5C759D" stroke-width="1.01" stroke-linecap="round"/>
+<line x1="1288.0" y1="679.8" x2="1299.0" y2="676.1" stroke="#546E99" stroke-width="1.04" stroke-linecap="round"/>
+<line x1="1299.0" y1="676.1" x2="1310.0" y2="670.7" stroke="#4C6794" stroke-width="1.07" stroke-linecap="round"/>
+<line x1="1310.0" y1="670.7" x2="1321.0" y2="668.2" stroke="#44608F" stroke-width="1.1" stroke-linecap="round"/>
+<line x1="1134.0" y1="696.4" x2="1145.0" y2="696.4" stroke="#B3C1D3" stroke-width="1.32" stroke-linecap="round"/>
+<line x1="1145.0" y1="696.4" x2="1156.0" y2="696.4" stroke="#ACBBCF" stroke-width="1.36" stroke-linecap="round"/>
+<line x1="1156.0" y1="696.4" x2="1167.0" y2="696.4" stroke="#A4B4CA" stroke-width="1.4" stroke-linecap="round"/>
+<line x1="1167.0" y1="696.4" x2="1178.0" y2="696.4" stroke="#9CADC4" stroke-width="1.45" stroke-linecap="round"/>
+<line x1="1178.0" y1="696.4" x2="1189.0" y2="696.4" stroke="#93A5BF" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1189.0" y1="696.4" x2="1200.0" y2="697.2" stroke="#899CB9" stroke-width="1.55" stroke-linecap="round"/>
+<line x1="1200.0" y1="697.2" x2="1211.0" y2="699.7" stroke="#8094B3" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="1211.0" y1="699.7" x2="1222.0" y2="702.6" stroke="#768BAC" stroke-width="1.66" stroke-linecap="round"/>
+<line x1="1222.0" y1="702.6" x2="1233.0" y2="705.1" stroke="#6B82A6" stroke-width="1.72" stroke-linecap="round"/>
+<line x1="1233.0" y1="705.1" x2="1244.0" y2="706.7" stroke="#61799F" stroke-width="1.77" stroke-linecap="round"/>
+<line x1="1244.0" y1="706.7" x2="1255.0" y2="709.6" stroke="#566F99" stroke-width="1.83" stroke-linecap="round"/>
+<line x1="1255.0" y1="709.6" x2="1266.0" y2="712.1" stroke="#4C6692" stroke-width="1.89" stroke-linecap="round"/>
+<line x1="1266.0" y1="712.1" x2="1277.0" y2="713.0" stroke="#415C8B" stroke-width="1.95" stroke-linecap="round"/>
+<line x1="1277.0" y1="713.0" x2="1288.0" y2="709.2" stroke="#365384" stroke-width="2.01" stroke-linecap="round"/>
+<line x1="1288.0" y1="709.2" x2="1299.0" y2="712.5" stroke="#2B497D" stroke-width="2.07" stroke-linecap="round"/>
+<line x1="1299.0" y1="712.5" x2="1310.0" y2="716.7" stroke="#1F3F76" stroke-width="2.14" stroke-linecap="round"/>
+<line x1="1310.0" y1="716.7" x2="1321.0" y2="717.1" stroke="#14356F" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="1321.0" y1="660.0" x2="1321.0" y2="722.0" stroke="#D3DCE6" stroke-width="1"/>
+<circle cx="1321.0" cy="717.1" r="3.2" fill="#C9481A"/>
+<text class="d03-k" x="1327.0" y="721.1" font-size="13" fill="#16233B" font-weight="600">Netto −38</text>
+<text class="d03-k" x="1327.0" y="672.2" font-size="13" fill="#4A5A72">På vei 80</text>
+<text class="d03-k" x="1005.0" y="744.0" font-size="13.5" fill="#14356F" font-weight="700">P2 Forsinkelse · P7 Overreaksjon forsterker også</text>
+<text class="d03-k" x="1005.0" y="765.0" font-size="14.5" fill="#16233B">Restordre 38 ser akutt ut, men 80 er på vei og Posisjon</text>
+<text class="d03-k" x="1005.0" y="785.0" font-size="14.5" fill="#16233B">er 42. Av 24 bestilt i Uke 11 kom 17 fram i Uke 15.</text>
+<text class="d03-k" x="1005.0" y="808.0" font-size="14.5" fill="#4A5A72">Til neste ordre: Ordrer du gir nå kommer etter at dagens</text>
+<text class="d03-k" x="1005.0" y="828.0" font-size="14.5" fill="#4A5A72">mangel er borte. Hver stor ordre løfter en høy Posisjon.</text>
+<text class="d03-s" x="1480.0" y="146.0" font-size="28" fill="#16233B" font-weight="600">Uke 29</text>
+<text class="d03-k" x="1590.0" y="146.0" font-size="16" fill="#4A5A72">Posisjon 37 = 30 + 7</text>
+<line x1="1480.0" y1="160.0" x2="1480.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1530.0" y1="160.0" x2="1530.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1580.0" y1="160.0" x2="1580.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1630.0" y1="160.0" x2="1630.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1680.0" y1="160.0" x2="1680.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1730.0" y1="160.0" x2="1730.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1780.0" y1="160.0" x2="1780.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1830.0" y1="160.0" x2="1830.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1880.0" y1="160.0" x2="1880.0" y2="635.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1480.0" y1="610.0" x2="1880.0" y2="610.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1480.0" y1="560.0" x2="1880.0" y2="560.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1480.0" y1="510.0" x2="1880.0" y2="510.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1480.0" y1="460.0" x2="1880.0" y2="460.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1480.0" y1="410.0" x2="1880.0" y2="410.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1480.0" y1="360.0" x2="1880.0" y2="360.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1480.0" y1="310.0" x2="1880.0" y2="310.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1480.0" y1="260.0" x2="1880.0" y2="260.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1480.0" y1="210.0" x2="1880.0" y2="210.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1480.0" y1="160.0" x2="1880.0" y2="160.0" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="1505.0" y1="160.0" x2="1505.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1555.0" y1="160.0" x2="1555.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1605.0" y1="160.0" x2="1605.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1655.0" y1="160.0" x2="1655.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1705.0" y1="160.0" x2="1705.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1755.0" y1="160.0" x2="1755.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1805.0" y1="160.0" x2="1805.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1855.0" y1="160.0" x2="1855.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="635.0" x2="1880.0" y2="635.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="585.0" x2="1880.0" y2="585.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="535.0" x2="1880.0" y2="535.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="485.0" x2="1880.0" y2="485.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="435.0" x2="1880.0" y2="435.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="385.0" x2="1880.0" y2="385.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="335.0" x2="1880.0" y2="335.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="285.0" x2="1880.0" y2="285.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="235.0" x2="1880.0" y2="235.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="185.0" x2="1880.0" y2="185.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1705.0" y1="160.0" x2="1705.0" y2="635.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="1480.0" y1="635.0" x2="1880.0" y2="635.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-s" x="1505.0" y="651.0" font-size="13" fill="#4A5A72" text-anchor="middle">−40</text>
+<text class="d03-s" x="1605.0" y="651.0" font-size="13" fill="#4A5A72" text-anchor="middle">−20</text>
+<text class="d03-s" x="1705.0" y="651.0" font-size="13" fill="#4A5A72" text-anchor="middle">0</text>
+<text class="d03-s" x="1805.0" y="651.0" font-size="13" fill="#4A5A72" text-anchor="middle">20</text>
+<text class="d03-s" x="1483.0" y="532.0" font-size="13" fill="#4A5A72">20</text>
+<text class="d03-s" x="1483.0" y="432.0" font-size="13" fill="#4A5A72">40</text>
+<text class="d03-s" x="1483.0" y="332.0" font-size="13" fill="#4A5A72">60</text>
+<text class="d03-s" x="1483.0" y="232.0" font-size="13" fill="#4A5A72">80</text>
+<text class="d03-k" x="1484.0" y="629.0" font-size="13" fill="#4A5A72" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Restordre</text>
+<text class="d03-k" x="1876.0" y="629.0" font-size="13" fill="#4A5A72" text-anchor="end" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Lager</text>
+<text class="d03-k" x="1483.0" y="174.0" font-size="13" fill="#4A5A72" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">På vei</text>
+<line x1="1480.0" y1="225.0" x2="1880.0" y2="625.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-k" x="1651.5" y="389.5" font-size="13" fill="#16233B" font-weight="500" text-anchor="middle" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round" transform="rotate(45 1651.5 389.5)">Posisjon 37</text>
+<line x1="1765.0" y1="575.0" x2="1755.0" y2="575.0" stroke="#B3C1D3" stroke-width="1.0" stroke-linecap="round"/>
+<line x1="1755.0" y1="575.0" x2="1725.0" y2="575.0" stroke="#B3C1D3" stroke-width="1.0" stroke-linecap="round"/>
+<line x1="1725.0" y1="575.0" x2="1690.0" y2="575.0" stroke="#B3C1D3" stroke-width="1.0" stroke-linecap="round"/>
+<line x1="1690.0" y1="575.0" x2="1660.0" y2="575.0" stroke="#B3C1D3" stroke-width="1.0" stroke-linecap="round"/>
+<line x1="1660.0" y1="575.0" x2="1640.0" y2="555.0" stroke="#B3C1D3" stroke-width="1.0" stroke-linecap="round"/>
+<line x1="1640.0" y1="555.0" x2="1605.0" y2="455.0" stroke="#B3C1D3" stroke-width="1.0" stroke-linecap="round"/>
+<line x1="1605.0" y1="455.0" x2="1575.0" y2="395.0" stroke="#B3C1D3" stroke-width="1.0" stroke-linecap="round"/>
+<line x1="1575.0" y1="395.0" x2="1565.0" y2="355.0" stroke="#ACBBCF" stroke-width="1.07" stroke-linecap="round"/>
+<line x1="1565.0" y1="355.0" x2="1610.0" y2="375.0" stroke="#A4B4CA" stroke-width="1.16" stroke-linecap="round"/>
+<line x1="1610.0" y1="375.0" x2="1570.0" y2="330.0" stroke="#9CADC4" stroke-width="1.26" stroke-linecap="round"/>
+<line x1="1570.0" y1="330.0" x2="1520.0" y2="265.0" stroke="#93A5BF" stroke-width="1.37" stroke-linecap="round"/>
+<line x1="1520.0" y1="265.0" x2="1515.0" y2="235.0" stroke="#899CB9" stroke-width="1.47" stroke-linecap="round"/>
+<line x1="1515.0" y1="235.0" x2="1570.0" y2="245.0" stroke="#8094B3" stroke-width="1.58" stroke-linecap="round"/>
+<line x1="1570.0" y1="245.0" x2="1555.0" y2="235.0" stroke="#768BAC" stroke-width="1.7" stroke-linecap="round"/>
+<line x1="1555.0" y1="235.0" x2="1530.0" y2="210.0" stroke="#6B82A6" stroke-width="1.81" stroke-linecap="round"/>
+<line x1="1530.0" y1="210.0" x2="1505.0" y2="185.0" stroke="#61799F" stroke-width="1.93" stroke-linecap="round"/>
+<line x1="1505.0" y1="185.0" x2="1550.0" y2="210.0" stroke="#566F99" stroke-width="2.05" stroke-linecap="round"/>
+<line x1="1550.0" y1="210.0" x2="1625.0" y2="285.0" stroke="#4C6692" stroke-width="2.17" stroke-linecap="round"/>
+<line x1="1625.0" y1="285.0" x2="1720.0" y2="395.0" stroke="#415C8B" stroke-width="2.29" stroke-linecap="round"/>
+<line x1="1720.0" y1="395.0" x2="1830.0" y2="520.0" stroke="#365384" stroke-width="2.42" stroke-linecap="round"/>
+<line x1="1830.0" y1="520.0" x2="1850.0" y2="560.0" stroke="#2B497D" stroke-width="2.54" stroke-linecap="round"/>
+<line x1="1850.0" y1="560.0" x2="1850.0" y2="575.0" stroke="#1F3F76" stroke-width="2.67" stroke-linecap="round"/>
+<line x1="1850.0" y1="575.0" x2="1855.0" y2="600.0" stroke="#14356F" stroke-width="2.8" stroke-linecap="round"/>
+<circle cx="1765.0" cy="575.0" r="1.8" fill="#B3C1D3"/>
+<circle cx="1765.0" cy="575.0" r="1.8" fill="#B3C1D3"/>
+<circle cx="1765.0" cy="575.0" r="1.8" fill="#B3C1D3"/>
+<circle cx="1765.0" cy="575.0" r="1.8" fill="#B3C1D3"/>
+<circle cx="1765.0" cy="575.0" r="1.8" fill="#B3C1D3"/>
+<circle cx="1765.0" cy="575.0" r="1.8" fill="#B3C1D3"/>
+<circle cx="1755.0" cy="575.0" r="1.8" fill="#B3C1D3"/>
+<circle cx="1725.0" cy="575.0" r="1.8" fill="#B3C1D3"/>
+<circle cx="1690.0" cy="575.0" r="1.8" fill="#B3C1D3"/>
+<circle cx="1660.0" cy="575.0" r="1.8" fill="#B3C1D3"/>
+<circle cx="1640.0" cy="555.0" r="1.8" fill="#B3C1D3"/>
+<circle cx="1605.0" cy="455.0" r="1.8" fill="#B3C1D3"/>
+<circle cx="1575.0" cy="395.0" r="1.8" fill="#B3C1D3"/>
+<circle cx="1565.0" cy="355.0" r="1.8" fill="#ACBBCF"/>
+<circle cx="1610.0" cy="375.0" r="1.8" fill="#A4B4CA"/>
+<circle cx="1570.0" cy="330.0" r="1.8" fill="#9CADC4"/>
+<circle cx="1520.0" cy="265.0" r="1.8" fill="#93A5BF"/>
+<circle cx="1515.0" cy="235.0" r="1.8" fill="#899CB9"/>
+<circle cx="1570.0" cy="245.0" r="1.8" fill="#8094B3"/>
+<circle cx="1555.0" cy="235.0" r="1.8" fill="#768BAC"/>
+<circle cx="1530.0" cy="210.0" r="1.8" fill="#6B82A6"/>
+<circle cx="1505.0" cy="185.0" r="1.8" fill="#61799F"/>
+<circle cx="1550.0" cy="210.0" r="1.8" fill="#566F99"/>
+<circle cx="1625.0" cy="285.0" r="1.8" fill="#4C6692"/>
+<circle cx="1720.0" cy="395.0" r="1.8" fill="#415C8B"/>
+<circle cx="1830.0" cy="520.0" r="1.8" fill="#365384"/>
+<circle cx="1850.0" cy="560.0" r="1.8" fill="#2B497D"/>
+<circle cx="1850.0" cy="575.0" r="1.8" fill="#1F3F76"/>
+<circle cx="1855.0" cy="600.0" r="1.8" fill="#14356F"/>
+<text class="d03-k" x="1535.0" y="182.0" font-size="13" fill="#4A5A72" font-weight="500" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Uke 22</text>
+<text class="d03-k" x="1647.0" y="569.0" font-size="13" fill="#4A5A72" font-weight="500" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Uke 11</text>
+<circle cx="1855.0" cy="600.0" r="6" fill="#C9481A" stroke="#F6F8FB" stroke-width="2"/>
+<text class="d03-k" x="1866.0" y="591.0" font-size="14" fill="#16233B" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Uke 29</text>
+<line x1="1480.0" y1="701.4" x2="1796.0" y2="701.4" stroke="#8494A8" stroke-width="1"/>
+<line x1="1488.0" y1="696.4" x2="1499.0" y2="696.4" stroke="#B3C1D3" stroke-width="0.66" stroke-linecap="round"/>
+<line x1="1499.0" y1="696.4" x2="1510.0" y2="696.4" stroke="#B3C1D3" stroke-width="0.66" stroke-linecap="round"/>
+<line x1="1510.0" y1="696.4" x2="1521.0" y2="696.4" stroke="#B3C1D3" stroke-width="0.66" stroke-linecap="round"/>
+<line x1="1521.0" y1="696.4" x2="1532.0" y2="696.4" stroke="#B3C1D3" stroke-width="0.66" stroke-linecap="round"/>
+<line x1="1532.0" y1="696.4" x2="1543.0" y2="696.4" stroke="#B3C1D3" stroke-width="0.66" stroke-linecap="round"/>
+<line x1="1543.0" y1="696.4" x2="1554.0" y2="696.4" stroke="#B3C1D3" stroke-width="0.66" stroke-linecap="round"/>
+<line x1="1554.0" y1="696.4" x2="1565.0" y2="696.4" stroke="#B3C1D3" stroke-width="0.66" stroke-linecap="round"/>
+<line x1="1565.0" y1="696.4" x2="1576.0" y2="696.4" stroke="#B3C1D3" stroke-width="0.66" stroke-linecap="round"/>
+<line x1="1576.0" y1="696.4" x2="1587.0" y2="696.4" stroke="#B3C1D3" stroke-width="0.66" stroke-linecap="round"/>
+<line x1="1587.0" y1="696.4" x2="1598.0" y2="694.7" stroke="#B3C1D3" stroke-width="0.66" stroke-linecap="round"/>
+<line x1="1598.0" y1="694.7" x2="1609.0" y2="686.4" stroke="#B3C1D3" stroke-width="0.66" stroke-linecap="round"/>
+<line x1="1609.0" y1="686.4" x2="1620.0" y2="681.5" stroke="#B3C1D3" stroke-width="0.66" stroke-linecap="round"/>
+<line x1="1620.0" y1="681.5" x2="1631.0" y2="678.2" stroke="#AEBDD0" stroke-width="0.68" stroke-linecap="round"/>
+<line x1="1631.0" y1="678.2" x2="1642.0" y2="679.8" stroke="#A9B8CD" stroke-width="0.7" stroke-linecap="round"/>
+<line x1="1642.0" y1="679.8" x2="1653.0" y2="676.1" stroke="#A3B3C9" stroke-width="0.72" stroke-linecap="round"/>
+<line x1="1653.0" y1="676.1" x2="1664.0" y2="670.7" stroke="#9CADC5" stroke-width="0.75" stroke-linecap="round"/>
+<line x1="1664.0" y1="670.7" x2="1675.0" y2="668.2" stroke="#96A8C1" stroke-width="0.78" stroke-linecap="round"/>
+<line x1="1675.0" y1="668.2" x2="1686.0" y2="669.0" stroke="#8FA2BD" stroke-width="0.8" stroke-linecap="round"/>
+<line x1="1686.0" y1="669.0" x2="1697.0" y2="668.2" stroke="#889CB9" stroke-width="0.83" stroke-linecap="round"/>
+<line x1="1697.0" y1="668.2" x2="1708.0" y2="666.1" stroke="#8195B4" stroke-width="0.86" stroke-linecap="round"/>
+<line x1="1708.0" y1="666.1" x2="1719.0" y2="664.1" stroke="#7A8FB0" stroke-width="0.89" stroke-linecap="round"/>
+<line x1="1719.0" y1="664.1" x2="1730.0" y2="666.1" stroke="#7289AB" stroke-width="0.92" stroke-linecap="round"/>
+<line x1="1730.0" y1="666.1" x2="1741.0" y2="672.4" stroke="#6B82A7" stroke-width="0.95" stroke-linecap="round"/>
+<line x1="1741.0" y1="672.4" x2="1752.0" y2="681.5" stroke="#637BA2" stroke-width="0.98" stroke-linecap="round"/>
+<line x1="1752.0" y1="681.5" x2="1763.0" y2="691.8" stroke="#5C759D" stroke-width="1.01" stroke-linecap="round"/>
+<line x1="1763.0" y1="691.8" x2="1774.0" y2="695.1" stroke="#546E99" stroke-width="1.04" stroke-linecap="round"/>
+<line x1="1774.0" y1="695.1" x2="1785.0" y2="696.4" stroke="#4C6794" stroke-width="1.07" stroke-linecap="round"/>
+<line x1="1785.0" y1="696.4" x2="1796.0" y2="698.5" stroke="#44608F" stroke-width="1.1" stroke-linecap="round"/>
+<line x1="1488.0" y1="696.4" x2="1499.0" y2="696.4" stroke="#B3C1D3" stroke-width="1.32" stroke-linecap="round"/>
+<line x1="1499.0" y1="696.4" x2="1510.0" y2="696.4" stroke="#B3C1D3" stroke-width="1.32" stroke-linecap="round"/>
+<line x1="1510.0" y1="696.4" x2="1521.0" y2="696.4" stroke="#B3C1D3" stroke-width="1.32" stroke-linecap="round"/>
+<line x1="1521.0" y1="696.4" x2="1532.0" y2="696.4" stroke="#B3C1D3" stroke-width="1.32" stroke-linecap="round"/>
+<line x1="1532.0" y1="696.4" x2="1543.0" y2="696.4" stroke="#B3C1D3" stroke-width="1.32" stroke-linecap="round"/>
+<line x1="1543.0" y1="696.4" x2="1554.0" y2="697.2" stroke="#B3C1D3" stroke-width="1.32" stroke-linecap="round"/>
+<line x1="1554.0" y1="697.2" x2="1565.0" y2="699.7" stroke="#B3C1D3" stroke-width="1.32" stroke-linecap="round"/>
+<line x1="1565.0" y1="699.7" x2="1576.0" y2="702.6" stroke="#B3C1D3" stroke-width="1.32" stroke-linecap="round"/>
+<line x1="1576.0" y1="702.6" x2="1587.0" y2="705.1" stroke="#B3C1D3" stroke-width="1.32" stroke-linecap="round"/>
+<line x1="1587.0" y1="705.1" x2="1598.0" y2="706.7" stroke="#B3C1D3" stroke-width="1.32" stroke-linecap="round"/>
+<line x1="1598.0" y1="706.7" x2="1609.0" y2="709.6" stroke="#B3C1D3" stroke-width="1.32" stroke-linecap="round"/>
+<line x1="1609.0" y1="709.6" x2="1620.0" y2="712.1" stroke="#B3C1D3" stroke-width="1.32" stroke-linecap="round"/>
+<line x1="1620.0" y1="712.1" x2="1631.0" y2="713.0" stroke="#ACBBCF" stroke-width="1.36" stroke-linecap="round"/>
+<line x1="1631.0" y1="713.0" x2="1642.0" y2="709.2" stroke="#A4B4CA" stroke-width="1.4" stroke-linecap="round"/>
+<line x1="1642.0" y1="709.2" x2="1653.0" y2="712.5" stroke="#9CADC4" stroke-width="1.45" stroke-linecap="round"/>
+<line x1="1653.0" y1="712.5" x2="1664.0" y2="716.7" stroke="#93A5BF" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1664.0" y1="716.7" x2="1675.0" y2="717.1" stroke="#899CB9" stroke-width="1.55" stroke-linecap="round"/>
+<line x1="1675.0" y1="717.1" x2="1686.0" y2="712.5" stroke="#8094B3" stroke-width="1.6" stroke-linecap="round"/>
+<line x1="1686.0" y1="712.5" x2="1697.0" y2="713.8" stroke="#768BAC" stroke-width="1.66" stroke-linecap="round"/>
+<line x1="1697.0" y1="713.8" x2="1708.0" y2="715.9" stroke="#6B82A6" stroke-width="1.72" stroke-linecap="round"/>
+<line x1="1708.0" y1="715.9" x2="1719.0" y2="717.9" stroke="#61799F" stroke-width="1.77" stroke-linecap="round"/>
+<line x1="1719.0" y1="717.9" x2="1730.0" y2="714.2" stroke="#566F99" stroke-width="1.83" stroke-linecap="round"/>
+<line x1="1730.0" y1="714.2" x2="1741.0" y2="708.0" stroke="#4C6692" stroke-width="1.89" stroke-linecap="round"/>
+<line x1="1741.0" y1="708.0" x2="1752.0" y2="700.1" stroke="#415C8B" stroke-width="1.95" stroke-linecap="round"/>
+<line x1="1752.0" y1="700.1" x2="1763.0" y2="691.0" stroke="#365384" stroke-width="2.01" stroke-linecap="round"/>
+<line x1="1763.0" y1="691.0" x2="1774.0" y2="689.3" stroke="#2B497D" stroke-width="2.07" stroke-linecap="round"/>
+<line x1="1774.0" y1="689.3" x2="1785.0" y2="689.3" stroke="#1F3F76" stroke-width="2.14" stroke-linecap="round"/>
+<line x1="1785.0" y1="689.3" x2="1796.0" y2="688.9" stroke="#14356F" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="1796.0" y1="660.0" x2="1796.0" y2="722.0" stroke="#D3DCE6" stroke-width="1"/>
+<circle cx="1796.0" cy="688.9" r="3.2" fill="#C9481A"/>
+<text class="d03-k" x="1802.0" y="685.9" font-size="13" fill="#16233B" font-weight="600">Netto 30</text>
+<text class="d03-k" x="1802.0" y="709.5" font-size="13" fill="#4A5A72">På vei 7</text>
+<text class="d03-k" x="1480.0" y="744.0" font-size="13.5" fill="#14356F" font-weight="700">P5 Forsterkning og faseforskyvning · P7 Overreaksjon forsterker også</text>
+<text class="d03-k" x="1480.0" y="765.0" font-size="14.5" fill="#16233B">Fra Uke 22 til 26 fulgte banen diagonalen ned: Levering</text>
+<text class="d03-k" x="1480.0" y="785.0" font-size="14.5" fill="#16233B">flytter varer fra På vei til Lager uten å endre</text>
+<text class="d03-k" x="1480.0" y="805.0" font-size="14.5" fill="#16233B">Posisjon. Nå er Lager 30, kostet av ordre gitt lenge</text>
+<text class="d03-k" x="1480.0" y="825.0" font-size="14.5" fill="#16233B">før.</text>
+<text class="d03-k" x="1480.0" y="848.0" font-size="14.5" fill="#4A5A72">Til neste ordre: Svært lave ordre nå kan bli neste</text>
+<text class="d03-k" x="1480.0" y="868.0" font-size="14.5" fill="#4A5A72">overreaksjon. Posisjon er 37 og På vei bare 7.</text>
+<line x1="55.0" y1="938.0" x2="1945.0" y2="938.0" stroke="#D3DCE6" stroke-width="1"/>
+<text class="d03-s" x="55.0" y="970.0" font-size="22" fill="#16233B" font-weight="600">Tre bevegelser, ingen flere</text>
+<text class="d03-k" x="55.0" y="991.0" font-size="13.5" fill="#14356F" font-weight="700">P1 Lager er en opphopning</text>
+<line x1="61.3" y1="1004.0" x2="61.3" y2="1205.6" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="124.3" y1="1004.0" x2="124.3" y2="1205.6" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="187.3" y1="1004.0" x2="187.3" y2="1205.6" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="250.3" y1="1004.0" x2="250.3" y2="1205.6" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="313.3" y1="1004.0" x2="313.3" y2="1205.6" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="376.3" y1="1004.0" x2="376.3" y2="1205.6" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="439.3" y1="1004.0" x2="439.3" y2="1205.6" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="55.0" y1="1186.7" x2="470.8" y2="1186.7" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="55.0" y1="1123.7" x2="470.8" y2="1123.7" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="55.0" y1="1060.7" x2="470.8" y2="1060.7" stroke="#E3E9F0" stroke-width="0.7"/>
+<line x1="92.8" y1="1004.0" x2="92.8" y2="1205.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="155.8" y1="1004.0" x2="155.8" y2="1205.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="218.8" y1="1004.0" x2="218.8" y2="1205.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="281.8" y1="1004.0" x2="281.8" y2="1205.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="344.8" y1="1004.0" x2="344.8" y2="1205.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="407.8" y1="1004.0" x2="407.8" y2="1205.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="470.8" y1="1004.0" x2="470.8" y2="1205.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="55.0" y1="1155.2" x2="470.8" y2="1155.2" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="55.0" y1="1092.2" x2="470.8" y2="1092.2" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="55.0" y1="1029.2" x2="470.8" y2="1029.2" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="344.8" y1="1004.0" x2="344.8" y2="1205.6" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="55.0" y1="1205.6" x2="470.8" y2="1205.6" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="237.7" y1="1004.0" x2="439.3" y2="1205.6" stroke="#8494A8" stroke-width="1" stroke-dasharray="4 4"/>
+<line x1="262.9" y1="1180.4" x2="262.9" y2="1029.2" stroke="#C9481A" stroke-width="2" stroke-linecap="round"/>
+<line x1="262.9" y1="1029.2" x2="265.9" y2="1035.5" stroke="#C9481A" stroke-width="2" stroke-linecap="round"/>
+<line x1="262.9" y1="1029.2" x2="259.9" y2="1035.5" stroke="#C9481A" stroke-width="2" stroke-linecap="round"/>
+<line x1="262.9" y1="1029.2" x2="288.1" y2="1054.4" stroke="#14356F" stroke-width="2" stroke-linecap="round"/>
+<line x1="288.1" y1="1054.4" x2="281.5" y2="1052.1" stroke="#14356F" stroke-width="2" stroke-linecap="round"/>
+<line x1="288.1" y1="1054.4" x2="285.8" y2="1047.8" stroke="#14356F" stroke-width="2" stroke-linecap="round"/>
+<line x1="288.1" y1="1054.4" x2="218.8" y2="1054.4" stroke="#4A5A72" stroke-width="2" stroke-linecap="round"/>
+<line x1="218.8" y1="1054.4" x2="225.1" y2="1051.4" stroke="#4A5A72" stroke-width="2" stroke-linecap="round"/>
+<line x1="218.8" y1="1054.4" x2="225.1" y2="1057.4" stroke="#4A5A72" stroke-width="2" stroke-linecap="round"/>
+<circle cx="262.9" cy="1180.4" r="5" fill="#C9481A" stroke="#F6F8FB" stroke-width="2"/>
+<text class="d03-k" x="253.9" y="1185.4" font-size="13" fill="#16233B" font-weight="600" text-anchor="end" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Uke 11</text>
+<circle cx="218.8" cy="1054.4" r="4" fill="#14356F"/>
+<text class="d03-k" x="270.9" y="1117.4" font-size="13.5" fill="#16233B" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Ordre +24: opp</text>
+<text class="d03-k" x="297.1" y="1056.4" font-size="13.5" fill="#16233B" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Levering 4: langs</text>
+<text class="d03-k" x="297.1" y="1073.4" font-size="13.5" fill="#16233B" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">diagonalen</text>
+<text class="d03-k" x="210.8" y="1047.4" font-size="13.5" fill="#16233B" font-weight="600" text-anchor="end" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Uke 12</text>
+<text class="d03-k" x="210.8" y="1066.4" font-size="13.5" fill="#16233B" font-weight="600" text-anchor="end" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Innkommende ordre 11:</text>
+<text class="d03-k" x="210.8" y="1083.4" font-size="13.5" fill="#16233B" font-weight="600" text-anchor="end" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">mot venstre</text>
+<text class="d03-k" x="55.0" y="1227.6" font-size="14.5" fill="#16233B">Regn selv: −13 + 4 − 11 = −20 netto, og 16 + 24 − 4 = 36</text>
+<text class="d03-k" x="55.0" y="1247.6" font-size="14.5" fill="#16233B">på vei.</text>
+<text class="d03-k" x="55.0" y="1271.6" font-size="14.5" fill="#4A5A72">Levering endrer aldri Posisjon. Bare to ting gjør det:</text>
+<text class="d03-k" x="55.0" y="1291.6" font-size="14.5" fill="#4A5A72">din Ordre og Innkommende ordre. Du bestemmer bare hvor</text>
+<text class="d03-k" x="55.0" y="1311.6" font-size="14.5" fill="#4A5A72">langt opp.</text>
+<text class="d03-k" x="55.0" y="1335.6" font-size="13.5" fill="#14356F" font-weight="600">P4: Innkommende ordre er det du ser, ikke kundene. P6:</text>
+<text class="d03-k" x="55.0" y="1353.6" font-size="13.5" fill="#14356F" font-weight="600">Fabrikk går med klokka i 41 av 41 ferdige spill. P8: til</text>
+<text class="d03-k" x="55.0" y="1371.6" font-size="13.5" fill="#14356F" font-weight="600">venstre for null koster en enhet dobbelt.</text>
+<text class="d03-s" x="530.0" y="970.0" font-size="22" fill="#16233B" font-weight="600">Planet bygges i de Veiledede ukene</text>
+<text class="d03-k" x="530.0" y="991.0" font-size="13.5" fill="#4A5A72">Risikoen er at et faseplan er nytt. Derfor kommer det i biter.</text>
+<text class="d03-s" x="530.0" y="1016.0" font-size="15" fill="#16233B" font-weight="600">Uke 1</text>
+<line x1="530.0" y1="1036.0" x2="728.0" y2="1036.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="596.0" y1="1026.0" x2="596.0" y2="1046.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-k" x="590.0" y="1060.0" font-size="13" fill="#4A5A72" text-anchor="end">Restordre</text>
+<text class="d03-k" x="602.0" y="1060.0" font-size="13" fill="#4A5A72">Lager</text>
+<circle cx="635.6" cy="1036.0" r="5.5" fill="#C9481A" stroke="#F6F8FB" stroke-width="2"/>
+<text class="d03-s" x="635.6" y="1026.0" font-size="14" fill="#16233B" font-weight="600" text-anchor="middle">12</text>
+<text class="d03-k" x="530.0" y="1084.0" font-size="13" fill="#16233B">Bare tallinja: Lager til høyre</text>
+<text class="d03-k" x="530.0" y="1101.0" font-size="13" fill="#16233B">for null, Restordre til</text>
+<text class="d03-k" x="530.0" y="1118.0" font-size="13" fill="#16233B">venstre.</text>
+<text class="d03-s" x="750.0" y="1016.0" font-size="15" fill="#16233B" font-weight="600">Uke 2</text>
+<line x1="750.0" y1="1024.0" x2="750.0" y2="1123.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="783.0" y1="1024.0" x2="783.0" y2="1123.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="816.0" y1="1024.0" x2="816.0" y2="1123.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="849.0" y1="1024.0" x2="849.0" y2="1123.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="882.0" y1="1024.0" x2="882.0" y2="1123.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="915.0" y1="1024.0" x2="915.0" y2="1123.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="948.0" y1="1024.0" x2="948.0" y2="1123.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="750.0" y1="1123.0" x2="948.0" y2="1123.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="750.0" y1="1090.0" x2="948.0" y2="1090.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="750.0" y1="1057.0" x2="948.0" y2="1057.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="750.0" y1="1024.0" x2="948.0" y2="1024.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="816.0" y1="1024.0" x2="816.0" y2="1123.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="750.0" y1="1123.0" x2="948.0" y2="1123.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-k" x="753.0" y="1037.0" font-size="13" fill="#4A5A72" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">På vei</text>
+<circle cx="855.6" cy="1083.4" r="5" fill="#C9481A" stroke="#F6F8FB" stroke-width="2"/>
+<text class="d03-k" x="750.0" y="1139.0" font-size="13" fill="#16233B">På vei legges til som høyde.</text>
+<text class="d03-k" x="750.0" y="1156.0" font-size="13" fill="#16233B">Punktet har to tall.</text>
+<text class="d03-s" x="530.0" y="1218.0" font-size="15" fill="#16233B" font-weight="600">Uke 3</text>
+<line x1="530.0" y1="1226.0" x2="530.0" y2="1325.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="563.0" y1="1226.0" x2="563.0" y2="1325.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="596.0" y1="1226.0" x2="596.0" y2="1325.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="629.0" y1="1226.0" x2="629.0" y2="1325.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="662.0" y1="1226.0" x2="662.0" y2="1325.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="695.0" y1="1226.0" x2="695.0" y2="1325.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="728.0" y1="1226.0" x2="728.0" y2="1325.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="530.0" y1="1325.0" x2="728.0" y2="1325.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="530.0" y1="1292.0" x2="728.0" y2="1292.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="530.0" y1="1259.0" x2="728.0" y2="1259.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="530.0" y1="1226.0" x2="728.0" y2="1226.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="596.0" y1="1226.0" x2="596.0" y2="1325.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="530.0" y1="1325.0" x2="728.0" y2="1325.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-k" x="533.0" y="1239.0" font-size="13" fill="#4A5A72" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">På vei</text>
+<line x1="576.2" y1="1226.0" x2="675.2" y2="1325.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-k" x="629.2" y="1272.0" font-size="13" fill="#16233B" font-weight="500" text-anchor="middle" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round" transform="rotate(45 629.2 1272.0)">Posisjon 24</text>
+<circle cx="635.6" cy="1285.4" r="5" fill="#C9481A" stroke="#F6F8FB" stroke-width="2"/>
+<text class="d03-k" x="530.0" y="1341.0" font-size="13" fill="#16233B">Diagonalen: alle punkter på</text>
+<text class="d03-k" x="530.0" y="1358.0" font-size="13" fill="#16233B">den har samme Posisjon.</text>
+<text class="d03-s" x="750.0" y="1218.0" font-size="15" fill="#16233B" font-weight="600">Uke 4</text>
+<line x1="750.0" y1="1226.0" x2="750.0" y2="1325.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="783.0" y1="1226.0" x2="783.0" y2="1325.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="816.0" y1="1226.0" x2="816.0" y2="1325.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="849.0" y1="1226.0" x2="849.0" y2="1325.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="882.0" y1="1226.0" x2="882.0" y2="1325.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="915.0" y1="1226.0" x2="915.0" y2="1325.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="948.0" y1="1226.0" x2="948.0" y2="1325.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="750.0" y1="1325.0" x2="948.0" y2="1325.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="750.0" y1="1292.0" x2="948.0" y2="1292.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="750.0" y1="1259.0" x2="948.0" y2="1259.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="750.0" y1="1226.0" x2="948.0" y2="1226.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="816.0" y1="1226.0" x2="816.0" y2="1325.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="750.0" y1="1325.0" x2="948.0" y2="1325.0" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-k" x="753.0" y="1239.0" font-size="13" fill="#4A5A72" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">På vei</text>
+<line x1="796.2" y1="1226.0" x2="895.2" y2="1325.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="809.4" y1="1226.0" x2="908.4" y2="1325.0" stroke="#C9481A" stroke-width="1.1" stroke-dasharray="4 3"/>
+<line x1="855.6" y1="1285.4" x2="855.6" y2="1272.2" stroke="#C9481A" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="855.6" y1="1272.2" x2="858.2" y2="1277.6" stroke="#C9481A" stroke-width="2.2" stroke-linecap="round"/>
+<line x1="855.6" y1="1272.2" x2="853.0" y2="1277.6" stroke="#C9481A" stroke-width="2.2" stroke-linecap="round"/>
+<text class="d03-s" x="862.6" y="1282.8" font-size="14" fill="#16233B" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">+4</text>
+<circle cx="855.6" cy="1285.4" r="5" fill="#C9481A" stroke="#F6F8FB" stroke-width="2"/>
+<text class="d03-k" x="750.0" y="1341.0" font-size="13" fill="#16233B">Ordren er pil rett opp. Fra</text>
+<text class="d03-k" x="750.0" y="1358.0" font-size="13" fill="#16233B">Uke 5 er alt åpent.</text>
+<text class="d03-s" x="1005.0" y="970.0" font-size="22" fill="#16233B" font-weight="600">Hjelpegrad: to nivåer</text>
+<text class="d03-k" x="1005.0" y="991.0" font-size="13.5" fill="#4A5A72">Klassespillet lar svingningen skje. Replay gir verktøyene.</text>
+<line x1="1018.4" y1="1004.0" x2="1018.4" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1045.2" y1="1004.0" x2="1045.2" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1072.0" y1="1004.0" x2="1072.0" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1098.8" y1="1004.0" x2="1098.8" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1125.6" y1="1004.0" x2="1125.6" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1152.4" y1="1004.0" x2="1152.4" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1179.2" y1="1004.0" x2="1179.2" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1206.0" y1="1004.0" x2="1206.0" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="1258.6" x2="1219.4" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="1231.8" x2="1219.4" y2="1231.8" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="1205.0" x2="1219.4" y2="1205.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="1178.2" x2="1219.4" y2="1178.2" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="1151.4" x2="1219.4" y2="1151.4" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="1124.6" x2="1219.4" y2="1124.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="1097.8" x2="1219.4" y2="1097.8" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="1071.0" x2="1219.4" y2="1071.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="1044.2" x2="1219.4" y2="1044.2" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1005.0" y1="1017.4" x2="1219.4" y2="1017.4" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1125.6" y1="1004.0" x2="1125.6" y2="1258.6" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="1005.0" y1="1258.6" x2="1219.4" y2="1258.6" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="1005.0" y1="1130.0" x2="1133.6" y2="1258.6" stroke="#8494A8" stroke-width="1.1"/>
+<text class="d03-k" x="1052.3" y="1170.2" font-size="13" fill="#16233B" font-weight="500" text-anchor="middle" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round" transform="rotate(45 1052.3 1170.2)">Posisjon 3</text>
+<line x1="1157.8" y1="1226.4" x2="1152.4" y2="1226.4" stroke="#47628F" stroke-width="2.02" stroke-linecap="round"/>
+<line x1="1152.4" y1="1226.4" x2="1136.3" y2="1226.4" stroke="#3B5787" stroke-width="2.14" stroke-linecap="round"/>
+<line x1="1136.3" y1="1226.4" x2="1117.6" y2="1226.4" stroke="#2E4C7F" stroke-width="2.26" stroke-linecap="round"/>
+<line x1="1117.6" y1="1226.4" x2="1101.5" y2="1226.4" stroke="#214077" stroke-width="2.38" stroke-linecap="round"/>
+<line x1="1101.5" y1="1226.4" x2="1090.8" y2="1215.7" stroke="#14356F" stroke-width="2.5" stroke-linecap="round"/>
+<circle cx="1157.8" cy="1226.4" r="1.8" fill="#8DA0BB"/>
+<circle cx="1157.8" cy="1226.4" r="1.8" fill="#8296B4"/>
+<circle cx="1157.8" cy="1226.4" r="1.8" fill="#778CAD"/>
+<circle cx="1157.8" cy="1226.4" r="1.8" fill="#6B82A6"/>
+<circle cx="1157.8" cy="1226.4" r="1.8" fill="#5F779E"/>
+<circle cx="1157.8" cy="1226.4" r="1.8" fill="#536D97"/>
+<circle cx="1152.4" cy="1226.4" r="1.8" fill="#47628F"/>
+<circle cx="1136.3" cy="1226.4" r="1.8" fill="#3B5787"/>
+<circle cx="1117.6" cy="1226.4" r="1.8" fill="#2E4C7F"/>
+<circle cx="1101.5" cy="1226.4" r="1.8" fill="#214077"/>
+<circle cx="1090.8" cy="1215.7" r="1.8" fill="#14356F"/>
+<circle cx="1090.8" cy="1215.7" r="5" fill="#C9481A" stroke="#F6F8FB" stroke-width="2"/>
+<text class="d03-s" x="1005.0" y="1276.6" font-size="15" fill="#16233B" font-weight="600">Klassespill</text>
+<text class="d03-k" x="1005.0" y="1295.6" font-size="13" fill="#16233B">Én diagonal, nå-punktet, banen.</text>
+<text class="d03-k" x="1005.0" y="1312.6" font-size="13" fill="#16233B">Ingen rutenett av Posisjoner,</text>
+<text class="d03-k" x="1005.0" y="1329.6" font-size="13" fill="#16233B">ingen fremtid.</text>
+<line x1="1246.4" y1="1004.0" x2="1246.4" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1273.2" y1="1004.0" x2="1273.2" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1300.0" y1="1004.0" x2="1300.0" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1326.8" y1="1004.0" x2="1326.8" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1353.6" y1="1004.0" x2="1353.6" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1380.4" y1="1004.0" x2="1380.4" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1407.2" y1="1004.0" x2="1407.2" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1434.0" y1="1004.0" x2="1434.0" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1233.0" y1="1258.6" x2="1447.4" y2="1258.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1233.0" y1="1231.8" x2="1447.4" y2="1231.8" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1233.0" y1="1205.0" x2="1447.4" y2="1205.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1233.0" y1="1178.2" x2="1447.4" y2="1178.2" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1233.0" y1="1151.4" x2="1447.4" y2="1151.4" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1233.0" y1="1124.6" x2="1447.4" y2="1124.6" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1233.0" y1="1097.8" x2="1447.4" y2="1097.8" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1233.0" y1="1071.0" x2="1447.4" y2="1071.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1233.0" y1="1044.2" x2="1447.4" y2="1044.2" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1233.0" y1="1017.4" x2="1447.4" y2="1017.4" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1353.6" y1="1004.0" x2="1353.6" y2="1258.6" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="1233.0" y1="1258.6" x2="1447.4" y2="1258.6" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="1233.0" y1="1191.6" x2="1300.0" y2="1258.6" stroke="#D3DCE6" stroke-width="0.9"/>
+<line x1="1233.0" y1="1164.8" x2="1326.8" y2="1258.6" stroke="#D3DCE6" stroke-width="0.9"/>
+<line x1="1233.0" y1="1138.0" x2="1353.6" y2="1258.6" stroke="#D3DCE6" stroke-width="0.9"/>
+<line x1="1233.0" y1="1111.2" x2="1380.4" y2="1258.6" stroke="#D3DCE6" stroke-width="0.9"/>
+<line x1="1233.0" y1="1084.4" x2="1407.2" y2="1258.6" stroke="#D3DCE6" stroke-width="0.9"/>
+<line x1="1233.0" y1="1057.6" x2="1434.0" y2="1258.6" stroke="#D3DCE6" stroke-width="0.9"/>
+<line x1="1233.0" y1="1030.8" x2="1447.4" y2="1245.2" stroke="#D3DCE6" stroke-width="0.9"/>
+<line x1="1233.0" y1="1004.0" x2="1447.4" y2="1218.4" stroke="#D3DCE6" stroke-width="0.9"/>
+<line x1="1259.8" y1="1004.0" x2="1447.4" y2="1191.6" stroke="#D3DCE6" stroke-width="0.9"/>
+<line x1="1286.6" y1="1004.0" x2="1447.4" y2="1164.8" stroke="#D3DCE6" stroke-width="0.9"/>
+<line x1="1313.4" y1="1004.0" x2="1447.4" y2="1138.0" stroke="#D3DCE6" stroke-width="0.9"/>
+<line x1="1340.2" y1="1004.0" x2="1447.4" y2="1111.2" stroke="#D3DCE6" stroke-width="0.9"/>
+<line x1="1233.0" y1="1079.0" x2="1412.6" y2="1258.6" stroke="#8494A8" stroke-width="1.2"/>
+<text class="d03-k" x="1272.4" y="1111.4" font-size="13" fill="#16233B" font-weight="500" text-anchor="middle" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round" transform="rotate(45 1272.4 1111.4)">Posisjon 22</text>
+<line x1="1385.8" y1="1226.4" x2="1380.4" y2="1226.4" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1380.4" y1="1226.4" x2="1364.3" y2="1226.4" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1364.3" y1="1226.4" x2="1345.6" y2="1226.4" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1345.6" y1="1226.4" x2="1329.5" y2="1226.4" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1329.5" y1="1226.4" x2="1318.8" y2="1215.7" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1318.8" y1="1215.7" x2="1300.0" y2="1162.1" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1300.0" y1="1162.1" x2="1283.9" y2="1130.0" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1283.9" y1="1130.0" x2="1278.6" y2="1108.5" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1278.6" y1="1108.5" x2="1302.7" y2="1119.2" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1302.7" y1="1119.2" x2="1281.2" y2="1095.1" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1281.2" y1="1095.1" x2="1254.4" y2="1060.3" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1254.4" y1="1060.3" x2="1251.8" y2="1044.2" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1251.8" y1="1044.2" x2="1281.2" y2="1049.6" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1281.2" y1="1049.6" x2="1273.2" y2="1044.2" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1273.2" y1="1044.2" x2="1259.8" y2="1030.8" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1259.8" y1="1030.8" x2="1246.4" y2="1017.4" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1246.4" y1="1017.4" x2="1270.5" y2="1030.8" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1270.5" y1="1030.8" x2="1310.7" y2="1071.0" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1310.7" y1="1071.0" x2="1361.6" y2="1130.0" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1361.6" y1="1130.0" x2="1420.6" y2="1197.0" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1420.6" y1="1197.0" x2="1431.3" y2="1218.4" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1431.3" y1="1218.4" x2="1431.3" y2="1226.4" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1431.3" y1="1226.4" x2="1434.0" y2="1239.8" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1434.0" y1="1239.8" x2="1428.6" y2="1242.5" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1428.6" y1="1242.5" x2="1420.6" y2="1245.2" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1420.6" y1="1245.2" x2="1407.2" y2="1239.8" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1407.2" y1="1239.8" x2="1393.8" y2="1229.1" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1393.8" y1="1229.1" x2="1377.7" y2="1215.7" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1377.7" y1="1215.7" x2="1367.0" y2="1199.6" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1367.0" y1="1199.6" x2="1367.0" y2="1191.6" stroke="#CDD8E5" stroke-width="1.2" stroke-linecap="round"/>
+<line x1="1385.8" y1="1226.4" x2="1385.8" y2="1223.8" stroke="#A2B2C8" stroke-width="1.16" stroke-linecap="round"/>
+<line x1="1385.8" y1="1223.8" x2="1380.4" y2="1218.4" stroke="#98A9C2" stroke-width="1.26" stroke-linecap="round"/>
+<line x1="1380.4" y1="1218.4" x2="1380.4" y2="1213.0" stroke="#8DA0BB" stroke-width="1.36" stroke-linecap="round"/>
+<line x1="1380.4" y1="1213.0" x2="1385.8" y2="1213.0" stroke="#8296B4" stroke-width="1.46" stroke-linecap="round"/>
+<line x1="1385.8" y1="1213.0" x2="1388.4" y2="1218.4" stroke="#778CAD" stroke-width="1.57" stroke-linecap="round"/>
+<line x1="1388.4" y1="1218.4" x2="1391.1" y2="1221.1" stroke="#6B82A6" stroke-width="1.68" stroke-linecap="round"/>
+<line x1="1391.1" y1="1221.1" x2="1393.8" y2="1221.1" stroke="#5F779E" stroke-width="1.79" stroke-linecap="round"/>
+<line x1="1393.8" y1="1221.1" x2="1391.1" y2="1218.4" stroke="#536D97" stroke-width="1.9" stroke-linecap="round"/>
+<line x1="1391.1" y1="1218.4" x2="1385.8" y2="1221.1" stroke="#47628F" stroke-width="2.02" stroke-linecap="round"/>
+<line x1="1385.8" y1="1221.1" x2="1377.7" y2="1218.4" stroke="#3B5787" stroke-width="2.14" stroke-linecap="round"/>
+<line x1="1377.7" y1="1218.4" x2="1361.6" y2="1210.4" stroke="#2E4C7F" stroke-width="2.26" stroke-linecap="round"/>
+<line x1="1361.6" y1="1210.4" x2="1345.6" y2="1197.0" stroke="#214077" stroke-width="2.38" stroke-linecap="round"/>
+<line x1="1345.6" y1="1197.0" x2="1334.8" y2="1180.9" stroke="#14356F" stroke-width="2.5" stroke-linecap="round"/>
+<circle cx="1385.8" cy="1226.4" r="1.8" fill="#ABBACE"/>
+<circle cx="1385.8" cy="1223.8" r="1.8" fill="#A2B2C8"/>
+<circle cx="1380.4" cy="1218.4" r="1.8" fill="#98A9C2"/>
+<circle cx="1380.4" cy="1213.0" r="1.8" fill="#8DA0BB"/>
+<circle cx="1385.8" cy="1213.0" r="1.8" fill="#8296B4"/>
+<circle cx="1388.4" cy="1218.4" r="1.8" fill="#778CAD"/>
+<circle cx="1391.1" cy="1221.1" r="1.8" fill="#6B82A6"/>
+<circle cx="1393.8" cy="1221.1" r="1.8" fill="#5F779E"/>
+<circle cx="1391.1" cy="1218.4" r="1.8" fill="#536D97"/>
+<circle cx="1385.8" cy="1221.1" r="1.8" fill="#47628F"/>
+<circle cx="1377.7" cy="1218.4" r="1.8" fill="#3B5787"/>
+<circle cx="1361.6" cy="1210.4" r="1.8" fill="#2E4C7F"/>
+<circle cx="1345.6" cy="1197.0" r="1.8" fill="#214077"/>
+<circle cx="1334.8" cy="1180.9" r="1.8" fill="#14356F"/>
+<circle cx="1356.3" cy="1202.3" r="3" fill="#14356F"/>
+<text class="d03-k" x="1362.3" y="1196.3" font-size="13" fill="#16233B" font-weight="500" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Levering 8</text>
+<circle cx="1334.8" cy="1180.9" r="5" fill="#C9481A" stroke="#F6F8FB" stroke-width="2"/>
+<text class="d03-s" x="1233.0" y="1276.6" font-size="15" fill="#16233B" font-weight="600">Replay</text>
+<text class="d03-k" x="1233.0" y="1295.6" font-size="13" fill="#16233B">Alle Posisjonene, kjent neste</text>
+<text class="d03-k" x="1233.0" y="1312.6" font-size="13" fill="#16233B">Levering (ikke garantert),</text>
+<text class="d03-k" x="1233.0" y="1329.6" font-size="13" fill="#16233B">Klassespillet som grå bane. Ikke</text>
+<text class="d03-k" x="1233.0" y="1346.6" font-size="13" fill="#16233B">like for like.</text>
+<text class="d03-s" x="1480.0" y="970.0" font-size="22" fill="#16233B" font-weight="600">Etter Debriefen: mot simulert</text>
+<text class="d03-k" x="1480.0" y="991.0" font-size="13.5" fill="#4A5A72">P3 og P7. Simulert, viser sammenhengen, ikke en fasit.</text>
+<line x1="1496.0" y1="1004.0" x2="1496.0" y2="1308.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1528.0" y1="1004.0" x2="1528.0" y2="1308.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1560.0" y1="1004.0" x2="1560.0" y2="1308.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1592.0" y1="1004.0" x2="1592.0" y2="1308.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1624.0" y1="1004.0" x2="1624.0" y2="1308.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1656.0" y1="1004.0" x2="1656.0" y2="1308.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1688.0" y1="1004.0" x2="1688.0" y2="1308.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1720.0" y1="1004.0" x2="1720.0" y2="1308.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="1308.0" x2="1736.0" y2="1308.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="1276.0" x2="1736.0" y2="1276.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="1244.0" x2="1736.0" y2="1244.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="1212.0" x2="1736.0" y2="1212.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="1180.0" x2="1736.0" y2="1180.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="1148.0" x2="1736.0" y2="1148.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="1116.0" x2="1736.0" y2="1116.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="1084.0" x2="1736.0" y2="1084.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="1052.0" x2="1736.0" y2="1052.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1480.0" y1="1020.0" x2="1736.0" y2="1020.0" stroke="#D3DCE6" stroke-width="0.8"/>
+<line x1="1624.0" y1="1004.0" x2="1624.0" y2="1308.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="1480.0" y1="1308.0" x2="1736.0" y2="1308.0" stroke="#8494A8" stroke-width="1.1"/>
+<line x1="1662.4" y1="1269.6" x2="1656.0" y2="1269.6" stroke="#9EAFC6" stroke-width="1.16" stroke-linecap="round"/>
+<line x1="1656.0" y1="1269.6" x2="1636.8" y2="1269.6" stroke="#9AABC3" stroke-width="1.19" stroke-linecap="round"/>
+<line x1="1636.8" y1="1269.6" x2="1614.4" y2="1269.6" stroke="#96A7C1" stroke-width="1.22" stroke-linecap="round"/>
+<line x1="1614.4" y1="1269.6" x2="1595.2" y2="1269.6" stroke="#92A4BE" stroke-width="1.25" stroke-linecap="round"/>
+<line x1="1595.2" y1="1269.6" x2="1582.4" y2="1256.8" stroke="#8DA0BB" stroke-width="1.28" stroke-linecap="round"/>
+<line x1="1582.4" y1="1256.8" x2="1560.0" y2="1192.8" stroke="#899CB9" stroke-width="1.32" stroke-linecap="round"/>
+<line x1="1560.0" y1="1192.8" x2="1540.8" y2="1154.4" stroke="#8598B6" stroke-width="1.35" stroke-linecap="round"/>
+<line x1="1540.8" y1="1154.4" x2="1534.4" y2="1128.8" stroke="#8094B3" stroke-width="1.38" stroke-linecap="round"/>
+<line x1="1534.4" y1="1128.8" x2="1563.2" y2="1141.6" stroke="#7C90B0" stroke-width="1.42" stroke-linecap="round"/>
+<line x1="1563.2" y1="1141.6" x2="1537.6" y2="1112.8" stroke="#778CAD" stroke-width="1.45" stroke-linecap="round"/>
+<line x1="1537.6" y1="1112.8" x2="1505.6" y2="1071.2" stroke="#7288AA" stroke-width="1.49" stroke-linecap="round"/>
+<line x1="1505.6" y1="1071.2" x2="1502.4" y2="1052.0" stroke="#6E84A7" stroke-width="1.52" stroke-linecap="round"/>
+<line x1="1502.4" y1="1052.0" x2="1537.6" y2="1058.4" stroke="#6980A4" stroke-width="1.56" stroke-linecap="round"/>
+<line x1="1537.6" y1="1058.4" x2="1528.0" y2="1052.0" stroke="#647CA1" stroke-width="1.59" stroke-linecap="round"/>
+<line x1="1528.0" y1="1052.0" x2="1512.0" y2="1036.0" stroke="#5F779E" stroke-width="1.63" stroke-linecap="round"/>
+<line x1="1512.0" y1="1036.0" x2="1496.0" y2="1020.0" stroke="#5B739B" stroke-width="1.67" stroke-linecap="round"/>
+<line x1="1496.0" y1="1020.0" x2="1524.8" y2="1036.0" stroke="#566F98" stroke-width="1.7" stroke-linecap="round"/>
+<line x1="1524.8" y1="1036.0" x2="1572.8" y2="1084.0" stroke="#516B95" stroke-width="1.74" stroke-linecap="round"/>
+<line x1="1572.8" y1="1084.0" x2="1633.6" y2="1154.4" stroke="#4C6692" stroke-width="1.78" stroke-linecap="round"/>
+<line x1="1633.6" y1="1154.4" x2="1704.0" y2="1234.4" stroke="#47628F" stroke-width="1.81" stroke-linecap="round"/>
+<line x1="1704.0" y1="1234.4" x2="1716.8" y2="1260.0" stroke="#425E8C" stroke-width="1.85" stroke-linecap="round"/>
+<line x1="1716.8" y1="1260.0" x2="1716.8" y2="1269.6" stroke="#3D5989" stroke-width="1.89" stroke-linecap="round"/>
+<line x1="1716.8" y1="1269.6" x2="1720.0" y2="1285.6" stroke="#385586" stroke-width="1.93" stroke-linecap="round"/>
+<line x1="1720.0" y1="1285.6" x2="1713.6" y2="1288.8" stroke="#335082" stroke-width="1.97" stroke-linecap="round"/>
+<line x1="1713.6" y1="1288.8" x2="1704.0" y2="1292.0" stroke="#2E4C7F" stroke-width="2.01" stroke-linecap="round"/>
+<line x1="1704.0" y1="1292.0" x2="1688.0" y2="1285.6" stroke="#29477C" stroke-width="2.04" stroke-linecap="round"/>
+<line x1="1688.0" y1="1285.6" x2="1672.0" y2="1272.8" stroke="#244379" stroke-width="2.08" stroke-linecap="round"/>
+<line x1="1672.0" y1="1272.8" x2="1652.8" y2="1256.8" stroke="#1E3E76" stroke-width="2.12" stroke-linecap="round"/>
+<line x1="1652.8" y1="1256.8" x2="1640.0" y2="1237.6" stroke="#193A72" stroke-width="2.16" stroke-linecap="round"/>
+<line x1="1640.0" y1="1237.6" x2="1640.0" y2="1228.0" stroke="#14356F" stroke-width="2.2" stroke-linecap="round"/>
+<circle cx="1662.4" cy="1269.6" r="1.2" fill="#B3C1D3"/>
+<circle cx="1662.4" cy="1269.6" r="1.2" fill="#B0BFD1"/>
+<circle cx="1662.4" cy="1269.6" r="1.2" fill="#ADBCCF"/>
+<circle cx="1662.4" cy="1269.6" r="1.2" fill="#AAB9CD"/>
+<circle cx="1662.4" cy="1269.6" r="1.2" fill="#A6B5CB"/>
+<circle cx="1662.4" cy="1269.6" r="1.2" fill="#A2B2C8"/>
+<circle cx="1656.0" cy="1269.6" r="1.2" fill="#9EAFC6"/>
+<circle cx="1636.8" cy="1269.6" r="1.2" fill="#9AABC3"/>
+<circle cx="1614.4" cy="1269.6" r="1.2" fill="#96A7C1"/>
+<circle cx="1595.2" cy="1269.6" r="1.2" fill="#92A4BE"/>
+<circle cx="1582.4" cy="1256.8" r="1.2" fill="#8DA0BB"/>
+<circle cx="1560.0" cy="1192.8" r="1.2" fill="#899CB9"/>
+<circle cx="1540.8" cy="1154.4" r="1.2" fill="#8598B6"/>
+<circle cx="1534.4" cy="1128.8" r="1.2" fill="#8094B3"/>
+<circle cx="1563.2" cy="1141.6" r="1.2" fill="#7C90B0"/>
+<circle cx="1537.6" cy="1112.8" r="1.2" fill="#778CAD"/>
+<circle cx="1505.6" cy="1071.2" r="1.2" fill="#7288AA"/>
+<circle cx="1502.4" cy="1052.0" r="1.2" fill="#6E84A7"/>
+<circle cx="1537.6" cy="1058.4" r="1.2" fill="#6980A4"/>
+<circle cx="1528.0" cy="1052.0" r="1.2" fill="#647CA1"/>
+<circle cx="1512.0" cy="1036.0" r="1.2" fill="#5F779E"/>
+<circle cx="1496.0" cy="1020.0" r="1.2" fill="#5B739B"/>
+<circle cx="1524.8" cy="1036.0" r="1.2" fill="#566F98"/>
+<circle cx="1572.8" cy="1084.0" r="1.2" fill="#516B95"/>
+<circle cx="1633.6" cy="1154.4" r="1.2" fill="#4C6692"/>
+<circle cx="1704.0" cy="1234.4" r="1.2" fill="#47628F"/>
+<circle cx="1716.8" cy="1260.0" r="1.2" fill="#425E8C"/>
+<circle cx="1716.8" cy="1269.6" r="1.2" fill="#3D5989"/>
+<circle cx="1720.0" cy="1285.6" r="1.2" fill="#385586"/>
+<circle cx="1713.6" cy="1288.8" r="1.2" fill="#335082"/>
+<circle cx="1704.0" cy="1292.0" r="1.2" fill="#2E4C7F"/>
+<circle cx="1688.0" cy="1285.6" r="1.2" fill="#29477C"/>
+<circle cx="1672.0" cy="1272.8" r="1.2" fill="#244379"/>
+<circle cx="1652.8" cy="1256.8" r="1.2" fill="#1E3E76"/>
+<circle cx="1640.0" cy="1237.6" r="1.2" fill="#193A72"/>
+<circle cx="1640.0" cy="1228.0" r="1.2" fill="#14356F"/>
+<line x1="1662.4" y1="1269.6" x2="1662.4" y2="1266.4" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1662.4" y1="1266.4" x2="1656.0" y2="1263.2" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1656.0" y1="1263.2" x2="1640.0" y2="1260.0" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1640.0" y1="1260.0" x2="1624.0" y2="1253.6" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1624.0" y1="1253.6" x2="1604.8" y2="1240.8" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1604.8" y1="1240.8" x2="1588.8" y2="1221.6" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1588.8" y1="1221.6" x2="1582.4" y2="1208.8" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1582.4" y1="1208.8" x2="1576.0" y2="1202.4" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1576.0" y1="1202.4" x2="1576.0" y2="1192.8" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1576.0" y1="1192.8" x2="1560.0" y2="1173.6" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1560.0" y1="1173.6" x2="1547.2" y2="1148.0" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1547.2" y1="1148.0" x2="1544.0" y2="1141.6" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1544.0" y1="1141.6" x2="1553.6" y2="1141.6" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1553.6" y1="1141.6" x2="1547.2" y2="1125.6" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1547.2" y1="1125.6" x2="1531.2" y2="1103.2" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1531.2" y1="1103.2" x2="1531.2" y2="1090.4" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1531.2" y1="1090.4" x2="1540.8" y2="1096.8" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1540.8" y1="1096.8" x2="1560.0" y2="1106.4" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1560.0" y1="1106.4" x2="1592.0" y2="1141.6" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1592.0" y1="1141.6" x2="1630.4" y2="1180.0" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1630.4" y1="1180.0" x2="1672.0" y2="1218.4" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1672.0" y1="1218.4" x2="1678.4" y2="1221.6" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1678.4" y1="1221.6" x2="1684.8" y2="1224.8" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1684.8" y1="1224.8" x2="1694.4" y2="1228.0" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1694.4" y1="1228.0" x2="1704.0" y2="1234.4" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1704.0" y1="1234.4" x2="1713.6" y2="1240.8" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1713.6" y1="1240.8" x2="1716.8" y2="1247.2" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1716.8" y1="1247.2" x2="1720.0" y2="1250.4" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1720.0" y1="1250.4" x2="1713.6" y2="1253.6" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1713.6" y1="1253.6" x2="1707.2" y2="1253.6" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="1707.2" y1="1253.6" x2="1697.6" y2="1250.4" stroke="#0E7C76" stroke-width="1.5" stroke-linecap="round"/>
+<text class="d03-k" x="1505.0" y="1022.0" font-size="13" fill="#16233B" font-weight="600" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Spill 17</text>
+<text class="d03-k" x="1569.6" y="1189.6" font-size="13" fill="#0E7C76" font-weight="700" paint-order="stroke" stroke="#F6F8FB" stroke-width="3.5" stroke-linejoin="round">Simulert</text>
+<text class="d03-k" x="1752.0" y="1020.0" font-size="13" fill="#4A5A72">Grossist-kostnad</text>
+<text class="d03-s" x="1752.0" y="1041.0" font-size="18" fill="#16233B" font-weight="600">553,50</text>
+<text class="d03-s" x="1752.0" y="1061.0" font-size="15" fill="#0E7C76" font-weight="500">464,50</text>
+<text class="d03-k" x="1752.0" y="1086.0" font-size="13" fill="#4A5A72">Forsterkning</text>
+<text class="d03-s" x="1752.0" y="1107.0" font-size="18" fill="#16233B" font-weight="600">4,1×</text>
+<text class="d03-s" x="1752.0" y="1127.0" font-size="15" fill="#0E7C76" font-weight="500">2,2×</text>
+<text class="d03-k" x="1752.0" y="1152.0" font-size="13" fill="#4A5A72">Kjeden</text>
+<text class="d03-s" x="1752.0" y="1173.0" font-size="18" fill="#16233B" font-weight="600">2 266,00</text>
+<text class="d03-s" x="1752.0" y="1193.0" font-size="15" fill="#0E7C76" font-weight="500">1 507,00</text>
+<text class="d03-k" x="1480.0" y="1328.0" font-size="13.5" fill="#16233B">Samme kjede, men bare Grossist teller alt på vei fra Uke 5. Nyansen:</text>
+<text class="d03-k" x="1480.0" y="1346.5" font-size="13.5" fill="#16233B">å telle er ikke nok. En regel som jaget siste ordre for hardt ga</text>
+<text class="d03-k" x="1480.0" y="1365.0" font-size="13.5" fill="#16233B">Fabrikk 12× i simuleringen.</text>
+</g>
+</svg>

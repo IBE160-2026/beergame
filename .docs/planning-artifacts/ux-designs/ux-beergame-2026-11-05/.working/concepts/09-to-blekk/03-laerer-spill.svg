@@ -1,0 +1,341 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 1100" font-family="'Libre Franklin','Franklin Gothic Book','Arial Narrow',Arial,sans-serif">
+<title>Faglærer setter opp Klasseøkt</title>
+<desc>Forhåndsutfylte standarder kalt Klassisk, KI-modus, Debrief-modus, Obligatorisk, datoer, Labtimer og forhåndsvisning av fordelingen i 60 spill à 4. Skjemaet kan lagres uten endring.</desc>
+<style>@import url('https://fonts.googleapis.com/css2?family=Anton&amp;family=Libre+Franklin:wght@400;500;700;800&amp;display=swap');
+.c09-a{font-family:Anton,'Haettenschweiler','Franklin Gothic Demi Cond','Arial Narrow',sans-serif;font-weight:400;letter-spacing:0}
+.c09-b{font-family:'Libre Franklin','Franklin Gothic Book','Arial Narrow',Arial,sans-serif;font-weight:400}
+.c09-m{font-family:'Libre Franklin','Franklin Gothic Book','Arial Narrow',Arial,sans-serif;font-weight:500}
+.c09-k{font-family:'Libre Franklin','Franklin Gothic Book','Arial Narrow',Arial,sans-serif;font-weight:700}
+.c09-x{font-family:'Libre Franklin','Franklin Gothic Book','Arial Narrow',Arial,sans-serif;font-weight:800}
+.c09-tn{font-variant-numeric:tabular-nums lining-nums}
+.c09-u{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1.5px}
+</style>
+<defs></defs>
+<rect width="1440" height="1100" fill="#FF5A1F"/>
+<text x="32" y="56" class="c09-a" font-size="36" fill="#12060B" >BLEKK</text><text x="32" y="82" class="c09-k" font-size="14" fill="#12060B" >Bård, Faglærer</text><text x="32" y="102" class="c09-m" font-size="14" fill="#12060B" >class-of-1994, IBE160</text><text x="32" y="122" class="c09-b" font-size="13" fill="#12060B" >Demodata</text><line x1="32" y1="146" x2="268" y2="146" stroke="#12060B" stroke-width="1.5" /><text x="32" y="166" class="c09-k c09-u" font-size="15" fill="#12060B" >Forsinkelse</text><text x="32" y="188" class="c09-b" font-size="14" fill="#12060B" >Kildene er uenige om</text><text x="32" y="207" class="c09-b" font-size="14" fill="#12060B" >forsinkelser. 2 uker for ordre,</text><text x="32" y="226" class="c09-b" font-size="14" fill="#12060B" >frakt og produksjon er</text><text x="32" y="245" class="c09-b" font-size="14" fill="#12060B" >produktets standard.</text><line x1="32" y1="278" x2="268" y2="278" stroke="#12060B" stroke-width="1.5" /><text x="32" y="298" class="c09-k c09-u" font-size="15" fill="#12060B" >Veiledede uker</text><text x="32" y="320" class="c09-b" font-size="14" fill="#12060B" >De første ukene får studentene</text><text x="32" y="339" class="c09-b" font-size="14" fill="#12060B" >hjelp til å lese skjermen.</text><text x="32" y="358" class="c09-b" font-size="14" fill="#12060B" >Ordren er likevel deres.</text><line x1="32" y1="391" x2="268" y2="391" stroke="#12060B" stroke-width="1.5" /><text x="32" y="411" class="c09-k c09-u" font-size="15" fill="#12060B" >Inaktivitetsgrense</text><text x="32" y="433" class="c09-b" font-size="14" fill="#12060B" >Etter 24 t uten Ordre tar en</text><text x="32" y="452" class="c09-b" font-size="14" fill="#12060B" >KI-spiller setet. Studenten kan</text><text x="32" y="471" class="c09-b" font-size="14" fill="#12060B" >ta det tilbake.</text><line x1="32" y1="504" x2="268" y2="504" stroke="#12060B" stroke-width="1.5" /><text x="32" y="524" class="c09-k c09-u" font-size="15" fill="#12060B" >KI-modus</text><text x="32" y="546" class="c09-b" font-size="14" fill="#12060B" >LLM-spillere bestiller som en</text><text x="32" y="565" class="c09-b" font-size="14" fill="#12060B" >person ville gjort.</text><text x="32" y="584" class="c09-b" font-size="14" fill="#12060B" >Regelspillere følger en fast</text><text x="32" y="603" class="c09-b" font-size="14" fill="#12060B" >regel.</text><line x1="32" y1="636" x2="268" y2="636" stroke="#12060B" stroke-width="1.5" /><text x="32" y="656" class="c09-k c09-u" font-size="15" fill="#12060B" >Obligatorisk</text><text x="32" y="678" class="c09-b" font-size="14" fill="#12060B" >Klassespillet teller som levert</text><text x="32" y="697" class="c09-b" font-size="14" fill="#12060B" >først når studenten har lagt inn</text><text x="32" y="716" class="c09-b" font-size="14" fill="#12060B" >nok ordrer selv.</text>
+<text x="300" y="86" class="c09-a" font-size="72" fill="#12060B" transform="rotate(-3 300 86)" >KLASSEØKT</text>
+<text x="630" y="58" class="c09-m" font-size="17" fill="#12060B" >Alt er fylt ut som «Klassisk». Du kan lagre uten å endre noe.</text>
+<text x="300" y="136" class="c09-a" font-size="28" fill="#12060B" >SPILLINNSTILLINGER</text>
+<text x="300" y="179" class="c09-m" font-size="15" fill="#12060B" >Startlager</text>
+<rect x="486" y="156" width="144" height="38" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="496" y="180" class="c09-k c09-tn" font-size="15" fill="#12060B" >12</text>
+<text x="300" y="229" class="c09-m" font-size="15" fill="#12060B" >Enheter i hvert ledd</text>
+<rect x="486" y="206" width="144" height="38" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="496" y="230" class="c09-k c09-tn" font-size="15" fill="#12060B" >4</text>
+<text x="300" y="279" class="c09-m" font-size="15" fill="#12060B" >Ordreforsinkelse</text>
+<rect x="486" y="256" width="144" height="38" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="496" y="280" class="c09-k c09-tn" font-size="15" fill="#12060B" >2 uker</text>
+<text x="300" y="329" class="c09-m" font-size="15" fill="#12060B" >Fraktforsinkelse</text>
+<rect x="486" y="306" width="144" height="38" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="496" y="330" class="c09-k c09-tn" font-size="15" fill="#12060B" >2 uker</text>
+<text x="300" y="379" class="c09-m" font-size="15" fill="#12060B" >Produksjonsforsinkelse</text>
+<rect x="486" y="356" width="144" height="38" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="496" y="380" class="c09-k c09-tn" font-size="15" fill="#12060B" >2 uker</text>
+<text x="300" y="429" class="c09-m" font-size="15" fill="#12060B" >Etterspørsel</text>
+<rect x="486" y="406" width="144" height="38" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="496" y="430" class="c09-k c09-tn" font-size="15" fill="#12060B" >4, så 8 i uke 5</text>
+<text x="300" y="479" class="c09-m" font-size="15" fill="#12060B" >Lagerkost per kasse</text>
+<rect x="486" y="456" width="144" height="38" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="496" y="480" class="c09-k c09-tn" font-size="15" fill="#12060B" >0,50 kr</text>
+<text x="300" y="529" class="c09-m" font-size="15" fill="#12060B" >Restordrekost per kasse</text>
+<rect x="486" y="506" width="144" height="38" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="496" y="530" class="c09-k c09-tn" font-size="15" fill="#12060B" >1,00 kr</text>
+<text x="300" y="579" class="c09-m" font-size="15" fill="#12060B" >Antall uker</text>
+<rect x="486" y="556" width="144" height="38" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="496" y="580" class="c09-k c09-tn" font-size="15" fill="#12060B" >36</text>
+<text x="300" y="629" class="c09-m" font-size="15" fill="#12060B" >Veiledede uker</text>
+<rect x="486" y="606" width="144" height="38" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="496" y="630" class="c09-k c09-tn" font-size="15" fill="#12060B" >1–4</text>
+<text x="300" y="679" class="c09-m" font-size="15" fill="#12060B" >Inaktivitetsgrense</text>
+<rect x="486" y="656" width="144" height="38" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="496" y="680" class="c09-k c09-tn" font-size="15" fill="#12060B" >24 t</text>
+<rect x="300" y="710" width="330" height="84" fill="#00D4FF" />
+<text x="312" y="734" class="c09-b" font-size="14" fill="#12060B" >Kildene er uenige om forsinkelser. Dette</text><text x="312" y="753" class="c09-b" font-size="14" fill="#12060B" >er produktets standard, og det er dette</text><text x="312" y="772" class="c09-b" font-size="14" fill="#12060B" >tallene i Debriefen regner med.</text>
+<text x="660" y="136" class="c09-a" font-size="28" fill="#12060B" >ØKTEN</text>
+<text x="660" y="170" class="c09-k" font-size="14" fill="#12060B" >KI-modus</text><rect x="660.0" y="177" width="175.0" height="40" fill="#12060B" stroke="#12060B" stroke-width="2" /><path d="M670.0 197.0 l4 4 l7 -8" fill="none" stroke="#00D4FF" stroke-width="2.4" stroke-linecap="square"/><text x="688.0" y="202.0" class="c09-k" font-size="15" fill="#00D4FF" >LLM-spillere</text><rect x="835.0" y="177" width="175.0" height="40" fill="#FF5A1F" stroke="#12060B" stroke-width="2" /><text x="847.0" y="202.0" class="c09-m" font-size="15" fill="#12060B" >Regelspillere</text>
+<text x="660" y="254" class="c09-k" font-size="14" fill="#12060B" >Debrief-modus</text><rect x="660.0" y="261" width="175.0" height="40" fill="#12060B" stroke="#12060B" stroke-width="2" /><path d="M670.0 281.0 l4 4 l7 -8" fill="none" stroke="#00D4FF" stroke-width="2.4" stroke-linecap="square"/><text x="688.0" y="286.0" class="c09-k" font-size="15" fill="#00D4FF" >Gruppedebrief</text><rect x="835.0" y="261" width="175.0" height="40" fill="#FF5A1F" stroke="#12060B" stroke-width="2" /><text x="847.0" y="286.0" class="c09-m" font-size="15" fill="#12060B" >Personlig</text>
+<text x="660" y="338" class="c09-k" font-size="14" fill="#12060B" >Merke</text>
+<rect x="660" y="345" width="350" height="40" fill="#12060B" stroke="#12060B" stroke-width="2" />
+<path d="M670 365 l4 4 l7 -8" fill="none" stroke="#00D4FF" stroke-width="2.4" stroke-linecap="square"/>
+<text x="688" y="370" class="c09-k" font-size="15" fill="#00D4FF" >Obligatorisk</text>
+<text x="998" y="370" class="c09-m c09-u" font-size="14" fill="#00D4FF" text-anchor="end" >Slå av</text>
+<text x="660" y="424" class="c09-k" font-size="14" fill="#12060B" >Start</text><rect x="660" y="431" width="170" height="40" fill="#FFFFFF" stroke="#12060B" stroke-width="2" /><text x="672" y="456.4" class="c09-m" font-size="15" fill="#12060B" >ti. 24. nov 2026</text>
+<text x="840" y="424" class="c09-k" font-size="14" fill="#12060B" >Spillfrist</text><rect x="840" y="431" width="170" height="40" fill="#FFFFFF" stroke="#12060B" stroke-width="2" /><text x="852" y="456.4" class="c09-m" font-size="15" fill="#12060B" >ti. 8. des</text>
+<text x="660" y="508" class="c09-k" font-size="14" fill="#12060B" >Debrief-frist</text><rect x="660" y="515" width="170" height="40" fill="#FFFFFF" stroke="#12060B" stroke-width="2" /><text x="672" y="540.4" class="c09-m" font-size="15" fill="#12060B" >fr. 11. des</text>
+<text x="840" y="508" class="c09-k" font-size="14" fill="#12060B" >Testfrist</text><rect x="840" y="515" width="170" height="40" fill="#FFFFFF" stroke="#12060B" stroke-width="2" /><text x="852" y="540.4" class="c09-m" font-size="15" fill="#12060B" >fr. 18. des</text>
+<text x="660" y="608" class="c09-k" font-size="14" fill="#12060B" >Labtimer, Datalab A2</text>
+<rect x="660" y="616" width="170" height="42" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="670" y="642" class="c09-m c09-tn" font-size="15" fill="#12060B" >to. 26. nov 14:15</text>
+<rect x="840" y="616" width="170" height="42" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="850" y="642" class="c09-m c09-tn" font-size="15" fill="#12060B" >ma. 30. nov 10:15</text>
+<rect x="660" y="668" width="170" height="42" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="670" y="694" class="c09-m c09-tn" font-size="15" fill="#12060B" >to. 3. des 14:15</text>
+<rect x="840" y="668" width="170" height="42" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="850" y="694" class="c09-m c09-tn" font-size="15" fill="#12060B" >ma. 7. des 10:15</text>
+<text x="660" y="740" class="c09-k c09-u" font-size="14" fill="#12060B" >Legg til Labtime</text>
+<text x="1040" y="136" class="c09-a" font-size="28" fill="#12060B" >FORDELINGEN</text>
+<text x="1040" y="214" class="c09-a" font-size="66" fill="#12060B" >60 SPILL À 4</text>
+<text x="1040" y="240" class="c09-m" font-size="14" fill="#12060B" >240 studenter fordelt tilfeldig. 10 er ikke registrert ennå.</text>
+<rect x="1040" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1051" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1040" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1051" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1077" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1088" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1077" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1088" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1114" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1125" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1114" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1125" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1151" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1162" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1151" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1162" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1188" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1199" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1188" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1199" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1225" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1236" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1225" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1236" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1262" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1273" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1262" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1273" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1299" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1310" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1299" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1310" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1336" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1347" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1336" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1347" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1373" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1384" y="258" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1373" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1384" y="269" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1040" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1051" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1040" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1051" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1077" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1088" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1077" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1088" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1114" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1125" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1114" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1125" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1151" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1162" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1151" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1162" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1188" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1199" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1188" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1199" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1225" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1236" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1225" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1236" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1262" y="300" width="10" height="10" fill="#00D4FF" stroke="#12060B" stroke-width="1" />
+<rect x="1273" y="300" width="10" height="10" fill="#00D4FF" stroke="#12060B" stroke-width="1" />
+<rect x="1262" y="311" width="10" height="10" fill="#00D4FF" stroke="#12060B" stroke-width="1" />
+<rect x="1273" y="311" width="10" height="10" fill="#00D4FF" stroke="#12060B" stroke-width="1" />
+<rect x="1299" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1310" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1299" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1310" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1336" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1347" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1336" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1347" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1373" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1384" y="300" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1373" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1384" y="311" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1040" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1051" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1040" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1051" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1077" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1088" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1077" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1088" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1114" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1125" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1114" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1125" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1151" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1162" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1151" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1162" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1188" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1199" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1188" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1199" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1225" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1236" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1225" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1236" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1262" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1273" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1262" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1273" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1299" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1310" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1299" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1310" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1336" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1347" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1336" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1347" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1373" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1384" y="342" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1373" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1384" y="353" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1040" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1051" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1040" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1051" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1077" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1088" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1077" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1088" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1114" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1125" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1114" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1125" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1151" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1162" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1151" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1162" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1188" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1199" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1188" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1199" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1225" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1236" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1225" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1236" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1262" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1273" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1262" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1273" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1299" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1310" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1299" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1310" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1336" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1347" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1336" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1347" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1373" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1384" y="384" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1373" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1384" y="395" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1040" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1051" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1040" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1051" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1077" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1088" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1077" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1088" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1114" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1125" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1114" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1125" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1151" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1162" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1151" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1162" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1188" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1199" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1188" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1199" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1225" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1236" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1225" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1236" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1262" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1273" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1262" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1273" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1299" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1310" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1299" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1310" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1336" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1347" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1336" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1347" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1373" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1384" y="426" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1373" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1384" y="437" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1040" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1051" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1040" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1051" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1077" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1088" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1077" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1088" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1114" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1125" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1114" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1125" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1151" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1162" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1151" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1162" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1188" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1199" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1188" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1199" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1225" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1236" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1225" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1236" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1262" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1273" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1262" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1273" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1299" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1310" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1299" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1310" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1336" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1347" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1336" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1347" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1373" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1384" y="468" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1373" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="1384" y="479" width="10" height="10" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<text x="1040" y="530" class="c09-k" font-size="14" fill="#12060B" >Spill 17, til prøve</text>
+<text x="1040" y="556" class="c09-m" font-size="14" fill="#12060B" >Detaljist</text>
+<text x="1408" y="556" class="c09-k" font-size="14" fill="#12060B" text-anchor="end" >Ida</text>
+<line x1="1040" y1="564" x2="1408" y2="564" stroke="#12060B" stroke-width="0.8" />
+<text x="1040" y="582" class="c09-m" font-size="14" fill="#12060B" >Grossist</text>
+<text x="1408" y="582" class="c09-k" font-size="14" fill="#12060B" text-anchor="end" >Sara</text>
+<line x1="1040" y1="590" x2="1408" y2="590" stroke="#12060B" stroke-width="0.8" />
+<text x="1040" y="608" class="c09-m" font-size="14" fill="#12060B" >Distributør</text>
+<text x="1408" y="608" class="c09-k" font-size="14" fill="#12060B" text-anchor="end" >Mikkel</text>
+<line x1="1040" y1="616" x2="1408" y2="616" stroke="#12060B" stroke-width="0.8" />
+<text x="1040" y="634" class="c09-m" font-size="14" fill="#12060B" >Fabrikk</text>
+<text x="1408" y="634" class="c09-k" font-size="14" fill="#12060B" text-anchor="end" >Jonas</text>
+<line x1="1040" y1="642" x2="1408" y2="642" stroke="#12060B" stroke-width="0.8" />
+<rect x="1040" y="676" width="150" height="44" fill="#FF5A1F" stroke="#12060B" stroke-width="2" />
+<text x="1115" y="703" class="c09-k" font-size="15" fill="#12060B" text-anchor="middle" >Kjør på nytt</text>
+<rect x="1198" y="676" width="210" height="44" fill="#12060B" stroke="#12060B" stroke-width="2" />
+<path d="M1212 697 l4 4 l7 -8" fill="none" stroke="#00D4FF" stroke-width="2.4" stroke-linecap="square"/>
+<text x="1232" y="703" class="c09-k" font-size="15" fill="#00D4FF" >Bekreft fordelingen</text>
+<text x="1040" y="744" class="c09-b" font-size="14" fill="#12060B" >Tomme seter får KI-spiller ved Start. De er merket.</text>
+<polygon points="300.0,902.0 1408.0,844.0 1408.0,944.0 300.0,1002.0" fill="#12060B" />
+<text x="854" y="946" class="c09-a" font-size="66" fill="#00D4FF" text-anchor="middle" transform="rotate(-3 854 946)" >LAGRE KLASSEØKTEN</text>
+<text x="300" y="1038" class="c09-b" font-size="16" fill="#12060B" >Kan lagres uten endring. Standardene gjelder for alle Klassespill i økten.</text>
+</svg>

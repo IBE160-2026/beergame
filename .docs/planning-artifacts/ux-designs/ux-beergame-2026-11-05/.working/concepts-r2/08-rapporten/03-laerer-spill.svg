@@ -1,0 +1,386 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 1100" font-family="'Spectral','Iowan Old Style',Georgia,serif" id="d08-oppsett-root" role="img" aria-labelledby="d08-oppsett-title d08-oppsett-desc"><title id="d08-oppsett-title">Rapport: sett opp Klasseøkt</title><desc id="d08-oppsett-desc">Forhåndsutfylte standarder, KI-modus, Debrief-modus, Obligatorisk, datoer, Labtimer og fordeling i 60 spill à 4.</desc><style>@import url('https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600&amp;family=Libre+Franklin:wght@400;500;600&amp;display=swap');.d08-s{font-family:'Spectral','Iowan Old Style',Georgia,serif;font-feature-settings:'lnum' 1,'kern' 1}.d08-f{font-family:'Libre Franklin','Helvetica Neue',Arial,sans-serif;font-variant-numeric:lining-nums tabular-nums}.d08-p{font-family:'Libre Franklin','Helvetica Neue',Arial,sans-serif;font-variant-numeric:lining-nums proportional-nums}</style><rect x="0.0" y="0.0" width="1440.0" height="1100.0" fill="#F5F8F4"/>
+<text x="40.0" y="44.0" class="d08-s" font-size="24" fill="#12302B" font-weight="500">Rapport</text>
+<text x="150.0" y="43.0" class="d08-f" font-size="14" fill="#43605A">class-of-1994, IBE160</text>
+<text x="1400.0" y="43.0" class="d08-f" font-size="14" fill="#43605A" text-anchor="end">Faglærer Bård</text>
+<line x1="40.0" y1="62.0" x2="1400.0" y2="62.0" stroke="#D2DCD4" stroke-width="1"/>
+<text x="40.0" y="112.0" class="d08-s" font-size="34" fill="#12302B" font-weight="500">Klasseøkt</text>
+<text x="40.0" y="146.0" class="d08-s" font-size="18" fill="#43605A">Alt er fylt ut med standardene, «Klassisk». Du kan lagre uten å endre noe.</text>
+<rect x="1150.0" y="92.0" width="250.0" height="50.0" fill="#12302B" rx="4"/>
+<text x="1275.0" y="122.6" class="d08-f" font-size="16" fill="#FBFCFA" font-weight="500" text-anchor="middle">Lagre Klasseøkten</text>
+<text x="40.0" y="200.0" class="d08-s" font-size="24" fill="#12302B" font-weight="500">Spillinnstillinger</text>
+<text x="40.0" y="234.0" class="d08-f" font-size="15" fill="#43605A">Startlager</text>
+<text x="270.0" y="234.0" class="d08-f" font-size="15" fill="#12302B" font-weight="500">12</text>
+<line x1="40.0" y1="245.0" x2="520.0" y2="245.0" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="40.0" y="270.0" class="d08-f" font-size="15" fill="#43605A">I hvert ledd ved start</text>
+<text x="270.0" y="270.0" class="d08-f" font-size="15" fill="#12302B" font-weight="500">4 enheter</text>
+<line x1="40.0" y1="281.0" x2="520.0" y2="281.0" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="40.0" y="306.0" class="d08-f" font-size="15" fill="#43605A">Ordreforsinkelse</text>
+<text x="270.0" y="306.0" class="d08-f" font-size="15" fill="#12302B" font-weight="500">2 uker</text>
+<line x1="40.0" y1="317.0" x2="520.0" y2="317.0" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="40.0" y="342.0" class="d08-f" font-size="15" fill="#43605A">Fraktforsinkelse</text>
+<text x="270.0" y="342.0" class="d08-f" font-size="15" fill="#12302B" font-weight="500">2 uker</text>
+<line x1="40.0" y1="353.0" x2="520.0" y2="353.0" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="40.0" y="378.0" class="d08-f" font-size="15" fill="#43605A">Produksjonsforsinkelse</text>
+<text x="270.0" y="378.0" class="d08-f" font-size="15" fill="#12302B" font-weight="500">2 uker</text>
+<line x1="40.0" y1="389.0" x2="520.0" y2="389.0" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="40.0" y="414.0" class="d08-f" font-size="15" fill="#43605A">Lagerkost</text>
+<text x="270.0" y="414.0" class="d08-f" font-size="15" fill="#12302B" font-weight="500">0,50 per enhet per uke</text>
+<line x1="40.0" y1="425.0" x2="520.0" y2="425.0" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="40.0" y="450.0" class="d08-f" font-size="15" fill="#43605A">Restordrekost</text>
+<text x="270.0" y="450.0" class="d08-f" font-size="15" fill="#12302B" font-weight="500">1,00 per enhet per uke</text>
+<line x1="40.0" y1="461.0" x2="520.0" y2="461.0" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="40.0" y="486.0" class="d08-f" font-size="15" fill="#43605A">Lengde</text>
+<text x="270.0" y="486.0" class="d08-f" font-size="15" fill="#12302B" font-weight="500">36 uker</text>
+<line x1="40.0" y1="497.0" x2="520.0" y2="497.0" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="40.0" y="522.0" class="d08-f" font-size="15" fill="#43605A">Veiledede uker</text>
+<text x="270.0" y="522.0" class="d08-f" font-size="15" fill="#12302B" font-weight="500">Uke 1 til 4</text>
+<line x1="40.0" y1="533.0" x2="520.0" y2="533.0" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="40.0" y="558.0" class="d08-f" font-size="15" fill="#43605A">Inaktivitetsgrense</text>
+<text x="270.0" y="558.0" class="d08-f" font-size="15" fill="#12302B" font-weight="500">24 t, så KI overtar</text>
+<line x1="40.0" y1="569.0" x2="520.0" y2="569.0" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="40.0" y="600.0" class="d08-s" font-size="15" fill="#12302B">Kildene er uenige om forsinkelsene. Dette er produktets standard, og du kan</text>
+<text x="40.0" y="622.0" class="d08-s" font-size="15" fill="#12302B">endre dem.</text>
+<text x="40.0" y="678.0" class="d08-s" font-size="19" fill="#12302B" font-weight="500">Etterspørsel, bare for deg</text>
+<line x1="66.0" y1="822.0" x2="386.0" y2="822.0" stroke="#43605A" stroke-width="1"/>
+<text x="59.0" y="826.5" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">0</text>
+<line x1="66.0" y1="770.0" x2="386.0" y2="770.0" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="59.0" y="774.5" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">4</text>
+<line x1="66.0" y1="718.0" x2="386.0" y2="718.0" stroke="#D2DCD4" stroke-width="0.75"/>
+<text x="59.0" y="722.5" class="d08-f" font-size="13" fill="#566F68" text-anchor="end">8</text>
+<path d="M66.0 770.0V770.0H75.1V770.0H84.3V770.0H93.4V718.0H102.6V718.0H111.7V718.0H120.9V718.0H130.0V718.0H139.1V718.0H148.3V718.0H157.4V718.0H166.6V718.0H175.7V718.0H184.9V718.0H194.0V718.0H203.1V718.0H212.3V718.0H221.4V718.0H230.6V718.0H239.7V718.0H248.9V718.0H258.0V718.0H267.1V718.0H276.3V718.0H285.4V718.0H294.6V718.0H303.7V718.0H312.9V718.0H322.0V718.0H331.1V718.0H340.3V718.0H349.4V718.0H358.6V718.0H367.7V718.0H376.9V718.0H386.0" fill="none" stroke="#12302B" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="64.0" y="841.0" class="d08-f" font-size="13" fill="#566F68">Uke 1</text>
+<text x="386.0" y="841.0" class="d08-f" font-size="13" fill="#566F68" text-anchor="middle">36</text>
+<path d="M102.6 718.0H400.0" fill="none" stroke="#43605A" stroke-width="0.75" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="400.0" y1="710.0" x2="400.0" y2="744.0" stroke="#43605A" stroke-width="0.75"/>
+<circle cx="102.6" cy="718.0" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="407.0" y="721.9" class="d08-s" font-size="14" fill="#12302B" stroke="#F5F8F4" stroke-width="3" stroke-linejoin="round" paint-order="stroke"><tspan font-weight="600">4</tspan> til <tspan font-weight="600">8</tspan> i Uke 5,</text>
+<text x="407.0" y="739.9" class="d08-s" font-size="14" fill="#12302B" stroke="#F5F8F4" stroke-width="3" stroke-linejoin="round" paint-order="stroke">deretter stabil.</text>
+<text x="40.0" y="868.0" class="d08-f" font-size="13" fill="#43605A">Studentene ser den ikke før Debriefen.</text>
+<text x="580.0" y="200.0" class="d08-s" font-size="24" fill="#12302B" font-weight="500">Valg</text>
+<text x="580.0" y="234.0" class="d08-f" font-size="15" fill="#43605A">KI-modus</text>
+<rect x="700.0" y="214.0" width="106.7" height="30.0" fill="#E2E9E3" rx="3"/>
+<text x="712.0" y="234.0" class="d08-f" font-size="14" fill="#12302B" font-weight="500">LLM-spillere</text>
+<rect x="812.7" y="214.0" width="108.6" height="30.0" fill="none" rx="3" stroke="#D2DCD4" stroke-width="1"/>
+<text x="824.7" y="234.0" class="d08-f" font-size="14" fill="#12302B">Regelspillere</text>
+<text x="580.0" y="278.0" class="d08-f" font-size="15" fill="#43605A">Debrief-modus</text>
+<rect x="700.0" y="258.0" width="111.9" height="30.0" fill="#E2E9E3" rx="3"/>
+<text x="712.0" y="278.0" class="d08-f" font-size="14" fill="#12302B" font-weight="500">Gruppedebrief</text>
+<rect x="817.9" y="258.0" width="132.0" height="30.0" fill="none" rx="3" stroke="#D2DCD4" stroke-width="1"/>
+<text x="829.9" y="278.0" class="d08-f" font-size="14" fill="#12302B">Personlig debrief</text>
+<text x="580.0" y="322.0" class="d08-f" font-size="15" fill="#43605A">Obligatorisk</text>
+<rect x="700.0" y="307.0" width="18.0" height="18.0" fill="#12302B" rx="2"/>
+<path d="M704 316L708 320L714 312" fill="none" stroke="#FBFCFA" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="728.0" y="322.0" class="d08-f" font-size="14" fill="#12302B">Klasseøkten er obligatorisk for hele Klassen</text>
+<text x="580.0" y="376.0" class="d08-s" font-size="24" fill="#12302B" font-weight="500">Datoer og Labtimer</text>
+<line x1="584.0" y1="494.0" x2="1374.0" y2="494.0" stroke="#43605A" stroke-width="1"/>
+<line x1="584.0" y1="494.0" x2="584.0" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="616.9" y1="494.0" x2="616.9" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="649.8" y1="494.0" x2="649.8" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="682.8" y1="494.0" x2="682.8" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="715.7" y1="494.0" x2="715.7" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="748.6" y1="494.0" x2="748.6" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="781.5" y1="494.0" x2="781.5" y2="500.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="814.4" y1="494.0" x2="814.4" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="847.3" y1="494.0" x2="847.3" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="880.2" y1="494.0" x2="880.2" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="913.2" y1="494.0" x2="913.2" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="946.1" y1="494.0" x2="946.1" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="979.0" y1="494.0" x2="979.0" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="1011.9" y1="494.0" x2="1011.9" y2="500.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="1044.8" y1="494.0" x2="1044.8" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="1077.8" y1="494.0" x2="1077.8" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="1110.7" y1="494.0" x2="1110.7" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="1143.6" y1="494.0" x2="1143.6" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="1176.5" y1="494.0" x2="1176.5" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="1209.4" y1="494.0" x2="1209.4" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="1242.3" y1="494.0" x2="1242.3" y2="500.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="1275.2" y1="494.0" x2="1275.2" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="1308.2" y1="494.0" x2="1308.2" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="1341.1" y1="494.0" x2="1341.1" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="1374.0" y1="494.0" x2="1374.0" y2="497.0" stroke="#566F68" stroke-width="0.75"/>
+<line x1="584.0" y1="436.0" x2="584.0" y2="494.0" stroke="#43605A" stroke-width="0.75"/>
+<circle cx="584.0" cy="494.0" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="591.0" y="448.0" class="d08-f" font-size="14" fill="#12302B" font-weight="600">Start</text>
+<text x="591.0" y="466.0" class="d08-f" font-size="14" fill="#43605A">ti. 24. nov</text>
+<line x1="1044.8" y1="436.0" x2="1044.8" y2="494.0" stroke="#43605A" stroke-width="0.75"/>
+<circle cx="1044.8" cy="494.0" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="1051.8" y="448.0" class="d08-f" font-size="14" fill="#12302B" font-weight="600">Spillfrist</text>
+<text x="1051.8" y="466.0" class="d08-f" font-size="14" fill="#43605A">ti. 8. des</text>
+<line x1="1143.6" y1="436.0" x2="1143.6" y2="494.0" stroke="#43605A" stroke-width="0.75"/>
+<circle cx="1143.6" cy="494.0" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="1150.6" y="448.0" class="d08-f" font-size="14" fill="#12302B" font-weight="600">Debrief-frist</text>
+<text x="1150.6" y="466.0" class="d08-f" font-size="14" fill="#43605A">fr. 11. des</text>
+<line x1="1374.0" y1="436.0" x2="1374.0" y2="494.0" stroke="#43605A" stroke-width="0.75"/>
+<circle cx="1374.0" cy="494.0" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="1367.0" y="448.0" class="d08-f" font-size="14" fill="#12302B" font-weight="600" text-anchor="end">Testfrist</text>
+<text x="1367.0" y="466.0" class="d08-f" font-size="14" fill="#43605A" text-anchor="end">fr. 18. des</text>
+<rect x="646.8" y="491.0" width="6.0" height="6.0" fill="#14705F"/>
+<line x1="649.8" y1="497.0" x2="649.8" y2="516.0" stroke="#43605A" stroke-width="0.75"/>
+<text x="649.8" y="532.0" class="d08-f" font-size="13" fill="#12302B" font-weight="500" text-anchor="middle">to. 26. nov</text>
+<text x="649.8" y="549.0" class="d08-f" font-size="13" fill="#43605A" text-anchor="middle">14:15</text>
+<rect x="778.5" y="491.0" width="6.0" height="6.0" fill="#14705F"/>
+<line x1="781.5" y1="497.0" x2="781.5" y2="516.0" stroke="#43605A" stroke-width="0.75"/>
+<text x="781.5" y="532.0" class="d08-f" font-size="13" fill="#12302B" font-weight="500" text-anchor="middle">ma. 30. nov</text>
+<text x="781.5" y="549.0" class="d08-f" font-size="13" fill="#43605A" text-anchor="middle">10:15</text>
+<rect x="877.2" y="491.0" width="6.0" height="6.0" fill="#14705F"/>
+<line x1="880.2" y1="497.0" x2="880.2" y2="516.0" stroke="#43605A" stroke-width="0.75"/>
+<text x="880.2" y="532.0" class="d08-f" font-size="13" fill="#12302B" font-weight="500" text-anchor="middle">to. 3. des</text>
+<text x="880.2" y="549.0" class="d08-f" font-size="13" fill="#43605A" text-anchor="middle">14:15</text>
+<rect x="1008.9" y="491.0" width="6.0" height="6.0" fill="#14705F"/>
+<line x1="1011.9" y1="497.0" x2="1011.9" y2="516.0" stroke="#43605A" stroke-width="0.75"/>
+<text x="1011.9" y="532.0" class="d08-f" font-size="13" fill="#12302B" font-weight="500" text-anchor="middle">ma. 7. des</text>
+<text x="1011.9" y="549.0" class="d08-f" font-size="13" fill="#43605A" text-anchor="middle">10:15</text>
+<circle cx="588.0" cy="573.6" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="597.0" y="578.0" class="d08-f" font-size="13" fill="#43605A">Start og frister</text>
+<rect x="714.0" y="567.0" width="8.0" height="8.0" fill="#14705F"/>
+<text x="728.0" y="578.0" class="d08-f" font-size="13" fill="#43605A">Labtime, Datalab A2</text>
+<text x="580.0" y="634.0" class="d08-s" font-size="24" fill="#12302B" font-weight="500">Fordeling</text>
+<text x="580.0" y="664.0" class="d08-s" font-size="16" fill="#12302B">240 studenter fordeles tilfeldig i 60 spill à 4, med Rollene trukket innad i hvert spill.</text>
+<rect x="580.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="589.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="599.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="608.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="621.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="630.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="640.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="649.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="662.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="671.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="681.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="690.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="703.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="712.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="722.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="731.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="744.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="753.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="763.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="772.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="785.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="794.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="804.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="813.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="826.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="835.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="845.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="854.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="867.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="876.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="886.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="895.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="908.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="917.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="927.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="936.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="949.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="958.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="968.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="977.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="990.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="999.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1009.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1018.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1031.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1040.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1050.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1059.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1072.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1081.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1091.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1100.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1113.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1122.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1132.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1141.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1154.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1163.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1173.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1182.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1195.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1204.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1214.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1223.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1236.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1245.5" y="689.0" width="8.0" height="30.0" fill="#A5471C"/>
+<rect x="1255.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1264.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1277.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1286.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1296.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1305.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1318.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1327.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1337.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1346.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1359.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1368.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1378.0" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1387.5" y="689.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="580.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="589.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="599.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="608.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="621.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="630.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="640.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="649.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="662.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="671.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="681.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="690.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="703.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="712.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="722.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="731.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="744.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="753.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="763.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="772.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="785.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="794.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="804.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="813.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="826.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="835.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="845.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="854.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="867.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="876.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="886.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="895.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="908.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="917.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="927.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="936.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="949.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="958.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="968.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="977.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="990.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="999.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1009.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1018.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1031.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1040.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1050.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1059.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1072.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1081.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1091.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1100.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1113.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1122.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1132.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1141.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1154.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1163.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1173.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1182.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1195.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1204.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1214.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1223.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1236.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1245.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1255.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1264.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1277.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1286.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1296.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1305.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1318.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1327.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1337.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1346.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1359.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1368.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1378.0" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1387.5" y="729.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="580.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="589.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="599.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="608.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="621.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="630.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="640.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="649.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="662.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="671.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="681.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="690.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="703.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="712.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="722.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="731.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="744.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="753.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="763.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="772.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="785.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="794.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="804.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="813.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="826.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="835.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="845.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="854.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="867.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="876.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="886.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="895.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="908.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="917.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="927.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="936.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="949.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="958.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="968.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="977.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="990.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="999.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1009.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1018.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1031.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1040.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1050.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1059.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1072.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1081.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1091.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1100.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1113.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1122.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1132.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1141.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1154.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1163.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1173.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1182.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1195.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1204.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1214.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1223.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1236.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1245.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1255.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1264.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1277.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1286.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1296.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1305.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1318.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1327.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1337.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1346.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1359.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1368.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1378.0" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<rect x="1387.5" y="769.0" width="8.0" height="30.0" fill="#6C887C"/>
+<line x1="1249.5" y1="719.0" x2="1249.5" y2="833.0" stroke="#43605A" stroke-width="0.75"/>
+<circle cx="1249.5" cy="719.0" r="3.5" fill="#F5F8F4" stroke="#12302B" stroke-width="1.25"/>
+<text x="1242.5" y="829.0" class="d08-s" font-size="14" fill="#12302B" stroke="#F5F8F4" stroke-width="3" stroke-linejoin="round" paint-order="stroke" text-anchor="end">Spill 17: Sara trakk Grossist. Hver stolpe er ett sete.</text>
+<rect x="580.0" y="857.0" width="170.0" height="44.0" fill="none" rx="4" stroke="#43605A" stroke-width="1"/>
+<text x="665.0" y="883.9" class="d08-f" font-size="14" fill="#12302B" font-weight="500" text-anchor="middle">Fordel på nytt</text>
+<rect x="762.0" y="857.0" width="220.0" height="44.0" fill="#12302B" rx="4"/>
+<text x="872.0" y="883.9" class="d08-f" font-size="14" fill="#FBFCFA" font-weight="500" text-anchor="middle">Bekreft fordelingen</text>
+<text x="1000.0" y="884.0" class="d08-f" font-size="14" fill="#43605A">Etter bekreftelse sendes Melding til alle.</text></svg>

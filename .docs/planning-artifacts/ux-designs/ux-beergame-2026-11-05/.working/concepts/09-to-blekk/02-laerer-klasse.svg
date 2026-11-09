@@ -1,0 +1,372 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 1000" font-family="'Libre Franklin','Franklin Gothic Book','Arial Narrow',Arial,sans-serif">
+<title>Faglærer lager Klasse</title>
+<desc>Skjema: navn og emnekode, opplasting av Canvas-fil, valg av e-postkolonne, ugyldige rader per rad, sending av Invitasjoner og status for sendt, akseptert og utløpt.</desc>
+<style>@import url('https://fonts.googleapis.com/css2?family=Anton&amp;family=Libre+Franklin:wght@400;500;700;800&amp;display=swap');
+.c09-a{font-family:Anton,'Haettenschweiler','Franklin Gothic Demi Cond','Arial Narrow',sans-serif;font-weight:400;letter-spacing:0}
+.c09-b{font-family:'Libre Franklin','Franklin Gothic Book','Arial Narrow',Arial,sans-serif;font-weight:400}
+.c09-m{font-family:'Libre Franklin','Franklin Gothic Book','Arial Narrow',Arial,sans-serif;font-weight:500}
+.c09-k{font-family:'Libre Franklin','Franklin Gothic Book','Arial Narrow',Arial,sans-serif;font-weight:700}
+.c09-x{font-family:'Libre Franklin','Franklin Gothic Book','Arial Narrow',Arial,sans-serif;font-weight:800}
+.c09-tn{font-variant-numeric:tabular-nums lining-nums}
+.c09-u{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1.5px}
+</style>
+<defs><pattern id="c09-klasse-hatch1" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(34)"><rect width="5" height="5" fill="none"/><line x1="0" y1="0" x2="0" y2="5" stroke="#12060B" stroke-width="1.4"/></pattern></defs>
+<rect width="1440" height="1000" fill="#FF5A1F"/>
+<text x="32" y="56" class="c09-a" font-size="36" fill="#12060B" >BLEKK</text><text x="32" y="82" class="c09-k" font-size="14" fill="#12060B" >Bård, Faglærer</text><text x="32" y="102" class="c09-m" font-size="14" fill="#12060B" >class-of-1994, IBE160</text><text x="32" y="122" class="c09-b" font-size="13" fill="#12060B" >Demodata</text><line x1="32" y1="146" x2="268" y2="146" stroke="#12060B" stroke-width="1.5" /><text x="32" y="166" class="c09-k c09-u" font-size="15" fill="#12060B" >Klasseliste</text><text x="32" y="188" class="c09-b" font-size="14" fill="#12060B" >Eksporten fra Canvas slik den</text><text x="32" y="207" class="c09-b" font-size="14" fill="#12060B" >er, med én student per rad.</text><line x1="32" y1="240" x2="268" y2="240" stroke="#12060B" stroke-width="1.5" /><text x="32" y="260" class="c09-k c09-u" font-size="15" fill="#12060B" >Invitasjon</text><text x="32" y="282" class="c09-b" font-size="14" fill="#12060B" >En personlig lenke på e-post.</text><text x="32" y="301" class="c09-b" font-size="14" fill="#12060B" >Gjelder i 14 dager. Ingen kommer</text><text x="32" y="320" class="c09-b" font-size="14" fill="#12060B" >inn uten.</text><line x1="32" y1="353" x2="268" y2="353" stroke="#12060B" stroke-width="1.5" /><text x="32" y="373" class="c09-k c09-u" font-size="15" fill="#12060B" >Ugyldig rad</text><text x="32" y="395" class="c09-b" font-size="14" fill="#12060B" >En adresse vi ikke kan sende</text><text x="32" y="414" class="c09-b" font-size="14" fill="#12060B" >til. Raden stopper ikke de</text><text x="32" y="433" class="c09-b" font-size="14" fill="#12060B" >andre.</text><line x1="32" y1="466" x2="268" y2="466" stroke="#12060B" stroke-width="1.5" /><text x="32" y="486" class="c09-k c09-u" font-size="15" fill="#12060B" >Manuelt registrert</text><text x="32" y="508" class="c09-b" font-size="14" fill="#12060B" >En student du legger inn selv,</text><text x="32" y="527" class="c09-b" font-size="14" fill="#12060B" >for eksempel etter en feil</text><text x="32" y="546" class="c09-b" font-size="14" fill="#12060B" >adresse.</text>
+<text x="300" y="86" class="c09-a" font-size="72" fill="#12060B" transform="rotate(-3 300 86)" >NY KLASSE</text>
+<text x="300" y="146" class="c09-k" font-size="14" fill="#12060B" >Navn på Klassen</text><rect x="300" y="153" width="360" height="42" fill="#FFFFFF" stroke="#12060B" stroke-width="2" /><text x="312" y="179.76" class="c09-m" font-size="16" fill="#12060B" >class-of-1994</text>
+<text x="680" y="146" class="c09-k" font-size="14" fill="#12060B" >Emnekode</text><rect x="680" y="153" width="180" height="42" fill="#FFFFFF" stroke="#12060B" stroke-width="2" /><text x="692" y="179.76" class="c09-m" font-size="16" fill="#12060B" >IBE160</text>
+<text x="880" y="146" class="c09-k" font-size="14" fill="#12060B" >Canvas-fil</text>
+<rect x="880" y="153" width="528" height="42" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<path d="M894 181 h16 M902 177 v-12 M897 170 L902 165 L907 170" fill="none" stroke="#12060B" stroke-width="2.2"/>
+<text x="924" y="180" class="c09-m" font-size="16" fill="#12060B" >ibe160-canvas-eksport.xlsx</text>
+<text x="1396" y="180" class="c09-k c09-tn" font-size="16" fill="#12060B" text-anchor="end" >250 rader</text>
+<text x="300" y="238" class="c09-k" font-size="14" fill="#12060B" >Velg e-postkolonne</text>
+<rect x="300" y="248" width="170" height="36" fill="#FF5A1F" stroke="#12060B" stroke-width="1.5" />
+<text x="310" y="272" class="c09-k" font-size="15" fill="#12060B" >Navn</text>
+<text x="310" y="306" class="c09-b" font-size="14" fill="#12060B" >Sara Nilsen</text>
+<text x="310" y="334" class="c09-b" font-size="14" fill="#12060B" >Ida Moe</text>
+<text x="310" y="362" class="c09-b" font-size="14" fill="#12060B" >Mikkel Lie</text>
+<text x="310" y="390" class="c09-b" font-size="14" fill="#12060B" >Jonas Hauge</text>
+<text x="310" y="418" class="c09-b" font-size="14" fill="#12060B" >Noah Berg</text>
+<rect x="470" y="248" width="90" height="36" fill="#FF5A1F" stroke="#12060B" stroke-width="1.5" />
+<text x="480" y="272" class="c09-k" font-size="15" fill="#12060B" >SIS-ID</text>
+<text x="480" y="306" class="c09-b" font-size="14" fill="#12060B" >118204</text>
+<text x="480" y="334" class="c09-b" font-size="14" fill="#12060B" >118377</text>
+<text x="480" y="362" class="c09-b" font-size="14" fill="#12060B" >118412</text>
+<text x="480" y="390" class="c09-b" font-size="14" fill="#12060B" >118533</text>
+<text x="480" y="418" class="c09-b" font-size="14" fill="#12060B" >118640</text>
+<rect x="560" y="248" width="240" height="36" fill="#12060B" stroke="#12060B" stroke-width="1.5" />
+<path d="M570 266 l4 4 l7 -8" fill="none" stroke="#00D4FF" stroke-width="2.4" stroke-linecap="square"/>
+<text x="588" y="272" class="c09-k" font-size="15" fill="#00D4FF" >E-post</text>
+<text x="570" y="306" class="c09-k" font-size="14" fill="#12060B" >sara.nilsen@student.no</text>
+<text x="570" y="334" class="c09-k" font-size="14" fill="#12060B" >ida.moe@student.no</text>
+<text x="570" y="362" class="c09-k" font-size="14" fill="#12060B" >mikkel.lie@student.no</text>
+<text x="570" y="390" class="c09-k" font-size="14" fill="#12060B" >jonas.hauge@student.no</text>
+<text x="570" y="418" class="c09-k" font-size="14" fill="#12060B" >noah.berg@student.no</text>
+<rect x="800" y="248" width="90" height="36" fill="#FF5A1F" stroke="#12060B" stroke-width="1.5" />
+<text x="810" y="272" class="c09-k" font-size="15" fill="#12060B" >Seksjon</text>
+<text x="810" y="306" class="c09-b" font-size="14" fill="#12060B" >IBE160-1</text>
+<text x="810" y="334" class="c09-b" font-size="14" fill="#12060B" >IBE160-1</text>
+<text x="810" y="362" class="c09-b" font-size="14" fill="#12060B" >IBE160-2</text>
+<text x="810" y="390" class="c09-b" font-size="14" fill="#12060B" >IBE160-2</text>
+<text x="810" y="418" class="c09-b" font-size="14" fill="#12060B" >IBE160-1</text>
+<line x1="300" y1="314" x2="890" y2="314" stroke="#12060B" stroke-width="0.8" />
+<line x1="300" y1="342" x2="890" y2="342" stroke="#12060B" stroke-width="0.8" />
+<line x1="300" y1="370" x2="890" y2="370" stroke="#12060B" stroke-width="0.8" />
+<line x1="300" y1="398" x2="890" y2="398" stroke="#12060B" stroke-width="0.8" />
+<line x1="300" y1="426" x2="890" y2="426" stroke="#12060B" stroke-width="0.8" />
+<text x="300" y="464" class="c09-b" font-size="14" fill="#12060B" >Viser 5 av 250. Vi foreslo E-post fordi nesten alle rader har en @.</text>
+<rect x="920" y="222" width="488" height="276" fill="#00D4FF" />
+<text x="934" y="264" class="c09-a" font-size="34" fill="#12060B" >4 UGYLDIGE RADER</text>
+<text x="1394" y="260" class="c09-k" font-size="15" fill="#12060B" text-anchor="end" >246 er klare</text>
+<text x="934" y="310" class="c09-a" font-size="22" fill="#12060B" >RAD 37</text>
+<rect x="1012" y="286" width="212" height="38" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="1022" y="310" class="c09-m" font-size="14" fill="#12060B" >emma.solberg@student</text>
+<text x="1236" y="310" class="c09-m" font-size="14" fill="#12060B" >mangler domene</text>
+<text x="1394" y="310" class="c09-k c09-u" font-size="14" fill="#12060B" text-anchor="end" >Rett</text>
+<text x="934" y="362" class="c09-a" font-size="22" fill="#12060B" >RAD 88</text>
+<rect x="1012" y="338" width="212" height="38" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="1022" y="362" class="c09-m" font-size="14" fill="#12060B" >liv aas@student.no</text>
+<text x="1236" y="362" class="c09-m" font-size="14" fill="#12060B" >mellomrom</text>
+<text x="1394" y="362" class="c09-k c09-u" font-size="14" fill="#12060B" text-anchor="end" >Rett</text>
+<text x="934" y="414" class="c09-a" font-size="22" fill="#12060B" >RAD 141</text>
+<rect x="1012" y="390" width="212" height="38" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="1022" y="414" class="c09-m" font-size="14" fill="#12060B" >oskar.vik@@student.no</text>
+<text x="1236" y="414" class="c09-m" font-size="14" fill="#12060B" >to @</text>
+<text x="1394" y="414" class="c09-k c09-u" font-size="14" fill="#12060B" text-anchor="end" >Rett</text>
+<text x="934" y="466" class="c09-a" font-size="22" fill="#12060B" >RAD 203</text>
+<rect x="1012" y="442" width="212" height="38" fill="#FFFFFF" stroke="#12060B" stroke-width="2" />
+<text x="1236" y="466" class="c09-m" font-size="14" fill="#12060B" >tom celle</text>
+<text x="1394" y="466" class="c09-k c09-u" font-size="14" fill="#12060B" text-anchor="end" >Rett</text>
+<polygon points="300.0,588.0 760.0,564.0 760.0,626.0 300.0,650.0" fill="#12060B" />
+<text x="530" y="620" class="c09-a" font-size="38" fill="#00D4FF" text-anchor="middle" transform="rotate(-3 530 620)" >SEND 246 INVITASJONER</text>
+<text x="780" y="590" class="c09-b" font-size="15" fill="#12060B" >De fire ugyldige radene får ingen e-post før du har rettet dem. Invitasjonen</text><text x="780" y="610" class="c09-b" font-size="15" fill="#12060B" >gjelder i 14 dager.</text>
+<line x1="300" y1="684" x2="1408" y2="684" stroke="#12060B" stroke-width="3" />
+<text x="300" y="728" class="c09-a" font-size="34" fill="#12060B" >SLIK GIKK DET</text>
+<text x="500" y="726" class="c09-m" font-size="15" fill="#12060B" >Sendt 5. nov, gyldig til 19. nov</text>
+<rect x="300" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="311" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="322" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="333" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="344" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="355" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="366" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="377" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="388" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="399" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="410" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="421" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="432" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="443" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="454" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="465" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="476" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="487" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="498" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="509" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="520" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="531" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="542" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="553" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="564" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="575" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="586" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="597" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="608" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="619" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="630" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="641" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="652" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="663" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="674" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="685" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="696" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="707" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="718" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="729" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="740" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="751" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="762" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="773" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="784" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="795" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="806" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="817" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="828" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="839" y="744" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="300" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="311" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="322" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="333" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="344" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="355" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="366" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="377" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="388" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="399" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="410" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="421" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="432" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="443" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="454" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="465" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="476" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="487" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="498" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="509" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="520" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="531" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="542" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="553" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="564" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="575" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="586" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="597" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="608" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="619" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="630" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="641" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="652" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="663" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="674" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="685" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="696" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="707" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="718" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="729" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="740" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="751" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="762" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="773" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="784" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="795" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="806" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="817" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="828" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="839" y="755" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="300" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="311" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="322" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="333" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="344" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="355" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="366" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="377" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="388" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="399" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="410" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="421" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="432" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="443" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="454" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="465" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="476" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="487" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="498" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="509" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="520" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="531" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="542" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="553" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="564" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="575" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="586" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="597" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="608" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="619" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="630" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="641" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="652" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="663" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="674" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="685" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="696" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="707" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="718" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="729" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="740" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="751" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="762" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="773" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="784" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="795" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="806" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="817" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="828" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="839" y="766" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="300" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="311" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="322" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="333" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="344" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="355" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="366" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="377" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="388" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="399" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="410" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="421" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="432" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="443" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="454" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="465" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="476" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="487" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="498" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="509" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="520" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="531" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="542" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="553" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="564" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="575" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="586" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="597" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="608" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="619" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="630" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="641" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="652" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="663" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="674" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="685" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="696" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="707" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="718" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="729" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="740" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="751" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="762" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="773" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="784" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="795" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="806" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="817" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="828" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="839" y="777" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="300" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="311" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="322" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="333" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="344" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="355" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="366" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="377" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="388" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="399" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="410" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="421" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="432" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="443" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="454" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="465" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="476" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="487" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="498" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="509" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="520" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="531" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="542" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="553" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="564" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="575" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="586" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="597" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="608" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="619" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="630" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="641" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="652" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="663" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="674" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="685" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="696" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="707" y="788" width="9" height="9" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<rect x="718" y="788" width="9" height="9" fill="url(#c09-klasse-hatch1)" stroke="#12060B" stroke-width="1" />
+<rect x="729" y="788" width="9" height="9" fill="url(#c09-klasse-hatch1)" stroke="#12060B" stroke-width="1" />
+<rect x="740" y="788" width="9" height="9" fill="#FFFFFF" stroke="#12060B" stroke-width="1" />
+<rect x="751" y="788" width="9" height="9" fill="#FFFFFF" stroke="#12060B" stroke-width="1" />
+<rect x="762" y="788" width="9" height="9" fill="#FFFFFF" stroke="#12060B" stroke-width="1" />
+<rect x="773" y="788" width="9" height="9" fill="#FFFFFF" stroke="#12060B" stroke-width="1" />
+<rect x="784" y="788" width="9" height="9" fill="#FFFFFF" stroke="#12060B" stroke-width="1" />
+<rect x="795" y="788" width="9" height="9" fill="#FFFFFF" stroke="#12060B" stroke-width="1" />
+<rect x="806" y="788" width="9" height="9" fill="#FFFFFF" stroke="#12060B" stroke-width="1" />
+<rect x="817" y="788" width="9" height="9" fill="#FFFFFF" stroke="#12060B" stroke-width="1" />
+<rect x="828" y="788" width="9" height="9" fill="#FFFFFF" stroke="#12060B" stroke-width="1" />
+<rect x="839" y="788" width="9" height="9" fill="#FFFFFF" stroke="#12060B" stroke-width="1" />
+<rect x="300" y="810" width="12" height="12" fill="#12060B" stroke="#12060B" stroke-width="1" />
+<text x="318" y="821" class="c09-k c09-tn" font-size="14" fill="#12060B" >238 registrert</text>
+<rect x="470" y="810" width="12" height="12" fill="url(#c09-klasse-hatch1)" stroke="#12060B" stroke-width="1" />
+<text x="488" y="821" class="c09-k c09-tn" font-size="14" fill="#12060B" >2 manuelt registrert</text>
+<rect x="660" y="810" width="12" height="12" fill="#FFFFFF" stroke="#12060B" stroke-width="1" />
+<text x="678" y="821" class="c09-k c09-tn" font-size="14" fill="#12060B" >10 uregistrert</text>
+<text x="300" y="845" class="c09-b" font-size="14" fill="#12060B" >Hver blokk er én student av 250.</text>
+<text x="890" y="786" class="c09-a" font-size="44" fill="#12060B" >246</text>
+<path d="M890 799.2 h8.0 l-8.0 9.600000000000001 h8.0 Z" fill="none" stroke="#12060B" stroke-width="1.6" stroke-linejoin="miter"/>
+<text x="908" y="809" class="c09-m" font-size="14" fill="#12060B" >Sendt</text>
+<text x="1020" y="786" class="c09-a" font-size="44" fill="#12060B" >238</text>
+<path d="M1020 803 l4 4 l7 -8" fill="none" stroke="#12060B" stroke-width="2.4" stroke-linecap="square"/>
+<text x="1038" y="809" class="c09-m" font-size="14" fill="#12060B" >Akseptert</text>
+<text x="1150" y="786" class="c09-a" font-size="44" fill="#12060B" >5</text>
+<path d="M1150 799.2 h8.0 l-8.0 9.600000000000001 h8.0 Z" fill="none" stroke="#12060B" stroke-width="1.6" stroke-linejoin="miter"/>
+<text x="1168" y="809" class="c09-m" font-size="14" fill="#12060B" >Venter svar</text>
+<text x="1280" y="786" class="c09-a" font-size="44" fill="#12060B" >3</text>
+<g transform="translate(1280 798)" ><path d="M0 0 L10 10 M10 0 L0 10" stroke="#12060B" stroke-width="2.4"/></g>
+<text x="1298" y="809" class="c09-m" font-size="14" fill="#12060B" >Utløpt</text>
+<text x="890" y="842" class="c09-k" font-size="14" fill="#12060B" >Emma Solberg</text>
+<text x="1020" y="842" class="c09-b" font-size="14" fill="#12060B" >manuelt registrert, rad 37</text>
+<line x1="890" y1="850" x2="1408" y2="850" stroke="#12060B" stroke-width="0.8" />
+<text x="890" y="870" class="c09-k" font-size="14" fill="#12060B" >Liv Aas</text>
+<text x="1020" y="870" class="c09-b" font-size="14" fill="#12060B" >utløpt 19. nov</text>
+<text x="1408" y="870" class="c09-k c09-u" font-size="14" fill="#12060B" text-anchor="end" >Send på nytt</text>
+<line x1="890" y1="878" x2="1408" y2="878" stroke="#12060B" stroke-width="0.8" />
+<text x="890" y="898" class="c09-k" font-size="14" fill="#12060B" >Oskar Vik</text>
+<text x="1020" y="898" class="c09-b" font-size="14" fill="#12060B" >venter svar, sendt 5. nov</text>
+<text x="1408" y="898" class="c09-k c09-u" font-size="14" fill="#12060B" text-anchor="end" >Purr</text>
+<line x1="890" y1="906" x2="1408" y2="906" stroke="#12060B" stroke-width="0.8" />
+<text x="890" y="926" class="c09-k" font-size="14" fill="#12060B" >Rad 203</text>
+<text x="1020" y="926" class="c09-b" font-size="14" fill="#12060B" >uregistrert, tom e-post</text>
+<text x="1408" y="926" class="c09-k c09-u" font-size="14" fill="#12060B" text-anchor="end" >Legg inn</text>
+<line x1="890" y1="934" x2="1408" y2="934" stroke="#12060B" stroke-width="0.8" />
+</svg>
