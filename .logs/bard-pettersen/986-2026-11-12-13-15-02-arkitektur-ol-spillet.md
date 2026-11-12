@@ -50,6 +50,7 @@ Senere samme økt (etter brukerens tilbakemeldinger):
 - Memloggen har 63 innførsler.
 - Arkitekturmappa er committet som `20b0f66` og pushet til `origin/main` på brukerens forespørsel.
 - Brukeren ba om `status: final` på arkitekturdokumentet og oppsettsguiden. Det er satt og ført i memloggen. Epics og stories skal ikke lages før brukeren sier ifra.
+- Brukerens avgjørelser etter gjennomgang av antakelsene: ikke noe staging-miljø (lokalt er nok; generalprøve og kontrolltest kjøres i produksjon), e-post om Takeover sendes straks, og backup avgjøres senere. Tabell over alle avvik fra `technology.md` er lagt inn under stack-tabellen, slik et utsatt punkt krevde før final. Stille tid 22–07 for e-post er fortsatt en ubekreftet antakelse.
 
 ### Åpne punkter
 - Issue #27: founder-gjennomgang av arkitekturen og antakelsene (blant annet stille tid 22–07 for e-post, Takeover-e-post i daglig samlemelding, PITR-mål, eu-central-1), deretter `status: final`. Reviewfunnene er nå enten rettet eller ført som utsatte punkter.
