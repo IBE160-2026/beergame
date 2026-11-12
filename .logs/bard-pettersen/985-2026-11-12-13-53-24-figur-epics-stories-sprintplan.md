@@ -15,6 +15,7 @@ Kjøre `bmad-help` for å se hvor prosjektet står, og deretter lage en SVG-figu
 - Figuren sier selv at inndelingen i epics og stories er en illustrasjon. Den endelige lages av `bmad-create-epics-and-stories`.
 - Kontrollert: gyldig XML, og gjengivelsen viser ingen tekst som overlapper eller går ut av boksene.
 - Ingen issues ble åpnet eller lukket.
+- Senere samme økt: figuren er committet som `13ddfd1` og pushet til `origin/main` på brukerens forespørsel. Punktet over om «ikke committet» gjelder derfor ikke lenger.
 
 ### Åpne punkter
 Ingen.
