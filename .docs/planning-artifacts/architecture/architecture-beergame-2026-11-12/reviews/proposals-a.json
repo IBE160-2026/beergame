@@ -1,0 +1,140 @@
+[
+  {
+    "op": "replace",
+    "old": "FR-36 to FR-38, FR-48, FR-87, FR-89, NFR-4; `modules/games`",
+    "new": "FR-36 to FR-39, FR-48, FR-87, FR-89, NFR-4; `modules/games`",
+    "closes": "H15, F12 (Binds)"
+  },
+  {
+    "op": "add_bullet",
+    "ad": "AD-2",
+    "after": "One predicate, `games.rules.week_complete(game)`, decides the advance: every Seat has an Order",
+    "text": "  - A Game stores `lifecycle ∈ {not_started, running, playing_out, finished}` and, apart from it, the Pause columns `paused_at`, `paused_by` and `resume_at`. Only `pause`, `resume`, `place_order` and `playout` write the Pause columns. A `place_order` by a Student clears them in the same transaction, whoever started the Pause (FR-89). The displayed status (FR-39) comes only from `games.rules.game_status(game, turns)`, and `game_summaries` (AD-25) stores its result.",
+    "closes": "H15"
+  },
+  {
+    "op": "add_bullet",
+    "ad": "AD-2",
+    "after": "Human requests, AI jobs, the sweeper and staff actions all call these commands; none writes",
+    "text": "  - `playout` runs once per Game at the Play deadline, where `games.policy` applies it (AD-13). It sets `lifecycle = playing_out`, clears any Pause, drops queued Reclaims, and appends an AI occupant with reason `playout` to every Seat a Student holds (AD-5). After it, `place_order`, `pause`, `takeover` and `request_reclaim` from a person answer `409 play_deadline_passed`. An Order committed before `playout` stands. The Game row lock settles the race.",
+    "closes": "F12"
+  },
+  {
+    "op": "replace",
+    "old": "FR-15, FR-30 to FR-37, FR-69, FR-78, FR-79, FR-89, NFR-2, NFR-4",
+    "new": "FR-15, FR-30 to FR-38, FR-69, FR-78, FR-79, FR-89, NFR-2, NFR-4",
+    "closes": "F12 (Binds)"
+  },
+  {
+    "op": "replace",
+    "old": "`(seat_id, from_week, occupant_kind ∈ {student, llm, rule_based, scripted}, reason)`",
+    "new": "`(seat_id, from_week, occupant_kind ∈ {student, llm, rule_based, scripted}, reason ∈ {initial, takeover_inactivity, takeover_staff, takeover_peer, reclaim, guard_switch, cost_limit, playout})`",
+    "closes": "H8, H15"
+  },
+  {
+    "op": "replace",
+    "old": "On a typed failure the job places the Rule-based Order with source `llm_fallback`. It then runs the Play guard (pure) and calls `place_order`.",
+    "new": "On a typed failure the job places the stored Rule-based reference Order with `decided_by = rule_based` and `fallback` set to the failure type (AD-15). Otherwise it calls `place_order` with the LLM Order. The job never runs the Play guard.",
+    "closes": "H13, H8"
+  },
+  {
+    "op": "add_bullet",
+    "ad": "AD-5",
+    "after": "The job calls the AI gateway **once**; the gateway owns attempts and the deadline (AD-6).",
+    "text": "  - The Rule-based and near-optimal reference Orders are computed once per Seat when the Week opens, in that transaction, and stored on the `seat_turns` row (AD-20). `place_order` copies them into `seat_week` and never recomputes them. For an Order with `decided_by = llm`, `place_order` runs the Play guard (pure) over the Seat's stored `seat_week` rows plus the new one, in the same transaction. When the guard switches, `place_order` appends the occupancy row with `from_week = week + 1` in that transaction.",
+    "closes": "H13"
+  },
+  {
+    "op": "add_bullet",
+    "ad": "AD-5",
+    "after": "The `worker-ai` process runs a rescue loop every 5 seconds that places the fallback Order",
+    "text": "  - A playout Order has no Order deadline (FR-32). For a Game in `playing_out`, `ensure_order` defers the `llm` job to `llm-batch`, not `ai-orders`, and sets no `ai_deadline_at`, so the rescue loop skips the turn. The gateway's attempt limit and per-attempt timeout still apply, and a typed failure still gives the Rule-based Order. The sweeper re-enqueues a playout turn that has no Order and no live job.",
+    "closes": "F12"
+  },
+  {
+    "op": "replace",
+    "old": "A cost-limit switch applies `switch_to_rule_based(reason=cost_limit)` to every `llm` Seat of the Class session (FR-69).",
+    "new": "A cost-limit switch applies `switch_to_rule_based(reason=cost_limit)` to every `llm` Seat of the Class session (FR-69). It holds for the rest of the Class session. While the cost-limit state is set (AD-6), every new occupancy that would be `llm` is created as `rule_based` with reason `cost_limit`. This covers Replays, make-ups, Takeovers and playout. An `ai-orders` job already running gets `budget_exhausted` and places the fallback Order.",
+    "closes": "F15, H8"
+  },
+  {
+    "op": "replace",
+    "old": "Every call is `ai.run(purpose, class_session_id, prompt_id@version, inputs, output_schema, deadline)`.",
+    "new": "Every call is `ai.run(purpose, budget_scope, inputs, output_schema, deadline)`. `budget_scope` is a Class session or an evaluation budget (AD-22). The Control test and any other call without a Class session use an evaluation budget, so every call has a model config and a budget row. Callers never pass a model, a prompt version or scrub terms.",
+    "closes": "F14, H12"
+  },
+  {
+    "op": "replace",
+    "old": "It resolves the Class session's pinned model config (model version, provider, endpoint, region, Effort level). There is no automatic router or provider fallback (FR-68).",
+    "new": "It resolves the scope's pinned model config by id, and the prompt version for the purpose from that config's `prompts` map. There is no automatic router or provider fallback (FR-68). A retired or failing endpoint gives typed failures, never another model.",
+    "closes": "F14"
+  },
+  {
+    "op": "replace",
+    "old": "It checks and charges the budget, with a reservation for Debrief and AI assessment. When the player budget runs out it returns `budget_exhausted` and triggers the cost-limit switch (AD-5) and the Lecturer notice (FR-69).",
+    "new": "It reserves each attempt's worst-case cost (max tokens × price) on the scope's one budget row with a single conditional `UPDATE`, and settles to the actual cost after the attempt. No limit check sums `llm_call` rows. The row holds `limit`, `reserve`, `spent` and `players_exhausted_at`. Player purposes may not spend `reserve`; Debrief and AI assessment may. When a player reservation fails, the gateway sets `players_exhausted_at`, which is the cost-limit state, and returns `budget_exhausted`. `players` then applies the cost-limit switch (AD-5) and the Lecturer notice (FR-69).",
+    "closes": "F15, H12"
+  },
+  {
+    "op": "replace",
+    "old": "It scrubs every free-text input against the Roster's names, emails and student numbers.",
+    "new": "It scrubs every free-text input against the Roster's names, emails and student numbers. The terms come from `platform/pii.terms(class_session_id)`, a read-only query over the `identity` tables that only the gateway calls.",
+    "closes": "H12"
+  },
+  {
+    "op": "replace",
+    "old": "model, provider, endpoint, prompt version, tokens incl. reasoning, cost, latency, outcome.",
+    "new": "model config id, model, quantisation, provider, endpoint, Effort level, seed, temperature, prompt version, tokens incl. reasoning, cost, latency, outcome.",
+    "closes": "F14"
+  },
+  {
+    "op": "add_bullet",
+    "ad": "AD-6",
+    "after": "pydantic-ai's `FallbackModel` and any router-side fallback are never used (FR-68).",
+    "text": "  - A model config is a row that is immutable once a Class session or a simulation run references it. It holds provider, endpoint, region, model version, quantisation, the Effort levels with their timeouts, prices, the rate limit, and a `prompts` map from purpose to version. An edit creates a new row. A Class session references one config id, and `sessions.lock` copies that id into `SessionRuntime` (AD-4). The Admin freezes a model across Class sessions by giving them the same id (FR-68). A deploy may add prompt files, but never changes or removes a version that a config references. Other modules read and change config and budget only through `ai.config` and `ai.budget`.",
+    "closes": "F14, H12"
+  },
+  {
+    "op": "replace",
+    "old": "FR-35, FR-37, FR-62, FR-67, FR-70, FR-71, SM-1 to SM-3",
+    "new": "FR-17 (Orders counted), FR-35, FR-37, FR-62, FR-67, FR-68 (Share of LLM Orders), FR-70, FR-71, FR-79, SM-1 to SM-3",
+    "closes": "H8 (Binds)"
+  },
+  {
+    "op": "replace",
+    "old": "its source (`student`, `llm`, `llm_fallback`, `rule_based`, `guided`, `playout`),",
+    "new": "`decided_by ∈ {student, llm, rule_based, scripted, guided}`, `fallback ∈ {none, timeout, invalid_output, provider_error, budget_exhausted}`, the `occupant_kind` and `reason` of the occupancy row in force (AD-5),",
+    "closes": "H8"
+  },
+  {
+    "op": "add_bullet",
+    "ad": "AD-15",
+    "after": "Each `seat_week` row is written once, by `place_order`. It holds the Week, the Seat, `state_seen`",
+    "text": "  - Who decided an Order and why are separate fields and are never merged. Every reader uses one mapping. Completion counts `decided_by = student`. The Play guard reads `decided_by = llm` rows. The Share of LLM Orders is `decided_by = llm` over the Orders with `occupant_kind ≠ student` and `decided_by ≠ guided`. Takeover, playout and switch marks come from `reason`.",
+    "closes": "H8"
+  },
+  {
+    "op": "replace",
+    "old": "`insert_allowed_at`, `ai_deadline_at`, `ordered_at`. `games.commands` is its only writer. When the Order is placed, the row's times are copied into the `seat_week` (AD-15).",
+    "new": "`insert_allowed_at`, `ai_deadline_at`, `ordered_at`, and the two reference Orders (AD-5). `games.commands` is its only writer. When the Order is placed, the row's times and reference Orders are copied into the `seat_week` (AD-15).",
+    "closes": "H13"
+  },
+  {
+    "op": "replace",
+    "old": "`games.rules.can_take_over(game, seat, actor, now)` is the only eligibility check for automatic, Student-triggered and staff Takeover.",
+    "new": "`games.rules.can_take_over(game, seat, actor, now)` is the only eligibility check for automatic, Student-triggered and staff Takeover. A Student actor must occupy another Seat in the same Game, and the target's `insert_allowed_at` must have passed. That time runs whether or not the Game is paused, and no Student action shortens it (FR-89). The route's AD-12 policy checks only that the actor is in the Game or is staff of its Class. `takeover` records the matching occupancy reason (AD-5).",
+    "closes": "H15"
+  },
+  {
+    "op": "replace",
+    "old": "Money and cost rates are `NUMERIC(14,4)` and `Decimal`, and travel in JSON as decimal strings (`\"0.50\"`).",
+    "new": "Game money and cost rates are `NUMERIC(14,4)` and `Decimal`, and travel in JSON as decimal strings (`\"0.50\"`). LLM prices and call costs are `NUMERIC(18,8)` USD and are summed unrounded.",
+    "closes": "H12"
+  },
+  {
+    "op": "replace",
+    "old": "These are numbers in the pinned model config, set by the prototype.",
+    "new": "These are numbers in the pinned model config, set by the prototype.\n- **Budget reserve size** for Debrief and AI assessment (FR-69), and **the time allowed after the Play deadline for the playout to finish** (FR-38, SM-4). Both are set after the prototype.",
+    "closes": "F15, F12"
+  }
+]

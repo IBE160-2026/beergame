@@ -1,0 +1,101 @@
+[
+  {
+    "op": "replace",
+    "old": "  - Topics: `game:<id>`, `session:<id>`, `debrief:<id>`, `user:<id>`. The module that owns the entity is the only emitter of its topic.",
+    "new": "  - Topics are a closed catalogue. Events are emitted only through `platform/events.emit(topic, id)`, inside the mutating transaction.\n\n    | Topic | Id | Emitted by | Forwarded to |\n    | --- | --- | --- | --- |\n    | `game:<id>` | Game | every `games.commands` command | Students with a Seat in the Game, and Class staff |\n    | `session:<id>` | Class session | every `games.commands` command on a Game the Lecturer overview lists (AD-13); every `sessions` mutation; `progress.record_step`; a cost-limit state change (AD-6); a Message sent | Class staff only |\n    | `debrief:<id>` | Debrief session (AD-21) | every `debrief.commands` command | Students joined to that Debrief session |\n    | `user:<id>` | User | `games.commands` for each Student whose Seat or waiting status changed; `sessions` mutations a Student can see (lock, deadlines, per-Student adjustments), once per affected Student; `progress.record_step` for that Student; `platform/notify.enqueue` (AD-9); a finished report job; any change to the User's Seats, Class staff membership or active status | that User only |\n\n  - Students never receive `session:<id>`. A Class session change a Student must see reaches them as `user:<id>`.\n  - The web app reads the Debrief session id from the Debrief endpoint. It never builds a `debrief:` topic from a Game id.\n  - Only `game:<id>` carries the Game's `version`. Every other topic sends `version: null`. Clients never drop an event by comparing versions: every event invalidates.\n  - Each command declares its topic set in one registry, `platform/events/registry.py`. An api test asserts that every command and mutation named in the table has an entry and emits exactly its listed topics.\n  - The map from topic to TanStack Query keys lives only in `web/src/lib/api/topics.ts`.",
+    "closes": "review-adversary H17; review-rubric M-6"
+  },
+  {
+    "op": "add_bullet",
+    "ad": "AD-8",
+    "after": "  - Each `api` process holds one `LISTEN` connection and fans events out in memory to `GET /api/events`",
+    "text": "  - The stream resolves the User's allowed topics when it connects, and again on every `user:<id>` event for its own User. If the User is deactivated by then, the server closes the stream.",
+    "closes": "review-adversary H17 (when SSE scope is checked)"
+  },
+  {
+    "op": "replace",
+    "old": "  - Email goes only through `mail`. There is no cron outside the sweeper.",
+    "new": "  - Notifications have one path. A module that wants a User told calls `platform/notify.enqueue(user_id, kind, dedupe_key, ref, not_before)` in its own transaction. The row is unique on `dedupe_key` and holds ids only. The call also emits `user:<id>` (AD-8), so the app shows the notice at once.\n  - `messaging` is the only reader of those rows, through `platform/notify.claim_due`, and the only module that defers a `mail` job. No module imports `messaging` to notify. `messaging` may import other modules' `service.py` to resolve recipients.\n  - `messaging` holds the one table of delivery per `kind`. `immediate` kinds are Invitations, password resets and Messages a person sends. All other kinds are `digest`: at most one mail per User per day (FR-27), never sent between 22:00 and 07:00 Europe/Oslo. Turn reminders and Takeover notices are `digest` kinds. `[ASSUMPTION]` The quiet hours, and Takeover mail joining the digest.\n  - There is no cron outside the sweeper.",
+    "closes": "review-adversary H19; review-reconcile-ux F15 (quiet hours part)"
+  },
+  {
+    "op": "deferred",
+    "text": "- **Seat state field list.** AD-3 fixes what `seat_state` hides, not its fields. Still open: the history rows, known arrivals and overdue units, the previous-Week values for the Week transition, the cost breakdown, the rates and maximum Order, the own Order for the open Week, and the preview coefficients (AD-10). One story fixes the list in `games/schemas.py`: the first story that builds `seat_state`. It is fixed before the play screen, the LLM player prompt and the Decision log are built on it.",
+    "closes": "review-reconcile-ux F12"
+  },
+  {
+    "op": "deferred",
+    "text": "- **Remaining Spillstyring commands and sweeps.** Still open: ending «I rommet» by a person and at the end of the Lab hour, the batch Takeover over many Games (a loop of per-Game `takeover` commands that returns real counts), closing Replays at the Test deadline, the actor on an occupancy row, and conflict errors that name who acted first. The Takeover and Spillstyring stories add them to the AD-2 command list and the AD-9 sweep list.",
+    "closes": "review-reconcile-ux F15"
+  },
+  {
+    "op": "deferred",
+    "text": "- **Wall filter aggregates.** Open: whether the overview response carries the median and average rows for every Role and cell filter combination, or one endpoint serves them per filter. The Lecturer overview story decides. The web app may filter, group and sort rows it received, and computes no medians or costs (AD-10).",
+    "closes": "review-reconcile-ux F16"
+  },
+  {
+    "op": "deferred",
+    "text": "- **Allocation preview and Roster upload staging.** Open: how a previewed allocation is kept so that confirm commits exactly what was shown, and where an uploaded Roster file waits while the Lecturer picks columns. The allocation story and the Roster story decide. Staged Roster rows are personal data: they stay in `identity` tables with a short expiry (AD-14).",
+    "closes": "review-reconcile-ux F17"
+  },
+  {
+    "op": "deferred",
+    "text": "- **Timing of Debrief and Adapted item LLM work.** Open: when narration and Adapted items are generated (on `llm-batch` when the Game or Replay ends, or on demand). The Debrief story and the Individual test story decide. Two limits hold either way: a Group debrief step never waits on an LLM call, because the code-rendered text shows until the LLM text is ready (AD-7), and an Adapted item never changes after a Student has seen it.",
+    "closes": "review-reconcile-prd F21"
+  },
+  {
+    "op": "deferred",
+    "text": "- **Cross-class statistics data source.** Open: the point where the anonymised aggregate of a Class session is written, whether a later completion correction rewrites it, and whether Cross-class statistics read only aggregates or also live tables. Decide in the first statistics story, before the retention story is built, so both use one aggregate shape with the AD-23 version keys.",
+    "closes": "review-reconcile-prd F23"
+  },
+  {
+    "op": "deferred",
+    "text": "- **Machine-readable AI marking.** Open: the API shape for AI-produced text (FR-34), the attribute the web app renders, and how the PDF marks AI sections (structure tags, XMP metadata). The first story that returns AI text fixes the API shape as a Consistency Convention, and every later story reuses it. The PDF part is decided in the report story.",
+    "closes": "review-reconcile-prd F26"
+  },
+  {
+    "op": "deferred",
+    "text": "- **Replay scenario as a template.** FR-49 gives ranges per Student (step Week, number of Weeks, seed), and `engine.GameSettings` holds single values. Open: the template model with ranged fields and the pure function that turns a template and a seed into `GameSettings`. The Replay story decides. The Replay Game stores the resulting settings and the seed (AD-4).",
+    "closes": "review-reconcile-prd F28"
+  },
+  {
+    "op": "deferred",
+    "text": "- **Sub-processor register and data processing agreement gate.** Open: the list of sub-processors (Railway, Supabase, Resend, the LLM provider, any error tracker) with data, region and transfer basis, and whether Invitations are refused for an Institution with no signed agreement. Operations writes the register for the DPIA pack. The gate is decided before any Institution's Students are invited (PRD §6.1).",
+    "closes": "review-reconcile-prd F29"
+  },
+  {
+    "op": "deferred",
+    "text": "- **Per-session error counts** (NFR-8). `llm_call` gives fallback rate, response times and cost per Class session, not error counts. Open: the store that the conservation check (FR-29), failed jobs and the API error handler write to. Decide it together with error tracking, before the pilot, in the story that builds the Admin operations view.",
+    "closes": "review-reconcile-prd F31; review-rubric M-2"
+  },
+  {
+    "op": "deferred",
+    "text": "- **Test attempt write path.** AD-10 fixes the per-answer revision. Still open: the `tests` command list, the row lock on the Test attempt, the error code a save gets after submit, and the order of the Test deadline actions. The Individual test story decides. Submit and auto-submit freeze the attempt, and a later save is rejected.",
+    "closes": "review-rubric M-1"
+  },
+  {
+    "op": "deferred",
+    "text": "- **CI gating and promotion to production.** Open: whether Railway waits for green GitHub checks, who moves `main` to `production` and how, and the `APP_ENV` value and startup guard for staging (AD-17). Operations decides before the first production deploy, and the staging part with the Staging environment.",
+    "closes": "review-rubric M-4"
+  },
+  {
+    "op": "deferred",
+    "text": "- **Deviations from technology.md.** The spine tags only some choices `[ADOPTED]` or `[ASSUMPTION]`. A short list under Stack of every deviation and silent drop (psycopg, procrastinate, structlog, Node and TypeScript versions, CSP and DOMPurify, `ADMIN_EMAILS`) is written before the spine leaves draft status.",
+    "closes": "review-rubric M-9"
+  },
+  {
+    "op": "deferred",
+    "text": "- **Replay at an older `rules_version`.** AD-4 needs old engine rules to stay runnable, and the mechanics are open: how versions are kept selectable, golden traces per version in CI, and a freeze on rule changes while a Class session runs. Decide before the first change that alters engine output after a real Game is stored, and before the pilot at the latest.",
+    "closes": "review-rubric M-11"
+  },
+  {
+    "op": "deferred",
+    "text": "- **Railway plan and EU West.** The region exists, but which plans may use it is unverified. Confirm when the project is created, and pin the region in each `railway.toml`. Outbound traffic may leave from a non-EU IP address, so no provider allow-list may rely on an EU address.",
+    "closes": "review-tech-currency 16"
+  },
+  {
+    "op": "deferred",
+    "text": "- **Node.js version.** Node 24 is in maintenance LTS until April 2028, and Node 26 is the active LTS. Stay on 24 through the pilot, and decide on the move to 26 after it.",
+    "closes": "review-tech-currency 18"
+  }
+]

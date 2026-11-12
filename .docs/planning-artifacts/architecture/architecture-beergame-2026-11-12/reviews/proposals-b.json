@@ -1,0 +1,74 @@
+[
+  {
+    "op": "replace",
+    "old": "  - `analysis` builds a facts set (ids, values, Detected patterns) from the Decision log.",
+    "new": "  - `analysis` builds a facts set (ids, values, Detected patterns) from the Decision log of one Seat in a finished Game. Fact ids are deterministic: `<pattern>:<role>:<week>`.\n  - `modules/games` stores each facts set once, in `fact_sets(id, game_id, seat_id, analysis_version, payload)`, through `games.facts.get_or_create(game, seat)`. The payload holds numbers and Roles only. Everything that cites facts (Debrief narration and summary, Debrief follow-up, the Replay walkthrough, Adapted items, AI assessment feedback, the Student report) stores the `fact_set_id`. Validators and renderers load that set and never rebuild it.",
+    "closes": "H14"
+  },
+  {
+    "op": "replace",
+    "old": "It scrubs every free-text input against the Roster's names, emails and student numbers.",
+    "new": "It scrubs every free-text input against the Roster's names, emails and student numbers, and returns with the result an offset map from each scrubbed text to its original.",
+    "closes": "F18"
+  },
+  {
+    "op": "replace",
+    "old": "  - A validator rejects any output that cites a fact id outside the set or a number outside the rendered facts, and any quote that is not a substring of the Student's original text.",
+    "new": "  - A validator rejects any output that cites a fact id outside the set or a number outside the rendered facts.\n  - The LLM never retypes a quote. The output schema cites a quote as a character span over the scrubbed text the LLM saw (AD-6). The validator rejects a span outside that text and maps it through the scrubber's offset map. The feedback stores the span over the Student's original text, and the renderer shows that original text.",
+    "closes": "F18"
+  },
+  {
+    "op": "replace",
+    "old": "Test auto-submit, AI assessment enqueue,",
+    "new": "`sessions.lock_test`, Test close,",
+    "closes": "H16"
+  },
+  {
+    "op": "add_bullet",
+    "ad": "AD-9",
+    "after": "  - Every job and sweep action is idempotent and safe to repeat. Job arguments are ids only, never names or free text.",
+    "text": "  - Test close is one ordered chain. At the original Test deadline the sweep first runs `sessions.lock_test`, which pins the Scoring guide version (AD-23) and the AI assessment switch (FR-61) for the Class session. Each Test attempt has an `effective_deadline`: the Class session's, or the Student's extension. For each due attempt the sweep calls `tests.close_attempt(attempt_id)`. It submits the saved answers if the attempt is still open and, when the pinned switch is on, defers `assessment.assess(attempt_id)` in the same transaction. Nothing else enqueues an AI assessment, and `assess` reads only the pinned values. Answer-key and Interactive scores come only from `analysis.scoring` and are stored by `tests` on submit. `assessment` stores AI item scores only, and every total comes from `analysis.total_score(computed, ai_items, weights)`.",
+    "closes": "H16"
+  },
+  {
+    "op": "replace",
+    "old": "- **Binds:** FR-17, FR-18, FR-27, FR-36, FR-38, FR-40, FR-43, FR-51, FR-54, FR-57, FR-59, FR-77, NFR-2, NFR-4, NFR-10",
+    "new": "- **Binds:** FR-17, FR-18, FR-27, FR-36, FR-38, FR-40, FR-43, FR-51, FR-54, FR-57, FR-59, FR-61, FR-77, FR-80, FR-81, NFR-2, NFR-4, NFR-10",
+    "closes": "H16"
+  },
+  {
+    "op": "replace",
+    "old": "The Admin sees no Student answers or AI assessments without Class membership.",
+    "new": "The Admin sees no Student answers or AI assessments without Class membership, with two named exceptions. Each is a policy in `platform/authz`, and each use is recorded through `platform/audit`. First, `can(admin, \"export_pseudonymised\", class_session)` holds only when an Institution agreement is recorded for that Class session (FR-71), and the export carries pseudonyms (AD-14), never names. Second, the Admin reads Control test data under AD-27. There are no other Admin exceptions.",
+    "closes": "H20"
+  },
+  {
+    "op": "replace",
+    "old": "- **Binds:** FR-5, FR-10, FR-55, FR-56, FR-63, FR-75, NFR-7",
+    "new": "- **Binds:** FR-5, FR-10, FR-55, FR-56, FR-63, FR-71, FR-75, FR-82, NFR-7",
+    "closes": "H20"
+  },
+  {
+    "op": "replace",
+    "old": "`class`, `replay`, `makeup`, `lecturer_test`, `control_test` or `simulation`",
+    "new": "`class`, `replay`, `makeup`, `lecturer_test` or `simulation`",
+    "closes": "F17"
+  },
+  {
+    "op": "replace",
+    "old": "which exclude `lecturer_test`, `control_test`, `simulation` and test Students.",
+    "new": "which exclude `lecturer_test` and `simulation` Games, `control_test` Class sessions (AD-27) and test Students.",
+    "closes": "F17"
+  },
+  {
+    "op": "new_ad",
+    "text": "### AD-27 — A Control test is a Class session kind\n\n- **Binds:** FR-81 (checked status), FR-82, SM-7, PRD §10; `modules/sessions`, `modules/assessment`, `analysis`, `platform/authz`\n- **Prevents:** test students' Class games and Replays needing a special Game purpose, a scorer seeing the AI score before scoring, test students' data following an Institution's retention, and a Scoring guide marked checked against another guide or model.\n- **Rule:**\n  - A Class session has a `kind`: `course` or `control_test`. Only the Admin creates a `control_test` Class session, and it belongs to the operator-owned Institution, which has its own retention date (AD-14).\n  - Its Roster holds only Users with `is_test_student`, each with a stored consent record that allocation requires. Its Games use the ordinary purposes `class` and `replay`, and the Individual test and AI assessment run unchanged.\n  - It pins the Scoring guide version and the model config under test when it is created (AD-23, AD-6). The guide may be the default or a Lecturer's edited version.\n  - `assessment` owns `human_scores(answer_id, scorer_id, score, submitted_at)`, one row per long-answer and Adapted item. A human score is never updated after it is submitted.\n  - Two policies in `platform/authz` cover the data. Only the Admin and the scorers the Admin names read a Control test's answers. An item's AI score is hidden from a scorer until that scorer's human score for the item is submitted.\n  - `analysis.agreement(human_scores, ai_scores)` is the only source of the FR-82 measures: exact agreement, agreement within one step, offset, compression, and agreement by answer length.\n  - A Scoring guide version is `checked` for a model config only when a `control_test` Class session pinned to both has every human score submitted. The FR-81 notice to the Lecturer and in the feedback reads this flag and nothing else.",
+    "closes": "F17, H20"
+  },
+  {
+    "op": "replace",
+    "old": "| `assessment`, `ai` | AD-6, AD-7, AD-12, AD-13 |",
+    "new": "| `assessment`, `ai`, `sessions` (`kind=control_test`), `analysis` (agreement) | AD-6, AD-7, AD-9, AD-12, AD-13, AD-27 |",
+    "closes": "F17"
+  }
+]
