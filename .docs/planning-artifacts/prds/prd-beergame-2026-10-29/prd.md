@@ -357,7 +357,7 @@ A Student sees, for their own Seat: current inventory or backlog (both on a capp
 - On a 360-pixel-wide screen, all of this plus the Order input is visible without horizontal scrolling.
 
 #### FR-24: Place an order
-A Student can enter one Order per Week as a whole number from 0 to the maximum in Game settings, and confirm it. In Guided Weeks the Order is fixed and placed automatically, the Week advances once every Student in the Class game has opened it, and the clock for the Inactivity limit does not run.
+A Student can enter one Order per Week as a whole number from 0 to the maximum in Game settings, and confirm it. In Guided Weeks the Order is fixed and placed automatically, the Week advances once every Student in the Class game has opened it, and the clock for the Inactivity limit runs from the moment the first Student in the Class game has opened the Week, with opening counted as ordering in FR-36 and FR-37 (founder decision 2026-11-12; before this the clock did not run in Guided Weeks, so an absent Student could block the group until the Play deadline).
 - Invalid input is rejected inline before submission.
 - After confirmation the Order cannot be changed.
 
