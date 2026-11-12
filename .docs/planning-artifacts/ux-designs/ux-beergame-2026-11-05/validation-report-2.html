@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validation Report, round 2 — beergame (ØL-spillet)</title>
+<style>
+  :root {
+    --bg: #fafaf9;
+    --surface: #ffffff;
+    --border: #e7e5e4;
+    --text: #1c1917;
+    --muted: #78716c;
+
+    --verdict-strong: #16a34a;
+    --verdict-adequate: #65a30d;
+    --verdict-thin: #d97706;
+    --verdict-broken: #dc2626;
+
+    --sev-low: #64748b;
+    --sev-medium: #ca8a04;
+    --sev-high: #ea580c;
+    --sev-critical: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  header.report-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .title h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .title .subtitle { color: var(--muted); font-size: 13px; margin-top: 4px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+
+  .synthesis {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 1px solid var(--muted);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-bottom: 24px;
+    font-size: 15.5px;
+  }
+  .synthesis p { margin: 0 0 10px; }
+  .synthesis p:last-child { margin-bottom: 0; }
+
+  .dimension-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .dim-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .dim-card .dim-name { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .dim-card .dim-verdict { font-size: 14px; font-weight: 600; }
+
+  section.dimension, section.reviewer-section { margin-bottom: 14px; }
+  section.dimension details, section.reviewer-section details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  section summary {
+    padding: 14px 20px;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  section summary::-webkit-details-marker { display: none; }
+  section summary::before {
+    content: "▸";
+    display: inline-block;
+    color: var(--muted);
+    transition: transform 0.15s ease;
+  }
+  section details[open] summary::before { transform: rotate(90deg); }
+  section summary h2 {
+    display: inline;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    flex: 1;
+  }
+  .verdict-pill {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: white;
+  }
+  .verdict-strong { background: var(--verdict-strong); }
+  .verdict-adequate { background: var(--verdict-adequate); }
+  .verdict-thin { background: var(--verdict-thin); }
+  .verdict-broken { background: var(--verdict-broken); }
+
+  .dim-body { padding: 4px 20px 18px; }
+  .dim-judgment { color: var(--text); font-size: 14.5px; }
+  .dim-judgment p { margin: 0 0 10px; }
+
+  .findings-list { padding: 0 20px 4px; }
+  article.finding {
+    padding: 14px 0;
+    border-top: 1px solid var(--border);
+  }
+  article.finding:first-child { border-top: none; }
+  article.finding header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .badge {
+    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+  }
+  .badge-sev-low { background: rgba(100, 116, 139, 0.12); color: var(--sev-low); }
+  .badge-sev-medium { background: rgba(202, 138, 4, 0.14); color: var(--sev-medium); }
+  .badge-sev-high { background: rgba(234, 88, 12, 0.14); color: var(--sev-high); }
+  .badge-sev-critical { background: rgba(220, 38, 38, 0.14); color: var(--sev-critical); }
+  .finding-title { margin: 0; font-size: 15px; font-weight: 500; flex: 1; min-width: 200px; }
+  .finding-location { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--muted); }
+  .finding-note, .finding-fix { margin-top: 6px; font-size: 14px; }
+  .finding-fix strong { color: var(--muted); font-weight: 500; }
+  .finding-note ul, .finding-fix ul { margin: 4px 0 0; padding-left: 20px; }
+  .finding-note li, .finding-fix li { margin-bottom: 2px; }
+
+  .reviewer-source {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  .mechanical {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-top: 24px;
+    font-size: 14px;
+  }
+  .mechanical h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .mechanical ul { margin: 0; padding-left: 20px; }
+  .mechanical li { margin-bottom: 4px; color: var(--text); }
+  .mechanical p { margin: 0 0 10px; }
+
+  footer.report-footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  footer .meta { display: flex; gap: 24px; flex-wrap: wrap; }
+
+  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.88em; background: #f5f5f4; padding: 0 3px; border-radius: 3px; }
+  .finding-id { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--muted); margin-right: 4px; }
+  .finding-sources { margin-top: 6px; }
+  .sev-counts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .reviewer-section .verified { margin: 0; padding-left: 20px; font-size: 14px; }
+  .reviewer-section .verified li { margin-bottom: 4px; }
+  .badge-status-fixed { background: rgba(22, 163, 74, 0.12); color: var(--verdict-strong); }
+  .badge-status-decision { background: rgba(101, 163, 13, 0.14); color: var(--verdict-adequate); }
+  .badge-status-partial { background: rgba(217, 119, 6, 0.14); color: var(--verdict-thin); }
+  .badge-status-deferred { background: rgba(100, 116, 139, 0.12); color: var(--sev-low); }
+  .badge-status-unconfirmed { background: rgba(220, 38, 38, 0.14); color: var(--sev-critical); }
+  .table-wrap { overflow-x: auto; }
+  .status-table { border-collapse: collapse; margin: 6px 0 10px; font-size: 14px; width: 100%; }
+  .status-table th, .status-table td { text-align: left; padding: 6px 14px 6px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .status-table th { color: var(--muted); font-weight: 500; }
+  .status-table td:first-child { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; white-space: nowrap; }
+  .status-table .badge { white-space: nowrap; }
+  .closure h2, .trim h2 { margin: 0 0 8px; font-size: 16px; font-weight: 600; letter-spacing: -0.005em; }
+  .trim { border-left-color: var(--verdict-adequate); }
+</style>
+</head>
+<body>
+  <div class="container">
+
+    <header class="report-header">
+      <div class="title">
+        <h1>Validation Report, round 2 — beergame (ØL-spillet)</h1>
+        <div class="subtitle">.docs/planning-artifacts/ux-designs/ux-beergame-2026-11-05/ · DESIGN.md + EXPERIENCE.md · run 2026-11-10 · round 1: <a href="validation-report.html">validation-report.html</a></div>
+      </div>
+    </header>
+
+    <div class="synthesis">
+      <p>The fix pass did its job. All 17 round-1 critical and high findings are closed, and each fix lives in a named place in the spines rather than in a promise: the week table has a real 320 px and 200 % text contract, the drawing item has a value table and keyboard sliders, the Ordrefelt has its full error, submit, timeout and offline story, focus and interaction states are tokenised, and the Terms table maps PRD nouns to UI strings. All 41 component names match across both files, every token reference resolves and every stated contrast ratio recomputes. <strong>Architecture can start now</strong>, and so can story work for every Student surface and for Faglærer setup. Three areas need one more short pass before their stories: <strong>Faglærer live intervention</strong> (manual Takeover, starting games, the «in the room» limit and completion corrections have no control, and «Pause spillet» has a button but no behaviour), <strong>Lærers testspill</strong> (no states, no statement of what it reuses), and <strong>the plausibility question</strong> (FR-70 has no surface). Separately, the Mockup deviations table no longer lists every deviation, and the fix pass introduced a few ambiguities of its own.</p>
+      <p>The accessibility review confirms that picture and sharpens it in one direction. <strong>The colours are verified:</strong> every ratio the spine states recomputes, the focus ring reads on every background including the <code>ink</code> fills and the dark matrix steps, text on tints has a full allowed/forbidden table, and the new Posisjon line is told apart from Netto lager by four cues besides colour. <strong>There are no critical findings</strong>, and 14 of the 15 round-1 items with an accessibility angle are closed; H11 (chart alternatives) is only partly closed. But there are <strong>3 new high findings</strong>, and all three come from the states and rules the fixes added: the submit-failed, timed-out and offline states of the irreversible order are not announced and focus during submit is undefined; the Pause rule lets a peer shrink a Student's 24 h window to minutes; and the 320 px commitment covers Student surfaces only, although NFR-6 also covers Faglærer screens. Two of those three overlap rubric findings and are merged here at high. The reviewer's verdict: fit for architecture, not yet ready for an unqualified WCAG 2.1 AA claim, so fix the highs before story work.</p>
+      <p class="sev-counts">After merging duplicates across the two reviewers:
+        <span class="badge badge-sev-critical">0 critical</span>
+        <span class="badge badge-sev-high">4 high</span>
+        <span class="badge badge-sev-medium">11 medium</span>
+        <span class="badge badge-sev-low">23 low</span>
+      </p>
+      <p>Four findings were reported by both reviewers and are counted once, at the higher severity: the Pause / Sett inn KI-spiller eligibility (R2-H2), the Student-only 320 px rule (R2-H3), charts with no listed alternative (R2-M5) and the «12 columns at 360 px» arithmetic (R2-L4). Two low findings re-report items already in <a href="https://github.com/IBE160-2026/beergame/issues/26">#26</a> that the reviewers chose to flag again (M11, M25).</p>
+    </div>
+
+    <div class="synthesis closure">
+      <h2>Closure of round-1 critical and high</h2>
+      <p>Both reviewers checked the round-1 findings against the spines as they stand now. The rubric walker checked all 17; the accessibility reviewer checked the 15 with an accessibility angle. They agree on every item except H11.</p>
+      <div class="table-wrap">
+      <table class="status-table">
+        <thead><tr><th scope="col">ID</th><th scope="col">Rubric verdict</th><th scope="col">A11y verdict</th><th scope="col">Note</th></tr></thead>
+        <tbody>
+          <tr><td>C1</td><td><span class="badge badge-status-fixed">closed</span></td><td><span class="badge badge-status-fixed">closed</span></td><td>Week table: one scroll region, sticky labels, column minimum, HTML <code>&lt;table&gt;</code>, tests at 320/360 × 100/200 %. Residue: column-count arithmetic (R2-L4), «Sveip» (R2-L15), label cap (R2-L19).</td></tr>
+          <tr><td>C2</td><td><span class="badge badge-status-fixed">closed</span></td><td><span class="badge badge-status-fixed">closed</span></td><td>Drawing item has a value table and keyboard sliders; the table alone answers. Residue: no minus key on phone keypads (R2-M4), slider details (R2-L23).</td></tr>
+          <tr><td>H1</td><td><span class="badge badge-status-fixed">closed</span></td><td>— (no a11y angle)</td><td>Every listed FR now has a row. The same class of gap remains for FRs round 1 did not list (R2-H1, R2-M1).</td></tr>
+          <tr><td>H2</td><td><span class="badge badge-status-fixed">closed</span></td><td><span class="badge badge-status-fixed">closed (structure)</span></td><td>Pausevalg and Sett inn KI-spiller exist. The eligibility and timing rule they introduce is new finding R2-H2.</td></tr>
+          <tr><td>H3</td><td><span class="badge badge-status-fixed">closed</span></td><td><span class="badge badge-status-fixed">closed</span></td><td>Focus ring and inset ring recompute on every background. Side effects: R2-L2, R2-L3, R2-M9, R2-M10, R2-L14.</td></tr>
+          <tr><td>H4</td><td><span class="badge badge-status-fixed">closed</span></td><td><span class="badge badge-status-fixed">closed</span></td><td>All ten components have a row on both sides under the same name. Residue: charts still without a row (R2-M5).</td></tr>
+          <tr><td>H5</td><td><span class="badge badge-status-fixed">closed</span></td><td><span class="badge badge-status-fixed">closed</span></td><td>Ordrefelt help line, error, Enter and failure states specified. The new failure states are not announced (R2-H4); help-line order (R2-L5).</td></tr>
+          <tr><td>H6</td><td><span class="badge badge-status-fixed">closed</span></td><td><span class="badge badge-status-fixed">closed</span></td><td>Tilkoblingslinje, global Offline / Reconnected / Page error, Oversikt «Connection lost or stale».</td></tr>
+          <tr><td>H7</td><td><span class="badge badge-status-fixed">closed</span></td><td><span class="badge badge-status-fixed">closed</span></td><td>Every named surface has states. Residue: Lærers testspill and plenum (R2-M6), smaller rows (R2-L7).</td></tr>
+          <tr><td>H8</td><td><span class="badge badge-status-decision">closed (founder decision)</span></td><td><span class="badge badge-status-decision">closed (superseded)</span></td><td>Posisjon shown in both rounds (memlog 2026-11-09). Residue: Kjedebånd label (R2-L9).</td></tr>
+          <tr><td>H9</td><td><span class="badge badge-status-fixed">closed</span></td><td>— (no a11y angle)</td><td>Terms table maps PRD terms to UI strings. Residue: its own rules not followed (R2-L13).</td></tr>
+          <tr><td>H10</td><td><span class="badge badge-status-fixed">closed</span></td><td><span class="badge badge-status-fixed">closed</span></td><td>Matrisevegg sign carried by number or «−» glyph plus signed legend. Nit: text-only zoom (R2-L18, already in #26 M25).</td></tr>
+          <tr><td>H11</td><td><span class="badge badge-status-fixed">closed</span></td><td><span class="badge badge-status-partial">partly closed</span></td><td><strong>Reviewers differ.</strong> Rubric: every chart round 1 named now has an alternative. A11y: the table claims to list every chart, but at least six are missing, including the Student-facing Replay-gjennomgang chart (R2-M5).</td></tr>
+          <tr><td>H12</td><td><span class="badge badge-status-fixed">closed</span></td><td><span class="badge badge-status-fixed">closed</span></td><td>Text on tints table; every ratio recomputes. The summary Do's table contradicts it (R2-M11).</td></tr>
+          <tr><td>H13</td><td><span class="badge badge-status-fixed">closed</span></td><td><span class="badge badge-status-fixed">closed</span></td><td><strong>Student surfaces only.</strong> Faglærer and Admin surfaces sit outside the 320 px commitment (R2-H3); Spillkort misclassified (R2-M3); two-group list incomplete (R2-L19).</td></tr>
+          <tr><td>H14</td><td><span class="badge badge-status-fixed">closed</span></td><td><span class="badge badge-status-fixed">closed</span></td><td>Oppdater automatisk: on by default, re-sort frozen while focus is inside, focus kept by game ID. Residue: does the Varselbånd freeze too (R2-L8).</td></tr>
+          <tr><td>H15</td><td><span class="badge badge-status-fixed">closed</span></td><td><span class="badge badge-status-fixed">closed</span></td><td>Ukeskrubber is a <code>role="slider"</code> with step buttons and a polite readout.</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p><strong>Tally.</strong> Rubric: 17 closed, 0 partly closed, 0 open, 0 regressed. Accessibility: 14 closed, 1 partly closed (H11), 0 open, 0 regressed; H1 and H9 not assessed.</p>
+    </div>
+
+    <div class="dimension-summary">
+      <div class="dim-card">
+        <div class="dim-name">Flow coverage</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Token completeness</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Component coverage</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">State coverage</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Visual reference coverage</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Bloat &amp; overspecification</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Inheritance discipline</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Shape fit</div>
+        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Accessibility (reviewer)</div>
+        <div class="dim-verdict" style="color: var(--verdict-thin)">Fit for architecture; fix 3 highs before stories</div>
+      </div>
+    </div>
+
+    <!-- 1. Flow coverage -->
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Flow coverage</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>UJ-1 to UJ-9 match the PRD headings verbatim, each with a named protagonist, numbered steps and a bold Climax. Failure or edge paths exist for UJ-1, 2, 4, 5, 6 and 8; UJ-3 and UJ-9 are still L1 in #26. Cross-checking FR-1 to FR-89 against every FR the spines cite leaves FR-70, FR-71 and FR-76 as the only uncited FRs with a user-facing surface. The real gap is Faglærer intervention inside FRs the spine already cites.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title"><span class="finding-id">R2-H1</span> In-scope Faglærer intervention actions have no control, state or flow</h3>
+              <span class="finding-location">rubric N-F1 · EXP Varselbånd L298; DESIGN L674; OQ5 L742</span>
+            </header>
+            <div class="finding-note">These actions sit inside FRs the spine cites, so their stories have no UX contract:
+              <ul>
+                <li><strong>FR-37:</strong> a Faglærer or Assistent triggers Takeover of any Seat at any time, and fills all absent Seats in one game or all games in one action (the PRD's example is the start of a Labtime). The Varselbånd announces «KI overtar om 1 t» but offers only «Send Melding» and «Pause spillet».</li>
+                <li><strong>FR-22:</strong> the Faglærer starts any Class game or all at once. The scheduling aid is listed as spine-only in OQ5 but has no specification. (The Student's «presses start» is already M9 in #26.)</li>
+                <li><strong>FR-36:</strong> marking a game «in the room» during a Labtime with a shorter Inactivity limit.</li>
+                <li><strong>FR-17:</strong> correcting a Student's Completion status with a reason, a make-up solo game, per-Student adjustments of the limit and share, and «message those who have not met the requirement» in one action. The per-Student timing adjustment also carries the accessibility angle in R2-H2.</li>
+              </ul>
+            </div>
+            <div class="finding-fix"><strong>Fix:</strong> Add rows to Oversikt / Spillinnsikt / Studentside, for example a Faglærer variant of Sett inn KI-spiller («Sett inn KI-spiller i alle ledige seter»). Alternatively, list each one in OQ5 as "spine-only, no layout yet" with the surface that owns it.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §1 Flow coverage N-F1 (high)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title"><span class="finding-id">R2-H2</span> Sett inn KI-spiller and Pause: the eligibility rule conflicts with how a Pause ends, and lets a peer shrink a Student's 24 h window to minutes</h3>
+              <span class="finding-location">rubric N-F3 · a11y N-H2 · EXP Pausevalg L233–242, Sett inn KI-spiller L229, L244–252, L390; UJ-4 L669; Terms; PRD FR-17, FR-36, FR-89</span>
+              <span class="badge badge-status-deferred">Student warning already in #26 (L18)</span>
+            </header>
+            <div class="finding-note"><strong>Eligibility (rubric).</strong> The Sett inn KI-spiller row acts "during a Pause" (L229), but any Student ends the Pause by ordering (L241, L390; FR-89), and Setestatus, which hosts the button, appears on Spill only after the Student has confirmed an order (L227). So in UJ-4's failure path, Sara's own order has ended the Pause before she can see «Sett inn KI-spiller for Jonas». The «Shown» rule (L248) does not require a running Pause, so the two rows disagree, and nothing says whether the right survives the Pause or how it interacts with the automatic Takeover clock. Introduced by the H2 fix.</div>
+            <div class="finding-note"><strong>Timing (accessibility, WCAG 2.2.1).</strong> Round 1 passed timing only through the 20-hour exception, which these rules remove. Sara sets «Ta pause til» 15 minutes from now; Jonas, who has extra-time rights and has not ordered, is offline; at the agreed time Sara inserts a KI-spiller and Jonas's 24 h window has shrunk to 15 minutes without his agreement or warning. Separately, a Faglærer who lowers the Inactivity limit to 6 h (FR-36; SM-C5 expects it to be lowered) ends the 20-hour exception for every Student. FR-17's per-Student adjustment of the Inactivity limit, share and timed sitting has no screen, so it will not be built.</div>
+            <div class="finding-fix"><strong>Fix:</strong>
+              <ul>
+                <li>Drop "during a Pause". The KI-spiller can be inserted only after the <em>later</em> of the agreed time and the Seat's own Inactivity limit (including any per-Student adjustment); once that has passed, the right lasts until the absent Seat orders or automatic Takeover happens, whether or not the Pause has ended.</li>
+                <li>The agreed time cannot be earlier than the Inactivity limit from the moment the Pause is set, unless every Seat has seen it.</li>
+                <li>Add a Studentside block «Tilrettelegging» (spine-only): per-Student Inactivity limit, share and timed sitting, with the audit note.</li>
+                <li>In the Klasseøkt, give the Inactivity-limit setting a floor of 20 h, or require a «KI-spiller tar setet ditt om N t» warning with a one-press «Gi meg mer tid» extension.</li>
+              </ul>
+            </div>
+            <div class="reviewer-source finding-sources">Sources: rubric §1 Flow coverage N-F3 (medium) · accessibility N-H2 (high). Merged at high.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title"><span class="finding-id">R2-M1</span> Three in-scope FRs with a UI have no surface: FR-70, FR-71, FR-76</h3>
+              <span class="finding-location">rubric N-F2 · EXP IA L95–125; State Patterns; OQ5</span>
+            </header>
+            <div class="finding-note">FR-70 is the optional five-point «how believable were the KI-spillere» question after the Replay and after any Class game with AI players; it is Student-facing. FR-76 is Admin deletion on request, and FR-71 the Admin's pseudonymised export. None is in the IA, State Patterns or OQ5.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add an IA row and one state row each, or list them as spine-only in OQ5.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §1 Flow coverage N-F2 (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L1</span> Three journey steps name actions that have no control or state</h3>
+              <span class="finding-location">rubric N-F4 · EXP UJ-8 L721–722; UJ-9 L734</span>
+            </header>
+            <div class="finding-note">UJ-8 step 3 turns on the Veiledende bokstav (FR-56); UJ-8 step 4 says "the AI section is left out unless Sara adds it"; UJ-9 step 4 creates next year's Klasseøkt from this one (FR-66). No IA row says where «Ny Klasseøkt fra denne» lives.</div>
+            <div class="finding-fix"><strong>Fix:</strong> One Component Patterns or State Patterns line each: a Bryter in KI-vurdering, a Bryter in the report download, a Lenke on Klasseøkt.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §1 Flow coverage N-F4 (low)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+
+    <!-- 2. Token completeness -->
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Token completeness</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>27 colours (all hex), 19 typography roles, 4 radii, 16 spacing tokens and 44 component objects. 232 <code>{…}</code> references in DESIGN (55 distinct) and 9 in EXPERIENCE (8 distinct), none unresolved. Every stated contrast ratio recomputes, including the focus ring on every background, the inset ring at ≥ 4.51 / ≥ 5.14 and the Posisjon line. The remaining open non-text cases are M2 and M3 in #26. What is left is small internal inconsistency.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L2</span> The error border width disagrees with itself</h3>
+              <span class="finding-location">rubric N-T1 · DESIGN L197, L213, L587</span>
+            </header>
+            <div class="finding-note"><code>text-field.border-error</code> is <code>1px {colors.restordre}</code>, while the Interaction states table gives every outlined control a «1.4 px <code>restordre</code> border plus reason text», and <code>order-input</code> uses 1.4 px.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Set <code>text-field.border-error</code> to 1.4 px, or except text fields in the table.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §2 Token completeness N-T1 (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L3</span> Text buttons have no state column</h3>
+              <span class="finding-location">rubric N-T2 · DESIGN L580–587, L599, L663, L673</span>
+            </header>
+            <div class="finding-note">The Interaction states table covers Filled, Outlined and <code>link</code>. Flagg «Marker som feil» / «Angre», the Veggfiltre text buttons and the borderless Totalkostnad button are text buttons whose hover, pressed and disabled looks are left to inference.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add "text buttons follow <code>link</code>, in <code>ink</code>", or a fourth column.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §2 Token completeness N-T2 (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L4</span> «12 columns at 360 px» does not follow from the column rule</h3>
+              <span class="finding-location">rubric N-T3 · a11y N-L2 · DESIGN L547–548; EXP L137 (Responsive, FR-23)</span>
+            </header>
+            <div class="finding-note">A column is the larger of 1.6 em and the widest number plus 0.25 em. In tabular Source Sans 3, «−13» makes a column about 1.75 em (22.8 px), so (360 − 32 − 76) / 22.8 ≈ 11 columns at 360 px and about 9 at 320 px, not 12 and 10. A three-digit Posisjon has the same effect. Nothing breaks, because the region scrolls and keeps nå in view, so there is no WCAG failure. But «12 columns at 360 px and 100 % text» is the basis of the FR-23 claim, of PRODUCT's «all Seat data … visible on a 360 px wide screen without horizontal scroll», and of the Spillkort window (R2-M3), so the product commitment is wrong as written.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Say "up to 12": "12 columns when every number is two characters or fewer; otherwise the earliest past Uke scrolls out", and state the expected count with «−13» in the window. Alternatively, lower <code>week-col-min</code> to fit 1.75 em.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §2 Token completeness N-T3 (low) · accessibility N-L2 (low)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+
+    <!-- 3. Component coverage -->
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Component coverage</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>DESIGN Components and EXP Component Patterns list the same 41 components under identical Norwegian names, in the same seven groups and order, and every DESIGN row carries its token key. Each long-rule component has its own EXP subsection. The new findings sit in components the fix pass added or touched: «Pause spillet» has no behaviour, Spillkort cannot reflow as classified, and the Interaktiv oppgave cells cannot take a minus sign on a phone.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title"><span class="finding-id">R2-M2</span> «Pause spillet» (the Faglærer pause, issue #25) is a button with no behaviour</h3>
+              <span class="finding-location">rubric N-C1 · EXP Varselbånd L298; DESIGN L674; OQ5</span>
+            </header>
+            <div class="finding-note">The Varselbånd row places it, and OQ5 lists it as undrawn. Nothing states whether it opens the Pausevalg form (with or without an agreed time), whether a Student's order ends it as with FR-89, whether it stops the «KI overtar om 1 t» countdown in the band, or whether it is audit-logged. The Student-facing copy is M9 in #26; the Faglærer-side behaviour is not.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a row under Faglærer, or a «Faglærer» column in the Pausevalg subsection.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §3 Component coverage N-C1 (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title"><span class="finding-id">R2-M3</span> Spillkort is on the must-reflow list but holds a 12-column table</h3>
+              <span class="finding-location">rubric N-C2 · DESIGN L533, L646; EXP L230</span>
+            </header>
+            <div class="finding-note">Spillkort is on the "must reflow to 320 px, no horizontal scroll" list, yet holds "a mini <code>net-graph</code> over a <code>week-table</code> … in the same 12-column window". At the 13 px floor and 1.6 em columns, 12 columns need about 250 px plus the 76 px label column. That does not fit in a bordered card at 320 px and fits at 360 px only with zero padding (see R2-L4). The table is real text; only the graph is <code>aria-hidden</code>.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Give the card its own window (for example nå − 3 … nå + 4), or move Spillkort to the two-dimensional list.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §3 Component coverage N-C2 (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title"><span class="finding-id">R2-M4</span> Interaktiv oppgave cells take negative numbers, but the reused keypad pattern has no minus key</h3>
+              <span class="finding-location">rubric N-C4 · EXP L202, L287</span>
+            </header>
+            <div class="finding-note">The cells take "whole numbers, with a leading minus where the quantity can be negative, and use the Ordrefelt error pattern". The Ordrefelt pattern is <code>inputmode="numeric" pattern="[0-9]*"</code>. Phone numeric keypads, iOS in particular, have no minus key, and the pattern rejects «−». A phone Student cannot type a negative stock in a deadline-bound test item. Introduced by the C2 fix.</div>
+            <div class="finding-fix"><strong>Fix:</strong> For signed cells use <code>inputmode="text"</code> (or <code>decimal</code> plus a ± segment) and the pattern <code>-?[0-9]+</code>; accept both U+2212 and U+002D; say so in the Interaktiv oppgave subsection.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §3 Component coverage N-C4 (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title"><span class="finding-id">R2-M5</span> At least six charts have no component row or listed alternative, although the table says it lists every chart</h3>
+              <span class="finding-location">rubric N-C3 · a11y N-M3 · EXP Accessibility Floor → Charts L497–519; L508, L510, L570, L592, L684; DESIGN L541; UJ-3 step 2</span>
+            </header>
+            <div class="finding-note">The chart alternatives table says every chart's alternative is "listed here". Missing:
+              <ul>
+                <li>The Replay-gjennomgang chart «Klassespill and Replay on one axis» (UJ-5 step 8). Student-facing and a required step; its pending state is "a Skjelett of the chart".</li>
+                <li>Delt skjerm «Netto lager per Rolle» and its chain view (only «Kostnad, kr» per Role is listed).</li>
+                <li>The Oversikt class median graph over the matrix wall.</li>
+                <li>«Kjedekost per uke, snitt per spill» / «Snitt per ferdig spill, per Rolle».</li>
+                <li>«Alle spill side om side» for Students (FR-86) and the landing's «Alle spillene på én skjerm».</li>
+                <li>Debrief step 4 «Dette kostet det senere» and «Dette så de andre i Uke 11», if they are charts; the spine does not say.</li>
+              </ul>
+              The rubric also notes component rows missing for the Debrief step 1 strip «Ditt netto lager, hele spillet» and Klasseøkt «Kjeden ved start». <strong>Accessibility failure (WCAG 1.1.1, NFR-6):</strong> a screen-reader Student reaches the Replay-gjennomgang, the required step after the Replay, and gets only the AI text, or nothing when the LLM is down.</div>
+            <div class="finding-fix"><strong>Fix:</strong>
+              <ul>
+                <li>State the reuse in one line each, for example "Kjeden ved start = Kjedebånd, four Roles".</li>
+                <li>Add rows: Replay-gjennomgang «Vis som tabell» (Uke, Klassespill netto lager, Replay netto lager, kost); Delt skjerm Netto lager → the Debrief Rolle × Uke table; Oversikt median → the «Median, Fabrikk» and «Kjedekost/uke, snitt» wall rows in the table view; Alle spill side om side / landing → the same table offer as the Matrisevegg.</li>
+                <li>Add a catch-all: "A chart not in this table is a spec error."</li>
+              </ul>
+            </div>
+            <div class="reviewer-source finding-sources">Sources: rubric §3 Component coverage N-C3 (low) · accessibility N-M3 (medium). Merged at medium.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L5</span> «Sist Uke bestilte du 8.» has no defined position</h3>
+              <span class="finding-location">rubric N-C5 · EXP L203; DESIGN Ordrefelt L619–624; 06 A</span>
+            </header>
+            <div class="finding-note">It is part of the Ordrefelt Empty state but has no place in DESIGN Ordrefelt. <code>06</code> A draws it as a caption under the field, exactly where the spine now puts the always-shown help line «Hele tall fra 0 til {maks}.».</div>
+            <div class="finding-fix"><strong>Fix:</strong> State the order of the two lines, or drop one.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §3 Component coverage N-C5 (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L6</span> Pausevalg's placement collides with two rules</h3>
+              <span class="finding-location">rubric N-C6 · EXP L217, L227, L237</span>
+              <span class="badge badge-status-deferred">extends #26 (M5)</span>
+            </header>
+            <div class="finding-note">The trigger sits under Setestatus, which shows on Spill only after confirming, so a Student who has not ordered can pause only from Hjem. On Hjem, the open form's primary «Ta pause til to. 19:00» sits beside Spillkort's primary «Gå til Uke 11», against "one primary button per screen".</div>
+            <div class="finding-fix"><strong>Fix:</strong> Say where «Ta pause» sits before ordering, and demote one of the two buttons while the form is open.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §3 Component coverage N-C6 (low)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+
+    <!-- 4. State coverage -->
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>State coverage</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>All 31 IA rows were walked against State Patterns. Global rows now exist for Loading, Offline, Reconnected, Page error, Action error, Permission denied, Session expired and Not found; Spill alone has 21 states including the full submit, failure, timeout and offline set; every spine-only surface added by the H1 fix has at least one state. The Hjem gaps and «Class game not started» remain M9 in #26. Two Faglærer surfaces still have no states. The accessibility angle on the new order states (they are not announced) is R2-H4 under the accessibility review.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title"><span class="finding-id">R2-M6</span> Lærers testspill and the Faglærer side of Alle spill i plenum have no states</h3>
+              <span class="finding-location">rubric N-S1 · EXP IA L123; L609; FR-86, FR-87</span>
+            </header>
+            <div class="finding-note">Lærers testspill (FR-87) appears only inside a bundled IA row. There is no state, no flow and no statement of which screen it reuses: presumably the Student Spill with three KI-spillere and chosen Spillinnstillinger, labelled «Testspill» rather than Demodata. Nothing says how it starts or ends, or that it never reaches reports. Alle spill i plenum (FR-86, Faglærer side) has no state for before the Spillfrist or with games unfinished.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Give Lærers testspill its own IA row with "reuses Spill; label «Testspill»; never in reports" and Not started / In progress / Finished rows. Add a «Spillfristen er ikke passert» row for plenum.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §4 State coverage N-S1 (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L7</span> Smaller missing states</h3>
+              <span class="finding-location">rubric N-S2 · EXP L363, L441</span>
+            </header>
+            <div class="finding-note">The Studentrapport download before the Testfrist (available only after the deadline, yet Mine data puts «Last ned Studentrapport» at the top); «Legg til Faglærer» with an e-mail that has no account; Mine data when a category is empty.</div>
+            <div class="finding-fix"><strong>Fix:</strong> One row each.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §4 State coverage N-S2 (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L8</span> Oppdater automatisk «Off» does not say whether the Varselbånd freezes</h3>
+              <span class="finding-location">rubric N-S3 · EXP L321, L323; UJ-7 climax</span>
+            </header>
+            <div class="finding-note">«Off» says "the wall, the table, the rail and the headline counts stop changing". The Varselbånd is the near-Takeover warning the Faglærer is there to act on. The «Announced» row implies it keeps updating, but the Off rule does not say.</div>
+            <div class="finding-fix"><strong>Fix:</strong> State that the Varselbånd always stays live and is announced even when updates are off.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §4 State coverage N-S3 (low)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+
+    <!-- 5. Visual reference coverage -->
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Visual reference coverage</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>All ten PNGs are cited, with panels named where it matters. The spines-win rule is stated once, and the Posisjon supersession row checks out against the SVG text of <code>05</code>, <code>09</code> and <code>10</code>. The SVGs are still unmentioned (M10 in #26). The problem is that the Mockup deviations table claims completeness it no longer has.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title"><span class="finding-id">R2-M7</span> The Mockup deviations table claims to list every deviation, but misses the accessibility fixes; two would ship failing contrast</h3>
+              <span class="finding-location">rubric N-V1 · DESIGN L429; 05, 06, 07, 08 (SVG source)</span>
+            </header>
+            <div class="finding-note">Checked against the SVG source:
+              <ul>
+                <li><code>07</code> step 2: «Kundenes etterspørsel: 8» is drawn in <code>lager</code> (#2B6CA3); the spine says <code>ink</code> 600. <code>lager</code> on <code>lager-fill</code> is 4.07:1, a fail.</li>
+                <li><code>08</code>: the «Melding» links in the near-Takeover row are <code>lager</code> at 10 px; the spine says <code>ink</code> underlined. <code>lager</code> on <code>restordre-fill</code> is 4.01:1, a fail.</li>
+                <li><code>08</code>: the wall has no signed legend, no «−» glyphs, no «Oppdater automatisk» switch and no plenum caption.</li>
+                <li><code>05</code> / <code>06</code>: no Ordrefelt help line; in <code>06</code> A the empty «Bekreft ordre» is drawn enabled, where the spine requires the disabled state.</li>
+                <li><code>07</code>: the Ukeskrubber has no − / + step buttons, and its track is in <code>axis</code>.</li>
+                <li>No sheet has the week-table scrollbar or «Sveip for tidligere uker».</li>
+                <li>The Demodata header note lives in EXP L613 instead of the table.</li>
+              </ul>
+            </div>
+            <div class="finding-fix"><strong>Fix:</strong> Add the rows, or one blanket row: "Round-1 accessibility fixes (focus ring, Ordrefelt help and disabled state, Matrisevegg legend, glyphs and switch, text on tints, Ukeskrubber step buttons, scroll affordance) are undrawn; the spine wins". Move the Demodata note into the table.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §5 Visual reference coverage N-V1 (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L9</span> The Kjedebånd itself is silent on a Posisjon label</h3>
+              <span class="finding-location">rubric N-V2 · DESIGN L440, L600–609; EXP L177, L536; 10</span>
+            </header>
+            <div class="finding-note">The deviation row says the «Posisjon 24 / 3 / 42 / 37» labels in <code>10</code> "no longer conflict". In <code>10</code> they sit in a left annotation column, but the Kjedebånd anatomy, behaviour row and screen-reader text have no Posisjon label. A builder could read the row as licence to add one.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add "the Kjedebånd carries no Posisjon label; Posisjon lives in the graph and the table".</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §5 Visual reference coverage N-V2 (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L10</span> Debrief content in <code>07</code> still asks the Student to compute a Posisjon the table now prints</h3>
+              <span class="finding-location">rubric N-V3 · EXP UJ-5 step 6 L682; L590; OQ8 L745</span>
+            </header>
+            <div class="finding-note">The quiz item «Uke 11: lager 0, restordre 13, 16 på vei. Hva er posisjonen før du bestiller?» and step 4's «Dette regnet du» ask about a number the Student's own table printed every Uke. Not a contradiction, but OQ8 tracks only the oscillation risk.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add to OQ8 that this quiz item and «Dette regnet du» need a re-check if Posisjon stays visible.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §5 Visual reference coverage N-V3 (low)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+
+    <!-- 6. Bloat -->
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Bloat &amp; overspecification</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Both files roughly doubled in size, and most of the growth is load-bearing for downstream consumers: the Terms table, per-section State Patterns, the chart alternatives table, the Text on tints table and the eight subsections. Brand voice stays inside Brand &amp; Style. The risk is drift between repeated statements.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L11</span> The cost-picture and Posisjon duplication got worse</h3>
+              <span class="finding-location">rubric N-B1 · DESIGN L527, L611, L625, L629; EXP L60, L180, L181, L191, L503, L551, L567</span>
+              <span class="badge badge-status-deferred">already in #26 (M11)</span>
+            </header>
+            <div class="finding-note">The cost-table alternative («Sum, kr» on phone, «Vis som tabell» on laptop) is stated in six places, and Posisjon's definition in six. They agree today but will drift. Re-reported because it got worse.</div>
+            <div class="finding-fix"><strong>Fix:</strong> As M11, plus keep each formula in the Terms table and point to it.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §6 Bloat N-B1 (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L12</span> DESIGN now carries behaviour and copy that EXPERIENCE also owns</h3>
+              <span class="finding-location">rubric N-B2 · DESIGN L622, L644, L671, L675</span>
+            </header>
+            <div class="finding-note">Pausevalg «Choosing it opens, in place, a date and time field …»; Oppdater automatisk's Off line and «Oppdater»; the Ordrefelt error copy; the Meldingsskjema button rules.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Keep anatomy and tokens in DESIGN, and point to EXP for copy and triggers.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §6 Bloat N-B2 (low)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+
+    <!-- 7. Inheritance discipline -->
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Inheritance discipline</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>All 13 sources resolve in identical lists, all nine UJ headings are verbatim, the Terms table maps PRD §3 nouns, and the founder overrides (ØL-spillet, the Faglærer pause, Posisjon in both rounds, light theme only) are handled consistently. No text still describes Posisjon as hidden. The gaps are a reflow commitment narrower than NFR-6 and a missing pointer to the open findings in #26.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title"><span class="finding-id">R2-H3</span> The 320 px reflow commitment covers only Student surfaces, although NFR-6 covers Faglærer screens too</h3>
+              <span class="finding-location">rubric N-I1 · a11y N-H3 · DESIGN Layout &amp; Spacing → Widths L529; EXP Responsive &amp; Platform, Accessibility Floor → Reflow L496, L541; PRODUCT.md NFR-6</span>
+            </header>
+            <div class="finding-note">DESIGN says "every Student surface works there", and EXP says "every Student flow". Responsive gives the Faglærer laptop only a 1440 design canvas and "usable on a tablet". WCAG 1.4.10 (320 CSS px, that is 1280 px at 400 %) and 1.4.4 also apply to Lag Klasse, Klasseøkt with its Datolinje, Spørsmål og vekter, the Oversikt right rail, Meldingsskjema and Admin. <strong>Failure scenario (accessibility):</strong> a low-vision Faglærer zooms the laptop to 400 % to read the Varselbånd and the right rail («Venter ellers», «Klassens kostnad», «Trakt»). A build that follows the spine can scroll in two dimensions on every Faglærer form, and the Varselbånd's «Send Melding» and «Pause spillet» can end up off-screen to the right. Only the Matrisevegg has a defined fallback.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Extend <code>{spacing.reflow-min}</code> to every Faglærer and Admin surface, and add a Faglærer column to the two-group table:
+              <ul>
+                <li>Must reflow: forms, Varselbånd, right rail, Meldingsskjema, Eksport, Admin lists.</li>
+                <li>Two-dimensional exception: Matrisevegg, Datolinje, Fordelingsforhåndsvisning, the Debrief and Spillinnsikt Rolle × Uke tables.</li>
+                <li>At 320 px the right rail stacks under the wall and the Varselbånd actions wrap under its text.</li>
+              </ul>
+            </div>
+            <div class="reviewer-source finding-sources">Sources: rubric §7 Inheritance discipline N-I1 (medium) · accessibility N-H3 (high). Merged at high.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title"><span class="finding-id">R2-M8</span> Both spines are final, but neither points to the 46 open findings in issue #26</h3>
+              <span class="finding-location">rubric N-I2 · DESIGN, EXP Open Questions</span>
+            </header>
+            <div class="finding-note">Open items include two primary buttons on Klasseøkt (M5), fixture values that read as rules (M12), undefined P1–P8 and stance codes (M15) and the Debrief auto-advance (M17). A story author building from the spine alone cannot see them.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add one Open Question: «Known open validation findings: issue #26 (see <code>validation-report.md</code>)».</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §7 Inheritance discipline N-I2 (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L13</span> The Terms table's own rules are not followed</h3>
+              <span class="finding-location">rubric N-I3 · EXP L54, L124, L238, L545, L600</span>
+            </header>
+            <div class="finding-note">It says spine prose keeps «Class game», but prose uses «Klassespill» throughout (19 lines; «Class game» appears 4 times). «Setene» is given as the plural of Sete but is the definite plural; the copy uses «seter». «KI-kostnad» (IA L124, FR-69) is missing.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Change the rule to "prose uses the UI string except Seat, Takeover and Reclaim", correct the plural, and add KI-kostnad.</div>
+            <div class="reviewer-source finding-sources">Sources: rubric §7 Inheritance discipline N-I3 (low)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+
+    <!-- 8. Shape fit -->
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Shape fit</h2>
+          <span class="verdict-pill verdict-strong">strong</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>DESIGN runs in canonical order, with the Mockup deviations table in the preamble as a cross-cutting rule. EXPERIENCE has all eight required sections plus Responsive &amp; Platform, and every invented section is load-bearing: Hidden information and help level, Cost picture, Chain direction convention, Debrief sequence, AI disclosure, Demo/synthetic data labelling and Open Questions. Splitting Component and State Patterns into the DESIGN groups makes extraction cleaner than in round 1.</p>
+            <p>No new findings. Inspiration &amp; Anti-patterns is still folded into Foundation (L12 in #26), and EXPERIENCE frontmatter still lacks <code>name</code> (L13 in #26, partly closed).</p>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- Accessibility reviewer -->
+    <section class="reviewer-section">
+      <details>
+        <summary>
+          <h2>Accessibility review</h2>
+          <span class="reviewer-source">review-accessibility-2.md</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p><strong>The round-1 blockers are fixed. The pair is fit for architecture work. It is not yet ready for an unqualified WCAG 2.1 AA claim: fix the three new high findings before story work.</strong></p>
+            <p>The week-table reflow rule is concrete and testable. The drawing item has a value table and keyboard sliders. The focus ring is specified on every background. Text on tints has a full allowed/forbidden table. The matrix wall carries sign in a glyph. The Oversikt can be paused. The Ukeskrubber is a real slider. Every ratio the spine states recomputes.</p>
+            <p>The new problems come from the states and rules the fixes added. The submit-failed, timed-out and offline states of the only irreversible action are silent. The new Pause rule lets a peer shorten a Student's 24 h window to minutes, and FR-17's per-Student timing accommodation has no surface. The 320 px commitment stops at Student surfaces although NFR-6 covers Faglærer screens. The shared disabled state and the summary Do's table also contradict other rules.</p>
+            <p>As filed: closure 14 closed · 1 partly closed (H11) · 0 open · 0 regressed; new findings 0 critical · 3 high · 4 medium · 10 low (plus N-L6, which re-reports #26 M25). Ratios were computed from the DESIGN.md frontmatter hex values with the WCAG 2.x relative-luminance formula. Four of its findings duplicate rubric findings; they appear here as pointers and are counted once, under the rubric category.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title"><span class="finding-id">R2-H4</span> The new failure states of the irreversible order are silent to screen readers, and focus is undefined during submit</h3>
+              <span class="finding-location">a11y N-H1 · EXP State Patterns → Student game (Submitting, Submit failed, Timed out, Offline); All surfaces (Action error, Session expired); Accessibility Floor → Live announcements, Focus and order</span>
+              <span class="badge badge-status-deferred">extends #26 (M16)</span>
+            </header>
+            <div class="finding-note"><strong>WCAG 4.1.3, 3.3.1, 2.4.3.</strong> A screen-reader Student presses «Bekreft ordre på 24». The button becomes «Sender ordre på 24 …» and "is disabled"; if that is the native <code>disabled</code> attribute, focus falls to <code>&lt;body&gt;</code>. The request fails and «Ordren ble ikke sendt. Ingenting er bestilt ennå.» appears, but no rule says it is announced or where focus goes, and the relabel to «Prøv å sende 24 igjen» is not reliably announced on a button that lost focus. The Student hears nothing, assumes the order went, and leaves. The group waits; after the Inactivity limit the Seat is taken over, and that Uke counts as not ordered toward the obligatory requirement (FR-17). «Vi vet ikke om ordren kom fram. Sjekker …», «Ordren på 24 er ikke sendt.», «Det ble ikke lagret. Prøv igjen.», «Setet ble tatt av en annen. Velg et annet.» and «Sara har allerede satt inn en KI-spiller.» have the same gap.</div>
+            <div class="finding-fix"><strong>Fix:</strong>
+              <ul>
+                <li>Add to Live announcements: Submit failed <code>role="alert"</code>; Timed out polite, then alert on failure; Offline with a typed order polite; Action error <code>role="alert"</code> on the inline message; Seat taken and double insert polite.</li>
+                <li>During Submitting the button keeps focus with <code>aria-disabled="true"</code> (optionally <code>aria-busy</code>), never the native <code>disabled</code>.</li>
+                <li>On failure, focus stays on the retry button. On success, focus moves to the waiting message as now.</li>
+              </ul>
+            </div>
+            <div class="reviewer-source finding-sources">Sources: accessibility N-H1 (high)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title"><span class="finding-id">R2-H2</span> Timing: a peer can shorten a Student's window to minutes, the Inactivity limit can go below 20 h, and FR-17's timing accommodation has no surface</h3>
+              <span class="finding-location">a11y N-H2 · EXP Pausevalg; Sett inn KI-spiller → Shown; Terms; PRD FR-17, FR-36</span>
+            </header>
+            <div class="finding-note">Merged with the rubric's Flow coverage finding N-F3 and counted once as R2-H2. The reviewer's failure scenario, WCAG 2.2.1 reference and fix are kept there in full.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title"><span class="finding-id">R2-H3</span> Faglærer surfaces have no reflow or zoom commitment, although NFR-6 covers them</h3>
+              <span class="finding-location">a11y N-H3 · DESIGN Layout &amp; Spacing → Widths; EXP Responsive &amp; Platform, Accessibility Floor → Reflow</span>
+            </header>
+            <div class="finding-note">Merged with the rubric's Inheritance discipline finding N-I1 and counted once as R2-H3. The reviewer's failure scenario, WCAG 1.4.10 / 1.4.4 references and fix are kept there in full.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title"><span class="finding-id">R2-M9</span> The shared disabled state erases the chosen option on locked settings</h3>
+              <span class="finding-location">a11y N-M1 · DESIGN Interaction states (Disabled row); EXP Valgknapper, Bryter, Klasseøkt «After Start date», Innsatsnivå</span>
+            </header>
+            <div class="finding-note"><strong>WCAG 1.3.1, 4.1.2.</strong> The filled column of the Disabled row (active segment, <code>switch</code> on) is "<code>future-tint</code> fill, 1 px <code>axis</code> border, <code>ink-muted</code> label", the same as the outlined column. After the Start date a Faglærer opens the Klasseøkt to check whether «Gruppedebrief» or «LLM-spillere» was chosen. Every segment renders identically and the switch "on" looks like "off". The chosen value exists only for assistive technology; sighted users, including Assistenter checking settings, cannot see it.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a «Låst» (read-only) state distinct from Disabled: the active segment keeps the <code>ink</code> 1.4 px border and <code>ink</code> label on <code>future-tint</code> plus a text mark («valgt»); inactive segments use an <code>ink-muted</code> label; the switch shows its state word; a line under the group reads «Låst fra startdatoen.»</div>
+            <div class="reviewer-source finding-sources">Sources: accessibility N-M1 (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title"><span class="finding-id">R2-M10</span> Controls that disable or remove themselves while focused drop keyboard focus</h3>
+              <span class="finding-location">a11y N-M2 · EXP Ordrefelt (− / +); Spill → Submitting; Sett inn KI-spiller; Pausevalg; DESIGN Interaction states</span>
+              <span class="badge badge-status-deferred">partly already in #26 (M18)</span>
+            </header>
+            <div class="finding-note"><strong>WCAG 2.4.3, 2.4.7, 2.1.1.</strong> A keyboard Student presses «Én færre» down to 0; the segment becomes natively disabled and focus is lost, so the next Tab starts from the top of the page. The same happens when «Sett inn KI-spiller for Jonas» is replaced by the KI-spiller row, and when «Ta pause» swaps into the in-place form. DESIGN gives <code>aria-disabled</code> only to "disabled controls that explain themselves". The in-place panel focus is M18 in #26; the − / + and Submitting cases are new.</div>
+            <div class="finding-fix"><strong>Fix:</strong> A control that becomes unavailable while focused uses <code>aria-disabled</code> and keeps focus. A control that is removed moves focus to its replacement: the Setestatus row text with <code>tabindex="-1"</code>, or the first field of the opened form, and back to «Ta pause» on «Avbryt».</div>
+            <div class="reviewer-source finding-sources">Sources: accessibility N-M2 (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title"><span class="finding-id">R2-M5</span> At least six charts have no alternative, although the spine says every alternative is "listed here"</h3>
+              <span class="finding-location">a11y N-M3 · EXP Accessibility Floor → Charts</span>
+            </header>
+            <div class="finding-note">Merged with the rubric's Component coverage finding N-C3 and counted once as R2-M5, at the accessibility reviewer's medium. The reviewer's failure scenario, WCAG 1.1.1 reference and fix are kept there in full. This is why the reviewer rates H11 only partly closed.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title"><span class="finding-id">R2-M11</span> The Do's and Don'ts tint rule contradicts the Text on tints table</h3>
+              <span class="finding-location">a11y N-M4 · DESIGN Do's and Don'ts; Colors → Text on tints; Disabled state</span>
+            </header>
+            <div class="finding-note"><strong>WCAG 1.4.3.</strong> The Do «Keep text on tints to <code>ink</code> or <code>ink-secondary</code>» allows <code>ink-secondary</code> on every tint, but on <code>net-*-1</code> / <code>flow-1</code> it is 3.37–3.53 and on <code>net-*-2</code> / <code>flow-2</code> 2.27–2.46, both failing. A developer who uses the quick-reference table for a secondary label in a matrix or Netto lager cell ships failing text. In the other direction, the Don't forbids <code>ink-muted</code> "on any fill", while the Disabled state, the read-only Ordrefelt and the Text on tints table all put <code>ink-muted</code> on <code>future-tint</code> (4.71, allowed). The two tables cannot both be followed.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Do: «Keep text on tints to the pairs in Colors → Text on tints: <code>ink</code> or <code>ink-secondary</code> on <code>lager-fill</code> / <code>restordre-fill</code>, <code>ink</code> only on steps 1–2, <code>paper</code> on steps 3–4». Don't: «<code>lager</code>, <code>restordre</code> or <code>ink-muted</code> text on <code>lager-fill</code>, <code>restordre-fill</code>, <code>hairline</code> or a matrix step».</div>
+            <div class="reviewer-source finding-sources">Sources: accessibility N-M4 (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L4</span> "12 columns at 360 px" does not follow from the column rule</h3>
+              <span class="finding-location">a11y N-L2 · DESIGN Graf over tabell at narrow widths; EXP Responsive</span>
+            </header>
+            <div class="finding-note">Merged with the rubric's Token completeness finding N-T3 and counted once as R2-L4.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L14</span> Focus is specified on cells the behaviour spine makes unfocusable</h3>
+              <span class="finding-location">a11y N-L1 · DESIGN Fokusring; EXP Graf over tabell, Matrisevegg</span>
+            </header>
+            <div class="finding-note"><strong>WCAG 2.4.7.</strong> DESIGN puts the outer ring on "the Din ordre cell" and the inset frame on "matrix cells that take focus". EXP says "Table cells are not focusable", and the Matrisevegg focuses rows by game ID, not cells. Implementers will be confused.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Remove "the Din ordre cell" and "matrix cells" from the Fokusring bullet, or state which wall cells are focusable and why.</div>
+            <div class="reviewer-source finding-sources">Sources: accessibility N-L1 (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L15</span> «Sveip for tidligere uker» names a touch gesture only</h3>
+              <span class="finding-location">a11y N-L3 · DESIGN Graf over tabell at narrow widths</span>
+            </header>
+            <div class="finding-note"><strong>WCAG 3.3.2, 1.3.3 in spirit.</strong> At 320 px from 400 % laptop zoom, or with a keyboard, there is nothing to swipe.</div>
+            <div class="finding-fix"><strong>Fix:</strong> «Rull sidelengs for tidligere uker», or put the arrow-key hint in the region's accessible description.</div>
+            <div class="reviewer-source finding-sources">Sources: accessibility N-L3 (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L16</span> Posisjon and Netto lager labels have no collision rule, and the lines have equal luminance</h3>
+              <span class="finding-location">a11y N-L4 · DESIGN Graf over tabell</span>
+            </header>
+            <div class="finding-note">Both direct labels («Restordre 13», «Posisjon 3») sit at the nå x-position; when På vei is small they overlap. <code>ink-secondary</code> vs <code>lager</code> / <code>restordre</code> is 1.32 / 1.33, so where the lines coincide only the 4 px squares separate them.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Nudge the labels vertically apart with a leader, and draw Posisjon on top of Netto lager.</div>
+            <div class="reviewer-source finding-sources">Sources: accessibility N-L4 (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L17</span> The focusable, pressable disabled «Bekreft ordre» has a 1.61:1 boundary</h3>
+              <span class="finding-location">a11y N-L5 · DESIGN Interaction states (Disabled)</span>
+            </header>
+            <div class="finding-note">The 1.4.11 inactive-component exemption is shaky for a control that is focusable and shows an error when pressed. Its <code>ink-muted</code> label (4.71) still identifies it.</div>
+            <div class="finding-fix"><strong>Fix:</strong> For the "disabled but explains itself" case use the <code>ink-muted</code> border (5.16), and keep <code>axis</code> for truly inert controls.</div>
+            <div class="reviewer-source finding-sources">Sources: accessibility N-L5 (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L18</span> Text-only zoom turns matrix-wall numbers into glyphs</h3>
+              <span class="finding-location">a11y N-L6 · DESIGN Matrisevegg</span>
+              <span class="badge badge-status-deferred">already in #26 (M25)</span>
+            </header>
+            <div class="finding-note"><strong>WCAG 1.4.4.</strong> A cell prints its number only "when the number fits". With 200 % text and cells sized in px, numbers become «−» or blank. The 13 px table view rescues it as an alternate version.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Size wall cells in <code>em</code>.</div>
+            <div class="reviewer-source finding-sources">Sources: accessibility N-L6 (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L19</span> Gaps in the reflow two-group list and the label-column cap</h3>
+              <span class="finding-location">a11y N-L7 · DESIGN Layout &amp; Spacing (two-group table, 40 % label cap)</span>
+              <span class="badge badge-status-deferred">related to #26 (M20)</span>
+            </header>
+            <div class="finding-note"><strong>WCAG 1.4.10, 1.4.4.</strong> Student components missing from both columns: Kjedens regning, Kjedens kostnad over tid, Etterspørselsbånd with its table, the Debrief step 1 strip, Ukeskrubber, Delt skjerm. At 320 px with 200 % text the 40 % label cap is about 115 px, and single-word labels such as «Restordre» (about 112 px at 26 px) cannot "wrap to two lines" without hyphenation.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Complete the list, and require <code>hyphens: auto</code> under <code>lang="nb"</code> for row labels (<code>lang</code> itself is #26 L14).</div>
+            <div class="reviewer-source finding-sources">Sources: accessibility N-L7 (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L20</span> The Graf over tabell graph is not marked <code>aria-hidden</code></h3>
+              <span class="finding-location">a11y N-L8 · EXP Accessibility Floor → Charts</span>
+            </header>
+            <div class="finding-note"><strong>WCAG 1.3.1.</strong> "A chart whose alternative is a visible table on the same columns needs nothing more". An exposed SVG leaks tick labels, «Nå», «Posisjon 3» and «Restordre 13» to screen readers as orphan text before the table.</div>
+            <div class="finding-fix"><strong>Fix:</strong> "Every chart is <code>aria-hidden</code>; the visible table or the named alternative is the accessible version".</div>
+            <div class="reviewer-source finding-sources">Sources: accessibility N-L8 (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L21</span> The near-Takeover wall row is marked by tint alone inside the wall, and what gets tinted is ambiguous</h3>
+              <span class="finding-location">a11y N-L9 · DESIGN Matrisevegg; EXP Varselbånd</span>
+            </header>
+            <div class="finding-note">The Varselbånd names the game in text, so 1.4.1 is met overall. Inside the wall, though, the urgent row differs only by <code>restordre-fill</code>, and the spine does not say whether the tint replaces the row's matrix-step cells (data loss) or only the label area.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Tint only the label cells, and add a short text marker («KI om 1 t») in the row.</div>
+            <div class="reviewer-source finding-sources">Sources: accessibility N-L9 (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L22</span> The Pausevalg date and time field has no validation</h3>
+              <span class="finding-location">a11y N-L10 · EXP Pausevalg</span>
+            </header>
+            <div class="finding-note"><strong>WCAG 3.3.1, 3.3.3.</strong> It allows "from now to the Spillfrist" but gives no error for a past time or one after the Spillfrist, and no label for the time part.</div>
+            <div class="finding-fix"><strong>Fix:</strong> «Velg et tidspunkt mellom nå og Spillfristen, {dato}.» using the Ordrefelt error pattern.</div>
+            <div class="reviewer-source finding-sources">Sources: accessibility N-L10 (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><span class="finding-id">R2-L23</span> Interaktiv oppgave point sliders are underspecified</h3>
+              <span class="finding-location">a11y N-L11 · EXP Interaktiv oppgave</span>
+            </header>
+            <div class="finding-note">Unanswered Uker show "no point", so there is no slider to Tab to and the keyboard path is the table, which the spine should say. <code>aria-valuemin</code> / <code>aria-valuemax</code> are not given. 8 px points with 36 Uker at 320 px cannot meet the product's own "tap targets at least 44 px … for every control".</div>
+            <div class="finding-fix"><strong>Fix:</strong> "An unanswered Uke's slider starts empty (<code>aria-valuetext</code> «Uke 3: ikke besvart») and Up sets 0"; give min and max; exempt chart points from the 44 px rule, with column tap and the table as the alternative.</div>
+            <div class="reviewer-source finding-sources">Sources: accessibility N-L11 (low)</div>
+          </article>
+        </div>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p><strong>Verified OK</strong></p>
+            <ul class="verified">
+              <li><strong>Posisjon is not distinguished by colour alone:</strong> no area fill, 1.5 px against 2 px stroke, 4 px square markers at every Uke, and the direct label «Posisjon n»; solid against the dashed projection. Contrast 7.31 on <code>paper</code>, 6.68 on <code>future-tint</code>, 5.28–5.36 on the fills.</li>
+              <li><strong>Every contrast figure in DESIGN recomputes:</strong> Colors table, Text on tints, matrix steps, focus ring (<code>ink</code> 14.56 on <code>paper</code>, 10.51 on <code>restordre-fill</code>; the <code>paper</code> gap carries it on <code>ink</code> fills) and inset ring (≥ 4.51 / ≥ 5.14), pressed (7.31 / 11.60) and disabled labels (4.71).</li>
+              <li>Disabled controls are perceivable as disabled, and the explaining disabled button stays focusable with <code>aria-disabled</code>.</li>
+              <li>Ordrefelt: always-visible label, help line tied with <code>aria-describedby</code>, error in text, Enter never submits, «Bekreft ordre på 24» carries the value (2.5.3).</li>
+              <li>Graf over tabell keyboard path: one <code>tabindex="0"</code> region, table cells not focusable, <code>&lt;th scope&gt;</code> headers, visible rather than overlay scrollbar.</li>
+              <li>Timing passes elsewhere: Uke-overgang ≤ 2 s and skippable; Takeover (24 h default), the 48 h group Debrief and the Testfrist fall under the 20-hour exception; session expiry keeps the typed order.</li>
+              <li>Motion: no shimmer, spinners or celebration; static Skjelett; no flashing content (2.3.1).</li>
+              <li>Never colour alone: Setestatus, quiz, invalid rows, AI, Veggfiltre, Kjedebånd, first large order, wall sign.</li>
+              <li>Meldingsskjema is its own page and Back works. No dangling cross-references; no round-1 fix lost in the editorial merge.</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <div class="synthesis trim">
+      <h2>#26 trimming</h2>
+      <p>The rubric walker found these deferred round-1 findings closed in passing by the fix pass. They can be trimmed from <a href="https://github.com/IBE160-2026/beergame/issues/26">issue #26</a>.</p>
+      <div class="table-wrap">
+      <table class="status-table">
+        <thead><tr><th scope="col">ID</th><th scope="col">Status</th><th scope="col">What changed / what remains</th></tr></thead>
+        <tbody>
+          <tr><td>M4</td><td><span class="badge badge-status-fixed">closed</span></td><td>Norwegian chart names in DESIGN, token keys in parentheses.</td></tr>
+          <tr><td>M7</td><td><span class="badge badge-status-fixed">closed</span></td><td>Skjelett loading and AI-pending states.</td></tr>
+          <tr><td>M8</td><td><span class="badge badge-status-fixed">closed</span></td><td>Permission denied and Session expired rows.</td></tr>
+          <tr><td>M13</td><td><span class="badge badge-status-fixed">closed</span></td><td>«Assistent» naming.</td></tr>
+          <tr><td>L7</td><td><span class="badge badge-status-fixed">closed</span></td><td>Drawing item listed in OQ5.</td></tr>
+          <tr><td>L10</td><td><span class="badge badge-status-fixed">closed</span></td><td>Build checks restated as product tests.</td></tr>
+          <tr><td>L20</td><td><span class="badge badge-status-fixed">closed</span></td><td>Demand label in <code>ink</code>.</td></tr>
+          <tr><td>L21</td><td><span class="badge badge-status-fixed">closed</span></td><td>Totalkostnad is a named button.</td></tr>
+          <tr><td>M16</td><td><span class="badge badge-status-partial">partly closed</span></td><td>The announcement list grew; focus after the Uke advance is still undefined. R2-H4 extends it.</td></tr>
+          <tr><td>M18</td><td><span class="badge badge-status-partial">partly closed</span></td><td>Meldingsskjema is its own page and Back works; in-place panel focus remains (see R2-M10).</td></tr>
+          <tr><td>M21</td><td><span class="badge badge-status-partial">partly closed</span></td><td>Filters and Flagg use <code>aria-pressed</code>; <code>quiz-option</code> still has no selected state.</td></tr>
+          <tr><td>L13</td><td><span class="badge badge-status-partial">partly closed</span></td><td>Status is final; EXPERIENCE frontmatter still has no <code>name</code>.</td></tr>
+          <tr><td>L18</td><td><span class="badge badge-status-partial">partly closed</span></td><td>Session expiry is specified; no warning before your own Takeover (see R2-H2).</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+
+    <div class="mechanical">
+      <h3>Mechanical notes</h3>
+      <ul>
+        <li>Sources: 13 of 13 resolve from the workspace, in identical lists in both files.</li>
+        <li>Frontmatter: DESIGN has <code>name: ØL-spillet</code> and <code>description</code>, with 27 colours, 19 typography roles, 4 radii, 16 spacing tokens and 44 component objects. EXPERIENCE has no <code>name</code>. Both are <code>status: final</code>, updated 2026-11-09.</li>
+        <li>Token references: DESIGN 232 (55 distinct), EXPERIENCE 9 (8 distinct), none unresolved. <code>net-neg-3/4</code>, <code>net-pos-3/4</code> and <code>flow-3/4</code> are reachable only through the prose hex table (L2 in #26). <code>{maks}</code> and <code>{n}</code> are copy placeholders; a strict resolver should skip dot-less braces.</li>
+        <li>Contrast: all stated values recompute. Closest passes: <code>ink</code> on <code>net-neg-2</code> at 4.51 (L16 in #26) and <code>order-history</code> on <code>paper</code> at 4.46, correctly listed as never text.</li>
+        <li>Component names: 41 of 41 identical, same 7 groups, same order. No orphans.</li>
+        <li>Posisjon: consistent in all 21 mentions; 0 − 13 + 16 = 3, «Med 24 ble den 27» and the projection 3 + 24 − 4 × 8 = −5 all check.</li>
+        <li>FRs never cited: FR-29–33, 35, 47, 67, 68, 70, 71, 76, 77. Of these, FR-70, FR-71 and FR-76 have UI (R2-M1).</li>
+        <li>Assumptions: 8 <code>[ASSUMPTION]</code> in DESIGN and 42 in EXPERIENCE; 28 rows marked spine-only.</li>
+        <li>Issues: #22, #24, #25 and #26 are open. The spines cite #22, #24 and #25 but not #26 (R2-M8).</li>
+        <li>Mockup checks against SVG text and fills: <code>07</code> demand label <code>#2B6CA3</code>; <code>08</code> «Melding» <code>#2B6CA3</code> at 10 px; <code>06</code> A empty «Bekreft ordre» drawn with a <code>paper</code> fill and <code>#C3CDD8</code> border; <code>10</code> Posisjon labels in the left annotation column. None of «Hele tall», «Oppdater automatisk», «Sveip», «35 og over» or «Rødt:» appears in any SVG.</li>
+        <li>De-duplication: rubric filed 1 high, 9 medium, 14 low; accessibility filed 3 high, 4 medium, 11 low (10 counted plus N-L6). Four pairs merged at the higher severity, giving 0 / 4 / 11 / 23.</li>
+      </ul>
+    </div>
+
+    <footer class="report-footer">
+      <div class="meta">
+        <span>Rubric: review-rubric-2.md</span>
+        <span>Accessibility: review-accessibility-2.md</span>
+        <span>Round 1: validation-report.html</span>
+        <span>DESIGN.md · EXPERIENCE.md</span>
+        <span>Generated: 2026-11-10</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

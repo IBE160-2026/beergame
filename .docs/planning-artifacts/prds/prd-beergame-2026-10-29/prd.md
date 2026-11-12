@@ -1,9 +1,10 @@
 ---
-title: "PRD: beergame"
+title: "PRD: ØL-spillet"
 status: final
 created: 2026-10-29
-updated: 2026-11-05
+updated: 2026-11-12
 inputs:
+  - .docs/planning-artifacts/ux-designs/ux-beergame-2026-11-05/ (UX decisions 2026-11-09 to 2026-11-10, issue #25)
   - .docs/planning-artifacts/briefs/brief-beergame-2026-09-04/brief.md (final)
   - .docs/planning-artifacts/briefs/brief-beergame-2026-09-04/addendum.md
   - .docs/forge/beergame-positioning-b/forge-report.html
@@ -14,19 +15,19 @@ inputs:
   - founder brain dump, answers and coaching narration (2026-10-29, 2026-11-02, 2026-11-05)
 ---
 
-# PRD: beergame
+# PRD: ØL-spillet
 
-*"beergame" is the repository name, not a product name. Naming is an open item.*
+*The product is called «ØL-spillet» (founder decision 2026-11-09). "beergame" is only the repository name.*
 
 ## 0. Document Purpose
 
-This PRD defines what v1 of beergame must do: a Norwegian-language, mobile-first web product that runs the MIT Beer Distribution Game for a whole course, from invitation to a downloadable report. Formal grading is deliberately left to v2. The readers are the founder, who is also the first lecturer customer, and the downstream workflows that turn this into UX specifications, architecture and stories.
+This PRD defines what v1 of ØL-spillet must do: a Norwegian-language, mobile-first web product that runs the MIT Beer Distribution Game for a whole course, from invitation to a downloadable report. Formal grading is deliberately left to v2. The readers are the founder, who is also the first lecturer customer, and the downstream workflows that turn this into UX specifications, architecture and stories.
 
 It builds on the final product brief and does not repeat its market case. Every domain noun is defined once in §3 Glossary and used verbatim afterwards. §4 holds the features, with globally numbered functional requirements (FR-1 to FR-89) and their testable consequences. Inferences the founder has not confirmed carry an inline `[ASSUMPTION]` tag and are indexed in §13. Technical detail, cost tables, regulatory sources and rejected alternatives live in `addendum.md` in this folder.
 
 ## 1. Vision
 
-The Beer Game has taught the bullwhip effect for sixty years, and at least one published account says it is disappearing from classrooms: running it is slow and fragile, and few students can clearly explain how their own orders produced the chaos they just lived through. `[ASSUMPTION: one account is a signal, not a trend; market size is unknown]` beergame runs the whole exercise for the Lecturer: Invitations, groups, play, Debrief, a second round, an Individual test with non-counting AI feedback and a PDF report of it all. AI players step into every Seat a Student leaves empty.
+The Beer Game has taught the bullwhip effect for sixty years, and at least one published account says it is disappearing from classrooms: running it is slow and fragile, and few students can clearly explain how their own orders produced the chaos they just lived through. `[ASSUMPTION: one account is a signal, not a trend; market size is unknown]` ØL-spillet runs the whole exercise for the Lecturer: Invitations, groups, play, Debrief, a second round, an Individual test with non-counting AI feedback and a PDF report of it all. AI players step into every Seat a Student leaves empty.
 
 For the Student, the game stops being a single event. After the Class game and the Group debrief, each Student plays again alone against AI players under harder conditions. The Student then shows in an Individual test, in their own words and with arguments, what they understood, and gets feedback from the AI. For the Lecturer, the course stops being refereeing: every Class game is visible on one screen, a group can pause without losing its game, one missing Student cannot hold the others back, and each Student's work arrives as a report.
 
@@ -73,7 +74,7 @@ The bet, carried over from the brief: **the product is working AI players plus t
 
   They play 15 Weeks, press Pause and agree to continue on Thursday in a Lab hour with Bård in the room. Sara can see that they are in Week 27, but not how many Weeks remain.
 
-  **Edge case:** on Thursday Jonas, the Factory, does not come at the agreed time; Sara puts in an AI player for that Seat, marked as AI, and the game goes on. Jonas can take the Seat back later.
+  **Edge case:** on Thursday Jonas, the Factory, does not come. Bård has marked the game as in the room, so once its shorter limit has passed, Sara puts in an AI player for that Seat, marked as AI, and the game goes on. Jonas can take the Seat back later.
 
 - **UJ-5. Sara's group debriefs together, then Sara plays alone.**
   When game 17 ends, the group opens the Group debrief together. First each writes, on their own phone, why the chain behaved as it did. Then the Debrief reveals customer demand (one step from 4 to 8), shows how Orders grew from Retailer to Factory, and points at Sara's Week-11 Order of 24 while 16 units were already on their way. Then each takes the Debrief quiz; Sara gets two questions wrong, reads why, and answers correctly on the second try. Over the weekend Sara plays the Replay alone against three AI players, with demand at the same levels as in the Class game, but more variation from Week to Week and the change in another Week. A short AI walkthrough of the run follows.
@@ -132,7 +133,7 @@ The bet, carried over from the brief: **the product is working AI players plus t
 - **Play guard** — the system check that compares an LLM player's weekly Orders with reference players and switches the Seat to a Rule-based player when they fall outside the accepted band (FR-79).
 - **Inactivity limit** — how long a Seat may leave its Order open while another Student in the Game waits, before an AI player takes over. Default 24 hours.
 - **Share of LLM Orders** — the share of Orders in a Game's AI-held Seats that came from the LLM player and were not replaced. A Game below a set share is left out of §9.1.
-- **Pause** — a state a Student sets on a Class game. While it lasts, no AI player takes over automatically.
+- **Pause** — a state a Student or the Lecturer sets on a Class game. While it lasts, no AI player takes over automatically. Only the Lecturer sets an agreed time to continue.
 - **Takeover** — an AI player taking over the Seat of a Student. **Reclaim** — the Student taking the Seat back.
 - **Lab hour** — a scheduled time when the Lecturer or an Assistant lecturer is present and Students can play.
 - **Start date** — the time from which Class games can be played.
@@ -337,7 +338,8 @@ Before their first Order, each Student sees a short briefing. Founder decision 2
 - The objective is the lowest Total cost for the whole chain.
 - It explains that all Seats order in the same Week, the delays, that stock must be shipped when it exists, and that the game has Guided Weeks.
 - Students may arrange when to play, but may not discuss Orders or numbers with other players.
-- Product text never uses the name "Beer Game" before the Debrief, so Students do not look up the answer, and the product's own name respects this. What the course plan says is the Lecturer's choice.
+- Product text never uses the name "Beer Game" or the word "bullwhip" before the Debrief, so Students do not look up the answer. What the course plan says is the Lecturer's choice.
+- The product's own name, «ØL-spillet», is the one exception: it names the classic exercise. Founder decision 2026-11-09, accepted knowing it makes the answer easier to look up (§11).
 
 #### FR-85: Starting task
 Before their first Order, or before their Debrief if they placed none, each Student does the Starting task, about five minutes, scored by computed rules. Founder decision 2026-11-05. Realizes UJ-4.
@@ -351,6 +353,7 @@ Before their first Order, or before their Debrief if they placed none, each Stud
 #### FR-23: Weekly state shown to a Seat
 A Student sees, for their own Seat: current inventory or backlog (both on a capped Seat), incoming order this Week, incoming delivery this Week, units shipped this Week, the contents of their Supply line, their own Order history, their running Total cost and the current Week number.
 - The Student does not see other Seats' inventory, backlog or Orders during the Class game, except what the Lecturer has switched on in Information visibility (FR-83).
+- The Student also sees their Posisjon (inventory minus backlog plus the Supply line), as a row and as a line in the chart, in both the Class game and the Replay. Founder decision 2026-11-09.
 - On a 360-pixel-wide screen, all of this plus the Order input is visible without horizontal scrolling.
 
 #### FR-24: Place an order
@@ -435,7 +438,7 @@ The system compares every Order from an LLM player with two reference Orders com
 
 ### 4.7 Inactivity, Takeover and deadlines
 
-**Description:** The system measures activity. A group can pause its Class game and agree when to continue. When one Student holds the others up, an AI player takes over after the Inactivity limit. In a paused Class game the others can put one in if the Student misses the agreed time. If nobody plays, nothing happens until the Play deadline, when AI players finish the Class game. Founder decision 2026-11-05. Realizes UJ-4, UJ-7.
+**Description:** The system measures activity. A group or the Lecturer can pause a Class game; only the Lecturer sets an agreed time to continue. When one Student holds the others up, an AI player takes over after the Inactivity limit. In a paused Class game the others can put one in once the absent Seat's time has run out. If nobody plays, nothing happens until the Play deadline, when AI players finish the Class game. Founder decisions 2026-11-05 and 2026-11-12. Realizes UJ-4, UJ-7.
 
 #### FR-35: Activity tracking
 The system records, per Seat, when each Week opened for it and when the Student ordered.
@@ -444,10 +447,10 @@ The system records, per Seat, when each Week opened for it and when the Student 
 When a Student has not ordered and at least one other Student in the Class game has ordered and waited for the Inactivity limit, an AI player takes over the Seat. Realizes UJ-4.
 - If no Student in the Class game has ordered that Week, nothing happens until the Play deadline. No AI player plays a Class game on its own before then.
 - No automatic Takeover happens while the Class game is paused (FR-89).
-- The Lecturer sets the Inactivity limit per Class session; default 24 hours.
+- The Lecturer sets the Inactivity limit per Class session; default 24 hours, never below 20 hours, so the WCAG 2.2.1 exception for time limits over 20 hours holds. Shorter limits apply only to games marked as in the room. `[ASSUMPTION: 20-hour floor]`
 - The Student, the other Students in the Class game and the Lecturer overview are notified at Takeover.
 - The clock starts when the first other Student has ordered that Week. `[ASSUMPTION: this start of the clock]`
-- The Lecturer can mark a Class game as in the room during a Lab hour and set a shorter limit for it. `[ASSUMPTION: a shorter limit applies only to marked games, because the product does not know who is present]`
+- The Lecturer can mark a Class game as in the room during a Lab hour and set a shorter limit for it. `[ASSUMPTION: a shorter limit applies only to marked games, because the product does not know who is present; default 10 minutes, settable from 2 to 120]`
 
 #### FR-37: Manual takeover and reclaim
 A Lecturer or Assistant lecturer can trigger Takeover of any Seat at any time. A Student whose Seat was taken over can reclaim it at the start of any later Week.
@@ -456,10 +459,10 @@ A Lecturer or Assistant lecturer can trigger Takeover of any Seat at any time. A
 - Weeks played by the AI player stay marked as AI Weeks in the Decision log and Game insight.
 
 #### FR-89: Pause
-Any Student in a Class game can pause it and state when the group will continue. Founder decision 2026-11-05. Realizes UJ-4.
-- While the Class game is paused, no AI player takes over automatically, and the other Students see the pause and the agreed time. Any Student can end the pause by ordering.
-- If a Student does not come at the agreed time, or after the Inactivity limit if no time was stated, another Student in the Class game can put an AI player in that Seat (FR-37 applies for reclaiming it).
-- The Lecturer overview shows which Class games are paused, and since when.
+Any Student in a Class game, or the Lecturer, can pause it. Only the Lecturer can set an agreed time for the group to continue. Founder decisions 2026-11-05 and 2026-11-12. Realizes UJ-4.
+- While the Class game is paused, no AI player takes over automatically, and the other Students see the pause and, if one is set, the agreed time. Any Student can end the pause by ordering. `[ASSUMPTION: an Order also ends a pause the Lecturer started]`
+- A Student can put an AI player in an absent Seat once that Seat's time has run out: the agreed time if the Lecturer set one, otherwise the Inactivity limit with any per-Student adjustment (FR-36, FR-17), counted whether or not the game is paused. No Student can shorten another Student's time. FR-37 applies for reclaiming the Seat.
+- The Lecturer overview shows which Class games are paused, and since when, and lets the Lecturer pause a game and set the agreed time.
 - A Pause does not move the Play deadline.
 
 #### FR-38: Play deadline playout
@@ -661,7 +664,7 @@ A Lecturer can turn off the AI assessment for a Class session, for example if th
 The Admin can set up a Control test: a separate run of the Individual test taken by test students, used to check the AI assessment against human scoring before real Students depend on it.
 - Test students are marked as such. Their games, answers and scores never appear in a Class session's overview, Class report, Cross-class statistics or Completion export.
 - A human scores each long-answer and Adapted item with the Scoring guide without seeing the AI's score. `[ASSUMPTION: scored blind]` The product then shows both scores side by side, with exact agreement, agreement within one step, any systematic offset, compression of the scale, and agreement by answer length.
-- beergame is the data controller for test students' data; they are told what it is for and consent. `[ASSUMPTION: controller and basis, to be checked with counsel]`
+- The operator of ØL-spillet is the data controller for test students' data; they are told what it is for and consent. `[ASSUMPTION: controller and basis, to be checked with counsel]`
 - A Control test can be run with the default Scoring guide or with a Lecturer's edited one, so an edited guide can be checked too. `[ASSUMPTION: the Admin runs it for a Lecturer on request in v1]`
 - `[ASSUMPTION: test students are people outside the course; each plays a Class game and Replay, so Adapted items rest on a real Decision log]`
 
@@ -772,7 +775,7 @@ Student personal data in a Class session is deleted automatically a set period a
 
 ### 6.1 Privacy and data protection
 
-- The Institution is the data controller for Student data; beergame is the processor and signs a data processing agreement before any Institution's Students are invited, including the founder's own Institution for the pilot.
+- The Institution is the data controller for Student data; the operator of ØL-spillet is the processor and signs a data processing agreement before any Institution's Students are invited, including the founder's own Institution for the pilot.
 - No LLM provider receives names, emails or student numbers from the system. Seats are identified by Role and pseudonymous IDs.
 - All free text sent to an LLM (Explanations, reflection and follow-up text, test answers) is first filtered for the whole Roster's names, emails and student numbers. This reduces the risk but does not remove it, and free text stays personal data; the DPIA pack records the remaining risk. Quotes shown to the Student come from the original text.
 - LLM providers and routers are used only under terms that exclude training on the data, with zero retention and data collection denied, and they are listed as sub-processors. EU-region inference is the default. A US provider must be listed under the EU–US Data Privacy Framework or covered by standard contractual clauses with a transfer impact assessment. Providers processing in a country with neither, such as DeepSeek's own API, are not used. Providers stay swappable.
@@ -984,7 +987,7 @@ The prototype comes first, because seven requirements depend on it (FR-32, FR-78
 - **The AI assessment is wrong and no human has checked it.** Mitigation: quotes from the answer, facts checked against the Decision log, Control test (FR-82, SM-7), plain statement that it can be wrong and counts toward nothing, switch-off (FR-61).
 - **The Debrief invents causes or explains the log wrongly.** No evidence exists on how accurately an LLM explains simulation logs. Mitigation: causes only from Detected patterns and computed facts (FR-44), a statement that it can be wrong, the founder's reading in the rehearsal, a code-only fallback.
 - **One good Debrief may be enough**, which would make the Replay over-engineering. Mitigation: SM-10, the later comparison in §9.1, and the fallback there.
-- **Students share the answer.** Class games finish days apart with the same demand and length, and groups know each other. Mitigation: the rule in FR-84, neutral naming, the hold option in FR-42, a Replay that varies. This cannot be stopped entirely.
+- **Students share the answer.** Class games finish days apart with the same demand and length, and groups know each other. Mitigation: the rule in FR-84, the hold option in FR-42, a Replay that varies. The product name «ØL-spillet» names the classic exercise and makes the answer easier to look up; the founder accepted this on 2026-11-09. This cannot be stopped entirely.
 - **The founder has several roles.** The same person is Lecturer, Admin, product owner and scorer of the evidence, and can make their own product obligatory for their own Students. Mitigation: the Institution's clearance (§10), a second scorer on SM-2, and targets fixed in advance. Whether a Student who objects can get an alternative is for the Institution to decide (open question 7).
 - **Without a grade, Students skip the steps.** The flow only works if Students finish it. Mitigation: the Lecturer can mark the Class session as obligatory (FR-17).
 - **Groups never meet for the Group debrief.** Mitigation: fallback to Personal debrief (FR-43).
@@ -997,7 +1000,7 @@ The prototype comes first, because seven requirements depend on it (FR-32, FR-78
 
 ## 12. Open Questions
 
-1. Product name, which must not reveal the game before the Debrief (FR-84).
+1. Resolved 2026-11-09: the product name is «ØL-spillet» (FR-84).
 2. Prices for Institutions and whether Students ever pay directly.
 3. v2: compliance path for formal grading with an AI proposal: meet high-risk obligations, or have Examiners grade without it? When does Norwegian law apply?
 4. Does the final Commission guidance keep the AI assessment and the Student report outside Annex III 3(b), and do pass/fail obligatory activities count as summative? Check when it is published (expected end of 2026).
@@ -1039,7 +1042,8 @@ The prototype comes first, because seven requirements depend on it (FR-32, FR-78
 - FR-33 — Rule-based player ignores neighbour numbers.
 - FR-78 — Effort levels and default set after prototype testing.
 - FR-79 — Play guard limits (95%, 5%) read from the founder's wording; what counts as large under changed settings.
-- FR-36 — Start of the clock; shorter limit only for games marked as in the room.
+- FR-36 — Start of the clock; shorter limit only for games marked as in the room, default 10 minutes (2 to 120); 20-hour floor on the Inactivity limit.
+- FR-89 — An Order also ends a pause the Lecturer started.
 - FR-41 — Explanation comes before the demand reveal.
 - FR-42 — Debriefs open by default.
 - FR-43 — Fallback to Personal debrief 48 hours after the Class game ended; step control.

@@ -59,6 +59,7 @@ Source: technical research 2026-10-26 (`research/technical-ai-agent-cost-per-bee
   - Other course material uses inventory 15 and pipelines of 5.
   - The founder confirmed the PRD's defaults on 2026-11-05, with an order delay of 2 Weeks and 36 Weeks (there is no advanced preset: the Lecturer decides).
 - **Layout learning from earlier planning (2025):** a portrait facility board with goods flowing down and orders flowing up, one editable number per Week, corners for incoming order, incoming delivery, outgoing order and outgoing delivery, inventory in the centre.
+  - Superseded in the chosen UX (2026-11-09): the chain runs horizontally on every surface, upstream on the left, goods flowing right toward the Retailer and the customer, and orders flowing left (`../../ux-designs/ux-beergame-2026-11-05/EXPERIENCE.md`).
   - Red/green status alone failed colour-blind users. Label slots as "arrives next week" rather than "Week 1/Week 2", on the order leg too.
   - Other UX inputs: the Factory shows production slots and no upstream; the Retailer shows customer demand and no outgoing pipeline; Wholesaler and Distributor are identical; animation can be skipped, with a table view available; orders as bars with weekly and cumulative toggles; backlog drawn as negative inventory; cumulative cost charts; no large statistics panel.
   - Debrief prompts and test items are written fresh, not copied from these sources.

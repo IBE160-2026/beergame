@@ -2,7 +2,7 @@
 
 <!-- impeccable:product-schema 1 -->
 
-> Inferred from `.docs/planning-artifacts/prds/prd-beergame-2026-10-29/prd.md` on 2026-11-05. The founder asked not to be interviewed at this stage ("Ikke spør meg nå"), so every fact here comes from the PRD, and items marked [INFERRED] have not been confirmed.
+> Inferred from `.docs/planning-artifacts/prds/prd-beergame-2026-10-29/prd.md` on 2026-11-05 and confirmed by the founder as written on 2026-11-09.
 
 ## Platform
 
@@ -36,15 +36,15 @@ The product is working AI players plus the explanation: a Debrief that explains 
 - Norwegian bokmål only in v1. Screen and product text use: Detaljist, Grossist, Distributør, Fabrikk; Uke; Ordre; Lager; Restordre; Klassespill; KI-spiller.
 - Portrait-first playing screen; all Seat data and the Order input visible on a 360 px wide screen without horizontal scroll.
 - Hidden information: students never see the number of Weeks or the customer demand series while playing (only the Detaljist sees demand, one Week at a time). Other Seats' numbers are hidden unless Information visibility is switched on.
-- Product text never uses the name "Beer Game" before the Debrief, and the product's own name respects this.
+- Product text never uses the name "Beer Game" or the word "bullwhip" before the Debrief. The product's own name is the exception: the founder chose «ØL-spillet» on 2026-11-09, knowing it reveals the classic exercise.
 - No chat or communication between players in v1. No Student-facing ranking and no prizes.
 - AI players, Takeover and AI-generated text are always disclosed. The AI assessment is formative, counts toward nothing and is never a grade.
 - No public sign-up: accounts come by Invitation.
-- Product name is an open decision. "beergame" is only the repository name.
+- Product name: «ØL-spillet» (decided 2026-11-09). "beergame" is only the repository name.
 
 ## Brand Commitments
 
-None yet. No name, logo or visual identity exists.
+Name: «ØL-spillet». Visual identity: see `.docs/planning-artifacts/ux-designs/ux-beergame-2026-11-05/DESIGN.md`. No logo yet.
 
 ## Evidence on Hand
 
@@ -56,7 +56,7 @@ No customers, testimonials, prices or measured learning results exist. Product a
 - Causes are explained through structure, not people: no blame, no padding praise.
 - One missing student never holds the others back, and no game stays unfinished.
 - Every number the AI shows comes from computed facts.
-- The Lecturer sees everything on one screen and does not referee. [INFERRED from UJ-7]
+- The Lecturer sees everything on one screen and does not referee.
 
 ## Accessibility & Inclusion
 
