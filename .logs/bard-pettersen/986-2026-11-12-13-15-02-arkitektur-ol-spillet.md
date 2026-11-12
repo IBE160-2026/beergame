@@ -12,7 +12,7 @@ Kjøre `bmad-help` for å finne neste steg, og deretter lage arkitekturen for Ø
 - Arbeidsmappe: `.docs/planning-artifacts/architecture/architecture-beergame-2026-11-12/`.
 
 ### Resultat
-Nye filer, ikke committet:
+Nye filer (committet senere i økten som `20b0f66`):
 - `ARCHITECTURE-SPINE.md` (status: draft): modulær monolitt med ren kjerne (`engine`, `analysis`) og 25 beslutninger (AD-1 til AD-25). Lint gir 0 funn.
 - `SETUP-GUIDE.md`: kontoer, miljøvariabler, Railway- og Supabase-oppsett, CI og sjekkliste før første klasseøkt.
 - `.memlog.md`: 53 innførsler med beslutninger, versjoner, antakelser og åpne spørsmål.
@@ -48,6 +48,7 @@ Senere samme økt (etter brukerens tilbakemeldinger):
 - Nye regler i runden: pause og utspilling (AD-2), referanseordre og spillvakt beregnes ett sted (AD-5, AD-20), budsjett med reservasjon og låst modellkonfig (AD-6), lagrede faktasett og sitater som tegnposisjoner (AD-7), hendelseskatalog (AD-8), én eier av varsler og fast rekkefølge ved testfristen (AD-9), to navngitte Admin-unntak (AD-12), delt ordrekilde i beslutningsloggen (AD-15), fast `SeatState`-modell (AD-3), statistikk bare fra aggregater (AD-14) og felles form på KI-tekst.
 - 13 funn er ført som utsatte punkter i dokumentets Deferred-liste, hvert med når det må avgjøres.
 - Memloggen har 63 innførsler.
+- Arkitekturmappa er committet som `20b0f66` og pushet til `origin/main` på brukerens forespørsel.
 
 ### Åpne punkter
 - Issue #27: founder-gjennomgang av arkitekturen og antakelsene (blant annet stille tid 22–07 for e-post, Takeover-e-post i daglig samlemelding, PITR-mål, eu-central-1), deretter `status: final`. Reviewfunnene er nå enten rettet eller ført som utsatte punkter.
