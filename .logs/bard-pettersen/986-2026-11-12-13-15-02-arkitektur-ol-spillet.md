@@ -50,10 +50,9 @@ Senere samme økt (etter brukerens tilbakemeldinger):
 - Memloggen har 63 innførsler.
 - Arkitekturmappa er committet som `20b0f66` og pushet til `origin/main` på brukerens forespørsel.
 - Brukeren ba om `status: final` på arkitekturdokumentet og oppsettsguiden. Det er satt og ført i memloggen. Epics og stories skal ikke lages før brukeren sier ifra.
-- Brukerens avgjørelser etter gjennomgang av antakelsene: ikke noe staging-miljø (lokalt er nok; generalprøve og kontrolltest kjøres i produksjon), e-post om Takeover sendes straks, og backup avgjøres senere. Tabell over alle avvik fra `technology.md` er lagt inn under stack-tabellen, slik et utsatt punkt krevde før final. Stille tid 22–07 for e-post er fortsatt en ubekreftet antakelse.
+- Brukerens avgjørelser etter gjennomgang av antakelsene: ikke noe staging-miljø (lokalt er nok; generalprøve og kontrolltest kjøres i produksjon), e-post om Takeover sendes straks, og backup avgjøres senere. Tabell over alle avvik fra `technology.md` er lagt inn under stack-tabellen, slik et utsatt punkt krevde før final. Stille tid 22–07 og samling av påminnelser i én daglig e-post er senere bekreftet av brukeren. Issue #27 er lukket.
 
 ### Åpne punkter
-- Issue #27: founder-gjennomgang av arkitekturen og antakelsene (blant annet stille tid 22–07 for e-post, Takeover-e-post i daglig samlemelding, PITR-mål, eu-central-1), deretter `status: final`. Reviewfunnene er nå enten rettet eller ført som utsatte punkter.
-- Issue #28: drift før piloten (staging, PITR-backup med restoreøvelse, overvåking, lasttest, tilkoblingsbudsjett).
+- Issue #28: drift før piloten (backup-nivå, overvåking, lasttest, tilkoblingsbudsjett). Staging utgår.
 - Issue #29: Resend lagrer kontodata i USA; før i DPIA-pakken eller bytt leverandør før piloten.
 - LLM-leverandør og modell avgjøres av prototypen og følges i Issue #8 og Issue #9.
