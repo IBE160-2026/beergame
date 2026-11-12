@@ -42,8 +42,15 @@ Ikke gjort:
 - Middels og lave reviewfunn er ikke gjennomgått punkt for punkt.
 - `bmad-spec` og epics og stories er ikke kjørt.
 
+Senere samme økt (etter brukerens tilbakemeldinger):
+- Recharts er tatt inn igjen for vanlige linje- og søylediagrammer (brukerens avgjørelse). Bare kjedebåndet og matriseveggen håndlages som SVG. Første graf-story er en prøve på kolonnejustering mot tabell og PDF-resultat (AD-18). Punktet over om «egen SVG-grafmodul i stedet for Recharts» gjelder derfor ikke lenger.
+- Andre retterunde med tre subagenter: 53 forslag i `reviews/proposals-a.json`, `-b.json` og `-c.json`, lagt inn med skript uten feil. Dokumentet har nå 26 beslutninger (AD-27 ny: kontrolltest som egen type klasseøkt; AD-26 og AD-28 er ikke brukt). Lint gir 0 funn.
+- Nye regler i runden: pause og utspilling (AD-2), referanseordre og spillvakt beregnes ett sted (AD-5, AD-20), budsjett med reservasjon og låst modellkonfig (AD-6), lagrede faktasett og sitater som tegnposisjoner (AD-7), hendelseskatalog (AD-8), én eier av varsler og fast rekkefølge ved testfristen (AD-9), to navngitte Admin-unntak (AD-12), delt ordrekilde i beslutningsloggen (AD-15), fast `SeatState`-modell (AD-3), statistikk bare fra aggregater (AD-14) og felles form på KI-tekst.
+- 13 funn er ført som utsatte punkter i dokumentets Deferred-liste, hvert med når det må avgjøres.
+- Memloggen har 63 innførsler.
+
 ### Åpne punkter
-- Issue #27: founder-gjennomgang av arkitekturen, antakelsene og gjenstående middels og lave reviewfunn, deretter `status: final`.
+- Issue #27: founder-gjennomgang av arkitekturen og antakelsene (blant annet stille tid 22–07 for e-post, Takeover-e-post i daglig samlemelding, PITR-mål, eu-central-1), deretter `status: final`. Reviewfunnene er nå enten rettet eller ført som utsatte punkter.
 - Issue #28: drift før piloten (staging, PITR-backup med restoreøvelse, overvåking, lasttest, tilkoblingsbudsjett).
 - Issue #29: Resend lagrer kontodata i USA; før i DPIA-pakken eller bytt leverandør før piloten.
 - LLM-leverandør og modell avgjøres av prototypen og følges i Issue #8 og Issue #9.
