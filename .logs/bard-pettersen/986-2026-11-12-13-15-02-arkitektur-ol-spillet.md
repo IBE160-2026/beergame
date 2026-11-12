@@ -49,6 +49,7 @@ Senere samme økt (etter brukerens tilbakemeldinger):
 - 13 funn er ført som utsatte punkter i dokumentets Deferred-liste, hvert med når det må avgjøres.
 - Memloggen har 63 innførsler.
 - Arkitekturmappa er committet som `20b0f66` og pushet til `origin/main` på brukerens forespørsel.
+- Brukeren ba om `status: final` på arkitekturdokumentet og oppsettsguiden. Det er satt og ført i memloggen. Epics og stories skal ikke lages før brukeren sier ifra.
 
 ### Åpne punkter
 - Issue #27: founder-gjennomgang av arkitekturen og antakelsene (blant annet stille tid 22–07 for e-post, Takeover-e-post i daglig samlemelding, PITR-mål, eu-central-1), deretter `status: final`. Reviewfunnene er nå enten rettet eller ført som utsatte punkter.
