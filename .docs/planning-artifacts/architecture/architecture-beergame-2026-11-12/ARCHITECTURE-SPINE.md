@@ -5,7 +5,7 @@ purpose: build-substrate
 altitude: initiative
 paradigm: 'modular monolith, functional core / imperative shell'
 scope: 'ØL-spillet v1 MVP: web app, API, worker, AI players and AI text, data and hosting (PRD FR-1 to FR-89, NFR-1 to NFR-10)'
-status: draft
+status: final
 created: '2026-11-12'
 updated: '2026-11-12'
 binds: [FR-1..FR-89, NFR-1..NFR-10]

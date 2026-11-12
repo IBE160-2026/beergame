@@ -1,7 +1,7 @@
 ---
 title: 'Setup guide: ØL-spillet v1'
 companion-of: ARCHITECTURE-SPINE.md
-status: draft
+status: final
 created: '2026-11-12'
 updated: '2026-11-12'
 ---
