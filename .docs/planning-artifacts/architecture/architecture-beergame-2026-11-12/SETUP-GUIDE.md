@@ -151,7 +151,7 @@ Caddyfile sketch:
 
 ## 4. Railway configuration
 
-- **Project:** `olspillet`, environment `production`. Add a `staging` environment with its own Supabase project before the rehearsal (spine, Deferred).
+- **Project:** `olspillet`, environment `production`. There is no staging environment: local Docker Compose is the test environment, and the rehearsal and the Control test run in production.
 - **Region:** EU West (Amsterdam) on every service.
 - **Builds:** one Dockerfile per image. `api/Dockerfile` (Python 3.14 slim plus the Pango and HarfBuzz fonts WeasyPrint needs) is used by `api`, `worker-ai` and `worker-batch`, always from the same commit (AD-24). Also `web/Dockerfile` (multi-stage `node:24`, `next build`, standalone) and `proxy/Dockerfile`. Use `watchPatterns` per service so a web-only change does not redeploy the api.
 - **Deploy:** the `production` branch auto-deploys; `main` is the working branch (`technology.md`). The `api` pre-deploy command is `alembic upgrade head`. Migrations are expand-then-contract, so the old and new code can run side by side during a deploy (AD-24).
@@ -163,7 +163,7 @@ Caddyfile sketch:
 - Region **eu-central-1**, Postgres 17 (or the project default if higher).
 - **Connection budget.** The session pooler's default pool size is 15 on the small plans, and every open connection holds one slot. Count per process: the SQLAlchemy pool, procrastinate's own pool (at least 4) and one LISTEN connection for `api`. That is about 35 with the starting numbers, and double during a deploy overlap. Raise the pool size in Supabase (Database → Connection pooling) to fit, and pick a compute size that allows it.
 - Connections use the **session pooler (5432)** only. Do not use the 6543 transaction pooler, because it breaks LISTEN/NOTIFY and procrastinate.
-- Keep daily backups on. Before the pilot, turn on point-in-time recovery, with a target of at most 5 minutes of lost data and 1 hour to restore (NFR-4; an assumption in the spine's Deferred list).
+- Backups are decided later (spine, Deferred). Until then the project has only what the Supabase plan includes, so decide this before real Students play (NFR-4).
 - Create the bucket `reports` as **private**, or let the app create it at first use.
 - Do not enable Supabase Auth or the Data API: auth is the app's own (AD-11), and nothing talks to the database except `api` and the two workers.
 
@@ -183,11 +183,11 @@ Caddyfile sketch:
 
 1. Generate **new** values for every 🔴 variable. Never reuse keys from other projects.
 2. Someone other than the founder generates and holds the pseudonym key, outside Railway (PRD §10, AD-14).
-3. Supabase on a paid plan in eu-central-1, with point-in-time recovery on. Railway services pinned to EU West.
+3. Supabase on a paid plan in eu-central-1. Railway services pinned to EU West.
 4. Resend domain verified (SPF, DKIM, DMARC), region eu-west-1, bounce webhook registered and tested.
 5. LLM provider chosen by the prototype, which is the simulation runner `python -m app.sim` (AD-22). Terms (EU region, ZDR, no training) and the rate limit confirmed in writing. Model pinned and tested on all-AI runs (FR-68, PRD §10).
 6. `APP_ENV=production`, and confirm that the app refuses to start with one secret removed (AD-17).
 7. Sub-processor list for the DPIA pack: Railway, Supabase, Resend, the LLM provider and the DNS provider.
-8. A restore drill from a Supabase backup into a scratch project, and an error-tracking or uptime tool chosen (spine, Deferred).
+8. The backup level decided, and an error-tracking or uptime tool chosen (spine, Deferred).
 9. A load test of 250 simultaneous players including provider rate limits (NFR-3).
-10. The `staging` environment has been used for the rehearsal Class session and the Control test.
+10. The rehearsal Class session and the Control test have been run in production, as a `control_test` Class session and with test Students.

@@ -174,7 +174,7 @@ graph TD
   - Queues and processes: `worker-ai` runs only `ai-orders` (and the AD-5 rescue loop). `worker-batch` runs `llm-batch`, `reports-single`, `reports-bulk` and `mail`, with reserved concurrency for `reports-single` so one report meets its 30-second target while a ZIP builds (FR-57, FR-59).
   - Notifications have one path. A module that wants a User told calls `platform/notify.enqueue(user_id, kind, dedupe_key, ref, not_before)` in its own transaction. The row is unique on `dedupe_key` and holds ids only. The call also emits `user:<id>` (AD-8), so the app shows the notice at once.
   - `messaging` is the only reader of those rows, through `platform/notify.claim_due`, and the only module that defers a `mail` job. No module imports `messaging` to notify. `messaging` may import other modules' `service.py` to resolve recipients.
-  - `messaging` holds the one table of delivery per `kind`. `immediate` kinds are Invitations, password resets and Messages a person sends. All other kinds are `digest`: at most one mail per User per day (FR-27), never sent between 22:00 and 07:00 Europe/Oslo. Turn reminders and Takeover notices are `digest` kinds. `[ASSUMPTION]` The quiet hours, and Takeover mail joining the digest.
+  - `messaging` holds the one table of delivery per `kind`. `immediate` kinds are Invitations, password resets, Messages a person sends and Takeover notices (founder decision 2026-11-12). All other kinds are `digest`: at most one mail per User per day (FR-27), never sent between 22:00 and 07:00 Europe/Oslo. Turn reminders are a `digest` kind. `[ASSUMPTION]` The quiet hours.
   - There is no cron outside the sweeper.
 
 ### AD-10 — The web app is presentation only, typed from the API
@@ -413,6 +413,26 @@ graph TD
 | Railway (EU West, Amsterdam) | managed |
 | Resend (sending region eu-west-1) | managed |
 
+**Deviations from technology.md**
+
+| technology.md | This spine | Kind |
+| --- | --- | --- |
+| Redis cache | none; Postgres LISTEN/NOTIFY and procrastinate | replaced |
+| asyncpg | psycopg 3, required by procrastinate | replaced |
+| no job queue named (websockets listed) | procrastinate on Postgres, SSE for live updates | added |
+| Recharts for all charts | Recharts for standard charts; hand-made SVG for the chain band and matrix wall | narrowed |
+| WeasyPrint in the backend | WeasyPrint in `worker-batch`, fed by a Next.js print page | moved |
+| Python 3.12 image, Node 22, TypeScript 5, Postgres 16 | Python 3.14, Node 24 LTS, TypeScript 6.0, Postgres 17 | newer versions |
+| `ADMIN_EMAILS` grants admin on every login | `BOOTSTRAP_ADMIN_EMAILS` only for the first Admin; later roles in the Admin area | changed |
+| Supabase tokens accepted as a second login | local email and password only | dropped |
+| Per-feature `FEATURE_*` flags and a plugin system | flags only for the PRD §8.1 cut list; no plugins | narrowed |
+| Supabase Storage with one bucket per file type | one private bucket, `reports` | narrowed |
+| Backup cron to Cloudflare R2, watchdog, Cloudflare maintenance Worker, cutover modes | none in the MVP (see Deferred) | dropped |
+| Stripe, Vipps, Fiken, content, services and video services, capability tokens | none; no payment or content platform in v1 | dropped |
+| TipTap, Univer, ace, markdown and math libraries, `@dnd-kit`, `motion`, `next-themes` | none; added only when a story needs one | dropped |
+| DOMPurify and a CSP in `next.config.ts` | CSP kept, with no external connect sources; DOMPurify only if a story renders user HTML | kept, narrowed |
+| structlog not listed | structlog JSON logging | added |
+
 ## Structural Seed
 
 **Deployment and environments**
@@ -444,6 +464,8 @@ graph LR
 | local | `docker compose` (postgres, api, worker, web, caddy) | local Postgres, seeded demo Class | mocks unless keys are set |
 | ci | GitHub Actions | ephemeral Postgres service | mocks only |
 | production | Railway project `olspillet`, branch `production` auto-deploys; `main` is the working branch | Supabase project `olspillet-prod` | real; startup guard (AD-17) |
+
+There is no staging environment (founder decision 2026-11-12). The rehearsal Class session and the Control test run in production, kept out of results by AD-13 and AD-27.
 
 **Core entities** (names and relationships only)
 
@@ -533,8 +555,7 @@ beergame/
 - **Budget reserve size** for Debrief and AI assessment (FR-69), and **the time allowed after the Play deadline for the playout to finish** (FR-38, SM-4). Both are set after the prototype.
 - **Play guard distance measure, window, minimum Weeks and the near-optimal algorithm** (issue #20). They fill the pure-function slots AD-1 and AD-5 define.
 - **Rule-based player parameters** from Sterman 1989 (issues #8, #17).
-- **Staging environment.** Add a second Railway environment with its own Supabase project before the rehearsal Class session.
-- **Backup level.** `[ASSUMPTION]` Before the pilot, turn on Supabase point-in-time recovery, with a target of at most 5 minutes of lost data and 1 hour to restore, and run one restore drill. Daily backups alone do not meet NFR-4. Offsite copies (technology.md R2 cron) wait until after the pilot.
+- **Backup level.** Founder decision 2026-11-12: backups wait until later. The MVP runs on whatever the Supabase plan includes. NFR-4 ("game state is never lost once a Week has been shown") is not met against a database loss until this is decided, so decide it before real Students play.
 - **Error tracking and uptime monitoring** (technology.md watchdog). The MVP has Railway healthchecks and logs. Pick a tool before the pilot, since Lab hours need 99.5% availability and a named contact (NFR-4).
 - **Load test method** for NFR-3 (250 concurrent players, including provider rate limits). Run it before the pilot. One `api` replica is assumed to be enough, and AD-8 allows more replicas.
 - **Email provider data residency.** Resend stores account data in the US, under the EU–US Data Privacy Framework or SCCs. Either list it in the DPIA pack or switch to an EU-stored provider before the pilot.
@@ -549,8 +570,7 @@ beergame/
 - **Sub-processor register and data processing agreement gate.** Open: the list of sub-processors (Railway, Supabase, Resend, the LLM provider, any error tracker) with data, region and transfer basis, and whether Invitations are refused for an Institution with no signed agreement. Operations writes the register for the DPIA pack. The gate is decided before any Institution's Students are invited (PRD §6.1).
 - **Per-session error counts** (NFR-8). `llm_call` gives fallback rate, response times and cost per Class session, not error counts. Open: the store that the conservation check (FR-29), failed jobs and the API error handler write to. Decide it together with error tracking, before the pilot, in the story that builds the Admin operations view.
 - **Test attempt write path.** AD-10 fixes the per-answer revision. Still open: the `tests` command list, the row lock on the Test attempt, the error code a save gets after submit, and the order of the Test deadline actions. The Individual test story decides. Submit and auto-submit freeze the attempt, and a later save is rejected.
-- **CI gating and promotion to production.** Open: whether Railway waits for green GitHub checks, who moves `main` to `production` and how, and the `APP_ENV` value and startup guard for staging (AD-17). Operations decides before the first production deploy, and the staging part with the Staging environment.
-- **Deviations from technology.md.** The spine tags only some choices `[ADOPTED]` or `[ASSUMPTION]`. A short list under Stack of every deviation and silent drop (psycopg, procrastinate, structlog, Node and TypeScript versions, CSP and DOMPurify, `ADMIN_EMAILS`) is written before the spine leaves draft status.
+- **CI gating and promotion to production.** Open: whether Railway waits for green GitHub checks, who moves `main` to `production` and how. Operations decides before the first production deploy.
 - **Replay at an older `rules_version`.** AD-4 needs old engine rules to stay runnable, and the mechanics are open: how versions are kept selectable, golden traces per version in CI, and a freeze on rule changes while a Class session runs. Decide before the first change that alters engine output after a real Game is stored, and before the pilot at the latest.
 - **Railway plan and EU West.** The region exists, but which plans may use it is unverified. Confirm when the project is created, and pin the region in each `railway.toml`. Outbound traffic may leave from a non-EU IP address, so no provider allow-list may rely on an EU address.
 - **Node.js version.** Node 24 is in maintenance LTS until April 2028, and Node 26 is the active LTS. Stay on 24 through the pilot, and decide on the move to 26 after it.
