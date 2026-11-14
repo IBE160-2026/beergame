@@ -31,3 +31,29 @@ Kjøre `bmad-ux` i oppdateringsmodus for å ta de seks UX-avgjørelsene fra klar
 - Issue #34: stories i `epics.md` må følge de seks avgjørelsene (6.7, 6.12, 6.14, 5.1, 5.8, 5.9, 7.2, 7.3, 7.7, 7.11, 8.6, 8.7, 8.9, 11.12, 4.5, 6.1, 11.2), og de øvrige funnene fra klarhetssjekken er ikke rettet. Deretter kjøres `bmad-sprint-planning` på nytt.
 - Issue #34: brukeren må bekrefte utkastene til ny tekst og de fire antakelsene om oppførsel.
 - Issue #31, #32 og #21 står som før.
+
+## 2026-11-14 kl. 17:55 — Bård Pettersen
+
+### Oppgave
+Rette `epics.md` etter de seks UX-avgjørelsene og de øvrige funnene fra klarhetssjekken, og gjøre alt klart til `bmad-sprint-planning`.
+
+### Plan
+- Lese hver berørt story og rette kriteriene med et skript som krever at hver tekst som byttes finnes nøyaktig én gang.
+- Føre avgjørelsene, utkastene til tekst og valgene som ble tatt under rettingen inn i `open-assumptions.md`.
+- Føre de nye kommandoene inn i AD-2 i arkitekturen (Issue #32).
+- Kjøre de mekaniske kontrollene og prøvekjøringen av sprintskriptet på nytt.
+
+### Resultat
+- `epics.md`: 51 endringer i 36 stories lukker alle 29 funn. Ingen stories er lagt til, fjernet eller omnummerert. Berørte stories: 3.1, 3.12, 4.5, 5.1, 5.8, 5.9, 6.1, 6.2, 6.3, 6.6, 6.7, 6.9, 6.11, 6.12, 6.14, 6.15, 6.16, 6.17, 7.1, 7.2, 7.3, 7.6, 7.7, 7.8, 7.9, 8.6, 8.7, 8.11, 8.12, 9.5, 9.15, 11.2, 11.12, 13.3, 13.4 og 13.8.
+- `open-assumptions.md`: ny del med de seks avgjørelsene, fire utkast til tekst som må bekreftes, åtte tekster som fortsatt må skrives, og elleve valg tatt under rettingen.
+- `ARCHITECTURE-SPINE.md`: AD-2 lister nå `advance`, `set_snapshot`, `propose_time`, `accept_time`, `recompute_turn_times`, `end_in_room` og `close`, aktøren på `place_order` og `start`, og erstatt-argumentet på `assign_seat`.
+- `implementation-readiness.md`: ny del «Status after the fixes (2026-11-14)».
+- Kontroller kjørt på nytt, alle består: 199 stories, 1 252 kriterier (3 til 8 per story), alle FR, NFR, AD-regler og UX-krav i en `Covers:`-linje, 450 av 468 siterte norske strenger stemmer nøyaktig med UX-dokumentene (resten er eksempelverdier og overskrifter). Tre nye henvisninger til senere stories er overleveringer (6.9 og 7.8 til 9.5, 6.15 til 6.16). Prøvekjøringen av `sprint_plan.py` leser 15 epics og 199 stories.
+- Begrensning: rettingene er ikke lest av en annen leser, og mockup 03, 04, 05, 06 og 08 er ikke tegnet på nytt.
+- Issue #34 er lukket. Issue #31 og #32 har fått kommentarer.
+- Ikke committet: `epics.md`, `open-assumptions.md`, `ARCHITECTURE-SPINE.md`, `EXPERIENCE.md`, `DESIGN.md`, de to `.memlog.md`-filene, figurmappa og `implementation-readiness.md`. `sprint-status.yaml` er ikke laget; det gjør `bmad-sprint-planning`.
+
+### Åpne punkter
+- Issue #31: bekrefte utkastene til tekst og valgene i den nye delen av `open-assumptions.md`, og avgjøre sen registrering uten ledig sete (Story 5.13, FR-20).
+- Issue #32: hendelsesemner per kommando og de andre tilleggene mangler fortsatt i arkitekturen.
+- Issue #21: datoplan mot kursdatoen mangler.
