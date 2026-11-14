@@ -51,7 +51,7 @@ Rette `epics.md` etter de seks UX-avgjørelsene og de øvrige funnene fra klarhe
 - Kontroller kjørt på nytt, alle består: 199 stories, 1 252 kriterier (3 til 8 per story), alle FR, NFR, AD-regler og UX-krav i en `Covers:`-linje, 450 av 468 siterte norske strenger stemmer nøyaktig med UX-dokumentene (resten er eksempelverdier og overskrifter). Tre nye henvisninger til senere stories er overleveringer (6.9 og 7.8 til 9.5, 6.15 til 6.16). Prøvekjøringen av `sprint_plan.py` leser 15 epics og 199 stories.
 - Begrensning: rettingene er ikke lest av en annen leser, og mockup 03, 04, 05, 06 og 08 er ikke tegnet på nytt.
 - Issue #34 er lukket. Issue #31 og #32 har fått kommentarer.
-- Ikke committet: `epics.md`, `open-assumptions.md`, `ARCHITECTURE-SPINE.md`, `EXPERIENCE.md`, `DESIGN.md`, de to `.memlog.md`-filene, figurmappa og `implementation-readiness.md`. `sprint-status.yaml` er ikke laget; det gjør `bmad-sprint-planning`.
+- Committet som `ff3eb3b` etter at brukeren ba om det: `epics.md`, `open-assumptions.md`, `ARCHITECTURE-SPINE.md`, `EXPERIENCE.md`, `DESIGN.md`, de to `.memlog.md`-filene, figurmappa og `implementation-readiness.md`. Ikke pushet. Mappa `.working/` under epics er holdt utenfor. `sprint-status.yaml` er ikke laget; det gjør `bmad-sprint-planning`.
 
 ### Åpne punkter
 - Issue #31: bekrefte utkastene til tekst og valgene i den nye delen av `open-assumptions.md`, og avgjøre sen registrering uten ledig sete (Story 5.13, FR-20).
