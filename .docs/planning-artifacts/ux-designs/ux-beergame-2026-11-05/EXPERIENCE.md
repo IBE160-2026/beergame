@@ -2,7 +2,7 @@
 title: "EXPERIENCE: beergame"
 status: final
 created: 2026-11-05
-updated: 2026-11-10
+updated: 2026-11-14
 sources:
   - ../../prds/prd-beergame-2026-10-29/prd.md
   - ../../prds/prd-beergame-2026-10-29/addendum.md
@@ -220,7 +220,7 @@ Behaviour only. Visual specs live in `DESIGN.md` → Components, under the same 
 
 | Component | Behavioural rules |
 |---|---|
-| Knapper | There is one primary button per screen. «Bekreft ordre på 24» confirms and locks the order with one tap. There is no undo and no second dialog, because the consequence is already written above the button. Secondary buttons («Logg inn», «Kjør fordeling på nytt», «Ta tilbake setet», «Vis i plenum», «Sett inn KI-spiller for Jonas») never commit irreversible state. A button that cannot act yet is disabled, never shown as secondary (the empty «Bekreft ordre»). Visual states: `DESIGN.md` → Components → Interaction states. |
+| Knapper | There is one primary button per screen. «Bekreft ordre på 24» confirms and locks the order with one tap. There is no undo and no second dialog, because the consequence is already written above the button. Secondary buttons («Logg inn», «Kjør fordeling på nytt», «Ta tilbake setet», «Vis i plenum», «Sett inn KI-spiller for Jonas») never commit irreversible state. A button that cannot act yet is disabled, never shown as secondary (the empty «Bekreft ordre»). While an in-place panel with its own committing button is open (the Varselbånd pause form, Spillstyring, Fordelingsforhåndsvisning), that button is the screen's primary and the screen's usual primary shows as secondary until the panel closes. Visual states: `DESIGN.md` → Components → Interaction states. |
 | Lenke | Links navigate or open a panel and never commit anything: «Alle rader og kostnad», «Kostnad så langt», «Hopp over», «Bytt fil», «Registrer manuelt», «Send påminnelse til 10», «Legg til Labtime», «Melding». |
 | Tekstfelt | Labelled above. Lag Klasse shows an invalid row inline with its reason («Domene mangler», «Mangler @», «To @», «Tom celle») and «Registrer manuelt». The Forklaring field must be saved before the Debrief moves on (FR-41). |
 | Valgknapper | Klasseøkt choices take effect when «Lagre Klasseøkt» is pressed. They lock at the Start date (FR-18). Help text under each states the scope: «Gjelder alle KI-spillere i Klassespill og Replay.» |
@@ -230,7 +230,7 @@ Behaviour only. Visual specs live in `DESIGN.md` → Components, under the same 
 
 | Component | Behavioural rules |
 |---|---|
-| Setestatus | Lists all four Seats with Role, name or «KI-spiller», and «har bestilt» / «venter, 3 min» / «venter (deg)» (FR-25). It appears on the game screen after the Student confirms an order, and on Hjem. It updates live. It hosts Pausevalg below the list and Sett inn KI-spiller on an absent Seat's row. |
+| Setestatus | Lists all four Seats with Role, name or «KI-spiller», and «har bestilt» / «venter, 3 min» / «venter (deg)» (FR-25). It is on the game screen through the whole Uke, before and after the Student's own order, under the Ordrefelt and its button, and on Hjem (founder decision 2026-11-14; before, it appeared on the game screen only after the order). So a Student who has not ordered yet has the same place for the pause line, «Ta pause» and Sett inn KI-spiller as everyone else. [ASSUMPTION: with the list always in view, the one-line «Venter på: Jonas (3 min) og deg.» under the button in mockups `05` and `06` A–B is not drawn; its text stays as the live announcement.] It updates live. It hosts Pausevalg below the list and Sett inn KI-spiller on an absent Seat's row. |
 | Pausevalg | A Student sets a Pause without a time (FR-89); only the Faglærer sets an agreed time (Spillstyring). See below. |
 | Sett inn KI-spiller | Puts a KI-spiller into an absent Seat once that Seat's insert time has passed, whether or not a Pause is running (FR-89, FR-37). See below. |
 | Spillkort | Hjem's card while the Klassespill runs. «Spillet venter på deg» with «Gå til Uke 11» when the game waits for this Student (FR-25); other states in State Patterns → Student game. The mini graph is `aria-hidden`; the card's text plus «Netto lager −13 i Uke 11.» is its alternative. |
@@ -299,7 +299,7 @@ Behaviour only. Visual specs live in `DESIGN.md` → Components, under the same 
 
 | Component | Behavioural rules |
 |---|---|
-| Matrisevegg | Rows grouped by status, with filters, «Melding» links and stable focus. See below. |
+| Matrisevegg | Rows grouped by status, with filters, «Melding» links, stable focus and every cell readable in place. See below. |
 | Oppdater automatisk | A Bryter above the Matrisevegg, on by default (WCAG 2.2.2). See below. |
 | Visningsbryter | «Vegg» / «Vis som tabell». It is always visible above the wall. The table lists all 60 games with a number in every cell at 13 px, is sortable and is read by screen readers. In «Vis i plenum» the same toggle offers the table, with games in game-number order, no names and no sorting by cost (FR-86). |
 | Veggfiltre | Rolle, Celler and Status above the wall. Each filter is a toggle with `aria-pressed` and applies at once; the counts update with it. |
@@ -309,7 +309,7 @@ Behaviour only. Visual specs live in `DESIGN.md` → Components, under the same 
 | Kostnadsfordeling | Read-only Faglærer chart. |
 | Trakt | Read-only Faglærer chart. |
 | Datolinje | Read-only Faglærer chart. |
-| Fordelingsforhåndsvisning | Read-only Faglærer chart. Selecting a column shows that game's four names («Spill 17  Ida, Detaljist. Sara, Grossist. …»). «Kjør fordeling på nytt» redraws it. «Bekreft fordeling» commits it (FR-20). Beside the button: «Ingen får beskjed før du bekrefter.» |
+| Fordelingsforhåndsvisning | Faglærer chart in an in-place panel on the Klasseøkt (founder decision 2026-11-14). Closed, the block «Fordeling» states «Ikke bekreftet.» or «Fordelingen er bekreftet.» with a Lenke that opens the panel. [ASSUMPTION: copy of the two state lines and the Lenker «Se og bekreft fordelingen» and «Vis fordelingen»] Open: selecting a column shows that game's four names («Spill 17  Ida, Detaljist. Sara, Grossist. …»). «Kjør fordeling på nytt» redraws it. «Bekreft fordeling» commits it (FR-20) and is the screen's primary button while the panel is open; «Lagre Klasseøkt» then shows as secondary, the rule the Varselbånd and Spillstyring use (Controls → Knapper). Beside the button: «Ingen får beskjed før du bekrefter.» After confirming, the panel closes to the state line, focus moves to that line, and «Lagre Klasseøkt» is the primary again. Mockup `03` draws both buttons as primary; the spine wins. |
 | Spillstyring | The Faglærer's actions on Class games: start (FR-22), pause with an agreed time (FR-89 extension), «I rommet» with a shorter limit (FR-36) and manual Takeover (FR-37), for one game on Spillinnsikt and for all games from the Oversikt. See below. |
 | Tilrettelegging | Studentside block: the per-Student Tilrettelegging of the Inactivity limit and the share (FR-17). Only ever extends. See below. |
 | Fullføringsretting | Studentside block: the Completion status per step, its correction with a reason, and the Oppfølgingsspill (FR-17). See below. |
@@ -322,7 +322,8 @@ Behaviour only. Visual specs live in `DESIGN.md` → Components, under the same 
 | Filters | Filters for Rolle, Celler (Netto lager / Ordre / Kost per uke) and Status (with counts) apply at once. |
 | Row actions | A row's «Melding» link opens a Message to that game. [ASSUMPTION: clicking a row opens Spillinnsikt.] |
 | Cells and legend | Cell text and the always-shown legend: `DESIGN.md` → Components → Matrisevegg. |
-| Updates | Updates follow Oppdater automatisk. Keyboard focus stays on the same game, by game ID, across every re-render. |
+| Updates | Updates follow Oppdater automatisk. Keyboard focus stays on the same game, by game ID, and on the same Uke, across every re-render. |
+| Keyboard and screen reader | The whole wall can be read (founder decision 2026-11-14): to assistive technology it is a table with one row per game and one column per Uke, with row and column headers, and it is never `aria-hidden`. Every cell can be reached and is read where it stands, as «Spill 2, Uke 14: Netto lager −13.», with the measure following the Celler filter. The value is in the cell's name also where the 9 px cell prints «−» or nothing, so the fill is never the only carrier. A row's status («venter på Noah, Grossist, 23 t») and its «Melding» link are read in the row. [ASSUMPTION: the wall is one Tab stop; arrow keys move cell by cell, Home and End go to the row's first and last Uke, Enter opens Spillinnsikt for the row; copy of the cell reading] A Class session of 240 Students has up to 60 rows by 36 Uker, 2 160 cells, so the group headers, the filters and «Vis som tabell» stay the fast ways in. «Vis som tabell» remains the view with a printed number in every cell at 13 px. |
 
 #### Oppdater automatisk
 
@@ -355,9 +356,9 @@ Behaviour only. Visual specs live in `DESIGN.md` → Components, under the same 
 | Where, who | A block on the Studentside, Faglærer only. [ASSUMPTION: Assistenter do not see it] |
 | Idle | «Ingen tilrettelegging.» or the summary «Mer tid: 2 ×. Andel uker: 60 %.», with secondary «Endre tilrettelegging». |
 | Form, in place | «Mer tid før KI tar over» as Valgknapper «Som klassen», «1,5 ×», «2 ×», «3 ×» [ASSUMPTION: these factors]. «Andel uker som kreves» as a whole percentage from 0 to the class share, help line «Klassen: 80 %.», error «Skriv et helt tall fra 0 til 80.». The line «Gjelder bare Jonas, fra nå. Ingen andre studenter ser det. Endringen logges.» Primary «Lagre tilrettelegging», and «Avbryt». There is no field for the reason, so no health data is stored. [ASSUMPTION] |
-| What it extends | The factor multiplies every limit that governs the Seat: the Klasseøkt's Inactivity limit, the «I rommet» limit (the only timed sitting in v1 [ASSUMPTION]), and the floor under a Faglærer's agreed pause time (Sett inn KI-spiller → Insert time). It also applies to automatic Takeover and to the Varselbånd's «KI overtar om …». It can never shorten anything. |
+| What it extends | The factor multiplies every limit that governs the Seat: the Klasseøkt's Inactivity limit, the «I rommet» limit, the time limit of an Individuell test taken in one sitting (60 min becomes 90 min at 1,5 ×; founder decision 2026-11-14, which replaces the assumption that «I rommet» is the only timed sitting in v1), and the floor under a Faglærer's agreed pause time (Sett inn KI-spiller → Insert time). It also applies to automatic Takeover and to the Varselbånd's «KI overtar om …». It can never shorten anything. |
 | Timing | Changeable at any time, also after the Start date; a running clock is recomputed at once. [ASSUMPTION] |
-| Student's own view | Hjem shows, under Stegene and only to that Student: «Du har mer tid før en KI-spiller tar setet ditt (2 × vanlig ventetid).» and, if the share is adjusted, «For deg er kravet 60 % av ukene.» In «I rommet» the Student's own line shows their own minutes. Mine data lists it. The other Students only ever see a later insert time. |
+| Student's own view | Hjem shows, under Stegene and only to that Student: «Du har mer tid før en KI-spiller tar setet ditt (2 × vanlig ventetid).» and, if the share is adjusted, «For deg er kravet 60 % av ukene.» In «I rommet» the Student's own line shows their own minutes, and in a timed Individuell test «Tid igjen» counts the Student's own minutes. [ASSUMPTION: the form label «Mer tid før KI tar over» and the Hjem line still name only the AI takeover although the factor now also extends the test's time limit; copy to be reviewed] Mine data lists it. The other Students only ever see a later insert time. |
 | Status | Spine-only. FR-17 names the adjustment; the factors, the floor rule and the screen are this spine's (issue #25). |
 
 #### Fullføringsretting
@@ -407,7 +408,7 @@ Rows marked spine-only have no mockup. Copy in «» is the UI string; where a ro
 | Glemt passord | Sent | «Hvis adressen har en konto, har vi sendt en lenke. Lenken virker i én time.» [ASSUMPTION: one hour] Spine-only. |
 | Nytt passord | Link expired or used | «Lenken er utløpt eller brukt.» with «Send ny lenke». Spine-only. |
 | Nytt passord | Done | «Passordet er endret.» then Logg inn with the e-mail prefilled. Spine-only. |
-| Du er invitert | Valid | «Invitasjonen er gyldig i 14 dager. Du får Rolle og spill når Faglærer har bekreftet fordelingen.» |
+| Du er invitert | Valid | «Invitasjonen er gyldig i 14 dager. Du får Rolle og spill på startdatoen.» [ASSUMPTION: copy of the second sentence] A Student sees their game, Role and Seats from the Start date (FR-22), not when the allocation is confirmed (founder decision 2026-11-12). |
 | Du er invitert | Expired or used link | A message plus a way to ask for a new Invitasjon (FR-1). [ASSUMPTION: copy to be written] |
 | Mine data | Open (FR-75) | One row per category (konto og profil, ordrer, Forklaring, refleksjonssvar, Debrief-quiz, testsvar, KI-vurdering, veiledende bokstav, tilrettelegging if any), each with «Vis». «Last ned Studentrapport» at the top. Spine-only. |
 
@@ -415,7 +416,7 @@ Rows marked spine-only have no mockup. Copy in «» is the UI string; where a ro
 
 | Surface | State | Treatment |
 |---|---|---|
-| Hjem | Before allocation | No game card. The line «Du får Rolle og spill når Faglærer har bekreftet fordelingen.» Stegene greyed out. |
+| Hjem | Before the Start date | No game card, also after the Faglærer has confirmed the allocation (founder decision 2026-11-12). The line «Du får Rolle og spill på startdatoen.» Stegene greyed out. [ASSUMPTION: copy; a Student who still has no Seat after the Start date needs a line of their own] |
 | Hjem | Spillet venter på deg | The card «Spillet venter på deg», Uke 11, mini graph over table, «Totalkostnad 68,00 kr», «Gå til Uke 11» (FR-25) |
 | Hjem | Waiting for others | [ASSUMPTION: the same card with Setestatus and no primary action] |
 | Velg spill og sete | Open (FR-21) | A list of Klassespill, each with its four Seats as «Grossist, ledig» or the name. Pressing a free Seat shows «Ta setet Grossist i Spill 17» as the primary button. One Seat per Klasseøkt; choosing another releases the first. Spine-only. |
@@ -430,12 +431,12 @@ Rows marked spine-only have no mockup. Copy in «» is the UI string; where a ro
 | Spill | Typed | The value shows in two cells, the band shows «På vei 16 + 24», the button reads «Bekreft ordre på 24» (`06` B) |
 | Spill | Typed, invalid or out of range | Error border and «Skriv et helt tall fra 0 til {maks}.»; «Bekreft ordre» disabled. See Ordrefelt. |
 | Spill | Submitting | The button reads «Sender ordre på 24 …» and is unavailable: it keeps focus with `aria-disabled="true"` and `aria-busy="true"`, never the native `disabled`, and further presses are ignored. The field is read-only. Announcements and focus for this and the next four rows: Accessibility Floor → Order and action results. |
-| Spill | Confirmed | «Ordren på 24 er sendt. Venter på Jonas.», Setestatus, «Du får beskjed når Uke 12 åpner.» (`06` C, FR-27) |
+| Spill | Confirmed | «Ordren på 24 er sendt. Venter på Jonas.», Setestatus, then «Skjermen går videre når alle har bestilt. Du får e-post hvis spillet venter på deg.» [ASSUMPTION: copy, draft of 2026-11-14] The line says what happens and promises nothing more (founder decision 2026-11-14): the screen moves to the next Uke by itself, no notice is sent when a Uke opens, and FR-27's e-mail comes only when the game has waited for the Student. Mockup `06` C shows the earlier line «Du får beskjed når Uke 12 åpner.»; the spine wins. |
 | Spill | Submit failed | «Ordren ble ikke sendt. Ingenting er bestilt ennå.» The field keeps 24 and stays editable; the primary button reads «Prøv å sende 24 igjen». A retry can never create a second order. [ASSUMPTION: the server ignores a repeat of the same request] |
 | Spill | Timed out | No answer after 10 s [ASSUMPTION]: «Vi vet ikke om ordren kom fram. Sjekker …». The app asks the server: if the order is there, it shows Confirmed; if not, Submit failed. The order is never locked silently. |
 | Spill | Offline with a typed order | Tilkoblingslinje plus «Ordren på 24 er ikke sendt.» The value stays in the field. When the connection returns: «Tilkoblet igjen. Ordren er ikke sendt ennå.» and the normal «Bekreft ordre på 24». It is never sent without a press. |
 | Spill | Uke advanced | Uke-overgang (`06` D) |
-| Spill | Paused | All four Seats see the pause line above Setestatus, on Spill and Hjem, announced politely (FR-89): «Pause, satt av Sara.» when a Student paused; «Pause, satt av faglæreren.» or «Pause til to. 19:00, satt av faglæreren.» when the Faglærer paused or set the time. Only the Faglærer's pause line carries a time. Nothing in it hints at how many Uker remain (FR-14). The Oversikt shows the game as paused, since when and by whom. See Pausevalg and Spillstyring. |
+| Spill | Paused | All four Seats see the pause line above Setestatus, on Spill and Hjem, whether or not they have ordered this Uke, announced politely (FR-89). On a phone the line can sit below the first screenful before the order, so the announcement carries it: «Pause, satt av Sara.» when a Student paused; «Pause, satt av faglæreren.» or «Pause til to. 19:00, satt av faglæreren.» when the Faglærer paused or set the time. Only the Faglærer's pause line carries a time. Nothing in it hints at how many Uker remain (FR-14). The Oversikt shows the game as paused, since when and by whom. See Pausevalg and Spillstyring. |
 | Spill | Pause ended | Any Student ends the pause by ordering (FR-89); the line becomes «Pausen er over. Sara har bestilt.» |
 | Spill | Before the insert time (paused, or an agreed time set) | With an agreed time, the absent Seat's row reads «Avtalt tid to. 19:00. Etter det kan dere sette inn en KI-spiller.» Without one, once the FR-36 clock runs: «Etter on. 10:00 kan dere sette inn en KI-spiller.», the Seat's own insert time. |
 | Spill | Insert time passed | The other Students see Sett inn KI-spiller on the absent Seat's row, paused or not, until that Seat orders, a Takeover happens or the Uke advances (Sett inn KI-spiller → Shown). |
@@ -471,6 +472,10 @@ Rows marked spine-only have no mockup. Copy in «» is the UI string; where a ro
 |---|---|---|
 | Individuell test | Locked | In Stegene: «Individuell test, åpnes når du har fullført Replay.» (FR-51) |
 | Individuell test | Open | First the own-work statement (FR-51), then the items. «Lagret 21:14» after each autosave (polite). |
+| Individuell test | One sitting with a time limit, before opening (FR-51) | The own-work statement also states the time limit, and that the time starts when the test opens and cannot be paused, before the button is pressed. [ASSUMPTION: copy to be written] Spine-only. |
+| Individuell test | One sitting, time running | «Tid igjen 38 min» stands at the top of the test the whole time, also while the Student scrolls (founder decision 2026-11-14). [ASSUMPTION: copy; it counts whole minutes, changes without moving focus and is not announced at each change] For a Student with Tilrettelegging it counts the extended time. [ASSUMPTION: WCAG 2.2.1 is met through the essential exception, with Tilrettelegging as the way to more time] Spine-only. |
+| Individuell test | One sitting, 5 minutes left | Announced once, politely: «5 minutter igjen. Svarene dine er lagret.» [ASSUMPTION: copy; 5 minutes] |
+| Individuell test | One sitting, time out | What is saved is submitted, and the Student reads «Tiden er ute. Testen er levert.» [ASSUMPTION: copy] The step counts as submitted. |
 | Individuell test | Autosave failed | «Ikke lagret. Svarene ligger på denne enheten, og vi prøver igjen.» The Student can keep working. |
 | Individuell test | Review before submit | «Lever testen» opens a review: «3 oppgaver er ikke besvart: 4, 7 og 9.», each a link to its item, and «Du kan ikke endre svarene etter at du har levert.» over the primary «Lever testen». |
 | Individuell test | Submitted | «Levert to. 18. des kl. 21:40. Du kan ikke endre svarene.» |
@@ -496,7 +501,8 @@ Rows marked spine-only have no mockup. Copy in «» is the UI string; where a ro
 | Klasseøkt | «Ventetid før KI tar over» (FR-36) | Whole hours, default 24, never under 20. [ASSUMPTION: floor 20 h, so the WCAG 2.2.1 20-hour exception holds for every Student; the PRD sets no minimum, and SM-C5's lowering stays within it.] Help line «Minst 20 timer. Kortere ventetid kan bare gjelde spill som er i rommet i en Labtime.» Under 20: «Skriv et helt antall timer, 20 eller mer.» in the Ordrefelt error pattern. Locked at the Start date (FR-18). Shorter limits exist only through «I rommet», where the Students sit in a scheduled Labtime and see the limit on screen, and through a Faglærer's agreed pause time; in both, a Student with Tilrettelegging keeps the extended limit (Tilrettelegging → What it extends). [ASSUMPTION: an accessibility review confirms this for «I rommet»] |
 | Innsatsnivå | Choosing (FR-78) | Valgknapper with only the offered levels, each with its effect on speed and cost in one line. Hidden when regelbaserte KI-spillere are chosen. Locked at the Start date. Spine-only. |
 | Spørsmål og vekter | Editing (FR-52) | A list of questions with Vekt in % and «Ta ut». The sum shows live; «Sum 95 %. Vektene må bli 100 %.» blocks saving. Removing a quantity item warns without blocking: «Du tar ut en oppgave som måler mengder.» Locked at the Start date. Spine-only. |
-| Sensorveiledning | Editing (FR-81) | One Tekstfelt per question, marked «Standard» or «Endret». An edited guide shows «Ikke kontrollert med en Kontrolltest.» to the Faglærer and in the feedback. Locked at the Testfrist. Spine-only. |
+| Sensorveiledning | Editing (FR-81) | One Tekstfelt per question, marked «Standard» or «Endret». Every guide version that no Kontrolltest has checked, the «Standard» one included, shows «Ikke kontrollert med en Kontrolltest.» to the Faglærer and in the feedback (founder decision 2026-11-12; before, only an edited guide showed it). Locked at the Testfrist. Spine-only. |
+| Individuell test (setting) | One sitting with a time limit (FR-51) | A Bryter, and when it is on a Tekstfelt for the limit in whole minutes. Applies on «Lagre Klasseøkt»; read-only after the Start date. [ASSUMPTION: copy and the allowed range to be written] Spine-only. |
 | KI-vurdering (setting) | Off (FR-61) | Bryter «KI-vurdering» with the help text «Flervalg og interaktive oppgaver rettes fortsatt automatisk. Studentrapporten finnes som vanlig.» Locked at the Testfrist. Spine-only. |
 | Eksport | Ready to download | Three actions: «Last ned alle Studentrapporter (ZIP)», «Last ned fullføringsliste (CSV eller Excel)», «Last ned spilldata (CSV)». Notes: «ZIP-filen har aldri med KI-vurderingen.» «Ingen av filene har KI-vurderinger.» Spine-only. |
 | Eksport | ZIP being made | «ZIP-filen lages. Du får beskjed når den er klar, innen 10 minutter.» (FR-59). Failure: «ZIP-filen kunne ikke lages.» with «Prøv igjen». Spine-only. |
@@ -555,7 +561,7 @@ Rows marked spine-only have no mockup. Copy in «» is the UI string; where a ro
 Behavioural. Contrast and type floors live in `DESIGN.md`.
 
 - **Standard:** WCAG 2.1 AA on Student and Faglærer screens (NFR-6).
-- **Charts:** every chart has a text or table alternative, listed here. A chart whose alternative is a visible table on the same columns needs nothing more; every other chart is `aria-hidden` and points to its alternative.
+- **Charts:** every chart has a text or table alternative, listed here. A chart whose alternative is a visible table on the same columns needs nothing more; every other chart is `aria-hidden` and points to its alternative. The Matrisevegg is the exception: it is readable in place (Component Patterns → Matrisevegg → Keyboard and screen reader) and also has «Vis som tabell».
 
 | Chart | Alternative |
 |---|---|
@@ -569,7 +575,7 @@ Behavioural. Contrast and type floors live in `DESIGN.md`.
 | Debrief step 1 strip «Ditt netto lager, hele spillet» | «Vis som tabell» (Uke, Netto lager) |
 | Etterspørselsbånd | The table Uke / Kundene / Ordre inn / Din ordre under it |
 | Delt skjerm «Kostnad, kr» per Role, and «Snitt per ferdig spill, per Rolle» | Lager and Restordre numbers printed beside each Role total, not only the total |
-| Matrisevegg | «Vis som tabell» (13 px, a number in every cell). In «Vis i plenum»: the caption in words, the legend, and the same table offer |
+| Matrisevegg | Readable in place as a table, cell by cell (Component Patterns → Matrisevegg). Also «Vis som tabell» (13 px, a number in every cell). In «Vis i plenum»: the caption in words, the legend, and the same table offer |
 | Kostnadsfordeling («Klassens kostnad») | A text summary under it («Median 1 954. Midterste halvdel 1 500–2 600. Fjoråret 2 740.») and «Vis som tabell» (Spill, kjedekost, sorted) |
 | Trakt | Its counts are printed; the bars are `aria-hidden` and the counts form a list |
 | Datolinje | The labelled date fields and the list of Labtimer it is drawn from |
@@ -586,7 +592,7 @@ Behavioural. Contrast and type floors live in `DESIGN.md`.
   - Wrong quiz answers and invalid input carry text.
   - Invalid rows carry a reason.
   - AI is the word «KI-spiller».
-- **Live announcements** (`aria-live` polite unless marked): «Venter på: …», the Uke advance («Uke 11 er ferdig regnet»), Takeover, the reveal unlocking, Pause set and ended, «I rommet» starting and ending, «Tilkoblet igjen.», the Ukeskrubber result, the Oversikt rules under Oppdater automatisk, Ordrefelt errors (`role="alert"`, on leaving the field or pressing the button), and the order and action results below.
+- **Live announcements** (`aria-live` polite unless marked): «Venter på: …», the Uke advance («Uke 11 er ferdig regnet»), Takeover, the reveal unlocking, Pause set and ended, «I rommet» starting and ending, the 5-minute notice in a timed Individuell test, «Tilkoblet igjen.», the Ukeskrubber result, the Oversikt rules under Oppdater automatisk, Ordrefelt errors (`role="alert"`, on leaving the field or pressing the button), and the order and action results below.
 - **Order and action results** (WCAG 4.1.3, 3.3.1, 2.4.3). A message that receives focus is read on focus and is not also a live region, so it is read once.
 
 | State | Announcement | Focus |
@@ -608,7 +614,7 @@ Behavioural. Contrast and type floors live in `DESIGN.md`.
   - Focus order follows reading order: header, chain band, graph/table, order input, confirm.
   - After confirming, focus moves to the waiting message.
   - A control that becomes unavailable while it has focus never gets the native `disabled`: it takes `aria-disabled="true"`, keeps focus and ignores presses. This covers «Bekreft ordre» while submitting, and − at 0 and + at {maks}.
-  - An in-place form (Pausevalg, Spillstyring, Tilrettelegging, Fullføringsretting) moves focus to its first field, or to its primary button when it has no field; «Avbryt» returns focus to the control that opened it.
+  - An in-place form (Pausevalg, Spillstyring, Tilrettelegging, Fullføringsretting, Fordelingsforhåndsvisning) moves focus to its first field, or to its primary button when it has no field; «Avbryt» returns focus to the control that opened it.
   - The Alle rader screen returns focus to the link that opened it.
   - Live updates (Oversikt, Setestatus, Matrisevegg) never move focus.
 - **Screen readers:**
@@ -727,8 +733,8 @@ Failure: a row is still invalid, so it gets no e-mail until fixed or registered 
 2. Bård reads «Kjeden ved start», where the boxes on the pipe show the delays and Lager 12.
 3. Bård keeps «LLM-spillere» and «Gruppedebrief» and switches «Obligatorisk» to «Ja, står i emneplanen».
 4. Bård sets the dates on the Datolinje (Start ti. 24. nov to Testfrist fr. 18. des) and adds four Labtimer with «Legg til Labtime».
-5. In «Fordeling: 60 Klassespill à 4», Bård checks Spill 17 and presses «Kjør fordeling på nytt» once.
-6. **Climax:** Bård presses «Bekreft fordeling»; beside the button: «Ingen får beskjed før du bekrefter.» Bård then presses «Lagre Klasseøkt», and the whole setup needed no changes to the defaults.
+5. In «Fordeling: 60 Klassespill à 4», Bård opens the preview, checks Spill 17 and presses «Kjør fordeling på nytt» once.
+6. **Climax:** Bård presses «Bekreft fordeling», the primary button while the preview is open; beside the button: «Ingen får beskjed før du bekrefter.» The preview closes to «Fordelingen er bekreftet.» Bård then presses «Lagre Klasseøkt», and the whole setup needed no changes to the defaults.
 
 Edge: 241 Students gives one game with one Student and three KI-spillere (FR-20).
 
@@ -821,5 +827,6 @@ Edge: a Student without a test still gets a report, with the step marked as not 
 4. **Matrix wall table view** is drawn only as the toggle, not as its own sheet (issue #24).
 5. **Undrawn (spine-only) surfaces:** Information visibility (FR-83), the scheduling aid (FR-22), Pausevalg and Sett inn KI-spiller (FR-89), the Faglærer pause, Spillstyring (FR-22, FR-36, FR-37), Tilrettelegging and Fullføringsretting (FR-17), Play guard disclosure, AI-share of chain cost (FR-44), follow-up questions (FR-45), the drawing Interaktiv oppgave, playout copy, Admin screens, and every IA row marked spine-only.
 6. **Laptop breakpoint** and tablet behaviour are not set by any source.
-7. **PRD update needed (issue #25):** FR-84, the neutral-naming risk mitigation and PRD open question 1 after the «ØL-spillet» override; FR-89 gains a Faglærer pause, and only the Faglærer sets an agreed pause time (Students pause without one; founder decision 2026-11-10); FR-17's per-Student adjustment gains this spine's Tilrettelegging factors and the rule that it also extends «I rommet» and agreed times; FR-36 gains a 20 h floor on the Klasseøkt Inactivity limit [ASSUMPTION]; the addendum §B "goods flowing down" layout is now horizontal.
+9. **Decisions of 2026-11-14 (readiness check, issue #34).** Six decisions are written into this spine and `DESIGN.md`: the Matrisevegg can be read cell by cell; the Setestatus is on the game screen through the whole Uke; the line after the order says what happens; the Fordelingsforhåndsvisning is an in-place panel with one primary; the Kost per uke axis grows 40 kr at a time with no maximum; a timed Individuell test shows «Tid igjen». The option figures are in `.working/valg-2026-11-13/`. Mockups `03`, `04`, `05`, `06` and `08` are not redrawn and show the earlier state; the spines win. The copy these decisions add is marked [ASSUMPTION: copy] and waits for the founder. The stories in `epics.md` must follow (6.7, 6.12, 6.14, 5.1, 5.8, 5.9, 7.2, 7.3, 7.7, 7.11, 8.6, 8.7, 8.9, 11.12, 4.5, 6.1, 11.2).
+7. **PRD update needed (issue #25):** FR-84, the neutral-naming risk mitigation and PRD open question 1 after the «ØL-spillet» override; FR-89 gains a Faglærer pause, and only the Faglærer sets an agreed pause time (Students pause without one; founder decision 2026-11-10); FR-17's per-Student adjustment gains this spine's Tilrettelegging factors and the rule that it also extends «I rommet», agreed times and the time limit of a timed Individuell test; FR-36 gains a 20 h floor on the Klasseøkt Inactivity limit [ASSUMPTION]; the addendum §B "goods flowing down" layout is now horizontal.
 8. **Posisjon in the Klassespill (issue #22 risk, test in the pilot):** with Posisjon shown as a row and a line, an order-up-to rule becomes easy to follow, which may flatten the oscillation and weaken the Debrief reveal (step 4, «Dette regnet du»; P3). The pilot should check Forsterkning per Rolle and what the Forklaringer show before this is kept for later courses.

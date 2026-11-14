@@ -1512,6 +1512,8 @@ So that the first page I meet is readable, operable by keyboard and in Norwegian
 **Given** the «Logg inn» page
 **When** it renders
 **Then** it uses the colour tokens of DESIGN.md as the app theme with `paper` as the only background and no dark theme (UX-DR1), Source Sans 3 in weights 400, 600 and 700 self-hosted through `@fontsource/source-sans-3` with no request to Google Fonts (UX-DR3, AD-18), sizes in `rem`/`em` with no text under 13 px on phone and no all caps or letter-spacing (UX-DR3, UX-DR4), `rounded.sm` on controls and no shadows or gradients (UX-DR6)
+**And** the theme holds the whole token set of DESIGN.md's front matter, not only what «Logg inn» uses: every colour (the `net-neg-*`, `net-pos-*`, `net-zero` and `flow-*` steps included), every typography role by name (such as `figure-hero` and `figure-amplification`), and the `rounded` and spacing tokens, as CSS variables and Tailwind theme keys with the token's own name; a token file copied from that front matter is committed as the theme's one source, and a Vitest test fails when the theme lacks one of its tokens or holds another value (UX-DR1, UX-DR3, UX-DR6)
+**And** tabular lining figures (`font-variant-numeric: lining-nums tabular-nums`) are the app-wide default, with proportional figures only on the `figure-hero` and `figure-amplification` roles; a lint rule fails the web build on a literal colour outside the theme file, and hand-made SVG charts read the same CSS variables (UX-DR1, UX-DR3, AD-18)
 **And** a Vitest contrast test checks every text-on-background pair in the text-on-tint table at 4.5:1 or better and fails on a pair outside the table (UX-DR2)
 
 **Given** the first form in the product
@@ -1529,6 +1531,7 @@ So that the first page I meet is readable, operable by keyboard and in Norwegian
 **When** this story is built
 **Then** every UI string on the page comes from `web/src/copy/nb.ts`, which is created here from the PRD-term to UI-string table and the do and don't microcopy rules, in Norwegian bokmål with no exclamation marks (FR-72, UX-DR74, AD-19)
 **And** the CI copy check that fails on «Beer Game» or «bullwhip» in pre-Debrief copy is added (AD-19)
+**And** the same check holds the voice rules for all copy, in `nb.ts`, in the Jinja2 mail and PDF templates and in the print route: it fails on an exclamation mark, on «øl» outside the product name «ØL-spillet», and on «optimal» or «fasit»; later stories put their copy in files the check already reads and add no check of their own (UX-DR74, AD-19)
 
 **Given** the Playwright and axe setup added in this story
 **When** CI runs against `docker compose`
@@ -1986,7 +1989,7 @@ So that every Admin action can be accounted for.
 **Given** later epics record a Takeover by a person and a Completion status correction
 **When** they call `platform/audit.record`
 **Then** their events appear in this list with no change to this page, because the action name and change are rendered from generic fields with a copy entry per action in `nb.ts` (FR-3)
-**And** the table scrolls inside its own region at 320 px, and Playwright with axe passes at 320 and 1440 px (UX-DR75, NFR-6)
+**And** at 320 px the list reflows to one block per event with each field labelled and no sideways scroll, as DESIGN.md requires of Admin lists (Layout & Spacing), and Playwright with axe passes at 320 and 1440 px (UX-DR75, NFR-6)
 
 **Covers:** FR-3, FR-5, NFR-6, NFR-7, AD-12, AD-14, AD-15, UX-DR75
 
@@ -2290,12 +2293,12 @@ So that I am ready when the games start.
 
 **Given** a valid Student Invitation link
 **When** the Student opens it
-**Then** «Du er invitert» from Epic 3 is reused and shows the e-mail prefilled and not editable, the Class name, and «Invitasjonen er gyldig i 14 dager. Du får Rolle og spill når Faglærer har bekreftet fordelingen.» with the real number of days left (FR-4, FR-8)
+**Then** «Du er invitert» from Epic 3 is reused and shows the e-mail prefilled and not editable, the Class name, and «Invitasjonen er gyldig i 14 dager. Du får Rolle og spill på startdatoen.» with the real number of days left; the second sentence is draft copy that follows the founder's decision of 2026-11-12 that a Student sees the game from the Start date (FR-4, FR-8, FR-22)
 
 **Given** the Student submits a valid name and password
 **When** the acceptance is handled
 **Then** one transaction creates the User, links the Roster entry to the `user_id`, sets its `registration` to registered, marks the token used and logs the Student in (FR-8)
-**And** `user:<id>` is emitted, and the Student lands on Hjem, which names the Class and repeats that Rolle and spill come when Faglærer has confirmed the allocation
+**And** `user:<id>` is emitted, and the Student lands on Hjem, which names the Class and repeats that Rolle and spill come at the Start date
 
 **Given** the Invitation's e-mail already has a User, for example a Student of another Class
 **When** that person opens the link and logs in
@@ -2543,7 +2546,7 @@ So that I can save it unchanged and be ready in a few minutes.
 **When** the Klasseøkt screen opens
 **Then** it shows the page title «Klasseøkt for {klassenavn}», «Alt er fylt ut med standardene.», «Spillinnstillinger: Klassisk» and «Kildene er uenige om forsinkelsene. Dette er produktets standard, og du kan endre den.» (UX-DR48)
 **And** «Kjeden ved start» draws the four Roles with upstream on the left, the delay boxes on the pipe and Lager 12 per Role, captioned «Varer mot høyre, ordre mot venstre», from values the API returned, with the same values as text for screen readers; it is a diagram of this slice, built in `web/src/modules/sessions/` without a chart library, and not a data chart of the AD-18 chart module (UX-DR48, AD-10)
-**And** «Lagre Klasseøkt» is the screen's one primary button
+**And** «Lagre Klasseøkt» is the screen's primary button; while an in-place panel with its own committing button is open on the screen (the allocation preview, added later in this epic), that button is the primary and «Lagre Klasseøkt» shows as secondary (UX-DR9, founder decision 2026-11-14)
 
 **Given** the Lecturer has changed nothing
 **When** the Lecturer presses «Lagre Klasseøkt»
@@ -2812,6 +2815,7 @@ So that I can check the groups and draw again if I want.
 **Then** `sessions.service` reads the registered Students through `classes.service`, draws a seed, and runs the pure function `sessions.allocation.allocate(student_ids, seed)`, which places every Student at random in groups of four with a random Role each (FR-20)
 **And** when the count is not divisible by four exactly one group has one to three Students, shown by a unit test over counts 1 to 9 and 250, and the same ids and seed always give the same result
 **And** invited or unregistered Roster addresses are never allocated (FR-9, FR-20)
+**And** the preview is an in-place panel on the Klasseøkt screen: closed, the block «Fordeling» states that the allocation is not confirmed and has a Lenke that opens the panel, and opening it moves focus into the panel; the state line and the Lenke are draft copy in `nb.ts` for review (UX-DR50, founder decision 2026-11-14)
 
 **Given** the allocation has been drawn
 **When** it is kept for the Lecturer
@@ -2847,7 +2851,7 @@ So that the groups Students are told about are the ones I approved.
 **Acceptance Criteria:**
 
 **Given** a stored draft shown in the preview
-**When** the Lecturer presses the primary button «Bekreft fordeling», with «Ingen får beskjed før du bekrefter.» beside it
+**When** the Lecturer presses «Bekreft fordeling», which is the screen's primary button while the panel is open, with «Lagre Klasseøkt» shown as secondary and «Ingen får beskjed før du bekrefter.» beside it
 **Then** the request carries the draft id and the draft `revision`, and `sessions.service.confirm_allocation` commits that draft and nothing else: one Class game per group through `games.commands.create` with `purpose=class`, the Class session id, a game number and **no** settings, and one Seat per Student through `games.commands.assign_seat` (FR-20, AD-2, AD-4)
 **And** an api test asserts that the committed Games and Seats equal the stored draft, Student by Student
 
@@ -2870,6 +2874,7 @@ So that the groups Students are told about are the ones I approved.
 **When** the transaction commits
 **Then** each allocated Student gets `user:<id>` and an allocation notice through `platform/notify.enqueue` (a `digest` kind, registered in the digest delivery of Story 3.5), `session:<id>` is emitted, and every command's topics are in the registry and pass the registry test (AD-8, AD-9)
 **And** confirm is idempotent: a second press creates no second set of Games, and «Kjør fordeling på nytt» is no longer offered
+**And** after the confirmation the panel closes to a state line saying the allocation is confirmed (draft copy), focus moves to that line, and «Lagre Klasseøkt» is the primary button again (UX-DR9, UX-DR50)
 
 **Given** a Class session without a confirmed allocation
 **When** a Lecturer or Assistant lecturer opens the Lærerhjem
@@ -3192,7 +3197,7 @@ So that I know where I play, with whom, and what comes next.
 
 **Given** a logged-in Student whose Class session has not reached the Start date, or who has no Seat yet
 **When** the Student opens Hjem
-**Then** Hjem shows no game card and the line «Du får Rolle og spill når Faglærer har bekreftet fordelingen.», with Stegene greyed out (UX-DR62)
+**Then** Hjem shows no game card and the line «Du får Rolle og spill på startdatoen.» (draft copy), with Stegene greyed out; this holds also after the Lecturer has confirmed the allocation, because a Student sees the game from the Start date (UX-DR62, FR-22, founder decision 2026-11-12)
 **And** the page uses the Skjelett and the all-surface states from Epic 3, and takes all copy from `web/src/copy/nb.ts` (FR-72)
 
 **Given** the Class session is locked at the Start date and the Student holds a Seat
@@ -3210,6 +3215,7 @@ So that I know where I play, with whom, and what comes next.
 **Given** a Student with a Seat
 **When** Hjem renders
 **Then** Stegene shows the six steps Klassespill, Debrief, Quiz, Replay, Individuell test and Rapport, with the current one filled and marked «pågår» in text, and each later step listed as not active with the line that says what opens it, for example «Replay, åpnes når du har bestått Debrief-quizen.» and «Individuell test, åpnes når du har fullført Replay.» (UX-DR29)
+**And** EXPERIENCE.md gives no lock line for Debrief, Quiz or Rapport and no text for a finished step; this story adds draft lines for them to `nb.ts` in the pattern of the two above, for review (copy-to-write list)
 **And** the Stegene component is added to `web/src/components/` for reuse by Epics 9 to 13
 
 **Given** Stegene needs to know which steps are done
@@ -3247,6 +3253,7 @@ So that I know the objective and the rules without being told what the exercise 
 **When** the Student reads it
 **Then** it states that the objective is the lowest Total cost for the whole chain, that all Seats order in the same Week, how the delays work, that stock must be shipped when it exists, that the first Weeks are Veiledede uker, and that Students may arrange when to play but may not discuss Orders or numbers with other players (FR-84)
 **And** it explains one real Uke with the product's own terms (Ordre inn, Levering, Sendt, Lager, Restordre, På vei) and says «enheter», never «øl»
+**And** the worked Uke is labelled «Demodata», as every onboarding example is (UX-DR70)
 **And** it tells the Student to play as if the business continues, and states no number of Weeks, true or false (FR-14)
 
 **Given** the briefing copy in `web/src/copy/nb.ts`
@@ -3263,7 +3270,7 @@ So that I know the objective and the rules without being told what the exercise 
 **When** the briefing is rendered
 **Then** it reflows without page-level horizontal scroll, has one primary button, a correct heading order and no axe violation (FR-73, NFR-6)
 
-**Covers:** FR-14, FR-84, FR-72, FR-73, NFR-6, AD-19, UX-DR63, UX-DR78
+**Covers:** FR-14, FR-84, FR-72, FR-73, NFR-6, AD-19, UX-DR63, UX-DR70, UX-DR78
 
 ### Story 6.3: Do the Starting task
 
@@ -3289,6 +3296,7 @@ So that I know the sum behind the numbers on the play screen, and my answers can
 **When** the api scores it
 **Then** the score comes from computed rules in the pure `analysis.scoring`, added here for reuse by Epic 11, with no LLM call (FR-85, AD-1, AD-9)
 **And** a wrong answer shows «Ikke riktig. Svaret er 3: 0 − 13 + 16.» and a right answer shows «Riktig.» with the same sum, each shown in the same column; the Student goes on either way (UX-DR63)
+**And** the items use example numbers, not the Student's own game, and the task carries the label «Demodata» (UX-DR70)
 **And** the answers are stored once per Student and Class session with the content version, in a Starting task table owned by `modules/tests` (the spine's home for the Starting task; this story creates that module folder with only these routes and this table)
 
 **Given** the last item is answered
@@ -3308,7 +3316,7 @@ So that I know the sum behind the numbers on the play screen, and my answers can
 **When** the Startoppgave is rendered in its wrong, right, final-question and done states
 **Then** it reflows without page-level horizontal scroll and has no axe violation; right and wrong are told in text, not by colour alone (FR-73, NFR-6)
 
-**Covers:** FR-84, FR-85, FR-73, NFR-6, AD-1, AD-4, AD-9, AD-16, AD-23, UX-DR63
+**Covers:** FR-84, FR-85, FR-73, NFR-6, AD-1, AD-4, AD-9, AD-16, AD-23, UX-DR63, UX-DR70
 
 ### Story 6.4: See changes without reloading
 
@@ -3381,7 +3389,7 @@ So that I can read my situation on a phone without scrolling the page sideways.
 **When** the play screen asks for its data
 **Then** one play endpoint returns `seat_state` and `table_status` in one envelope with `server_now` and `next_change_at` (AD-3)
 **And** `seat_state` is Epic 1's `games.schemas.SeatState` model, numbers and Roles only, with its neighbour fields empty while Information visibility is off; a field the play screen needs and the model lacks is added to that model with a `schema_version` change, never beside it (AD-3)
-**And** an api test asserts that the envelope for every Role holds no number of Weeks, no future demand, no other Seat's inventory, backlog or Orders, and customer demand only for the Retailer, one Week at a time (FR-14, FR-23)
+**And** an api test asserts that the envelope for every Role holds no number of Weeks, no future demand, no other Seat's inventory, backlog or Orders, customer demand only for the Retailer, one Week at a time, and no reference Order: neither the Rule-based nor the near-optimal Order stored for the Seat, nor anything derived from one, so no surface can show a recommended order (FR-14, FR-23, UX-DR78)
 
 **Given** the play screen on a phone
 **When** it renders
@@ -3392,7 +3400,7 @@ So that I can read my situation on a phone without scrolling the page sideways.
 
 **Given** the table cells
 **When** values are shown
-**Then** Netto lager cells use the matrix steps with signed numbers, the Posisjon row has plain numbers with no fill, known arrivals in Levering right of nå sit in outlined boxes and are marked as ordered, not guaranteed, and the Din ordre cell at nå is an empty dashed cell (UX-DR17)
+**Then** Netto lager cells use the matrix steps with signed numbers, the Posisjon row has plain numbers with no fill, known arrivals in Levering right of nå sit in outlined boxes and carry a label saying they are ordered, not guaranteed (EXPERIENCE.md gives no string, so a draft label goes to `nb.ts` for review; a screen reader reads it with the cell), and the Din ordre cell at nå is an empty dashed cell (UX-DR17)
 **And** every number is displayed as the api returned it; the web app computes no game quantity (AD-1, AD-10)
 
 **Given** numbers and amounts anywhere in the product
@@ -3441,6 +3449,7 @@ So that I see the movement and can read the exact number under every mark.
 **Then** Netto lager is one 2 px line, blue with `lager-fill` above a true zero and red with `restordre-fill` below, with a direct label at the now-dot («Restordre 13») and ticks in steps of 20 (UX-DR16)
 **And** the Posisjon line is thinner, in `ink-secondary`, with a square marker at every Uke, no fill and the direct label «Posisjon 3»; both lines stop at nå, and the y-range holds both (FR-23, UX-DR16)
 **And** Kost per uke is stacked bars, lager cost below and restordre cost above, with the key «restordre 1,00 / lager 0,50» taken from the Game settings' rates
+**And** the Kost per uke axis starts at 40 kr with its one tick, «40 kr», and has no maximum: when a Uke costs more than the axis holds, it grows by 40 kr at a time (80, 120, 160 kr and on) to the lowest step that holds the highest Uke so far, the tick shows the new top, the axis never shrinks during a game and no bar is cut; the top is a scale set in the chart module from the values the api returned, not a game quantity, with a Vitest test over highest Uker of 34, 40, 41, 62 and 121 kr, and in the Uke the axis grows one line by the key says so (draft copy in `nb.ts`) (UX-DR16, AD-10, founder decision 2026-11-14)
 **And** the now-line is labelled «Nå» and runs through graph and table, with `future-tint` to its right up to nå + 4 (UX-DR16, UX-DR71)
 
 **Given** the Klassespill
@@ -3496,7 +3505,7 @@ So that I understand where my units are before I order.
 
 **Given** the play screen
 **When** the Kjedebånd renders
-**Then** it shows only the Seat's own link: a node with a blue stock bar above the baseline («Lager 12») or a red backlog bar below it («Restordre 13»), the order line along the top («Ordre inn 8») and the goods line below it («Levering 4», «Sendt 4») (FR-23, UX-DR14)
+**Then** it shows only the Seat's own link: a node with a blue stock bar above the baseline («Lager 12») or a red backlog bar below it («Restordre 13»), the order line along the top («Ordre inn 8» coming in, and «Din ordre» going out, with no number until one is typed) and the goods line below it («Levering 4», «Sendt 4») (FR-23, UX-DR14)
 **And** the upstream neighbour is at the left end and the downstream neighbour at the right, goods flow right and orders flow left; the Fabrikk's band shows «Produksjon» at the left end and the Detaljist's shows «Kundene» at the right (UX-DR73)
 **And** only the Detaljist's band shows the customers' number, for the current Uke only (FR-14)
 
@@ -3512,7 +3521,7 @@ So that I understand where my units are before I order.
 
 **Given** the chart module
 **When** the band is built
-**Then** it is hand-made SVG (d3-scale, d3-shape) inside `web/src/components/charts`, takes a fixed width, and is added as the shared Kjedebånd component with a four-Role variant slot for the Debrief and staff views of Epics 7 and 9; only the one-Seat variant is built here (AD-18, UX-DR15)
+**Then** it is hand-made SVG (d3-scale, d3-shape) inside `web/src/components/charts`, takes a fixed width, and is added as the shared Kjedebånd component with a four-Role variant slot for the Debrief and for Spillinnsikt, both of which get it in Story 9.5; only the one-Seat variant is built here (AD-18, UX-DR15)
 **And** it draws only numbers from `seat_state` and computes no game quantity (AD-1, AD-10)
 
 **Given** a screen reader
@@ -3587,7 +3596,7 @@ So that I make this Week's decision knowing when it arrives.
 
 **Given** a valid typed value of 24
 **When** the screen updates
-**Then** the value shows in the Din ordre cell at nå and in the Levering cell of its arrival Uke, joined by a thin line, the Kjedebånd shows «På vei 16 + 24» with the new box last on the pipe and a 1.5 px `ink` border, the button reads «Bekreft ordre på 24», and the line «Kommer fram om lag Uke 15. Kan ikke endres etter at du har bekreftet.» stands above it (UX-DR14, UX-DR17)
+**Then** the value shows in the Din ordre cell at nå and in the Levering cell of its arrival Uke, joined by a thin line, the Kjedebånd shows «På vei 16 + 24» with the new box last on the pipe and a 1.5 px `ink` border, its order line reads «Din ordre 24» and its text for screen readers now ends «På vei 16 pluss 24», the button reads «Bekreft ordre på 24», and the line «Kommer fram om lag Uke 15. Kan ikke endres etter at du har bekreftet.» stands above it (UX-DR14, UX-DR17)
 **And** this is the only client arithmetic in the product: it lives in `web/src/lib/preview.ts`, uses only the preview coefficients in `seat_state`, hard-codes no delay, and is tested in Vitest against values from the engine's golden traces (AD-10)
 **And** Posisjon at nå and «Kostnad så langt» do not change while typing
 **And** sending the Order is not built here: a press on the button with a valid value does nothing yet, and Story 6.12 gives the button its action
@@ -3616,6 +3625,7 @@ So that the decision is sent once, cannot be changed, and is never lost or sent 
 **And** this story adds an `actor` argument (the User id) to `place_order`: with an actor, the command checks that the actor is the Seat's current occupant and answers `409 seat_not_yours` otherwise; calls without a person (the guided Orders of Story 6.10, the `players` jobs and the rescue loop) pass none and skip the check (AD-2)
 **And** while sending, the button reads «Sender ordre på 24 …» with `aria-disabled="true"` and `aria-busy="true"`, keeps focus and ignores further presses, and the field is read-only (UX-DR60)
 **And** on success the screen reads «Ordren på 24 er sendt.» and focus moves to that message (`tabindex="-1"`); there is no undo and no confirmation dialog; the «Venter på …» part of the message comes with the Setestatus in Story 6.14 (FR-24, UX-DR60, UX-DR78)
+**And** under the message stands «Skjermen går videre når alle har bestilt. Du får e-post hvis spillet venter på deg.», draft copy that replaces «Du får beskjed når Uke 12 åpner.»; no notice is sent when a Uke opens, and the only mail is the FR-27 reminder of Epic 8 (UX-DR60, founder decision 2026-11-14)
 
 **Given** a typed value
 **When** the Student leaves the page, reloads or loses the connection before confirming
@@ -3683,7 +3693,7 @@ So that I know whether it is my turn or someone else's.
 **Given** a running Class game
 **When** the Setestatus renders
 **Then** it lists all four Seats, each with a dot, the Role, the name or «KI-spiller», and the status in text: «har bestilt», «venter, 3 min» or «venter (deg)»; a filled dot means ordered and a hollow dot waiting, and the text always repeats the state (FR-25, UX-DR25)
-**And** it appears on the play screen after the Student has confirmed an Order, and on Hjem
+**And** it stands on the play screen through the whole Uke, before and after the Student's own Order, under the Ordrefelt and its button, and on Hjem; with the list always in view no separate «Venter på: …» line is drawn under the button, and that text is the live announcement only (UX-DR25, founder decision 2026-11-14)
 **And** the component is added to `web/src/components/` for reuse by Epics 7 and 8
 
 **Given** the people side of the play envelope
@@ -3713,7 +3723,7 @@ So that I know whether it is my turn or someone else's.
 
 **Given** Epic 8 will add Pause, Takeover, Reclaim and «I rommet»
 **When** the Setestatus and the play screen are built
-**Then** the Setestatus has named slots for a status line above the list, a control block below it, and a second line and an action under each row, and the play screen has a slot for a notice above the Ordrefelt; none of them renders anything in this epic, and Epic 8 fills them without changing the component's structure
+**Then** the Setestatus has named slots for a status line above the list, a control block below it, and a second line and an action under each row; none of them renders anything in this epic, and Epic 8 fills them without changing the component's structure. The play screen has no separate notice place: because the Setestatus is always shown, a Student who has not ordered sees the pause line and «Ta pause» there too
 
 **Given** Playwright with axe at 320, 360 and 1440 px
 **When** the Setestatus renders with Students and AI players in ordered and waiting states
@@ -3742,6 +3752,7 @@ So that play flows in a Lab hour and nothing is lost when I switch device.
 **Given** the Week has advanced
 **When** the Uke-overgang shows
 **Then** it reads «Uke 11 er ferdig regnet», then the deltas («Restordre 13 blir 20»), «Denne uka: 20 restordre × 1,00 = 20,00 kr» and the Lenke «Kostnad så langt», all with numbers from the api, and it is announced politely (UX-DR23)
+**And** the summary stays above the Ordrefelt until the Student confirms the next Order, an [ASSUMPTION] to confirm since EXPERIENCE.md does not say when it goes away; the Lenke gets its target in Story 6.16 and is not rendered before that
 **And** the now-line moves one column in an animation of at most 2 s that never blocks input; «Hopp over» ends it at once; the Ordrefelt for the new Week is usable from the first moment
 **And** with reduced motion set there is no animation and the result shows at once; there is no celebration animation in any case (UX-DR23, UX-DR78)
 
@@ -3785,6 +3796,8 @@ So that I understand what my inventory and backlog cost without being told what 
 **Then** it shows «Lagerkostnad» and «Restordrekostnad», each with a thin proportional bar and the amount, then «Totalkostnad» under a rule, then «Totalkostnad over tid» as a stacked area from Uke 1 to nå with a true zero, and last the week's sum line «Denne uka: 13 restordre × 1,00 = 13,00 kr» (UX-DR22)
 **And** it shows the Seat's own cost only, never another Seat's or the chain's, and never what to order (UX-DR72, UX-DR78)
 **And** it recalculates when a Uke is charged, not while typing
+**And** the Lenke «Kostnad så langt» in the Uke-overgang of Story 6.15 now opens «Alle rader og kostnad» at this panel on phone, and is not shown on a screen of 1024 px or more, where the panel is already pinned ([ASSUMPTION] to confirm) (UX-DR22, UX-DR23)
+**And** the Landing's «Demodata» Seat of Story 6.8 gets the same panel under its figure, labelled «Demodata» and last in the phone stack (EXPERIENCE.md → Responsive & Platform → Landing, UX-DR70)
 
 **Given** a screen 1024 px wide or more
 **When** the play screen renders
@@ -3816,7 +3829,7 @@ So that I can see at a glance whether I must act.
 
 **Given** a running Class game in which the Student has ordered this Week
 **When** the Student opens Hjem
-**Then** the same card shows the Setestatus and has no primary action (UX-DR28, UX-DR62)
+**Then** the same card shows the Setestatus and has no primary action; its title is not «Spillet venter på deg» but a draft title for this state, added to `nb.ts` for review because EXPERIENCE.md has none (UX-DR28, UX-DR62)
 
 **Given** the mini graph
 **When** a screen reader reads the card
@@ -4061,7 +4074,7 @@ So that I can see at a glance which groups are playing and which are stuck.
 
 **Given** a Lecturer on the Klasseøkt page
 **When** they open the Oversikt
-**Then** the page shows the headline counts in the form «41 ferdig · 15 pågår (herav 2 pauset) · 4 venter» (the «herav … pauset» part appears once Epic 8 adds Pause), «Oppdatert 14:02:15» in caption text, and the Class games grouped by status in the order Venter, Pågår, then «Ferdig, lavest kjedekost øverst», each group header with its count («Venter 4») (FR-39, UX-DR40)
+**Then** the page shows the headline counts in the form «41 ferdig · 15 pågår (herav 2 pauset) · 4 venter» (the «herav … pauset» part appears once Epic 8 adds Pause), «Oppdatert 14:02:15» in caption text, and the Class games grouped by status in the order Venter, Pågår, then «Ferdig, lavest kjedekost øverst» (Epic 8 adds «Pause» between Venter and Pågår), each group header with its count («Venter 4») (FR-39, UX-DR40)
 **And** each row shows «Spill n», the current Uke number, whom the game waits for by name and Role with the duration, the four Seats with the Student's name or «KI-spiller», and the chain's kjedekost in Norwegian number format from the shared formatter
 **And** progress is never shown as Uker played out of a total or as any number that hints at game length; the page shows the share of games finished and their status (FR-14).
 
@@ -4111,7 +4124,9 @@ So that I can see the same pattern building up across the whole class.
 
 **Given** a Lecturer using the keyboard
 **When** they move through the wall and the data re-renders
-**Then** each row is focusable with `focus-ring-inset`, focus stays on the same Class game by Game id across every re-render, and the wall sits in one scroll region (`role="region"`, name «Alle spill», `tabindex="0"`) with the game column and the Uke header sticky (UX-DR8, UX-DR41).
+**Then** the wall is a table to assistive technology and is never `aria-hidden`: one row per Class game and one column per Uke, with row and column headers, either as table roles on the SVG or as an HTML table under it, the choice recorded in the chart module's README (founder decision 2026-11-14)
+**And** the wall is one Tab stop: arrow keys move cell by cell, Home and End go to the row's first and last Uke, and the focused cell takes `focus-ring-inset`; each cell is read where it stands, in the form «Spill 2, Uke 14: Netto lager −13.» with the measure that is shown, and the value is in the cell's accessible name also where the cell prints «−» or nothing (the reading is draft copy; the key set is an [ASSUMPTION] to confirm)
+**And** focus stays on the same Class game by Game id, and on the same Uke, across every re-render, and the wall sits in one scroll region (`role="region"`, name «Alle spill», `tabindex="0"`) with the game column and the Uke header sticky (UX-DR8, UX-DR41).
 
 **Given** the Landing from Epic 3, which left out its second figure because the Matrisevegg did not exist
 **When** a visitor opens it
@@ -4147,7 +4162,7 @@ So that I can read exact values, sort the games and use a screen reader.
 
 **Given** a screen-reader user
 **When** they reach the wall
-**Then** the SVG wall is `aria-hidden` and points to «Vis som tabell» as its alternative, and the table reads each cell with its game and Uke (NFR-6, UX-DR76).
+**Then** the wall stays readable cell by cell as Story 7.2 built it and is not `aria-hidden`; «Vis som tabell» is the second way to the same numbers, with a printed number in every cell at 13 px, and the table reads each cell with its game and Uke (NFR-6, UX-DR76, founder decision 2026-11-14).
 
 **Given** keyboard focus on a Class game
 **When** the Lecturer switches between «Vegg» and «Vis som tabell», or the data updates
@@ -4256,6 +4271,8 @@ So that I know how far the class has come without opening a report.
 **Given** the Oversikt at 1024 px or wider
 **When** it renders
 **Then** a right rail holds «Venter ellers», «Klassens kostnad» and «Trakt»; below 1024 px the rail stacks under the wall, and its charts scale to the width and keep their printed numbers (UX-DR40, UX-DR75).
+**And** under «Klassens kostnad» the rail shows «Snitt per ferdig spill, per Rolle»: one row per Role from Detaljist to Fabrikk with a bar split into lager and restordre cost and the amount printed, and a key with the two class averages, read through `reports.scope` over finished Class games and not shown while none is finished (EXPERIENCE.md → Cost picture, UX-DR72, AD-13)
+**And** under «Venter ellers» the line «22 KI-spillere i 17 spill, alle merket.» gives the real number of AI-held Seats and of Class games that have one (UX-DR69)
 
 **Given** Class games in status waiting
 **When** the rail renders
@@ -4287,7 +4304,7 @@ So that I know how far the class has come without opening a report.
 **When** it is computed
 **Then** it reads step events only and takes no AI score or AI text as input (AD-16, C-2), and it counts no Lecturer's test Game or simulation Game (AD-13).
 
-**Covers:** FR-39, NFR-6, AD-10, AD-13, AD-16, AD-18, AD-25, UX-DR40, UX-DR51
+**Covers:** FR-39, NFR-6, AD-10, AD-13, AD-16, AD-18, AD-25, UX-DR40, UX-DR51, UX-DR69, UX-DR72
 
 ### Story 7.7: Open one Game week by week in Spillinnsikt
 
@@ -4298,7 +4315,7 @@ So that I can explain to a group what happened and check who played each Week.
 **Acceptance Criteria:**
 
 **Given** the Oversikt
-**When** the Lecturer activates a wall row or a table row (click or Enter)
+**When** the Lecturer activates a wall row or a table row (a click on the row, or Enter on any cell of it)
 **Then** Spillinnsikt opens for that Game, with the game number, its status and the four Seats in chain direction (upstream on the left), each with the Student's name or «KI-spiller», and Back returns to the Oversikt with focus on the same game (UX-DR55, UX-DR73).
 
 **Given** a Game with played Weeks
@@ -4352,7 +4369,7 @@ So that I can show a group how the swings grew up the chain.
 **Given** the Debrief of Epic 9 needs the same chart
 **When** this story builds Ordrestolper and the Rolle × Uke table
 **Then** they are built in the shared `web/src/components/charts`, with a fixed width passed in and a prop for the viewer's own Role (unset for staff), so Epic 9's Debrief reuses them unchanged and adds only the four-Role Kjedebånd and the Ukeskrubber (AD-18)
-**And** Forsterkning is shown when the caller supplies it, which Epic 9 does from `analysis`.
+**And** Forsterkning is shown when the caller supplies it; Spillinnsikt gets it, and the four-Role Kjedebånd, when Story 9.5 builds the `analysis` function and the band, and shows neither before that.
 
 **Given** the Playwright suite with axe
 **When** it runs Spillinnsikt with its charts at 1440 px and at 320 CSS px
@@ -4369,7 +4386,7 @@ So that I can nudge the right people without leaving the product.
 **Acceptance Criteria:**
 
 **Given** a staff member on the Oversikt or Spillinnsikt
-**When** they follow «Send Melding» in the Oversikt header (whole Class session), «Melding» on Spillinnsikt (that Class game), or the link beside a Student's Seat (that Student)
+**When** they follow the Lenke for a Message to the whole Class session in the Oversikt header (a draft label in `nb.ts`, worded so it cannot be mistaken for the Varselbånd's «Send Melding»; this entry point is not in EXPERIENCE.md and stands in open-assumptions.md), «Melding» on Spillinnsikt (that Class game), or the link beside a Student's Seat (that Student)
 **Then** the Meldingsskjema opens as its own page with the recipient preset as its title (for example «Melding til Noah, Spill 2»), a multi-line Tekstfelt and the primary «Send Melding», and browser Back returns to where it was opened (FR-40, UX-DR46)
 **And** the Meldingsskjema is built in `web/src/modules/messaging/` so Epics 8, 13 and 14 can open it with a preset recipient.
 
@@ -4708,7 +4725,7 @@ So that no AI player takes anyone's Seat while we are away.
 **Acceptance Criteria:**
 
 **Given** a Student in a started, unfinished Class game that is not paused
-**When** they look under Setestatus on Spill or Hjem
+**When** they look under Setestatus on Spill or Hjem, whether or not they have ordered this Uke (the Setestatus is shown through the whole Uke, Story 6.14)
 **Then** the secondary button «Ta pause» is shown; it is not shown in a Replay or any Game whose `games.policy(purpose)` says Pause does not apply (FR-89, UX-DR26, AD-13).
 
 **Given** the Student presses «Ta pause»
@@ -4719,11 +4736,11 @@ So that no AI player takes anyone's Seat while we are away.
 **Given** the Student confirms
 **When** `games.commands.pause(game, actor)` commits
 **Then** it writes `paused_at` and `paused_by` and leaves `resume_at` empty (this story's migration adds the three Pause columns to the Game), leaves `lifecycle` unchanged, and emits its events with a registry entry (AD-2, AD-8)
-**And** `games.rules.game_status` now returns `paused`, `game_summaries` gains the pause state, and the Oversikt shows the game under «Pause 2» with since when and by whom, counts it in «herav 2 pauset», and drops it from the Varselbånd at once (FR-89, FR-39, UX-DR45).
+**And** `games.rules.game_status` now returns `paused`, `game_summaries` gains the pause state, and the Oversikt shows the game under the group «Pause 2», placed between Venter and Pågår, with since when and by whom, counts it in «herav 2 pauset», and drops it from the Varselbånd at once (FR-89, FR-39, UX-DR45).
 
 **Given** a paused Class game
 **When** any of the four Students opens Spill or Hjem
-**Then** the line «Pause, satt av Sara.» sits above Setestatus, announced politely, and nothing in it hints at how many Uker remain (UX-DR62, FR-14).
+**Then** the line «Pause, satt av Sara.» sits above Setestatus, also for a Student who has not ordered this Uke, announced politely, and nothing in it hints at how many Uker remain; on a phone the line can sit below the first screenful before the Order, so the announcement carries it (UX-DR62, FR-14).
 
 **Given** a paused Class game with a Seat past its `takeover_due_at`
 **When** the sweep runs
@@ -4755,6 +4772,7 @@ So that everyone knows when to be back and what happens after that.
 **Given** a started, unfinished Class game that is not paused
 **When** the Lecturer presses the secondary «Pause spillet» in Spillstyring or in the Varselbånd
 **Then** a form opens in place (under the band when opened there): «Når fortsetter spillet?» with date and time from now to the Spillfrist, or the choice «Uten avtalt tid»; the lines «Mens spillet har pause, tar ingen KI-spiller over setene. Spillfristen flyttes ikke.» and «Etter avtalt tid kan studentene sette inn en KI-spiller for den som ikke har bestilt.»; the primary «Ta pause til to. 19:00» (or «Ta pause uten avtalt tid»); and «Avbryt» (FR-89, UX-DR52)
+**And** focus moves to the form's first field when it opens, and «Avbryt» returns focus to the control that opened it (EXPERIENCE.md → Accessibility Floor → Focus and order)
 **And** only one in-place form is open at a time, and while the form is open under the band «Send Melding» shows as secondary, so the screen keeps one primary button (UX-DR9, UX-DR45).
 
 **Given** a time outside the range
@@ -4960,7 +4978,7 @@ So that a group sitting together in a Lab hour is not held up for a day by one p
 
 **Given** a marked Class game
 **When** staff view it
-**Then** Spillstyring reads «I rommet til 16:00. KI tar over etter 10 min uten ordre.» with the secondary «Ikke i rommet lenger», the game's wall row label carries «I rommet», and after marking the result line «I rommet til 16:00.» replaces the form and takes focus (UX-DR52).
+**Then** Spillstyring reads «I rommet til 16:00. KI tar over etter 10 min uten ordre.» with the secondary «Ikke i rommet lenger», the game's wall row label carries «I rommet», and after marking the result line «I rommet til 16:00.» replaces the form and takes focus; when the form opens, focus moves to its first field or, with no field, to its primary button, and «Avbryt» returns focus to the control that opened it (UX-DR52).
 
 **Given** an Assistant lecturer or a Student
 **When** they call the mark or end route
@@ -4978,7 +4996,7 @@ So that I can clear every stuck group at the start of a Lab hour.
 
 **Given** a started, unfinished Class game with waited-for Seats
 **When** the Lecturer opens Spillstyring
-**Then** the secondary «Sett inn KI-spiller i alle seter som blir ventet på (2)» is shown with its consequence above it (FR-37, UX-DR52)
+**Then** the secondary «Sett inn KI-spiller i alle seter som blir ventet på (2)» is shown with its consequence line above it; EXPERIENCE.md has no text for that line, so a draft goes to `nb.ts` for review, and the count and the line «Ikke med (tilrettelegging): …» apply to this one game as they do on the all-games page (FR-37, UX-DR52)
 **And** a waited-for Seat is a Student-held Seat whose open turn has `wait_started_at` set (Story 6.14) and no Order, or in a Guided Week no `viewed_at`; this is the one predicate `games.rules.waited_for(turn)`, added here and used by `games.rules.game_status` for `waiting`, so this count and the «Venter» count of the Oversikt cannot disagree (FR-24, AD-20).
 
 **Given** waited-for Seats in the Class session
@@ -5271,6 +5289,7 @@ So that I can see the swings grow upstream and arrive later.
 **When** step 3 opens
 **Then** the heading is «Hele kjeden: svingningene vokser oppstrøms og kommer senere» and the full four-Role chain is shown with the four-Role Kjedebånd variant from `web/src/components/charts`, upstream on the left, «Produksjon» at the left end and «Kundene» at the right (UX-DR31, UX-DR73)
 **And** the four-Role variant is added in this story to the existing Kjedebånd component in the shared chart module, never as a copy
+**And** Spillinnsikt of Story 7.8 now shows the same four-Role Kjedebånd for the chosen Uke above its charts and gets Forsterkning for its Ordrestolper from the same `analysis` function, so the staff view holds both, as DESIGN.md says of the Kjedebånd and EXPERIENCE.md of Ordrestolper (UX-DR15, UX-DR33)
 
 **Given** step 3
 **When** the Ordrestolper show
@@ -5284,7 +5303,7 @@ So that I can see the swings grow upstream and arrive later.
 **Given** the Ukeskrubber, added to `web/src/components/` for reuse
 **When** the Student drags it, presses «Én uke tilbake» or «Én uke fram», or uses the keys
 **Then** the chain spools to the chosen Uke with a dashed line across the bars; the control has `role="slider"`, the name «Velg uke», `aria-valuemin="1"`, `aria-valuemax` equal to the last Uke and `aria-valuetext` such as «Uke 15»; Left/Down is −1, Right/Up +1, PageDown/PageUp ±4, Home/End the first and last Uke (UX-DR34)
-**And** the step buttons are at least 44 px and no task needs a drag (UX-DR76)
+**And** the line «Kjeden i Uke 15. Dra i skrubberen for å spole.» stands by the scrubber with the chosen Uke; the step buttons are at least 44 px and no task needs a drag (UX-DR34, UX-DR76)
 **And** the scrubber shows its range as «Uke 1» to the last Uke, served with the chain data past the Explanation gate (AD-3)
 
 **Given** the scrubber has not changed for 300 ms
@@ -5300,7 +5319,7 @@ So that I can see the swings grow upstream and arrive later.
 **When** Playwright runs at 320, 360 and 1440 px with axe, and with reduced motion
 **Then** Ordrestolper and the Rolle × Uke numbers scroll together inside their own region, the columns of chart and table line up, and spooling shows its result at once with reduced motion (UX-DR75, UX-DR76)
 
-**Covers:** FR-44, FR-14, FR-12, FR-23, FR-73, NFR-6, NFR-9, AD-3, AD-7, AD-18, UX-DR31, UX-DR33, UX-DR34
+**Covers:** FR-44, FR-14, FR-12, FR-23, FR-73, NFR-6, NFR-9, AD-3, AD-7, AD-18, UX-DR15, UX-DR31, UX-DR33, UX-DR34
 
 ### Story 9.6: Answer the reflection questions
 
@@ -5691,7 +5710,7 @@ So that I can clear up what I did not understand without being handed answers.
 
 **Acceptance Criteria:**
 
-**Given** a Student past the reflection questions in a Class session with Debrief AI text on
+**Given** a Student past the reflection questions in a Class session with Debrief AI text on, where the follow-up field stands between steps 3 and 4 of the Debrief, after the reflection questions (UX-DR31)
 **When** the Student sends a follow-up question
 **Then** the api calls `ai.run(purpose=debrief_follow_up, budget_scope=<Class session>, …)` once with the Student's question, the stored facts set and the sentence templates; the gateway scrubs the question against the Roster before it leaves (FR-45, AD-6, C-1)
 **And** the output schema, validator and code rendering are the ones from Story 9.14, so an answer can only connect computed facts (AD-7)
@@ -6189,7 +6208,7 @@ So that long answers and Adapted items are judged by criteria I stand behind.
 **Given** a Scoring guide version and the Class session's model config
 **When** the block or any later reader asks whether the guide is checked
 **Then** the answer comes only from `content.service.is_checked(scoring_guide_version_id, model_config_id)`, added here; in this epic it always answers false and creates no table, because the `checked` record is created and written by the Control test in Epic 12 (AD-27)
-**And** a version that is not checked shows «Ikke kontrollert med en Kontrolltest.» to the Lecturer (FR-81, UX-DR49)
+**And** a version that is not checked shows «Ikke kontrollert med en Kontrolltest.» to the Lecturer, the «Standard» guide included, as EXPERIENCE.md now says (FR-81, UX-DR49, founder decision 2026-11-12)
 
 **Given** the original Test deadline has passed
 **When** a Lecturer opens the block
@@ -6570,14 +6589,14 @@ So that I can use the test where my course needs a bounded attempt.
 
 **Given** a timed attempt is open
 **When** the Student works
-**Then** the remaining time is shown from the API's `server_now` and `answering_ends_at`, in text and not by colour alone, and is announced politely at most once a minute and at the last minute (AD-8, NFR-6)
+**Then** «Tid igjen 38 min» stands at the top of the test the whole time, also while the Student scrolls, in whole minutes from the API's `server_now` and `answering_ends_at`, in text and not by colour alone; it changes without moving focus and is not announced at each change, and «5 minutter igjen. Svarene dine er lagret.» is announced politely once; for a Student with a time factor it counts the extended time (draft copy; AD-8, NFR-6, UX-DR65, founder decision 2026-11-14)
 **And** closing the browser does not stop the clock, and the Student can return within the time
 
 **Given** the time runs out before the Test deadline
 **When** `ops.sweep` finds an open attempt whose `sitting_ends_at` has passed
 **Then** it calls the new command `tests.commands.end_sitting(attempt_id)`, added to the command list of Story 11.3: under the attempt row lock it sets the attempt to `auto_submitted`, scores and stores the saved answers exactly as in Story 11.10 and records `test_submitted`; it is idempotent and takes ids only (FR-51, AD-9)
 **And** `end_sitting` does not call `close_attempt` and starts nothing else: `close_attempt` of Story 11.11 still runs for this attempt at its `effective_deadline`, after `sessions.lock_test`, so nothing that hangs on the Test deadline happens early for a timed sitting (FR-54, AD-9)
-**And** the Student sees that the time ran out and that the saved answers were handed in; a save between the end of the sitting and the sweep is rejected with `sitting_ended`, and a later save with `attempt_submitted`
+**And** the Student reads «Tiden er ute. Testen er levert.» (draft copy); a save between the end of the sitting and the sweep is rejected with `sitting_ended`, and a later save with `attempt_submitted`
 
 **Given** the option is off
 **When** a Student opens the test
@@ -7203,7 +7222,7 @@ So that a Student who kept up but fell short through the playout or the group's 
 
 **Given** a saved correction
 **When** the Studentside shows the step
-**Then** the result line replaces the form and reads in the form «Gjort, rettet av Bård 12. des.» with the reason under it
+**Then** the result line replaces the form, takes focus, and reads in the form «Gjort, rettet av Bård 12. des.» with the reason under it
 **And** a later correction of the same step is a new row, and the page shows the latest while the audit log keeps all.
 
 **Given** the corrected Student
@@ -7227,7 +7246,7 @@ So that the Student can still complete the Class game step before the Test deadl
 
 **Given** the Klassespill row of the Fullføring block, after the Class session is locked and before the Test deadline
 **When** the Lecturer presses «Gi oppfølgingsspill»
-**Then** a form opens in place with the consequence in the form «Jonas får et eget Klassespill mot tre KI-spillere, åpent til Testfristen fr. 18. des. Jonas får beskjed på Hjem og på e-post.», the primary button «Gi oppfølgingsspill» and «Avbryt» (UX-DR54)
+**Then** a form opens in place with the consequence in the form «Jonas får et eget Klassespill mot tre KI-spillere, åpent til Testfristen fr. 18. des. Jonas får beskjed på Hjem og på e-post.», the primary button «Gi oppfølgingsspill» and «Avbryt»; focus moves to the primary button when the form opens, «Avbryt» returns focus to the control that opened it, and the result line takes focus after the action (UX-DR54)
 **And** before `sessions.lock` has run the action is not offered and the API refuses it with a stable error code, because no frozen snapshot exists yet
 **And** after the Test deadline the action is not offered either, and the API rejects it with a stable error code.
 
@@ -7399,7 +7418,7 @@ So that it documents what I did and what happened around me.
 
 **Given** a Student with a game
 **When** the report is built
-**Then** it holds the game section: Role, Weeks played, final Total cost, the week-by-week table for the Student's own Seat, and a chart of Orders, inventory and backlog for all four Roles plus customer demand, with AI players and Takeover Weeks marked in text through the one mapping of AD-15 (FR-58, FR-34, AD-15)
+**Then** it holds the game section: Role, Weeks played, final Total cost, the Student's own Seat as a graph over its week-by-week table (Graf over tabell of Story 6.7 at a fixed width, as EXPERIENCE.md's report journey says), and a chart of Orders, inventory and backlog for all four Roles plus customer demand, with AI players and Takeover Weeks marked in text through the one mapping of AD-15 (FR-58, FR-34, AD-15)
 **And** the game is the Student's game from `games.service.student_game`, and the chain data is read through `games` `service.py`, as Spillinnsikt of Story 7.7 reads it
 **And** other Students appear by Role only, never by name.
 

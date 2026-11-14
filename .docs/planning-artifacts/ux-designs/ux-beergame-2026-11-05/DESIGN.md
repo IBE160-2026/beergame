@@ -2,7 +2,7 @@
 title: "DESIGN: beergame"
 status: final
 created: 2026-11-05
-updated: 2026-11-10
+updated: 2026-11-14
 sources:
   - ../../prds/prd-beergame-2026-10-29/prd.md
   - ../../prds/prd-beergame-2026-10-29/addendum.md
@@ -612,7 +612,7 @@ Idle borders of interactive controls (`text-field`, `order-input`, `quiz-option`
     - Product tests check that the band fits at 320 px and 360 px in every Uke of a Classic game.
 - **Graf over tabell (`net-graph`, `cost-field`, `week-table`, `now-line`).** Netto lager is one 2 px line. It is blue with `lager-fill` above zero and red with `restordre-fill` below. Axes have a true zero and direct labels («Restordre 13» at the now-dot). Ticks −40/−20/0/20 as drawn; the y-range widens to hold both Netto lager and Posisjon. [ASSUMPTION: ticks in steps of 20, range from the data]
   - **Posisjon line** (Klassespill and Replay): Posisjon = Lager − Restordre + På vei, drawn as a 1.5 px `ink-secondary` line (`{components.net-graph.posisjon-line-color}`, 7.3:1 on `paper`, 6.7:1 on `future-tint`, ≥ 5.3:1 on the fills) with a 4 px square marker at every Uke and no area fill. It is told apart from Netto lager by four cues besides colour: no fill, thinner stroke, square markers, and the direct label «Posisjon 3» at its now-point in `caption`. It is solid, which separates it from the dashed projection. It stops at nå, like Netto lager.
-  - Kost per uke is stacked bars: holding cost (blue) at the bottom, backlog cost (red) on top, 1.5 px apart. A key reads «restordre 1,00 / lager 0,50». The axis has a fixed maximum, marked by its one tick, «40 kr», as drawn.
+  - Kost per uke is stacked bars: holding cost (blue) at the bottom, backlog cost (red) on top, 1.5 px apart. A key reads «restordre 1,00 / lager 0,50». The axis starts at 40 kr, marked by its one tick, «40 kr», as drawn. It has no maximum (founder decision 2026-11-14): when a Uke costs more than the axis holds, the axis grows by 40 kr at a time (80, 120, 160 kr and on) to the lowest step that holds the highest Uke so far, and the tick shows the new top, «80 kr». It always grows by the same amount, never by doubling, never shrinks during a game, and no bar is ever cut. [ASSUMPTION: in the Uke the axis grows, one line by the key says so, «Aksen går nå til 80 kr.»; copy to be written]
   - Table rows are separated by `hairline`. Netto lager cells are filled with the matrix steps. The Posisjon row has plain `ink` numbers with no fill, so the two sums never look alike. The current Uke number is bold.
   - The Din ordre cell for nå is an `ink` block with a `paper` number. Before the Student types an order, it is an empty dashed cell.
   - Known arrivals in Levering sit in outlined boxes to the right of nå. A thin line joins the order to its arrival cell four columns later.
@@ -667,7 +667,7 @@ Idle borders of interactive controls (`text-field`, `order-input`, `quiz-option`
 
 ### Faglærer
 
-- **Matrisevegg (`matrix-wall`).** One row per Class game and one column per Uke, with Netto lager in the matrix steps. Group headers read «Venter 4», «Pause 2», «Pågår 13» and «Ferdig, lavest kjedekost øverst 41». The near-Takeover row is tinted `restordre-fill`, with `ink` text and an `ink` underlined «Melding». The bottom rows hold «Median, Fabrikk» and «Kjedekost/uke, snitt». Text is never under 9 px.
+- **Matrisevegg (`matrix-wall`).** One row per Class game and one column per Uke, with Netto lager in the matrix steps. Group headers read «Venter 4», «Pause 2», «Pågår 13» and «Ferdig, lavest kjedekost øverst 41». The near-Takeover row is tinted `restordre-fill`, with `ink` text and an `ink` underlined «Melding». The bottom rows hold «Median, Fabrikk» and «Kjedekost/uke, snitt». Text is never under 9 px. The wall is a table to assistive technology and is never `aria-hidden`; the focused cell takes the inset focus ring (`EXPERIENCE.md` → Matrisevegg → Keyboard and screen reader).
   - **Cells.** A cell prints its signed number («−13», «8», «0») in `{typography.matrix-cell-min}` or larger when the number fits with 1 px to spare. Otherwise a below-zero cell prints only a true minus «−», centred, and other cells stay blank. Glyph and number follow the cell-text rule: `ink` on steps 1–2, `paper` on steps 3–4. Sign is therefore never carried by hue alone.
   - **Legend**, always visible above the wall in `caption`: swatches in step order with signed bins, «−35 og lavere · −34 til −20 · −19 til −10 · −9 til −1 · 0 · 1 til 9 · 10 til 19 · 20 til 34 · 35 og over», and the line «− i en celle: restordre (under null).» When the Celler filter shows Ordre or Kost per uke, the legend switches to the `flow-*` bins.
   - **«Vis i plenum»** renders larger cells with fewer columns, so numbers fit more often, and adds a caption in `body` under the wall: «Rødt: restordre, under null. Blått: lager, over null. Tallet i cellen er netto lager.» [ASSUMPTION: plenum cell size at least 2 × the laptop cell]

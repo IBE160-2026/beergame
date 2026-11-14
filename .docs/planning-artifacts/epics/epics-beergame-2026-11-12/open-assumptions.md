@@ -4,7 +4,7 @@ The story writers made these choices where the PRD, the architecture spine and t
 
 ## Where the sources disagree
 
-**Confirmed by the founder on 2026-11-12:** all four are kept as the stories have them. The sources still need to follow: the invitation copy in EXPERIENCE.md (row 1) and the notice rule in EXPERIENCE.md (row 2).
+**Confirmed by the founder on 2026-11-12:** all four are kept as the stories have them. EXPERIENCE.md followed on 2026-11-14: the invitation and Hjem line (row 1) and the notice rule (row 2). Stories 4.5, 6.1 and 11.2 were changed the same day.
 
 | # | Question | What the stories do | Story |
 | --- | --- | --- | --- |
@@ -150,3 +150,58 @@ The final validation found gaps that the fix round closed. Story numbers below a
 - **`games.service`:** `student_game` (6.1), `budget_scope` (2.5), `register_insight_links` (7.7), `on_game_finished` (9.14). **`games.rules`:** `turn_times` now starts in 2.6, `waited_for` (8.12).
 - **Other commands and hooks:** `tests.commands.end_sitting` (11.12); `assessment.service.stop_for_session` and `resume_for_session` (12.4); `debrief.commands.touch`, which takes no row lock and emits no event (an exception to AD-21), `debrief.commands.open_personal_fallback` and `platform/events.on_heartbeat` (9.12).
 - **Tables and columns:** `simulation_batches`, `effort_measurements` (2.11, 2.12); `notices`, `mail_deliveries` (3.5); `invitations.renewal_requested_at` (3.8); `viewed_at` (6.10) and `wait_started_at` (6.14) on the open turn.
+
+## Decisions and fixes after the readiness check (2026-11-14)
+
+The readiness check of 2026-11-12 (`../../implementation-readiness.md`) found 29 gaps between the stories and the UX spines. The founder took six decisions on 2026-11-14, and the stories and both UX spines were changed the same day. The option figures are in `../../ux-designs/ux-beergame-2026-11-05/.working/valg-2026-11-13/`.
+
+### Decided by the founder
+
+- **Matrisevegg:** the whole wall can be read. It is a table to assistive technology, never `aria-hidden`, and every cell is read where it stands (7.2, 7.3, 7.7).
+- **Pause:** the Setestatus is on the play screen through the whole Uke, also before the Order. The pause line and «Ta pause» stand by it (6.14, 8.6).
+- **After the Order:** «Du får beskjed når Uke 12 åpner.» is replaced by a line that says what happens. No notice is sent when a Uke opens (6.12).
+- **Klasseøkt:** the allocation preview is an in-place panel. «Bekreft fordeling» is the primary button while it is open, and «Lagre Klasseøkt» is then secondary (5.1, 5.8, 5.9).
+- **Kost per uke:** the axis has no maximum and grows by 40 kr at a time: 40, 80, 120, 160 (6.7).
+- **Timed test:** it stays in v1 and shows the time left at the top of the test. Tilrettelegging applies to the time limit (11.12).
+
+### Draft copy for the founder to confirm
+
+These strings are in EXPERIENCE.md or DESIGN.md marked `[ASSUMPTION: copy]`, and in the story named.
+
+| String | Story |
+| --- | --- |
+| «Skjermen går videre når alle har bestilt. Du får e-post hvis spillet venter på deg.» | 6.12 |
+| «Du får Rolle og spill på startdatoen.» | 4.5, 6.1 |
+| «Tid igjen 38 min», «5 minutter igjen. Svarene dine er lagret.», «Tiden er ute. Testen er levert.» | 11.12 |
+| The wall cell reading «Spill 2, Uke 14: Netto lager −13.» | 7.2 |
+
+### Norwegian copy still to be written (added 2026-11-14)
+
+The stories add draft copy to `nb.ts` for these, because the UX spines have no string:
+
+- the lock lines of Debrief, Quiz and Rapport in Stegene, and the text of a finished step (6.1);
+- the label on known arrivals that says ordered, not guaranteed (6.6);
+- the line shown in the Uke the Kost per uke axis grows (6.7);
+- the title of the Spillkort while the game waits for others (6.17);
+- the state lines and the Lenke of the allocation block (5.8, 5.9);
+- the Lenke for a Message to the whole Class session in the Oversikt header (7.9);
+- the consequence line over «Sett inn KI-spiller i alle seter som blir ventet på» on one game (8.12);
+- the statement of the time limit on the own-work statement, and the setting on the Klasseøkt (11.12).
+
+### Choices made while fixing, for the founder to confirm
+
+- With the Setestatus always shown, the one-line «Venter på: …» under the order button is not drawn. Its text is the live announcement only (6.14).
+- The wall is one Tab stop. Arrow keys move cell by cell, Home and End go to the row's ends, and Enter on a cell opens Spillinnsikt (7.2, 7.7).
+- The Uke-overgang summary stays above the Ordrefelt until the next Order is confirmed. Its Lenke «Kostnad så langt» opens «Alle rader og kostnad» on phone and is not shown on a laptop, where the panel is pinned (6.15, 6.16).
+- «Tid igjen» counts whole minutes and is announced once, at 5 minutes (11.12).
+- The Kost per uke axis never shrinks during a game (6.7).
+- The Landing's «Demodata» Seat gets the «Kostnad så langt» panel under its figure (6.16).
+- A Message to the whole Class session is opened from a Lenke in the Oversikt header. This entry point is not in EXPERIENCE.md (7.9).
+- The theme is built from a token file copied from DESIGN.md's front matter, with a test that fails on a missing or changed token. The CI copy check also fails on an exclamation mark, on «øl» outside the product name, and on «optimal» or «fasit» (3.1).
+- The token `rounded.xs` (column highlight frame) is in the theme, but no component in the spines uses it, so no story draws it.
+- Spillinnsikt gets Forsterkning and the four-Role Kjedebånd when Story 9.5 builds them, not in Epic 7 (7.8, 9.5).
+- The Tilrettelegging label «Mer tid før KI tar over» is unchanged, although the factor now also extends the test's time limit (8.9, 11.12).
+
+### Still needs a decision
+
+- Before the Start date, a late registrant with no free Seat gets a new Class game, where FR-20 says a make-up (5.13). Unchanged from 2026-11-12.
