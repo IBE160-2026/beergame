@@ -28,6 +28,3 @@ __pycache__/
 
 # Arbeidsfiler fra planleggingen av epics
 .docs/planning-artifacts/epics/*/.working/
-
-# Målteksten til /goal, lokal
-GOAL.md
