@@ -1,0 +1,280 @@
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when its first story starts (via build's sprint sync)
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates the next story after the previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; the status view surfaces open ones
+generated: 11-17-2026 12:28
+last_updated: 11-17-2026 12:28
+project: beergame
+project_key: NOKEY
+tracking_system: file-system
+story_location: .docs/implementation-artifacts
+development_status:
+  epic-1: backlog
+  1-1-scaffold-the-repo-so-it-starts-locally-with-zero-keys: backlog
+  1-2-run-the-classic-chain-week-by-week-and-match-the-reference-t: backlog
+  1-3-check-changed-game-settings-against-ranges-and-warnings: backlog
+  1-4-generate-the-demand-series-from-a-demand-pattern-and-a-seed: backlog
+  1-5-prove-the-bookkeeping-is-correct-by-construction: backlog
+  1-6-order-with-the-rule-based-player: backlog
+  1-7-create-a-simulation-game-with-an-ai-player-in-every-seat: backlog
+  1-8-start-the-game-and-read-what-each-seat-sees: backlog
+  1-9-place-orders-write-the-decision-log-and-advance-the-week: backlog
+  1-10-verify-every-finished-game-by-replaying-it: backlog
+  1-11-run-batches-of-all-ai-games-with-scripted-occupants: backlog
+  1-12-cap-what-a-seat-can-ship-per-week-cut-list-feature_capacity: backlog
+  epic-1-retrospective: optional
+
+  epic-2: backlog
+  2-1-give-every-non-student-seat-its-order-from-one-order-source: backlog
+  2-2-register-a-model-config-and-an-evaluation-budget-from-the-co: backlog
+  2-3-make-a-validated-llm-call-through-the-gateway-and-log-every: backlog
+  2-4-ask-an-llm-player-for-an-order-from-the-seat-state-alone: backlog
+  2-5-place-llm-orders-as-jobs-with-the-rule-based-order-as-fallba: backlog
+  2-6-keep-every-llm-order-inside-its-time-budget: backlog
+  2-7-call-a-real-eu-endpoint-within-its-rate-limit: backlog
+  2-8-reserve-budget-per-call-and-switch-to-rule-based-players-at: backlog
+  2-9-store-a-near-optimal-reference-order-for-every-seat-and-week: backlog
+  2-10-switch-a-drifting-llm-seat-to-a-rule-based-player-with-the-p: backlog
+  2-11-measure-a-model-and-effort-level-on-batches-of-simulated-gam: backlog
+  2-12-offer-only-measured-effort-levels-and-pin-the-model: backlog
+  2-13-describe-each-ai-player-type-in-plain-norwegian: backlog
+  epic-2-retrospective: optional
+
+  epic-3: backlog
+  3-1-see-logg-inn-in-the-product-s-design: backlog
+  3-2-log-in-and-log-out-with-e-mail-and-password: backlog
+  3-3-land-on-your-own-home-and-be-held-to-your-role: backlog
+  3-4-see-what-is-happening-when-a-page-loads-fails-or-goes-offlin: backlog
+  3-5-send-every-mail-through-one-pipeline: backlog
+  3-6-reset-a-forgotten-password-by-e-mail: backlog
+  3-7-invite-a-lecturer-or-admin-by-e-mail: backlog
+  3-8-create-an-account-from-an-invitation: backlog
+  3-9-find-users-and-grant-or-revoke-roles: backlog
+  3-10-deactivate-and-reactivate-users-and-resend-invitations: backlog
+  3-11-create-institutions: backlog
+  3-12-read-the-audit-log: backlog
+  3-13-read-the-landing-page-and-ask-for-lecturer-access: backlog
+  3-14-prepare-a-strict-production-configuration-in-the-repo: backlog
+  3-15-reach-the-product-in-production: backlog
+  epic-3-retrospective: optional
+
+  epic-4: backlog
+  4-1-create-a-class-from-the-lærerhjem: backlog
+  4-2-upload-a-roster-file-and-pick-the-e-mail-column: backlog
+  4-3-see-invalid-rows-and-paste-addresses-instead: backlog
+  4-4-send-invitations-to-the-roster-with-a-validity-period: backlog
+  4-5-register-as-a-student-through-the-invitation: backlog
+  4-6-see-bounced-invitations-and-the-counts: backlog
+  4-7-follow-registration-status-and-send-reminders: backlog
+  4-8-register-a-student-manually-and-change-single-addresses: backlog
+  4-9-share-a-class-with-co-owner-lecturers-and-assistant-lecturer: backlog
+  4-10-archive-a-class: backlog
+  epic-4-retrospective: optional
+
+  epic-5: backlog
+  5-1-create-a-class-session-with-the-classic-defaults: backlog
+  5-2-set-the-four-dates-on-the-datolinje: backlog
+  5-3-change-game-settings-with-range-errors-and-warnings: backlog
+  5-4-choose-a-demand-pattern-and-its-seed: backlog
+  5-5-choose-ai-mode-effort-level-and-debrief-mode: backlog
+  5-6-add-lab-hours: backlog
+  5-7-mark-the-class-session-obligatory-and-set-the-inactivity-lim: backlog
+  5-8-preview-a-random-allocation-and-run-it-again: backlog
+  5-9-confirm-the-allocation-i-am-looking-at: backlog
+  5-10-move-or-swap-students-in-the-allocation: backlog
+  5-11-lock-the-class-session-at-the-start-date: backlog
+  5-12-open-the-class-games-on-the-frozen-snapshot: backlog
+  5-13-seat-students-who-register-after-the-allocation: backlog
+  5-14-remind-students-24-hours-before-each-deadline: backlog
+  5-15-set-a-shipping-capacity-cut-list-feature_capacity: backlog
+  5-16-set-information-visibility-cut-list-feature_info_visibility: backlog
+  5-17-let-students-choose-a-class-game-and-a-seat-cut-list-feature: backlog
+  5-18-create-a-class-session-from-an-earlier-one-cut-list-feature_: backlog
+  epic-5-retrospective: optional
+
+  epic-6: backlog
+  6-1-see-my-class-game-role-and-seats-on-hjem: backlog
+  6-2-read-the-rules-before-the-first-order: backlog
+  6-3-do-the-starting-task: backlog
+  6-4-see-changes-without-reloading: backlog
+  6-5-start-the-class-game: backlog
+  6-6-see-my-seat-s-week-in-the-week-table: backlog
+  6-7-see-netto-lager-posisjon-and-cost-as-a-graph-over-the-table: backlog
+  6-8-see-the-landing-s-demodata-seat-as-a-graph-over-its-table: backlog
+  6-9-see-my-link-of-the-chain-in-the-kjedebånd: backlog
+  6-10-play-the-guided-weeks: backlog
+  6-11-type-an-order-and-see-where-it-lands: backlog
+  6-12-confirm-the-order-and-keep-what-i-typed: backlog
+  6-13-never-lose-or-double-an-order-on-a-bad-connection: backlog
+  6-14-see-which-seats-have-ordered-and-whom-the-game-waits-for: backlog
+  6-15-see-the-new-week-within-two-seconds-on-any-device: backlog
+  6-16-see-what-my-seat-has-cost-so-far: backlog
+  6-17-see-on-hjem-whether-the-game-waits-for-me: backlog
+  6-18-see-the-chain-s-total-cost-when-the-game-ends: backlog
+  6-19-propose-and-accept-a-time-to-play: backlog
+  6-20-play-a-private-test-game-as-a-lecturer-cut-list-behind-featu: backlog
+  6-21-see-the-neighbour-numbers-the-lecturer-switched-on-cut-list: backlog
+  6-22-see-the-capacity-in-the-briefing-and-on-a-capped-seat-cut-li: backlog
+  epic-6-retrospective: optional
+
+  epic-7: backlog
+  7-1-see-the-status-of-every-class-game-on-the-oversikt: backlog
+  7-2-read-all-class-games-week-by-week-on-the-matrisevegg: backlog
+  7-3-switch-the-wall-to-vis-som-tabell: backlog
+  7-4-filter-the-wall-and-compare-with-the-class-median: backlog
+  7-5-follow-the-games-live-with-oppdater-automatisk: backlog
+  7-6-see-who-waits-the-class-s-cost-and-the-funnel-in-the-right-r: backlog
+  7-7-open-one-game-week-by-week-in-spillinnsikt: backlog
+  7-8-see-all-four-roles-orders-inventory-and-backlog-as-charts-in: backlog
+  7-9-send-a-message-to-a-student-a-class-game-or-the-whole-class: backlog
+  7-10-read-messages-in-the-product: backlog
+  7-11-act-on-the-longest-waiting-game-from-the-varselbånd: backlog
+  epic-7-retrospective: optional
+
+  epic-8: backlog
+  8-1-record-when-each-week-opened-and-when-each-seat-ordered: backlog
+  8-2-an-ai-player-takes-over-after-the-inactivity-limit: backlog
+  8-3-see-on-the-oversikt-which-class-game-is-closest-to-takeover: backlog
+  8-4-take-the-seat-back-with-ta-tilbake-setet: backlog
+  8-5-put-an-ai-player-in-one-seat-from-spillstyring: backlog
+  8-6-pause-the-class-game-with-ta-pause: backlog
+  8-7-pause-a-class-game-with-an-agreed-time-as-lecturer: backlog
+  8-8-put-an-ai-player-in-an-absent-seat-as-a-student: backlog
+  8-9-give-one-student-more-time-with-tilrettelegging: backlog
+  8-10-start-one-class-game-or-all-of-them-as-lecturer: backlog
+  8-11-mark-a-class-game-as-i-rommet-during-a-lab-hour: backlog
+  8-12-fill-every-waited-for-seat-in-one-action: backlog
+  8-13-get-an-email-when-the-game-waits-for-your-order: backlog
+  8-14-finish-every-unfinished-class-game-at-the-play-deadline: backlog
+  epic-8-retrospective: optional
+
+  epic-9: backlog
+  9-1-compute-the-facts-of-a-finished-game: backlog
+  9-2-open-the-debrief-when-the-class-game-has-ended: backlog
+  9-3-write-the-explanation-before-the-reveal: backlog
+  9-4-see-the-reveal-of-customer-demand: backlog
+  9-5-scrub-the-whole-chain-and-see-the-amplification: backlog
+  9-6-answer-the-reflection-questions: backlog
+  9-7-see-my-own-moments-rendered-from-the-facts: backlog
+  9-8-see-the-chain-s-bill-and-finish-the-debrief: backlog
+  9-9-pass-the-debrief-quiz: backlog
+  9-10-exclude-a-quiz-question-and-see-quiz-attempts: backlog
+  9-11-go-through-the-debrief-together-as-a-group: backlog
+  9-12-continue-alone-when-the-group-is-not-there: backlog
+  9-13-show-the-group-debrief-on-a-shared-screen: backlog
+  9-14-read-ai-narration-that-only-connects-computed-facts: backlog
+  9-15-ask-bounded-follow-up-questions-about-my-game: backlog
+  epic-9-retrospective: optional
+
+  epic-10: backlog
+  10-1-get-a-default-replay-scenario-that-differs-per-student: backlog
+  10-2-set-the-replay-scenario-freely: backlog
+  10-3-start-the-replay-after-passing-the-debrief-quiz: backlog
+  10-4-play-the-replay-with-the-projection-line: backlog
+  10-5-finish-the-replay-and-unlock-the-next-step: backlog
+  10-6-close-unfinished-replays-at-the-test-deadline: backlog
+  10-7-read-the-replay-walkthrough: backlog
+  10-8-rate-how-believable-the-ai-players-were: backlog
+  10-9-let-information-visibility-differ-in-the-replay-cut-list-beh: backlog
+  epic-10-retrospective: optional
+
+  epic-11: backlog
+  11-1-review-the-question-set-and-item-weights: backlog
+  11-2-edit-the-scoring-guide-for-a-class-session: backlog
+  11-3-open-the-individual-test-with-the-own-work-statement: backlog
+  11-4-answer-multiple-choice-items-with-autosave: backlog
+  11-5-answer-table-and-number-interactive-items: backlog
+  11-6-write-long-answers-with-autosave: backlog
+  11-7-get-adapted-items-from-my-own-game-and-replay: backlog
+  11-8-read-adapted-items-in-natural-wording: backlog
+  11-9-preview-the-adapted-item-templates-with-a-sample-student: backlog
+  11-10-review-and-submit-the-individual-test: backlog
+  11-11-have-saved-answers-submitted-automatically-at-the-test-deadl: backlog
+  11-12-require-one-timed-sitting: backlog
+  11-13-extend-one-student-s-test-deadline: backlog
+  11-14-answer-drawn-interactive-items-in-a-graph-after-the-rehearsa: backlog
+  epic-11-retrospective: optional
+
+  epic-12: backlog
+  12-1-switch-the-ai-assessment-off-for-a-class-session: backlog
+  12-2-get-an-ai-assessment-with-scores-and-a-weighted-total: backlog
+  12-3-read-written-feedback-that-quotes-my-answer-and-matches-my-g: backlog
+  12-4-be-told-when-the-ai-assessment-is-ready: backlog
+  12-5-flag-feedback-and-read-assessments-as-staff: backlog
+  12-6-show-the-indicative-letter-where-it-is-allowed: backlog
+  12-7-set-up-a-control-test-in-the-operator-s-own-institution: backlog
+  12-8-invite-test-students-who-consent-before-they-take-part: backlog
+  12-9-score-control-test-answers-blind: backlog
+  12-10-compare-human-and-ai-scores-and-mark-the-scoring-guide-as-ch: backlog
+  epic-12-retrospective: optional
+
+  epic-13: backlog
+  13-1-completion-is-computed-in-one-place-and-shown-on-the-student: backlog
+  13-2-studentside-with-the-fullføring-block: backlog
+  13-3-correct-a-student-s-completion-status-with-a-reason: backlog
+  13-4-give-a-student-an-oppfølgingsspill: backlog
+  13-5-continue-to-the-debrief-the-replay-and-the-test-from-a-finis: backlog
+  13-6-message-the-students-who-have-not-met-the-requirement: backlog
+  13-7-a-student-downloads-the-student-report-as-a-tagged-pdf: backlog
+  13-8-the-student-report-shows-the-game-with-its-charts: backlog
+  13-9-a-student-is-told-when-their-data-will-be-deleted: backlog
+  13-10-the-student-report-documents-the-debrief-the-replay-and-the: backlog
+  13-11-the-person-downloading-can-add-the-ai-assessment-section: backlog
+  13-12-staff-download-one-student-s-report-at-any-time: backlog
+  13-13-download-all-student-reports-as-one-zip: backlog
+  13-14-export-the-completion-status: backlog
+  epic-13-retrospective: optional
+
+  epic-14: backlog
+  14-1-class-report-of-the-games: backlog
+  14-2-class-report-of-learning-results: backlog
+  14-3-compare-class-sessions-in-tverrklasse-statistikk: backlog
+  14-4-filter-comparisons-and-label-class-sessions-that-differ: backlog
+  14-5-students-see-all-class-games-side-by-side: backlog
+  14-6-the-lecturer-shows-all-class-games-in-a-plenary: backlog
+  14-7-the-admin-compares-across-institutions-cut-list: backlog
+  14-8-export-a-class-session-s-game-data-cut-list: backlog
+  epic-14-retrospective: optional
+
+  epic-15: backlog
+  15-1-a-student-sees-their-own-data-in-mine-data: backlog
+  15-2-the-admin-deletes-a-user-on-the-institution-s-instruction: backlog
+  15-3-student-data-is-deleted-automatically-when-retention-ends: backlog
+  15-4-the-admin-exports-pseudonymised-data-for-evaluation: backlog
+  15-5-the-admin-pins-and-freezes-a-model-for-class-sessions: backlog
+  15-6-the-admin-sees-ai-cost-and-sets-the-cost-limit: backlog
+  15-7-the-admin-is-alerted-when-daily-ai-spend-is-high: backlog
+  15-8-the-admin-sees-errors-fallback-and-response-times-per-class: backlog
+  15-9-the-database-connection-budget-is-written-and-checked: backlog
+  15-10-a-load-test-shows-250-students-playing-at-once: backlog
+  15-11-errors-reach-an-error-tracker-without-personal-data-and-back: backlog
+  15-12-hold-student-invitations-until-the-institution-s-data-proces: backlog
+  15-13-publish-the-accessibility-statement-and-the-conformance-repo: backlog
+  15-14-the-pre-pilot-checks-pass-before-the-first-class-session: backlog
+  epic-15-retrospective: optional
