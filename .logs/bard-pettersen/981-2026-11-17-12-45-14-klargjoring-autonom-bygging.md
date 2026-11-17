@@ -26,6 +26,7 @@ Brukeren vil bruke `/goal` til å bygge alle epics og stories uten at noen følg
 - Kontroll etterpå: `node -v` gir v24.22.3, `uv --version` gir 0.13.7, og `docker run postgres:17` starter. Portene 8080, 5432, 3000 og 8000 er fortsatt ledige, selv om Docker startet 24 containere fra før.
 - De 24 containerne fra før er stoppet etter at brukeren ba om det. De er ikke slettet, og volumene er urørt. De har omstartsregelen `unless-stopped`, så de starter ikke igjen av seg selv.
 - Brukeren har lagt inn LLM-nøkkelen i `.env`. Dvale og dvalemodus er slått av på strøm med `powercfg` (begge `0`, kontrollert). Windows Update gjør brukeren selv.
+- Økten kjører i bypass permissions. Brukeren ba om sperrer, så 62 `deny`-regler er lagt i `.claude/settings.local.json` (git-ignorert): alle Neon- og Railway-verktøy og `railway`, force-push, sletting av grener og repo med `git`/`gh`, `docker prune/rm/rmi/volume rm`, `rm -rf` og `Remove-Item` mot absolutte stier og `..`, lesing av `.env`, og endring av `.env` og settings-filene. Kontrollert: `docker rm` blir avvist. Sperrene er prefiksregler, ikke en sandkasse.
 - Ikke gjort: dvale og Windows Update er ikke endret, `.claude/settings.json` er ikke laget, og målteksten til `/goal` er ikke skrevet.
 
 ### Åpne punkter
