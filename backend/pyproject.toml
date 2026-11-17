@@ -21,6 +21,7 @@ dev = [
     "httpx==0.28.1",
     "ruff==0.17.5",
     "pytest-cov==7.1.0",
+    "pytest-xdist==3.8.0",
 ]
 
 [tool.uv]
@@ -39,6 +40,9 @@ asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 pythonpath = ["."]
+# One worker per CPU, at most 12, each with databases of its own (tests/conftest.py).
+# `-n0` runs in one process, the fastest way to run a single file.
+addopts = "-n auto --maxprocesses=12 --dist worksteal"
 
 [tool.coverage.run]
 branch = true

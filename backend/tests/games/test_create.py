@@ -191,7 +191,7 @@ async def test_service_reads_the_game_back(games_db):
     assert game.session_runtime.rule_based_params == "placeholder-unverified"
 
 
-@pytest.mark.parametrize("game_id", ["not-a-uuid", str(uuid.uuid7())])
+@pytest.mark.parametrize("game_id", ["not-a-uuid", "01a1eb10-f299-75a6-8ec2-a251c50791e1"])
 async def test_service_answers_none_for_an_unknown_game(games_db, game_id):
     assert await service.get_game(game_id) is None
 

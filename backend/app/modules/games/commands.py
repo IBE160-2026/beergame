@@ -48,7 +48,7 @@ from app.modules.games.schemas import (
     Purpose,
     SessionRuntime,
 )
-from app.modules.games.turns import OpenGame
+from app.modules.games.turns import OpenGame, play_of
 from app.modules.games.views import build_seat_state, stored_orders, stored_play
 from app.platform import events
 from app.platform.config import get_settings
@@ -322,9 +322,13 @@ async def _open_week(
     """Store the newest of `states` and one turn per Seat with its Rule-based reference Order,
     computed here once from that Seat's own view (AD-5, AD-20, FR-67). Then every Seat, in
     chain order, goes to `players.ensure_order`, which places the Orders of its non-student
-    occupants in this transaction. The Game must already be `running`."""
+    occupants in this transaction. The Game must already be `running`.
+
+    `states` and `orders` are the Game's history as stored once this Week is written, so the
+    order source gets them with the open Game instead of reading them again for every Seat."""
     state = states[-1]
-    await repo.insert_week(session, game_id, state.week, state.model_dump(mode="json"))
+    stored = state.model_dump(mode="json")
+    await repo.insert_week(session, game_id, state.week, stored)
     await repo.insert_turns(
         session,
         [
@@ -340,7 +344,9 @@ async def _open_week(
             for role in settings.roles
         ],
     )
-    open_game = OpenGame(session=session, game_id=game_id)
+    # The newest state as a read of its stored row returns it, like the earlier ones.
+    play = ([*states[:-1], WeekState.model_validate(stored)], list(orders))
+    open_game = OpenGame(session=session, game_id=game_id, play=play)
     for role in settings.roles:
         await _ensure_order(open_game, seat_ids[role.value])
 
@@ -417,13 +423,15 @@ async def _step(
     game: Mapping[str, object],
     settings: GameSettings,
     params: rule_based.RuleBasedParams,
+    states: Sequence[WeekState],
 ) -> tuple[Lifecycle, int | None]:
     """Run the complete open Week in the engine: open the next Week, or finish the Game after
-    the last one. Returns the lifecycle and the open Week after it."""
+    the last one. `states` are the opened Weeks as stored (`stored_play`), which completing
+    the open Week does not change. Returns the lifecycle and the open Week after it."""
     game_uuid = game["id"]
-    states, orders = await stored_play(session, game_uuid)
     week = states[-1].week
-    week_orders = (await stored_orders(session, game_uuid))[week - 1]
+    all_orders = await stored_orders(session, game_uuid)
+    orders, week_orders = all_orders[: week - 1], all_orders[week - 1]
     following = engine_advance(settings, states[-1], week_orders, game["rules_version"])
     if following.finished:
         await finish(session, game_uuid, following)
@@ -444,9 +452,10 @@ async def _place(
     decided_by: DecidedBy | str,
     *,
     advance_week: bool,
+    open_game: OpenGame | None = None,
 ) -> OrderPlaced:
     """`place_order`'s checks and writes in `session`; with `advance_week` it also runs the Week
-    this Order completes."""
+    this Order completes. `open_game` is the running command's Game, whose history it reuses."""
     game = await repo.lock_game(session, game_uuid)
     if game is None:
         raise CommandError("game_not_found", f"no Game {str(game_uuid)!r}", 404)
@@ -459,7 +468,10 @@ async def _place(
     decider = _decided_by(decided_by)
     settings, params = _snapshot(game)
     value = _check_order(settings, order)
-    states, orders = await stored_play(session, game_uuid)
+    if open_game is not None:
+        states, orders = await play_of(open_game)
+    else:
+        states, orders = await stored_play(session, game_uuid)
     if type(week) is not int or week != states[-1].week:
         raise CommandError("week_not_open", f"Week {week!r} is not the open Week", 409)
     if await repo.has_seat_week(session, game_uuid, week, row["id"]):
@@ -501,7 +513,7 @@ async def _place(
     )
     lifecycle, open_week = Lifecycle(game["lifecycle"]), week
     if advance_week and rules.week_complete(await repo.week_turns(session, game_uuid, week)):
-        lifecycle, open_week = await _step(session, game, settings, params)
+        lifecycle, open_week = await _step(session, game, settings, params, states)
     log.info("order_placed", game_id=str(game_uuid), seat_id=str(row["id"]), week=week)
     return OrderPlaced(
         seat_week_id=str(seat_week_id), week=week, open_week=open_week, lifecycle=lifecycle
@@ -530,7 +542,14 @@ async def place_order(
         if within.game_id != _game_uuid(game_id):
             raise ValueError("place_order within another Game's transaction")
         return await _place(
-            within.session, within.game_id, seat, week, order, decided_by, advance_week=False
+            within.session,
+            within.game_id,
+            seat,
+            week,
+            order,
+            decided_by,
+            advance_week=False,
+            open_game=within,
         )
     game_uuid = _game_uuid(game_id)
     async with get_sessionmaker().begin() as session:
@@ -549,10 +568,10 @@ async def _complete_week(game_id: uuid.UUID) -> bool:
             raise CommandError("game_not_found", f"no Game {str(game_id)!r}", 404)
         if game["lifecycle"] != Lifecycle.RUNNING:
             return False
-        states, _ = await stored_play(session, game_id)
-        if not states:
+        week = await repo.open_week(session, game_id)
+        if week is None:
             return False
-        return rules.week_complete(await repo.week_turns(session, game_id, states[-1].week))
+        return rules.week_complete(await repo.week_turns(session, game_id, week))
 
 
 async def _advance_once(game_id: str) -> bool:
@@ -569,7 +588,7 @@ async def _advance_once(game_id: str) -> bool:
         if not rules.week_complete(await repo.week_turns(session, game_uuid, week)):
             return False  # another command advanced it meanwhile
         settings, params = _snapshot(game)
-        _, open_week = await _step(session, game, settings, params)
+        _, open_week = await _step(session, game, settings, params, states)
         await _commit_change(session, game_uuid)
     log.info("week_advanced", game_id=game_id, week=week, open_week=open_week)
     return True

@@ -3,13 +3,17 @@
 Tests that need Postgres read DATABASE_URL from the environment (the CI
 service, or locally the compose `postgres` on localhost). They run against
 a dedicated `<db>_test` database, created here if missing, so a test reset
-never touches the development database.
+never touches the development database. Under pytest-xdist each worker uses
+`<db>_test_<worker>` (for example `olspillet_test_gw0`).
 """
 
 import asyncio
 import os
+import socket
 import sys
+import threading
 import warnings
+from collections.abc import Iterator
 from pathlib import Path
 
 import psycopg
@@ -28,7 +32,10 @@ if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 _base_url = make_url(os.environ.get("DATABASE_URL", LOCAL_DATABASE_URL))
-TEST_DATABASE_URL = _base_url.set(database=f"{_base_url.database}_test").render_as_string(
+_worker = os.environ.get("PYTEST_XDIST_WORKER")
+"""`gw0`, `gw1`, … under pytest-xdist: each worker gets databases of its own."""
+_suffix = f"_{_worker}" if _worker else ""
+TEST_DATABASE_URL = _base_url.set(database=f"{_base_url.database}_test{_suffix}").render_as_string(
     hide_password=False
 )
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
@@ -39,19 +46,22 @@ def libpq_dsn(url: str) -> str:
     return make_url(url).set(drivername="postgresql").render_as_string(hide_password=False)
 
 
-def _ensure_test_database() -> None:
+MIGRATIONS_DATABASE_URL = (
+    make_url(TEST_DATABASE_URL)
+    .set(database=f"{_base_url.database}_test_migrations{_suffix}")
+    .render_as_string(hide_password=False)
+)
+"""The migration tests drop and rebuild the schema, so they get a database of their own and the
+`<db>_test` schema is migrated once per session."""
+
+
+def _ensure_database(url: str) -> None:
     admin = _base_url.set(drivername="postgresql").render_as_string(hide_password=False)
     with psycopg.connect(admin, autocommit=True, connect_timeout=5) as conn:
-        name = make_url(TEST_DATABASE_URL).database
+        name = make_url(url).database
         exists = conn.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,)).fetchone()
         if not exists:
             conn.execute(f'CREATE DATABASE "{name}"')
-
-
-@pytest.fixture(scope="session")
-def test_database() -> str:
-    _ensure_test_database()
-    return TEST_DATABASE_URL
 
 
 def migrate(url: str, revision: str = "head") -> None:
@@ -61,17 +71,51 @@ def migrate(url: str, revision: str = "head") -> None:
     command.upgrade(cfg, revision)
 
 
+@pytest.fixture(scope="session")
+def test_database() -> str:
+    """The `<db>_test` database at the latest revision, migrated once per session."""
+    _ensure_database(TEST_DATABASE_URL)
+    migrate(TEST_DATABASE_URL)
+    return TEST_DATABASE_URL
+
+
+@pytest.fixture(scope="session")
+def migrations_database() -> str:
+    """A database only the migration tests use; each of them resets its schema."""
+    _ensure_database(MIGRATIONS_DATABASE_URL)
+    return MIGRATIONS_DATABASE_URL
+
+
+GAMES_TABLES = "games, seats, seat_occupancy, game_weeks, seat_turns, seat_weeks, game_checks"
+
+
 @pytest.fixture
 def games_db(test_database) -> str:
-    """The test database at the latest revision with empty games tables. Upgrading per test
-    is needed because the migration tests drop the schema."""
-    migrate(test_database)
+    """The test database at the latest revision with empty games tables."""
     with psycopg.connect(libpq_dsn(test_database), autocommit=True) as conn:
-        conn.execute(
-            "TRUNCATE games, seats, seat_occupancy, game_weeks, seat_turns, seat_weeks, "
-            "game_checks CASCADE"
-        )
+        conn.execute(f"TRUNCATE {GAMES_TABLES} CASCADE")
     return test_database
+
+
+@pytest.fixture(scope="session")
+def unreachable_database() -> Iterator[str]:
+    """A database URL whose server hangs up on every connection, so the app cannot reach a
+    database. A closed port would do the same on Linux, but Windows retries a refused
+    connection until `connect_timeout` (5 s)."""
+    server = socket.create_server(("127.0.0.1", 0))
+
+    def hang_up() -> None:
+        while True:
+            try:
+                conn, _ = server.accept()
+            except OSError:
+                return
+            conn.close()
+
+    threading.Thread(target=hang_up, daemon=True).start()
+    port = server.getsockname()[1]
+    yield f"postgresql+psycopg://nobody:secretpw@127.0.0.1:{port}/none"
+    server.close()
 
 
 def reset_caches() -> None:

@@ -7,17 +7,20 @@ committed; `games.commands.place_order(..., within=game)` writes through it.
 """
 
 import uuid
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.engine import GameSettings, guided_order
+from app.engine import GameSettings, WeekState, guided_order
 from app.modules.games import repo, rules
 from app.modules.games.policy import policy
 from app.modules.games.schemas import Lifecycle, PendingTurn
 from app.modules.games.views import build_seat_state, stored_play
 
-__all__ = ["OpenGame", "pending_turn"]
+__all__ = ["OpenGame", "pending_turn", "play_of"]
+
+Play = tuple[Sequence[WeekState], Sequence[Mapping[str, int]]]
 
 
 @dataclass(frozen=True)
@@ -26,6 +29,18 @@ class OpenGame:
 
     session: AsyncSession
     game_id: uuid.UUID
+    play: Play | None = None
+    """The command's own `stored_play` of the open Week, when it has just written it: the
+    opened Weeks and the Order maps before the newest. Orders placed in the open Week do not
+    change it, so the order source reuses it for every Seat instead of reading the Game's
+    history again per Seat. None makes every read go to the tables."""
+
+
+async def play_of(game: OpenGame) -> Play:
+    """The open Game's `stored_play`: the one the command handed over, or read now."""
+    if game.play is not None:
+        return game.play
+    return await stored_play(game.session, game.game_id)
 
 
 def _uuid(value: str) -> uuid.UUID | None:
@@ -44,7 +59,7 @@ async def pending_turn(game: OpenGame, seat_id: str) -> PendingTurn | None:
     if row is None or row["lifecycle"] != Lifecycle.RUNNING or seat_uuid is None:
         return None
     seat = await repo.seat(session, game.game_id, seat_uuid)
-    opened, orders = await stored_play(session, game.game_id)
+    opened, orders = await play_of(game)
     if seat is None or not opened:
         return None
     week = opened[-1].week

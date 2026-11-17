@@ -538,8 +538,8 @@ def test_create_with_an_unknown_parameter_set_exits_1(capsys, games_db):
     assert err.startswith("error unknown_parameter_set: ")
 
 
-def test_create_without_a_database_exits_1(capsys, monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://nobody:secretpw@127.0.0.1:1/none")
+def test_create_without_a_database_exits_1(capsys, monkeypatch, unreachable_database):
+    monkeypatch.setenv("DATABASE_URL", unreachable_database)
     code, lines, err = create(capsys)
     assert (code, lines) == (1, [])
     assert err.strip() == "error db_unavailable: cannot reach the database"
@@ -696,8 +696,8 @@ def test_show_needs_a_seat(capsys):
     assert info.value.code == 2
 
 
-def test_show_without_a_database_exits_1(capsys, monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://nobody:secretpw@127.0.0.1:1/none")
+def test_show_without_a_database_exits_1(capsys, monkeypatch, unreachable_database):
+    monkeypatch.setenv("DATABASE_URL", unreachable_database)
     game_id = "01a1eb10-f299-75a6-8ec2-a251c50791e1"
     assert main(["show", game_id, "--seat", "retailer"]) == 1
     assert capsys.readouterr().err.strip() == "error db_unavailable: cannot reach the database"
@@ -712,6 +712,14 @@ def report(capsys, prefixes: set[str]) -> list[str]:
 
 
 def played_game(capsys, seats: str = "rule_based") -> str:
+    """A Game created, started and played to its end with `create`, `start` and `play`. The
+    first call per `seats` runs the commands; later ones store a copy of that Game's rows."""
+    from tests.conftest import TEST_DATABASE_URL
+    from tests.games.helpers import remember, stored_copy
+
+    copy = stored_copy(TEST_DATABASE_URL, ("sim play", seats))
+    if copy is not None:
+        return copy
     code, lines, _ = create(capsys, "--seats", seats, "--seed", "7")
     assert code == 0
     game_id = lines[0].removeprefix("game ")
@@ -723,6 +731,7 @@ def played_game(capsys, seats: str = "rule_based") -> str:
         "lifecycle finished",
         "weeks 36",
     ]
+    remember(TEST_DATABASE_URL, ("sim play", seats), game_id)
     return game_id
 
 
@@ -984,8 +993,8 @@ def test_check_needs_a_game_id_or_all(capsys, argv):
     assert "give a Game id or --all" in capsys.readouterr().err
 
 
-def test_check_all_without_a_database_exits_1(capsys, monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://nobody:secretpw@127.0.0.1:1/none")
+def test_check_all_without_a_database_exits_1(capsys, monkeypatch, unreachable_database):
+    monkeypatch.setenv("DATABASE_URL", unreachable_database)
     assert main(["check", "--all"]) == 1
     assert capsys.readouterr().err.strip() == "error db_unavailable: cannot reach the database"
 
@@ -993,6 +1002,8 @@ def test_check_all_without_a_database_exits_1(capsys, monkeypatch):
 # Story 1.11: `run` plays a batch of Games through `games.commands` and summarises them.
 
 SMOKE = Path(__file__).parents[1] / "batches" / "classic-smoke.json"
+SHORT = {"weeks": 8}
+"""Settings of a short Game, for batch tests that do not need the Classic 36 Weeks."""
 SUMMARY = {"game", "cost", "orders", "batch"}
 
 
@@ -1049,10 +1060,15 @@ def test_run_plays_the_smoke_batch_and_summarises_it_from_the_tables(capsys, gam
     assert query(games_db, "SELECT ok, count(*) FROM game_checks GROUP BY ok") == [(True, 3)]
 
 
-def test_run_places_the_order_of_each_scripted_policy(capsys, games_db):
+def smoke(tmp_path, games: int) -> str:
+    """The smoke batch with fewer Games, for tests where the batch size is not the point."""
+    return batch_file(tmp_path, {**json.loads(SMOKE.read_text(encoding="utf-8")), "games": games})
+
+
+def test_run_places_the_order_of_each_scripted_policy(capsys, games_db, tmp_path):
     from tests.games.helpers import query
 
-    code, _, _ = run_batch(capsys, str(SMOKE))
+    code, _, _ = run_batch(capsys, smoke(tmp_path, 1))
     assert code == 0
     rows = query(
         games_db,
@@ -1072,7 +1088,7 @@ def test_run_places_the_order_of_each_scripted_policy(capsys, games_db):
     assert len(by_role["wholesaler"]) > 1  # it follows its incoming order, not a constant
 
 
-def test_run_twice_gives_identical_orders_and_costs(capsys, games_db):
+def test_run_twice_gives_identical_orders_and_costs(capsys, games_db, tmp_path):
     from tests.games.helpers import query
 
     def weeks(game_id: str) -> list[tuple]:
@@ -1084,11 +1100,12 @@ def test_run_twice_gives_identical_orders_and_costs(capsys, games_db):
             (game_id,),
         )
 
-    first = run_batch(capsys, str(SMOKE))
-    second = run_batch(capsys, str(SMOKE))
+    path = smoke(tmp_path, 1)
+    first = run_batch(capsys, path)
+    second = run_batch(capsys, path)
     assert first[0] == second[0] == 0
     pairs = list(zip(batch_ids(first[1]), batch_ids(second[1]), strict=True))
-    assert len(pairs) == 3
+    assert len(pairs) == 1
     for one, other in pairs:
         assert one != other
         assert len(weeks(one)) == 36 * 4
@@ -1102,7 +1119,7 @@ def test_run_exports_the_decision_log_as_csv(capsys, games_db, tmp_path):
     import csv
 
     out = tmp_path / "new" / "dir"
-    code, lines, _ = run_batch(capsys, str(SMOKE), "--export", str(out))
+    code, lines, _ = run_batch(capsys, smoke(tmp_path, 2), "--export", str(out))
     assert code == 0
     with (out / "decision-log.csv").open(encoding="utf-8", newline="") as file:
         rows = list(csv.reader(file))
@@ -1127,7 +1144,7 @@ def test_run_exports_the_decision_log_as_csv(capsys, games_db, tmp_path):
         "total_cost",
     ]
     body = rows[1:]
-    assert len(body) == 3 * 36 * 4
+    assert len(body) == 2 * 36 * 4
     assert [row[0] for row in body[:: 36 * 4]] == batch_ids(lines)
     assert [(row[1], row[3]) for row in body[:4]] == [
         ("1", "retailer"),
@@ -1248,7 +1265,7 @@ def test_run_takes_one_seat_spec_per_role(capsys, games_db, tmp_path):
         "wholesaler": "rule_based",
         "distributor": "rule_based",
     }
-    path = batch_file(tmp_path, {"seed": 3, "games": 1, "seats": seats})
+    path = batch_file(tmp_path, {"seed": 3, "games": 1, "seats": seats, "settings": SHORT})
     code, _, _ = run_batch(capsys, path)
     assert code == 0
     stored = query(
@@ -1296,24 +1313,26 @@ def test_run_exits_1_and_counts_a_failed_check(capsys, games_db, tmp_path, monke
         return await verify(game_id)
 
     monkeypatch.setattr(sim.game_service, "verify_finished", tampered_then_verified)
-    path = batch_file(tmp_path, {"seed": 7, "games": 1, "seats": "rule_based"})
+    path = batch_file(
+        tmp_path, {"seed": 7, "games": 1, "seats": "rule_based", "settings": {"weeks": 12}}
+    )
     code, lines, _ = run_batch(capsys, path)
     assert code == 1
     assert lines[0].split(" ")[6:8] == ["check", "failed"]
     assert int(lines[0].split(" ")[8]) > 0
-    assert lines[-3] == "batch games 1 weeks 36 checks ok=0 failed=1"
+    assert lines[-3] == "batch games 1 weeks 12 checks ok=0 failed=1"
 
 
 def test_run_reports_a_failing_export_write(capsys, games_db, tmp_path, monkeypatch):
     from app import sim
 
     monkeypatch.setattr(sim, "EXPORT_FILE", "missing-dir/decision-log.csv")
-    path = batch_file(tmp_path, {"seed": 7, "games": 1, "seats": "rule_based"})
+    path = batch_file(tmp_path, {"seed": 7, "games": 1, "seats": "rule_based", "settings": SHORT})
     assert main(["run", path, "--export", str(tmp_path / "out")]) == 1
     captured = capsys.readouterr()
     assert captured.err.startswith("error export_failed: ")
     # The Games were played and checked: their summary is still printed.
-    assert "batch games 1 weeks 36 checks ok=1 failed=0" in captured.out.splitlines()
+    assert "batch games 1 weeks 8 checks ok=1 failed=0" in captured.out.splitlines()
 
 
 def test_run_uses_the_batch_rule_based_parameter_set(capsys, games_db, tmp_path, monkeypatch):
@@ -1328,7 +1347,14 @@ def test_run_uses_the_batch_rule_based_parameter_set(capsys, games_db, tmp_path,
         lambda kind, set_id: parameter_sets.read_parameter_set(kind, set_id, root=tmp_path),
     )
     path = batch_file(
-        tmp_path, {"seed": 7, "games": 1, "seats": "rule_based", "rule_based_params": "stock-30"}
+        tmp_path,
+        {
+            "seed": 7,
+            "games": 1,
+            "seats": "rule_based",
+            "rule_based_params": "stock-30",
+            "settings": SHORT,
+        },
     )
     code, _, _ = run_batch(capsys, path)
     assert code == 0
@@ -1367,7 +1393,7 @@ def test_run_stopped_partway_names_the_games_already_stored(
         return await verify(game_id)
 
     monkeypatch.setattr(sim.game_service, "verify_finished", refuse_the_second)
-    path = batch_file(tmp_path, {"seed": 7, "games": 3, "seats": "rule_based"})
+    path = batch_file(tmp_path, {"seed": 7, "games": 3, "seats": "rule_based", "settings": SHORT})
     code, lines, err = run_batch(capsys, path)
     assert code == 1 and lines == []
     first, note = err.strip().splitlines()[-2:]

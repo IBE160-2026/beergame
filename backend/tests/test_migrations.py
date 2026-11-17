@@ -49,59 +49,59 @@ def current_version(url: str) -> str:
     return version
 
 
-def test_upgrade_head_from_empty_creates_the_games_tables(test_database):
-    reset_schema(test_database)
-    command.upgrade(config(test_database), "head")
-    assert tables(test_database) == HEAD_TABLES
-    assert current_version(test_database) == "0005"
+def test_upgrade_head_from_empty_creates_the_games_tables(migrations_database):
+    reset_schema(migrations_database)
+    command.upgrade(config(migrations_database), "head")
+    assert tables(migrations_database) == HEAD_TABLES
+    assert current_version(migrations_database) == "0005"
 
 
-def test_the_revisions_match_the_module_tables(test_database):
+def test_the_revisions_match_the_module_tables(migrations_database):
     """`alembic check` fails when a module table and the revisions disagree."""
-    reset_schema(test_database)
-    cfg = config(test_database)
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.check(cfg)
 
 
-def test_downgrade_to_the_baseline_removes_the_games_tables(test_database):
-    reset_schema(test_database)
-    cfg = config(test_database)
+def test_downgrade_to_the_baseline_removes_the_games_tables(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0001")
-    assert tables(test_database) == {"alembic_version"}
-    assert current_version(test_database) == "0001"
-    with psycopg.connect(libpq_dsn(test_database)) as conn:
+    assert tables(migrations_database) == {"alembic_version"}
+    assert current_version(migrations_database) == "0001"
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         functions = conn.execute(
             "SELECT 1 FROM pg_proc WHERE proname = 'seat_occupancy_append_only'"
         ).fetchall()
     assert functions == []
 
 
-def test_downgrade_to_0002_removes_the_week_tables(test_database):
-    reset_schema(test_database)
-    cfg = config(test_database)
+def test_downgrade_to_0002_removes_the_week_tables(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0002")
-    assert tables(test_database) == {"alembic_version", "games", "seats", "seat_occupancy"}
-    assert current_version(test_database) == "0002"
-    with psycopg.connect(libpq_dsn(test_database)) as conn:
+    assert tables(migrations_database) == {"alembic_version", "games", "seats", "seat_occupancy"}
+    assert current_version(migrations_database) == "0002"
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         functions = conn.execute(
             "SELECT 1 FROM pg_proc WHERE proname = 'seat_turns_keep_opening'"
         ).fetchall()
     assert functions == []
     command.upgrade(cfg, "head")
-    assert current_version(test_database) == "0005"
+    assert current_version(migrations_database) == "0005"
 
 
-def test_downgrade_to_0003_restores_the_week_tables_of_story_1_8(test_database):
-    reset_schema(test_database)
-    cfg = config(test_database)
+def test_downgrade_to_0003_restores_the_week_tables_of_story_1_8(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0003")
-    assert tables(test_database) == HEAD_TABLES - {"seat_weeks", "game_checks"}
-    assert current_version(test_database) == "0003"
-    with psycopg.connect(libpq_dsn(test_database)) as conn:
+    assert tables(migrations_database) == HEAD_TABLES - {"seat_weeks", "game_checks"}
+    assert current_version(migrations_database) == "0003"
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         functions = {
             row[0]
             for row in conn.execute(
@@ -122,29 +122,29 @@ def test_downgrade_to_0003_restores_the_week_tables_of_story_1_8(test_database):
     assert primary_key == ("PRIMARY KEY (game_id, week)",)
     assert "finished" not in columns
     command.upgrade(cfg, "head")
-    assert current_version(test_database) == "0005"
+    assert current_version(migrations_database) == "0005"
 
 
-def test_downgrade_to_0004_removes_the_check_table(test_database):
-    reset_schema(test_database)
-    cfg = config(test_database)
+def test_downgrade_to_0004_removes_the_check_table(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0004")
-    assert tables(test_database) == HEAD_TABLES - {"game_checks"}
-    assert current_version(test_database) == "0004"
-    with psycopg.connect(libpq_dsn(test_database)) as conn:
+    assert tables(migrations_database) == HEAD_TABLES - {"game_checks"}
+    assert current_version(migrations_database) == "0004"
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         functions = conn.execute(
             "SELECT 1 FROM pg_proc WHERE proname = 'game_checks_append_only'"
         ).fetchall()
     assert functions == []
     command.upgrade(cfg, "head")
-    assert current_version(test_database) == "0005"
+    assert current_version(migrations_database) == "0005"
 
 
-def test_alembic_cli_uses_database_url_from_environment(test_database):
+def test_alembic_cli_uses_database_url_from_environment(migrations_database):
     """The container entrypoint path: plain `alembic upgrade head`, no overrides."""
-    reset_schema(test_database)
-    env = {**os.environ, "DATABASE_URL": test_database, "APP_ENV": "test"}
+    reset_schema(migrations_database)
+    env = {**os.environ, "DATABASE_URL": migrations_database, "APP_ENV": "test"}
     env.pop("PYTHONPATH", None)
     result = subprocess.run(
         [sys.executable, "-m", "alembic", "upgrade", "head"],
@@ -155,7 +155,7 @@ def test_alembic_cli_uses_database_url_from_environment(test_database):
         timeout=60,
     )
     assert result.returncode == 0, result.stderr
-    assert tables(test_database) == HEAD_TABLES
+    assert tables(migrations_database) == HEAD_TABLES
 
 
 CHECKS = {
@@ -170,15 +170,15 @@ CHECKS = {
 }
 
 
-def test_the_check_constraints_list_exactly_the_enum_values(test_database):
+def test_the_check_constraints_list_exactly_the_enum_values(migrations_database):
     """`alembic check` does not compare CHECK contents, so compare them with the enums here."""
     import re
 
     from app.modules.games import schemas
 
-    reset_schema(test_database)
-    command.upgrade(config(test_database), "head")
-    with psycopg.connect(libpq_dsn(test_database)) as conn:
+    reset_schema(migrations_database)
+    command.upgrade(config(migrations_database), "head")
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         rows = dict(
             conn.execute(
                 "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint "

@@ -117,7 +117,9 @@ async def insert_week(
 
 
 async def insert_turns(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
-    await session.execute(seat_turns.insert(), rows)
+    # One multi-row INSERT: an executemany goes through psycopg's pipeline mode, which costs
+    # tens of milliseconds per call for these few rows.
+    await session.execute(seat_turns.insert().values(rows))
 
 
 async def week_states(session: AsyncSession, game_id: uuid.UUID) -> list[dict[str, Any]]:
@@ -128,6 +130,16 @@ async def week_states(session: AsyncSession, game_id: uuid.UUID) -> list[dict[st
         .order_by(game_weeks.c.week, game_weeks.c.finished)
     )
     return list(result.scalars())
+
+
+async def open_week(session: AsyncSession, game_id: uuid.UUID) -> int | None:
+    """The newest opened Week of the Game (a finished state is not opened), or None."""
+    result = await session.execute(
+        select(func.max(game_weeks.c.week)).where(
+            game_weeks.c.game_id == game_id, game_weeks.c.finished.is_(False)
+        )
+    )
+    return result.scalar_one()
 
 
 async def turn(

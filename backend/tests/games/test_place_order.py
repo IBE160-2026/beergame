@@ -330,13 +330,14 @@ async def test_a_game_not_started_takes_no_order(games_db):
 
 
 async def test_the_last_week_finishes_the_game(games_db):
-    game_id = await started()
-    await to_week(game_id, SETTINGS.weeks)
+    last = 8  # a short Game: the length is not the point
+    game_id = await started(weeks=last)
+    await to_week(game_id, last)
     for role in ROLES[:3]:
         await commands.place_order(
             game_id,
             role,
-            SETTINGS.weeks,
+            last,
             (await service.open_turn(game_id, role)).rule_based_reference_order,
             "rule_based",
         )
@@ -344,7 +345,7 @@ async def test_the_last_week_finishes_the_game(games_db):
         placed = await commands.place_order(
             game_id,
             "factory",
-            SETTINGS.weeks,
+            last,
             (await service.open_turn(game_id, "factory")).rule_based_reference_order,
             "rule_based",
         )
@@ -358,26 +359,29 @@ async def test_the_last_week_finishes_the_game(games_db):
         "SELECT week, finished, state FROM game_weeks WHERE game_id = %s ORDER BY week, finished",
         (game_id,),
     )
-    assert [(w, f) for w, f, _ in weeks] == [(w, False) for w in range(1, 37)] + [(36, True)]
+    assert [(w, f) for w, f, _ in weeks] == [(w, False) for w in range(1, last + 1)] + [
+        (last, True)
+    ]
     final = WeekState.model_validate(weeks[-1][2])
-    assert final.finished and final.week == 36
-    assert counts(games_db, game_id)[1:] == (144, 37, 144, 144)  # no Week 37 turn
+    assert final.finished and final.week == last
+    # No turn for the Week after the last.
+    assert counts(games_db, game_id)[1:] == (4 * last, last + 1, 4 * last, 4 * last)
     await assert_refused(
         games_db,
         game_id,
-        commands.place_order(game_id, "retailer", 36, 4, "rule_based"),
+        commands.place_order(game_id, "retailer", last, 4, "rule_based"),
         "game_finished",
         409,
     )
     await assert_refused(
         games_db,
         game_id,
-        commands.place_order(game_id, "retailer", 37, 4, "rule_based"),
+        commands.place_order(game_id, "retailer", last + 1, 4, "rule_based"),
         "game_finished",
         409,
     )
     # What each Seat saw in the last Week stays readable.
-    assert (await service.seat_state(game_id, "retailer")).week == 36
+    assert (await service.seat_state(game_id, "retailer")).week == last
 
 
 async def test_finish_needs_the_finished_state():

@@ -147,7 +147,7 @@ async def test_a_role_without_a_seat_is_refused(games_db, role):
     )
 
 
-@pytest.mark.parametrize("game_id", ["not-a-uuid", str(uuid.uuid7())])
+@pytest.mark.parametrize("game_id", ["not-a-uuid", "01a1eb10-f299-75a6-8ec2-a251c50791e1"])
 async def test_an_unknown_game_is_refused(games_db, game_id):
     await assert_refused(
         games_db, "", "game_not_found", 404, commands.assign_seat(game_id, "retailer", "rule_based")

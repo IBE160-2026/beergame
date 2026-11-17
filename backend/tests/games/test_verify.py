@@ -12,16 +12,22 @@ from structlog.testing import capture_logs
 from app.engine import GameSettings, Role
 from app.engine.rules import v1
 from app.modules.games import commands, service
-from tests.games.helpers import execute, listening, play_to_end, play_week, query, tamper
+from tests.games.helpers import (
+    classic_game,
+    execute,
+    listening,
+    play_to_end,
+    play_week,
+    query,
+    tamper,
+)
 
 GAME_TABLES = ("seats", "seat_occupancy", "game_weeks", "seat_turns", "seat_weeks")
 
 
-async def finished_game(seed: int = 7) -> str:
-    game_id = await commands.create("simulation", GameSettings(), seed=seed)
-    await commands.start(game_id)
-    await play_to_end(game_id)
-    return game_id
+async def finished_game(url: str) -> str:
+    """The Classic Game of seed 7, played once per session; each call stores its own copy."""
+    return await classic_game(url)
 
 
 def game_rows(url: str, game_id: str) -> dict[str, list]:
@@ -52,7 +58,7 @@ def keys(check) -> set[tuple]:
 
 
 async def test_a_finished_game_passes_and_stores_one_row(games_db):
-    game_id = await finished_game()
+    game_id = await finished_game(games_db)
     before = game_rows(games_db, game_id)
     with listening(games_db) as events, capture_logs() as logs:
         check = await service.verify_finished(game_id)
@@ -77,7 +83,7 @@ async def test_a_finished_game_passes_and_stores_one_row(games_db):
 
 
 async def test_a_second_call_returns_the_stored_result(games_db):
-    game_id = await finished_game()
+    game_id = await finished_game(games_db)
     first = await service.verify_finished(game_id)
     with capture_logs() as logs:
         second = await service.verify_finished(game_id)
@@ -87,14 +93,14 @@ async def test_a_second_call_returns_the_stored_result(games_db):
 
 
 async def test_concurrent_calls_store_one_row(games_db):
-    game_id = await finished_game()
+    game_id = await finished_game(games_db)
     results = await asyncio.gather(*(service.verify_finished(game_id) for _ in range(3)))
     assert len({result.id for result in results}) == 1
     assert len(check_rows(games_db, game_id)) == 1
 
 
 async def test_a_changed_week_state_is_recorded_and_logged_with_ids_only(games_db):
-    game_id = await finished_game()
+    game_id = await finished_game(games_db)
     tamper(
         games_db,
         "UPDATE game_weeks SET state = jsonb_set(state, '{seats,0,inventory}', "
@@ -128,7 +134,7 @@ async def test_a_changed_week_state_is_recorded_and_logged_with_ids_only(games_d
 
 
 async def test_a_changed_order_is_recorded_from_the_week_it_reaches(games_db):
-    game_id = await finished_game()
+    game_id = await finished_game(games_db)
     tamper(
         games_db,
         'UPDATE seat_weeks w SET "order" = w."order" + 3 FROM seats s '
@@ -142,7 +148,7 @@ async def test_a_changed_order_is_recorded_from_the_week_it_reaches(games_db):
 
 
 async def test_a_changed_cost_is_recorded_with_week_and_role(games_db):
-    game_id = await finished_game()
+    game_id = await finished_game(games_db)
     tamper(
         games_db,
         "UPDATE game_weeks SET state = jsonb_set(state, '{seats,2,cost}', '\"99.00\"') "
@@ -165,7 +171,7 @@ async def test_a_changed_cost_is_recorded_with_week_and_role(games_db):
 
 
 async def test_an_unreadable_decision_log_row_is_recorded(games_db):
-    game_id = await finished_game()
+    game_id = await finished_game(games_db)
     tamper(
         games_db,
         "UPDATE seat_weeks w SET state_seen = '{}' FROM seats s WHERE s.id = w.seat_id "
@@ -178,7 +184,7 @@ async def test_an_unreadable_decision_log_row_is_recorded(games_db):
 
 
 async def test_a_broken_snapshot_or_week_state_is_recorded(games_db):
-    series = await finished_game(seed=8)
+    series = await finished_game(games_db)
     tamper(
         games_db,
         "UPDATE games SET demand_series = demand_series || '[1]'::jsonb WHERE id = %s",
@@ -186,7 +192,7 @@ async def test_a_broken_snapshot_or_week_state_is_recorded(games_db):
     )
     assert ("snapshot", None, None) in keys(await service.verify_finished(series))
 
-    settings = await finished_game(seed=9)
+    settings = await finished_game(games_db)
     tamper(
         games_db,
         "UPDATE games SET settings = settings || '{\"weeks\": -1}'::jsonb WHERE id = %s",
@@ -194,7 +200,7 @@ async def test_a_broken_snapshot_or_week_state_is_recorded(games_db):
     )
     assert keys(await service.verify_finished(settings)) == {("snapshot", None, None)}
 
-    state = await finished_game(seed=10)
+    state = await finished_game(games_db)
     tamper(
         games_db,
         "UPDATE game_weeks SET state = '{\"week\": 1}' WHERE game_id = %s AND week = 6",
@@ -213,7 +219,7 @@ async def test_a_broken_snapshot_or_week_state_is_recorded(games_db):
 
 
 async def test_a_missing_decision_log_row_skips_the_log_check(games_db):
-    game_id = await finished_game()
+    game_id = await finished_game(games_db)
     tamper(
         games_db,
         "DELETE FROM seat_weeks w USING seats s WHERE s.id = w.seat_id AND w.game_id = %s "
@@ -247,7 +253,7 @@ async def test_an_unfinished_game_is_refused_and_nothing_is_stored(games_db):
 
 
 async def test_a_version_without_a_package_is_refused_and_listed(games_db):
-    game_id = await finished_game()
+    game_id = await finished_game(games_db)
     assert await service.rules_versions_without_package() == ()
     execute(games_db, "UPDATE games SET rules_version = 99 WHERE id = %s", (game_id,))
     with pytest.raises(service.ViewError) as caught:
@@ -259,7 +265,7 @@ async def test_a_version_without_a_package_is_refused_and_listed(games_db):
 
 async def test_every_stored_rules_version_has_a_package(games_db):
     """AD-4: fails when a Game in the test database names a rules version with no package."""
-    await finished_game()
+    await finished_game(games_db)
     game_id = await commands.create("simulation", GameSettings(), seed=3)
     await commands.start(game_id)
     assert await service.rules_versions_without_package() == ()
@@ -278,9 +284,9 @@ async def test_a_game_finished_under_v1_verifies_and_replays_differently_at_v2(
     v2.advance = advance_v2
     monkeypatch.setitem(sys.modules, "app.engine.rules.v2", v2)
 
-    under_v1 = await finished_game()
+    under_v1 = await finished_game(games_db)
     assert (await service.verify_finished(under_v1)).ok
-    at_v2 = await finished_game()
+    at_v2 = await finished_game(games_db)
     execute(games_db, "UPDATE games SET rules_version = 2 WHERE id = %s", (at_v2,))
     check = await service.verify_finished(at_v2)
     assert not check.ok and check.rules_version == 2
@@ -291,7 +297,7 @@ async def test_a_game_finished_under_v1_verifies_and_replays_differently_at_v2(
 
 
 async def test_a_game_check_row_is_append_only(games_db):
-    game_id = await finished_game()
+    game_id = await finished_game(games_db)
     await service.verify_finished(game_id)
     for sql in (
         "UPDATE game_checks SET ok = false, violations = '[{}]' WHERE game_id = %s",
@@ -331,7 +337,7 @@ async def test_commands_run_the_stored_rules_version(games_db, monkeypatch):
     v2.advance = advance_v2
     monkeypatch.setitem(sys.modules, "app.engine.rules.v2", v2)
 
-    plain = await finished_game()
+    plain = await finished_game(games_db)
     game_id = await commands.create("simulation", GameSettings(), seed=7)
     execute(games_db, "UPDATE games SET rules_version = 2 WHERE id = %s", (game_id,))
     await commands.start(game_id)

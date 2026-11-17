@@ -82,7 +82,7 @@ async def test_start_plays_a_game_of_four_rule_based_players_one_week_per_transa
     try:
         with listening(games_db) as events:
             assert await commands.start(game_id) == 1
-            received = events.drain(timeout=1.0)
+            received = events.drain()
     finally:
         event.remove(sync_engine, "commit", commit)
     assert lifecycle(games_db, game_id) == "finished"
@@ -191,7 +191,7 @@ async def test_switch_mid_week_places_the_reference_order_and_the_game_moves_on(
     before = version(games_db, game_id)
     with listening(games_db) as events:
         await commands.switch_to_rule_based(game_id, "retailer", "takeover_staff")
-        received = events.drain(timeout=1.0)
+        received = events.drain()
     assert occupancy(games_db, game_id, "retailer") == [
         (1, "student", "initial"),
         (3, "rule_based", "takeover_staff"),

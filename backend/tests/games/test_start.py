@@ -130,7 +130,7 @@ async def test_starting_twice_answers_a_conflict_and_changes_nothing(games_db):
     assert turns(games_db, game_id) == first
 
 
-@pytest.mark.parametrize("game_id", ["nope", str(uuid.uuid7()), None, 5])
+@pytest.mark.parametrize("game_id", ["nope", "01a1eb10-f299-75a6-8ec2-a251c50791e1", None, 5])
 async def test_an_unknown_game_cannot_start(games_db, game_id):
     with pytest.raises(commands.CommandError) as caught:
         await commands.start(game_id)  # type: ignore[arg-type]
