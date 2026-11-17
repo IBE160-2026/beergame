@@ -38,6 +38,8 @@ Brukeren vil bruke `/goal` til å bygge alle epics og stories uten at noen følg
 - Arbeidskopien er ren: `.working/` under epics er lagt i `.gitignore`, og FR-20, `open-assumptions.md` og `.gitignore` er committet som `cb7ba05`.
 - Kjøreboka `.docs/implementation-artifacts/autobuild-runbook.md` er committet som `ba20359`. Den sier hvordan hver story bygges med en underagent som kjører `bmad-build-auto`, hvordan sprint-status, commit, push, issue og logg håndteres, hvordan epics merges, og hvilke regler som gjelder. Målteksten til `/goal` (1 238 tegn) peker til kjøreboka. Den ligger i scratchpad og ble gitt til brukeren i chatten.
 - Brukeren ba om commit og push: `main` er pushet til `origin/main` (`e24dfed..67f543b`).
+- Brukeren spurte om agentene tester appen med Playwright CLI. Svar: `bmad-build-auto` sier ingenting om Playwright. 116 stories har Playwright-tester i kriteriene, men det er automatiske tester i CI, ikke en visuell kontroll. Brukeren ba om en visuell kontroll, og den er lagt inn i kjøreboka som steg 5 (`f2498f7`). For hver story som endrer en skjerm tar en underagent skjermbilder på 390 og 1280 px med Playwright. Bildene legges i `.docs/implementation-artifacts/screenshots/<N.M>/` og sammenlignes med mockupene, `DESIGN.md` og `EXPERIENCE.md`. Klare avvik rettes, og resten føres i et issue.
+- Målteksten ligger i `GOAL.md` i rotmappa, skrevet av brukeren. Den er committet (`daa4e18`) etter brukerens ønske, så arbeidskopien er ren.
 - Ikke gjort: dvale og Windows Update er ikke endret, `.claude/settings.json` er ikke laget, og målteksten til `/goal` er ikke skrevet.
 
 ### Åpne punkter
