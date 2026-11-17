@@ -221,3 +221,22 @@ Akseptansekravet `python -m app.sim check --all` fra Story 1.10 manglet i koden.
 
 ### Åpne punkter
 - Issue #47 nevner funnet.
+
+## Story 1.12: Fraktkapasitet per plass (2026-11-17)
+
+### Oppgave
+Bygge Story 1.12 på `epic-1`, den siste i Epic 1. Underveis valgte brukeren OpenRouter med modellen `deepseek/deepseek-v4.1-flash-1017`.
+
+### Plan
+`bmad-build-auto` i én underagent. Modellvalget føres i Issue #9, i spinen og i kjøreboka etter at storyen er committet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-1-12-cap-what-a-seat-can-ship-per-week.md`. Commit `8f2f18d`.
+- Valgfri `capacity` per rolle i `GameSettings`, regler v1 sender det minste av lager, skyld og kapasitet, bevaringssjekken tar med kapasiteten, `validate` avviser kapasitet når `FEATURE_CAPACITY` er av, og ny advarsel `capacity_below_peak_demand`.
+- 1132 tester grønne, full grenddekning av motoren, ruff ren, røyktesten 3/3. Golden-sporet `capped-retailer-6` er sjekket uavhengig med 0 avvik.
+- Modellvalget står i Issue #9, i spinen (åpent valg om LLM-leverandør) og i kjøreboka.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #48: beslutninger om kapasitet og funksjonsflagget.
+- Issue #9: modellen må verifiseres mot OpenRouter og EU-ruting i Story 2.7.
