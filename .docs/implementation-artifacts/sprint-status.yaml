@@ -38,7 +38,7 @@ development_status:
   epic-1: in-progress
   1-1-scaffold-the-repo-so-it-starts-locally-with-zero-keys: done
   1-2-run-the-classic-chain-week-by-week-and-match-the-reference-t: done
-  1-3-check-changed-game-settings-against-ranges-and-warnings: backlog
+  1-3-check-changed-game-settings-against-ranges-and-warnings: in-progress
   1-4-generate-the-demand-series-from-a-demand-pattern-and-a-seed: backlog
   1-5-prove-the-bookkeeping-is-correct-by-construction: backlog
   1-6-order-with-the-rule-based-player: backlog
