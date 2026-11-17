@@ -35,6 +35,9 @@ Brukeren vil bruke `/goal` til å bygge alle epics og stories uten at noen følg
   - Antakelsene i `open-assumptions.md` bygges som de står.
   - Sesjonsloggen føres med én seksjon per story.
 - Story 5.13 og FR-20: før startdatoen gir sen registrering uten ledig sete et nytt klassespill. `prd.md` (FR-20) og `open-assumptions.md` er rettet, ikke committet. Issue #35 er oppdatert, og Issue #31 har fått en kommentar.
+- Arbeidskopien er ren: `.working/` under epics er lagt i `.gitignore`, og FR-20, `open-assumptions.md` og `.gitignore` er committet som `cb7ba05`.
+- Kjøreboka `.docs/implementation-artifacts/autobuild-runbook.md` er committet som `ba20359`. Den sier hvordan hver story bygges med en underagent som kjører `bmad-build-auto`, hvordan sprint-status, commit, push, issue og logg håndteres, hvordan epics merges, og hvilke regler som gjelder. Målteksten til `/goal` (1 238 tegn) peker til kjøreboka. Den ligger i scratchpad og ble gitt til brukeren i chatten.
+- `main` er 10 commits foran `origin/main`, og ingenting er pushet.
 - Ikke gjort: dvale og Windows Update er ikke endret, `.claude/settings.json` er ikke laget, og målteksten til `/goal` er ikke skrevet.
 
 ### Åpne punkter
