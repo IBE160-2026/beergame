@@ -206,3 +206,18 @@ Bygge Story 1.11 på `epic-1`.
 
 ### Åpne punkter
 - Issue #47: beslutninger om batchformat, frø, utkoder og eksport.
+
+## Retting: `sim check --all` fra Story 1.10 (2026-11-17)
+
+### Oppgave
+Akseptansekravet `python -m app.sim check --all` fra Story 1.10 manglet i koden.
+
+### Plan
+Én underagent bygger det med gjenbruk av `verify_finished`.
+
+### Resultat
+- Commit `711eac8`. `check --all` sjekker alle ferdige spill (eldste først), lister bare feilede, og avslutter med `checked N ok=X failed=Y`. Utkoder 0, 1 og 2. Spill uten regelpakke teller som feilet.
+- 1088 tester grønne, ruff ren. Merknad lagt til i specen for 1.10.
+
+### Åpne punkter
+- Issue #47 nevner funnet.
