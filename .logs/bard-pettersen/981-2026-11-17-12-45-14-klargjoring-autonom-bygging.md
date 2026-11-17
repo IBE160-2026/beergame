@@ -27,6 +27,14 @@ Brukeren vil bruke `/goal` til å bygge alle epics og stories uten at noen følg
 - De 24 containerne fra før er stoppet etter at brukeren ba om det. De er ikke slettet, og volumene er urørt. De har omstartsregelen `unless-stopped`, så de starter ikke igjen av seg selv.
 - Brukeren har lagt inn LLM-nøkkelen i `.env`. Dvale og dvalemodus er slått av på strøm med `powercfg` (begge `0`, kontrollert). Windows Update gjør brukeren selv.
 - Økten kjører i bypass permissions. Brukeren ba om sperrer, så 62 `deny`-regler er lagt i `.claude/settings.local.json` (git-ignorert): alle Neon- og Railway-verktøy og `railway`, force-push, sletting av grener og repo med `git`/`gh`, `docker prune/rm/rmi/volume rm`, `rm -rf` og `Remove-Item` mot absolutte stier og `..`, lesing av `.env`, og endring av `.env` og settings-filene. Kontrollert: `docker rm` blir avvist. Sperrene er prefiksregler, ikke en sandkasse.
+- Avgjørelsene i Issue #35 er tatt:
+  - Omfang: alt som kan bygges lokalt.
+  - Git: én gren per epic, én commit per story og push etter hver, og merge til `main` når CI er grønn. Brukeren har gitt stående tillatelse til commit, push og merge for kjøringen.
+  - Blokkerte stories: agenten løser problemet selv og fører et issue med beslutningene den tok.
+  - Stories som trenger grunnleggeren: settes til `review` med et issue.
+  - Antakelsene i `open-assumptions.md` bygges som de står.
+  - Sesjonsloggen føres med én seksjon per story.
+- Story 5.13 og FR-20: før startdatoen gir sen registrering uten ledig sete et nytt klassespill. `prd.md` (FR-20) og `open-assumptions.md` er rettet, ikke committet. Issue #35 er oppdatert, og Issue #31 har fått en kommentar.
 - Ikke gjort: dvale og Windows Update er ikke endret, `.claude/settings.json` er ikke laget, og målteksten til `/goal` er ikke skrevet.
 
 ### Åpne punkter
