@@ -78,3 +78,21 @@ Bygge Story 1.4 på `epic-1`.
 
 ### Åpne punkter
 - Issue #39: beslutninger om frø, trekning og plassholdergrenser.
+
+## Story 1.5: Riktig bokføring ved konstruksjon (2026-11-17)
+
+### Oppgave
+Bygge Story 1.5 på `epic-1`.
+
+### Plan
+`bmad-build-auto` i én underagent, med implementering i egen kontekst og gjennomgang i underagenter.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-1-5-bookkeeping-correct-by-construction.md`. Commit `7b988ef`.
+- Ren sjekk `backend/app/engine/check.py`: `conservation(settings, states, orders)` gir en liste brudd med regel, uke og rolle. Den regner ut forventede verdier selv i stedet for å kalle motoren.
+- 736 tester grønne (300 tilfeldige spill med fast frø), full grenddekning, ruff ren.
+- Gjennomgang i to runder. Første runde fant at en plass kunne sende mer enn den hadde. Ny forsendelsesregel ble lagt til. Andre runde: fem små rettinger.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #40: beslutninger om egenskapstester, enheter underveis og forsendelsesregelen.
