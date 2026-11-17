@@ -25,8 +25,8 @@ def test_imported_roots_reads_both_import_forms():
 
 
 def test_engine_imports_only_stdlib_pydantic_and_itself():
-    files = sorted(ENGINE.glob("*.py"))
-    assert files
+    files = sorted(ENGINE.rglob("*.py"))
+    assert ENGINE / "rules" / "v1" / "__init__.py" in files  # every rules version is scanned
     for path in files:
         roots = imported_roots(path.read_text(encoding="utf-8"))
         outside = roots - {"app"} - ALLOWED_THIRD_PARTY - set(sys.stdlib_module_names)

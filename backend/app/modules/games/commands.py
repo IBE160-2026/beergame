@@ -28,6 +28,7 @@ from app.engine import (
     seat_view,
     validate,
 )
+from app.engine import rules as engine_rules
 from app.engine.demand import new_seed
 from app.engine.scripted import REGISTRY
 from app.modules.games import repo, rules
@@ -259,12 +260,11 @@ def _game_uuid(game_id: str) -> uuid.UUID:
 
 def _snapshot(game: Mapping[str, object]) -> tuple[GameSettings, rule_based.RuleBasedParams]:
     """The Game's frozen settings and Rule-based parameters; refuses a snapshot this engine
-    cannot reproduce (AD-4)."""
-    if game["rules_version"] != RULES_VERSION:
+    cannot reproduce (AD-4). Commands run the Game's stored `rules_version`."""
+    if not engine_rules.has_version(game["rules_version"]):
         raise CommandError(
             "rules_version_unsupported",
-            f"the Game needs rules version {game['rules_version']}, this engine has "
-            f"{RULES_VERSION}",
+            f"the Game needs rules version {game['rules_version']}, which has no rules package",
             409,
         )
     settings = GameSettings.model_validate(game["settings"])
@@ -329,7 +329,7 @@ async def start(game_id: str) -> int:
         for seat in seat_rows:
             if seat["occupant_kind"] is None:
                 await _append_initial(session, seat["id"], OccupantKind.RULE_BASED, None)
-        state = initial_state(settings)
+        state = initial_state(settings, game["rules_version"])
         seat_ids = {seat["role"]: seat["id"] for seat in seat_rows}
         await _open_week(session, game_uuid, settings, params, [state], [], seat_ids)
         await repo.set_lifecycle(session, game_uuid, Lifecycle.RUNNING.value)
@@ -430,7 +430,7 @@ async def place_order(
         open_week: int | None = week
         if rules.week_complete(await repo.week_turns(session, game_uuid, week)):
             week_orders = (await stored_orders(session, game_uuid))[week - 1]
-            following = advance(settings, states[-1], week_orders)
+            following = advance(settings, states[-1], week_orders, game["rules_version"])
             if following.finished:
                 await finish(session, game_uuid, following)
                 lifecycle, open_week = Lifecycle.FINISHED, None

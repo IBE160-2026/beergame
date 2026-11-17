@@ -791,3 +791,90 @@ def test_play_continues_a_partly_played_week(capsys, games_db):
     assert main(["play", game_id]) == 0
     assert report(capsys, {"lifecycle", "weeks"}) == ["lifecycle finished", "weeks 36"]
     assert len(log_lines(capsys, game_id)) == 1 + 36 * 4
+
+
+# Story 1.10: `play` ends with the finished-game check; `check` runs or reads it back.
+
+
+def test_play_and_check_report_the_finished_game_check(capsys, games_db):
+    from tests.games.helpers import query
+
+    code, lines, _ = create(capsys, "--seats", "rule_based", "--seed", "7")
+    game_id = lines[0].removeprefix("game ")
+    assert main(["start", game_id]) == 0
+    capsys.readouterr()
+    assert main(["play", game_id]) == 0
+    assert report(capsys, {"weeks", "check"}) == ["weeks 36", "check ok"]
+    for _ in range(2):
+        assert main(["check", game_id]) == 0
+        assert report(capsys, {"check", "violation"}) == ["check ok"]
+    assert query(
+        games_db, "SELECT ok, rules_version FROM game_checks WHERE game_id = %s", (game_id,)
+    ) == [(True, 1)]
+
+
+def test_check_prints_each_violation_and_exits_1(capsys, games_db):
+    from tests.games.helpers import tamper
+
+    game_id = played_game(capsys)
+    # `play` stored a passing check; drop it so the tampered Game is checked afresh.
+    tamper(games_db, "DELETE FROM game_checks WHERE game_id = %s", (game_id,))
+    tamper(
+        games_db,
+        "UPDATE game_weeks SET state = jsonb_set(state, '{seats,1,backlog}', '5') "
+        "WHERE game_id = %s AND week = 15 AND NOT finished",
+        (game_id,),
+    )
+    for _ in range(2):  # the second call prints the stored result
+        assert main(["check", game_id]) == 1
+        lines = report(capsys, {"check", "violation"})
+        count = int(lines[0].removeprefix("check failed "))
+        assert len(lines) == 1 + count
+        assert "violation replay week 15 role wholesaler" in lines
+        assert "violation backlog_balance week 15 role wholesaler" in lines
+
+
+@pytest.mark.parametrize(
+    ("argv", "error"),
+    [
+        (["check", "nope"], "error game_not_found: "),
+    ],
+)
+def test_check_reports_refusals(capsys, games_db, argv, error):
+    assert main(argv) == 1
+    captured = capsys.readouterr()
+    assert captured.out == "" and captured.err.startswith(error)
+
+
+def test_check_of_a_running_game_exits_1(capsys, games_db):
+    game_id = created_game(capsys)
+    assert main(["start", game_id]) == 0
+    capsys.readouterr()
+    assert main(["check", game_id]) == 1
+    assert capsys.readouterr().err.startswith("error game_not_finished: ")
+
+
+def test_play_exits_1_when_the_finished_game_check_fails(capsys, games_db, monkeypatch):
+    from app import sim
+    from app.engine import Violation
+
+    async def failed(game_id):
+        return sim.game_service.GameCheck(
+            id="c",
+            game_id=game_id,
+            rules_version=1,
+            ok=False,
+            checked_at="2026-11-17T00:00:00Z",
+            violations=(Violation(rule="replay", week=None, role=None, message="x"),),
+        )
+
+    monkeypatch.setattr(sim.game_service, "verify_finished", failed)
+    code, lines, _ = create(capsys, "--seats", "rule_based", "--seed", "7")
+    game_id = lines[0].removeprefix("game ")
+    assert main(["start", game_id]) == 0
+    capsys.readouterr()
+    assert main(["play", game_id]) == 1
+    assert report(capsys, {"check", "violation"}) == [
+        "check failed 1",
+        "violation replay week - role -",
+    ]

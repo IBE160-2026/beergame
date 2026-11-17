@@ -4,10 +4,11 @@ import uuid
 from typing import Any
 
 from sqlalchemy import RowMapping, func, select, update
-from sqlalchemy.dialects.postgresql import distinct_on
+from sqlalchemy.dialects.postgresql import distinct_on, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.games.models import (
+    game_checks,
     game_weeks,
     games,
     seat_occupancy,
@@ -206,3 +207,37 @@ async def decision_log(session: AsyncSession, game_id: uuid.UUID) -> list[RowMap
         .order_by(seat_weeks.c.week, seats.c.position)
     )
     return list(result.mappings())
+
+
+async def week_rows(session: AsyncSession, game_id: uuid.UUID) -> list[RowMapping]:
+    """Every stored Week state row (`week`, `finished`, `state`), Week 1 first, finished last."""
+    result = await session.execute(
+        select(game_weeks.c.week, game_weeks.c.finished, game_weeks.c.state)
+        .where(game_weeks.c.game_id == game_id)
+        .order_by(game_weeks.c.week, game_weeks.c.finished)
+    )
+    return list(result.mappings())
+
+
+async def game_check(session: AsyncSession, game_id: uuid.UUID) -> RowMapping | None:
+    result = await session.execute(select(game_checks).where(game_checks.c.game_id == game_id))
+    return result.mappings().one_or_none()
+
+
+async def insert_game_check(session: AsyncSession, values: dict[str, Any]) -> RowMapping | None:
+    """Store the Game's check; None when the Game already has one (it is never replaced)."""
+    result = await session.execute(
+        insert(game_checks)
+        .values(**values)
+        .on_conflict_do_nothing(index_elements=[game_checks.c.game_id])
+        .returning(*game_checks.c)
+    )
+    return result.mappings().one_or_none()
+
+
+async def stored_rules_versions(session: AsyncSession) -> list[int]:
+    """Every distinct `rules_version` stored on a Game."""
+    result = await session.execute(
+        select(games.c.rules_version).distinct().order_by(games.c.rules_version)
+    )
+    return list(result.scalars())

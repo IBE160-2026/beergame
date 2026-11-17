@@ -37,6 +37,8 @@ ALLOWED_FIELDS: frozenset[str] = frozenset(
         "user_id",
         "week",
         "job_id",
+        "check_id",
+        "violation_count",
     }
 )
 

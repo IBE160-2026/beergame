@@ -7,7 +7,15 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.engine import CostLine, GameSettings, OrderPreview, SeatView, SupplyLineSlot, WeekValues
+from app.engine import (
+    CostLine,
+    GameSettings,
+    OrderPreview,
+    SeatView,
+    SupplyLineSlot,
+    Violation,
+    WeekValues,
+)
 
 
 class Purpose(StrEnum):
@@ -188,3 +196,18 @@ class DecisionLogRow(BaseModel):
     ordered_at: datetime
     rule_based_reference_order: int
     state_seen: SeatState
+
+
+class GameCheck(BaseModel):
+    """One `game_checks` row: the result of replaying and checking a finished Game (AD-9)."""
+
+    model_config = _FROZEN
+
+    id: str
+    game_id: str
+    rules_version: int
+    """The stored `rules_version` the Game was replayed at."""
+    ok: bool
+    checked_at: datetime
+    violations: tuple[Violation, ...]
+    """Every broken rule with its Week and Role; empty when `ok`."""

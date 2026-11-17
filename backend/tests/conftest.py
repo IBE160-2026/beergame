@@ -68,7 +68,8 @@ def games_db(test_database) -> str:
     migrate(test_database)
     with psycopg.connect(libpq_dsn(test_database), autocommit=True) as conn:
         conn.execute(
-            "TRUNCATE games, seats, seat_occupancy, game_weeks, seat_turns, seat_weeks CASCADE"
+            "TRUNCATE games, seats, seat_occupancy, game_weeks, seat_turns, seat_weeks, "
+            "game_checks CASCADE"
         )
     return test_database
 

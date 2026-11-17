@@ -4,10 +4,12 @@ import uuid
 
 from app.engine import GameSettings
 from app.modules.games import repo
+from app.modules.games.checks import rules_versions_without_package, verify_finished
 from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, policy
 from app.modules.games.schemas import (
     DecidedBy,
     DecisionLogRow,
+    GameCheck,
     GameOverview,
     Lifecycle,
     OccupantKind,
@@ -24,6 +26,7 @@ from app.platform.db import get_sessionmaker
 __all__ = [
     "DecidedBy",
     "DecisionLogRow",
+    "GameCheck",
     "GameOverview",
     "GamePolicy",
     "Lifecycle",
@@ -40,7 +43,9 @@ __all__ = [
     "get_game",
     "open_turn",
     "policy",
+    "rules_versions_without_package",
     "seat_state",
+    "verify_finished",
 ]
 
 

@@ -22,7 +22,12 @@ Subcommands:
   play             play a started Game to its end through `games.commands.place_order`: the
                    Guided Order in a Guided Week (`guided`), else the turn's stored Rule-based
                    reference Order (`rule_based`) or the Seat's scripted policy (`scripted`).
-                   Prints the lifecycle and the number of Weeks played.
+                   Prints the lifecycle and the number of Weeks played, then runs the
+                   finished-game check (`games.service.verify_finished`) and prints its result;
+                   exit 1 when the check finds a violation.
+  check            run (or read back) the finished-game check of a Game: `check ok`, or
+                   `check failed N` and one `violation` line per broken rule. Exit 1 when it
+                   failed or was refused.
   log              print the Decision log: one row per Week and Seat with what the Seat saw,
                    its Order, the Week's cost, who decided and the Rule-based reference Order.
 
@@ -486,8 +491,32 @@ async def _play_game(game_id: str) -> int:
     return 0
 
 
+async def _check_game(game_id: str) -> int:
+    try:
+        check = await game_service.verify_finished(game_id)
+    except (game_service.ViewError, DBAPIError) as exc:
+        _report(exc)
+        return 1
+    finally:
+        await db.dispose()
+    if check.ok:
+        print("check ok")
+        return 0
+    print(f"check failed {len(check.violations)}")
+    for violation in check.violations:
+        role = violation.role.value if violation.role is not None else "-"
+        week = violation.week if violation.week is not None else "-"
+        print(f"violation {violation.rule} week {week} role {role}")
+    return 1
+
+
+def _check(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    return _run(_check_game(args.game_id))
+
+
 def _play(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
-    return _run(_play_game(args.game_id))
+    code = _run(_play_game(args.game_id))
+    return code or _run(_check_game(args.game_id))
 
 
 LOG_COLUMNS = (*COLUMNS, ("decided_by", 10), ("reference", 9))
@@ -601,6 +630,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     play.add_argument("game_id")
     play.set_defaults(handler=_play, command_parser=play)
+    check_game = commands.add_parser(
+        "check", help="replay a finished Game and check its books (stored once)"
+    )
+    check_game.add_argument("game_id")
+    check_game.set_defaults(handler=_check, command_parser=check_game)
     log = commands.add_parser("log", help="print the Decision log, one row per Week and Seat")
     log.add_argument("game_id")
     log.set_defaults(handler=_log, command_parser=log)

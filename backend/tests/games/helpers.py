@@ -26,6 +26,13 @@ def counts(url: str) -> tuple[int, int, int]:
     return row
 
 
+def tamper(url: str, sql: str, params: tuple = ()) -> None:
+    """Change stored rows past their append-only triggers, as an after-the-fact edit would."""
+    with psycopg.connect(libpq_dsn(url), autocommit=True) as conn:
+        conn.execute("SET session_replication_role = replica")
+        conn.execute(sql, params)
+
+
 async def play_week(game_id: str) -> object:
     """Place every missing Order of the open Week (Guided Order or the stored reference Order)
     and return the last `OrderPlaced`."""

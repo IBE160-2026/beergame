@@ -18,6 +18,7 @@ HEAD_TABLES = {
     "game_weeks",
     "seat_turns",
     "seat_weeks",
+    "game_checks",
 }
 
 
@@ -52,7 +53,7 @@ def test_upgrade_head_from_empty_creates_the_games_tables(test_database):
     reset_schema(test_database)
     command.upgrade(config(test_database), "head")
     assert tables(test_database) == HEAD_TABLES
-    assert current_version(test_database) == "0004"
+    assert current_version(test_database) == "0005"
 
 
 def test_the_revisions_match_the_module_tables(test_database):
@@ -90,7 +91,7 @@ def test_downgrade_to_0002_removes_the_week_tables(test_database):
         ).fetchall()
     assert functions == []
     command.upgrade(cfg, "head")
-    assert current_version(test_database) == "0004"
+    assert current_version(test_database) == "0005"
 
 
 def test_downgrade_to_0003_restores_the_week_tables_of_story_1_8(test_database):
@@ -98,7 +99,7 @@ def test_downgrade_to_0003_restores_the_week_tables_of_story_1_8(test_database):
     cfg = config(test_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0003")
-    assert tables(test_database) == HEAD_TABLES - {"seat_weeks"}
+    assert tables(test_database) == HEAD_TABLES - {"seat_weeks", "game_checks"}
     assert current_version(test_database) == "0003"
     with psycopg.connect(libpq_dsn(test_database)) as conn:
         functions = {
@@ -121,7 +122,23 @@ def test_downgrade_to_0003_restores_the_week_tables_of_story_1_8(test_database):
     assert primary_key == ("PRIMARY KEY (game_id, week)",)
     assert "finished" not in columns
     command.upgrade(cfg, "head")
+    assert current_version(test_database) == "0005"
+
+
+def test_downgrade_to_0004_removes_the_check_table(test_database):
+    reset_schema(test_database)
+    cfg = config(test_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0004")
+    assert tables(test_database) == HEAD_TABLES - {"game_checks"}
     assert current_version(test_database) == "0004"
+    with psycopg.connect(libpq_dsn(test_database)) as conn:
+        functions = conn.execute(
+            "SELECT 1 FROM pg_proc WHERE proname = 'game_checks_append_only'"
+        ).fetchall()
+    assert functions == []
+    command.upgrade(cfg, "head")
+    assert current_version(test_database) == "0005"
 
 
 def test_alembic_cli_uses_database_url_from_environment(test_database):

@@ -3,7 +3,9 @@ passed-in seed (`app.engine.demand.series`; callers draw seeds with `demand.new_
 
 `app.engine.check.conservation` checks the bookkeeping of a list of Week states (FR-29).
 `app.engine.rule_based.order` is the Rule-based player's Order for one `SeatView` (FR-33).
-`app.engine.scripted.REGISTRY` holds the closed set of scripted Order policies (AD-22)."""
+`app.engine.scripted.REGISTRY` holds the closed set of scripted Order policies (AD-22).
+`app.engine.rules` holds one package per rules version; `advance` and `initial_state` take the
+`rules_version` to run (AD-4), and `app.engine.replay.replay` replays a stored Game (FR-29)."""
 
 from app.engine.check import Violation
 from app.engine.demand import (
@@ -14,8 +16,10 @@ from app.engine.demand import (
     DemandStep,
     DemandStepNoise,
 )
+from app.engine.errors import UnknownRulesVersionError
 from app.engine.guided import guided_order
 from app.engine.rule_based import RuleBasedParams
+from app.engine.rules import RULES_VERSION
 from app.engine.settings import (
     DEMAND_RANGES,
     RANGES,
@@ -46,10 +50,6 @@ from app.engine.view import (
 )
 from app.engine.week import GameFinishedError, InvalidOrdersError, advance, initial_state
 
-RULES_VERSION = 1
-"""Version of the game rules this engine computes. A Game stores it at creation (AD-4); an edit
-that changes any output is a new version."""
-
 __all__ = [
     "DEMAND_RANGES",
     "RANGES",
@@ -76,6 +76,7 @@ __all__ = [
     "SettingsError",
     "SettingsWarning",
     "SupplyLineSlot",
+    "UnknownRulesVersionError",
     "Violation",
     "WeekState",
     "WeekValues",

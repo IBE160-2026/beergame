@@ -143,3 +143,20 @@ seat_weeks = Table(
 )
 """The Decision log (AD-15): one row per Seat per Week, written once by `place_order`. A
 trigger refuses UPDATE and DELETE."""
+
+game_checks = Table(
+    "game_checks",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("game_id", Uuid, ForeignKey("games.id"), nullable=False),
+    # The rules version the Game was replayed at: its stored `rules_version`.
+    Column("rules_version", Integer, nullable=False),
+    Column("ok", Boolean, nullable=False),
+    # The `engine.Violation`s found, as JSON; empty when `ok`.
+    Column("violations", JSONB, nullable=False),
+    Column("checked_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("ok = (jsonb_array_length(violations) = 0)", name="ck_game_checks_ok"),
+    UniqueConstraint("game_id", name="uq_game_checks_game"),
+)
+"""The finished-game check (AD-9, FR-29): one row per finished Game, written once by
+`games.service.verify_finished`. A trigger refuses UPDATE and DELETE."""
