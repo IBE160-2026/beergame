@@ -96,3 +96,21 @@ Bygge Story 1.5 på `epic-1`.
 
 ### Åpne punkter
 - Issue #40: beslutninger om egenskapstester, enheter underveis og forsendelsesregelen.
+
+## Story 1.6: Bestille med den regelbaserte spilleren (2026-11-17)
+
+### Oppgave
+Bygge Story 1.6 på `epic-1`.
+
+### Plan
+`bmad-build-auto` i én underagent, med implementering i egen kontekst og gjennomgang i underagenter.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-1-6-order-with-rule-based-player.md`. Commit `144f568`.
+- `SeatView` med bare tall, `engine.rule_based.order` (Sterman-forankring), `engine.guided_order`, parametersettet `placeholder-unverified` som JSON, `rule_based.md`, `sim trace --orders rule_based` med advarsel, og et golden-spor.
+- 817 tester grønne, full grenddekning av motoren, ruff ren.
+- Gjennomgang: første runde fant at forsyningslinjen manglet oppstrøms startrestordre (12 i stedet for 32). Det ble rettet, og andre runde fant bare små ting.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #41: plassholderparametere og tolkninger i regelspilleren.
