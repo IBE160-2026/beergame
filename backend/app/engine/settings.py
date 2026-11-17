@@ -12,6 +12,15 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.engine.demand import (
+    SEED_MAX,
+    SEEDED_KINDS,
+    DemandFixed,
+    DemandPattern,
+    DemandStep,
+    series,
+)
+
 
 class Role(StrEnum):
     RETAILER = "retailer"
@@ -31,29 +40,6 @@ Rate = Annotated[Decimal, Field(ge=0)]
 FROZEN = ConfigDict(frozen=True, extra="forbid")
 
 
-class DemandStep(BaseModel):
-    """Customer demand `start` until `change_week`, then `new_level` from that Week on."""
-
-    model_config = FROZEN
-
-    kind: Literal["step"]
-    start: Units
-    new_level: Units
-    change_week: Week
-
-    def demand_for(self, week: int) -> int:
-        return self.new_level if week >= self.change_week else self.start
-
-    @property
-    def first_change_week(self) -> int | None:
-        """The first Week whose demand differs from `start`, or None when demand is flat."""
-        return self.change_week if self.new_level != self.start else None
-
-    @property
-    def peak(self) -> int:
-        return max(self.start, self.new_level)
-
-
 class GameSettings(BaseModel):
     """Everything that defines a Game's arithmetic. `GameSettings()` is the Classic game."""
 
@@ -69,7 +55,9 @@ class GameSettings(BaseModel):
     order_delay: Delay = 2
     shipping_delay: Delay = 2
     production_delay: Delay = 2
-    demand: DemandStep = DemandStep(kind="step", start=4, new_level=8, change_week=5)
+    demand: DemandPattern = DemandStep(kind="step", start=4, new_level=8, change_week=5)
+    demand_seed: Annotated[int, Field(strict=True)] | None = None
+    """Seed of the demand series; required for `random` and `step+noise` (FR-13)."""
     holding_cost: Rate = Decimal("0.50")
     backorder_cost: Rate = Decimal("1.00")
     weeks: Week = 36
@@ -126,7 +114,22 @@ RANGES: Mapping[str, Range] = MappingProxyType(
     }
 )
 """Allowed range of every checked setting, in the order `validate` reports them. Delays are
-confirmed (FR-12); every other bound is a placeholder. Demand ranges come with Story 1.4."""
+confirmed (FR-12); every other bound is a placeholder. Demand ranges are in DEMAND_RANGES."""
+
+DEMAND_RANGES: Mapping[str, Range] = MappingProxyType(
+    {
+        "values": _units(100),
+        "start": _units(100),
+        "new_level": _units(100),
+        "mean": _units(100),
+        "spread": _units(20),
+        "demand_seed": Range(minimum=0, maximum=SEED_MAX, placeholder=False),
+    }
+)
+"""Allowed range of each Demand pattern field (`values` bounds every item) and of the seed, in
+the order `validate` reports them. Placeholders except the seed. The step Week must fall in
+the Game (1 to `weeks`) and a fixed series must have one value per Week; both bounds follow
+from `weeks`, so they are not listed here."""
 
 MAX_ORDER_PEAK_FACTOR = 10
 """Placeholder, like the RANGES bounds: a maximum Order below this many times peak demand may
@@ -198,6 +201,7 @@ def validate(settings: GameSettings) -> tuple[SettingsError, ...]:
         error = _check_range(field, getattr(settings, field), allowed)
         if error is not None:
             errors.append(error)
+    errors.extend(validate_demand(settings.demand, settings.weeks, settings.demand_seed))
     flagged = {error.field for error in errors}
 
     if (
@@ -243,6 +247,74 @@ def validate(settings: GameSettings) -> tuple[SettingsError, ...]:
     return tuple(errors)
 
 
+def validate_demand(
+    pattern: DemandPattern, weeks: int, seed: int | None
+) -> tuple[SettingsError, ...]:
+    """Every rule the Demand pattern and its seed break in a Game of `weeks` Weeks (FR-13).
+
+    One error per field, in this order: `demand.values`, then the range checks of `start`,
+    `new_level`, `mean` and `spread`, then `demand.change_week`, then `demand_seed`.
+    """
+    errors: list[SettingsError] = []
+    if isinstance(pattern, DemandFixed):
+        allowed = DEMAND_RANGES["values"]
+        if len(pattern.values) != weeks:
+            errors.append(
+                _range_error(
+                    "fixed_series_length",
+                    "demand.values",
+                    f"a fixed series needs one value per Week ({weeks}), not {len(pattern.values)}",
+                    Range(minimum=weeks, maximum=weeks, placeholder=False),
+                )
+            )
+        else:
+            for week, value in enumerate(pattern.values, start=1):
+                if not allowed.minimum <= value <= allowed.maximum:
+                    errors.append(
+                        _range_error(
+                            "out_of_range",
+                            "demand.values",
+                            f"demand in Week {week} must be from {allowed.minimum} to "
+                            f"{allowed.maximum}, not {value}",
+                            allowed,
+                        )
+                    )
+                    break
+    for name in ("start", "new_level", "mean", "spread"):
+        if name in type(pattern).model_fields:
+            error = _check_range(f"demand.{name}", getattr(pattern, name), DEMAND_RANGES[name])
+            if error is not None:
+                errors.append(error)
+    change_week = getattr(pattern, "change_week", None)
+    if change_week is not None and change_week > weeks:
+        errors.append(
+            _range_error(
+                "demand_change_week_outside_game",
+                "demand.change_week",
+                f"the demand change in Week {change_week} falls outside a Game of {weeks} Weeks",
+                Range(minimum=1, maximum=weeks, placeholder=False),
+            )
+        )
+    if pattern.kind in SEEDED_KINDS and seed is None:
+        errors.append(
+            SettingsError(
+                code="demand_seed_required",
+                field="demand_seed",
+                message=f"a {pattern.kind} Demand pattern needs a seed",
+            )
+        )
+    elif seed is not None:
+        error = _check_range("demand_seed", seed, DEMAND_RANGES["demand_seed"])
+        if error is not None:
+            errors.append(error)
+    return tuple(errors)
+
+
+def demand_series(settings: GameSettings) -> tuple[int, ...]:
+    """The customer demand of every Week of the Game, from its pattern and seed."""
+    return series(settings.demand, settings.weeks, settings.demand_seed)
+
+
 def demand_change_reaches_retailer(settings: GameSettings) -> int | None:
     """The Week the demand change first reaches the Retailer through the whole chain.
 
@@ -264,7 +336,7 @@ def demand_change_reaches_retailer(settings: GameSettings) -> int | None:
 def warnings(settings: GameSettings) -> tuple[SettingsWarning, ...]:
     """Legal but risky choices, in a fixed order. Never blocks a Game."""
     found: list[SettingsWarning] = []
-    start = settings.demand.start
+    start = settings.demand.starting_level
     if settings.supply_line != start:
         found.append(
             SettingsWarning(

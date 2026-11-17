@@ -3,8 +3,13 @@ from decimal import Decimal
 import pytest
 
 from app.engine import (
+    DEMAND_RANGES,
     RANGES,
+    SEED_MAX,
+    DemandFixed,
+    DemandRandom,
     DemandStep,
+    DemandStepNoise,
     GameSettings,
     Range,
     Role,
@@ -14,10 +19,11 @@ from app.engine import (
     demand_change_reaches_retailer,
     initial_state,
     validate,
+    validate_demand,
     warnings,
 )
 
-FLAT = DemandStep(kind="step", start=4, new_level=4, change_week=5)
+FLAT = DemandStep(kind="step", start=4, new_level=4, change_week=1)
 
 
 def codes(issues):
@@ -165,15 +171,19 @@ def test_guided_weeks_must_leave_weeks_to_play():
     settings = GameSettings(weeks=4, guided_weeks=4, demand=FLAT)
     assert codes(validate(settings)) == [("guided_weeks_leave_no_weeks_to_play", "guided_weeks")]
     assert validate(GameSettings(weeks=5, guided_weeks=4, demand=FLAT)) == ()
-    # Also with a demand step, when Guided Weeks end before the change but fill the Game.
+    # Also with a demand step after the Game, which Story 1.4 reports on its own field.
     assert codes(validate(GameSettings(weeks=4, guided_weeks=4))) == [
-        ("guided_weeks_leave_no_weeks_to_play", "guided_weeks")
+        ("demand_change_week_outside_game", "demand.change_week"),
+        ("guided_weeks_leave_no_weeks_to_play", "guided_weeks"),
     ]
 
 
 def test_when_both_guided_rules_fail_only_the_first_is_reported():
     settings = GameSettings(weeks=4, guided_weeks=5)
-    assert codes(validate(settings)) == [("guided_weeks_not_before_demand_change", "guided_weeks")]
+    assert codes(validate(settings)) == [
+        ("demand_change_week_outside_game", "demand.change_week"),
+        ("guided_weeks_not_before_demand_change", "guided_weeks"),
+    ]
 
 
 def test_flat_demand_has_no_change_week_rule_and_no_arrival_warning():
@@ -331,3 +341,161 @@ def test_arrival_counts_roles_and_each_delay_separately():
 def test_never_raises_and_returns_tuples(settings):
     assert isinstance(validate(settings), tuple)
     assert isinstance(warnings(settings), tuple)
+
+
+# Story 1.4: Demand patterns and the seed (FR-13).
+
+RANDOM = DemandRandom(kind="random", mean=4, spread=2)
+NOISY = DemandStepNoise(kind="step+noise", start=4, new_level=8, change_week=5, spread=2)
+
+
+def test_demand_ranges_in_a_fixed_order_and_placeholders():
+    assert list(DEMAND_RANGES) == ["values", "start", "new_level", "mean", "spread", "demand_seed"]
+    for field, allowed in DEMAND_RANGES.items():
+        assert allowed.placeholder is (field != "demand_seed")
+    assert DEMAND_RANGES["spread"] == Range(minimum=0, maximum=20, placeholder=True)
+    assert DEMAND_RANGES["demand_seed"] == Range(minimum=0, maximum=SEED_MAX, placeholder=False)
+
+
+@pytest.mark.parametrize("pattern", [RANDOM, NOISY])
+def test_seeded_patterns_are_valid_with_a_seed(pattern):
+    assert validate(GameSettings(demand=pattern, demand_seed=42)) == ()
+
+
+@pytest.mark.parametrize("pattern", [RANDOM, NOISY])
+def test_seeded_patterns_need_a_seed(pattern):
+    (error,) = validate(GameSettings(demand=pattern))
+    assert (error.code, error.field) == ("demand_seed_required", "demand_seed")
+    assert error.minimum is None and pattern.kind in error.message
+
+
+def test_step_and_fixed_ignore_the_seed():
+    assert validate(GameSettings(demand_seed=None)) == ()
+    assert validate(GameSettings(demand_seed=7)) == ()
+    fixed = DemandFixed(kind="fixed", values=(4,) * 36)
+    assert validate(GameSettings(demand=fixed)) == ()
+
+
+@pytest.mark.parametrize("seed", [-1, SEED_MAX + 1])
+def test_seed_out_of_range(seed):
+    (error,) = validate(GameSettings(demand=RANDOM, demand_seed=seed))
+    assert (error.code, error.field, error.minimum, error.maximum, error.placeholder) == (
+        "out_of_range",
+        "demand_seed",
+        0,
+        SEED_MAX,
+        False,
+    )
+    assert validate(GameSettings(demand_seed=seed))[0].field == "demand_seed"
+
+
+@pytest.mark.parametrize("seed", [0, SEED_MAX])
+def test_seed_edges_are_allowed(seed):
+    assert validate(GameSettings(demand=RANDOM, demand_seed=seed)) == ()
+
+
+@pytest.mark.parametrize("length", [35, 37])
+def test_fixed_series_must_have_one_value_per_week(length):
+    fixed = DemandFixed(kind="fixed", values=(4,) * length)
+    (error,) = validate(GameSettings(demand=fixed))
+    assert (error.code, error.field, error.minimum, error.maximum, error.placeholder) == (
+        "fixed_series_length",
+        "demand.values",
+        36,
+        36,
+        False,
+    )
+    assert str(length) in error.message
+
+
+def test_fixed_series_values_are_range_checked_once():
+    values = (4,) * 10 + (101, 102) + (4,) * 24
+    (error,) = validate(GameSettings(demand=DemandFixed(kind="fixed", values=values)))
+    assert (error.code, error.field, error.minimum, error.maximum, error.placeholder) == (
+        "out_of_range",
+        "demand.values",
+        0,
+        100,
+        True,
+    )
+    assert "Week 11" in error.message and "101" in error.message
+    edge = DemandFixed(kind="fixed", values=(0,) + (100,) * 35)
+    assert codes(validate(GameSettings(demand=edge, guided_weeks=0))) == []
+
+
+def test_negative_spread_is_rejected_with_its_range():
+    for pattern in (
+        DemandRandom(kind="random", mean=4, spread=-1),
+        DemandStepNoise(kind="step+noise", start=4, new_level=8, change_week=5, spread=-1),
+    ):
+        (error,) = validate(GameSettings(demand=pattern, demand_seed=1))
+        assert (error.code, error.field, error.minimum, error.maximum, error.placeholder) == (
+            "out_of_range",
+            "demand.spread",
+            0,
+            20,
+            True,
+        )
+
+
+@pytest.mark.parametrize(
+    ("pattern", "field"),
+    [
+        (DemandRandom(kind="random", mean=101, spread=0), "demand.mean"),
+        (DemandRandom(kind="random", mean=4, spread=21), "demand.spread"),
+        (DemandStep(kind="step", start=101, new_level=8, change_week=5), "demand.start"),
+        (DemandStep(kind="step", start=4, new_level=101, change_week=5), "demand.new_level"),
+    ],
+)
+def test_demand_levels_are_range_checked(pattern, field):
+    errors = validate(GameSettings(demand=pattern, demand_seed=1, max_order=9999))
+    assert codes(errors) == [("out_of_range", field)]
+
+
+@pytest.mark.parametrize("pattern", [GameSettings().demand, NOISY])
+def test_step_week_must_fall_in_the_game(pattern):
+    moved = pattern.model_copy(update={"change_week": 37})
+    (error,) = validate(GameSettings(demand=moved, demand_seed=1, guided_weeks=4))
+    assert (error.code, error.field, error.minimum, error.maximum, error.placeholder) == (
+        "demand_change_week_outside_game",
+        "demand.change_week",
+        1,
+        36,
+        False,
+    )
+    last = pattern.model_copy(update={"change_week": 36})
+    assert validate(GameSettings(demand=last, demand_seed=1)) == ()
+
+
+def test_demand_errors_come_after_ranges_and_before_cross_field_rules():
+    settings = GameSettings(
+        demand=DemandRandom(kind="random", mean=200, spread=-1),
+        max_order=0,
+        starting_backlog=4,
+    )
+    assert codes(validate(settings)) == [
+        ("out_of_range", "max_order"),
+        ("out_of_range", "demand.mean"),
+        ("out_of_range", "demand.spread"),
+        ("demand_seed_required", "demand_seed"),
+        ("starting_inventory_and_backlog", "starting_backlog"),
+    ]
+
+
+def test_validate_demand_alone():
+    assert validate_demand(RANDOM, 36, 42) == ()
+    assert codes(validate_demand(RANDOM, 36, None)) == [("demand_seed_required", "demand_seed")]
+
+
+def test_warnings_read_every_pattern():
+    fixed = DemandFixed(kind="fixed", values=(5,) * 4 + (9,) * 32)
+    found = {w.code: w.values for w in warnings(GameSettings(demand=fixed, max_order=89))}
+    assert found["supply_line_differs_from_demand"]["starting_demand"] == "5"
+    assert found["max_order_may_bind"]["peak_demand"] == "9"
+    assert fixed.first_change_week == 5
+    assert DemandFixed(kind="fixed", values=(4, 4)).first_change_week is None
+    noisy = {w.code: w.values for w in warnings(GameSettings(demand=NOISY, demand_seed=1))}
+    assert noisy == {}
+    assert NOISY.peak == 10 and NOISY.first_change_week == 5 and NOISY.starting_level == 4
+    assert RANDOM.peak == 6 and RANDOM.first_change_week is None and RANDOM.starting_level == 4
+    assert demand_change_reaches_retailer(GameSettings(demand=RANDOM, demand_seed=1)) is None

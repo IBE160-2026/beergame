@@ -17,6 +17,7 @@ def test_classic_defaults_dump_as_json_with_decimal_strings():
         "shipping_delay": 2,
         "production_delay": 2,
         "demand": {"kind": "step", "start": 4, "new_level": 8, "change_week": 5},
+        "demand_seed": None,
         "holding_cost": "0.50",
         "backorder_cost": "1.00",
         "weeks": 36,
@@ -39,7 +40,7 @@ def test_json_round_trip_keeps_decimals():
 
 def test_step_demand():
     step = DemandStep(kind="step", start=4, new_level=8, change_week=5)
-    assert [step.demand_for(week) for week in range(1, 8)] == [4, 4, 4, 4, 8, 8, 8]
+    assert [step.level_for(week) for week in range(1, 8)] == [4, 4, 4, 4, 8, 8, 8]
 
 
 def test_settings_are_frozen():
@@ -72,6 +73,15 @@ def test_settings_are_frozen():
         {"demand": {"kind": "random", "start": 4, "new_level": 8, "change_week": 5}},
         {"demand": {"kind": "step", "start": -1, "new_level": 8, "change_week": 5}},
         {"demand": {"kind": "step", "start": 4, "new_level": 8, "change_week": 0}},
+        {"demand": {"kind": "fixed", "values": []}},
+        {"demand": {"kind": "fixed", "values": [4, -1]}},
+        {"demand": {"kind": "random", "mean": 4, "spread": 2.0}},
+        {"demand": {"kind": "random", "mean": -1, "spread": 2}},
+        {"demand": {"kind": "step+noise", "start": 4, "new_level": 8, "change_week": 5}},
+        {"demand": {"kind": "poisson", "mean": 4}},
+        {"demand_seed": "42"},
+        {"demand_seed": 4.0},
+        {"demand_seed": True},
     ],
 )
 def test_basic_type_and_sign_constraints(override):

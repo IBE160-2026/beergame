@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from typing import NamedTuple
 
-from app.engine.settings import GameSettings, Role
+from app.engine.settings import GameSettings, Role, demand_series
 from app.engine.state import SeatState, WeekState
 
 
@@ -128,9 +128,10 @@ def _check_orders(settings: GameSettings, orders: Mapping[str, object]) -> dict[
 
 def _open_week(settings: GameSettings, week: int, carries: Sequence[_Carry]) -> WeekState:
     last = len(carries) - 1
+    demand = demand_series(settings)[week - 1]
     received: list[tuple[int, int, int, int, int]] = []
     for i, carry in enumerate(carries):
-        incoming_order = settings.demand.demand_for(week) if i == 0 else carry.incoming_orders[0]
+        incoming_order = demand if i == 0 else carry.incoming_orders[0]
         delivery = carry.goods_slots[0]
         on_hand = carry.inventory + delivery
         amount = incoming_order + carry.backlog

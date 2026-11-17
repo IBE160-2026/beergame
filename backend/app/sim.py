@@ -5,6 +5,9 @@ Subcommands:
   settings check   check a JSON file of GameSettings overrides; exit 0 when there
                    are only warnings, 1 on errors, 2 when the file is unreadable or not
                    a JSON object.
+  demand           print the seed and the demand series of a Demand pattern (FR-13); a
+                   seed is drawn from OS entropy when none is given, and the same seed
+                   prints the same series. Exit 1 when the pattern or seed breaks a rule.
 
 The runner computes no game quantities: every printed number is an engine field or the Order
 it was given.
@@ -13,14 +16,17 @@ it was given.
 import argparse
 import json
 import re
+import secrets
 from collections.abc import Callable, Mapping, Sequence
 from decimal import Decimal
 from pathlib import Path
 
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from app.engine import (
+    DEMAND_RANGES,
     RANGES,
+    DemandPattern,
     GameSettings,
     InvalidOrdersError,
     SettingsError,
@@ -29,8 +35,12 @@ from app.engine import (
     advance,
     initial_state,
     validate,
+    validate_demand,
     warnings,
 )
+from app.engine.demand import new_seed, series
+
+DEMAND_PATTERN: TypeAdapter[DemandPattern] = TypeAdapter(DemandPattern)
 
 type OrderPolicy = Callable[[WeekState], Mapping[str, int]]
 
@@ -121,8 +131,14 @@ def _allowed(error: SettingsError) -> str:
 def _invalid(exc: ValidationError) -> list[SettingsError]:
     errors = []
     for error in exc.errors():
-        field = ".".join(str(part) for part in error["loc"])
-        allowed = RANGES.get(field)
+        loc = error["loc"]
+        if loc[0] == "demand" and len(loc) > 2:
+            # Drop the pattern kind pydantic puts in the path, and a fixed-series item index,
+            # so the field matches what `validate` reports.
+            loc = (loc[0], *loc[2:3])
+        field = ".".join(str(part) for part in loc)
+        demand_key = field.removeprefix("demand.") if field.startswith("demand") else None
+        allowed = RANGES.get(field) or (DEMAND_RANGES.get(demand_key) if demand_key else None)
         errors.append(
             SettingsError(
                 code="invalid",
@@ -167,6 +183,57 @@ def _settings_check(args: argparse.Namespace, parser: argparse.ArgumentParser) -
     return 1 if errors else 0
 
 
+PATTERN_KINDS = ("fixed", "step", "random", "step+noise")
+
+
+def _values_spec(text: str) -> list[int]:
+    """Comma-separated whole numbers, e.g. `4,4,8`."""
+    try:
+        return [int(part) for part in text.split(",")]
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"{text!r} is not a comma-separated list of whole numbers"
+        ) from None
+
+
+def _pattern_data(args: argparse.Namespace) -> dict[str, object]:
+    if args.pattern == "fixed":
+        return {"kind": "fixed", "values": args.values}
+    if args.pattern == "random":
+        return {"kind": "random", "mean": args.mean, "spread": args.spread}
+    data: dict[str, object] = {
+        "kind": args.pattern,
+        "start": args.start,
+        "new_level": args.new_level,
+        "change_week": args.change_week,
+    }
+    if args.pattern == "step+noise":
+        data["spread"] = args.spread
+    return data
+
+
+def _demand(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    if args.pattern == "fixed" and args.values is None:
+        parser.error("--values is required for --pattern fixed")
+    seed = args.seed if args.seed is not None else new_seed(secrets.token_bytes(16))
+    try:
+        pattern = DEMAND_PATTERN.validate_python(_pattern_data(args))
+    except ValidationError as exc:
+        details = "; ".join(f"{'.'.join(map(str, e['loc'][1:]))}: {e['msg']}" for e in exc.errors())
+        parser.error(f"invalid Demand pattern: {details}")
+    allowed = RANGES["weeks"]
+    if not allowed.minimum <= args.weeks <= allowed.maximum:
+        parser.error(f"--weeks must be from {allowed.minimum} to {allowed.maximum}")
+    errors = validate_demand(pattern, args.weeks, seed)
+    print(f"seed {seed}")
+    if errors:
+        for error in errors:
+            print(f"error {error.code} {error.field}: {error.message}{_allowed(error)}")
+        return 1
+    print("series " + " ".join(str(value) for value in series(pattern, args.weeks, seed)))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m app.sim", description="Headless simulation runner."
@@ -189,6 +256,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     check.add_argument("file", help="JSON object of GameSettings overrides (missing = Classic)")
     check.set_defaults(handler=_settings_check, command_parser=check)
+    demand = commands.add_parser(
+        "demand", help="print the demand series of a Demand pattern and its seed"
+    )
+    demand.add_argument("--pattern", choices=PATTERN_KINDS, default="step")
+    demand.add_argument("--weeks", type=int, default=36)
+    demand.add_argument("--seed", type=int, help="seed to reuse (default: draw a new one)")
+    demand.add_argument("--start", type=int, default=4, help="step: level before the change")
+    demand.add_argument("--new-level", type=int, default=8, help="step: level from the change")
+    demand.add_argument("--change-week", type=int, default=5, help="step: Week of the change")
+    demand.add_argument("--mean", type=int, default=4, help="random: mean")
+    demand.add_argument("--spread", type=int, default=2, help="random and step+noise: spread")
+    demand.add_argument("--values", type=_values_spec, help="fixed: comma-separated series")
+    demand.set_defaults(handler=_demand, command_parser=demand)
     return parser
 
 

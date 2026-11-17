@@ -188,3 +188,101 @@ def test_settings_needs_a_subcommand():
     with pytest.raises(SystemExit) as info:
         main(["settings"])
     assert info.value.code == 2
+
+
+# Story 1.4: `demand` prints a series and its seed.
+
+GOLDEN_STEP_NOISE_42 = (
+    "4 3 2 2 7 10 6 7 7 8 7 10 10 7 7 9 9 8 7 8 8 9 9 8 10 6 10 7 6 8 8 7 10 7 9 6"
+)
+
+
+def demand(capsys, *argv):
+    code = main(["demand", *argv])
+    return code, capsys.readouterr().out.splitlines()
+
+
+def test_demand_step_plus_noise_with_a_seed_repeats(capsys):
+    first = demand(capsys, "--pattern", "step+noise", "--seed", "42")
+    again = demand(capsys, "--pattern", "step+noise", "--seed", "42")
+    assert first == again == (0, ["seed 42", f"series {GOLDEN_STEP_NOISE_42}"])
+
+
+def test_demand_without_a_seed_draws_one_that_reproduces_the_series(capsys):
+    code, lines = demand(capsys, "--pattern", "random")
+    assert code == 0
+    seed = lines[0].removeprefix("seed ")
+    assert 0 <= int(seed) <= 999_999_999
+    assert demand(capsys, "--pattern", "random", "--seed", seed)[1] == lines
+
+
+def test_demand_defaults_to_the_classic_step(capsys):
+    code, lines = demand(capsys, "--weeks", "7", "--seed", "1")
+    assert (code, lines) == (0, ["seed 1", "series 4 4 4 4 8 8 8"])
+
+
+def test_demand_fixed_series(capsys):
+    code, lines = demand(capsys, "--pattern", "fixed", "--values", "4,6,9", "--weeks", "3")
+    assert (code, lines[1]) == (0, "series 4 6 9")
+
+
+def test_demand_reports_rule_errors_with_their_range(capsys):
+    code, lines = demand(
+        capsys, "--pattern", "random", "--spread", "-1", "--seed", "3", "--weeks", "10"
+    )
+    assert code == 1
+    assert lines == [
+        "seed 3",
+        "error out_of_range demand.spread: demand.spread must be from 0 to 20, not -1"
+        " [allowed 0..20 (placeholder)]",
+    ]
+    code, lines = demand(capsys, "--pattern", "fixed", "--values", "4,4", "--weeks", "3")
+    assert code == 1 and lines[1].startswith("error fixed_series_length demand.values")
+
+
+@pytest.mark.parametrize(
+    ("argv", "message"),
+    [
+        (["--pattern", "fixed"], "--values is required"),
+        (["--pattern", "fixed", "--values", "4,x"], "comma-separated"),
+        (["--start", "-1"], "invalid Demand pattern: start:"),
+        (["--pattern", "poisson"], "invalid choice"),
+    ],
+)
+def test_demand_bad_input_exits_2(capsys, argv, message):
+    with pytest.raises(SystemExit) as exc:
+        main(["demand", *argv])
+    assert exc.value.code == 2
+    assert message in capsys.readouterr().err
+
+
+def test_settings_check_reports_demand_type_errors_with_their_range(capsys, tmp_path):
+    content = '{"demand": {"kind": "random", "mean": -1, "spread": 2}, "demand_seed": "x"}'
+    code, lines = check(capsys, tmp_path, content)
+    assert code == 1
+    by_field = {line.split()[2].rstrip(":"): line for line in lines}
+    assert by_field["demand.mean"].endswith("[allowed 0..100 (placeholder)]")
+    assert by_field["demand_seed"].endswith("[allowed 0..999999999]")
+
+
+def test_settings_check_reports_a_missing_seed(capsys, tmp_path):
+    code, lines = check(capsys, tmp_path, '{"demand": {"kind": "random", "mean": 4, "spread": 2}}')
+    assert code == 1
+    assert lines[0].startswith("error demand_seed_required demand_seed: ")
+
+
+@pytest.mark.parametrize("weeks", ["0", "-1", "101"])
+def test_demand_weeks_outside_the_game_range_exit_2(capsys, weeks):
+    with pytest.raises(SystemExit) as exc:
+        main(["demand", "--pattern", "random", "--seed", "1", "--weeks", weeks])
+    assert exc.value.code == 2
+    assert "--weeks must be from 1 to 100" in capsys.readouterr().err
+
+
+def test_settings_check_fixed_item_errors_carry_the_values_range(capsys, tmp_path):
+    content = '{"demand": {"kind": "fixed", "values": [4, -1]}, "start": 3}'
+    code, lines = check(capsys, tmp_path, content)
+    assert code == 1
+    by_field = {line.split()[2].rstrip(":"): line for line in lines}
+    assert by_field["demand.values"].endswith("[allowed 0..100 (placeholder)]")
+    assert "allowed" not in by_field["start"]
