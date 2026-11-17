@@ -157,6 +157,32 @@ def test_slot_counts_follow_the_delays(delay):
     assert nxt.seat(Role.WHOLESALER).incoming_orders[-1] == 9
 
 
+@pytest.mark.parametrize("delay", [1, 3])
+def test_starting_backlog_is_carried_into_week_one(delay):
+    settings = GameSettings(
+        starting_inventory=0,
+        starting_backlog=4,
+        order_delay=delay,
+        shipping_delay=delay,
+        production_delay=delay,
+    )
+    state = initial_state(settings)
+    assert [len(seat.incoming_orders) for seat in state.seats] == [0, delay, delay, delay]
+    assert [len(seat.goods_slots) for seat in state.seats] == [delay] * 4
+    assert len(state.seat(Role.FACTORY).production_orders) == delay
+    for seat in state.seats:
+        # Amount to ship = incoming order 4 + starting backlog 4; only the delivery of 4 ships.
+        assert (seat.incoming_order, seat.incoming_delivery) == (4, 4)
+        assert (seat.shipped, seat.inventory, seat.backlog) == (4, 0, 4)
+        assert seat.cost == Decimal("4.00")
+
+
+def test_starting_backlog_ships_in_full_when_stock_allows():
+    settings = GameSettings(starting_inventory=0, starting_backlog=2, supply_line=10)
+    retailer = initial_state(settings).seat(Role.RETAILER)
+    assert (retailer.shipped, retailer.inventory, retailer.backlog) == (6, 4, 0)
+
+
 def test_order_delay_one_is_received_next_week():
     settings = CONSTANT.model_copy(update={"order_delay": 1})
     nxt = advance(settings, initial_state(settings), FOURS | {Role.RETAILER: 9})

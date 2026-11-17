@@ -89,3 +89,102 @@ def test_invalid_orders_print_no_rows(capsys):
     with pytest.raises(SystemExit):
         main(["trace", "--orders", "constant:1000"])
     assert capsys.readouterr().out.splitlines()[1:] == []  # header only, no Week rows
+
+
+def check(capsys, tmp_path, content):
+    path = tmp_path / "settings.json"
+    path.write_text(content, encoding="utf-8")
+    code = main(["settings", "check", str(path)])
+    return code, capsys.readouterr().out.splitlines()
+
+
+def test_settings_check_reports_a_range_error_and_exits_1(capsys, tmp_path):
+    code, lines = check(capsys, tmp_path, '{"order_delay": 4, "weeks": 20}')
+    assert code == 1
+    errors = [line for line in lines if line.startswith("error ")]
+    assert len(errors) == 1
+    assert errors[0].startswith("error out_of_range order_delay: ")
+    assert "1..3" in errors[0]
+    assert "placeholder" not in errors[0]
+
+
+def test_settings_check_marks_placeholder_ranges(capsys, tmp_path):
+    code, lines = check(capsys, tmp_path, '{"weeks": 500}')
+    assert code == 1
+    assert lines[0].startswith("error out_of_range weeks: ")
+    assert lines[0].endswith("[allowed 1..100 (placeholder)]")
+
+
+def test_settings_check_prints_warnings_and_exits_0(capsys, tmp_path):
+    code, lines = check(capsys, tmp_path, '{"weeks": 20}')
+    assert code == 0
+    assert len(lines) == 1
+    assert lines[0].startswith("warning too_few_weeks_for_demand_change weeks: ")
+    assert "arrival_week=21" in lines[0]
+    assert "weeks=20" in lines[0]
+
+
+def test_settings_check_classic_is_ok(capsys, tmp_path):
+    assert check(capsys, tmp_path, "{}") == (0, ["OK"])
+
+
+def test_settings_check_reads_rates_as_decimals(capsys, tmp_path):
+    code, lines = check(capsys, tmp_path, '{"holding_cost": 0.505}')
+    assert code == 1
+    assert lines[0].startswith("error too_many_decimal_places holding_cost: ")
+    assert "0.505" in lines[0]
+    assert lines[0].endswith("[allowed 0.00..100.00 (placeholder)]")
+
+
+def test_settings_check_shows_a_range_whose_minimum_is_zero(capsys, tmp_path):
+    code, lines = check(capsys, tmp_path, '{"starting_inventory": 0, "starting_backlog": 101}')
+    assert code == 1
+    assert lines[0].endswith("[allowed 0..100 (placeholder)]")
+
+
+def test_settings_check_reads_a_file_with_a_byte_order_mark(capsys, tmp_path):
+    path = tmp_path / "settings.json"
+    path.write_bytes(b'\xef\xbb\xbf{"weeks": 20}')
+    assert main(["settings", "check", str(path)]) == 0
+    assert capsys.readouterr().out.startswith("warning too_few_weeks_for_demand_change")
+
+
+def test_settings_check_cross_field_error_has_no_range(capsys, tmp_path):
+    code, lines = check(capsys, tmp_path, '{"guided_weeks": 5}')
+    assert code == 1
+    assert lines[0].startswith("error guided_weeks_not_before_demand_change guided_weeks: ")
+    assert "allowed" not in lines[0]
+
+
+def test_settings_check_reports_pydantic_errors_as_invalid(capsys, tmp_path):
+    content = '{"order_delay": 0, "colour": "red", "demand": {"kind": "step"}}'
+    code, lines = check(capsys, tmp_path, content)
+    assert code == 1
+    assert all(line.startswith("error invalid ") for line in lines)
+    by_field = {line.split()[2].rstrip(":"): line for line in lines}
+    assert by_field["order_delay"].endswith("[allowed 1..3]")
+    assert "allowed" not in by_field["colour"]
+    assert "demand.start" in by_field
+
+
+@pytest.mark.parametrize("content", [b"not json", b"[1, 2]", b"4", b"\xff\xfe"])
+def test_settings_check_bad_file_exits_2(capsys, tmp_path, content):
+    path = tmp_path / "settings.json"
+    path.write_bytes(content)
+    with pytest.raises(SystemExit) as info:
+        main(["settings", "check", str(path)])
+    assert info.value.code == 2
+    assert "settings.json" in capsys.readouterr().err
+
+
+def test_settings_check_missing_file_exits_2(capsys, tmp_path):
+    with pytest.raises(SystemExit) as info:
+        main(["settings", "check", str(tmp_path / "missing.json")])
+    assert info.value.code == 2
+    assert "cannot read" in capsys.readouterr().err
+
+
+def test_settings_needs_a_subcommand():
+    with pytest.raises(SystemExit) as info:
+        main(["settings"])
+    assert info.value.code == 2

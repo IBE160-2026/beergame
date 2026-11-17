@@ -1,17 +1,36 @@
 """Headless simulation runner (`python -m app.sim`, AD-22).
 
 Subcommands:
-  trace   play one Game in the pure engine and print one row per Week and Role.
+  trace            play one Game in the pure engine and print one row per Week and Role.
+  settings check   check a JSON file of GameSettings overrides; exit 0 when there
+                   are only warnings, 1 on errors, 2 when the file is unreadable or not
+                   a JSON object.
 
 The runner computes no game quantities: every printed number is an engine field or the Order
 it was given.
 """
 
 import argparse
+import json
 import re
 from collections.abc import Callable, Mapping, Sequence
+from decimal import Decimal
+from pathlib import Path
 
-from app.engine import GameSettings, InvalidOrdersError, WeekState, advance, initial_state
+from pydantic import ValidationError
+
+from app.engine import (
+    RANGES,
+    GameSettings,
+    InvalidOrdersError,
+    SettingsError,
+    SettingsWarning,
+    WeekState,
+    advance,
+    initial_state,
+    validate,
+    warnings,
+)
 
 type OrderPolicy = Callable[[WeekState], Mapping[str, int]]
 
@@ -92,6 +111,62 @@ def _trace(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     return 0
 
 
+def _allowed(error: SettingsError) -> str:
+    if error.minimum is None:
+        return ""
+    mark = " (placeholder)" if error.placeholder else ""
+    return f" [allowed {error.minimum}..{error.maximum}{mark}]"
+
+
+def _invalid(exc: ValidationError) -> list[SettingsError]:
+    errors = []
+    for error in exc.errors():
+        field = ".".join(str(part) for part in error["loc"])
+        allowed = RANGES.get(field)
+        errors.append(
+            SettingsError(
+                code="invalid",
+                field=field,
+                message=error["msg"],
+                minimum=allowed.minimum if allowed else None,
+                maximum=allowed.maximum if allowed else None,
+                placeholder=allowed.placeholder if allowed else None,
+            )
+        )
+    return errors
+
+
+def _settings_check(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    try:
+        text = Path(args.file).read_text(encoding="utf-8-sig")
+    except OSError as exc:
+        parser.error(f"cannot read {args.file}: {exc.strerror or exc}")
+    except UnicodeDecodeError:
+        parser.error(f"{args.file} is not UTF-8 text")
+    try:
+        overrides = json.loads(text, parse_float=Decimal)
+    except ValueError as exc:
+        parser.error(f"{args.file} is not JSON: {exc}")
+    if not isinstance(overrides, dict):
+        parser.error(f"{args.file} must hold a JSON object of GameSettings overrides")
+    try:
+        settings = GameSettings.model_validate(overrides)
+    except ValidationError as exc:
+        errors = _invalid(exc)
+        found: tuple[SettingsWarning, ...] = ()
+    else:
+        errors = list(validate(settings))
+        found = warnings(settings)
+    for error in errors:
+        print(f"error {error.code} {error.field}: {error.message}{_allowed(error)}")
+    for warning in found:
+        numbers = ", ".join(f"{key}={value}" for key, value in warning.values.items())
+        print(f"warning {warning.code} {warning.field}: {warning.message} [{numbers}]")
+    if not errors and not found:
+        print("OK")
+    return 1 if errors else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m app.sim", description="Headless simulation runner."
@@ -107,6 +182,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="constant:N or pass-through (default)",
     )
     trace.set_defaults(handler=_trace, command_parser=trace)
+    settings = commands.add_parser("settings", help="work with Game settings")
+    settings_commands = settings.add_subparsers(dest="settings_command", required=True)
+    check = settings_commands.add_parser(
+        "check", help="check a JSON file of GameSettings overrides against ranges and warnings"
+    )
+    check.add_argument("file", help="JSON object of GameSettings overrides (missing = Classic)")
+    check.set_defaults(handler=_settings_check, command_parser=check)
     return parser
 
 

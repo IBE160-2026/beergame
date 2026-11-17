@@ -30,7 +30,15 @@ def expected_row(row):
     return row | {"cost": Decimal(row["cost"])}
 
 
-@pytest.mark.parametrize("name", ["constant-4.json", "classic-step-pass-through.json"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "constant-4.json",
+        "classic-step-pass-through.json",
+        "delays-1-1-1-backlog.json",
+        "delays-3-3-3-backlog.json",
+    ],
+)
 def test_golden_trace(name):
     golden = json.loads((GOLDEN / name).read_text(encoding="utf-8"))
     settings = GameSettings.model_validate(golden["settings"])

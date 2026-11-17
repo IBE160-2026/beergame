@@ -41,14 +41,14 @@ class _Carry(NamedTuple):
 
 
 def initial_state(settings: GameSettings) -> WeekState:
-    """Open Week 1 from starting inventory, no backlog and `supply_line` in every slot."""
+    """Open Week 1 from starting inventory and backlog and `supply_line` in every slot."""
     last = len(settings.roles) - 1
     fill = settings.supply_line
     carries = [
         _Carry(
             role=role,
             inventory=settings.starting_inventory,
-            backlog=0,
+            backlog=settings.starting_backlog,
             total_cost=Decimal(0),
             incoming_orders=(fill,) * settings.order_delay if i > 0 else (),
             goods_slots=(fill,)
