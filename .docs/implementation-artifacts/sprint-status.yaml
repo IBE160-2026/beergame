@@ -41,7 +41,7 @@ development_status:
   1-3-check-changed-game-settings-against-ranges-and-warnings: done
   1-4-generate-the-demand-series-from-a-demand-pattern-and-a-seed: done
   1-5-prove-the-bookkeeping-is-correct-by-construction: done
-  1-6-order-with-the-rule-based-player: backlog
+  1-6-order-with-the-rule-based-player: in-progress
   1-7-create-a-simulation-game-with-an-ai-player-in-every-seat: backlog
   1-8-start-the-game-and-read-what-each-seat-sees: backlog
   1-9-place-orders-write-the-decision-log-and-advance-the-week: backlog
