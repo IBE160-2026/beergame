@@ -240,3 +240,22 @@ Bygge Story 1.12 på `epic-1`, den siste i Epic 1. Underveis valgte brukeren Ope
 ### Åpne punkter
 - Issue #48: beslutninger om kapasitet og funksjonsflagget.
 - Issue #9: modellen må verifiseres mot OpenRouter og EU-ruting i Story 2.7.
+
+## Story 2.1: Én ordrekilde for alle plasser som ikke er studenter (2026-11-18)
+
+### Oppgave
+Bygge Story 2.1 på `epic-2`, etter at Epic 1 er merget (PR #49). Underveis ba brukeren om at testene må være raske.
+
+### Plan
+`bmad-build-auto` i én underagent. Regelen om raske tester ble sendt til agenten underveis, lagt i minnet og i malen for senere stories.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-1-one-order-source-for-non-student-seats.md`. Commit `5a63c8d`.
+- `players.ensure_order` legger alle veiledede, regelbaserte og skriptede ordrer i samme transaksjon som åpner uka. Nye kommandoer `advance` og `switch_to_rule_based`. `sim` har ikke lenger egen ordreløkke.
+- Hele pakken: 1153 grønne, én feilet test ble rettet og kjørt på nytt for seg (22 grønne). Røyktesten 3/3. Golden-batchene gir samme ordrer og kostnader som før.
+- Trege tester: hele spill tar 6–7 s hver, batchtestene i `test_sim.py` 13–39 s.
+- Gjennomgang: 34 funn, 6 rettet, 1 utsatt (historikken leses på nytt per plass).
+- Status: `done`.
+
+### Åpne punkter
+- Issue #50: beslutninger om ordrekilden og det utsatte ytelsesfunnet.
