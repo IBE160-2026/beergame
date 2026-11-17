@@ -132,3 +132,21 @@ Bygge Story 1.7 på `epic-1`.
 
 ### Åpne punkter
 - Issue #42: beslutninger om spillopprettelse, policy og hendelser, og anbefalt oppfølgende gjennomgang.
+
+## Story 1.8: Starte spillet og lese hva hver plass ser (2026-11-17)
+
+### Oppgave
+Bygge Story 1.8 på `epic-1`.
+
+### Plan
+`bmad-build-auto` i én underagent, med implementering i egen kontekst og gjennomgang i underagenter.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-1-8-start-game-read-seat-state.md`. Commit `a7e2adb`.
+- `games.commands.start`, `SeatState` for hver plass i den åpne uka, og `python -m app.sim start` og `show <id> --seat retailer`.
+- 949 tester grønne, full grenddekning av motoren, ruff ren. Create, start og show er kjørt mot den lokale databasen.
+- Gjennomgang: 34 funn, ett middels (manglende test av referanseordre per plass) og 8 lave rettet, resten avvist.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #43: felt i `SeatState`, forhåndsvisning og at `game_weeks` ikke er beskyttet mot endring ennå.
