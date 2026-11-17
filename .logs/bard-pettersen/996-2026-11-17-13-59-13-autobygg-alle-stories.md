@@ -150,3 +150,22 @@ Bygge Story 1.8 på `epic-1`.
 
 ### Åpne punkter
 - Issue #43: felt i `SeatState`, forhåndsvisning og at `game_weeks` ikke er beskyttet mot endring ennå.
+
+## Story 1.9: Ordrer, beslutningslogg og ny uke (2026-11-17)
+
+### Oppgave
+Bygge Story 1.9 på `epic-1`.
+
+### Plan
+`bmad-build-auto` i én underagent, med implementering i egen kontekst og gjennomgang i underagenter.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-1-9-place-orders-decision-log-advance-week.md`. Commit `e364bf2`.
+- `games.commands.place_order` i én transaksjon, med én rad i beslutningsloggen (`seat_weeks`) som databasen nekter å endre, og ny uke eller `finish` i samme transaksjon. Nye kommandoer: `sim play` og `sim log`.
+- 989 tester grønne, full grenddekning av motoren, ruff ren. En ekte kjøring ga 144 loggrader, og alle kostnader stemte med `sim trace --orders rule_based`.
+- Gjennomgang: 23 funn. `sim play` kunne gå i evig løkke og er rettet, og det er lagt til en test for en halvspilt uke.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #45: beslutninger om ordrer, feilkoder og uforanderlige rader.
+- Issue #44: spillet stopper i uke 1 når den veiledede ordren er høyere enn største ordre.
