@@ -259,3 +259,20 @@ Bygge Story 2.1 på `epic-2`, etter at Epic 1 er merget (PR #49). Underveis ba b
 
 ### Åpne punkter
 - Issue #50: beslutninger om ordrekilden og det utsatte ytelsesfunnet.
+
+## Raskere testpakke (2026-11-18)
+
+### Oppgave
+Brukeren ba om raske tester. Backend-pakken tok 618 s lokalt og 4–5 min i CI.
+
+### Plan
+Én underagent måler med `--durations` og retter årsakene uten å svekke det testene beviser.
+
+### Resultat
+- Commit `825b071` (egen logg i `75fdf7d`). Hele pakken: 42 s lokalt (1154 grønne), full grenddekning av motoren beholdt.
+- Produksjonsretting: ordrekilden gjenbruker historikken i stedet for å lese den per plass, og turer settes inn med én INSERT. Et spill på 36 uker gikk fra 6,4 til 3,2 s.
+- Testoppsett: migrering én gang per sesjon, `pytest-xdist==3.8.0` med én database per arbeider, delte ferdigspilte spill, raskere `drain()`.
+- Regelen står i minnet, i kjøreboka og i malen for byggeagentene.
+
+### Åpne punkter
+- Issue #50: neste steg er færre lesinger per plass i `place_order(within=…)`.
