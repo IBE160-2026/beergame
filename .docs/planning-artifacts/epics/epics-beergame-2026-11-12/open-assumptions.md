@@ -103,7 +103,7 @@ The final validation found gaps that the fix round closed. Story numbers below a
 - In production with no pinned model, a new Class session defaults to Rule-based players, against FR-11's LLM default (5.1, 5.5).
 - The required share of Weeks is a field «Andel uker som kreves» (draft copy), 1 to 100 %, placeholder 80. It locks at the Start date and is not copied by a rerun (5.7).
 - A Student removed from the Roster after allocation: the lock gives the Seat an AI player; a game that has started is left to the Lecturer's Takeover (5.12, 5.13).
-- **Needs a decision:** before the Start date, a late registrant with no free Seat gets a new Class game, where FR-20 says a make-up (5.13).
+- **Decided 2026-11-17:** before the Start date, a late registrant with no free Seat gets a new Class game (5.13); FR-20 is aligned.
 - `sessions.service.is_locked` is true when the Start date has passed or the lock has run (5.2, 5.11).
 - «Kjeden ved start», the Datolinje and the allocation preview are diagrams of their own slice, not charts under AD-18 (5.1, 5.2, 5.8).
 - The Roster parser is tested on synthetic files in the Canvas layout. The check against real Canvas exports is still open (4.2).
@@ -202,6 +202,7 @@ The stories add draft copy to `nb.ts` for these, because the UX spines have no s
 - Spillinnsikt gets Forsterkning and the four-Role Kjedebånd when Story 9.5 builds them, not in Epic 7 (7.8, 9.5).
 - The Tilrettelegging label «Mer tid før KI tar over» is unchanged, although the factor now also extends the test's time limit (8.9, 11.12).
 
-### Still needs a decision
+### Decided on 2026-11-17
 
-- Before the Start date, a late registrant with no free Seat gets a new Class game, where FR-20 says a make-up (5.13). Unchanged from 2026-11-12.
+- Before the Start date, a late registrant with no free Seat gets a new Class game, as Story 5.13 says. The founder chose this on 2026-11-17, and FR-20 in the PRD now says the same. After the lock, with no Class game still not started, the Student gets a make-up (FR-17).
+- The assumptions and draft copy in this file are built as they stand. The founder will correct the copy in `nb.ts` after seeing the site (Issue #31 stays open until then).

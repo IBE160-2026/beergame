@@ -320,7 +320,7 @@ A Lecturer can play a private test Game with chosen Game settings against three 
 A Lecturer can let the system create Class games by placing every registered Student at random into groups of four and assigning each a random Role. Realizes UJ-3.
 - If the number of Students is not divisible by four, one Class game at allocation has fewer Students (one to three), and its empty Seats get AI players.
 - The Lecturer sees the result before confirming, can re-run the allocation, and can move or swap Students before the Start date.
-- A Student registered after allocation is placed in a free AI-held Seat of a Class game that has not started. If there is none, the Student gets a make-up (FR-17).
+- A Student registered after allocation is placed in a free Seat of a Class game that has not started, an AI-held one once the Class session is locked. Before the Start date, if every Seat is held by a Student, a new Class game is created for the Student and its other Seats get AI players. After the lock, if no Class game is still not started, the Student gets a make-up (FR-17). (Founder decision 2026-11-17.)
 
 #### FR-21: Student choice (optional)
 A Lecturer can instead let Students choose a Class game and a free Seat.
