@@ -7,13 +7,21 @@ Thumbs.db
 .idea/
 *.swp
 
-# Dependencies / build (adjust once the stack is chosen)
+# Dependencies / build
 node_modules/
 dist/
 build/
 __pycache__/
 *.pyc
 .venv/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+.pytest_cache/
+.ruff_cache/
+
+# Local mock storage (AD-17)
+.local-storage/
 
 # Env / secrets
 .env

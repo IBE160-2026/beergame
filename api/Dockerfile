@@ -1,0 +1,29 @@
+# One image for api and (later) the workers, always from the same commit (AD-24).
+FROM ghcr.io/astral-sh/uv:0.13.7 AS uv
+
+FROM python:3.14-slim
+
+COPY --from=uv /uv /uvx /bin/
+
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never \
+    PYTHONUNBUFFERED=1 \
+    PATH="/app/.venv/bin:$PATH"
+
+WORKDIR /app
+
+COPY pyproject.toml uv.lock .python-version ./
+RUN uv sync --locked --no-dev --no-install-project
+
+COPY alembic.ini docker-entrypoint.sh ./
+COPY migrations ./migrations
+COPY app ./app
+RUN uv sync --locked --no-dev && chmod +x docker-entrypoint.sh
+
+RUN useradd --system --uid 10001 app
+USER app
+
+EXPOSE 8000
+ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
