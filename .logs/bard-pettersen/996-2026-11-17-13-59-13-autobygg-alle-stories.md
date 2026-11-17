@@ -43,3 +43,21 @@ Bygge Story 1.2 på `epic-1`. Brukeren sa underveis at det ikke skal være noen 
 ### Åpne punkter
 - Issue #37: fabrikkpipeline, uavhengig sjekk og anbefalt oppfølgende gjennomgang.
 
+## Story 1.3: Innstillinger mot grenser og advarsler (2026-11-17)
+
+### Oppgave
+Bygge Story 1.3 på `epic-1`.
+
+### Plan
+`bmad-build-auto` i én underagent. Implementeringsagenten stoppet etter kode og referansespor. En uavhengig agent regnet ut sporene for hånd, og byggeagenten fullførte verifisering og gjennomgang selv.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-1-3-settings-ranges-and-warnings.md`. Commit `89f2943`.
+- `starting_backlog`, `RANGES`, `validate` og `warnings` med stabile koder, og `python -m app.sim settings check <fil>` med utkodene 0, 1 og 2.
+- To nye referansespor (forsinkelser 1/1/1 og 3/3/3). Den uavhengige håndutregningen ga 0 avvik.
+- 185 tester grønne, full grenddekning av motoren, ruff ren. Gjennomgang: 26 funn, 8 rettet, 18 avvist.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #38: plassholdergrenser, faktoren ×10 og startverdier per rolle.
+
