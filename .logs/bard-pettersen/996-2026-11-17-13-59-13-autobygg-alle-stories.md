@@ -169,3 +169,21 @@ Bygge Story 1.9 på `epic-1`.
 ### Åpne punkter
 - Issue #45: beslutninger om ordrer, feilkoder og uforanderlige rader.
 - Issue #44: spillet stopper i uke 1 når den veiledede ordren er høyere enn største ordre.
+
+## Story 1.10: Verifisere hvert ferdig spill ved avspilling (2026-11-17)
+
+### Oppgave
+Bygge Story 1.10 på `epic-1`.
+
+### Plan
+`bmad-build-auto` i én underagent, med implementering i egen kontekst og gjennomgang i underagenter.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-1-10-verify-finished-game-by-replaying.md`. Commit `2e6bed8`.
+- Regelversjoner som pakker (`engine/rules/v1/`), `engine.replay`, `games.service.verify_finished` med en uforanderlig rad i `game_checks` (Alembic `0005`), og `sim check <id>`. `sim play` sjekker etter siste uke.
+- 1041 tester grønne, full grenddekning av motoren, ruff ren. Et klassisk spill med frø 7 er spilt og sjekket to ganger: `check ok`.
+- Gjennomgang: 29 funn, 5 lave rettet, 24 avvist.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #46: beslutninger om regelversjoner og sjekkraden.
