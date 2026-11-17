@@ -61,3 +61,20 @@ Bygge Story 1.3 på `epic-1`.
 ### Åpne punkter
 - Issue #38: plassholdergrenser, faktoren ×10 og startverdier per rolle.
 
+## Story 1.4: Etterspørselsserie fra mønster og frø (2026-11-17)
+
+### Oppgave
+Bygge Story 1.4 på `epic-1`.
+
+### Plan
+`bmad-build-auto` i én underagent, som nå implementerer selv og bare bruker underagenter til gjennomgang og uavhengige sjekker.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-1-4-demand-series-from-pattern-and-seed.md`. Commit `953d76a`.
+- `backend/app/engine/demand.py` med fire mønstre (fast, steg, tilfeldig, steg+støy), `series(pattern, weeks, seed)`, `new_seed`, `demand_seed` i `GameSettings`, og `python -m app.sim demand`.
+- 662 tester grønne, full grenddekning av motoren, ruff ren. Golden-seriene er sjekket av en uavhengig agent med egen kode.
+- Gjennomgang: 30 funn, ett middels rettet (`--weeks 0` krasjet), flere lave rettet, resten avvist.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #39: beslutninger om frø, trekning og plassholdergrenser.
