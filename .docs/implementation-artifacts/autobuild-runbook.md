@@ -26,8 +26,16 @@ The orchestrator session follows this file when it builds the stories without a 
    - **done**: set the story to `done`, or to `review` if it is on the founder list.
    - **blocked**: solve the problem yourself as well as you can. Read the spec's `## Auto Run Result`, fix the cause (a missing piece of an earlier story, a flaky test, an unclear criterion: choose the reading closest to `epics.md`, the PRD and the spines), set the spec's `status` back to the step it should resume at, and run step 3 again. Open an issue (label `agent`, title `Story <N.M>: …`) that states the problem and every decision you took. After three failed attempts on the same story, leave it `blocked` in `sprint-status.yaml`, record it in the issue, and go on to the next story that does not depend on it.
    - **Deferred findings** in the spec (`deferred:` in its frontmatter) that matter beyond the story: one issue, label `agent`.
-5. Commit `sprint-status.yaml` (`Sprint: Story <N.M> <status>`), then push the branch.
-6. Session log: one log file for the whole run in `.logs/bard-pettersen/`, created once with the naming of the `sesjonslogg` skill (next lower number, title `autobygg-alle-stories`) and reused after that. Add a section per story with Oppgave, Plan, Resultat (spec file, commits, tests, status) and Åpne punkter (`Issue #N`). Write it in Norwegian. Commit only the log file (`Logg: autobygg Story <N.M>`), and push.
+5. **Visual check, for every story that adds or changes a screen** (from Story 3.1 on; skip stories with no change under `web/`). Launch one blocking subagent that:
+   - starts the app with `docker compose up` and reaches the story's screens at `http://localhost:8080` with Playwright, as the Role the story is for, using the same seed and test login as the story's Playwright tests;
+   - takes full-page screenshots at 390 px and 1280 px wide of each state the story names (empty, filled, error and so on), and saves them to `.docs/implementation-artifacts/screenshots/<N.M>/` as `<screen>-<state>-<width>.png`;
+   - opens each screenshot and compares it with the matching mockup in `.docs/planning-artifacts/ux-designs/ux-beergame-2026-11-05/mockups/` and with `DESIGN.md` and `EXPERIENCE.md`, which win over the mockup on conflict: layout, tokens, type, copy from `nb.ts`, one primary button, and nothing cut off or scrolling sideways at 390 px;
+   - fixes clear deviations on the branch, reruns the story's tests and takes the screenshots again; records any deviation it does not fix, or that needs a judgement, in one issue (label `agent`, title `Story <N.M>: visuelle avvik`) with the screenshot paths;
+   - writes `.docs/implementation-artifacts/screenshots/<N.M>/README.md` with one line per screenshot: what it shows and whether it matches;
+   - stops the app with `docker compose down`.
+   The founder looks at these screenshots when approving the site.
+6. Commit fixes from the visual check on their own (`Story <N.M>: visuelle rettinger`), then commit `sprint-status.yaml` and the story's screenshots (`Sprint: Story <N.M> <status>`), and push the branch. The working tree must be clean before the next story.
+7. Session log: one log file for the whole run in `.logs/bard-pettersen/`, created once with the naming of the `sesjonslogg` skill (next lower number, title `autobygg-alle-stories`) and reused after that. Add a section per story with Oppgave, Plan, Resultat (spec file, commits, tests, status) and Åpne punkter (`Issue #N`). Write it in Norwegian. Commit only the log file (`Logg: autobygg Story <N.M>`), and push.
 
 ## End of an epic
 
