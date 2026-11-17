@@ -1,13 +1,20 @@
+from decimal import Decimal
+
 import pytest
 from pydantic import ValidationError
 
 from app.engine import (
+    CostLine,
     GameSettings,
     NeighbourNumber,
+    OrderPreview,
     Role,
     SeatView,
+    SupplyLineSlot,
     advance,
     initial_state,
+    placed_orders,
+    seat_detail,
     seat_view,
 )
 from app.engine.demand import DemandStep
@@ -184,3 +191,135 @@ def test_neighbour_numbers_are_labelled_numbers():
 def test_view_is_frozen():
     with pytest.raises(ValidationError):
         view().inventory = 3
+
+
+# --- seat_detail and placed_orders (Story 1.8) ---------------------------------------------
+
+
+def stepped(state):
+    """Orders that differ by Role and Week, so a mixed-up history shows."""
+    return {seat.role: seat.incoming_order + index for index, seat in enumerate(state.seats)}
+
+
+def test_week_1_classic_detail_of_the_retailer():
+    settings = GameSettings()
+    detail = seat_detail(settings, [initial_state(settings)], [], Role.RETAILER)
+    assert detail.week == 1
+    assert (detail.incoming_order, detail.incoming_delivery, detail.shipped) == (4, 4, 4)
+    assert detail.supply_line_slots == (
+        SupplyLineSlot(stage="in_transit", quantity=4, arrival_week=2),
+        SupplyLineSlot(stage="in_transit", quantity=4, arrival_week=3),
+        SupplyLineSlot(stage="ordered", quantity=4, arrival_week=4),
+    )
+    assert detail.overdue == 0
+    assert detail.position == 12 - 0 + 12
+    assert detail.cost_lines == (
+        CostLine(kind="holding", units=12, rate=Decimal("0.50"), amount=Decimal("6.00")),
+        CostLine(kind="backorder", units=0, rate=Decimal("1.00"), amount=Decimal("0.00")),
+    )
+    assert detail.week_cost == detail.total_cost == Decimal("6.00")
+    assert detail.history == ()
+    assert (detail.min_order, detail.max_order) == (0, 999)
+    assert detail.preview == OrderPreview(
+        order_arrival_week=5, supply_line_base=12, position_base=24
+    )
+
+
+def test_week_1_classic_detail_of_the_factory_is_in_production():
+    settings = GameSettings()
+    detail = seat_detail(settings, [initial_state(settings)], [], "factory")
+    assert [slot.stage for slot in detail.supply_line_slots] == [
+        "in_production",
+        "in_production",
+        "ordered",
+    ]
+    assert [slot.arrival_week for slot in detail.supply_line_slots] == [2, 3, 4]
+    assert detail.overdue == 0
+
+
+@pytest.mark.parametrize(
+    ("delays", "starting_inventory", "starting_backlog"),
+    [
+        ((2, 2, 2), 12, 0),
+        ((1, 1, 1), 12, 0),
+        ((3, 3, 3), 12, 0),
+        ((1, 3, 2), 12, 0),
+        ((3, 1, 3), 12, 0),
+        ((2, 2, 2), 0, 20),
+    ],
+)
+def test_detail_agrees_with_the_pipelines_in_every_week(
+    delays, starting_inventory, starting_backlog
+):
+    order_delay, shipping_delay, production_delay = delays
+    settings = GameSettings(
+        order_delay=order_delay,
+        shipping_delay=shipping_delay,
+        production_delay=production_delay,
+        starting_inventory=starting_inventory,
+        starting_backlog=starting_backlog,
+        demand=DemandStep(kind="step", start=4, new_level=9, change_week=3),
+    )
+    states, orders = play(settings, 16, stepped)
+    last = settings.roles[-1]
+    for week in range(1, 17):
+        for index, role in enumerate(settings.roles):
+            view = seat_view(settings, states[:week], orders[: week - 1], role)
+            detail = seat_detail(settings, states[:week], orders[: week - 1], role)
+            seat = states[week - 1].seat(role)
+            assert detail.week == week
+            slots = detail.supply_line_slots
+            assert sum(slot.quantity for slot in slots) + detail.overdue == view.supply_line
+            arrivals = [slot.arrival_week for slot in slots]
+            assert arrivals == sorted(arrivals) and min(arrivals, default=week + 1) > week
+            upstream_backlog = 0 if role == last else states[week - 1].seats[index + 1].backlog
+            assert detail.overdue == upstream_backlog
+            assert detail.position == seat.inventory - seat.backlog + view.supply_line
+            assert detail.preview.supply_line_base == view.supply_line
+            assert detail.preview.position_base == detail.position
+            goods = production_delay if role == last else shipping_delay
+            assert detail.preview.order_arrival_week == week + order_delay + goods
+            assert detail.total_cost == seat.total_cost + seat.cost
+            assert sum(line.amount for line in detail.cost_lines) == detail.week_cost
+            assert [row.order for row in detail.history] == list(view.order_history)
+            assert [row.week for row in detail.history] == list(range(1, week))
+            for row, earlier in zip(detail.history, states[: week - 1], strict=True):
+                assert row.inventory == earlier.seat(role).inventory
+                assert row.cost == earlier.seat(role).cost
+                past = seat_detail(settings, states[: row.week], orders[: row.week - 1], role)
+                assert (row.supply_line, row.position) == (
+                    past.preview.supply_line_base,
+                    past.position,
+                )
+
+
+def test_an_order_arrives_in_the_week_the_preview_names():
+    settings = GameSettings()
+    states, orders = play(settings, 12, stepped)
+    for role in settings.roles:
+        detail = seat_detail(settings, states[:3], orders[:2], role)
+        later = seat_detail(settings, states[:5], orders[:4], role)
+        # The Week 3 Order sits in the slots of Week 5 with the arrival Week the preview gave.
+        assert any(
+            slot.quantity == orders[2][role]
+            and slot.arrival_week == detail.preview.order_arrival_week
+            for slot in later.supply_line_slots
+        )
+
+
+def test_placed_orders_reads_back_the_orders_given_to_advance():
+    for settings in (GameSettings(), GameSettings(order_delay=1, production_delay=3)):
+        states, orders = play(settings, 10, stepped)
+        assert placed_orders(settings, states) == tuple(orders)
+        assert placed_orders(settings, states[:1]) == ()
+
+
+def test_detail_and_placed_orders_check_their_input():
+    settings = GameSettings()
+    states, orders = play(settings, 3, stepped)
+    with pytest.raises(ValueError, match="one Order map"):
+        seat_detail(settings, states, orders[:1], Role.RETAILER)
+    with pytest.raises(ValueError, match="at least one"):
+        placed_orders(settings, [])
+    with pytest.raises(ValueError, match="item 1"):
+        placed_orders(settings, [states[0], states[0]])

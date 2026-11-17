@@ -560,3 +560,103 @@ def test_create_as_a_program_prints_only_the_report_on_stdout(games_db):
     lines = result.stdout.splitlines()
     assert [line.split(" ")[0] for line in lines] == ["game", "seed", "lifecycle"] + ["seat"] * 4
     assert '"event": "game_created"' in result.stderr
+
+
+# Story 1.8: `start` opens Week 1; `show` prints what one Seat sees.
+
+
+def created_game(capsys) -> str:
+    code, lines, _ = create(capsys, "--seats", "rule_based", "--seed", "7")
+    assert code == 0
+    return lines[0].removeprefix("game ")
+
+
+def test_start_prints_the_running_game_and_its_seats(capsys, games_db):
+    game_id = created_game(capsys)
+    code = main(["start", game_id])
+    out = [
+        line
+        for line in capsys.readouterr().out.splitlines()
+        if line.split(" ")[0] in REPORT | {"week"}
+    ]
+    assert code == 0
+    assert out == [
+        f"game {game_id}",
+        "lifecycle running",
+        "week 1",
+        "seat retailer rule_based",
+        "seat wholesaler rule_based",
+        "seat distributor rule_based",
+        "seat factory rule_based",
+    ]
+
+
+def test_start_twice_reports_the_conflict(capsys, games_db):
+    game_id = created_game(capsys)
+    assert main(["start", game_id]) == 0
+    capsys.readouterr()
+    assert main(["start", game_id]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.startswith("error game_already_started: ")
+
+
+def test_show_prints_the_seat_state_and_the_open_turn(capsys, games_db):
+    from app.modules.games.schemas import SeatState
+    from tests.games.helpers import query
+
+    game_id = created_game(capsys)
+    main(["start", game_id])
+    capsys.readouterr()
+    code = main(["show", game_id, "--seat", "retailer"])
+    out = capsys.readouterr().out
+    assert code == 0
+    out = out[out.index("{") :]  # structlog lines precede the report under pytest
+    body, opened, reference = out.rstrip("\n").rsplit("\n", 2)
+    state = SeatState.model_validate_json(body)
+    assert (state.role, state.week, state.inventory, state.incoming_order) == (
+        "retailer",
+        1,
+        12,
+        4,
+    )
+    ((opened_at, order),) = query(
+        games_db,
+        "SELECT t.opened_at, t.rule_based_reference_order FROM seat_turns t "
+        "JOIN seats s ON s.id = t.seat_id WHERE t.game_id = %s AND s.role = 'retailer'",
+        (game_id,),
+    )
+    assert opened == f"opened_at {opened_at.isoformat()}"
+    assert reference == f"reference_order {order}"
+
+
+@pytest.mark.parametrize(
+    ("argv", "error"),
+    [
+        (["show", "nope", "--seat", "retailer"], "error game_not_found: "),
+        (["start", "nope"], "error game_not_found: "),
+    ],
+)
+def test_start_and_show_report_refusals(capsys, games_db, argv, error):
+    assert main(argv) == 1
+    captured = capsys.readouterr()
+    assert captured.out == "" and captured.err.startswith(error)
+
+
+def test_show_of_a_game_not_started_exits_1(capsys, games_db):
+    game_id = created_game(capsys)
+    assert main(["show", game_id, "--seat", "factory"]) == 1
+    assert capsys.readouterr().err.startswith("error game_not_started: ")
+
+
+def test_show_needs_a_seat(capsys):
+    with pytest.raises(SystemExit) as info:
+        main(["show", "x"])
+    assert info.value.code == 2
+
+
+def test_show_without_a_database_exits_1(capsys, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://nobody:secretpw@127.0.0.1:1/none")
+    game_id = "01a1eb10-f299-75a6-8ec2-a251c50791e1"
+    assert main(["show", game_id, "--seat", "retailer"]) == 1
+    assert capsys.readouterr().err.strip() == "error db_unavailable: cannot reach the database"

@@ -10,8 +10,11 @@ from app.modules.games.schemas import (
     OccupantKind,
     Purpose,
     SeatOverview,
+    SeatState,
     SessionRuntime,
+    TurnOverview,
 )
+from app.modules.games.views import ViewError, open_turn, seat_state
 from app.platform.db import get_sessionmaker
 
 __all__ = [
@@ -22,9 +25,14 @@ __all__ = [
     "Purpose",
     "PurposeNotSupportedError",
     "SeatOverview",
+    "SeatState",
     "SessionRuntime",
+    "TurnOverview",
+    "ViewError",
     "get_game",
+    "open_turn",
     "policy",
+    "seat_state",
 ]
 
 

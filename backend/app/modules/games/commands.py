@@ -1,4 +1,4 @@
-"""The only write path for Games, Seats and occupancy (AD-2).
+"""The only write path for Games, Seats, occupancy, turns and Week states (AD-2).
 
 Each command is one transaction: it locks the Game row (`SELECT … FOR UPDATE`), raises the
 Game's `version` by one and emits `game:<id>` (AD-8) before it commits. A command that fails
@@ -7,7 +7,7 @@ raises `CommandError` and leaves nothing behind: no row, no version change, no e
 
 import secrets
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 import structlog
 from pydantic import ValidationError
@@ -19,8 +19,11 @@ from app.engine import (
     GameSettings,
     Role,
     SettingsError,
+    WeekState,
     demand_series,
+    initial_state,
     rule_based,
+    seat_view,
     validate,
 )
 from app.engine.demand import new_seed
@@ -38,7 +41,7 @@ from app.platform import events
 from app.platform.db import get_sessionmaker
 from app.platform.parameter_sets import UnknownParameterSetError, read_parameter_set
 
-__all__ = ["CommandError", "assign_seat", "create"]
+__all__ = ["CommandError", "assign_seat", "create", "start"]
 
 log = structlog.get_logger(__name__)
 
@@ -201,10 +204,7 @@ async def assign_seat(
 
     Returns the occupancy row id. An occupied Seat answers `seat_occupied`.
     """
-    try:
-        game_uuid = uuid.UUID(game_id)
-    except ValueError, TypeError, AttributeError:
-        raise CommandError("game_not_found", f"no Game {game_id!r}", 404) from None
+    game_uuid = _game_uuid(game_id)
     async with get_sessionmaker().begin() as session:
         game = await repo.lock_game(session, game_uuid)
         if game is None:
@@ -219,18 +219,114 @@ async def assign_seat(
             raise CommandError("unknown_role", f"the Game has no Seat for {role!r}", 422)
         if await repo.has_occupant(session, seat["id"]):
             raise CommandError("seat_occupied", f"the {role} Seat already has an occupant", 409)
-        occupancy_id = uuid.uuid7()
-        await repo.append_occupancy(
-            session,
-            {
-                "id": occupancy_id,
-                "seat_id": seat["id"],
-                "from_week": 1,
-                "occupant_kind": occupant.value,
-                "policy_id": policy_id,
-                "reason": OccupancyReason.INITIAL.value,
-            },
-        )
+        occupancy_id = await _append_initial(session, seat["id"], occupant, policy_id)
         await _commit_change(session, game_uuid)
     log.info("seat_assigned", game_id=game_id, seat_id=str(seat["id"]))
     return str(occupancy_id)
+
+
+async def _append_initial(
+    session: AsyncSession, seat_id: uuid.UUID, occupant: OccupantKind, policy_id: str | None
+) -> uuid.UUID:
+    """Append a Seat's first occupancy row (`from_week` 1, reason `initial`)."""
+    occupancy_id = uuid.uuid7()
+    await repo.append_occupancy(
+        session,
+        {
+            "id": occupancy_id,
+            "seat_id": seat_id,
+            "from_week": 1,
+            "occupant_kind": occupant.value,
+            "policy_id": policy_id,
+            "reason": OccupancyReason.INITIAL.value,
+        },
+    )
+    return occupancy_id
+
+
+def _game_uuid(game_id: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(game_id)
+    except ValueError, TypeError, AttributeError:
+        raise CommandError("game_not_found", f"no Game {game_id!r}", 404) from None
+
+
+def _snapshot(game: Mapping[str, object]) -> tuple[GameSettings, rule_based.RuleBasedParams]:
+    """The Game's frozen settings and Rule-based parameters; refuses a snapshot this engine
+    cannot reproduce (AD-4)."""
+    if game["rules_version"] != RULES_VERSION:
+        raise CommandError(
+            "rules_version_unsupported",
+            f"the Game needs rules version {game['rules_version']}, this engine has "
+            f"{RULES_VERSION}",
+            409,
+        )
+    settings = GameSettings.model_validate(game["settings"])
+    if list(demand_series(settings)) != game["demand_series"]:
+        raise CommandError(
+            "snapshot_mismatch", "the stored demand series does not match its settings", 409
+        )
+    runtime = SessionRuntime.model_validate(game["session_runtime"])
+    params = _rule_based_params(runtime.rule_based_params)
+    if params.version != runtime.rule_based_params_version:
+        raise CommandError(
+            "parameter_set_changed",
+            f"Rule-based parameter set {params.id!r} is now version {params.version}, the Game "
+            f"froze version {runtime.rule_based_params_version}",
+            409,
+        )
+    return settings, params
+
+
+async def _open_week(
+    session: AsyncSession,
+    game_id: uuid.UUID,
+    settings: GameSettings,
+    params: rule_based.RuleBasedParams,
+    states: Sequence[WeekState],
+    orders: Sequence[Mapping[str, int]],
+    seat_ids: Mapping[str, uuid.UUID],
+) -> None:
+    """Store the newest of `states` and one turn per Seat with its Rule-based reference Order,
+    computed here once from that Seat's own view (AD-5, AD-20, FR-67)."""
+    state = states[-1]
+    await repo.insert_week(session, game_id, state.week, state.model_dump(mode="json"))
+    await repo.insert_turns(
+        session,
+        [
+            {
+                "id": uuid.uuid7(),
+                "game_id": game_id,
+                "seat_id": seat_ids[role.value],
+                "week": state.week,
+                "rule_based_reference_order": rule_based.order(
+                    settings, seat_view(settings, states, orders, role), params
+                ),
+            }
+            for role in settings.roles
+        ],
+    )
+
+
+async def start(game_id: str) -> int:
+    """Start a `not_started` Game: give every free Seat a Rule-based player, store the Week 1
+    state and open one turn per Seat. Returns the opened Week (1)."""
+    game_uuid = _game_uuid(game_id)
+    async with get_sessionmaker().begin() as session:
+        game = await repo.lock_game(session, game_uuid)
+        if game is None:
+            raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
+        if game["lifecycle"] != Lifecycle.NOT_STARTED:
+            raise CommandError("game_already_started", "the Game has already started", 409)
+        settings, params = _snapshot(game)
+        seat_rows = await repo.seats_with_occupant(session, game_uuid)
+        for seat in seat_rows:
+            if seat["occupant_kind"] is None:
+                await _append_initial(session, seat["id"], OccupantKind.RULE_BASED, None)
+        state = initial_state(settings)
+        seat_ids = {seat["role"]: seat["id"] for seat in seat_rows}
+        await _open_week(session, game_uuid, settings, params, [state], [], seat_ids)
+        await repo.set_lifecycle(session, game_uuid, Lifecycle.RUNNING.value)
+        await _commit_change(session, game_uuid)
+    log.info("game_started", game_id=game_id)
+    return state.week

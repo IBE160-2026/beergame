@@ -34,13 +34,19 @@ async def _run_assign_seat() -> str:
     return game_id
 
 
-RUNNERS = {"create": _run_create, "assign_seat": _run_assign_seat}
+async def _run_start() -> str:
+    game_id = await _run_create()
+    await commands.start(game_id)
+    return game_id
+
+
+RUNNERS = {"create": _run_create, "assign_seat": _run_assign_seat, "start": _run_start}
 """How to run each command once; a command added without a runner fails the test below."""
 
 
 def test_every_command_is_exported_and_registered():
     found = public_commands()
-    assert found == {"create", "assign_seat"} == set(RUNNERS)
+    assert found == {"create", "assign_seat", "start"} == set(RUNNERS)
     assert found <= set(commands.__all__)
     games_entries = {
         key.removeprefix("games.") for key in COMMAND_TOPICS if key.startswith("games.")
@@ -53,7 +59,7 @@ async def test_each_command_emits_exactly_its_registered_topics(games_db):
         with listening(games_db) as events:
             game_id = await runner()
             received = events.drain()
-        if name == "assign_seat":
+        if name in {"assign_seat", "start"}:
             received = received[1:]  # the first event is the setup's create
         assert {item["topic"] for item in received} == COMMAND_TOPICS[f"games.{name}"]
         assert all(item["id"] == game_id for item in received)
@@ -83,6 +89,14 @@ async def test_each_command_locks_bumps_and_notifies_in_one_transaction(games_db
         await commands.assign_seat(game_id, "retailer", "rule_based")
         assert len(commits) == 1
         assert_locked_bump_notify(statements)
+        statements.clear()
+        commits.clear()
+        await commands.start(game_id)
+        assert len(commits) == 1
+        assert_locked_bump_notify(statements)
+        writes = [s for s in statements if s.startswith("INSERT INTO")]
+        assert any("seat_occupancy" in s for s in writes)  # three free Seats filled
+        assert any("game_weeks" in s for s in writes) and any("seat_turns" in s for s in writes)
     finally:
         event.remove(sync_engine, "before_cursor_execute", record)
         event.remove(sync_engine, "commit", commit)

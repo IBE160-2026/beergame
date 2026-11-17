@@ -8,6 +8,7 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
     {
         "games.create": frozenset({"game"}),
         "games.assign_seat": frozenset({"game"}),
+        "games.start": frozenset({"game"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

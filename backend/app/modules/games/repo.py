@@ -7,7 +7,7 @@ from sqlalchemy import RowMapping, select, update
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.games.models import games, seat_occupancy, seats
+from app.modules.games.models import game_weeks, games, seat_occupancy, seat_turns, seats
 
 
 async def insert_game(session: AsyncSession, values: dict[str, Any]) -> None:
@@ -82,3 +82,40 @@ async def seats_with_occupant(session: AsyncSession, game_id: uuid.UUID) -> list
         .order_by(seats.c.position)
     )
     return list(result.mappings())
+
+
+async def set_lifecycle(session: AsyncSession, game_id: uuid.UUID, lifecycle: str) -> None:
+    await session.execute(update(games).where(games.c.id == game_id).values(lifecycle=lifecycle))
+
+
+async def insert_week(
+    session: AsyncSession, game_id: uuid.UUID, week: int, state: dict[str, Any]
+) -> None:
+    await session.execute(game_weeks.insert().values(game_id=game_id, week=week, state=state))
+
+
+async def insert_turns(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    await session.execute(seat_turns.insert(), rows)
+
+
+async def week_states(session: AsyncSession, game_id: uuid.UUID) -> list[dict[str, Any]]:
+    """The stored Week states of the Game, Week 1 first."""
+    result = await session.execute(
+        select(game_weeks.c.state)
+        .where(game_weeks.c.game_id == game_id)
+        .order_by(game_weeks.c.week)
+    )
+    return list(result.scalars())
+
+
+async def turn(
+    session: AsyncSession, game_id: uuid.UUID, seat_id: uuid.UUID, week: int
+) -> RowMapping | None:
+    result = await session.execute(
+        select(seat_turns).where(
+            seat_turns.c.game_id == game_id,
+            seat_turns.c.seat_id == seat_id,
+            seat_turns.c.week == week,
+        )
+    )
+    return result.mappings().one_or_none()

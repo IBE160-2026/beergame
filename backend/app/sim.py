@@ -15,6 +15,10 @@ Subcommands:
                    occupant (`--seats rule_based`, `scripted:<id>`, or one per Role,
                    comma-separated) and print the Game id, seed and Seats read back from the
                    database. Exit 1 when a command refuses (its code is printed).
+  start            start a stored Game through `games.commands.start` (free Seats get a
+                   Rule-based player, Week 1 opens) and print its lifecycle, Week and Seats.
+  show             print what one Seat sees in the open Week (`SeatState` as JSON), then the
+                   open turn's `opened_at` and Rule-based reference Order.
 
 The runner computes no game quantities: every printed number is an engine field or the Order
 it was given.
@@ -332,6 +336,18 @@ def _run[T](coroutine: Coroutine[object, object, T]) -> T:
     return asyncio.run(coroutine, loop_factory=factory)
 
 
+def _report(exc: Exception) -> None:
+    """Print a refused command or read, or a database failure, on stderr."""
+    if isinstance(exc, (game_commands.CommandError, game_service.ViewError)):
+        print(f"error {exc.code}: {exc.message}", file=sys.stderr)
+        for field, code in getattr(exc, "fields", {}).items():
+            print(f"error {code} {field}", file=sys.stderr)
+    elif isinstance(exc, OperationalError):
+        print("error db_unavailable: cannot reach the database", file=sys.stderr)
+    else:
+        print(f"error db_error: {type(getattr(exc, 'orig', exc)).__name__}", file=sys.stderr)
+
+
 async def _create_game(
     settings: GameSettings, occupants: Sequence[Occupant], seed: int | None, params: str
 ) -> int:
@@ -346,14 +362,7 @@ async def _create_game(
         if game is None:
             raise game_commands.CommandError("game_not_found", f"no Game {game_id!r}", 404)
     except (game_commands.CommandError, DBAPIError) as exc:
-        if isinstance(exc, game_commands.CommandError):
-            print(f"error {exc.code}: {exc.message}", file=sys.stderr)
-            for field, code in exc.fields.items():
-                print(f"error {code} {field}", file=sys.stderr)
-        elif isinstance(exc, OperationalError):
-            print("error db_unavailable: cannot reach the database", file=sys.stderr)
-        else:
-            print(f"error db_error: {type(exc.orig).__name__}", file=sys.stderr)
+        _report(exc)
         if game_id is not None:
             print(f"note: game {game_id} was stored with Seats still free", file=sys.stderr)
         return 1
@@ -375,6 +384,48 @@ def _create(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     elif len(seats) != len(settings.roles):
         parser.error(f"--seats needs one occupant or {len(settings.roles)}, not {len(seats)}")
     return _run(_create_game(settings, seats, args.seed, args.rule_based_params))
+
+
+async def _start_game(game_id: str) -> int:
+    try:
+        week = await game_commands.start(game_id)
+        game = await game_service.get_game(game_id)
+        if game is None:
+            raise game_commands.CommandError("game_not_found", f"no Game {game_id!r}", 404)
+    except (game_commands.CommandError, DBAPIError) as exc:
+        _report(exc)
+        return 1
+    finally:
+        await db.dispose()
+    print(f"game {game.id}")
+    print(f"lifecycle {game.lifecycle}")
+    print(f"week {week}")
+    for seat in game.seats:
+        print(" ".join(["seat", seat.role, str(seat.occupant_kind), seat.policy_id or ""]).rstrip())
+    return 0
+
+
+def _start(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    return _run(_start_game(args.game_id))
+
+
+async def _show_seat(game_id: str, seat: str) -> int:
+    try:
+        state = await game_service.seat_state(game_id, seat)
+        turn = await game_service.open_turn(game_id, seat, state.week)
+    except (game_service.ViewError, DBAPIError) as exc:
+        _report(exc)
+        return 1
+    finally:
+        await db.dispose()
+    print(state.model_dump_json(indent=2))
+    print(f"opened_at {turn.opened_at.isoformat()}")
+    print(f"reference_order {turn.rule_based_reference_order}")
+    return 0
+
+
+def _show(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    return _run(_show_seat(args.game_id, args.seat))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -437,6 +488,13 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Rule-based parameter set id (default {DEFAULT_RULE_BASED_PARAMS})",
     )
     create.set_defaults(handler=_create, command_parser=create)
+    start = commands.add_parser("start", help="start a stored Game and open Week 1")
+    start.add_argument("game_id")
+    start.set_defaults(handler=_start, command_parser=start)
+    show = commands.add_parser("show", help="print what one Seat sees in the open Week")
+    show.add_argument("game_id")
+    show.add_argument("--seat", required=True, metavar="SEAT", help="Role or Seat id")
+    show.set_defaults(handler=_show, command_parser=show)
     return parser
 
 

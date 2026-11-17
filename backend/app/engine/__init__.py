@@ -32,7 +32,18 @@ from app.engine.settings import (
     warnings,
 )
 from app.engine.state import SeatState, WeekState
-from app.engine.view import NeighbourNumber, SeatView, seat_view
+from app.engine.view import (
+    CostLine,
+    NeighbourNumber,
+    OrderPreview,
+    SeatDetail,
+    SeatView,
+    SupplyLineSlot,
+    WeekValues,
+    placed_orders,
+    seat_detail,
+    seat_view,
+)
 from app.engine.week import GameFinishedError, InvalidOrdersError, advance, initial_state
 
 RULES_VERSION = 1
@@ -45,6 +56,7 @@ __all__ = [
     "ROLES",
     "RULES_VERSION",
     "SEED_MAX",
+    "CostLine",
     "DemandFixed",
     "DemandPattern",
     "DemandRandom",
@@ -54,20 +66,26 @@ __all__ = [
     "GameSettings",
     "InvalidOrdersError",
     "NeighbourNumber",
+    "OrderPreview",
     "Range",
     "Role",
     "RuleBasedParams",
+    "SeatDetail",
     "SeatState",
     "SeatView",
     "SettingsError",
     "SettingsWarning",
+    "SupplyLineSlot",
     "Violation",
     "WeekState",
+    "WeekValues",
     "advance",
     "demand_change_reaches_retailer",
     "demand_series",
     "guided_order",
     "initial_state",
+    "placed_orders",
+    "seat_detail",
     "seat_view",
     "validate",
     "validate_demand",
