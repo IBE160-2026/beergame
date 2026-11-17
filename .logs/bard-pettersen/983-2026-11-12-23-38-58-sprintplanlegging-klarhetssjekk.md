@@ -48,7 +48,7 @@ Kjøre `bmad-sprint-planning` på nytt etter at funnene fra klarhetssjekken er r
 - Skriptet ga to advarsler, som ved prøvekjøringen: dokumenttittelen og overskriften «Epic List» er ikke epics.
 - Nøklene er kuttet ved 60 tegn, og fem nøkler har æ, ø eller å (4.1, 6.9, 7.11, 13.2, 13.4).
 - `implementation-readiness.md` har fått en statuslinje for 2026-11-17.
-- Ikke committet: `sprint-status.yaml` og endringen i `implementation-readiness.md`.
+- Committet som `8a7b5c2` etter at brukeren ba om det: `sprint-status.yaml` og endringen i `implementation-readiness.md`. Pushet til `origin/main` sammen med de tidligere commitene fra klarhetssjekken. Mappa `.working/` under epics er holdt utenfor.
 
 ### Åpne punkter
 - Issue #31: bekrefte utkastene til tekst og valgene i `open-assumptions.md`, og avgjøre sen registrering uten ledig sete (Story 5.13, FR-20).
