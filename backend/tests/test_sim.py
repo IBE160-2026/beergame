@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -286,3 +287,131 @@ def test_settings_check_fixed_item_errors_carry_the_values_range(capsys, tmp_pat
     by_field = {line.split()[2].rstrip(":"): line for line in lines}
     assert by_field["demand.values"].endswith("[allowed 0..100 (placeholder)]")
     assert "allowed" not in by_field["start"]
+
+
+def test_trace_rule_based_prints_the_table_and_the_placeholder_warning(capsys):
+    golden = json.loads((GOLDEN / "rule-based-classic-step.json").read_text(encoding="utf-8"))
+    code, lines = run(capsys, "--settings", "classic", "--orders", "rule_based")
+    assert code == 0
+    assert len(lines) == 1 + 36 * 4 + 1
+    rows = [line.split() for line in lines[1:-1]]
+    roles = ("retailer", "wholesaler", "distributor", "factory")
+    assert [row[7] for row in rows] == [
+        str(orders[role]) for orders in golden["orders"] for role in roles
+    ]
+    assert lines[-1].startswith(
+        "warning: Rule-based parameter set placeholder-unverified v1 is a placeholder (unverified)"
+    )
+
+
+@pytest.mark.parametrize("spec", ["constant:4", "pass-through"])
+def test_other_traces_print_no_warning(capsys, spec):
+    code, lines = run(capsys, "--orders", spec)
+    assert code == 0
+    assert not any(line.startswith("warning") for line in lines)
+
+
+def test_trace_rule_based_with_another_set_needs_no_code_change(capsys, tmp_path, monkeypatch):
+    import app.platform.parameter_sets as parameter_sets
+
+    (tmp_path / "rule_based").mkdir()
+    data = {
+        "id": "verified-test",
+        "version": 2,
+        "verified": True,
+        "source": "test set",
+        "theta": "1",
+        "alpha_s": "1",
+        "beta": "1",
+        "desired_inventory": 12,
+    }
+    (tmp_path / "rule_based" / "verified-test.json").write_text(json.dumps(data), encoding="utf-8")
+    monkeypatch.setattr(
+        "app.sim.read_parameter_set",
+        lambda kind, set_id: parameter_sets.read_parameter_set(kind, set_id, root=tmp_path),
+    )
+    code, lines = run(capsys, "--orders", "rule_based", "--rule-based-params", "verified-test")
+    assert code == 0
+    assert len(lines) == 1 + 36 * 4  # verified set: no warning line
+    # theta 1 and alpha_s 1: the Retailer's Week 5 Order is 8 + (12 - 8) + (24 - 12) = 24
+    assert lines[1 + 4 * 4].split()[:2] == ["5", "retailer"]
+    assert lines[1 + 4 * 4].split()[7] == "24"
+
+
+@pytest.mark.parametrize(
+    ("set_id", "content"),
+    [
+        ("nope", None),
+        ("../escape", None),
+        ("broken", "{not json"),
+        ("mismatch", '{"id": "other"}'),
+    ],
+)
+def test_trace_rule_based_bad_parameter_set_exits_2(capsys, tmp_path, monkeypatch, set_id, content):
+    import app.platform.parameter_sets as parameter_sets
+
+    (tmp_path / "rule_based").mkdir()
+    if content is not None:
+        (tmp_path / "rule_based" / f"{set_id}.json").write_text(content, encoding="utf-8")
+    monkeypatch.setattr(
+        "app.sim.read_parameter_set",
+        lambda kind, name: parameter_sets.read_parameter_set(kind, name, root=tmp_path),
+    )
+    with pytest.raises(SystemExit) as info:
+        main(["trace", "--orders", "rule_based", "--rule-based-params", set_id])
+    assert info.value.code == 2
+    assert "--rule-based-params" in capsys.readouterr().err
+
+
+def write_set(tmp_path, set_id, **values):
+    (tmp_path / "rule_based").mkdir(exist_ok=True)
+    data = {
+        "id": set_id,
+        "version": 1,
+        "verified": True,
+        "source": "test set",
+        "theta": "0.5",
+        "alpha_s": "0.5",
+        "beta": "0.5",
+        "desired_inventory": 12,
+    } | values
+    (tmp_path / "rule_based" / f"{set_id}.json").write_text(json.dumps(data), encoding="utf-8")
+
+
+def test_trace_rule_based_guided_weeks_order_the_starting_demand(capsys, tmp_path, monkeypatch):
+    import app.platform.parameter_sets as parameter_sets
+
+    write_set(tmp_path, "stock-30", desired_inventory=30)
+    monkeypatch.setattr(
+        "app.sim.read_parameter_set",
+        lambda kind, set_id: parameter_sets.read_parameter_set(kind, set_id, root=tmp_path),
+    )
+    code, lines = run(capsys, "--orders", "rule_based", "--rule-based-params", "stock-30")
+    assert code == 0
+    rows = [line.split() for line in lines[1:]]
+    assert all(row[7] == "4" for row in rows if int(row[0]) <= 4)
+    # Week 5, Wholesaler: E 4, S 12, SL 12, SL* 12 -> 4 + 0.5 * (30 - 12) = 13
+    week5 = {row[1]: row[7] for row in rows if row[0] == "5"}
+    assert week5["wholesaler"] == "13"
+    assert all(value != "4" for value in week5.values())
+
+
+@pytest.mark.parametrize("guided_weeks", [0, 3])
+def test_rule_based_policy_skips_the_rule_only_in_guided_weeks(guided_weeks):
+    from app.engine import GameSettings, advance, initial_state
+    from app.sim import load_rule_based_params, rule_based_policy
+
+    settings = GameSettings(guided_weeks=guided_weeks)
+    policy = rule_based_policy(load_rule_based_params("placeholder-unverified"))
+    states, placed = [initial_state(settings)], []
+    called_in = []
+    with mock.patch("app.sim.rule_based.order", return_value=7) as rule:
+        for _ in range(guided_weeks + 1):
+            calls = rule.call_count
+            orders = policy(settings, states, placed)
+            called_in.append(rule.call_count > calls)
+            placed.append(orders)
+            states.append(advance(settings, states[-1], orders))
+    assert called_in == [False] * guided_weeks + [True]
+    assert all(set(orders.values()) == {4} for orders in placed[:guided_weeks])
+    assert set(placed[guided_weeks].values()) == {7}

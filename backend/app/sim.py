@@ -2,6 +2,9 @@
 
 Subcommands:
   trace            play one Game in the pure engine and print one row per Week and Role.
+                   `--orders rule_based` plays every Seat with the Rule-based player (Guided
+                   Weeks order the starting demand) and warns when its parameter set is an
+                   unverified placeholder.
   settings check   check a JSON file of GameSettings overrides; exit 0 when there
                    are only warnings, 1 on errors, 2 when the file is unreadable or not
                    a JSON object.
@@ -33,16 +36,26 @@ from app.engine import (
     SettingsWarning,
     WeekState,
     advance,
+    guided_order,
     initial_state,
+    rule_based,
+    seat_view,
     validate,
     validate_demand,
     warnings,
 )
 from app.engine.demand import new_seed, series
+from app.platform.parameter_sets import UnknownParameterSetError, read_parameter_set
 
 DEMAND_PATTERN: TypeAdapter[DemandPattern] = TypeAdapter(DemandPattern)
 
-type OrderPolicy = Callable[[WeekState], Mapping[str, int]]
+type OrderPolicy = Callable[
+    [GameSettings, Sequence[WeekState], Sequence[Mapping[str, int]]], Mapping[str, int]
+]
+"""Orders for the last opened Week of `states`, given the Order maps of the earlier Weeks."""
+
+RULE_BASED = "rule_based"
+DEFAULT_RULE_BASED_PARAMS = "placeholder-unverified"
 
 SETTINGS: dict[str, Callable[[], GameSettings]] = {"classic": GameSettings}
 
@@ -59,25 +72,53 @@ COLUMNS = (
 )
 
 
-def _pass_through(state: WeekState) -> Mapping[str, int]:
-    return {seat.role: seat.incoming_order for seat in state.seats}
+def _pass_through(
+    settings: GameSettings, states: Sequence[WeekState], orders: Sequence[Mapping[str, int]]
+) -> Mapping[str, int]:
+    return {seat.role: seat.incoming_order for seat in states[-1].seats}
 
 
 def _constant(order: int) -> OrderPolicy:
-    def policy(state: WeekState) -> Mapping[str, int]:
-        return {seat.role: order for seat in state.seats}
+    def policy(
+        settings: GameSettings, states: Sequence[WeekState], orders: Sequence[Mapping[str, int]]
+    ) -> Mapping[str, int]:
+        return {seat.role: order for seat in states[-1].seats}
 
     return policy
 
 
-def orders_spec(text: str) -> OrderPolicy:
-    """`constant:N` (every Seat orders N every Week) or `pass-through` (own incoming order)."""
+def rule_based_policy(params: rule_based.RuleBasedParams) -> OrderPolicy:
+    """Every Seat played by the Rule-based player; Guided Weeks order the starting demand."""
+
+    def policy(
+        settings: GameSettings, states: Sequence[WeekState], orders: Sequence[Mapping[str, int]]
+    ) -> Mapping[str, int]:
+        if states[-1].week <= settings.guided_weeks:
+            return {role: guided_order(settings) for role in settings.roles}
+        return {
+            role: rule_based.order(settings, seat_view(settings, states, orders, role), params)
+            for role in settings.roles
+        }
+
+    return policy
+
+
+def load_rule_based_params(set_id: str) -> rule_based.RuleBasedParams:
+    """The Rule-based parameter set `set_id` from its configuration file."""
+    return rule_based.parse_params(read_parameter_set(RULE_BASED, set_id), set_id)
+
+
+def orders_spec(text: str) -> OrderPolicy | str:
+    """`constant:N` (every Seat orders N every Week), `pass-through` (own incoming order) or
+    `rule_based` (resolved with its parameter set once the options are parsed)."""
     if text == "pass-through":
         return _pass_through
+    if text == RULE_BASED:
+        return RULE_BASED
     match = re.fullmatch(r"constant:([0-9]+)", text)
     if match is None:
         raise argparse.ArgumentTypeError(
-            f"unknown Orders spec {text!r}: use constant:N or pass-through"
+            f"unknown Orders spec {text!r}: use constant:N, pass-through or rule_based"
         )
     return _constant(int(match.group(1)))
 
@@ -92,15 +133,27 @@ def _format(values: Sequence[object]) -> str:
 
 def _trace(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     settings = SETTINGS[args.settings]()
-    policy: OrderPolicy = args.orders
+    params: rule_based.RuleBasedParams | None = None
+    if args.orders == RULE_BASED:
+        try:
+            params = load_rule_based_params(args.rule_based_params)
+        except (UnknownParameterSetError, ValueError) as exc:
+            parser.error(f"--rule-based-params: {exc}")
+        policy: OrderPolicy = rule_based_policy(params)
+    else:
+        policy = args.orders
     state = initial_state(settings)
+    states: list[WeekState] = []
+    placed: list[Mapping[str, int]] = []
     print(_format([name for name, _ in COLUMNS]))
     while not state.finished:
-        orders = policy(state)
+        states.append(state)
+        orders = policy(settings, states, placed)
         try:
             following = advance(settings, state, orders)
         except InvalidOrdersError as exc:
             parser.error(f"--orders: {exc}")
+        placed.append(orders)
         for seat in state.seats:
             print(
                 _format(
@@ -118,6 +171,11 @@ def _trace(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 )
             )
         state = following
+    if params is not None and not params.verified:
+        print(
+            f"warning: Rule-based parameter set {params.id} v{params.version} is a placeholder "
+            f"(unverified): {params.source}"
+        )
     return 0
 
 
@@ -246,7 +304,13 @@ def build_parser() -> argparse.ArgumentParser:
         type=orders_spec,
         default="pass-through",
         metavar="SPEC",
-        help="constant:N or pass-through (default)",
+        help="constant:N, pass-through (default) or rule_based",
+    )
+    trace.add_argument(
+        "--rule-based-params",
+        default=DEFAULT_RULE_BASED_PARAMS,
+        metavar="ID",
+        help=f"Rule-based parameter set id (default {DEFAULT_RULE_BASED_PARAMS})",
     )
     trace.set_defaults(handler=_trace, command_parser=trace)
     settings = commands.add_parser("settings", help="work with Game settings")
