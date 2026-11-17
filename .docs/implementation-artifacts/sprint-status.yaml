@@ -45,7 +45,7 @@ development_status:
   1-7-create-a-simulation-game-with-an-ai-player-in-every-seat: done
   1-8-start-the-game-and-read-what-each-seat-sees: done
   1-9-place-orders-write-the-decision-log-and-advance-the-week: done
-  1-10-verify-every-finished-game-by-replaying-it: backlog
+  1-10-verify-every-finished-game-by-replaying-it: in-progress
   1-11-run-batches-of-all-ai-games-with-scripted-occupants: backlog
   1-12-cap-what-a-seat-can-ship-per-week-cut-list-feature_capacity: backlog
   epic-1-retrospective: optional
