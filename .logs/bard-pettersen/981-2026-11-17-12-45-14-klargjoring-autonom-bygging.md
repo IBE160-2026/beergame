@@ -24,6 +24,7 @@ Brukeren vil bruke `/goal` til å bygge alle epics og stories uten at noen følg
 - Issue #35 er opprettet med hele sjekklista.
 - Programmene er gjort klare etter at brukeren ba om det: uv er oppdatert fra 0.5.21 til 0.13.7, Node.js 24.22.3 er lastet ned fra nodejs.org (sjekksum kontrollert), pakket ut i nvm-mappa og gjort aktiv, og Docker Desktop er startet. Autostart sto alt på. `nvm install` ga ingen utdata i dette skallet, derfor ble Node installert for hånd. Byttet av aktiv versjon krevde en elevert kommando.
 - Kontroll etterpå: `node -v` gir v24.22.3, `uv --version` gir 0.13.7, og `docker run postgres:17` starter. Portene 8080, 5432, 3000 og 8000 er fortsatt ledige, selv om Docker startet 24 containere fra før.
+- De 24 containerne fra før er stoppet etter at brukeren ba om det. De er ikke slettet, og volumene er urørt. De har omstartsregelen `unless-stopped`, så de starter ikke igjen av seg selv.
 - Ikke gjort: dvale og Windows Update er ikke endret, `.claude/settings.json` er ikke laget, og målteksten til `/goal` er ikke skrevet.
 
 ### Åpne punkter
