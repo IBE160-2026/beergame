@@ -22,7 +22,9 @@ Brukeren vil bruke `/goal` til å bygge alle epics og stories uten at noen følg
 - Ny fil `.env` i prosjektroten. Den er git-ignorert og committes ikke. Den har bare `OPENROUTER_API_KEY` og `OPENROUTER_BASE_URL`, og brukeren fyller inn nøkkelen selv. LLM-nøkkelen er den eneste nøkkelen lokal kjøring kan bruke, og den er valgfri (Story 2.7 og 2.11).
 - Utsatt til slutt: Story 3.15 og delene av Epic 15 som må kjøres mot produksjon (15.10, 15.14, og punktene grunnleggeren fyller inn i 15.9 og 15.11). Story 3.14 bygges på plass i Epic 3 (bestemt av brukeren); Story 13.7 og 15.9 bygger på den.
 - Issue #35 er opprettet med hele sjekklista.
-- Ikke gjort: ingen programmer er installert eller oppdatert, `.claude/settings.json` er ikke laget, og målteksten til `/goal` er ikke skrevet.
+- Programmene er gjort klare etter at brukeren ba om det: uv er oppdatert fra 0.5.21 til 0.13.7, Node.js 24.22.3 er lastet ned fra nodejs.org (sjekksum kontrollert), pakket ut i nvm-mappa og gjort aktiv, og Docker Desktop er startet. Autostart sto alt på. `nvm install` ga ingen utdata i dette skallet, derfor ble Node installert for hånd. Byttet av aktiv versjon krevde en elevert kommando.
+- Kontroll etterpå: `node -v` gir v24.22.3, `uv --version` gir 0.13.7, og `docker run postgres:17` starter. Portene 8080, 5432, 3000 og 8000 er fortsatt ledige, selv om Docker startet 24 containere fra før.
+- Ikke gjort: dvale og Windows Update er ikke endret, `.claude/settings.json` er ikke laget, og målteksten til `/goal` er ikke skrevet.
 
 ### Åpne punkter
 - Issue #35: sjekklista før autonom bygging (programmer, Claude Code, avgjørelser, LLM-nøkkelen, klargjøring).
