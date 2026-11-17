@@ -187,3 +187,22 @@ Bygge Story 1.10 på `epic-1`.
 
 ### Åpne punkter
 - Issue #46: beslutninger om regelversjoner og sjekkraden.
+
+## Story 1.11: Batcher av rene AI-spill med skriptede spillere (2026-11-17)
+
+### Oppgave
+Bygge Story 1.11 på `epic-1`.
+
+### Plan
+`bmad-build-auto` i én underagent, med implementering i egen kontekst og gjennomgang i underagenter.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-1-11-run-batches-of-all-ai-games.md`. Commit `863cabb`.
+- `python -m app.sim run <batch.json> [--export DIR]` oppretter, starter, spiller og sjekker hvert spill gjennom `games.commands`, og skriver sammendrag per spill og batch. Ny `games.service.game_summary`, ny policy `order-incoming`, CSV-eksport av beslutningsloggen, og en røyktest-batch i CI.
+- 1082 tester grønne, full grenddekning av motoren, ruff ren. Røyktesten ga 3/3 sjekker ok.
+- Gjennomgang: 34 funn, ingen høye eller middels, 10 lave rettet.
+- Underagenten fant at `sim check --all` fra Story 1.10 manglet. Det bygges som egen retting.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #47: beslutninger om batchformat, frø, utkoder og eksport.
