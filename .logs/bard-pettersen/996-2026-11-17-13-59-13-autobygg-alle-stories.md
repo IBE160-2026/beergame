@@ -22,3 +22,24 @@ Bygge Story 1.1 på grenen `epic-1`. Underveis ba brukeren om mappene `frontend/
 ### Åpne punkter
 - Issue #36: CI bygger ikke compose-stacken og Caddy.
 
+## Story 1.2: Klassisk kjede uke for uke mot referansesporet (2026-11-17)
+
+### Oppgave
+Bygge Story 1.2 på `epic-1`. Brukeren sa underveis at det ikke skal være noen human in the loop: sjekker som kjøreboka la på grunnleggeren, tas av andre agenter og Playwright CLI.
+
+### Plan
+- `bmad-build-auto` i én underagent. Implementeringsagenten stoppet halvveis, og byggeagenten fullførte selv.
+- Grunnleggerens sjekk av de ti første ukene erstattes av en uavhengig agent som regner dem ut uten å se byggerens tabell.
+- Kjøreboka oppdateres: ingen stories settes til `review` for å vente på grunnleggeren.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-1-2-classic-chain-reference-trace.md`. Commit `1b1e27a` (story), pluss kjørebok og status.
+- Ren motor i `backend/app/engine/` (`GameSettings`, `initial_state`, `advance`), `python -m app.sim trace`, to golden-spor (konstant 4 over 36 uker, steg til 8 over 10 uker), CI-krav om 100 % grenddekning av motoren.
+- 86 tester grønne, ruff ren. Den uavhengige utregningen av uke 1–10 ga 0 avvik.
+- Gjennomgang: 37 funn (0 høye, 3 middels), 7 grupper rettet, 30 avvist med begrunnelse.
+- Kjøreboka sier nå at sjekker tas av agenter og Playwright CLI (`@playwright/cli@0.1.24`). Valget ligger også i minnet.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #37: fabrikkpipeline, uavhengig sjekk og anbefalt oppfølgende gjennomgang.
+
