@@ -3,11 +3,18 @@
 import uuid
 from typing import Any
 
-from sqlalchemy import RowMapping, select, update
+from sqlalchemy import RowMapping, func, select, update
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.games.models import game_weeks, games, seat_occupancy, seat_turns, seats
+from app.modules.games.models import (
+    game_weeks,
+    games,
+    seat_occupancy,
+    seat_turns,
+    seat_weeks,
+    seats,
+)
 
 
 async def insert_game(session: AsyncSession, values: dict[str, Any]) -> None:
@@ -89,9 +96,16 @@ async def set_lifecycle(session: AsyncSession, game_id: uuid.UUID, lifecycle: st
 
 
 async def insert_week(
-    session: AsyncSession, game_id: uuid.UUID, week: int, state: dict[str, Any]
+    session: AsyncSession,
+    game_id: uuid.UUID,
+    week: int,
+    state: dict[str, Any],
+    *,
+    finished: bool = False,
 ) -> None:
-    await session.execute(game_weeks.insert().values(game_id=game_id, week=week, state=state))
+    await session.execute(
+        game_weeks.insert().values(game_id=game_id, week=week, finished=finished, state=state)
+    )
 
 
 async def insert_turns(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
@@ -99,11 +113,11 @@ async def insert_turns(session: AsyncSession, rows: list[dict[str, Any]]) -> Non
 
 
 async def week_states(session: AsyncSession, game_id: uuid.UUID) -> list[dict[str, Any]]:
-    """The stored Week states of the Game, Week 1 first."""
+    """The stored Week states of the Game, Week 1 first and the finished state (if any) last."""
     result = await session.execute(
         select(game_weeks.c.state)
         .where(game_weeks.c.game_id == game_id)
-        .order_by(game_weeks.c.week)
+        .order_by(game_weeks.c.week, game_weeks.c.finished)
     )
     return list(result.scalars())
 
@@ -119,3 +133,76 @@ async def turn(
         )
     )
     return result.mappings().one_or_none()
+
+
+async def week_turns(session: AsyncSession, game_id: uuid.UUID, week: int) -> list[RowMapping]:
+    """The turns of every Seat in `week`."""
+    result = await session.execute(
+        select(seat_turns).where(seat_turns.c.game_id == game_id, seat_turns.c.week == week)
+    )
+    return list(result.mappings())
+
+
+async def set_ordered_at(session: AsyncSession, turn_id: uuid.UUID) -> Any:
+    """Mark the turn as ordered at the transaction's `now()`; returns that time."""
+    result = await session.execute(
+        update(seat_turns)
+        .where(seat_turns.c.id == turn_id)
+        .values(ordered_at=func.now())
+        .returning(seat_turns.c.ordered_at)
+    )
+    return result.scalar_one()
+
+
+async def occupancy_in_force(
+    session: AsyncSession, seat_id: uuid.UUID, week: int
+) -> RowMapping | None:
+    """The Seat's occupancy row that applies in `week`: the newest with `from_week <= week`."""
+    result = await session.execute(
+        select(seat_occupancy)
+        .where(seat_occupancy.c.seat_id == seat_id, seat_occupancy.c.from_week <= week)
+        .order_by(seat_occupancy.c.from_week.desc(), seat_occupancy.c.id.desc())
+        .limit(1)
+    )
+    return result.mappings().one_or_none()
+
+
+async def has_seat_week(
+    session: AsyncSession, game_id: uuid.UUID, week: int, seat_id: uuid.UUID
+) -> bool:
+    result = await session.execute(
+        select(seat_weeks.c.id)
+        .where(
+            seat_weeks.c.game_id == game_id,
+            seat_weeks.c.week == week,
+            seat_weeks.c.seat_id == seat_id,
+        )
+        .limit(1)
+    )
+    return result.first() is not None
+
+
+async def insert_seat_week(session: AsyncSession, values: dict[str, Any]) -> None:
+    await session.execute(seat_weeks.insert().values(**values))
+
+
+async def placed_orders(session: AsyncSession, game_id: uuid.UUID) -> list[RowMapping]:
+    """Every stored Order of the Game as `week`, `role`, `order`, by Week."""
+    result = await session.execute(
+        select(seat_weeks.c.week, seats.c.role, seat_weeks.c.order)
+        .select_from(seat_weeks.join(seats, seats.c.id == seat_weeks.c.seat_id))
+        .where(seat_weeks.c.game_id == game_id)
+        .order_by(seat_weeks.c.week, seats.c.position)
+    )
+    return list(result.mappings())
+
+
+async def decision_log(session: AsyncSession, game_id: uuid.UUID) -> list[RowMapping]:
+    """The Game's Decision log rows with each Seat's Role, by Week and chain order."""
+    result = await session.execute(
+        select(seat_weeks, seats.c.role)
+        .select_from(seat_weeks.join(seats, seats.c.id == seat_weeks.c.seat_id))
+        .where(seat_weeks.c.game_id == game_id)
+        .order_by(seat_weeks.c.week, seats.c.position)
+    )
+    return list(result.mappings())

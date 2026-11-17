@@ -9,7 +9,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "games.create": frozenset({"game"}),
         "games.assign_seat": frozenset({"game"}),
         "games.start": frozenset({"game"}),
+        "games.place_order": frozenset({"game"}),
+        "games.finish": frozenset({"game"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add
-`session` (AD-13); simulation Games never do."""
+`session` (AD-13); simulation Games never do. `games.finish` runs inside the transaction of the
+command that completes the last Week and shares its one event."""

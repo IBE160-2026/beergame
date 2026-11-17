@@ -192,6 +192,10 @@ async def test_the_reference_order_and_opening_can_never_change(games_db):
             execute(games_db, statement, (game_id,) if "%s" in statement else ())
     execute(games_db, "UPDATE seat_turns SET ordered_at = now()")  # Story 1.9 sets this
     assert all(row[3] is not None for row in turns(games_db, game_id))
+    with pytest.raises(psycopg.errors.RestrictViolation, match="keeps its opening values"):
+        execute(games_db, "UPDATE seat_turns SET ordered_at = now() - interval '1 hour'")
+    with pytest.raises(psycopg.errors.RestrictViolation, match="keeps its opening values"):
+        execute(games_db, "UPDATE seat_turns SET ordered_at = NULL")
 
 
 async def test_start_waits_for_the_game_row_lock(games_db):

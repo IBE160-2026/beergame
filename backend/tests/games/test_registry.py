@@ -11,7 +11,7 @@ from app.engine import GameSettings
 from app.modules.games import commands
 from app.platform.db import get_engine
 from app.platform.events.registry import COMMAND_TOPICS
-from tests.games.helpers import listening
+from tests.games.helpers import listening, play_to_end
 
 
 def public_commands() -> set[str]:
@@ -40,13 +40,32 @@ async def _run_start() -> str:
     return game_id
 
 
-RUNNERS = {"create": _run_create, "assign_seat": _run_assign_seat, "start": _run_start}
+async def _run_place_order() -> str:
+    game_id = await _run_start()
+    await commands.place_order(game_id, "retailer", 1, 4, "guided")
+    return game_id
+
+
+async def _run_finish() -> str:
+    """`finish` runs inside the `place_order` that completes the last Week."""
+    game_id = await _run_start()
+    await play_to_end(game_id)
+    return game_id
+
+
+RUNNERS = {
+    "create": _run_create,
+    "assign_seat": _run_assign_seat,
+    "start": _run_start,
+    "place_order": _run_place_order,
+    "finish": _run_finish,
+}
 """How to run each command once; a command added without a runner fails the test below."""
 
 
 def test_every_command_is_exported_and_registered():
     found = public_commands()
-    assert found == {"create", "assign_seat", "start"} == set(RUNNERS)
+    assert found == {"create", "assign_seat", "start", "place_order", "finish"} == set(RUNNERS)
     assert found <= set(commands.__all__)
     games_entries = {
         key.removeprefix("games.") for key in COMMAND_TOPICS if key.startswith("games.")
@@ -59,7 +78,7 @@ async def test_each_command_emits_exactly_its_registered_topics(games_db):
         with listening(games_db) as events:
             game_id = await runner()
             received = events.drain()
-        if name in {"assign_seat", "start"}:
+        if name != "create":
             received = received[1:]  # the first event is the setup's create
         assert {item["topic"] for item in received} == COMMAND_TOPICS[f"games.{name}"]
         assert all(item["id"] == game_id for item in received)

@@ -10,7 +10,15 @@ from alembic.config import Config
 from tests.conftest import libpq_dsn
 
 API_ROOT = Path(__file__).resolve().parents[1]
-HEAD_TABLES = {"alembic_version", "games", "seats", "seat_occupancy", "game_weeks", "seat_turns"}
+HEAD_TABLES = {
+    "alembic_version",
+    "games",
+    "seats",
+    "seat_occupancy",
+    "game_weeks",
+    "seat_turns",
+    "seat_weeks",
+}
 
 
 def reset_schema(url: str) -> None:
@@ -44,7 +52,7 @@ def test_upgrade_head_from_empty_creates_the_games_tables(test_database):
     reset_schema(test_database)
     command.upgrade(config(test_database), "head")
     assert tables(test_database) == HEAD_TABLES
-    assert current_version(test_database) == "0003"
+    assert current_version(test_database) == "0004"
 
 
 def test_the_revisions_match_the_module_tables(test_database):
@@ -82,7 +90,38 @@ def test_downgrade_to_0002_removes_the_week_tables(test_database):
         ).fetchall()
     assert functions == []
     command.upgrade(cfg, "head")
+    assert current_version(test_database) == "0004"
+
+
+def test_downgrade_to_0003_restores_the_week_tables_of_story_1_8(test_database):
+    reset_schema(test_database)
+    cfg = config(test_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0003")
+    assert tables(test_database) == HEAD_TABLES - {"seat_weeks"}
     assert current_version(test_database) == "0003"
+    with psycopg.connect(libpq_dsn(test_database)) as conn:
+        functions = {
+            row[0]
+            for row in conn.execute(
+                "SELECT proname FROM pg_proc WHERE proname IN "
+                "('seat_weeks_append_only', 'game_weeks_append_only', 'seat_turns_keep_opening')"
+            ).fetchall()
+        }
+        primary_key = conn.execute(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'game_weeks_pkey'"
+        ).fetchone()
+        columns = {
+            row[0]
+            for row in conn.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'game_weeks'"
+            ).fetchall()
+        }
+    assert functions == {"seat_turns_keep_opening"}
+    assert primary_key == ("PRIMARY KEY (game_id, week)",)
+    assert "finished" not in columns
+    command.upgrade(cfg, "head")
+    assert current_version(test_database) == "0004"
 
 
 def test_alembic_cli_uses_database_url_from_environment(test_database):
@@ -107,6 +146,10 @@ CHECKS = {
     "ck_games_lifecycle": "Lifecycle",
     "ck_seat_occupancy_kind": "OccupantKind",
     "ck_seat_occupancy_reason": "OccupancyReason",
+    "ck_seat_weeks_decided_by": "DecidedBy",
+    "ck_seat_weeks_fallback": "Fallback",
+    "ck_seat_weeks_occupant_kind": "OccupantKind",
+    "ck_seat_weeks_reason": "OccupancyReason",
 }
 
 

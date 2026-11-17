@@ -4,6 +4,7 @@ from enum import StrEnum
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -14,11 +15,19 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     Uuid,
+    false,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 
-from app.modules.games.schemas import Lifecycle, OccupancyReason, OccupantKind, Purpose
+from app.modules.games.schemas import (
+    DecidedBy,
+    Fallback,
+    Lifecycle,
+    OccupancyReason,
+    OccupantKind,
+    Purpose,
+)
 from app.platform.db import metadata
 
 
@@ -78,11 +87,14 @@ game_weeks = Table(
     metadata,
     Column("game_id", Uuid, ForeignKey("games.id"), primary_key=True),
     Column("week", Integer, primary_key=True),
-    # The engine's `WeekState` of the opened Week, stored before anyone can read it (FR-26).
+    # False: the opened Week. True: the finished state after the last Week, same Week number.
+    Column("finished", Boolean, primary_key=True, server_default=false()),
+    # The engine's `WeekState`, stored before anyone can read it (FR-26).
     Column("state", JSONB, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     CheckConstraint("week >= 1", name="ck_game_weeks_week"),
 )
+"""Append-only: a trigger refuses UPDATE and DELETE."""
 
 seat_turns = Table(
     "seat_turns",
@@ -99,5 +111,35 @@ seat_turns = Table(
     UniqueConstraint("game_id", "week", "seat_id", name="uq_seat_turns_game_week_seat"),
 )
 """One row per Seat per opened Week (AD-20). A trigger refuses DELETE and any UPDATE of the
-Week, the Seat, `opened_at` or the Rule-based reference Order, which is computed once when the
-Week opens (AD-5)."""
+Week, the Seat, `opened_at`, an `ordered_at` already set, or the Rule-based reference Order,
+which is computed once when the Week opens (AD-5)."""
+
+seat_weeks = Table(
+    "seat_weeks",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("game_id", Uuid, ForeignKey("games.id"), nullable=False),
+    Column("seat_id", Uuid, ForeignKey("seats.id"), nullable=False),
+    Column("week", Integer, nullable=False),
+    # The `SeatState` the Seat saw when it ordered (AD-3, FR-67).
+    Column("state_seen", JSONB, nullable=False),
+    Column("order", Integer, nullable=False),
+    Column("decided_by", Text, nullable=False),
+    Column("fallback", Text, nullable=False),
+    # The occupancy row in force when the Order was placed.
+    Column("occupant_kind", Text, nullable=False),
+    Column("reason", Text, nullable=False),
+    Column("opened_at", DateTime(timezone=True), nullable=False),
+    Column("ordered_at", DateTime(timezone=True), nullable=False),
+    Column("rule_based_reference_order", Integer, nullable=False),
+    CheckConstraint("week >= 1", name="ck_seat_weeks_week"),
+    CheckConstraint('"order" >= 0', name="ck_seat_weeks_order"),
+    CheckConstraint("rule_based_reference_order >= 0", name="ck_seat_weeks_reference_order"),
+    CheckConstraint(_in("decided_by", DecidedBy), name="ck_seat_weeks_decided_by"),
+    CheckConstraint(_in("fallback", Fallback), name="ck_seat_weeks_fallback"),
+    CheckConstraint(_in("occupant_kind", OccupantKind), name="ck_seat_weeks_occupant_kind"),
+    CheckConstraint(_in("reason", OccupancyReason), name="ck_seat_weeks_reason"),
+    UniqueConstraint("game_id", "week", "seat_id", name="uq_seat_weeks_game_week_seat"),
+)
+"""The Decision log (AD-15): one row per Seat per Week, written once by `place_order`. A
+trigger refuses UPDATE and DELETE."""

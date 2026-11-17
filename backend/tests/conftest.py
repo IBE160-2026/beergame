@@ -67,7 +67,9 @@ def games_db(test_database) -> str:
     is needed because the migration tests drop the schema."""
     migrate(test_database)
     with psycopg.connect(libpq_dsn(test_database), autocommit=True) as conn:
-        conn.execute("TRUNCATE games, seats, seat_occupancy, game_weeks, seat_turns CASCADE")
+        conn.execute(
+            "TRUNCATE games, seats, seat_occupancy, game_weeks, seat_turns, seat_weeks CASCADE"
+        )
     return test_database
 
 

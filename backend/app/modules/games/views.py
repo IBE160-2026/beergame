@@ -10,12 +10,13 @@ from collections.abc import Mapping, Sequence
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.engine import GameSettings, Role, WeekState, placed_orders, seat_detail, seat_view
-from app.modules.games import repo
-from app.modules.games.schemas import Lifecycle, SeatState, TurnOverview
+from app.engine import GameSettings, Role, WeekState, seat_detail, seat_view
+from app.modules.games import repo, rules
+from app.modules.games.policy import policy
+from app.modules.games.schemas import DecisionLogRow, Lifecycle, SeatState, TurnOverview
 from app.platform.db import get_sessionmaker
 
-__all__ = ["ViewError", "build_seat_state", "open_turn", "seat_state"]
+__all__ = ["ViewError", "build_seat_state", "decision_log", "open_turn", "seat_state"]
 
 
 class ViewError(Exception):
@@ -73,6 +74,25 @@ async def _opened(session: AsyncSession, game_id: uuid.UUID) -> list[WeekState]:
     return [s for s in map(WeekState.model_validate, stored) if not s.finished]
 
 
+async def stored_orders(session: AsyncSession, game_id: uuid.UUID) -> list[dict[str, int]]:
+    """The Order map of every Week that has an Order in the Decision log, Week 1 first."""
+    maps: list[dict[str, int]] = []
+    for row in await repo.placed_orders(session, game_id):
+        while len(maps) < row["week"]:
+            maps.append({})
+        maps[row["week"] - 1][row["role"]] = row["order"]
+    return maps
+
+
+async def stored_play(
+    session: AsyncSession, game_id: uuid.UUID
+) -> tuple[list[WeekState], list[dict[str, int]]]:
+    """The opened Weeks and the Order maps of the Weeks before the newest opened one."""
+    opened = await _opened(session, game_id)
+    orders = await stored_orders(session, game_id)
+    return opened, orders[: max(len(opened) - 1, 0)]
+
+
 def _week(opened: Sequence[WeekState], week: int | None) -> int:
     """`week`, or the newest opened Week; refuses a Week that has not been opened."""
     week = len(opened) if week is None else week
@@ -87,10 +107,10 @@ async def seat_state(game_id: str, seat: str, week: int | None = None) -> SeatSt
     Built from the Game's snapshot settings and its stored Week states only."""
     async with get_sessionmaker()() as session:
         game, row = await _game_and_seat(session, game_id, seat)
-        opened = await _opened(session, game["id"])
-    states = opened[: _week(opened, week)]
+        opened, orders = await stored_play(session, game["id"])
+    week = _week(opened, week)
     settings = GameSettings.model_validate(game["settings"])
-    return build_seat_state(settings, states, placed_orders(settings, states), row["role"])
+    return build_seat_state(settings, opened[:week], orders[: week - 1], row["role"])
 
 
 async def open_turn(game_id: str, seat: str, week: int | None = None) -> TurnOverview:
@@ -101,9 +121,39 @@ async def open_turn(game_id: str, seat: str, week: int | None = None) -> TurnOve
         turn = await repo.turn(session, game["id"], row["id"], week)
     if turn is None:
         raise ViewError("week_not_open", f"the Seat has no turn in Week {week}", 409)
+    settings = GameSettings.model_validate(game["settings"])
     return TurnOverview(
         week=turn["week"],
+        guided=rules.guided_week(policy(game["purpose"]), settings, turn["week"]),
         opened_at=turn["opened_at"],
         ordered_at=turn["ordered_at"],
         rule_based_reference_order=turn["rule_based_reference_order"],
+    )
+
+
+async def decision_log(game_id: str) -> tuple[DecisionLogRow, ...]:
+    """The Game's Decision log: one row per Seat per Week with an Order, by Week and chain
+    order (AD-15)."""
+    game_uuid = _uuid(game_id)
+    async with get_sessionmaker()() as session:
+        game = await repo.get_game(session, game_uuid) if game_uuid else None
+        if game is None:
+            raise ViewError("game_not_found", f"no Game {game_id!r}", 404)
+        rows = await repo.decision_log(session, game_uuid)
+    return tuple(
+        DecisionLogRow(
+            week=row["week"],
+            role=row["role"],
+            seat_id=str(row["seat_id"]),
+            order=row["order"],
+            decided_by=row["decided_by"],
+            fallback=row["fallback"],
+            occupant_kind=row["occupant_kind"],
+            reason=row["reason"],
+            opened_at=row["opened_at"],
+            ordered_at=row["ordered_at"],
+            rule_based_reference_order=row["rule_based_reference_order"],
+            state_seen=SeatState.model_validate(row["state_seen"]),
+        )
+        for row in rows
     )

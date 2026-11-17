@@ -2,26 +2,33 @@
 
 import uuid
 
+from app.engine import GameSettings
 from app.modules.games import repo
 from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, policy
 from app.modules.games.schemas import (
+    DecidedBy,
+    DecisionLogRow,
     GameOverview,
     Lifecycle,
     OccupantKind,
+    OrderPlaced,
     Purpose,
     SeatOverview,
     SeatState,
     SessionRuntime,
     TurnOverview,
 )
-from app.modules.games.views import ViewError, open_turn, seat_state
+from app.modules.games.views import ViewError, decision_log, open_turn, seat_state
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "DecidedBy",
+    "DecisionLogRow",
     "GameOverview",
     "GamePolicy",
     "Lifecycle",
     "OccupantKind",
+    "OrderPlaced",
     "Purpose",
     "PurposeNotSupportedError",
     "SeatOverview",
@@ -29,6 +36,7 @@ __all__ = [
     "SessionRuntime",
     "TurnOverview",
     "ViewError",
+    "decision_log",
     "get_game",
     "open_turn",
     "policy",
@@ -54,6 +62,7 @@ async def get_game(game_id: str) -> GameOverview | None:
         version=game["version"],
         demand_seed=game["demand_seed"],
         rules_version=game["rules_version"],
+        settings=GameSettings.model_validate(game["settings"]),
         session_runtime=SessionRuntime.model_validate(game["session_runtime"]),
         seats=tuple(
             SeatOverview(

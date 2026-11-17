@@ -22,7 +22,7 @@ from app.engine.state import WeekState
 from app.modules.games import commands, service, views
 from app.modules.games.schemas import SeatState
 from app.platform.parameter_sets import read_parameter_set
-from tests.games.helpers import execute
+from tests.games.helpers import execute, play_week
 
 ROLES = ("retailer", "wholesaler", "distributor", "factory")
 
@@ -250,15 +250,10 @@ async def test_seat_state_reads_the_stored_week(games_db):
     assert by_id.role == Role.DISTRIBUTOR
 
 
-async def test_seat_state_of_a_later_stored_week_uses_the_orders_read_back(games_db):
+async def test_seat_state_of_a_later_week_uses_the_orders_in_the_decision_log(games_db):
     game_id = await started_game()
-    # Store Weeks 2 and 3 as Story 1.9 will, straight into the table.
-    for week in (2, 3):
-        execute(
-            games_db,
-            "INSERT INTO game_weeks (game_id, week, state) VALUES (%s, %s, %s::jsonb)",
-            (game_id, week, STATES[week - 1].model_dump_json()),
-        )
+    await play_week(game_id)  # Weeks 1 and 2 are Guided: the Orders of `play` (Story 1.9)
+    await play_week(game_id)
     for role in ROLES:
         assert await service.seat_state(game_id, role) == views.build_seat_state(
             CLASSIC, STATES[:3], ORDERS[:2], role

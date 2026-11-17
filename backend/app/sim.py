@@ -19,6 +19,12 @@ Subcommands:
                    Rule-based player, Week 1 opens) and print its lifecycle, Week and Seats.
   show             print what one Seat sees in the open Week (`SeatState` as JSON), then the
                    open turn's `opened_at` and Rule-based reference Order.
+  play             play a started Game to its end through `games.commands.place_order`: the
+                   Guided Order in a Guided Week (`guided`), else the turn's stored Rule-based
+                   reference Order (`rule_based`) or the Seat's scripted policy (`scripted`).
+                   Prints the lifecycle and the number of Weeks played.
+  log              print the Decision log: one row per Week and Seat with what the Seat saw,
+                   its Order, the Week's cost, who decided and the Rule-based reference Order.
 
 The runner computes no game quantities: every printed number is an engine field or the Order
 it was given.
@@ -140,9 +146,9 @@ def orders_spec(text: str) -> OrderPolicy | str:
     return _constant(int(match.group(1)))
 
 
-def _format(values: Sequence[object]) -> str:
+def _format(values: Sequence[object], columns: Sequence[tuple[str, int]] = COLUMNS) -> str:
     cells = []
-    for (name, width), value in zip(COLUMNS, values, strict=True):
+    for (name, width), value in zip(columns, values, strict=True):
         cell = str(value)
         cells.append(cell.ljust(width) if name == "role" else cell.rjust(width))
     return "  ".join(cells).rstrip()
@@ -428,6 +434,101 @@ def _show(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     return _run(_show_seat(args.game_id, args.seat))
 
 
+def _decide(
+    game: game_service.GameOverview,
+    seat: game_service.SeatOverview,
+    state: game_service.SeatState,
+    turn: game_service.TurnOverview,
+) -> tuple[int, game_service.DecidedBy]:
+    """The Order of one open turn and who decided it: the Guided Order in a Guided Week, else
+    the stored Rule-based reference Order or the scripted policy on the Seat."""
+    if turn.guided:
+        return guided_order(game.settings), game_service.DecidedBy.GUIDED
+    if seat.occupant_kind == game_service.OccupantKind.RULE_BASED:
+        return turn.rule_based_reference_order, game_service.DecidedBy.RULE_BASED
+    if seat.occupant_kind == game_service.OccupantKind.SCRIPTED and seat.policy_id in REGISTRY:
+        return REGISTRY[seat.policy_id](state), game_service.DecidedBy.SCRIPTED
+    raise game_commands.CommandError(
+        "occupant_not_playable", f"the runner cannot play a {seat.occupant_kind} occupant", 422
+    )
+
+
+async def _play_game(game_id: str) -> int:
+    try:
+        game = await game_service.get_game(game_id)
+        if game is None:
+            raise game_commands.CommandError("game_not_found", f"no Game {game_id!r}", 404)
+        if game.lifecycle == game_service.Lifecycle.FINISHED:
+            raise game_commands.CommandError("game_finished", "the Game has finished", 409)
+        week = 0
+        while game.lifecycle != game_service.Lifecycle.FINISHED:
+            for seat in game.seats:
+                state = await game_service.seat_state(game_id, seat.id)
+                turn = await game_service.open_turn(game_id, seat.id, state.week)
+                week = state.week
+                if turn.ordered_at is not None:
+                    continue
+                order, decided_by = _decide(game, seat, state, turn)
+                await game_commands.place_order(game_id, seat.id, state.week, order, decided_by)
+            # Read the Game again: its occupants and lifecycle may have changed meanwhile.
+            game = await game_service.get_game(game_id)
+            if game is None:
+                raise game_commands.CommandError("game_not_found", f"no Game {game_id!r}", 404)
+        lifecycle = game.lifecycle
+    except (game_commands.CommandError, game_service.ViewError, DBAPIError) as exc:
+        _report(exc)
+        return 1
+    finally:
+        await db.dispose()
+    print(f"game {game.id}")
+    print(f"lifecycle {lifecycle}")
+    print(f"weeks {week}")
+    return 0
+
+
+def _play(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    return _run(_play_game(args.game_id))
+
+
+LOG_COLUMNS = (*COLUMNS, ("decided_by", 10), ("reference", 9))
+
+
+async def _print_log(game_id: str) -> int:
+    try:
+        rows = await game_service.decision_log(game_id)
+    except (game_service.ViewError, DBAPIError) as exc:
+        _report(exc)
+        return 1
+    finally:
+        await db.dispose()
+    print(_format([name for name, _ in LOG_COLUMNS], LOG_COLUMNS))
+    for row in rows:
+        seen = row.state_seen
+        print(
+            _format(
+                [
+                    row.week,
+                    row.role,
+                    seen.incoming_order,
+                    seen.incoming_delivery,
+                    seen.shipped,
+                    seen.inventory,
+                    seen.backlog,
+                    row.order,
+                    seen.week_cost,
+                    row.decided_by.value,
+                    row.rule_based_reference_order,
+                ],
+                LOG_COLUMNS,
+            )
+        )
+    return 0
+
+
+def _log(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    return _run(_print_log(args.game_id))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m app.sim", description="Headless simulation runner."
@@ -495,6 +596,14 @@ def build_parser() -> argparse.ArgumentParser:
     show.add_argument("game_id")
     show.add_argument("--seat", required=True, metavar="SEAT", help="Role or Seat id")
     show.set_defaults(handler=_show, command_parser=show)
+    play = commands.add_parser(
+        "play", help="place every open turn's Order until the Game has finished"
+    )
+    play.add_argument("game_id")
+    play.set_defaults(handler=_play, command_parser=play)
+    log = commands.add_parser("log", help="print the Decision log, one row per Week and Seat")
+    log.add_argument("game_id")
+    log.set_defaults(handler=_log, command_parser=log)
     return parser
 
 

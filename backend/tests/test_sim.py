@@ -660,3 +660,134 @@ def test_show_without_a_database_exits_1(capsys, monkeypatch):
     game_id = "01a1eb10-f299-75a6-8ec2-a251c50791e1"
     assert main(["show", game_id, "--seat", "retailer"]) == 1
     assert capsys.readouterr().err.strip() == "error db_unavailable: cannot reach the database"
+
+
+# Story 1.9: `play` places every Order through `place_order`; `log` prints the Decision log.
+
+
+def report(capsys, prefixes: set[str]) -> list[str]:
+    """The report lines (structlog lines precede them under pytest)."""
+    return [line for line in capsys.readouterr().out.splitlines() if line.split(" ")[0] in prefixes]
+
+
+def played_game(capsys, seats: str = "rule_based") -> str:
+    code, lines, _ = create(capsys, "--seats", seats, "--seed", "7")
+    assert code == 0
+    game_id = lines[0].removeprefix("game ")
+    assert main(["start", game_id]) == 0
+    capsys.readouterr()
+    assert main(["play", game_id]) == 0
+    assert report(capsys, {"game", "lifecycle", "weeks"}) == [
+        f"game {game_id}",
+        "lifecycle finished",
+        "weeks 36",
+    ]
+    return game_id
+
+
+def log_lines(capsys, game_id: str) -> list[str]:
+    assert main(["log", game_id]) == 0
+    out = capsys.readouterr().out.splitlines()
+    start = next(i for i, line in enumerate(out) if line.lstrip().startswith("week"))
+    return out[start:]
+
+
+def test_log_of_a_rule_based_game_matches_the_engine_only_trace(capsys, games_db):
+    game_id = played_game(capsys)
+    lines = log_lines(capsys, game_id)
+    assert lines[0].split() == [
+        "week",
+        "role",
+        "incoming_order",
+        "incoming_delivery",
+        "shipped",
+        "inventory",
+        "backlog",
+        "order",
+        "cost",
+        "decided_by",
+        "reference",
+    ]
+    rows = [line.split() for line in lines[1:]]
+    assert len(rows) == 36 * 4
+    code, trace = run(capsys, "--orders", "rule_based")
+    assert code == 0
+    traced = [line.split() for line in trace[1:] if not line.startswith("warning")]
+    # Week, Role, the Week's numbers, the Order and the cost equal the engine-only game.
+    assert [row[:9] for row in rows] == traced
+    assert {row[9] for row in rows if int(row[0]) <= 4} == {"guided"}
+    assert {row[9] for row in rows if int(row[0]) > 4} == {"rule_based"}
+    assert all(row[7] == row[10] for row in rows if int(row[0]) > 4)
+
+
+def test_play_with_scripted_occupants_logs_scripted_orders(capsys, games_db):
+    game_id = played_game(capsys, "scripted:constant-4")
+    rows = [line.split() for line in log_lines(capsys, game_id)[1:]]
+    assert {(row[7], row[9]) for row in rows if int(row[0]) > 4} == {("4", "scripted")}
+
+
+@pytest.mark.parametrize(
+    ("argv", "error"),
+    [
+        (["play", "nope"], "error game_not_found: "),
+        (["log", "nope"], "error game_not_found: "),
+    ],
+)
+def test_play_and_log_report_refusals(capsys, games_db, argv, error):
+    assert main(argv) == 1
+    captured = capsys.readouterr()
+    assert captured.out == "" and captured.err.startswith(error)
+
+
+def test_play_of_a_game_not_started_or_finished_exits_1(capsys, games_db):
+    game_id = created_game(capsys)
+    assert main(["play", game_id]) == 1
+    assert capsys.readouterr().err.startswith("error game_not_started: ")
+    game_id = played_game(capsys)
+    assert main(["play", game_id]) == 1
+    assert capsys.readouterr().err.startswith("error game_finished: ")
+
+
+def test_log_of_a_game_without_orders_prints_the_header_only(capsys, games_db):
+    game_id = created_game(capsys)
+    assert len(log_lines(capsys, game_id)) == 1
+
+
+def test_play_refuses_an_occupant_it_cannot_play():
+    from app import sim
+
+    seat = sim.game_service.SeatOverview(
+        id="x", role="retailer", occupant_kind="scripted", policy_id="gone"
+    )
+    turn = sim.game_service.TurnOverview(
+        week=5,
+        guided=False,
+        opened_at="2026-11-17T00:00:00Z",
+        ordered_at=None,
+        rule_based_reference_order=4,
+    )
+    with pytest.raises(sim.game_commands.CommandError) as caught:
+        sim._decide(None, seat, None, turn)  # type: ignore[arg-type]
+    assert caught.value.code == "occupant_not_playable"
+
+
+def test_play_continues_a_partly_played_week(capsys, games_db):
+    import asyncio
+
+    from app.modules.games import commands
+
+    game_id = created_game(capsys)
+    assert main(["start", game_id]) == 0
+    capsys.readouterr()
+
+    async def order_two() -> None:
+        for role in ("retailer", "distributor"):
+            await commands.place_order(game_id, role, 1, 4, "guided")
+        from app.platform import db
+
+        await db.dispose()
+
+    asyncio.run(order_two(), loop_factory=asyncio.SelectorEventLoop)
+    assert main(["play", game_id]) == 0
+    assert report(capsys, {"lifecycle", "weeks"}) == ["lifecycle finished", "weeks 36"]
+    assert len(log_lines(capsys, game_id)) == 1 + 36 * 4

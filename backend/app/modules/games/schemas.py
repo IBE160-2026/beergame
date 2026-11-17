@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.engine import CostLine, OrderPreview, SeatView, SupplyLineSlot, WeekValues
+from app.engine import CostLine, GameSettings, OrderPreview, SeatView, SupplyLineSlot, WeekValues
 
 
 class Purpose(StrEnum):
@@ -47,6 +47,22 @@ class OccupancyReason(StrEnum):
     PLAYOUT = "playout"
 
 
+class DecidedBy(StrEnum):
+    """Who decided an Order in the Decision log (AD-15)."""
+
+    STUDENT = "student"
+    LLM = "llm"
+    RULE_BASED = "rule_based"
+    SCRIPTED = "scripted"
+    GUIDED = "guided"
+
+
+class Fallback(StrEnum):
+    """Why an Order is not the occupant's own decision; Epic 2 adds the fallback reasons."""
+
+    NONE = "none"
+
+
 _FROZEN = ConfigDict(frozen=True, extra="forbid")
 
 
@@ -84,6 +100,8 @@ class GameOverview(BaseModel):
     version: int
     demand_seed: int
     rules_version: int
+    settings: GameSettings
+    """The Game's frozen settings (AD-4)."""
     session_runtime: SessionRuntime
     seats: tuple[SeatOverview, ...]
 
@@ -132,6 +150,41 @@ class TurnOverview(BaseModel):
     model_config = _FROZEN
 
     week: int
+    guided: bool
+    """A Guided Week: the Order is `engine.guided_order`, placed with `decided_by = guided`."""
     opened_at: datetime
     ordered_at: datetime | None
     rule_based_reference_order: int
+
+
+class OrderPlaced(BaseModel):
+    """What `place_order` did: the Decision log row and the Week that is open after it."""
+
+    model_config = _FROZEN
+
+    seat_week_id: str
+    week: int
+    """The Week the Order was placed in."""
+    open_week: int | None
+    """The Week open after the command: `week`, or the next one if it advanced; None once the
+    Game has finished."""
+    lifecycle: Lifecycle
+
+
+class DecisionLogRow(BaseModel):
+    """One `seat_weeks` row as read back (AD-15)."""
+
+    model_config = _FROZEN
+
+    week: int
+    role: str
+    seat_id: str
+    order: int
+    decided_by: DecidedBy
+    fallback: Fallback
+    occupant_kind: OccupantKind
+    reason: OccupancyReason
+    opened_at: datetime
+    ordered_at: datetime
+    rule_based_reference_order: int
+    state_seen: SeatState
