@@ -211,3 +211,22 @@ class GameCheck(BaseModel):
     checked_at: datetime
     violations: tuple[Violation, ...]
     """Every broken rule with its Week and Role; empty when `ok`."""
+
+
+class GameSummary(BaseModel):
+    """A finished Game in numbers, read from `game_weeks`, the Decision log and `game_checks`
+    (AD-22)."""
+
+    model_config = _FROZEN
+
+    game_id: str
+    demand_seed: int
+    weeks: int
+    """The last Week, which ran in full."""
+    total_cost: tuple[tuple[str, Decimal], ...]
+    """Each Role's Total cost in chain order, from the finished Week state."""
+    chain_cost: Decimal
+    orders: tuple[tuple[DecidedBy, int], ...]
+    """Decision log rows per `decided_by`, in `DecidedBy` order; zero counts left out."""
+    check: GameCheck | None
+    """The finished-game check, or None when it has not run."""

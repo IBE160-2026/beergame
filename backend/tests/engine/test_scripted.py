@@ -18,8 +18,23 @@ def view(**changes) -> SeatView:
     return SeatView(**{**data, **changes})
 
 
-def test_registry_starts_with_the_constant_policy_only():
-    assert set(REGISTRY) == {"constant-4"}
+def test_registry_holds_the_constant_and_order_incoming_policies():
+    assert set(REGISTRY) == {"constant-4", "order-incoming"}
+
+
+@pytest.mark.parametrize(
+    ("seat", "expected"),
+    [
+        (view(), 4),
+        (view(incoming_orders=(4, 8, 30), order_history=(0, 999), inventory=500), 30),
+        (
+            view(role=Role.FACTORY, incoming_orders=(4, 0), order_history=(9,), backlog=50),
+            0,
+        ),
+    ],
+)
+def test_order_incoming_orders_this_weeks_incoming_order(seat, expected):
+    assert REGISTRY["order-incoming"](seat) == expected
 
 
 @pytest.mark.parametrize(

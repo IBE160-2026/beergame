@@ -11,6 +11,7 @@ from app.modules.games.schemas import (
     DecisionLogRow,
     GameCheck,
     GameOverview,
+    GameSummary,
     Lifecycle,
     OccupantKind,
     OrderPlaced,
@@ -20,6 +21,7 @@ from app.modules.games.schemas import (
     SessionRuntime,
     TurnOverview,
 )
+from app.modules.games.summaries import game_summary
 from app.modules.games.views import ViewError, decision_log, open_turn, seat_state
 from app.platform.db import get_sessionmaker
 
@@ -29,6 +31,7 @@ __all__ = [
     "GameCheck",
     "GameOverview",
     "GamePolicy",
+    "GameSummary",
     "Lifecycle",
     "OccupantKind",
     "OrderPlaced",
@@ -40,6 +43,7 @@ __all__ = [
     "TurnOverview",
     "ViewError",
     "decision_log",
+    "game_summary",
     "get_game",
     "open_turn",
     "policy",

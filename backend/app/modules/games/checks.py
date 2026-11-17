@@ -21,7 +21,7 @@ from app.modules.games.schemas import GameCheck, Lifecycle, SeatState
 from app.modules.games.views import ViewError, build_seat_state, stored_orders
 from app.platform.db import get_sessionmaker
 
-__all__ = ["rules_versions_without_package", "verify_finished"]
+__all__ = ["as_game_check", "rules_versions_without_package", "verify_finished"]
 
 log = structlog.get_logger(__name__)
 
@@ -30,7 +30,7 @@ _SHAPE_RULES = frozenset(
 )
 
 
-def _check(row: Mapping[str, object]) -> GameCheck:
+def as_game_check(row: Mapping[str, object]) -> GameCheck:
     return GameCheck(
         id=str(row["id"]),
         game_id=str(row["game_id"]),
@@ -54,7 +54,7 @@ async def verify_finished(game_id: str) -> GameCheck:
     async with get_sessionmaker().begin() as session:
         stored = await repo.game_check(session, game_uuid)
         if stored is not None:
-            return _check(stored)
+            return as_game_check(stored)
         game = await repo.get_game(session, game_uuid)
         if game is None:
             raise ViewError("game_not_found", f"no Game {game_id!r}", 404)
@@ -79,7 +79,7 @@ async def verify_finished(game_id: str) -> GameCheck:
         )
         if row is None:  # another call stored the check first
             row = await repo.game_check(session, game_uuid)
-            return _check(row)  # type: ignore[arg-type]
+            return as_game_check(row)  # type: ignore[arg-type]
     if violations:
         log.error(
             "game_check_failed",
@@ -89,7 +89,7 @@ async def verify_finished(game_id: str) -> GameCheck:
         )
     else:
         log.info("game_check_passed", game_id=game_id, check_id=str(check_id))
-    return _check(row)
+    return as_game_check(row)
 
 
 async def _violations(

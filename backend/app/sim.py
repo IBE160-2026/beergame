@@ -30,13 +30,26 @@ Subcommands:
                    failed or was refused.
   log              print the Decision log: one row per Week and Seat with what the Seat saw,
                    its Order, the Week's cost, who decided and the Rule-based reference Order.
+  run              play a batch of simulation Games from a JSON batch file (`seed`, `games`,
+                   `seats`, optional `settings`, `demand`, `rule_based_params`; Game i uses
+                   demand seed `seed + i`): each Game is created, started, played and checked
+                   through `games.commands` as `play` does. Prints per Game and for the batch
+                   the Total cost per Role and for the chain, the Weeks played, the Orders per
+                   `decided_by` and the check result, all read back from the database.
+                   `--export DIR` writes the Decision log to `DIR/decision-log.csv` (replacing
+                   one already there). Exit 0 when every check passed; 1 on a failed check or a
+                   refused command (also settings that break the engine rules or an unknown
+                   parameter set, which `create` refuses; the ids of the Games already stored
+                   are printed); 2 when the batch file cannot be read or does not have the
+                   batch file's shape.
 
-The runner computes no game quantities: every printed number is an engine field or the Order
-it was given.
+The runner computes no game quantities: every printed number is an engine field, the Order it
+was given, a number read back from the database, or (the `run` batch totals) a sum of those.
 """
 
 import argparse
 import asyncio
+import csv
 import json
 import re
 import secrets
@@ -44,8 +57,9 @@ import sys
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from decimal import Decimal
 from pathlib import Path
+from typing import Annotated, Any
 
-from pydantic import TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from sqlalchemy.exc import DBAPIError, OperationalError
 
 from app.engine import (
@@ -66,7 +80,7 @@ from app.engine import (
     validate_demand,
     warnings,
 )
-from app.engine.demand import new_seed, series
+from app.engine.demand import SEED_MAX, new_seed, series
 from app.engine.scripted import REGISTRY
 from app.modules.games import commands as game_commands
 from app.modules.games import service as game_service
@@ -458,35 +472,41 @@ def _decide(
     )
 
 
-async def _play_game(game_id: str) -> int:
-    try:
+async def _play_to_end(game_id: str) -> tuple[game_service.GameOverview, int]:
+    """Place every open turn's Order through `place_order` until the Game has finished; returns
+    the finished Game and the last Week. Raises a refused command or read."""
+    game = await game_service.get_game(game_id)
+    if game is None:
+        raise game_commands.CommandError("game_not_found", f"no Game {game_id!r}", 404)
+    if game.lifecycle == game_service.Lifecycle.FINISHED:
+        raise game_commands.CommandError("game_finished", "the Game has finished", 409)
+    week = 0
+    while game.lifecycle != game_service.Lifecycle.FINISHED:
+        for seat in game.seats:
+            state = await game_service.seat_state(game_id, seat.id)
+            turn = await game_service.open_turn(game_id, seat.id, state.week)
+            week = state.week
+            if turn.ordered_at is not None:
+                continue
+            order, decided_by = _decide(game, seat, state, turn)
+            await game_commands.place_order(game_id, seat.id, state.week, order, decided_by)
+        # Read the Game again: its occupants and lifecycle may have changed meanwhile.
         game = await game_service.get_game(game_id)
         if game is None:
             raise game_commands.CommandError("game_not_found", f"no Game {game_id!r}", 404)
-        if game.lifecycle == game_service.Lifecycle.FINISHED:
-            raise game_commands.CommandError("game_finished", "the Game has finished", 409)
-        week = 0
-        while game.lifecycle != game_service.Lifecycle.FINISHED:
-            for seat in game.seats:
-                state = await game_service.seat_state(game_id, seat.id)
-                turn = await game_service.open_turn(game_id, seat.id, state.week)
-                week = state.week
-                if turn.ordered_at is not None:
-                    continue
-                order, decided_by = _decide(game, seat, state, turn)
-                await game_commands.place_order(game_id, seat.id, state.week, order, decided_by)
-            # Read the Game again: its occupants and lifecycle may have changed meanwhile.
-            game = await game_service.get_game(game_id)
-            if game is None:
-                raise game_commands.CommandError("game_not_found", f"no Game {game_id!r}", 404)
-        lifecycle = game.lifecycle
+    return game, week
+
+
+async def _play_game(game_id: str) -> int:
+    try:
+        game, week = await _play_to_end(game_id)
     except (game_commands.CommandError, game_service.ViewError, DBAPIError) as exc:
         _report(exc)
         return 1
     finally:
         await db.dispose()
     print(f"game {game.id}")
-    print(f"lifecycle {lifecycle}")
+    print(f"lifecycle {game.lifecycle}")
     print(f"weeks {week}")
     return 0
 
@@ -556,6 +576,257 @@ async def _print_log(game_id: str) -> int:
 
 def _log(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     return _run(_print_log(args.game_id))
+
+
+MAX_BATCH_GAMES = 100
+
+
+class BatchFile(BaseModel):
+    """A batch file for `run`: what to play, how often and who sits in each Seat."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    seed: Annotated[int, Field(strict=True, ge=0, le=SEED_MAX)]
+    """Demand seed of the first Game; Game i (from 0) uses `seed + i`."""
+    games: Annotated[int, Field(strict=True, ge=1, le=MAX_BATCH_GAMES)]
+    seats: str | dict[str, str]
+    """One Seat spec for every Role, or one per Role: `rule_based` or `scripted:<id>`."""
+    settings: dict[str, Any] = {}
+    """GameSettings overrides; missing keys keep the Classic values."""
+    demand: DemandPattern | None = None
+    rule_based_params: str = DEFAULT_RULE_BASED_PARAMS
+
+
+class Batch(BaseModel):
+    """A checked batch file, ready to play."""
+
+    model_config = ConfigDict(frozen=True)
+
+    seed: int
+    games: int
+    settings: GameSettings
+    demand: DemandPattern | None
+    occupants: tuple[Occupant, ...]
+    """One occupant per Role, in chain order."""
+    rule_based_params: str
+
+
+class BatchError(ValueError):
+    """The batch file cannot be read or breaks a rule."""
+
+
+def _errors(exc: ValidationError) -> str:
+    return "; ".join(
+        f"{'.'.join(map(str, error['loc'])) or 'file'}: {error['msg']}" for error in exc.errors()
+    )
+
+
+def load_batch(path: str) -> Batch:
+    """Read and check a batch file; raises `BatchError` with what is wrong."""
+    try:
+        text = Path(path).read_text(encoding="utf-8-sig")
+    except OSError as exc:
+        raise BatchError(f"cannot read {path}: {exc.strerror or exc}") from None
+    except UnicodeDecodeError:
+        raise BatchError(f"{path} is not UTF-8 text") from None
+    try:
+        data = json.loads(text, parse_float=Decimal)
+    except ValueError as exc:
+        raise BatchError(f"{path} is not JSON: {exc}") from None
+    try:
+        spec = BatchFile.model_validate(data)
+        settings = GameSettings.model_validate(spec.settings)
+    except ValidationError as exc:
+        raise BatchError(_errors(exc)) from None
+    if "demand_seed" in spec.settings:
+        raise BatchError("settings.demand_seed: use seed (Game i uses seed + i)")
+    if spec.seed + spec.games - 1 > SEED_MAX:
+        raise BatchError(f"seed + games - 1 must not exceed {SEED_MAX}")
+    roles = [role.value for role in settings.roles]
+    if isinstance(spec.seats, str):
+        texts = [spec.seats] * len(roles)
+    elif sorted(spec.seats) != sorted(roles):
+        raise BatchError(f"seats needs one spec for each Role: {', '.join(roles)}")
+    else:
+        texts = [spec.seats[role] for role in roles]
+    occupants: list[Occupant] = []
+    for text in texts:
+        try:
+            (occupant,) = _seats_spec(text)
+        except (argparse.ArgumentTypeError, ValueError) as exc:
+            raise BatchError(f"seats: {exc}") from None
+        occupants.append(occupant)
+    return Batch(
+        seed=spec.seed,
+        games=spec.games,
+        settings=settings,
+        demand=spec.demand,
+        occupants=tuple(occupants),
+        rule_based_params=spec.rule_based_params,
+    )
+
+
+async def _play_one(batch: Batch, index: int, stored: list[str]) -> str:
+    """Create, start, play and check Game `index` of the batch; returns its id. The id is
+    appended to `stored` as soon as the Game is stored."""
+    game_id = await game_commands.create(
+        "simulation",
+        batch.settings,
+        batch.demand,
+        seed=batch.seed + index,
+        rule_based_params=batch.rule_based_params,
+    )
+    stored.append(game_id)
+    for role, (kind, policy_id) in zip(batch.settings.roles, batch.occupants, strict=True):
+        await game_commands.assign_seat(game_id, role, kind, policy_id)
+    await game_commands.start(game_id)
+    await _play_to_end(game_id)
+    await game_service.verify_finished(game_id)
+    return game_id
+
+
+EXPORT_FILE = "decision-log.csv"
+EXPORT_COLUMNS = (
+    "game_id",
+    "week",
+    "seat_id",
+    "role",
+    "occupant_kind",
+    "decided_by",
+    "fallback",
+    "order",
+    "rule_based_reference_order",
+    "incoming_order",
+    "incoming_delivery",
+    "shipped",
+    "inventory",
+    "backlog",
+    "supply_line",
+    "position",
+    "week_cost",
+    "total_cost",
+)
+
+
+def _export_row(game_id: str, row: game_service.DecisionLogRow) -> list[object]:
+    seen = row.state_seen
+    return [
+        game_id,
+        row.week,
+        row.seat_id,
+        row.role,
+        row.occupant_kind.value,
+        row.decided_by.value,
+        row.fallback.value,
+        row.order,
+        row.rule_based_reference_order,
+        seen.incoming_order,
+        seen.incoming_delivery,
+        seen.shipped,
+        seen.inventory,
+        seen.backlog,
+        seen.supply_line,
+        seen.position,
+        seen.week_cost,
+        seen.total_cost,
+    ]
+
+
+def _check_text(check: game_service.GameCheck | None) -> str:
+    if check is None:
+        return "check missing"
+    return "check ok" if check.ok else f"check failed {len(check.violations)}"
+
+
+def _cost_line(costs: Sequence[tuple[str, Decimal]], chain: Decimal) -> str:
+    return "cost " + " ".join([*(f"{role}={cost}" for role, cost in costs), f"chain={chain}"])
+
+
+def _orders_line(orders: Sequence[tuple[game_service.DecidedBy, int]]) -> str:
+    return "orders " + " ".join(f"{decided_by.value}={count}" for decided_by, count in orders)
+
+
+def summary_lines(summaries: Sequence[game_service.GameSummary]) -> list[str]:
+    """The per-Game blocks and the batch block. The batch numbers are sums of the stored
+    per-Game numbers."""
+    lines: list[str] = []
+    costs: dict[str, Decimal] = {}
+    orders: dict[game_service.DecidedBy, int] = {}
+    for summary in summaries:
+        lines.append(
+            f"game {summary.game_id} seed {summary.demand_seed} weeks {summary.weeks} "
+            + _check_text(summary.check)
+        )
+        lines.append(_cost_line(summary.total_cost, summary.chain_cost))
+        lines.append(_orders_line(summary.orders))
+        for role, cost in summary.total_cost:
+            costs[role] = costs.get(role, Decimal(0)) + cost
+        for decided_by, count in summary.orders:
+            orders[decided_by] = orders.get(decided_by, 0) + count
+    passed = sum(1 for summary in summaries if summary.check is not None and summary.check.ok)
+    weeks = sum(summary.weeks for summary in summaries)
+    chain = sum((summary.chain_cost for summary in summaries), Decimal(0))
+    lines.append(
+        f"batch games {len(summaries)} weeks {weeks} "
+        f"checks ok={passed} failed={len(summaries) - passed}"
+    )
+    lines.append(_cost_line(list(costs.items()), chain))
+    lines.append(
+        _orders_line(
+            [
+                (decided_by, orders[decided_by])
+                for decided_by in game_service.DecidedBy
+                if decided_by in orders
+            ]
+        )
+    )
+    return lines
+
+
+async def _run_batch(batch: Batch, export: Path | None) -> int:
+    game_ids: list[str] = []
+    try:
+        for index in range(batch.games):
+            await _play_one(batch, index, game_ids)
+        summaries = [await game_service.game_summary(game_id) for game_id in game_ids]
+        logs = [await game_service.decision_log(game_id) for game_id in game_ids] if export else []
+    except (game_commands.CommandError, game_service.ViewError, DBAPIError) as exc:
+        _report(exc)
+        if game_ids:
+            print(f"note: games stored before the stop: {' '.join(game_ids)}", file=sys.stderr)
+        return 1
+    finally:
+        await db.dispose()
+    for line in summary_lines(summaries):
+        print(line)
+    if export is not None:
+        try:
+            with (export / EXPORT_FILE).open("w", encoding="utf-8", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerow(EXPORT_COLUMNS)
+                for game_id, rows in zip(game_ids, logs, strict=True):
+                    writer.writerows(_export_row(game_id, row) for row in rows)
+        except OSError as exc:
+            print(f"error export_failed: {exc.strerror or exc}", file=sys.stderr)
+            return 1
+    return 0 if all(summary.check is not None and summary.check.ok for summary in summaries) else 1
+
+
+def _run_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    try:
+        batch = load_batch(args.batch)
+    except BatchError as exc:
+        print(f"error invalid_batch: {exc}", file=sys.stderr)
+        return 2
+    export: Path | None = None
+    if args.export is not None:
+        export = Path(args.export)
+        try:
+            export.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            print(f"error invalid_export: {exc.strerror or exc}", file=sys.stderr)
+            return 2
+    return _run(_run_batch(batch, export))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -638,6 +909,14 @@ def build_parser() -> argparse.ArgumentParser:
     log = commands.add_parser("log", help="print the Decision log, one row per Week and Seat")
     log.add_argument("game_id")
     log.set_defaults(handler=_log, command_parser=log)
+    batch = commands.add_parser(
+        "run", help="play a batch of simulation Games to the end and summarise them"
+    )
+    batch.add_argument("batch", help="JSON batch file (seed, games, seats, settings, demand)")
+    batch.add_argument(
+        "--export", metavar="DIR", help=f"write the Decision log as DIR/{EXPORT_FILE}"
+    )
+    batch.set_defaults(handler=_run_command, command_parser=batch)
     return parser
 
 

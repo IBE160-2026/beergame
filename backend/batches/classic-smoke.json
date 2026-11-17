@@ -1,0 +1,10 @@
+{
+  "seed": 7,
+  "games": 3,
+  "seats": {
+    "retailer": "rule_based",
+    "wholesaler": "scripted:order-incoming",
+    "distributor": "scripted:constant-4",
+    "factory": "rule_based"
+  }
+}

@@ -878,3 +878,415 @@ def test_play_exits_1_when_the_finished_game_check_fails(capsys, games_db, monke
         "check failed 1",
         "violation replay week - role -",
     ]
+
+
+# Story 1.11: `run` plays a batch of Games through `games.commands` and summarises them.
+
+SMOKE = Path(__file__).parents[1] / "batches" / "classic-smoke.json"
+SUMMARY = {"game", "cost", "orders", "batch"}
+
+
+def run_batch(capsys, *argv) -> tuple[int, list[str], str]:
+    code = main(["run", *argv])
+    captured = capsys.readouterr()
+    lines = [line for line in captured.out.splitlines() if line.split(" ")[0] in SUMMARY]
+    return code, lines, captured.err
+
+
+def batch_ids(lines: list[str]) -> list[str]:
+    return [line.split(" ")[1] for line in lines if line.startswith("game ")]
+
+
+def batch_file(tmp_path, data, name: str = "batch.json") -> str:
+    path = tmp_path / name
+    path.write_text(data if isinstance(data, str) else json.dumps(data), encoding="utf-8")
+    return str(path)
+
+
+def test_run_plays_the_smoke_batch_and_summarises_it_from_the_tables(capsys, games_db):
+    from tests.games.helpers import query
+
+    code, lines, _ = run_batch(capsys, str(SMOKE))
+    assert code == 0
+    assert len(lines) == 3 * 3 + 3
+    ids = batch_ids(lines)
+    assert len(ids) == 3
+    for index, game_id in enumerate(ids):
+        head, cost, orders = lines[3 * index : 3 * index + 3]
+        assert head == f"game {game_id} seed {7 + index} weeks 36 check ok"
+        stored = query(
+            games_db,
+            "SELECT seat->>'role', seat->>'total_cost' FROM game_weeks, "
+            "jsonb_array_elements(state->'seats') WITH ORDINALITY AS t(seat, n) "
+            "WHERE game_id = %s AND finished ORDER BY n",
+            (game_id,),
+        )
+        ((chain,),) = query(
+            games_db,
+            "SELECT sum((state_seen->>'week_cost')::numeric) FROM seat_weeks WHERE game_id = %s",
+            (game_id,),
+        )
+        assert cost == "cost " + " ".join(f"{r}={c}" for r, c in stored) + f" chain={chain}"
+        assert orders == "orders rule_based=64 scripted=64 guided=16"
+    batch, cost, orders = lines[-3:]
+    assert batch == "batch games 3 weeks 108 checks ok=3 failed=0"
+    assert orders == "orders rule_based=192 scripted=192 guided=48"
+    ((total,),) = query(games_db, "SELECT sum((state_seen->>'week_cost')::numeric) FROM seat_weeks")
+    assert cost.endswith(f" chain={total}")
+    assert query(
+        games_db, "SELECT purpose, lifecycle, count(*) FROM games GROUP BY purpose, lifecycle"
+    ) == [("simulation", "finished", 3)]
+    assert query(games_db, "SELECT ok, count(*) FROM game_checks GROUP BY ok") == [(True, 3)]
+
+
+def test_run_places_the_order_of_each_scripted_policy(capsys, games_db):
+    from tests.games.helpers import query
+
+    code, _, _ = run_batch(capsys, str(SMOKE))
+    assert code == 0
+    rows = query(
+        games_db,
+        "SELECT s.role, w.decided_by, w.order, (w.state_seen->>'incoming_order')::int, "
+        "o.policy_id FROM seat_weeks w JOIN seats s ON s.id = w.seat_id "
+        "JOIN seat_occupancy o ON o.seat_id = s.id WHERE w.week > 4",
+    )
+    by_role: dict[str, set] = {}
+    for role, decided_by, order, incoming, policy_id in rows:
+        if role == "wholesaler":
+            assert (decided_by, policy_id, order) == ("scripted", "order-incoming", incoming)
+        elif role == "distributor":
+            assert (decided_by, policy_id, order) == ("scripted", "constant-4", 4)
+        else:
+            assert (decided_by, policy_id) == ("rule_based", None)
+        by_role.setdefault(role, set()).add(order)
+    assert len(by_role["wholesaler"]) > 1  # it follows its incoming order, not a constant
+
+
+def test_run_twice_gives_identical_orders_and_costs(capsys, games_db):
+    from tests.games.helpers import query
+
+    def weeks(game_id: str) -> list[tuple]:
+        return query(
+            games_db,
+            "SELECT w.week, s.role, w.order, w.state_seen->>'week_cost', "
+            "w.state_seen->>'total_cost' FROM seat_weeks w JOIN seats s ON s.id = w.seat_id "
+            "WHERE w.game_id = %s ORDER BY w.week, s.position",
+            (game_id,),
+        )
+
+    first = run_batch(capsys, str(SMOKE))
+    second = run_batch(capsys, str(SMOKE))
+    assert first[0] == second[0] == 0
+    pairs = list(zip(batch_ids(first[1]), batch_ids(second[1]), strict=True))
+    assert len(pairs) == 3
+    for one, other in pairs:
+        assert one != other
+        assert len(weeks(one)) == 36 * 4
+        assert weeks(one) == weeks(other)
+    # The summaries differ only in the Game ids.
+    strip = [line for line in first[1] if not line.startswith("game ")]
+    assert strip == [line for line in second[1] if not line.startswith("game ")]
+
+
+def test_run_exports_the_decision_log_as_csv(capsys, games_db, tmp_path):
+    import csv
+
+    out = tmp_path / "new" / "dir"
+    code, lines, _ = run_batch(capsys, str(SMOKE), "--export", str(out))
+    assert code == 0
+    with (out / "decision-log.csv").open(encoding="utf-8", newline="") as file:
+        rows = list(csv.reader(file))
+    assert rows[0] == [
+        "game_id",
+        "week",
+        "seat_id",
+        "role",
+        "occupant_kind",
+        "decided_by",
+        "fallback",
+        "order",
+        "rule_based_reference_order",
+        "incoming_order",
+        "incoming_delivery",
+        "shipped",
+        "inventory",
+        "backlog",
+        "supply_line",
+        "position",
+        "week_cost",
+        "total_cost",
+    ]
+    body = rows[1:]
+    assert len(body) == 3 * 36 * 4
+    assert [row[0] for row in body[:: 36 * 4]] == batch_ids(lines)
+    assert [(row[1], row[3]) for row in body[:4]] == [
+        ("1", "retailer"),
+        ("1", "wholesaler"),
+        ("1", "distributor"),
+        ("1", "factory"),
+    ]
+    assert {row[5] for row in body} == {"guided", "rule_based", "scripted"}
+    from tests.games.helpers import query
+
+    stored = query(
+        games_db,
+        "SELECT w.game_id::text, w.week::text, w.seat_id::text, s.role, w.occupant_kind, "
+        "w.decided_by, w.fallback, w.order::text, w.rule_based_reference_order::text, "
+        "w.state_seen->>'incoming_order', w.state_seen->>'incoming_delivery', "
+        "w.state_seen->>'shipped', w.state_seen->>'inventory', w.state_seen->>'backlog', "
+        "w.state_seen->>'supply_line', w.state_seen->>'position', "
+        "w.state_seen->>'week_cost', w.state_seen->>'total_cost' "
+        "FROM seat_weeks w JOIN seats s ON s.id = w.seat_id",
+    )
+    assert sorted(body) == sorted(list(row) for row in stored)
+    for row in body:  # ids, Roles, fixed codes and numbers only
+        assert all(
+            cell.replace(".", "").replace("-", "").replace("_", "").isalnum() for cell in row
+        )
+        assert all(int(row[i]) >= 0 for i in (1, 7, 8, 9, 10, 11, 12, 13, 14))
+        int(row[15]), float(row[16]), float(row[17])
+
+
+def test_run_with_a_seeded_demand_pattern_gives_each_game_its_own_seed(capsys, games_db, tmp_path):
+    from app.engine.demand import series
+    from app.sim import DEMAND_PATTERN
+    from tests.games.helpers import query
+
+    pattern = {"kind": "random", "mean": 4, "spread": 2}
+    path = batch_file(
+        tmp_path,
+        {
+            "seed": 41,
+            "games": 2,
+            "seats": "scripted:order-incoming",
+            "settings": {"weeks": 12, "holding_cost": 0.5},
+            "demand": pattern,
+        },
+    )
+    code, lines, _ = run_batch(capsys, path)
+    assert code == 0
+    assert [line.split(" ")[3] for line in lines if line.startswith("game ")] == ["41", "42"]
+    assert lines[-3] == "batch games 2 weeks 24 checks ok=2 failed=0"
+    assert lines[-1] == "orders scripted=64 guided=32"
+    for game_id, seed in zip(batch_ids(lines), (41, 42), strict=True):
+        ((stored,),) = query(games_db, "SELECT demand_series FROM games WHERE id = %s", (game_id,))
+        assert stored == list(series(DEMAND_PATTERN.validate_python(pattern), 12, seed))
+
+
+@pytest.mark.parametrize(
+    ("data", "detail"),
+    [
+        (None, "cannot read"),
+        ("{not json", "is not JSON"),
+        ("[]", "file: "),
+        ({"seed": 1, "games": 1, "seats": "rule_based", "colour": "red"}, "colour"),
+        ({"seed": 1, "games": 0, "seats": "rule_based"}, "games"),
+        ({"seed": 1, "games": 101, "seats": "rule_based"}, "games"),
+        ({"seed": "1", "games": 1, "seats": "rule_based"}, "seed"),
+        ({"games": 1, "seats": "rule_based"}, "seed"),
+        ({"seed": 1, "games": 1, "seats": {"retailer": "rule_based"}}, "one spec for each Role"),
+        ({"seed": 1, "games": 1, "seats": "scripted:constant-5"}, "seats: unknown Seat spec"),
+        ({"seed": 1, "games": 1, "seats": "llm"}, "seats: unknown Seat spec"),
+        ({"seed": 1, "games": 1, "seats": "rule_based,rule_based"}, "seats: "),
+        ({"seed": 999_999_999, "games": 2, "seats": "rule_based"}, "must not exceed"),
+        ({"seed": 1, "games": 1, "seats": "rule_based", "settings": {"weeks": "x"}}, "weeks"),
+        ({"seed": 1, "games": 1, "seats": "rule_based", "demand": {"kind": "x"}}, "demand"),
+        (
+            {"seed": 1, "games": 1, "seats": "rule_based", "settings": {"demand_seed": 5}},
+            "settings.demand_seed: use seed",
+        ),
+        (
+            {
+                "seed": 1,
+                "games": 1,
+                "seats": {
+                    "retailer": "rule_based",
+                    "wholesaler": "rule_based",
+                    "distributor": "rule_based",
+                    "factory": "rule_based",
+                    "brewery": "rule_based",
+                },
+            },
+            "one spec for each Role",
+        ),
+    ],
+)
+def test_run_refuses_a_bad_batch_file_and_stores_nothing(capsys, games_db, tmp_path, data, detail):
+    from tests.games.helpers import counts
+
+    path = str(tmp_path / "missing.json") if data is None else batch_file(tmp_path, data)
+    code, lines, err = run_batch(capsys, path)
+    assert code == 2 and lines == []
+    assert err.startswith("error invalid_batch: ")
+    assert detail in err
+    assert counts(games_db) == (0, 0, 0)
+
+
+def test_run_refuses_a_non_utf8_batch_file(capsys, tmp_path):
+    path = tmp_path / "batch.json"
+    path.write_bytes(b"\xff\xfe\x00")
+    assert main(["run", str(path)]) == 2
+    assert "is not UTF-8 text" in capsys.readouterr().err
+
+
+def test_run_takes_one_seat_spec_per_role(capsys, games_db, tmp_path):
+    from tests.games.helpers import query
+
+    seats = {
+        "factory": "scripted:constant-4",
+        "retailer": "scripted:order-incoming",
+        "wholesaler": "rule_based",
+        "distributor": "rule_based",
+    }
+    path = batch_file(tmp_path, {"seed": 3, "games": 1, "seats": seats})
+    code, _, _ = run_batch(capsys, path)
+    assert code == 0
+    stored = query(
+        games_db,
+        "SELECT s.role, o.occupant_kind, o.policy_id FROM seats s "
+        "JOIN seat_occupancy o ON o.seat_id = s.id ORDER BY s.position",
+    )
+    assert stored == [
+        ("retailer", "scripted", "order-incoming"),
+        ("wholesaler", "rule_based", None),
+        ("distributor", "rule_based", None),
+        ("factory", "scripted", "constant-4"),
+    ]
+
+
+def test_run_reports_settings_that_break_the_engine_rules(capsys, games_db, tmp_path):
+    path = batch_file(
+        tmp_path, {"seed": 1, "games": 1, "seats": "rule_based", "settings": {"guided_weeks": 10}}
+    )
+    code, lines, err = run_batch(capsys, path)
+    assert code == 1 and lines == []
+    assert err.startswith("error invalid_settings: ")
+
+
+def test_run_refuses_an_export_path_that_is_a_file(capsys, tmp_path):
+    taken = tmp_path / "taken"
+    taken.write_text("x", encoding="utf-8")
+    assert main(["run", str(SMOKE), "--export", str(taken)]) == 2
+    assert capsys.readouterr().err.startswith("error invalid_export: ")
+
+
+def test_run_exits_1_and_counts_a_failed_check(capsys, games_db, tmp_path, monkeypatch):
+    from app import sim
+    from tests.games.helpers import tamper
+
+    verify = sim.game_service.verify_finished
+
+    async def tampered_then_verified(game_id):
+        tamper(
+            games_db,
+            "UPDATE game_weeks SET state = jsonb_set(state, '{seats,0,inventory}', '99') "
+            "WHERE game_id = %s AND week = 10 AND NOT finished",
+            (game_id,),
+        )
+        return await verify(game_id)
+
+    monkeypatch.setattr(sim.game_service, "verify_finished", tampered_then_verified)
+    path = batch_file(tmp_path, {"seed": 7, "games": 1, "seats": "rule_based"})
+    code, lines, _ = run_batch(capsys, path)
+    assert code == 1
+    assert lines[0].split(" ")[6:8] == ["check", "failed"]
+    assert int(lines[0].split(" ")[8]) > 0
+    assert lines[-3] == "batch games 1 weeks 36 checks ok=0 failed=1"
+
+
+def test_run_reports_a_failing_export_write(capsys, games_db, tmp_path, monkeypatch):
+    from app import sim
+
+    monkeypatch.setattr(sim, "EXPORT_FILE", "missing-dir/decision-log.csv")
+    path = batch_file(tmp_path, {"seed": 7, "games": 1, "seats": "rule_based"})
+    assert main(["run", path, "--export", str(tmp_path / "out")]) == 1
+    captured = capsys.readouterr()
+    assert captured.err.startswith("error export_failed: ")
+    # The Games were played and checked: their summary is still printed.
+    assert "batch games 1 weeks 36 checks ok=1 failed=0" in captured.out.splitlines()
+
+
+def test_run_uses_the_batch_rule_based_parameter_set(capsys, games_db, tmp_path, monkeypatch):
+    import app.platform.parameter_sets as parameter_sets
+    from app.modules.games import commands
+    from tests.games.helpers import query
+
+    write_set(tmp_path, "stock-30", desired_inventory=30)
+    monkeypatch.setattr(
+        commands,
+        "read_parameter_set",
+        lambda kind, set_id: parameter_sets.read_parameter_set(kind, set_id, root=tmp_path),
+    )
+    path = batch_file(
+        tmp_path, {"seed": 7, "games": 1, "seats": "rule_based", "rule_based_params": "stock-30"}
+    )
+    code, _, _ = run_batch(capsys, path)
+    assert code == 0
+    assert query(games_db, "SELECT session_runtime->>'rule_based_params' FROM games") == [
+        ("stock-30",)
+    ]
+    # Week 5, Wholesaler: 4 + 0.5 * (30 - 12) = 13 under this set (4 under the default).
+    assert query(
+        games_db,
+        "SELECT w.order FROM seat_weeks w JOIN seats s ON s.id = w.seat_id "
+        "WHERE w.week = 5 AND s.role = 'wholesaler'",
+    ) == [(13,)]
+
+
+def test_run_refuses_an_unknown_rule_based_parameter_set(capsys, games_db, tmp_path):
+    path = batch_file(
+        tmp_path, {"seed": 7, "games": 1, "seats": "rule_based", "rule_based_params": "nope"}
+    )
+    code, lines, err = run_batch(capsys, path)
+    assert code == 1 and lines == []
+    assert err.startswith("error unknown_parameter_set: ")
+
+
+def test_run_stopped_partway_names_the_games_already_stored(
+    capsys, games_db, tmp_path, monkeypatch
+):
+    from app import sim
+
+    verify = sim.game_service.verify_finished
+    calls: list[str] = []
+
+    async def refuse_the_second(game_id):
+        calls.append(game_id)
+        if len(calls) == 2:
+            raise sim.game_service.ViewError("game_not_finished", "refused in a test", 409)
+        return await verify(game_id)
+
+    monkeypatch.setattr(sim.game_service, "verify_finished", refuse_the_second)
+    path = batch_file(tmp_path, {"seed": 7, "games": 3, "seats": "rule_based"})
+    code, lines, err = run_batch(capsys, path)
+    assert code == 1 and lines == []
+    first, note = err.strip().splitlines()[-2:]
+    assert first.startswith("error game_not_finished: ")
+    assert note == f"note: games stored before the stop: {' '.join(calls)}"
+
+
+def test_summary_lines_count_a_missing_check_as_failed():
+    from decimal import Decimal
+
+    from app import sim
+
+    summary = sim.game_service.GameSummary(
+        game_id="g",
+        demand_seed=3,
+        weeks=2,
+        total_cost=(("retailer", Decimal("1.50")),),
+        chain_cost=Decimal("1.50"),
+        orders=((sim.game_service.DecidedBy.GUIDED, 2),),
+        check=None,
+    )
+    assert sim.summary_lines([summary, summary]) == [
+        "game g seed 3 weeks 2 check missing",
+        "cost retailer=1.50 chain=1.50",
+        "orders guided=2",
+        "game g seed 3 weeks 2 check missing",
+        "cost retailer=1.50 chain=1.50",
+        "orders guided=2",
+        "batch games 2 weeks 4 checks ok=0 failed=2",
+        "cost retailer=3.00 chain=3.00",
+        "orders guided=4",
+    ]

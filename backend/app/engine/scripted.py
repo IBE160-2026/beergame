@@ -20,5 +20,13 @@ def _constant(order: int) -> ScriptedPolicy:
     return policy
 
 
-REGISTRY: Mapping[str, ScriptedPolicy] = MappingProxyType({"constant-4": _constant(4)})
-"""Every scripted policy by id. `constant-4` orders 4 every Week, whatever it sees."""
+def _order_incoming(view: SeatView) -> int:
+    return view.incoming_orders[-1]
+
+
+REGISTRY: Mapping[str, ScriptedPolicy] = MappingProxyType(
+    {"constant-4": _constant(4), "order-incoming": _order_incoming}
+)
+"""Every scripted policy by id. `constant-4` orders 4 every Week, whatever it sees.
+`order-incoming` orders what came in: this Week's incoming order (customer demand for the
+first Role)."""

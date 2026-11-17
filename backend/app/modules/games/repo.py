@@ -209,6 +209,24 @@ async def decision_log(session: AsyncSession, game_id: uuid.UUID) -> list[RowMap
     return list(result.mappings())
 
 
+async def orders_by_decided_by(session: AsyncSession, game_id: uuid.UUID) -> dict[str, int]:
+    """The number of Decision log rows of the Game per `decided_by`."""
+    result = await session.execute(
+        select(seat_weeks.c.decided_by, func.count())
+        .where(seat_weeks.c.game_id == game_id)
+        .group_by(seat_weeks.c.decided_by)
+    )
+    return {decided_by: count for decided_by, count in result}
+
+
+async def finished_state(session: AsyncSession, game_id: uuid.UUID) -> dict[str, Any] | None:
+    """The Game's finished Week state, or None before the Game has finished."""
+    result = await session.execute(
+        select(game_weeks.c.state).where(game_weeks.c.game_id == game_id, game_weeks.c.finished)
+    )
+    return result.scalar_one_or_none()
+
+
 async def week_rows(session: AsyncSession, game_id: uuid.UUID) -> list[RowMapping]:
     """Every stored Week state row (`week`, `finished`, `state`), Week 1 first, finished last."""
     result = await session.execute(
