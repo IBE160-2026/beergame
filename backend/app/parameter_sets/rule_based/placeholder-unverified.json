@@ -1,0 +1,10 @@
+{
+  "id": "placeholder-unverified",
+  "version": 1,
+  "verified": false,
+  "source": "placeholder-unverified: round values chosen only so the Classic chain stays in balance; not Sterman (1989) fitted values and not from any calculator site; final values pending the primary source (issues #8 and #17)",
+  "theta": "0.50",
+  "alpha_s": "0.50",
+  "beta": "0.50",
+  "desired_inventory": 12
+}

@@ -24,16 +24,16 @@ companions:
 
 ## Design Paradigm
 
-**Modular monolith with a functional core and an imperative shell.** One Python codebase runs as three processes (`api`, `worker-ai`, `worker-batch`). A Next.js app renders the UI. The core, `engine` and `analysis`, is pure: no I/O, no clock, no randomness without a passed seed. Everything else is the shell around it.
+**Modular monolith with a functional core and an imperative shell.** One Python codebase runs as three processes (`backend`, `worker-ai`, `worker-batch`). A Next.js app renders the UI. The core, `engine` and `analysis`, is pure: no I/O, no clock, no randomness without a passed seed. Everything else is the shell around it.
 
 | Layer | Path | Holds | May import |
 | --- | --- | --- | --- |
-| Engine (pure) | `api/app/engine/` | Game settings model, Week advance, demand series, Rule-based player, near-optimal reference, conservation check | stdlib, pydantic |
-| Analysis (pure) | `api/app/analysis/` | Computed facts, Detected patterns, Order amplification, Play guard statistics, completion rules, SM metrics | engine |
-| Modules (shell) | `api/app/modules/<slice>/` | Routes, services, repositories, jobs per vertical slice | engine, analysis, ai, platform, other modules' `service.py` only |
-| AI gateway | `api/app/ai/` | The only LLM boundary, prompts, schemas, mock provider | platform |
-| Platform | `api/app/platform/` | db, config, auth, authz, events (NOTIFY/SSE), jobs, email, storage, audit | stdlib, third-party |
-| Web | `web/` | Next.js presentation only | api over HTTP |
+| Engine (pure) | `backend/app/engine/` | Game settings model, Week advance, demand series, Rule-based player, near-optimal reference, conservation check | stdlib, pydantic |
+| Analysis (pure) | `backend/app/analysis/` | Computed facts, Detected patterns, Order amplification, Play guard statistics, completion rules, SM metrics | engine |
+| Modules (shell) | `backend/app/modules/<slice>/` | Routes, services, repositories, jobs per vertical slice | engine, analysis, ai, platform, other modules' `service.py` only |
+| AI gateway | `backend/app/ai/` | The only LLM boundary, prompts, schemas, mock provider | platform |
+| Platform | `backend/app/platform/` | db, config, auth, authz, events (NOTIFY/SSE), jobs, email, storage, audit | stdlib, third-party |
+| Web | `frontend/` | Next.js presentation only | api over HTTP |
 
 ```mermaid
 graph TD
@@ -54,7 +54,7 @@ graph TD
 
 ### AD-1 — The engine is pure and owns all game arithmetic
 
-- **Binds:** FR-11, FR-12, FR-13, FR-23, FR-26, FR-28, FR-29, FR-31, FR-33, FR-79, NFR-9; `engine`, `analysis`, `web`
+- **Binds:** FR-11, FR-12, FR-13, FR-23, FR-26, FR-28, FR-29, FR-31, FR-33, FR-79, NFR-9; `engine`, `analysis`, `frontend`
 - **Prevents:** inventory, backlog, cost or Supply line computed in two places (route, job, frontend) and disagreeing.
 - **Rule:** Week advance is `engine.advance(settings, state, orders) -> state` and follows the PRD FR-26 sequence exactly. `engine` and `analysis` do no I/O and read no clock. Randomness comes only from a seed you pass in. No other code computes game quantities: the frontend displays what the API returns, and jobs call the engine. The Rule-based player, the near-optimal reference and the Play guard statistics are pure functions here too. Their parameters stay open until issues #8 and #20 settle them.
 
@@ -122,7 +122,7 @@ graph TD
     7. It writes one `llm_call` row per attempt: model config id, model, quantisation, provider, endpoint, Effort level, seed, temperature, prompt version, tokens incl. reasoning, cost, latency, outcome. Stored request and response bodies are the scrubbed ones, and they follow retention (AD-14).
   - pydantic-ai's `FallbackModel` and any router-side fallback are never used (FR-68). A provider's base URL (for example an EU endpoint) comes from the model config and is injected into the provider client.
   - A model config is a row that is immutable once a Class session or a simulation run references it. It holds provider, endpoint, region, model version, quantisation, the Effort levels with their timeouts, prices, the rate limit, and a `prompts` map from purpose to version. An edit creates a new row. A Class session references one config id, and `sessions.lock` copies that id into `SessionRuntime` (AD-4). The Admin freezes a model across Class sessions by giving them the same id (FR-68). A deploy may add prompt files, but never changes or removes a version that a config references. Other modules read and change config and budget only through `ai.config` and `ai.budget`.
-  - Prompts live as versioned files in `api/app/ai/prompts/<purpose>/v<N>.md`.
+  - Prompts live as versioned files in `backend/app/ai/prompts/<purpose>/v<N>.md`.
   - With no provider key the gateway uses a deterministic mock (AD-17).
 
 ### AD-7 — AI text may only connect computed facts
@@ -157,8 +157,8 @@ graph TD
   - The web app reads the Debrief session id from the Debrief endpoint. It never builds a `debrief:` topic from a Game id.
   - Only `game:<id>` carries the Game's `version`. Every other topic sends `version: null`. Clients never drop an event by comparing versions: every event invalidates.
   - Each command declares its topic set in one registry, `platform/events/registry.py`. An api test asserts that every command and mutation named in the table has an entry and emits exactly its listed topics.
-  - The map from topic to TanStack Query keys lives only in `web/src/lib/api/topics.ts`.
-  - Each `api` process holds one `LISTEN` connection and fans events out in memory to `GET /api/events`, a FastAPI native SSE stream per logged-in User. The stream forwards only topics the User's AD-12 scope allows, coalesces `session:<id>` to at most one event per 2 seconds, and sends a heartbeat every 15 seconds so the web app can tell quiet from stale. The stream holds no database session, and the server closes it after 10 to 13 minutes (random) so the browser reconnects before Railway's 15-minute request limit.
+  - The map from topic to TanStack Query keys lives only in `frontend/src/lib/api/topics.ts`.
+  - Each `backend` process holds one `LISTEN` connection and fans events out in memory to `GET /api/events`, a FastAPI native SSE stream per logged-in User. The stream forwards only topics the User's AD-12 scope allows, coalesces `session:<id>` to at most one event per 2 seconds, and sends a heartbeat every 15 seconds so the web app can tell quiet from stale. The stream holds no database session, and the server closes it after 10 to 13 minutes (random) so the browser reconnects before Railway's 15-minute request limit.
   - The stream resolves the User's allowed topics when it connects, and again on every `user:<id>` event for its own User. If the User is deactivated by then, the server closes the stream.
   - Changes caused by time passing (a Takeover becoming possible, a Lab hour starting, a deadline passing) are announced by the sweeper when it crosses the boundary. Views also carry `server_now` and `next_change_at`, so the web app can show countdowns and refetch at the boundary.
   - The web app maps topics to TanStack Query keys, invalidates them, and refetches over REST. On reconnect it refetches everything visible (NFR-5).
@@ -180,13 +180,13 @@ graph TD
 
 ### AD-10 — The web app is presentation only, typed from the API
 
-- **Binds:** all UI FRs, FR-72, FR-73, NFR-5, NFR-6; `web`
+- **Binds:** all UI FRs, FR-72, FR-73, NFR-5, NFR-6; `frontend`
 - **Prevents:** request and response shapes drifting between Python and TypeScript, business rules duplicated in the browser, and typed input lost on a dropped connection.
 - **Rule:**
-  - `web` has no database access. It computes no game, cost, completion or scoring values, with one exception: `web/src/lib/preview.ts` may do display arithmetic for the live Order preview, using only coefficients the API returned, and it is tested against engine golden values.
+  - `frontend` has no database access. It computes no game, cost, completion or scoring values, with one exception: `frontend/src/lib/preview.ts` may do display arithmetic for the live Order preview, using only coefficients the API returned, and it is tested against engine golden values.
   - All data comes from the FastAPI REST API through a client generated from its OpenAPI schema (`openapi-typescript` and `openapi-fetch`). The client is regenerated in CI, and CI fails on drift.
   - Client-side validation only mirrors server rules, and the server stays authoritative.
-  - Server state lives in TanStack Query. The only other client store is `web/src/lib/drafts.ts`: typed but unsent input (an Order, an Explanation, test answers) kept in `localStorage`, keyed by User and field, and cleared on logout. A restored Order is never sent without a press. Test answers autosave with a per-answer revision number, and the server keeps the highest revision.
+  - Server state lives in TanStack Query. The only other client store is `frontend/src/lib/drafts.ts`: typed but unsent input (an Order, an Explanation, test answers) kept in `localStorage`, keyed by User and field, and cleared on logout. A restored Order is never sent without a press. Test answers autosave with a per-answer revision number, and the server keeps the highest revision.
   - The internal print route (AD-18) is the only server-rendered data page.
 
 ### AD-11 — One origin, cookie session
@@ -194,7 +194,7 @@ graph TD
 - **Binds:** FR-1, FR-4, FR-5, FR-8, NFR-7, NFR-10; `proxy`, `platform/auth`
 - **Prevents:** CORS and token-storage variants per page, tokens readable by scripts, SSE breaking behind a buffering proxy, and internal routes reachable from the internet.
 - **Rule:**
-  - `[ADOPTED]` from technology.md: Caddy is the only public entry. It sends `/api/*` to `api` (flushing immediately for SSE), answers 404 for `/print/*`, and sends everything else to `web`.
+  - `[ADOPTED]` from technology.md: Caddy is the only public entry. It sends `/api/*` to `backend` (flushing immediately for SSE), answers 404 for `/print/*`, and sends everything else to `frontend`.
   - Login is email and password. The password is SHA-256 hashed and base64-encoded before bcrypt, because bcrypt 5 rejects input over 72 bytes. The session is an HS256 JWT in an `httpOnly; Secure; SameSite=Lax` cookie.
   - Every mutating request must carry the header `X-Requested-With: olspillet`, which is the CSRF guard. The one exception is `/api/webhooks/*`, which verifies the sender's signature instead (the Resend bounce webhook, FR-8).
   - Every request loads the User and rejects deactivated Users (FR-3).
@@ -263,11 +263,11 @@ graph TD
 - **Binds:** FR-57 to FR-59, FR-62, FR-64, FR-86, NFR-6, NFR-7
 - **Prevents:** two chart implementations, one in the browser and one in the PDF, drifting apart, slow PDF work blocking API requests, and the print route becoming a way around authorization.
 - **Rule:**
-  - All charts come from one module, `web/src/components/charts`, and no other code imports a chart library. Standard line and bar charts are built on Recharts `[ADOPTED]` from technology.md. Only the chain band and the matrix wall are hand-made SVG (d3-scale, d3-shape). Every chart has an HTML table alternative and follows the DESIGN.md graph-over-table grammar.
+  - All charts come from one module, `frontend/src/components/charts`, and no other code imports a chart library. Standard line and bar charts are built on Recharts `[ADOPTED]` from technology.md. Only the chain band and the matrix wall are hand-made SVG (d3-scale, d3-shape). Every chart has an HTML table alternative and follows the DESIGN.md graph-over-table grammar.
   - Charts render with a fixed width passed in by the module, never `ResponsiveContainer`, so the same chart renders on the server for the PDF.
   - The first chart story is a spike that checks two things: the chart's Week columns line up with the table below at 320, 360 and 1440 px, and the chart is correct in the WeasyPrint PDF. A chart type that fails either check is rebuilt as hand-made SVG inside the same module.
   - `reports.build_report_data(student, class_session, options)` in the api is the only assembler of report content, and it runs only after AD-12 allowed the requester. The job stores the result as a report snapshot with a single-use, 5-minute render token.
-  - The Student report page is `web` `/print/report/<snapshot_id>`. It is server-rendered, needs no JavaScript, is blocked at the proxy (AD-11), and fetches only that snapshot with the render token. It has no other data access.
+  - The Student report page is `frontend` `/print/report/<snapshot_id>`. It is server-rendered, needs no JavaScript, is blocked at the proxy (AD-11), and fetches only that snapshot with the render token. It has no other data access.
   - The `worker-batch` process fetches that page, converts it with WeasyPrint in its `pdf/ua-1` variant to a tagged PDF, and stores the PDF or the ZIP in the private `reports` bucket (AD-14).
   - Downloads are short-lived signed URLs, created only after AD-12 has allowed them.
   - The ZIP never contains the AI assessment section (FR-59).
@@ -279,8 +279,8 @@ graph TD
 - **Binds:** FR-72, FR-84 (forbidden words), FR-34 (AI labels), NFR-6
 - **Prevents:** copy scattered in components and handlers, the words «Beer Game» and «bullwhip» slipping in before the Debrief, and the API returning Norwegian sentences the UI cannot localise.
 - **Rule:**
-  - UI copy lives in `web/src/copy/nb.ts`.
-  - Email and PDF copy lives in the Jinja2 templates in `api/app/platform/email/templates/` and in the print route.
+  - UI copy lives in `frontend/src/copy/nb.ts`.
+  - Email and PDF copy lives in the Jinja2 templates in `backend/app/platform/email/templates/` and in the print route.
   - The API returns errors as `{"error": {"code": "<stable_snake_code>", "message": "<developer text>", "fields": {…}}}`, and the web app maps each `code` to Norwegian copy.
   - A CI test fails if pre-Debrief copy contains «Beer Game» or «bullwhip».
 
@@ -326,10 +326,10 @@ graph TD
 
 ### AD-24 — One commit, one schema, compatible deploys
 
-- **Binds:** NFR-4; `api`, `worker-ai`, `worker-batch`, migrations
+- **Binds:** NFR-4; `backend`, `worker-ai`, `worker-batch`, migrations
 - **Prevents:** a deploy during a Lab hour breaking a process that still runs the old code, and two owners of the job-queue schema.
 - **Rule:**
-  - `api`, `worker-ai` and `worker-batch` are built from the same image and commit. Only the pre-deploy step of `api` runs migrations.
+  - `backend`, `worker-ai` and `worker-batch` are built from the same image and commit. Only the pre-deploy step of `backend` runs migrations.
   - Alembic owns every schema change, including the procrastinate schema, applied through Alembic revisions that run the migration SQL procrastinate ships.
   - Migrations are expand-then-contract: a release never removes or renames something the previous release still uses. Job arguments stay backward compatible for one release.
 
@@ -360,7 +360,7 @@ graph TD
 | Concern | Convention |
 | --- | --- |
 | Naming | PRD §3 Glossary terms in English in code (`ClassSession`, `Seat`, `Order`, `SupplyLine`); Norwegian only in copy. Python and DB `snake_case`; tables plural (`games`, `seat_weeks`); TS types come from the generated client. |
-| Module layout | `api/app/modules/<slice>/{routes.py, service.py, repo.py, models.py, schemas.py, jobs.py}`; other modules import only `service.py`. A table has exactly one owning module, and only that module writes it. Web mirrors this as `web/src/modules/<slice>/`. |
+| Module layout | `backend/app/modules/<slice>/{routes.py, service.py, repo.py, models.py, schemas.py, jobs.py}`; other modules import only `service.py`. A table has exactly one owning module, and only that module writes it. Web mirrors this as `frontend/src/modules/<slice>/`. |
 | IDs | UUIDv7 generated in the app (`uuid.uuid7()`), exposed as strings. No sequential ids in URLs. |
 | Time | `timestamptz` in UTC everywhere; displayed in `Europe/Oslo`; Weeks are integers starting at 1. |
 | Numbers | Units are integers. Game money and cost rates are `NUMERIC(14,4)` and `Decimal`, and travel in JSON as decimal strings (`"0.50"`). LLM prices and call costs are `NUMERIC(18,8)` USD and are summed unrounded. Display uses a Norwegian decimal comma. |
@@ -370,7 +370,7 @@ graph TD
 | Mutations | Through module services; game state only through `games.commands` (AD-2); every mutation that others watch emits a NOTIFY (AD-8). |
 | Jobs | Idempotent, keyed by a natural key; deferred on the caller's database connection inside its transaction; retried by procrastinate; the sweeper repairs anything lost (AD-9). |
 | Database connections | One written budget for the Supabase session pooler: per process, the SQLAlchemy pool (`max_overflow=0`), the procrastinate pool and one LISTEN connection, times two during a deploy overlap. The pooler's pool size is raised to fit it. |
-| Migrations | Alembic only, expand-then-contract, run as the Railway pre-deploy command of `api` (AD-24). |
+| Migrations | Alembic only, expand-then-contract, run as the Railway pre-deploy command of `backend` (AD-24). |
 | Logging | structlog JSON, one `request_id` per request and job, no names, emails or free text in logs. |
 | Testing | pytest for api; engine and analysis aim at full branch coverage with golden traces (addendum §B reference trace); Vitest for web units; Playwright for flows at 320, 360 and 1440 px and at 400 % zoom; an axe check in Playwright for NFR-6. |
 | Accessibility | Every chart has a table alternative; status never by colour alone; live regions as EXPERIENCE.md lists them. |
@@ -496,9 +496,11 @@ erDiagram
 
 **Source tree**
 
+The founder chose the folder names `backend/` and `frontend/` on 2026-11-17. They replace the earlier `api/` and `web/`, and the compose and Railway services carry the same names. URL paths such as `/api/*` are unchanged.
+
 ```text
 beergame/
-  api/                      # one uv project; image runs as api or worker
+  backend/                      # one uv project; image runs as api or worker
     app/
       engine/               # pure game rules (AD-1, AD-4)
       analysis/             # pure facts, patterns, completion, guard stats (AD-7, AD-16)
@@ -512,7 +514,7 @@ beergame/
       sim.py                # headless simulation runner (AD-22)
     migrations/             # Alembic
     tests/
-  web/
+  frontend/
     src/app/                # routes: (student), (staff), (admin), (auth), print/
     src/modules/<slice>/
     src/components/charts/  # the only chart implementation (AD-18)
@@ -541,24 +543,24 @@ beergame/
 | Replay (FR-48 to FR-50) | `replay` (creates `purpose=replay` Games), `games`, `debrief` (walkthrough) | AD-4, AD-5, AD-7 |
 | Individual test, Interactive and Adapted items (FR-51 to FR-53, FR-80, FR-81) | `tests`, `content`, `analysis` (computed scoring) | AD-7, AD-23, AD-10, AD-9 |
 | AI assessment, letter, Control test (FR-54 to FR-56, FR-61, FR-82) | `assessment`, `ai`, `sessions` (`kind=control_test`), `analysis` (agreement) | AD-6, AD-7, AD-9, AD-12, AD-13, AD-27 |
-| Reports, exports (FR-57 to FR-60, FR-88) | `reports`, `web/print` | AD-18, AD-16, AD-13 |
+| Reports, exports (FR-57 to FR-60, FR-88) | `reports`, `frontend/print` | AD-18, AD-16, AD-13 |
 | Insight, Class report, statistics (FR-62 to FR-65, FR-86) | `reports`, `analysis` | AD-13, AD-14, AD-18 |
 | Rerun (FR-66) | `sessions` | AD-4 |
 | Decision log, model pinning, spend, plausibility, pseudonymised export (FR-67 to FR-71) | `games`, `ai`, `ops`, `reports` | AD-15, AD-6, AD-14 |
-| Language and devices (FR-72 to FR-74) | `web` | AD-10, AD-19 |
+| Language and devices (FR-72 to FR-74) | `frontend` | AD-10, AD-19 |
 | Data rights (FR-75 to FR-77) | `identity`, `ops.retention` | AD-14, AD-9 |
 | NFR-1 to NFR-10 | cross-cutting | AD-2, AD-8 (NFR-1, 4, 5); AD-5 (NFR-2); AD-6 (NFR-8); AD-11, AD-12 (NFR-7); AD-18, AD-19 (NFR-6) |
 
 ## Deferred
 
-- **LLM provider, route and model**: OpenRouter EU in-region routing with ZDR and `allow_fallbacks: false` (needs a Business plan) versus AWS Bedrock EU, Vertex AI EU, Azure EU data zone or Mistral. The prototype decides this (issues #8, #9; PRD Q10). AD-6 keeps the choice swappable per Class session.
+- **LLM provider, route and model**: decided by the founder on 2026-11-17: **OpenRouter**, model **`deepseek/deepseek-v4.1-flash-1017`** (Issue #9). Still open: whether an EU provider serves it with ZDR and `allow_fallbacks: false`; Story 2.7 checks this and records the answer. The mock provider stays the default locally and in CI (AD-17). The options weighed before: OpenRouter EU in-region routing with ZDR and `allow_fallbacks: false` (needs a Business plan) versus AWS Bedrock EU, Vertex AI EU, Azure EU data zone or Mistral. The prototype decides this (issues #8, #9; PRD Q10). AD-6 keeps the choice swappable per Class session.
 - **Effort levels, per-attempt timeouts and Order time budgets** (NFR-2). These are numbers in the pinned model config, set by the prototype.
 - **Budget reserve size** for Debrief and AI assessment (FR-69), and **the time allowed after the Play deadline for the playout to finish** (FR-38, SM-4). Both are set after the prototype.
 - **Play guard distance measure, window, minimum Weeks and the near-optimal algorithm** (issue #20). They fill the pure-function slots AD-1 and AD-5 define.
 - **Rule-based player parameters** from Sterman 1989 (issues #8, #17).
 - **Backup level.** Founder decision 2026-11-12: backups wait until later. The MVP runs on whatever the Supabase plan includes. NFR-4 ("game state is never lost once a Week has been shown") is not met against a database loss until this is decided, so decide it before real Students play.
 - **Error tracking and uptime monitoring** (technology.md watchdog). The MVP has Railway healthchecks and logs. Pick a tool before the pilot, since Lab hours need 99.5% availability and a named contact (NFR-4).
-- **Load test method** for NFR-3 (250 concurrent players, including provider rate limits). Run it before the pilot. One `api` replica is assumed to be enough, and AD-8 allows more replicas.
+- **Load test method** for NFR-3 (250 concurrent players, including provider rate limits). Run it before the pilot. One `backend` replica is assumed to be enough, and AD-8 allows more replicas.
 - **Email provider data residency.** Resend stores account data in the US, under the EU–US Data Privacy Framework or SCCs. Either list it in the DPIA pack or switch to an EU-stored provider before the pilot.
 - **Drawn Interactive items.** Table and number entry are built first. The drawing component waits until computed scoring has been checked (FR-80).
 - **Report authenticity verification** (PRD Q8).

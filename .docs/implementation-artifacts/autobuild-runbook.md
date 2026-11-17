@@ -12,9 +12,10 @@ The orchestrator session follows this file when it builds the stories without a 
 
 - Build every story in order, Epic 1 to Epic 15, story by story.
 - Leave in `backlog`, do not build: **3.15**, **15.10**, **15.14**. They need production accounts, which come after the founder has approved the site.
-- Build, then set to `review` with an issue for the founder: **1.2** (the founder checks the hand-worked first ten Weeks), **2.7** (hand-run probe against a real EU endpoint), **15.9** and **15.11** (the founder fills in ops values), **15.13** (manual screen reader and keyboard checks). Say in the issue exactly what the founder must do. Later stories build on the code as if the story were done.
+- No human in the loop (founder, 2026-11-17). Where a story asks the founder to check something, an independent review agent does it instead, and the story is `done` when the check passes: **1.2** (the agent hand-works the first ten Weeks from the rules, without the builder's table), **2.7** (the agent runs the probe against a real EU endpoint with the key in `.env`), **15.9** and **15.11** (the agent chooses the ops values and records them in an issue), **15.13** (keyboard, focus and accessibility checks with Playwright CLI, `@playwright/cli`, and axe). Record every choice the founder would have made in an issue.
+- Reviews and visual checks use other agents and Playwright CLI (`npx @playwright/cli@0.1.24`, bin `playwright-cli`), never a person.
 - Everything runs locally: Postgres in Docker, files in `./.local-storage/`, mail as `[email:mock]`, the AI mock by default (AD-17). Never create a cloud account, project or deploy.
-- The LLM provider key in `.env` may be used only where a story asks for a real endpoint (2.7, 2.11). Never print, log or commit a key.
+- The LLM provider is OpenRouter with the model `deepseek/deepseek-v4.1-flash-1017` (founder, 2026-11-17, Issue #9). The OpenRouter key in `.env` may be used only where a story asks for a real endpoint (2.7, 2.11). Never print, log or commit a key.
 
 ## One story
 
@@ -26,7 +27,7 @@ The orchestrator session follows this file when it builds the stories without a 
    - **done**: set the story to `done`, or to `review` if it is on the founder list.
    - **blocked**: solve the problem yourself as well as you can. Read the spec's `## Auto Run Result`, fix the cause (a missing piece of an earlier story, a flaky test, an unclear criterion: choose the reading closest to `epics.md`, the PRD and the spines), set the spec's `status` back to the step it should resume at, and run step 3 again. Open an issue (label `agent`, title `Story <N.M>: …`) that states the problem and every decision you took. After three failed attempts on the same story, leave it `blocked` in `sprint-status.yaml`, record it in the issue, and go on to the next story that does not depend on it.
    - **Deferred findings** in the spec (`deferred:` in its frontmatter) that matter beyond the story: one issue, label `agent`.
-5. **Visual check, for every story that adds or changes a screen** (from Story 3.1 on; skip stories with no change under `web/`). Launch one blocking subagent that:
+5. **Visual check, for every story that adds or changes a screen** (from Story 3.1 on; skip stories with no change under `frontend/`). Launch one blocking subagent that:
    - starts the app with `docker compose up` and reaches the story's screens at `http://localhost:8080` with Playwright, as the Role the story is for, using the same seed and test login as the story's Playwright tests;
    - takes full-page screenshots at 390 px and 1280 px wide of each state the story names (empty, filled, error and so on), and saves them to `.docs/implementation-artifacts/screenshots/<N.M>/` as `<screen>-<state>-<width>.png`;
    - opens each screenshot and compares it with the matching mockup in `.docs/planning-artifacts/ux-designs/ux-beergame-2026-11-05/mockups/` and with `DESIGN.md` and `EXPERIENCE.md`, which win over the mockup on conflict: layout, tokens, type, copy from `nb.ts`, one primary button, and nothing cut off or scrolling sideways at 390 px;

@@ -1,0 +1,24 @@
+# The only public entry (AD-11). Plain HTTP; TLS is terminated in front of it.
+{
+	admin off
+	auto_https off
+}
+
+:{$PORT:8080} {
+	@api path /api /api/*
+	@print path /print /print/*
+
+	handle @api {
+		reverse_proxy {$API_UPSTREAM:backend:8000} {
+			flush_interval -1 # SSE: no buffering (AD-8)
+		}
+	}
+
+	handle @print {
+		respond 404 # the print route is internal only (AD-18)
+	}
+
+	handle {
+		reverse_proxy {$WEB_UPSTREAM:frontend:3000}
+	}
+}

@@ -1,0 +1,85 @@
+"""One settings class for every process (AD-17).
+
+Locally, with no environment at all, everything has a working default.
+With APP_ENV=production the process refuses to start when a required
+secret is missing or still has its built-in local default.
+"""
+
+from functools import lru_cache
+from typing import Literal
+
+from pydantic import Field, ValidationError, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+LOCAL_DATABASE_URL = "postgresql+psycopg://olspillet:olspillet@localhost:5432/olspillet"
+
+# Variables that must be set, and not to a built-in default, in production.
+# Later epics add JWT_SECRET, RESEND_API_KEY and the storage keys here.
+PRODUCTION_REQUIRED: dict[str, str] = {
+    "database_url": LOCAL_DATABASE_URL,
+}
+
+
+class ConfigError(SystemExit):
+    """Raised at settings load when the process must not start."""
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=None, extra="ignore", case_sensitive=False)
+
+    app_env: Literal["local", "test", "ci", "production"] = "local"
+    database_url: str = LOCAL_DATABASE_URL
+    db_pool_size: int = Field(10, ge=1)
+    log_level: Literal["debug", "info", "warning", "error", "critical"] = "info"
+
+    # PRD §8.1 cut-list flags only (AD-17).
+    feature_student_choice: bool = True
+    feature_cross_institution_stats: bool = True
+    feature_rerun: bool = True
+    feature_info_visibility: bool = True
+    feature_lecturer_test_game: bool = True
+    feature_game_data_export: bool = True
+    feature_capacity: bool = True
+
+    @field_validator("log_level", mode="before")
+    @classmethod
+    def _lower_level(cls, v: object) -> object:
+        return v.lower() if isinstance(v, str) else v
+
+    @field_validator("database_url")
+    @classmethod
+    def _psycopg_driver(cls, v: str) -> str:
+        # Hosted Postgres hands out postgresql:// URLs; we use psycopg 3 only.
+        for prefix in ("postgresql://", "postgres://"):
+            if v.startswith(prefix):
+                return "postgresql+psycopg://" + v[len(prefix) :]
+        return v
+
+    def check_production(self) -> None:
+        if self.app_env != "production":
+            return
+        bad = [
+            name.upper()
+            for name, default in PRODUCTION_REQUIRED.items()
+            if not getattr(self, name) or getattr(self, name) == default
+        ]
+        if bad:
+            raise ConfigError(
+                "Refusing to start with APP_ENV=production: "
+                f"missing or default value for {', '.join(bad)}"
+            )
+
+
+def load_settings() -> Settings:
+    try:
+        settings = Settings()
+    except ValidationError as exc:
+        fields = ", ".join(str(e["loc"][0]).upper() for e in exc.errors() if e["loc"])
+        raise ConfigError(f"Invalid configuration: {fields or exc}") from None
+    settings.check_production()
+    return settings
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return load_settings()
