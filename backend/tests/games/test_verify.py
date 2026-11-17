@@ -234,7 +234,10 @@ async def test_an_unknown_game_is_refused(games_db, game_id):
 
 
 async def test_an_unfinished_game_is_refused_and_nothing_is_stored(games_db):
+    from tests.games.helpers import seat_student
+
     game_id = await commands.create("simulation", GameSettings(), seed=7)
+    seat_student(games_db, game_id, "retailer")  # the Game waits for the Student
     await commands.start(game_id)
     await play_week(game_id)
     with pytest.raises(service.ViewError) as caught:

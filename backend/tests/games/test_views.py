@@ -233,7 +233,12 @@ def test_week_1_retailer_state_of_a_classic_game():
 
 
 async def started_game() -> str:
+    """Students hold every Seat, so the Game waits in Week 1 (Story 2.1)."""
+    from tests.conftest import TEST_DATABASE_URL
+    from tests.games.helpers import seat_student
+
     game_id = await commands.create("simulation", GameSettings(), seed=7)
+    seat_student(TEST_DATABASE_URL, game_id, *(role.value for role in GameSettings().roles))
     await commands.start(game_id)
     return game_id
 

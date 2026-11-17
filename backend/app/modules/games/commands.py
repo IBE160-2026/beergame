@@ -3,6 +3,11 @@
 Each command is one transaction: it locks the Game row (`SELECT … FOR UPDATE`), raises the
 Game's `version` by one and emits `game:<id>` (AD-8) before it commits. A command that fails
 raises `CommandError` and leaves nothing behind: no row, no version change, no event.
+
+When a Week opens, and right after a switch, the command calls `players.ensure_order` for its
+Seats in its own transaction (AD-5); the Orders it places join that transaction. After its own
+commit every command calls `advance` until it does nothing, so a Game whose open Week is
+complete moves on one Week per transaction and none is left complete but open (AD-2, NFR-4).
 """
 
 import secrets
@@ -20,7 +25,6 @@ from app.engine import (
     Role,
     SettingsError,
     WeekState,
-    advance,
     demand_series,
     guided_order,
     initial_state,
@@ -28,6 +32,7 @@ from app.engine import (
     seat_view,
     validate,
 )
+from app.engine import advance as engine_advance
 from app.engine import rules as engine_rules
 from app.engine.demand import new_seed
 from app.engine.scripted import REGISTRY
@@ -43,13 +48,23 @@ from app.modules.games.schemas import (
     Purpose,
     SessionRuntime,
 )
+from app.modules.games.turns import OpenGame
 from app.modules.games.views import build_seat_state, stored_orders, stored_play
 from app.platform import events
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 from app.platform.parameter_sets import UnknownParameterSetError, read_parameter_set
 
-__all__ = ["CommandError", "assign_seat", "create", "finish", "place_order", "start"]
+__all__ = [
+    "CommandError",
+    "advance",
+    "assign_seat",
+    "create",
+    "finish",
+    "place_order",
+    "start",
+    "switch_to_rule_based",
+]
 
 log = structlog.get_logger(__name__)
 
@@ -175,6 +190,7 @@ async def create(
         await repo.insert_seats(session, game_id, [role.value for role in effective.roles])
         await _commit_change(session, game_id)
     log.info("game_created", game_id=str(game_id))
+    await _settle(str(game_id))
     return str(game_id)
 
 
@@ -230,6 +246,7 @@ async def assign_seat(
         occupancy_id = await _append_initial(session, seat["id"], occupant, policy_id)
         await _commit_change(session, game_uuid)
     log.info("seat_assigned", game_id=game_id, seat_id=str(seat["id"]))
+    await _settle(game_id)
     return str(occupancy_id)
 
 
@@ -285,6 +302,14 @@ def _snapshot(game: Mapping[str, object]) -> tuple[GameSettings, rule_based.Rule
     return settings, params
 
 
+async def _ensure_order(game: OpenGame, seat_id: uuid.UUID) -> None:
+    """Hand the Seat to the one order source (AD-5). `players` imports `games.commands`, so the
+    import is made here, when the first Week opens, not when this module loads."""
+    from app.modules.players import service as players
+
+    await players.ensure_order(game, str(seat_id))
+
+
 async def _open_week(
     session: AsyncSession,
     game_id: uuid.UUID,
@@ -295,7 +320,9 @@ async def _open_week(
     seat_ids: Mapping[str, uuid.UUID],
 ) -> None:
     """Store the newest of `states` and one turn per Seat with its Rule-based reference Order,
-    computed here once from that Seat's own view (AD-5, AD-20, FR-67)."""
+    computed here once from that Seat's own view (AD-5, AD-20, FR-67). Then every Seat, in
+    chain order, goes to `players.ensure_order`, which places the Orders of its non-student
+    occupants in this transaction. The Game must already be `running`."""
     state = states[-1]
     await repo.insert_week(session, game_id, state.week, state.model_dump(mode="json"))
     await repo.insert_turns(
@@ -313,11 +340,29 @@ async def _open_week(
             for role in settings.roles
         ],
     )
+    open_game = OpenGame(session=session, game_id=game_id)
+    for role in settings.roles:
+        await _ensure_order(open_game, seat_ids[role.value])
+
+
+async def _settle(game_id: str) -> None:
+    """Advance the Game one Week per transaction until an advance does nothing (AD-2, NFR-4).
+
+    It runs after the caller's own commit, so the caller's result stands whatever happens here:
+    a failed advance is logged and leaves the Game complete but open, for the next command or
+    `advance` to move on."""
+    try:
+        while await _advance_once(game_id):
+            pass
+    except Exception:
+        log.exception("settle_failed", game_id=game_id)
 
 
 async def start(game_id: str) -> int:
     """Start a `not_started` Game: give every free Seat a Rule-based player, store the Week 1
-    state and open one turn per Seat. Returns the opened Week (1)."""
+    state, open one turn per Seat and let the order source place the Orders of the non-student
+    Seats. Returns the opened Week (1); by then the Game may have advanced, or finished when no
+    Student holds a Seat."""
     game_uuid = _game_uuid(game_id)
     async with get_sessionmaker().begin() as session:
         game = await repo.lock_game(session, game_uuid)
@@ -332,10 +377,11 @@ async def start(game_id: str) -> int:
                 await _append_initial(session, seat["id"], OccupantKind.RULE_BASED, None)
         state = initial_state(settings, game["rules_version"])
         seat_ids = {seat["role"]: seat["id"] for seat in seat_rows}
-        await _open_week(session, game_uuid, settings, params, [state], [], seat_ids)
         await repo.set_lifecycle(session, game_uuid, Lifecycle.RUNNING.value)
+        await _open_week(session, game_uuid, settings, params, [state], [], seat_ids)
         await _commit_change(session, game_uuid)
     log.info("game_started", game_id=game_id)
+    await _settle(game_id)
     return state.week
 
 
@@ -359,99 +405,239 @@ def _check_order(settings: GameSettings, order: object) -> int:
     return order
 
 
+def _seat_row(seat_rows: Sequence[Mapping[str, object]], seat: object) -> Mapping[str, object]:
+    row = next((r for r in seat_rows if str(seat) in {r["role"], str(r["id"])}), None)
+    if row is None:
+        raise CommandError("seat_not_found", f"the Game has no Seat {seat!r}", 404)
+    return row
+
+
+async def _step(
+    session: AsyncSession,
+    game: Mapping[str, object],
+    settings: GameSettings,
+    params: rule_based.RuleBasedParams,
+) -> tuple[Lifecycle, int | None]:
+    """Run the complete open Week in the engine: open the next Week, or finish the Game after
+    the last one. Returns the lifecycle and the open Week after it."""
+    game_uuid = game["id"]
+    states, orders = await stored_play(session, game_uuid)
+    week = states[-1].week
+    week_orders = (await stored_orders(session, game_uuid))[week - 1]
+    following = engine_advance(settings, states[-1], week_orders, game["rules_version"])
+    if following.finished:
+        await finish(session, game_uuid, following)
+        return Lifecycle.FINISHED, None
+    seat_ids = {r["role"]: r["id"] for r in await repo.seats_with_occupant(session, game_uuid)}
+    await _open_week(
+        session, game_uuid, settings, params, [*states, following], [*orders, week_orders], seat_ids
+    )
+    return Lifecycle.RUNNING, following.week
+
+
+async def _place(
+    session: AsyncSession,
+    game_uuid: uuid.UUID,
+    seat: Role | str,
+    week: int,
+    order: int,
+    decided_by: DecidedBy | str,
+    *,
+    advance_week: bool,
+) -> OrderPlaced:
+    """`place_order`'s checks and writes in `session`; with `advance_week` it also runs the Week
+    this Order completes."""
+    game = await repo.lock_game(session, game_uuid)
+    if game is None:
+        raise CommandError("game_not_found", f"no Game {str(game_uuid)!r}", 404)
+    seat_rows = await repo.seats_with_occupant(session, game_uuid)
+    row = _seat_row(seat_rows, seat)
+    if game["lifecycle"] == Lifecycle.NOT_STARTED:
+        raise CommandError("game_not_started", "the Game has not started", 409)
+    if game["lifecycle"] == Lifecycle.FINISHED:
+        raise CommandError("game_finished", "the Game has finished", 409)
+    decider = _decided_by(decided_by)
+    settings, params = _snapshot(game)
+    value = _check_order(settings, order)
+    states, orders = await stored_play(session, game_uuid)
+    if type(week) is not int or week != states[-1].week:
+        raise CommandError("week_not_open", f"Week {week!r} is not the open Week", 409)
+    if await repo.has_seat_week(session, game_uuid, week, row["id"]):
+        raise CommandError("order_exists", "the Seat has already ordered this Week", 409)
+    guided = rules.guided_week(_policy(game["purpose"]), settings, week)
+    if guided and (decider is not DecidedBy.GUIDED or value != guided_order(settings)):
+        raise CommandError(
+            "guided_order_required",
+            f"Week {week} is a Guided Week: the Order is {guided_order(settings)}, "
+            "decided by guided",
+            422,
+        )
+    if not guided and decider is DecidedBy.GUIDED:
+        raise CommandError("decided_by_invalid", f"Week {week} is not a Guided Week", 422)
+    turn = await repo.turn(session, game_uuid, row["id"], week)
+    occupancy = await repo.occupancy_in_force(session, row["id"], week)
+    if turn is None or occupancy is None:  # `start` and every advance write both
+        raise CommandError("week_not_open", f"the Seat has no turn in Week {week}", 409)
+    ordered_at = await repo.set_ordered_at(session, turn["id"])
+    seat_week_id = uuid.uuid7()
+    state_seen = build_seat_state(settings, states, orders, row["role"])
+    await repo.insert_seat_week(
+        session,
+        {
+            "id": seat_week_id,
+            "game_id": game_uuid,
+            "seat_id": row["id"],
+            "week": week,
+            "state_seen": state_seen.model_dump(mode="json"),
+            "order": value,
+            "decided_by": decider.value,
+            "fallback": Fallback.NONE.value,
+            "occupant_kind": occupancy["occupant_kind"],
+            "reason": occupancy["reason"],
+            "opened_at": turn["opened_at"],
+            "ordered_at": ordered_at,
+            "rule_based_reference_order": turn["rule_based_reference_order"],
+        },
+    )
+    lifecycle, open_week = Lifecycle(game["lifecycle"]), week
+    if advance_week and rules.week_complete(await repo.week_turns(session, game_uuid, week)):
+        lifecycle, open_week = await _step(session, game, settings, params)
+    log.info("order_placed", game_id=str(game_uuid), seat_id=str(row["id"]), week=week)
+    return OrderPlaced(
+        seat_week_id=str(seat_week_id), week=week, open_week=open_week, lifecycle=lifecycle
+    )
+
+
 async def place_order(
-    game_id: str, seat: Role | str, week: int, order: int, decided_by: DecidedBy | str
+    game_id: str,
+    seat: Role | str,
+    week: int,
+    order: int,
+    decided_by: DecidedBy | str,
+    *,
+    within: OpenGame | None = None,
 ) -> OrderPlaced:
     """Place the Order of `seat` (a Role or a Seat id) for the open `week` and write its
     Decision log row with the state the Seat saw (AD-15, FR-67).
 
     When this Order completes the Week (`games.rules.week_complete`), the same transaction
     advances the engine one Week and opens the next turns, or finishes the Game after the last
-    Week (AD-2, FR-26, FR-28). The version rises once either way."""
+    Week (AD-2, FR-26, FR-28). The version rises once either way.
+
+    `within` is the running command's transaction, for the order source (`players`): the Order
+    joins its lock, version increment and event, and never advances or finishes the Game."""
+    if within is not None:
+        if within.game_id != _game_uuid(game_id):
+            raise ValueError("place_order within another Game's transaction")
+        return await _place(
+            within.session, within.game_id, seat, week, order, decided_by, advance_week=False
+        )
+    game_uuid = _game_uuid(game_id)
+    async with get_sessionmaker().begin() as session:
+        placed = await _place(session, game_uuid, seat, week, order, decided_by, advance_week=True)
+        await _commit_change(session, game_uuid)
+    await _settle(game_id)
+    return placed
+
+
+async def _complete_week(game_id: uuid.UUID) -> bool:
+    """Whether the Game is running and its open Week is complete, read without a lock;
+    refuses an unknown Game."""
+    async with get_sessionmaker()() as session:
+        game = await repo.get_game(session, game_id)
+        if game is None:
+            raise CommandError("game_not_found", f"no Game {str(game_id)!r}", 404)
+        if game["lifecycle"] != Lifecycle.RUNNING:
+            return False
+        states, _ = await stored_play(session, game_id)
+        if not states:
+            return False
+        return rules.week_complete(await repo.week_turns(session, game_id, states[-1].week))
+
+
+async def _advance_once(game_id: str) -> bool:
+    """One `advance` transaction; False, with nothing written, when there is nothing to do."""
+    game_uuid = _game_uuid(game_id)
+    if not await _complete_week(game_uuid):
+        return False
+    async with get_sessionmaker().begin() as session:
+        game = await repo.lock_game(session, game_uuid)
+        if game is None or game["lifecycle"] != Lifecycle.RUNNING:
+            return False
+        states, _ = await stored_play(session, game_uuid)
+        week = states[-1].week
+        if not rules.week_complete(await repo.week_turns(session, game_uuid, week)):
+            return False  # another command advanced it meanwhile
+        settings, params = _snapshot(game)
+        _, open_week = await _step(session, game, settings, params)
+        await _commit_change(session, game_uuid)
+    log.info("week_advanced", game_id=game_id, week=week, open_week=open_week)
+    return True
+
+
+async def advance(game_id: str) -> bool:
+    """Advance the Game exactly one Week in its own transaction when its open Week is complete
+    (`games.rules.week_complete`): open the next Week, whose non-student Seats get their Orders
+    from `players.ensure_order`, or run the last Week in full and `finish` the Game. Does
+    nothing otherwise (no version change, no event). Like every command it then keeps calling
+    `advance` until one does nothing. Returns whether it advanced."""
+    if not await _advance_once(game_id):
+        return False
+    await _settle(game_id)
+    return True
+
+
+def _switch_reason(reason: object) -> OccupancyReason:
+    try:
+        value = OccupancyReason(reason)
+    except ValueError:
+        value = None
+    if value is None or value is OccupancyReason.INITIAL:
+        raise CommandError("reason_invalid", f"{reason!r} is not a reason to switch a Seat", 422)
+    return value
+
+
+async def switch_to_rule_based(
+    game_id: str, seat: Role | str, reason: OccupancyReason | str
+) -> str:
+    """Hand `seat` (a Role or a Seat id) to the Rule-based player for the rest of the Game.
+
+    Appends an occupancy row with `occupant_kind = rule_based` and `reason`; it never edits an
+    earlier row (AD-5). A Seat without an Order for the open Week switches from this Week and
+    gets its Order from `players.ensure_order` in the same transaction; a Seat that has ordered
+    switches from the next Week. Returns the occupancy row id."""
+    switch_reason = _switch_reason(reason)
     game_uuid = _game_uuid(game_id)
     async with get_sessionmaker().begin() as session:
         game = await repo.lock_game(session, game_uuid)
         if game is None:
             raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
-        seat_rows = await repo.seats_with_occupant(session, game_uuid)
-        row = next(
-            (r for r in seat_rows if str(seat) in {r["role"], str(r["id"])}),
-            None,
-        )
-        if row is None:
-            raise CommandError("seat_not_found", f"the Game has no Seat {seat!r}", 404)
+        row = _seat_row(await repo.seats_with_occupant(session, game_uuid), seat)
         if game["lifecycle"] == Lifecycle.NOT_STARTED:
             raise CommandError("game_not_started", "the Game has not started", 409)
         if game["lifecycle"] == Lifecycle.FINISHED:
             raise CommandError("game_finished", "the Game has finished", 409)
-        decider = _decided_by(decided_by)
-        settings, params = _snapshot(game)
-        value = _check_order(settings, order)
-        states, orders = await stored_play(session, game_uuid)
-        if type(week) is not int or week != states[-1].week:
-            raise CommandError("week_not_open", f"Week {week!r} is not the open Week", 409)
-        if await repo.has_seat_week(session, game_uuid, week, row["id"]):
-            raise CommandError("order_exists", "the Seat has already ordered this Week", 409)
-        guided = rules.guided_week(_policy(game["purpose"]), settings, week)
-        if guided and (decider is not DecidedBy.GUIDED or value != guided_order(settings)):
-            raise CommandError(
-                "guided_order_required",
-                f"Week {week} is a Guided Week: the Order is {guided_order(settings)}, "
-                "decided by guided",
-                422,
-            )
-        if not guided and decider is DecidedBy.GUIDED:
-            raise CommandError("decided_by_invalid", f"Week {week} is not a Guided Week", 422)
-        turn = await repo.turn(session, game_uuid, row["id"], week)
-        occupancy = await repo.occupancy_in_force(session, row["id"], week)
-        if turn is None or occupancy is None:  # `start` and every advance write both
-            raise CommandError("week_not_open", f"the Seat has no turn in Week {week}", 409)
-        ordered_at = await repo.set_ordered_at(session, turn["id"])
-        seat_week_id = uuid.uuid7()
-        state_seen = build_seat_state(settings, states, orders, row["role"])
-        await repo.insert_seat_week(
+        states, _ = await stored_play(session, game_uuid)
+        week = states[-1].week
+        ordered = await repo.has_seat_week(session, game_uuid, week, row["id"])
+        occupancy_id = uuid.uuid7()
+        await repo.append_occupancy(
             session,
             {
-                "id": seat_week_id,
-                "game_id": game_uuid,
+                "id": occupancy_id,
                 "seat_id": row["id"],
-                "week": week,
-                "state_seen": state_seen.model_dump(mode="json"),
-                "order": value,
-                "decided_by": decider.value,
-                "fallback": Fallback.NONE.value,
-                "occupant_kind": occupancy["occupant_kind"],
-                "reason": occupancy["reason"],
-                "opened_at": turn["opened_at"],
-                "ordered_at": ordered_at,
-                "rule_based_reference_order": turn["rule_based_reference_order"],
+                "from_week": week + 1 if ordered else week,
+                "occupant_kind": OccupantKind.RULE_BASED.value,
+                "policy_id": None,
+                "reason": switch_reason.value,
             },
         )
-        lifecycle = Lifecycle(game["lifecycle"])
-        open_week: int | None = week
-        if rules.week_complete(await repo.week_turns(session, game_uuid, week)):
-            week_orders = (await stored_orders(session, game_uuid))[week - 1]
-            following = advance(settings, states[-1], week_orders, game["rules_version"])
-            if following.finished:
-                await finish(session, game_uuid, following)
-                lifecycle, open_week = Lifecycle.FINISHED, None
-            else:
-                seat_ids = {r["role"]: r["id"] for r in seat_rows}
-                await _open_week(
-                    session,
-                    game_uuid,
-                    settings,
-                    params,
-                    [*states, following],
-                    [*orders, week_orders],
-                    seat_ids,
-                )
-                open_week = following.week
+        if not ordered:
+            await _ensure_order(OpenGame(session=session, game_id=game_uuid), row["id"])
         await _commit_change(session, game_uuid)
-    log.info("order_placed", game_id=str(game_uuid), seat_id=str(row["id"]), week=week)
-    return OrderPlaced(
-        seat_week_id=str(seat_week_id), week=week, open_week=open_week, lifecycle=lifecycle
-    )
+    log.info("seat_switched", game_id=game_id, seat_id=str(row["id"]), reason=switch_reason)
+    await _settle(game_id)
+    return str(occupancy_id)
 
 
 async def finish(session: AsyncSession, game_id: uuid.UUID, state: WeekState) -> None:

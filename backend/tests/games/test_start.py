@@ -1,4 +1,7 @@
-"""Story 1.8: `games.commands.start` opens Week 1 with one turn per Seat."""
+"""Story 1.8: `games.commands.start` opens Week 1 with one turn per Seat.
+
+Since Story 2.1 the order source plays a Game without Students to its end inside `start`, so
+the tests that look at Week 1 give the Seats Students (`waiting_game`)."""
 
 import asyncio
 import json
@@ -10,12 +13,21 @@ import pytest
 from app.engine import GameSettings, WeekState, initial_state, rule_based, seat_view
 from app.modules.games import commands, service
 from app.platform.parameter_sets import read_parameter_set
-from tests.conftest import libpq_dsn
-from tests.games.helpers import execute, listening, query
+from tests.conftest import TEST_DATABASE_URL, libpq_dsn
+from tests.games.helpers import execute, listening, query, seat_student
+
+ROLES = ("retailer", "wholesaler", "distributor", "factory")
 
 
 async def new_game(**settings) -> str:
     return await commands.create("simulation", GameSettings(**settings), seed=1)
+
+
+async def waiting_game(**settings) -> str:
+    """A Game whose Seats Students hold, so it waits in Week 1 after the start."""
+    game_id = await new_game(**settings)
+    seat_student(TEST_DATABASE_URL, game_id, *ROLES)
+    return game_id
 
 
 def state(url: str, game_id: str) -> tuple:
@@ -51,14 +63,15 @@ def default_params() -> rule_based.RuleBasedParams:
 
 async def test_start_opens_week_1_with_one_turn_per_seat(games_db):
     game_id = await new_game()
-    for role in ("retailer", "wholesaler", "distributor", "factory"):
+    for role in ("wholesaler", "distributor", "factory"):
         await commands.assign_seat(game_id, role, "scripted", "constant-4")
+    seat_student(games_db, game_id, "retailer")
     with listening(games_db) as events:
         week = await commands.start(game_id)
         received = events.drain()
     assert week == 1
-    assert state(games_db, game_id) == ("running", 6, 1, 4, 4)
-    assert received == [{"topic": "game", "id": game_id, "version": 6}]
+    assert state(games_db, game_id) == ("running", 5, 1, 4, 4)
+    assert received == [{"topic": "game", "id": game_id, "version": 5}]
     ((stored,),) = query(games_db, "SELECT state FROM game_weeks WHERE game_id = %s", (game_id,))
     settings = GameSettings(demand_seed=1)
     assert WeekState.model_validate(stored) == initial_state(settings)
@@ -70,7 +83,9 @@ async def test_start_opens_week_1_with_one_turn_per_seat(games_db):
         ("factory", 1),
     ]
     assert len({row[2] for row in rows}) == 1  # one transaction, one `now()`
-    assert all(row[2] is not None and row[3] is None for row in rows)
+    assert all(row[2] is not None for row in rows)
+    # The order source placed the scripted Seats' Guided Orders in the same transaction.
+    assert [row[3] == row[2] for row in rows] == [False, True, True, True]
     assert all(uuid.UUID(str(row[5])).version == 7 for row in rows)
     params = default_params()
     expected = [
@@ -80,12 +95,12 @@ async def test_start_opens_week_1_with_one_turn_per_seat(games_db):
     assert [row[4] for row in rows] == expected
     game = await service.get_game(game_id)
     assert game is not None and game.lifecycle == "running"
-    assert {seat.occupant_kind for seat in game.seats} == {"scripted"}  # kept as assigned
+    assert [seat.occupant_kind for seat in game.seats] == ["student"] + ["scripted"] * 3
 
 
 @pytest.mark.parametrize("assigned", [0, 1, 3])
 async def test_start_gives_every_free_seat_a_rule_based_player(games_db, assigned):
-    game_id = await new_game()
+    game_id = await new_game(weeks=8, guided_weeks=2)
     roles = ["retailer", "wholesaler", "distributor", "factory"]
     for role in roles[:assigned]:
         await commands.assign_seat(game_id, role, "scripted", "constant-4")
@@ -98,11 +113,11 @@ async def test_start_gives_every_free_seat_a_rule_based_player(games_db, assigne
     assert rows == [(role, 1, "scripted", "constant-4", "initial") for role in roles[:assigned]] + [
         (role, 1, "rule_based", None, "initial") for role in roles[assigned:]
     ]
-    assert state(games_db, game_id)[0] == "running"
+    assert state(games_db, game_id)[0] == "finished"  # no Student: played to the end
 
 
 async def test_starting_twice_answers_a_conflict_and_changes_nothing(games_db):
-    game_id = await new_game()
+    game_id = await waiting_game()
     await commands.start(game_id)
     before = state(games_db, game_id)
     first = turns(games_db, game_id)
@@ -177,7 +192,7 @@ async def test_a_vanished_parameter_set_is_refused(games_db):
 
 
 async def test_the_reference_order_and_opening_can_never_change(games_db):
-    game_id = await new_game()
+    game_id = await waiting_game()
     await new_game()  # a second Game to move a turn to
     await commands.start(game_id)
     for statement in (
@@ -199,7 +214,7 @@ async def test_the_reference_order_and_opening_can_never_change(games_db):
 
 
 async def test_start_waits_for_the_game_row_lock(games_db):
-    game_id = await new_game()
+    game_id = await waiting_game()
     with psycopg.connect(libpq_dsn(games_db)) as holder:
         holder.execute("SELECT 1 FROM games WHERE id = %s FOR UPDATE", (game_id,))
         task = asyncio.create_task(commands.start(game_id))
@@ -211,7 +226,7 @@ async def test_start_waits_for_the_game_row_lock(games_db):
 
 
 async def test_two_starts_racing_open_week_1_once(games_db):
-    game_id = await new_game()
+    game_id = await waiting_game()
     results = await asyncio.gather(
         commands.start(game_id), commands.start(game_id), return_exceptions=True
     )
@@ -221,7 +236,7 @@ async def test_two_starts_racing_open_week_1_once(games_db):
 
 
 async def test_assign_after_start_is_refused(games_db):
-    game_id = await new_game()
+    game_id = await waiting_game()
     await commands.start(game_id)
     with pytest.raises(commands.CommandError) as caught:
         await commands.assign_seat(game_id, "retailer", "rule_based")
@@ -231,7 +246,7 @@ async def test_assign_after_start_is_refused(games_db):
 async def test_each_turn_holds_the_reference_order_of_its_own_seat(games_db):
     # The Factory's starting supply line leaves out the backlog, so its Week 1 view differs.
     settings = {"starting_inventory": 0, "starting_backlog": 20}
-    game_id = await new_game(**settings)
+    game_id = await waiting_game(**settings)
     await commands.start(game_id)
     effective = GameSettings(**settings, demand_seed=1)
     first = initial_state(effective)

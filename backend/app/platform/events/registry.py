@@ -11,8 +11,11 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "games.start": frozenset({"game"}),
         "games.place_order": frozenset({"game"}),
         "games.finish": frozenset({"game"}),
+        "games.advance": frozenset({"game"}),
+        "games.switch_to_rule_based": frozenset({"game"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add
 `session` (AD-13); simulation Games never do. `games.finish` runs inside the transaction of the
-command that completes the last Week and shares its one event."""
+command that completes the last Week and shares its one event, as an Order that
+`players.ensure_order` places shares the event of the command that opened its Week."""

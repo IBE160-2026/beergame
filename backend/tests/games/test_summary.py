@@ -11,7 +11,7 @@ from tests.games.helpers import play_to_end, query, tamper
 
 async def finished_game(*, check: bool = True) -> str:
     game_id = await commands.create("simulation", GameSettings(), seed=7)
-    await commands.start(game_id)  # every free Seat gets a Rule-based player
+    await commands.start(game_id)  # four Rule-based players: finished on return
     await play_to_end(game_id)
     if check:
         await service.verify_finished(game_id)
@@ -85,7 +85,10 @@ async def test_summary_of_an_unknown_game_is_refused(games_db, game_id):
 
 
 async def test_summary_of_a_running_game_is_refused(games_db):
+    from tests.games.helpers import seat_student
+
     game_id = await commands.create("simulation", GameSettings(), seed=7)
+    seat_student(games_db, game_id, "retailer")  # the Game waits for the Student
     await commands.start(game_id)
     with pytest.raises(service.ViewError) as caught:
         await service.game_summary(game_id)

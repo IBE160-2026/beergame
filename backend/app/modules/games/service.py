@@ -19,6 +19,7 @@ from app.modules.games.schemas import (
     Lifecycle,
     OccupantKind,
     OrderPlaced,
+    PendingTurn,
     Purpose,
     SeatOverview,
     SeatState,
@@ -26,6 +27,7 @@ from app.modules.games.schemas import (
     TurnOverview,
 )
 from app.modules.games.summaries import game_summary
+from app.modules.games.turns import OpenGame, pending_turn
 from app.modules.games.views import ViewError, decision_log, open_turn, seat_state
 from app.platform.db import get_sessionmaker
 
@@ -38,7 +40,9 @@ __all__ = [
     "GameSummary",
     "Lifecycle",
     "OccupantKind",
+    "OpenGame",
     "OrderPlaced",
+    "PendingTurn",
     "Purpose",
     "PurposeNotSupportedError",
     "SeatOverview",
@@ -51,6 +55,7 @@ __all__ = [
     "game_summary",
     "get_game",
     "open_turn",
+    "pending_turn",
     "policy",
     "rules_versions_without_package",
     "seat_state",

@@ -55,9 +55,12 @@ async def play_week(game_id: str) -> object:
 
 
 async def play_to_end(game_id: str) -> None:
-    """Play every Week of a started Game with Guided and reference Orders."""
-    while (await play_week(game_id)).lifecycle != "finished":
-        pass
+    """Play every Week of a started Game with Guided and reference Orders; the order source
+    places those of the Seats no Student holds."""
+    from app.modules.games import service
+
+    while (await service.get_game(game_id)).lifecycle != "finished":
+        await play_week(game_id)
 
 
 @contextmanager
@@ -74,3 +77,17 @@ def listening(url: str):
         yield Events()
     finally:
         conn.close()
+
+
+def seat_student(url: str, game_id: str, *roles: str) -> None:
+    """Give each Seat of `roles` a `student` occupant before the start, as allocation will
+    (Epic 5). No order source places a Student's Order, so the test places it."""
+    import uuid
+
+    for role in roles:
+        execute(
+            url,
+            "INSERT INTO seat_occupancy (id, seat_id, from_week, occupant_kind, reason) "
+            "SELECT %s, id, 1, 'student', 'initial' FROM seats WHERE game_id = %s AND role = %s",
+            (uuid.uuid7(), game_id, role),
+        )

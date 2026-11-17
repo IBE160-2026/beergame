@@ -165,6 +165,29 @@ class TurnOverview(BaseModel):
     rule_based_reference_order: int
 
 
+class PendingTurn(BaseModel):
+    """A Seat's turn in the open Week as the order source sees it inside the running command's
+    transaction (AD-5): who holds the Seat in that Week and what it may order from."""
+
+    model_config = _FROZEN
+
+    game_id: str
+    seat_id: str
+    role: str
+    week: int
+    guided: bool
+    """A Guided Week: every non-student occupant orders `guided_order`."""
+    guided_order: int
+    occupant_kind: OccupantKind
+    """The occupant in force in `week` (`from_week <= week`, newest)."""
+    policy_id: str | None
+    rule_based_reference_order: int
+    """Stored on the turn when the Week opened; never recomputed."""
+    ordered: bool
+    """The Seat already has an Order for `week`."""
+    seat_state: SeatState
+
+
 class OrderPlaced(BaseModel):
     """What `place_order` did: the Decision log row and the Week that is open after it."""
 

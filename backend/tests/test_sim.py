@@ -610,7 +610,8 @@ def created_game(capsys) -> str:
     return lines[0].removeprefix("game ")
 
 
-def test_start_prints_the_running_game_and_its_seats(capsys, games_db):
+def test_start_prints_the_game_and_its_seats(capsys, games_db):
+    """Four Rule-based players: the order source plays the Game to its end inside `start`."""
     game_id = created_game(capsys)
     code = main(["start", game_id])
     out = [
@@ -621,7 +622,7 @@ def test_start_prints_the_running_game_and_its_seats(capsys, games_db):
     assert code == 0
     assert out == [
         f"game {game_id}",
-        "lifecycle running",
+        "lifecycle finished",
         "week 1",
         "seat retailer rule_based",
         "seat wholesaler rule_based",
@@ -642,9 +643,10 @@ def test_start_twice_reports_the_conflict(capsys, games_db):
 
 def test_show_prints_the_seat_state_and_the_open_turn(capsys, games_db):
     from app.modules.games.schemas import SeatState
-    from tests.games.helpers import query
+    from tests.games.helpers import query, seat_student
 
     game_id = created_game(capsys)
+    seat_student(games_db, game_id, "retailer")  # the Game waits in Week 1 for the Student
     main(["start", game_id])
     capsys.readouterr()
     code = main(["show", game_id, "--seat", "retailer"])
@@ -778,13 +780,31 @@ def test_play_and_log_report_refusals(capsys, games_db, argv, error):
     assert captured.out == "" and captured.err.startswith(error)
 
 
-def test_play_of_a_game_not_started_or_finished_exits_1(capsys, games_db):
+def test_play_of_a_game_not_started_exits_1(capsys, games_db):
     game_id = created_game(capsys)
     assert main(["play", game_id]) == 1
     assert capsys.readouterr().err.startswith("error game_not_started: ")
+
+
+def test_play_of_a_finished_game_reports_it_again(capsys, games_db):
     game_id = played_game(capsys)
+    assert main(["play", game_id]) == 0
+    assert report(capsys, {"lifecycle", "weeks", "check"}) == [
+        "lifecycle finished",
+        "weeks 36",
+        "check ok",
+    ]
+
+
+def test_play_of_a_game_waiting_for_a_student_exits_1(capsys, games_db):
+    from tests.games.helpers import seat_student
+
+    game_id = created_game(capsys)
+    seat_student(games_db, game_id, "factory")
+    assert main(["start", game_id]) == 0
+    capsys.readouterr()
     assert main(["play", game_id]) == 1
-    assert capsys.readouterr().err.startswith("error game_finished: ")
+    assert capsys.readouterr().err.startswith("error game_not_finished: ")
 
 
 def test_log_of_a_game_without_orders_prints_the_header_only(capsys, games_db):
@@ -792,41 +812,19 @@ def test_log_of_a_game_without_orders_prints_the_header_only(capsys, games_db):
     assert len(log_lines(capsys, game_id)) == 1
 
 
-def test_play_refuses_an_occupant_it_cannot_play():
-    from app import sim
-
-    seat = sim.game_service.SeatOverview(
-        id="x", role="retailer", occupant_kind="scripted", policy_id="gone"
-    )
-    turn = sim.game_service.TurnOverview(
-        week=5,
-        guided=False,
-        opened_at="2026-11-17T00:00:00Z",
-        ordered_at=None,
-        rule_based_reference_order=4,
-    )
-    with pytest.raises(sim.game_commands.CommandError) as caught:
-        sim._decide(None, seat, None, turn)  # type: ignore[arg-type]
-    assert caught.value.code == "occupant_not_playable"
-
-
-def test_play_continues_a_partly_played_week(capsys, games_db):
-    import asyncio
-
+def test_play_moves_on_a_game_stopped_between_two_advances(capsys, games_db, monkeypatch):
+    """Story 2.1: the runner chooses no Order; it moves a complete open Week on with
+    `advance`, which plays the rest of the Game."""
     from app.modules.games import commands
 
+    async def no_settle(game_id: str) -> None:
+        return None
+
     game_id = created_game(capsys)
+    monkeypatch.setattr(commands, "_settle", no_settle)
     assert main(["start", game_id]) == 0
-    capsys.readouterr()
-
-    async def order_two() -> None:
-        for role in ("retailer", "distributor"):
-            await commands.place_order(game_id, role, 1, 4, "guided")
-        from app.platform import db
-
-        await db.dispose()
-
-    asyncio.run(order_two(), loop_factory=asyncio.SelectorEventLoop)
+    assert "lifecycle running" in report(capsys, {"lifecycle"})
+    monkeypatch.undo()
     assert main(["play", game_id]) == 0
     assert report(capsys, {"lifecycle", "weeks"}) == ["lifecycle finished", "weeks 36"]
     assert len(log_lines(capsys, game_id)) == 1 + 36 * 4
@@ -886,7 +884,10 @@ def test_check_reports_refusals(capsys, games_db, argv, error):
 
 
 def test_check_of_a_running_game_exits_1(capsys, games_db):
+    from tests.games.helpers import seat_student
+
     game_id = created_game(capsys)
+    seat_student(games_db, game_id, "retailer")
     assert main(["start", game_id]) == 0
     capsys.readouterr()
     assert main(["check", game_id]) == 1
@@ -928,10 +929,11 @@ def test_check_all_of_an_empty_database_checks_nothing_and_exits_0(capsys, games
 
 
 def test_check_all_counts_the_finished_games_and_lists_only_failures(capsys, games_db):
-    from tests.games.helpers import query, tamper
+    from tests.games.helpers import query, seat_student, tamper
 
     good, bad, refused = (played_game(capsys) for _ in range(3))
     running = created_game(capsys)
+    seat_student(games_db, running, "retailer")
     assert main(["start", running]) == 0
     tamper(games_db, "DELETE FROM game_checks WHERE game_id IN (%s, %s)", (bad, refused))
     tamper(

@@ -55,6 +55,13 @@ async def seat_by_role(session: AsyncSession, game_id: uuid.UUID, role: str) -> 
     return result.mappings().one_or_none()
 
 
+async def seat(session: AsyncSession, game_id: uuid.UUID, seat_id: uuid.UUID) -> RowMapping | None:
+    result = await session.execute(
+        select(seats).where(seats.c.game_id == game_id, seats.c.id == seat_id)
+    )
+    return result.mappings().one_or_none()
+
+
 async def has_occupant(session: AsyncSession, seat_id: uuid.UUID) -> bool:
     result = await session.execute(
         select(seat_occupancy.c.id).where(seat_occupancy.c.seat_id == seat_id).limit(1)

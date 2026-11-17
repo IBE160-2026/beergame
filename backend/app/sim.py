@@ -16,15 +16,19 @@ Subcommands:
                    comma-separated) and print the Game id, seed and Seats read back from the
                    database. Exit 1 when a command refuses (its code is printed).
   start            start a stored Game through `games.commands.start` (free Seats get a
-                   Rule-based player, Week 1 opens) and print its lifecycle, Week and Seats.
+                   Rule-based player, Week 1 opens and every Week is played by the order
+                   source) and print its lifecycle, the Week it opened and its Seats.
   show             print what one Seat sees in the open Week (`SeatState` as JSON), then the
                    open turn's `opened_at` and Rule-based reference Order.
-  play             play a started Game to its end through `games.commands.place_order`: the
-                   Guided Order in a Guided Week (`guided`), else the turn's stored Rule-based
-                   reference Order (`rule_based`) or the Seat's scripted policy (`scripted`).
-                   Prints the lifecycle and the number of Weeks played, then runs the
-                   finished-game check (`games.service.verify_finished`) and prints its result;
-                   exit 1 when the check finds a violation.
+  play             wait for a started Game to finish and check it. The runner chooses no
+                   Orders: `players.ensure_order` places the Guided Order in a Guided Week
+                   (`guided`), else the turn's stored Rule-based reference Order (`rule_based`)
+                   or the Seat's scripted policy (`scripted`), and `games.commands` advances the
+                   Game, so it has finished when `start` returns. A Game left with a complete
+                   open Week is moved on with `games.commands.advance`. Prints the lifecycle and
+                   the number of Weeks played, then runs the finished-game check
+                   (`games.service.verify_finished`) and prints its result; exit 1 when the
+                   check finds a violation or the Game still waits for an Order.
   check            run (or read back) the finished-game check of a Game: `check ok`, or
                    `check failed N` and one `violation` line per broken rule. Exit 1 when it
                    failed or was refused. `check --all` checks every finished Game (oldest
@@ -38,10 +42,11 @@ Subcommands:
                    its Order, the Week's cost, who decided and the Rule-based reference Order.
   run              play a batch of simulation Games from a JSON batch file (`seed`, `games`,
                    `seats`, optional `settings`, `demand`, `rule_based_params`; Game i uses
-                   demand seed `seed + i`): each Game is created, started, played and checked
-                   through `games.commands` as `play` does. Prints per Game and for the batch
-                   the Total cost per Role and for the chain, the Weeks played, the Orders per
-                   `decided_by` and the check result, all read back from the database.
+                   demand seed `seed + i`): each Game is created and started through
+                   `games.commands`, waited for and checked as `play` does. Prints per Game
+                   and for the batch the Total cost per Role and for the chain, the Weeks
+                   played, the Orders per `decided_by` and the check result, all read back
+                   from the database.
                    `--export DIR` writes the Decision log to `DIR/decision-log.csv` (replacing
                    one already there). Exit 0 when every check passed; 1 on a failed check or a
                    refused command (also settings that break the engine rules or an unknown
@@ -462,53 +467,30 @@ def _show(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     return _run(_show_seat(args.game_id, args.seat))
 
 
-def _decide(
-    game: game_service.GameOverview,
-    seat: game_service.SeatOverview,
-    state: game_service.SeatState,
-    turn: game_service.TurnOverview,
-) -> tuple[int, game_service.DecidedBy]:
-    """The Order of one open turn and who decided it: the Guided Order in a Guided Week, else
-    the stored Rule-based reference Order or the scripted policy on the Seat."""
-    if turn.guided:
-        return guided_order(game.settings), game_service.DecidedBy.GUIDED
-    if seat.occupant_kind == game_service.OccupantKind.RULE_BASED:
-        return turn.rule_based_reference_order, game_service.DecidedBy.RULE_BASED
-    if seat.occupant_kind == game_service.OccupantKind.SCRIPTED and seat.policy_id in REGISTRY:
-        return REGISTRY[seat.policy_id](state), game_service.DecidedBy.SCRIPTED
-    raise game_commands.CommandError(
-        "occupant_not_playable", f"the runner cannot play a {seat.occupant_kind} occupant", 422
-    )
-
-
-async def _play_to_end(game_id: str) -> tuple[game_service.GameOverview, int]:
-    """Place every open turn's Order through `place_order` until the Game has finished; returns
-    the finished Game and the last Week. Raises a refused command or read."""
+async def _wait_finished(game_id: str) -> game_service.GameOverview:
+    """Wait for a started Game to finish. The order source in `games` places every Order of a
+    Game without Students, so it has finished by the time `start` returns; a Game left with a
+    complete open Week (a stop between two advances) is moved on with `advance`. Raises
+    `game_not_finished` when the Game still waits for an Order no order source places."""
     game = await game_service.get_game(game_id)
     if game is None:
         raise game_commands.CommandError("game_not_found", f"no Game {game_id!r}", 404)
-    if game.lifecycle == game_service.Lifecycle.FINISHED:
-        raise game_commands.CommandError("game_finished", "the Game has finished", 409)
-    week = 0
-    while game.lifecycle != game_service.Lifecycle.FINISHED:
-        for seat in game.seats:
-            state = await game_service.seat_state(game_id, seat.id)
-            turn = await game_service.open_turn(game_id, seat.id, state.week)
-            week = state.week
-            if turn.ordered_at is not None:
-                continue
-            order, decided_by = _decide(game, seat, state, turn)
-            await game_commands.place_order(game_id, seat.id, state.week, order, decided_by)
-        # Read the Game again: its occupants and lifecycle may have changed meanwhile.
+    if game.lifecycle == game_service.Lifecycle.NOT_STARTED:
+        raise game_commands.CommandError("game_not_started", "the Game has not started", 409)
+    if game.lifecycle != game_service.Lifecycle.FINISHED:
+        await game_commands.advance(game_id)
         game = await game_service.get_game(game_id)
-        if game is None:
-            raise game_commands.CommandError("game_not_found", f"no Game {game_id!r}", 404)
-    return game, week
+    if game is None or game.lifecycle != game_service.Lifecycle.FINISHED:
+        raise game_commands.CommandError(
+            "game_not_finished", "the Game waits for an Order no order source places", 409
+        )
+    return game
 
 
 async def _play_game(game_id: str) -> int:
     try:
-        game, week = await _play_to_end(game_id)
+        game = await _wait_finished(game_id)
+        week = (await game_service.game_summary(game_id)).weeks
     except (game_commands.CommandError, game_service.ViewError, DBAPIError) as exc:
         _report(exc)
         return 1
@@ -724,7 +706,7 @@ async def _play_one(batch: Batch, index: int, stored: list[str]) -> str:
     for role, (kind, policy_id) in zip(batch.settings.roles, batch.occupants, strict=True):
         await game_commands.assign_seat(game_id, role, kind, policy_id)
     await game_commands.start(game_id)
-    await _play_to_end(game_id)
+    await _wait_finished(game_id)
     await game_service.verify_finished(game_id)
     return game_id
 
