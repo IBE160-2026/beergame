@@ -12,7 +12,7 @@ from app.engine import (
     demand_series,
 )
 from app.modules.games import commands, service
-from tests.games.helpers import counts, listening, query
+from tests.games.helpers import counts, listening, play_to_end, query
 
 
 async def test_create_stores_a_not_started_game_with_four_free_seats(games_db):
@@ -194,3 +194,60 @@ async def test_service_reads_the_game_back(games_db):
 @pytest.mark.parametrize("game_id", ["not-a-uuid", str(uuid.uuid7())])
 async def test_service_answers_none_for_an_unknown_game(games_db, game_id):
     assert await service.get_game(game_id) is None
+
+
+async def test_capacity_is_refused_when_feature_capacity_is_off(games_db, monkeypatch):
+    monkeypatch.setenv("FEATURE_CAPACITY", "false")
+    with listening(games_db) as events:
+        with pytest.raises(commands.CommandError) as caught:
+            await commands.create("simulation", GameSettings(capacity={"retailer": 6}), seed=1)
+        assert events.drain() == []
+    error = caught.value
+    assert (error.code, error.status) == ("invalid_settings", 422)
+    assert error.fields == {"capacity": "capacity_disabled"}
+    assert counts(games_db) == (0, 0, 0)
+
+
+async def test_feature_capacity_off_leaves_games_without_capacity_unchanged(games_db, monkeypatch):
+    monkeypatch.setenv("FEATURE_CAPACITY", "false")
+    game_id = await commands.create("simulation", GameSettings(), seed=123)
+    ((settings,),) = query(games_db, "SELECT settings FROM games WHERE id = %s", (game_id,))
+    assert "capacity" not in settings
+    assert settings == GameSettings(demand_seed=123).model_dump(mode="json")
+
+
+async def test_capacity_out_of_range_is_an_engine_error(games_db, monkeypatch):
+    monkeypatch.setenv("FEATURE_CAPACITY", "true")
+    with pytest.raises(commands.CommandError) as caught:
+        await commands.create("simulation", GameSettings(capacity={"factory": 0}), seed=1)
+    assert caught.value.fields == {"capacity.factory": "out_of_range"}
+    (error,) = caught.value.errors
+    assert (error.minimum, error.maximum) == (1, 100)
+    assert counts(games_db) == (0, 0, 0)
+
+
+async def test_a_capped_game_is_stored_played_and_verified(games_db, monkeypatch):
+    monkeypatch.setenv("FEATURE_CAPACITY", "true")
+    game_id = await commands.create("simulation", GameSettings(capacity={"wholesaler": 6}), seed=3)
+    ((settings,),) = query(games_db, "SELECT settings FROM games WHERE id = %s", (game_id,))
+    assert settings["capacity"] == {"wholesaler": 6}
+    await commands.start(game_id)
+    await play_to_end(game_id)
+    shipped = query(
+        games_db,
+        "SELECT (w.state_seen->>'shipped')::int FROM seat_weeks w JOIN seats s "
+        "ON s.id = w.seat_id WHERE w.game_id = %s AND s.role = 'wholesaler'",
+        (game_id,),
+    )
+    assert len(shipped) == 36 and max(value for (value,) in shipped) <= 6
+    check = await service.verify_finished(game_id)
+    assert check.ok, check.violations
+
+
+async def test_a_capacity_that_is_not_a_whole_number_is_invalid(games_db):
+    unchecked = GameSettings.model_construct(capacity={Role.RETAILER: 6.5})
+    with pytest.raises(commands.CommandError) as caught:
+        await commands.create("simulation", unchecked, seed=1)
+    assert (caught.value.code, caught.value.status) == ("invalid_settings", 422)
+    assert caught.value.fields == {"capacity.retailer": "invalid"}
+    assert counts(games_db) == (0, 0, 0)

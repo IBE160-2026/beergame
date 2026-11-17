@@ -22,6 +22,14 @@ Decision (Story 1.10, AD-4): how older `rules_version`s stay runnable.
   when a `rules_version` stored on a Game has no package
   (`games.service.rules_versions_without_package`). `games.service.verify_finished` replays every
   finished Game at its stored version.
+- **Capacity (Story 1.12).** `GameSettings.capacity` was added to v1, not to a new v2: with
+  `capacity` unset (the default, and the only value any Game stored before it existed could
+  have) every v1 output is unchanged, which its golden traces prove; the capped arithmetic has
+  its own v1 trace (`capped-retailer-6.json`). The shared conservation check was extended in
+  place the same way (capacity in `shipment`; `inventory_and_backlog` skips capped Seats).
+  `FEATURE_CAPACITY` gates only new settings (`validate`); a stored Game always runs, replays
+  and is checked with the capacity in its snapshot, whatever the flag says now. The Rule-based
+  player and the Guided Order do not read capacity.
 - **Not versioned yet.** The conservation check (`engine.check`), the demand series, the
   Rule-based player, the Guided Order and the Seat views are shared by all versions. A version
   that changes what they must compute brings its own variant then and selects it the same way.

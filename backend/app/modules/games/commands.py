@@ -45,6 +45,7 @@ from app.modules.games.schemas import (
 )
 from app.modules.games.views import build_seat_state, stored_orders, stored_play
 from app.platform import events
+from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 from app.platform.parameter_sets import UnknownParameterSetError, read_parameter_set
 
@@ -101,7 +102,7 @@ def _effective_settings(
         raise CommandError(
             "invalid_settings", "the Game settings are invalid", 422, fields
         ) from None
-    errors = validate(effective)
+    errors = validate(effective, capacity_enabled=get_settings().feature_capacity)
     if errors:
         raise CommandError(
             "invalid_settings",

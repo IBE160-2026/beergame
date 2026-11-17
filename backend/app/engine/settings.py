@@ -10,7 +10,7 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from app.engine.demand import (
     SEED_MAX,
@@ -64,6 +64,12 @@ class GameSettings(BaseModel):
     guided_weeks: Units = 4
     max_order: Units = 999
     """A stated placeholder: large enough that it does not bind in normal play."""
+    capacity: dict[Role, Annotated[int, Field(strict=True)]] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    """Most units a Role can ship per Week (cut list, FR-12): one key per capped Role, so one
+    Seat or every Seat. None (the default) caps no Seat and is left out of the dump, so settings
+    without capacity serialise exactly as before. Range-checked by `validate`."""
 
     @field_validator("roles")
     @classmethod
@@ -73,6 +79,24 @@ class GameSettings(BaseModel):
         if len(set(roles)) != len(roles):
             raise ValueError("each Role appears once in the chain")
         return roles
+
+    @field_validator("capacity")
+    @classmethod
+    def _capacity_roles_in_chain(
+        cls, capacity: dict[Role, int] | None, info: ValidationInfo
+    ) -> dict[Role, int] | None:
+        if not capacity:
+            return None  # an empty map caps no Seat: the same as no capacity
+        if "roles" not in info.data:
+            return capacity  # the roles error is reported on its own
+        for role in capacity:
+            if role not in info.data["roles"]:
+                raise ValueError(f"capacity names {role}, which is not a Role in this chain")
+        return capacity
+
+    def capacity_of(self, role: Role) -> int | None:
+        """The Role's capacity, or None when it ships without a cap."""
+        return (self.capacity or {}).get(role)
 
 
 class Range(BaseModel):
@@ -130,6 +154,9 @@ DEMAND_RANGES: Mapping[str, Range] = MappingProxyType(
 the order `validate` reports them. Placeholders except the seed. The step Week must fall in
 the Game (1 to `weeks`) and a fixed series must have one value per Week; both bounds follow
 from `weeks`, so they are not listed here."""
+
+CAPACITY_RANGE = Range(minimum=1, maximum=100, placeholder=True)
+"""Allowed capacity of a capped Role: a whole number above 0. The maximum is a placeholder."""
 
 MAX_ORDER_PEAK_FACTOR = 10
 """Placeholder, like the RANGES bounds: a maximum Order below this many times peak demand may
@@ -191,10 +218,15 @@ def _check_range(field: str, value: int | Decimal, allowed: Range) -> SettingsEr
     return None
 
 
-def validate(settings: GameSettings) -> tuple[SettingsError, ...]:
-    """Every rule `settings` breaks: RANGES order first, then cross-field rules.
+def validate(
+    settings: GameSettings, *, capacity_enabled: bool = False
+) -> tuple[SettingsError, ...]:
+    """Every rule `settings` breaks: RANGES order first, then the Demand pattern, then
+    capacity, then cross-field rules.
 
     At most one error per field: a range error suppresses that field's cross-field error.
+    `capacity_enabled` is the caller's `FEATURE_CAPACITY` flag: when it is off, any capacity is
+    refused with `capacity_disabled` (fails closed when a caller leaves it out).
     """
     errors: list[SettingsError] = []
     for field, allowed in RANGES.items():
@@ -202,6 +234,7 @@ def validate(settings: GameSettings) -> tuple[SettingsError, ...]:
         if error is not None:
             errors.append(error)
     errors.extend(validate_demand(settings.demand, settings.weeks, settings.demand_seed))
+    errors.extend(_validate_capacity(settings, capacity_enabled))
     flagged = {error.field for error in errors}
 
     if (
@@ -245,6 +278,33 @@ def validate(settings: GameSettings) -> tuple[SettingsError, ...]:
                 )
             )
     return tuple(errors)
+
+
+def _validate_capacity(settings: GameSettings, enabled: bool) -> list[SettingsError]:
+    if settings.capacity is None:
+        return []
+    if not enabled:
+        return [
+            SettingsError(
+                code="capacity_disabled",
+                field="capacity",
+                message="capacity is switched off (FEATURE_CAPACITY)",
+            )
+        ]
+    errors: list[SettingsError] = []
+    for role in settings.roles:
+        value = settings.capacity_of(role)
+        if value is not None and not CAPACITY_RANGE.minimum <= value <= CAPACITY_RANGE.maximum:
+            errors.append(
+                _range_error(
+                    "out_of_range",
+                    f"capacity.{role.value}",
+                    f"the capacity of the {role.value} must be a whole number from "
+                    f"{CAPACITY_RANGE.minimum} to {CAPACITY_RANGE.maximum}, not {value}",
+                    CAPACITY_RANGE,
+                )
+            )
+    return errors
 
 
 def validate_demand(
@@ -397,4 +457,22 @@ def warnings(settings: GameSettings) -> tuple[SettingsWarning, ...]:
                 values={"arrival_week": str(arrival), "weeks": str(settings.weeks)},
             )
         )
+    for role in settings.roles:
+        capacity = settings.capacity_of(role)
+        if capacity is not None and capacity < peak:
+            found.append(
+                SettingsWarning(
+                    code="capacity_below_peak_demand",
+                    field=f"capacity.{role.value}",
+                    message=(
+                        f"the {role.value} can ship at most {capacity} a Week, below peak "
+                        f"demand ({peak}), so it cannot keep up while demand is at its peak"
+                    ),
+                    values={
+                        "role": role.value,
+                        "capacity": str(capacity),
+                        "peak_demand": str(peak),
+                    },
+                )
+            )
     return tuple(found)

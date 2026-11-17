@@ -38,6 +38,7 @@ GOLDEN_TRACES: dict[int, tuple[str, ...]] = {
         "classic-step-pass-through.json",
         "delays-1-1-1-backlog.json",
         "delays-3-3-3-backlog.json",
+        "capped-retailer-6.json",
     ),
 }
 """Rules version -> its golden trace files. A new version adds its own entry."""

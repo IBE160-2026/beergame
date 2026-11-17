@@ -69,6 +69,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from sqlalchemy.exc import DBAPIError, OperationalError
 
 from app.engine import (
+    CAPACITY_RANGE,
     DEMAND_RANGES,
     RANGES,
     DemandPattern,
@@ -245,6 +246,8 @@ def _invalid(exc: ValidationError) -> list[SettingsError]:
         field = ".".join(str(part) for part in loc)
         demand_key = field.removeprefix("demand.") if field.startswith("demand") else None
         allowed = RANGES.get(field) or (DEMAND_RANGES.get(demand_key) if demand_key else None)
+        if len(loc) == 2 and loc[0] == "capacity":
+            allowed = CAPACITY_RANGE  # the value of one Role's capacity
         errors.append(
             SettingsError(
                 code="invalid",
@@ -277,7 +280,7 @@ def _settings_check(args: argparse.Namespace, parser: argparse.ArgumentParser) -
         errors = _invalid(exc)
         found: tuple[SettingsWarning, ...] = ()
     else:
-        errors = list(validate(settings))
+        errors = list(validate(settings, capacity_enabled=get_settings().feature_capacity))
         found = warnings(settings)
     for error in errors:
         print(f"error {error.code} {error.field}: {error.message}{_allowed(error)}")

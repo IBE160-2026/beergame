@@ -20,9 +20,10 @@ Rules (stable codes; `role` is None for the chain-level ones):
   are counted and nothing is added.
 - `in_transit`: the delivery is the previous first goods slot; the goods slots move up one and
   take the upstream Seat's shipment, or the Order entering production for the last Role.
-- `shipment`: a Seat ships the smaller of what it has on hand (previous inventory plus delivery)
-  and what it owes (previous backlog plus incoming order). With valid starting values this keeps
-  inventory, backlog and every slot at 0 or above.
+- `shipment`: a Seat ships the smallest of what it has on hand (previous inventory plus
+  delivery), what it owes (previous backlog plus incoming order) and its capacity, if the
+  settings cap it. With valid starting values this keeps inventory, backlog and every slot at 0
+  or above.
 - `inventory_balance`, `backlog_balance`: inventory = previous + delivery - shipped; backlog =
   previous + incoming order - shipped.
 - `incoming_order`: customer demand for the first Role, else the first incoming order slot.
@@ -31,7 +32,8 @@ Rules (stable codes; `role` is None for the chain-level ones):
 - `total_cost`: a Seat's total is the sum of its costs of the opened Weeks before this state,
   so the finished total is the sum of every Week's cost and slots never cost.
 - `chain_total_cost`: on the last state, the Seats' totals add up to the sum of those costs.
-- `inventory_and_backlog`: never both positive (every Seat is uncapped until capacity exists).
+- `inventory_and_backlog`: never both positive on an uncapped Seat; a capped Seat may hold both,
+  since units it cannot ship stay as backlog (FR-29).
 
 The finished state repeats the last Week with the same Week number: its incoming order,
 delivery, goods slots, shipped, inventory and backlog must equal Week N's, reported under
@@ -337,7 +339,7 @@ def _books(
             books.expect(
                 "total_cost", week, role, "sum of earlier Week costs", cost_sums[i], seat.total_cost
             )
-            if seat.inventory > 0 and seat.backlog > 0:
+            if seat.inventory > 0 and seat.backlog > 0 and settings.capacity_of(role) is None:
                 books.found.append(
                     Violation(
                         rule="inventory_and_backlog",
@@ -404,12 +406,16 @@ def _opened_week(
             seat.incoming_order,
         )
         books.expect("in_transit", week, role, "delivery", goods[0], seat.incoming_delivery)
+        can_ship = min(inventory + seat.incoming_delivery, backlog + seat.incoming_order)
+        capacity = settings.capacity_of(role)
+        if capacity is not None:
+            can_ship = min(can_ship, capacity)
         books.expect(
             "shipment",
             week,
             role,
-            "shipped (the smaller of on hand and owed)",
-            min(inventory + seat.incoming_delivery, backlog + seat.incoming_order),
+            "shipped (the smallest of on hand, owed and capacity)",
+            can_ship,
             seat.shipped,
         )
         arriving = entering if i == last else state.seats[i + 1].shipped

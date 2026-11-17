@@ -2,7 +2,8 @@
 the next. Frozen: an edit that changes any output is a new package `v2` (RULES_VERSIONS.md).
 
 Opening Week t: each Seat receives `goods_slots[0]` into inventory; amount to ship = incoming
-order + backlog; shipped = the smaller of inventory and that amount; the rest is backlog. Then
+order + backlog; shipped = the smaller of inventory and that amount (and the Role's capacity,
+if `settings.capacity` caps it, Story 1.12); the rest is backlog. Then
 every goods pipeline moves up one slot and takes the upstream Seat's shipment (the last Role
 takes the Order entering production). Cost is charged on these balances, which Orders cannot
 change. `advance` takes the Orders, charges the Week's cost, moves the order slots and opens
@@ -126,6 +127,9 @@ def _open_week(settings: GameSettings, week: int, carries: Sequence[_Carry]) -> 
         on_hand = carry.inventory + delivery
         amount = incoming_order + carry.backlog
         shipped = min(on_hand, amount)
+        capacity = settings.capacity_of(carry.role)
+        if capacity is not None:
+            shipped = min(shipped, capacity)
         received.append((incoming_order, delivery, shipped, on_hand - shipped, amount - shipped))
 
     seats: list[SeatState] = []

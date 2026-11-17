@@ -21,6 +21,7 @@ from app.engine.guided import guided_order
 from app.engine.rule_based import RuleBasedParams
 from app.engine.rules import RULES_VERSION
 from app.engine.settings import (
+    CAPACITY_RANGE,
     DEMAND_RANGES,
     RANGES,
     ROLES,
@@ -51,6 +52,7 @@ from app.engine.view import (
 from app.engine.week import GameFinishedError, InvalidOrdersError, advance, initial_state
 
 __all__ = [
+    "CAPACITY_RANGE",
     "DEMAND_RANGES",
     "RANGES",
     "ROLES",

@@ -157,6 +157,45 @@ def test_settings_check_cross_field_error_has_no_range(capsys, tmp_path):
     assert "allowed" not in lines[0]
 
 
+def test_settings_check_refuses_capacity_when_feature_capacity_is_off(
+    capsys, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("FEATURE_CAPACITY", "false")
+    code, lines = check(capsys, tmp_path, '{"capacity": {"retailer": 6}}')
+    assert code == 1
+    assert lines[0].startswith("error capacity_disabled capacity: ")
+
+
+def test_settings_check_capacity_warns_below_peak_demand(capsys, tmp_path, monkeypatch):
+    monkeypatch.setenv("FEATURE_CAPACITY", "true")
+    code, lines = check(capsys, tmp_path, '{"capacity": {"retailer": 6}}')
+    assert code == 0
+    assert lines == [
+        "warning capacity_below_peak_demand capacity.retailer: the retailer can ship at most 6 "
+        "a Week, below peak demand (8), so it cannot keep up while demand is at its peak "
+        "[role=retailer, capacity=6, peak_demand=8]"
+    ]
+
+
+@pytest.mark.parametrize("value", ["0", "6.5", '"6"'])
+def test_settings_check_capacity_shows_its_range(capsys, tmp_path, monkeypatch, value):
+    monkeypatch.setenv("FEATURE_CAPACITY", "true")
+    code, lines = check(capsys, tmp_path, f'{{"capacity": {{"retailer": {value}}}}}')
+    assert code == 1
+    assert lines[0].startswith("error ")
+    assert " capacity.retailer: " in lines[0]
+    assert lines[0].endswith("[allowed 1..100 (placeholder)]")
+
+
+@pytest.mark.parametrize("capacity", ['{"shop": 6}', "6", '{"factory": 6}'])
+def test_settings_check_capacity_shape_errors_show_no_range(capsys, tmp_path, capacity):
+    content = f'{{"roles": ["retailer", "wholesaler"], "capacity": {capacity}}}'
+    code, lines = check(capsys, tmp_path, content)
+    assert code == 1
+    assert lines[0].startswith("error invalid capacity")
+    assert "allowed" not in lines[0]
+
+
 def test_settings_check_reports_pydantic_errors_as_invalid(capsys, tmp_path):
     content = '{"order_delay": 0, "colour": "red", "demand": {"kind": "step"}}'
     code, lines = check(capsys, tmp_path, content)
