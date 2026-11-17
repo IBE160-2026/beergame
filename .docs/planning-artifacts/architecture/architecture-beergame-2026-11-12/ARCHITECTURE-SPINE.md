@@ -553,7 +553,7 @@ beergame/
 
 ## Deferred
 
-- **LLM provider, route and model**: OpenRouter EU in-region routing with ZDR and `allow_fallbacks: false` (needs a Business plan) versus AWS Bedrock EU, Vertex AI EU, Azure EU data zone or Mistral. The prototype decides this (issues #8, #9; PRD Q10). AD-6 keeps the choice swappable per Class session.
+- **LLM provider, route and model**: decided by the founder on 2026-11-17: **OpenRouter**, model **`deepseek/deepseek-v4.1-flash-1017`** (Issue #9). Still open: whether an EU provider serves it with ZDR and `allow_fallbacks: false`; Story 2.7 checks this and records the answer. The mock provider stays the default locally and in CI (AD-17). The options weighed before: OpenRouter EU in-region routing with ZDR and `allow_fallbacks: false` (needs a Business plan) versus AWS Bedrock EU, Vertex AI EU, Azure EU data zone or Mistral. The prototype decides this (issues #8, #9; PRD Q10). AD-6 keeps the choice swappable per Class session.
 - **Effort levels, per-attempt timeouts and Order time budgets** (NFR-2). These are numbers in the pinned model config, set by the prototype.
 - **Budget reserve size** for Debrief and AI assessment (FR-69), and **the time allowed after the Play deadline for the playout to finish** (FR-38, SM-4). Both are set after the prototype.
 - **Play guard distance measure, window, minimum Weeks and the near-optimal algorithm** (issue #20). They fill the pure-function slots AD-1 and AD-5 define.

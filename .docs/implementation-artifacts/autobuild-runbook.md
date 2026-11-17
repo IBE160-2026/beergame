@@ -15,7 +15,7 @@ The orchestrator session follows this file when it builds the stories without a 
 - No human in the loop (founder, 2026-11-17). Where a story asks the founder to check something, an independent review agent does it instead, and the story is `done` when the check passes: **1.2** (the agent hand-works the first ten Weeks from the rules, without the builder's table), **2.7** (the agent runs the probe against a real EU endpoint with the key in `.env`), **15.9** and **15.11** (the agent chooses the ops values and records them in an issue), **15.13** (keyboard, focus and accessibility checks with Playwright CLI, `@playwright/cli`, and axe). Record every choice the founder would have made in an issue.
 - Reviews and visual checks use other agents and Playwright CLI (`npx @playwright/cli@0.1.24`, bin `playwright-cli`), never a person.
 - Everything runs locally: Postgres in Docker, files in `./.local-storage/`, mail as `[email:mock]`, the AI mock by default (AD-17). Never create a cloud account, project or deploy.
-- The LLM provider key in `.env` may be used only where a story asks for a real endpoint (2.7, 2.11). Never print, log or commit a key.
+- The LLM provider is OpenRouter with the model `deepseek/deepseek-v4.1-flash-1017` (founder, 2026-11-17, Issue #9). The OpenRouter key in `.env` may be used only where a story asks for a real endpoint (2.7, 2.11). Never print, log or commit a key.
 
 ## One story
 
