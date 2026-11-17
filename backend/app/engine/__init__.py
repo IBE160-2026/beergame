@@ -1,6 +1,9 @@
 """The pure game engine: stdlib and pydantic only, no I/O, no clock, randomness only from a
-passed-in seed (`app.engine.demand.series`; callers draw seeds with `demand.new_seed`)."""
+passed-in seed (`app.engine.demand.series`; callers draw seeds with `demand.new_seed`).
 
+`app.engine.check.conservation` checks the bookkeeping of a list of Week states (FR-29)."""
+
+from app.engine.check import Violation
 from app.engine.demand import (
     SEED_MAX,
     DemandFixed,
@@ -45,6 +48,7 @@ __all__ = [
     "SeatState",
     "SettingsError",
     "SettingsWarning",
+    "Violation",
     "WeekState",
     "advance",
     "demand_change_reaches_retailer",
