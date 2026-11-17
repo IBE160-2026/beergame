@@ -19,8 +19,8 @@ services:
       timeout: 3s
       retries: 30
 
-  api:
-    build: ./api
+  backend:
+    build: ./backend
     environment:
       APP_ENV: ${APP_ENV:-local}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-olspillet}:${POSTGRES_PASSWORD:-olspillet}@postgres:5432/${POSTGRES_DB:-olspillet}
@@ -47,10 +47,10 @@ services:
       retries: 30
       start_period: 5s
 
-  web:
-    build: ./web
+  frontend:
+    build: ./frontend
     environment:
-      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://backend:8000}
     healthcheck:
       test:
         - CMD
@@ -66,14 +66,14 @@ services:
     build: ./proxy
     environment:
       PORT: 8080
-      API_UPSTREAM: api:8000
-      WEB_UPSTREAM: web:3000
+      API_UPSTREAM: backend:8000
+      WEB_UPSTREAM: frontend:3000
     ports:
       - "${HTTP_PORT:-8080}:8080"
     depends_on:
-      api:
+      backend:
         condition: service_healthy
-      web:
+      frontend:
         condition: service_healthy
 
 volumes:

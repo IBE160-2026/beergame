@@ -188,16 +188,16 @@ Requirement ids are the PRD's own (FR-1 to FR-89, NFR-1 to NFR-10), so every sto
 
 **Greenfield scaffold (affects Epic 1, Story 1)**
 
-- No starter template is named. The first story scaffolds the repo by hand from the spine's Structural Seed: `api/` (one uv project, Python 3.14, FastAPI, with `engine/`, `analysis/`, `ai/`, `platform/`, `modules/`, `main.py`, `worker.py`, `sim.py`, Alembic migrations, tests), `web/` (Next.js 16 App Router, standalone output, TypeScript 6, Tailwind 4, shadcn), `proxy/Caddyfile`, `docker-compose.yml` and `railway/` per-service config. Versions are pinned in the spine's Stack table.
+- No starter template is named. The first story scaffolds the repo by hand from the spine's Structural Seed: `backend/` (one uv project, Python 3.14, FastAPI, with `engine/`, `analysis/`, `ai/`, `platform/`, `modules/`, `main.py`, `worker.py`, `sim.py`, Alembic migrations, tests), `frontend/` (Next.js 16 App Router, standalone output, TypeScript 6, Tailwind 4, shadcn), `proxy/Caddyfile`, `docker-compose.yml` and `railway/` per-service config. Versions are pinned in the spine's Stack table.
 - Local runs with zero keys: `docker compose` starts postgres:17, api, worker-ai, worker-batch, web and proxy; every integration is a deterministic mock; an empty database is seeded with a demo Class (Admin, Lecturer, 8 Students) in `APP_ENV=local` only (AD-17).
 - Production refuses to start when a required secret is missing or default; LLM-mode Class sessions cannot be locked without a provider key (AD-17).
 
 **Epic shape: vertical slices with shared folders (founder decision 2026-11-12)**
 
-- Each epic is a vertical slice: its code is as isolated as possible, in its own `api/app/modules/<slice>/` and `web/src/modules/<slice>/`, and reaches other slices only through their `service.py` (spine, Module layout).
+- Each epic is a vertical slice: its code is as isolated as possible, in its own `backend/app/modules/<slice>/` and `frontend/src/modules/<slice>/`, and reaches other slices only through their `service.py` (spine, Module layout).
 - Nothing is written twice (DRY). Code that two or more slices need lives in a shared folder, never copied into a slice:
   - backend: `engine/`, `analysis/`, `ai/`, `platform/`;
-  - frontend: `web/src/components/` (design-system controls and `charts/`), `web/src/lib/` (API client, drafts, preview, number formatting) and `web/src/copy/`.
+  - frontend: `frontend/src/components/` (design-system controls and `charts/`), `frontend/src/lib/` (API client, drafts, preview, number formatting) and `frontend/src/copy/`.
 - A story that needs something shared adds it to the shared folder in that story, or reuses what an earlier story put there. A story never depends on a later story for a shared component.
 - A component stays inside its slice while only that slice uses it, and moves to the shared folder the first time a second slice needs it.
 
@@ -218,15 +218,15 @@ Requirement ids are the PRD's own (FR-1 to FR-89, NFR-1 to NFR-10), so every sto
 - AD-7: AI text only connects computed facts: stored `fact_sets`, fact ids and sentence-template ids in the output schema, a validator, quotes as character spans mapped back to the original text, and a code-rendered fallback. `modules/debrief` never imports `modules/players`.
 - AD-8: push invalidates, pull reads: `NOTIFY` carries `{topic, id, version}` only; a closed topic catalogue with a registry test; one SSE stream per User at `GET /api/events` with scope filtering, coalescing, heartbeat and timed reconnect; the web app maps topics to TanStack Query keys and refetches over REST.
 - AD-9: timers are columns; the per-minute `ops.sweep` finds due work and calls the owning command; all jobs are idempotent with id-only arguments; Test close is one ordered chain; queues are split between `worker-ai` and `worker-batch`; notifications go through `platform/notify` and `messaging`, with `immediate` kinds (Invitations, password resets, sent Messages, Takeover notices) and `digest` kinds (one mail per User per day, none between 22:00 and 07:00 Europe/Oslo).
-- AD-10: the web app is presentation only, typed from a generated OpenAPI client with a CI drift check; the only client arithmetic is the Order preview in `web/src/lib/preview.ts`; unsent input lives in `web/src/lib/drafts.ts`; test answers autosave with per-answer revisions.
+- AD-10: the web app is presentation only, typed from a generated OpenAPI client with a CI drift check; the only client arithmetic is the Order preview in `frontend/src/lib/preview.ts`; unsent input lives in `frontend/src/lib/drafts.ts`; test answers autosave with per-answer revisions.
 - AD-11: one origin behind Caddy; email and password login with a hashed-then-bcrypt password; HS256 JWT in an `httpOnly; Secure; SameSite=Lax` cookie; `X-Requested-With: olspillet` on every mutating request; single-use hashed tokens for Invitations and resets; Postgres-backed rate limits; the first Admin from `BOOTSTRAP_ADMIN_EMAILS`.
 - AD-12: all authorization goes through `platform/authz` policies and scoped query helpers; no `if role ==` in modules; two audited Admin exceptions (pseudonymised export, Control test).
 - AD-13: every Game has a `purpose` (`class`, `replay`, `makeup`, `lecturer_test`, `simulation`); `games.policy(purpose)` is the one behaviour table; every report, statistic, export and funnel reads through `reports.scope`.
 - AD-14: names, emails and student numbers live only in `identity` tables; one shared routine serves retention and deletion; aggregates for Cross-class statistics are written before deletion over groups of 10 or more; pseudonyms are `HMAC(key, user_id)` with a key held by someone other than the founder and never stored.
 - AD-15: `seat_week` rows are written once by `place_order` and never updated; `decided_by` and `fallback` are separate fields with one mapping for all readers; corrections are new rows; staff actions go through `platform/audit`.
 - AD-16: step events live in `modules/progress` (`record_step`, `has_step`, a closed step enum); `analysis.completion` is the only definition of Completion and has no AI input.
-- AD-18: one chart module, `web/src/components/charts` (Recharts for standard charts, hand-made SVG for the chain band and matrix wall), fixed-width rendering, a table alternative for every chart; the first chart story is a spike on column alignment and WeasyPrint output; reports render from a snapshot through the internal `/print/report/<snapshot_id>` route to tagged PDF in `worker-batch`; signed short-lived download URLs; veraPDF in CI; fonts self-hosted.
-- AD-19: UI copy lives in `web/src/copy/nb.ts`, email and PDF copy in Jinja2 templates and the print route; the API returns stable error codes; a CI test fails on «Beer Game» or «bullwhip» in pre-Debrief copy.
+- AD-18: one chart module, `frontend/src/components/charts` (Recharts for standard charts, hand-made SVG for the chain band and matrix wall), fixed-width rendering, a table alternative for every chart; the first chart story is a spike on column alignment and WeasyPrint output; reports render from a snapshot through the internal `/print/report/<snapshot_id>` route to tagged PDF in `worker-batch`; signed short-lived download URLs; veraPDF in CI; fonts self-hosted.
+- AD-19: UI copy lives in `frontend/src/copy/nb.ts`, email and PDF copy in Jinja2 templates and the print route; the API returns stable error codes; a CI test fails on «Beer Game» or «bullwhip» in pre-Debrief copy.
 - AD-20: `seat_turns` holds one row per Seat per open Week with all due times; `games.rules.turn_times` and `can_take_over` are the only computations of timing and Takeover eligibility.
 - AD-21: `debrief.commands` is the only writer of a Debrief session; presence is server-side; the reveal gate is checked in the API; the shared screen uses a server-side anonymised endpoint.
 - AD-23: question sets, quiz, Starting task, Adapted item templates, sentence templates, Detected pattern definitions and Scoring guides are immutable versioned records in `modules/content`, pinned at `sessions.lock` (Scoring guide at the Test deadline).
@@ -241,7 +241,7 @@ Requirement ids are the PRD's own (FR-1 to FR-89, NFR-1 to NFR-10), so every sto
 
 **Infrastructure, deployment and CI (SETUP-GUIDE)**
 
-- Railway project `olspillet`, EU West, five services (`proxy`, `web`, `api`, `worker-ai`, `worker-batch`), private networking, only `proxy` public; `production` branch auto-deploys, `main` is the working branch; pre-deploy `alembic upgrade head`; health checks; no staging environment.
+- Railway project `olspillet`, EU West, five services (`proxy`, `frontend`, `backend`, `worker-ai`, `worker-batch`), private networking, only `proxy` public; `production` branch auto-deploys, `main` is the working branch; pre-deploy `alembic upgrade head`; health checks; no staging environment.
 - Supabase Postgres 17 in eu-central-1 through the session pooler on port 5432 only, with a written connection budget; one private Storage bucket `reports`.
 - Resend with a verified domain, sending region eu-west-1 and a signed bounce webhook at `/api/webhooks/resend`.
 - CI in GitHub Actions: ruff and pytest with Postgres 17 and golden traces; web typecheck, Vitest and build (with the openapi-typescript TypeScript override); OpenAPI contract check; copy check; Playwright with axe against docker compose; veraPDF on a sample report; a simulation smoke run on the mock provider.
@@ -556,7 +556,7 @@ A Student can see their data; the Admin can delete, export pseudonymised data an
 
 ## Epic 1: Game engine proven in simulation
 
-When this epic is done, the founder can run complete all-AI Games headless with `python -m app.sim`, with Rule-based players and scripted occupants, and read a correct Decision log and a finished-game check for every Game. There is no login and no screen: the user is the founder at a terminal. The epic owns `api/app/engine/`, `api/app/modules/games/` (commands core, Seats, occupancy, turns, Decision log) and `api/app/sim.py`, and its first story holds the repo scaffold that every later epic builds on.
+When this epic is done, the founder can run complete all-AI Games headless with `python -m app.sim`, with Rule-based players and scripted occupants, and read a correct Decision log and a finished-game check for every Game. There is no login and no screen: the user is the founder at a terminal. The epic owns `backend/app/engine/`, `backend/app/modules/games/` (commands core, Seats, occupancy, turns, Decision log) and `backend/app/sim.py`, and its first story holds the repo scaffold that every later epic builds on.
 
 ### Story 1.1: Scaffold the repo so it starts locally with zero keys
 
@@ -568,17 +568,17 @@ So that every later story has one agreed place to put its code and a CI run that
 
 **Given** a fresh clone with no `.env` file
 **When** I run `docker compose up`
-**Then** `postgres:17`, `api`, `web` and `proxy` start, and `GET http://localhost:8080/api/health` through the proxy answers 200 only after the api has reached the database (AD-17, AD-11)
+**Then** `postgres:17`, `backend`, `frontend` and `proxy` start, and `GET http://localhost:8080/api/health` through the proxy answers 200 only after the api has reached the database (AD-17, AD-11)
 **And** `/` through the proxy serves an empty Next.js 16 page, and `/print/*` answers 404 at the proxy
-**And** the Caddyfile sends `/api/*` to `api` with `flush_interval -1` and everything else to `web`; no auth rule is added here (those come in Epic 3).
+**And** the Caddyfile sends `/api/*` to `backend` with `flush_interval -1` and everything else to `frontend`; no auth rule is added here (those come in Epic 3).
 
 **Given** the Structural Seed in the spine
 **When** I list the repo
-**Then** it holds `api/` as one uv project on Python 3.14 with `app/engine/`, `app/analysis/`, `app/ai/`, `app/platform/`, `app/modules/`, `app/main.py`, `app/worker.py`, `app/sim.py`, `migrations/` and `tests/`; `web/` with Next.js App Router, standalone output, TypeScript, Tailwind, shadcn initialised (`components.json`, no component added yet) and the `src/app`, `src/modules`, `src/components`, `src/lib`, `src/copy` folders; `proxy/Caddyfile` and `proxy/Dockerfile`; `docker-compose.yml`; and `.env.example` with variable names only
+**Then** it holds `backend/` as one uv project on Python 3.14 with `app/engine/`, `app/analysis/`, `app/ai/`, `app/platform/`, `app/modules/`, `app/main.py`, `app/worker.py`, `app/sim.py`, `migrations/` and `tests/`; `frontend/` with Next.js App Router, standalone output, TypeScript, Tailwind, shadcn initialised (`components.json`, no component added yet) and the `src/app`, `src/modules`, `src/components`, `src/lib`, `src/copy` folders; `proxy/Caddyfile` and `proxy/Dockerfile`; `docker-compose.yml`; and `.env.example` with variable names only
 **And** every version is pinned to the spine's Stack table, with `uv.lock` and `package-lock.json` committed
 **And** `app/worker.py` and the worker services are left as a stub entry point: the job platform and the `worker-ai` and `worker-batch` compose services are added in Epic 2, and `railway/` in Epic 3.
 
-**Given** `platform/db` and `platform/config` are added to `api/app/platform/` for reuse
+**Given** `platform/db` and `platform/config` are added to `backend/app/platform/` for reuse
 **When** the api starts
 **Then** settings load through one pydantic-settings class, including `APP_ENV` and the seven `FEATURE_*` flags of the cut list (default `true` locally), and the database is reached through one async SQLAlchemy engine on psycopg 3 with `max_overflow=0`
 **And** with `APP_ENV=production` and `DATABASE_URL` missing or left at its default the process refuses to start with a message naming the variable (AD-17); later epics add their own required secrets to the same guard.
@@ -593,7 +593,7 @@ So that every later story has one agreed place to put its code and a CI run that
 
 **Given** a push or pull request on GitHub
 **When** CI runs
-**Then** the `api` job runs `uv sync --locked`, ruff and pytest against a Postgres 17 service, and the `web` job runs `npm ci`, typecheck and build with the `openapi-typescript` TypeScript 6.0.3 override in `package.json`
+**Then** the `backend` job runs `uv sync --locked`, ruff and pytest against a Postgres 17 service, and the `frontend` job runs `npm ci`, typecheck and build with the `openapi-typescript` TypeScript 6.0.3 override in `package.json`
 **And** the later CI steps (contract check, copy check, Playwright with axe, veraPDF, simulation smoke run) are not added here; each is added by the story that first needs it.
 
 **Covers:** AD-1 (layer folders), AD-11 (proxy routing), AD-17, AD-24
@@ -606,7 +606,7 @@ So that I can see with my own eyes that the game arithmetic matches the referenc
 
 **Acceptance Criteria:**
 
-**Given** `engine.GameSettings` is added to `api/app/engine/` as one Pydantic model with a `schema_version`
+**Given** `engine.GameSettings` is added to `backend/app/engine/` as one Pydantic model with a `schema_version`
 **When** I build it with no arguments
 **Then** it holds the Classic defaults: four Roles, starting inventory 12 per Seat, 4 units in every supply-line slot, order delay 2, shipping delay 2, Factory production delay 2, demand 4 stepping to 8 in Week 5, holding cost 0.50 and backorder cost 1.00 per unit per Week, 36 Weeks, Guided Weeks 1 to 4, and a maximum Order of 999, a stated placeholder that does not bind in normal play (FR-11, FR-12)
 **And** units are integers and cost rates are `Decimal`, written to JSON as decimal strings such as `"0.50"`.
@@ -628,7 +628,7 @@ So that I can see with my own eyes that the game arithmetic matches the referenc
 **Given** constant demand 4 and every Order 4 for 36 Weeks
 **When** the golden-trace test runs
 **Then** every Seat keeps inventory 12 with no backlog and is charged 6.00 every Week (addendum §B reference trace)
-**And** this trace, and a second hand-checked trace with the Classic step to 8 in Week 5, are stored as golden files under `api/tests/engine/golden/` and run in CI
+**And** this trace, and a second hand-checked trace with the Classic step to 8 in Week 5, are stored as golden files under `backend/tests/engine/golden/` and run in CI
 **And** the step trace is not produced by the engine it tests: its first 10 Weeks are worked out by hand from the FR-26 sequence in a table committed next to the golden file, and the founder checks that table before the golden file is accepted.
 
 **Given** I run `python -m app.sim trace --settings classic --orders constant:4`
@@ -681,7 +681,7 @@ So that the same settings always give the same series and every Game of a batch 
 **Given** a Demand pattern of kind fixed series, step (start level, new level, Week of change), random (mean, spread) or step plus noise
 **When** `engine.demand.series(pattern, weeks, seed)` runs
 **Then** it returns one whole number per Week for the full number of Weeks (FR-13)
-**And** it is added to `api/app/engine/` for reuse and takes randomness only from the seed passed in (AD-1).
+**And** it is added to `backend/app/engine/` for reuse and takes randomness only from the seed passed in (AD-1).
 
 **Given** a random or step-plus-noise pattern
 **When** the series is drawn
@@ -730,7 +730,7 @@ So that a bookkeeping error is caught by a test long before a Student sees it.
 **Given** property-based tests over random valid settings, demand series and Orders from 0 to the maximum
 **When** CI runs them
 **Then** every generated run passes the check, with a fixed seed so a failure can be reproduced
-**And** the check is added to `api/app/engine/` for reuse by the finished-game check (Story 1.10).
+**And** the check is added to `backend/app/engine/` for reuse by the finished-game check (Story 1.10).
 
 **Covers:** FR-29 (pure check), FR-28 (engine side), NFR-9, AD-1
 
@@ -742,10 +742,10 @@ So that every empty Seat can be played and every Seat gets a Rule-based referenc
 
 **Acceptance Criteria:**
 
-**Given** the Rule-based player is added to `api/app/engine/` as a pure function
+**Given** the Rule-based player is added to `backend/app/engine/` as a pure function
 **When** `engine.rule_based.order(settings, seat_view, params)` runs
 **Then** it returns a whole-number Order from 0 to the maximum Order, computed from the Seat's own inventory, backlog, incoming orders, Supply line and Order history only (FR-33, AD-1)
-**And** `seat_view` is an `engine.SeatView`, one numbers-only Pydantic model added to `api/app/engine/` in this story (the Seat's Role, inventory, backlog, incoming orders, Supply line, Order history and neighbour numbers); every engine function that looks at one Seat takes this type, so `engine` imports nothing from `modules`
+**And** `seat_view` is an `engine.SeatView`, one numbers-only Pydantic model added to `backend/app/engine/` in this story (the Seat's Role, inventory, backlog, incoming orders, Supply line, Order history and neighbour numbers); every engine function that looks at one Seat takes this type, so `engine` imports nothing from `modules`
 **And** it uses the Game settings in force (delays, costs, maximum Order) and no neighbour numbers from Information visibility, proven by a test that changes the neighbour numbers and gets the same Order.
 
 **Given** the fitted parameters have not been retrieved from the primary source (issues #8 and #17)
@@ -798,7 +798,7 @@ So that simulation Games use the same tables and commands that real Games will.
 **When** it is asked about `simulation`
 **Then** it answers that inactivity Takeover, Pause, the Play deadline playout and the Lecturer overview do not apply and that Guided Weeks follow the Game settings, and no command branches on purpose itself (AD-13).
 
-**Given** `platform/events.emit(topic, id)` and `platform/events/registry.py` are added to `api/app/platform/` for reuse
+**Given** `platform/events.emit(topic, id)` and `platform/events/registry.py` are added to `backend/app/platform/` for reuse
 **When** `create` or `assign_seat` commits
 **Then** each ran as one transaction that locked the Game row with `SELECT … FOR UPDATE`, incremented `version`, and ran `NOTIFY` for `game:<id>` with `{topic, id, version}` only (AD-2, AD-8)
 **And** a registry test asserts that every `games.commands` command has an entry and emits exactly its listed topics; a simulation Game emits no `session:<id>`.
@@ -903,7 +903,7 @@ So that I can trust the stored numbers and keep trusting them after the rules ch
 
 **Given** the deferred decision on how older `rules_version`s stay runnable
 **When** this story is done
-**Then** the decision is made and recorded in `api/app/engine/RULES_VERSIONS.md`: each rules version is its own package `engine/rules/v<N>/`, `engine.advance` selects it from the `rules_version` passed in, a change that alters engine output is made as a new version and never as an edit to a version any stored non-simulation Game references, and a running Class session keeps the version frozen in its snapshot
+**Then** the decision is made and recorded in `backend/app/engine/RULES_VERSIONS.md`: each rules version is its own package `engine/rules/v<N>/`, `engine.advance` selects it from the `rules_version` passed in, a change that alters engine output is made as a new version and never as an edit to a version any stored non-simulation Game references, and a running Class session keeps the version frozen in its snapshot
 **And** CI runs the golden traces of every version, and a test fails when a `rules_version` stored on any Game in the test database has no package.
 
 **Given** `rules_version = 1` is the only version so far
@@ -931,7 +931,7 @@ So that I have the prototype's baseline and a smoke test before any LLM is invol
 
 **Given** `scripted` occupants are fixed no-learning policies
 **When** I choose one per Role
-**Then** the closed registry from Story 1.7 in `api/app/engine/` holds at least two pure policies (the constant Order and, added here, an order-what-came-in policy), each takes only an `engine.SeatView`, which a `SeatState` is, and each Order is logged with `decided_by = scripted` (AD-5, AD-15, AD-22).
+**Then** the closed registry from Story 1.7 in `backend/app/engine/` holds at least two pure policies (the constant Order and, added here, an order-what-came-in policy), each takes only an `engine.SeatView`, which a `SeatState` is, and each Order is logged with `decided_by = scripted` (AD-5, AD-15, AD-22).
 
 **Given** a batch has finished
 **When** the runner prints its summary
@@ -986,7 +986,7 @@ So that a capped chain can be simulated, and the feature can be left out without
 
 ## Epic 2: LLM players that are safe to teach with
 
-When this epic is done, the founder can run batches of simulated Games with LLM players and read cost, tokens, latency, retries, fallback share, Play guard switches and run-to-run variation per model config and Effort level, and the Admin can pin a model and set a cost limit from the command line. There is still no login and no screen: model config and budget are managed by a CLI command, and the Admin screens come in Epic 15. The epic owns `api/app/ai/` (the only LLM boundary) and `api/app/modules/players/`, and adds `platform/jobs` and the two worker processes.
+When this epic is done, the founder can run batches of simulated Games with LLM players and read cost, tokens, latency, retries, fallback share, Play guard switches and run-to-run variation per model config and Effort level, and the Admin can pin a model and set a cost limit from the command line. There is still no login and no screen: model config and budget are managed by a CLI command, and the Admin screens come in Epic 15. The epic owns `backend/app/ai/` (the only LLM boundary) and `backend/app/modules/players/`, and adds `platform/jobs` and the two worker processes.
 
 ### Story 2.1: Give every non-student Seat its Order from one order source
 
@@ -996,7 +996,7 @@ So that Rule-based, scripted, Guided and later LLM Orders all take the same path
 
 **Acceptance Criteria:**
 
-**Given** `players.ensure_order(game, seat)` is added to `api/app/modules/players/service.py`
+**Given** `players.ensure_order(game, seat)` is added to `backend/app/modules/players/service.py`
 **When** a Week opens for a Seat with a non-student occupant
 **Then** it is called in the transaction that opened the Week, and for a Guided Week, a `rule_based` occupant or a `scripted` occupant it places the Order through `games.commands.place_order` in that same transaction (AD-5)
 **And** the Order for a `rule_based` occupant is the reference Order stored on the `seat_turns` row, never a recomputed one, and the Order for a `scripted` occupant comes from the policy whose id is on the occupancy row (Story 1.7).
@@ -1059,7 +1059,7 @@ So that every LLM call has a known model and a known limit before the first one 
 
 **Given** other modules
 **When** they read or change model config or budget
-**Then** they do it only through `ai.config` and `ai.budget`, which are added to `api/app/ai/` for reuse, and a CI import check shows that no other package touches these tables (AD-6).
+**Then** they do it only through `ai.config` and `ai.budget`, which are added to `backend/app/ai/` for reuse, and a CI import check shows that no other package touches these tables (AD-6).
 
 **Given** a config file that names a provider key, a prompt version with no file, or an Effort level without both time values
 **When** `config add` runs
@@ -1075,7 +1075,7 @@ So that no call anywhere in the product can skip pinning, validation or cost log
 
 **Acceptance Criteria:**
 
-**Given** `ai.run(purpose, budget_scope, inputs, output_schema, deadline)` is added to `api/app/ai/` as the only LLM entry point
+**Given** `ai.run(purpose, budget_scope, inputs, output_schema, deadline)` is added to `backend/app/ai/` as the only LLM entry point
 **When** a caller uses it
 **Then** the gateway resolves the scope's model config by id and the prompt version for the purpose from that config's `prompts` map; the caller passes no model, no prompt version and no scrub terms (AD-6, FR-68)
 **And** `inputs` is one object with three parts: the values the prompt is rendered from; a caller reference of ids only (for a player Order the Game, Seat and Week), which is stored on every `llm_call` row of the call and never rendered; and an optional mock answer that only the mock provider reads
@@ -1102,7 +1102,7 @@ So that no call anywhere in the product can skip pinning, validation or cost log
 
 **Given** prompts live as files
 **When** a config references `prompts.<purpose> = N`
-**Then** the gateway loads `api/app/ai/prompts/<purpose>/v<N>.md`, and a CI test fails if a version referenced by any stored config is missing or its file hash has changed (AD-6).
+**Then** the gateway loads `backend/app/ai/prompts/<purpose>/v<N>.md`, and a CI test fails if a version referenced by any stored config is missing or its file hash has changed (AD-6).
 
 **Given** the code base
 **When** the CI import check runs
@@ -1118,7 +1118,7 @@ So that an AI player never gets more information than a person and never gets pe
 
 **Acceptance Criteria:**
 
-**Given** `players.llm.build_inputs(seat_state)` and the prompt file `api/app/ai/prompts/player_order/v1.md`
+**Given** `players.llm.build_inputs(seat_state)` and the prompt file `backend/app/ai/prompts/player_order/v1.md`
 **When** an Order is requested for a Seat
 **Then** the values the prompt is rendered from are built from the `SeatState` model and nothing else: no query, no `table_status`, no demand series, no number of Weeks (FR-31, AD-3)
 **And** a test renders the prompt for every Role and Week of a Classic Game and finds no future demand, no Week count, no other Seat's inventory, backlog or Orders, and customer demand only in the Retailer's prompt
@@ -1155,9 +1155,9 @@ So that a Game with LLM players always moves on and every replacement is marked.
 
 **Acceptance Criteria:**
 
-**Given** `platform/jobs` (procrastinate) is added to `api/app/platform/` for reuse, with its schema applied through an Alembic revision that runs the SQL procrastinate ships
+**Given** `platform/jobs` (procrastinate) is added to `backend/app/platform/` for reuse, with its schema applied through an Alembic revision that runs the SQL procrastinate ships
 **When** I run `docker compose up`
-**Then** `worker-ai` (`python -m app.worker --queues ai-orders`) and `worker-batch` (`python -m app.worker --queues llm-batch`) start from the same image as `api` and need no keys (AD-9, AD-24, AD-17)
+**Then** `worker-ai` (`python -m app.worker --queues ai-orders`) and `worker-batch` (`python -m app.worker --queues llm-batch`) start from the same image as `backend` and need no keys (AD-9, AD-24, AD-17)
 **And** later epics add their queues and the sweeper to `worker-batch`; this story adds none of them.
 
 **Given** a simulation Game that is to have LLM players
@@ -1318,7 +1318,7 @@ So that the Play guard and the prototype can see how close an LLM player comes t
 
 **Acceptance Criteria:**
 
-**Given** the near-optimal reference is added to `api/app/engine/` as a pure function
+**Given** the near-optimal reference is added to `backend/app/engine/` as a pure function
 **When** `engine.near_optimal.order(settings, chain_state, demand_series, week, role)` runs
 **Then** it returns a whole-number Order from 0 to the maximum Order and may use the full chain state and the demand series, which no player sees (FR-79, AD-1).
 
@@ -1349,7 +1349,7 @@ So that an LLM player that orders erratically or near-optimally cannot spoil a G
 
 **Acceptance Criteria:**
 
-**Given** the Play guard statistics are added to `api/app/analysis/` as a pure function
+**Given** the Play guard statistics are added to `backend/app/analysis/` as a pure function
 **When** `analysis.play_guard.evaluate(seat_weeks, params)` runs
 **Then** it reads only rows with `decided_by = llm`, so Guided Weeks and fallback Orders are left out, and returns `within_band` or `switch` with the statistic that caused it (FR-79, AD-1, AD-15).
 
@@ -1474,7 +1474,7 @@ So that I can choose an AI mode knowingly and explain the AI players to my Stude
 
 **Given** the two AI player types
 **When** this story is done
-**Then** a Norwegian bokmål description of each exists as a versioned file under `api/app/modules/players/descriptions/v1/`, and `players.service.describe(kind)` returns it with its version (FR-33, FR-72)
+**Then** a Norwegian bokmål description of each exists as a versioned file under `backend/app/modules/players/descriptions/v1/`, and `players.service.describe(kind)` returns it with its version (FR-33, FR-72)
 **And** the texts are original, use «enheter» and never «øl», and contain neither «Beer Game» nor «bullwhip» (C-4, AD-19).
 
 **Given** the Rule-based player's description
@@ -1499,7 +1499,7 @@ So that I can choose an AI mode knowingly and explain the AI players to my Stude
 
 ## Epic 3: Accounts and the Admin area
 
-When this epic is done, the Admin can invite a Lecturer, who creates an account, logs in and lands on an empty home screen, and every User is held to their account role on every request. The Admin can search Users, grant and revoke roles, deactivate and reactivate Users, create Institutions and read the audit log. The epic owns `api/app/modules/identity/`, `api/app/modules/admin/` and their `web/src/modules/` mirrors, and it builds the shared `platform/auth`, `platform/authz`, `platform/audit`, `platform/ratelimit`, `platform/email`, `platform/notify`, the `mail` queue with the per-minute sweeper `ops.sweep`, and the web foundation, each inside the first story that needs it. It ends with the first production deploy on Railway.
+When this epic is done, the Admin can invite a Lecturer, who creates an account, logs in and lands on an empty home screen, and every User is held to their account role on every request. The Admin can search Users, grant and revoke roles, deactivate and reactivate Users, create Institutions and read the audit log. The epic owns `backend/app/modules/identity/`, `backend/app/modules/admin/` and their `frontend/src/modules/` mirrors, and it builds the shared `platform/auth`, `platform/authz`, `platform/audit`, `platform/ratelimit`, `platform/email`, `platform/notify`, the `mail` queue with the per-minute sweeper `ops.sweep`, and the web foundation, each inside the first story that needs it. It ends with the first production deploy on Railway.
 
 ### Story 3.1: See «Logg inn» in the product's design
 
@@ -1518,7 +1518,7 @@ So that the first page I meet is readable, operable by keyboard and in Norwegian
 
 **Given** the first form in the product
 **When** the Knapper, Lenke and Tekstfelt components are built
-**Then** they are added to `web/src/components/` for reuse, on the shadcn setup from Story 1.1, with the shared interaction states (idle, hover, focus-visible, pressed, disabled, error), idle borders in `ink-muted`, and the `focus-ring` with its `paper` gap on every interactive element (UX-DR7, UX-DR8)
+**Then** they are added to `frontend/src/components/` for reuse, on the shadcn setup from Story 1.1, with the shared interaction states (idle, hover, focus-visible, pressed, disabled, error), idle borders in `ink-muted`, and the `focus-ring` with its `paper` gap on every interactive element (UX-DR7, UX-DR8)
 **And** the page has one primary button, «Logg inn», links are `lager` weight 600 underlined and never commit, and each Tekstfelt has its label above and an invalid state with a `restordre` border and the reason beside it (UX-DR9, UX-DR10, UX-DR11)
 **And** a control that becomes unavailable while focused takes `aria-disabled="true"` and keeps focus, never the native `disabled` (UX-DR8)
 
@@ -1529,7 +1529,7 @@ So that the first page I meet is readable, operable by keyboard and in Norwegian
 
 **Given** the product's copy has one home
 **When** this story is built
-**Then** every UI string on the page comes from `web/src/copy/nb.ts`, which is created here from the PRD-term to UI-string table and the do and don't microcopy rules, in Norwegian bokmål with no exclamation marks (FR-72, UX-DR74, AD-19)
+**Then** every UI string on the page comes from `frontend/src/copy/nb.ts`, which is created here from the PRD-term to UI-string table and the do and don't microcopy rules, in Norwegian bokmål with no exclamation marks (FR-72, UX-DR74, AD-19)
 **And** the CI copy check that fails on «Beer Game» or «bullwhip» in pre-Debrief copy is added (AD-19)
 **And** the same check holds the voice rules for all copy, in `nb.ts`, in the Jinja2 mail and PDF templates and in the print route: it fails on an exclamation mark, on «øl» outside the product name «ØL-spillet», and on «optimal» or «fasit»; later stories put their copy in files the check already reads and add no check of their own (UX-DR74, AD-19)
 
@@ -1571,7 +1571,7 @@ So that only I can reach my part of the product.
 
 **Given** the web app needs typed API calls
 **When** this story is built
-**Then** the client in `web/src/lib/api/` is generated from the FastAPI OpenAPI schema with `openapi-typescript` and `openapi-fetch`, and a CI job regenerates it and fails on any difference (AD-10)
+**Then** the client in `frontend/src/lib/api/` is generated from the FastAPI OpenAPI schema with `openapi-typescript` and `openapi-fetch`, and a CI job regenerates it and fails on any difference (AD-10)
 **And** server state is held in TanStack Query, set up here with one `QueryClient` provider in the app shell, and the login is its first mutation (AD-10)
 
 **Given** the Playwright and axe setup from Story 3.1
@@ -1597,7 +1597,7 @@ So that I can trust that each User sees only what their account role allows.
 **Given** any API route
 **When** it is registered
 **Then** it declares a `platform/authz` policy as a FastAPI dependency, built on `can(user, action, resource)`, and an api test walks every route and fails if one has no policy or is not on the short public list (login, password reset, Invitation acceptance, the lecturer-access request, health, webhooks) (AD-12, NFR-7)
-**And** a CI check fails on a role comparison (`if role ==` or equivalent) inside `api/app/modules/` (AD-12)
+**And** a CI check fails on a role comparison (`if role ==` or equivalent) inside `backend/app/modules/` (AD-12)
 
 **Given** `platform/authz` is added to `platform/` in this story
 **When** its policies are tested
@@ -1635,14 +1635,14 @@ So that I never wonder whether my work was saved.
 
 **Given** any page that loads data
 **When** it is loading
-**Then** the Skjelett component, added to `web/src/components/` for reuse, shows the real layout and columns with no numbers, no spinner and no shimmer, «Laster …» appears only after 1 s, and after 10 s the page shows the page-error state (UX-DR58)
+**Then** the Skjelett component, added to `frontend/src/components/` for reuse, shows the real layout and columns with no numbers, no spinner and no shimmer, «Laster …» appears only after 1 s, and after 10 s the page shows the page-error state (UX-DR58)
 **And** the 10 s limit is a named constant marked as an assumption
 
 **Given** the device goes offline
 **When** a page is open
-**Then** the Tilkoblingslinje component, added to `web/src/components/` for reuse, shows «Frakoblet. Det du har skrevet, er tatt vare på på denne enheten.» at the top of the content as a polite status region that never covers controls, and live values carry «Sist oppdatert 21:14» with the real time (UX-DR58, UX-DR59)
+**Then** the Tilkoblingslinje component, added to `frontend/src/components/` for reuse, shows «Frakoblet. Det du har skrevet, er tatt vare på på denne enheten.» at the top of the content as a polite status region that never covers controls, and live values carry «Sist oppdatert 21:14» with the real time (UX-DR58, UX-DR59)
 **And** nothing is sent on its own when the connection returns
-**And** in this epic the promise in that line holds for text still in its field on the open page, shown by a test that types, goes offline and comes back; keeping it across a reload comes with `web/src/lib/drafts.ts` in Epic 6
+**And** in this epic the promise in that line holds for text still in its field on the open page, shown by a test that types, goes offline and comes back; keeping it across a reload comes with `frontend/src/lib/drafts.ts` in Epic 6
 
 **Given** the connection returns
 **When** the page detects it
@@ -1655,12 +1655,12 @@ So that I never wonder whether my work was saved.
 **Given** a mutation fails
 **When** the API returns an error or the request does not complete
 **Then** «Det ble ikke lagret. Prøv igjen.» shows inline beside the action with `role="alert"`, the button stays enabled, the input is kept and focus stays on the button (UX-DR59, UX-DR76)
-**And** the shared mutation helper in `web/src/lib/api/` that does this is added here for reuse, and maps unknown error codes to this message
+**And** the shared mutation helper in `frontend/src/lib/api/` that does this is added here for reuse, and maps unknown error codes to this message
 
 **Given** the session cookie has expired or is invalid
 **When** the User makes a request
 **Then** the «Logg inn» page opens with focus on «Du er logget ut. Logg inn igjen for å fortsette.», and logging in returns to the same page (UX-DR59, UX-DR76)
-**And** the return address is validated as a same-origin path; keeping a typed Order or answer through the login belongs to `web/src/lib/drafts.ts`, which Epic 6 adds
+**And** the return address is validated as a same-origin path; keeping a typed Order or answer through the login belongs to `frontend/src/lib/drafts.ts`, which Epic 6 adds
 
 **Given** a User who prefers reduced motion
 **When** any of these states change
@@ -1684,7 +1684,7 @@ So that an Invitation or a reset link leaves at once, reminders are gathered pol
 
 **Given** mail must be rendered and sent
 **When** this story is built
-**Then** `platform/email` is added with Jinja2 templates in `api/app/platform/email/templates/`, a Resend sender and a deterministic mock that logs `[email:mock]` when `RESEND_API_KEY` is missing outside production (AD-17, AD-19)
+**Then** `platform/email` is added with Jinja2 templates in `backend/app/platform/email/templates/`, a Resend sender and a deterministic mock that logs `[email:mock]` when `RESEND_API_KEY` is missing outside production (AD-17, AD-19)
 **And** every mail is in Norwegian bokmål, headed «ØL-spillet», sent from `EMAIL_FROM`, with its links built from `PUBLIC_BASE_URL`, and no name, e-mail or token appears in a log line or a job argument (FR-72, AD-14)
 
 **Given** the delivery part of `modules/messaging`
@@ -2009,7 +2009,7 @@ So that I can decide to use it and reach the Admin without an open sign-up.
 **Given** the Landing shows example numbers
 **When** it renders
 **Then** it shows one Seat in a Veiledet uke from the synthetic fixture as an HTML week table with tabular lining figures, labelled «Demodata» in `caption` `ink-muted`, and the line «Lagerkurvene for hele klassen ser du først når du er logget inn.» (UX-DR70, UX-DR3)
-**And** no chart code is written in this story: the graph over the table and the second «Demodata» figure come from `web/src/components/charts` once Epic 6 and Epic 7 have built it
+**And** no chart code is written in this story: the graph over the table and the second «Demodata» figure come from `frontend/src/components/charts` once Epic 6 and Epic 7 have built it
 
 **Given** the content rules for the Landing
 **When** the copy check runs in CI
@@ -2042,8 +2042,8 @@ So that the first deploy is a matter of following a checklist, not of writing co
 
 **Given** the Structural Seed names `railway/`
 **When** this story is done
-**Then** `railway/` holds one `railway.toml` per service (`proxy`, `web`, `api`, `worker-ai`, `worker-batch`) with the region pinned to EU West, the start command of SETUP-GUIDE §1, the health check path, `watchPatterns`, and overlap and draining seconds (AD-11)
-**And** `api`, `worker-ai` and `worker-batch` build from the same `api/Dockerfile` and commit, and only the `api` service has the pre-deploy command `alembic upgrade head` (AD-24)
+**Then** `railway/` holds one `railway.toml` per service (`proxy`, `frontend`, `backend`, `worker-ai`, `worker-batch`) with the region pinned to EU West, the start command of SETUP-GUIDE §1, the health check path, `watchPatterns`, and overlap and draining seconds (AD-11)
+**And** `backend`, `worker-ai` and `worker-batch` build from the same `backend/Dockerfile` and commit, and only the `backend` service has the pre-deploy command `alembic upgrade head` (AD-24)
 
 **Given** `APP_ENV=production`
 **When** `JWT_SECRET`, `DATABASE_URL`, `RESEND_API_KEY` or a storage key (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) is missing or left at a default
@@ -2052,12 +2052,12 @@ So that the first deploy is a matter of following a checklist, not of writing co
 
 **Given** the Supabase session pooler has a fixed pool size
 **When** this story is done
-**Then** the written connection budget is recorded in `docs/ops/connection-budget.md`: per process the SQLAlchemy pool with no overflow, the procrastinate pool and one LISTEN connection for `api`, doubled for a deploy overlap, with the pooler size it needs
+**Then** the written connection budget is recorded in `docs/ops/connection-budget.md`: per process the SQLAlchemy pool with no overflow, the procrastinate pool and one LISTEN connection for `backend`, doubled for a deploy overlap, with the pooler size it needs
 **And** `DB_POOL_SIZE` sets the pool per process, and the production settings require TLS on the database connection (NFR-7)
 
 **Given** the proxy rules from Story 1.1
 **When** I run the smoke test `scripts/smoke` against a base URL
-**Then** it asserts that `/api/health` answers 200 through the proxy, that `/print/*` answers 404 and that `/` is served by `web`, and it reports every failed request while it runs, so it can watch a deploy (AD-11)
+**Then** it asserts that `/api/health` answers 200 through the proxy, that `/print/*` answers 404 and that `/` is served by `frontend`, and it reports every failed request while it runs, so it can watch a deploy (AD-11)
 **And** CI runs it against `docker compose`
 
 **Covers:** NFR-7, AD-11, AD-17, AD-24
@@ -2077,8 +2077,8 @@ So that the bootstrap Admin can log in on the real domain and invite the first L
 
 **Given** the Railway project `olspillet`
 **When** the services are created from the per-service config in `railway/` (Story 3.14)
-**Then** `proxy`, `web`, `api`, `worker-ai` and `worker-batch` run in EU West, only `proxy` has a public domain, and the others are reached on `*.railway.internal` (AD-11)
-**And** the smoke test of Story 3.14 passes against the public domain: Caddy sends `/api/*` to `api` with immediate flush, answers 404 for `/print/*` and sends everything else to `web` (AD-11)
+**Then** `proxy`, `frontend`, `backend`, `worker-ai` and `worker-batch` run in EU West, only `proxy` has a public domain, and the others are reached on `*.railway.internal` (AD-11)
+**And** the smoke test of Story 3.14 passes against the public domain: Caddy sends `/api/*` to `backend` with immediate flush, answers 404 for `/print/*` and sends everything else to `frontend` (AD-11)
 
 **Given** `APP_ENV=production`
 **When** one required secret is removed from one service
@@ -2097,7 +2097,7 @@ So that the bootstrap Admin can log in on the real domain and invite the first L
 **When** this story is done
 **Then** the decision is made and recorded in the repo: whether Railway waits for green GitHub checks, and who moves `main` to `production` and how; the `production` branch auto-deploys and `main` stays the working branch
 
-**Given** health checks `api` `/api/health` (checks the database), `web` `/` and `proxy` `/api/health`
+**Given** health checks `backend` `/api/health` (checks the database), `frontend` `/` and `proxy` `/api/health`
 **When** a second deploy with a no-op migration runs
 **Then** it uses overlap and draining so the old and new code run side by side, and it completes without a failed request in the smoke test (AD-24)
 
@@ -2109,7 +2109,7 @@ So that the bootstrap Admin can log in on the real domain and invite the first L
 
 ## Epic 4: Classes, Roster and Invitations
 
-When this epic is done, a Lecturer can create a Class, upload the Roster from a Canvas export or by pasting addresses, send Invitations with a validity period, follow who has registered, register Students by hand, and share the Class with co-owner Lecturers and Assistant lecturers. A Student can register through the Invitation and become a Student in the Class. The epic owns `api/app/modules/classes/` and `web/src/modules/classes/`; Roster addresses and staged upload rows are personal data and live in `identity` tables, which `classes` reaches only through `identity.service` (AD-14).
+When this epic is done, a Lecturer can create a Class, upload the Roster from a Canvas export or by pasting addresses, send Invitations with a validity period, follow who has registered, register Students by hand, and share the Class with co-owner Lecturers and Assistant lecturers. A Student can register through the Invitation and become a Student in the Class. The epic owns `backend/app/modules/classes/` and `frontend/src/modules/classes/`; Roster addresses and staged upload rows are personal data and live in `identity` tables, which `classes` reaches only through `identity.service` (AD-14).
 
 ### Story 4.1: Create a Class from the Lærerhjem
 
@@ -2126,7 +2126,7 @@ So that I have a place for my Students and own it.
 **Given** the Lecturer presses «Ny Klasse»
 **When** «Lag Klasse» opens and they enter a name, pick an Institution from `identity.service.list_institutions()` and optionally a course code, and save
 **Then** a Class is stored in a `classes` table and the Lecturer is stored as owner in a `class_staff` table, both created here and owned by `modules/classes`, in one transaction (FR-6)
-**And** the form reuses Tekstfelt and Knapper from `web/src/components/` and is one column with the page title in `title-page`
+**And** the form reuses Tekstfelt and Knapper from `frontend/src/components/` and is one column with the page title in `title-page`
 
 **Given** a missing name or no Institution chosen
 **When** the Lecturer saves
@@ -2519,7 +2519,7 @@ So that it is out of my way but kept for statistics.
 
 ## Epic 5: Class session setup and allocation
 
-A Lecturer can create a Class session that is ready to save with the Classic defaults, change any Game setting, choose AI mode, Effort level and Debrief mode, mark the session obligatory, set the Inactivity limit, the four dates and Lab hours, and allocate the registered Students to Class games. At the Start date the sweeper locks the Class session and opens its Class games on one frozen snapshot. The epic owns `api/app/modules/sessions/` and `web/src/modules/sessions/`, adds its due actions to the per-minute `ops.sweep` that Story 3.5 created, and adds the `class` row to `games.policy`. It puts the Klasseøkt screen on top of the engine's `GameSettings` from Epic 1 and computes nothing in the web app.
+A Lecturer can create a Class session that is ready to save with the Classic defaults, change any Game setting, choose AI mode, Effort level and Debrief mode, mark the session obligatory, set the Inactivity limit, the four dates and Lab hours, and allocate the registered Students to Class games. At the Start date the sweeper locks the Class session and opens its Class games on one frozen snapshot. The epic owns `backend/app/modules/sessions/` and `frontend/src/modules/sessions/`, adds its due actions to the per-minute `ops.sweep` that Story 3.5 created, and adds the `class` row to `games.policy`. It puts the Klasseøkt screen on top of the engine's `GameSettings` from Epic 1 and computes nothing in the web app.
 
 ### Story 5.1: Create a Class session with the Classic defaults
 
@@ -2545,7 +2545,7 @@ So that I can save it unchanged and be ready in a few minutes.
 **Given** the new Class session
 **When** the Klasseøkt screen opens
 **Then** it shows the page title «Klasseøkt for {klassenavn}», «Alt er fylt ut med standardene.», «Spillinnstillinger: Klassisk» and «Kildene er uenige om forsinkelsene. Dette er produktets standard, og du kan endre den.» (UX-DR48)
-**And** «Kjeden ved start» draws the four Roles with upstream on the left, the delay boxes on the pipe and Lager 12 per Role, captioned «Varer mot høyre, ordre mot venstre», from values the API returned, with the same values as text for screen readers; it is a diagram of this slice, built in `web/src/modules/sessions/` without a chart library, and not a data chart of the AD-18 chart module (UX-DR48, AD-10)
+**And** «Kjeden ved start» draws the four Roles with upstream on the left, the delay boxes on the pipe and Lager 12 per Role, captioned «Varer mot høyre, ordre mot venstre», from values the API returned, with the same values as text for screen readers; it is a diagram of this slice, built in `frontend/src/modules/sessions/` without a chart library, and not a data chart of the AD-18 chart module (UX-DR48, AD-10)
 **And** «Lagre Klasseøkt» is the screen's primary button; while an in-place panel with its own committing button is open on the screen (the allocation preview, added later in this epic), that button is the primary and «Lagre Klasseøkt» shows as secondary (UX-DR9, founder decision 2026-11-14)
 
 **Given** the Lecturer has changed nothing
@@ -2563,7 +2563,7 @@ So that I can save it unchanged and be ready in a few minutes.
 
 **Given** the Klasseøkt screen
 **When** it is tested with Playwright at 320, 360 and 1440 px and at 400% zoom
-**Then** it is one column below 1024 px, has no page-level horizontal scroll, passes axe, and all its copy comes from `web/src/copy/nb.ts` and passes the copy check (NFR-6, AD-19)
+**Then** it is one column below 1024 px, has no page-level horizontal scroll, passes axe, and all its copy comes from `frontend/src/copy/nb.ts` and passes the copy check (NFR-6, AD-19)
 
 **Covers:** FR-6, FR-11, FR-13, FR-15, FR-72, NFR-6, AD-1, AD-4, AD-6, AD-8, AD-10, AD-12, AD-17, AD-19, UX-DR48
 
@@ -2586,7 +2586,7 @@ So that my Students and I know when each part must be done.
 
 **Given** saved dates
 **When** the Datolinje renders
-**Then** it is a read-only timeline with one labelled tick per date, built as hand-made SVG in `web/src/modules/sessions/` with no chart library, and its text alternative is the labelled date fields themselves; it is a diagram of this slice that never goes into a report, not a data chart of the AD-18 chart module (UX-DR51, NFR-6)
+**Then** it is a read-only timeline with one labelled tick per date, built as hand-made SVG in `frontend/src/modules/sessions/` with no chart library, and its text alternative is the labelled date fields themselves; it is a diagram of this slice that never goes into a report, not a data chart of the AD-18 chart module (UX-DR51, NFR-6)
 **And** below 1024 px and at 320 px the Datolinje scrolls inside its own region while the date fields reflow in one column (UX-DR75)
 
 **Given** a Class session that has started
@@ -2624,7 +2624,7 @@ So that I can run the game my way without breaking it.
 **Given** a Class session before its Start date
 **When** the Lecturer opens the settings block
 **Then** the Lecturer can edit starting inventory or backlog per Role, the contents of each supply-line slot, order delay, shipping delay and Factory production delay, holding cost and backorder cost, number of Weeks, Guided Weeks and the maximum Order, each in a Tekstfelt with its label above (FR-12, UX-DR48)
-**And** cost rates are entered and shown with a decimal comma and travel as decimal strings; this story adds the one Norwegian number formatter to `web/src/lib/` for reuse (space as thousands separator, decimal comma, true minus sign), with Vitest cases, and Epic 6 reuses it (UX-DR5 stays Epic 6's to complete on the play screen)
+**And** cost rates are entered and shown with a decimal comma and travel as decimal strings; this story adds the one Norwegian number formatter to `frontend/src/lib/` for reuse (space as thousands separator, decimal comma, true minus sign), with Vitest cases, and Epic 6 reuses it (UX-DR5 stays Epic 6's to complete on the play screen)
 
 **Given** an edited setting
 **When** the Lecturer leaves the field or presses «Lagre Klasseøkt»
@@ -2694,7 +2694,7 @@ So that the Class session fits my course and my view on AI.
 
 **Given** the Klasseøkt screen
 **When** it renders the choices
-**Then** Valgknapper (one segment per option, the active one filled `ink` with `paper` text, inactive ones with an `ink-muted` border) and the two-segment Visningsbryter variant are added to `web/src/components/` for reuse, with the shared interaction states and focus ring from Epic 3, full keyboard operation and 44 px tap targets (UX-DR12)
+**Then** Valgknapper (one segment per option, the active one filled `ink` with `paper` text, inactive ones with an `ink-muted` border) and the two-segment Visningsbryter variant are added to `frontend/src/components/` for reuse, with the shared interaction states and focus ring from Epic 3, full keyboard operation and 44 px tap targets (UX-DR12)
 **And** a choice takes effect only when «Lagre Klasseøkt» is pressed (UX-DR12)
 
 **Given** a Class session before its Start date
@@ -2772,7 +2772,7 @@ So that Students know it counts and no group is held up longer than I accept.
 
 **Given** the Klasseøkt screen
 **When** it renders the «Obligatorisk» setting
-**Then** a Bryter (on in `ink`, `rounded.full`, with a text label beside it) is added to `web/src/components/` for reuse, operable by keyboard with its state exposed to screen readers and never by colour alone (UX-DR12, NFR-6)
+**Then** a Bryter (on in `ink`, `rounded.full`, with a text label beside it) is added to `frontend/src/components/` for reuse, operable by keyboard with its state exposed to screen readers and never by colour alone (UX-DR12, NFR-6)
 **And** in the Klasseøkt the Bryter follows the Valgknapper rules: it takes effect on «Lagre Klasseøkt» (UX-DR12)
 
 **Given** a Class session before its Start date
@@ -2824,7 +2824,7 @@ So that I can check the groups and draw again if I want.
 
 **Given** a stored draft
 **When** the Fordelingsforhåndsvisning renders
-**Then** it shows one column per Class game by four Role rows in `bar-base`, with Fabrikk at the top, under a heading of the form «Fordeling: 60 Klassespill à 4», and the line «Tomme seter får KI-spiller.»; it is plain SVG built in `web/src/modules/sessions/` without a chart library, a diagram of this slice and not a data chart of the AD-18 chart module (UX-DR50, UX-DR73)
+**Then** it shows one column per Class game by four Role rows in `bar-base`, with Fabrikk at the top, under a heading of the form «Fordeling: 60 Klassespill à 4», and the line «Tomme seter får KI-spiller.»; it is plain SVG built in `frontend/src/modules/sessions/` without a chart library, a diagram of this slice and not a data chart of the AD-18 chart module (UX-DR50, UX-DR73)
 **And** selecting a column frames it in `ink` and shows that game's four names in the form «Spill 17  Ida, Detaljist. Sara, Grossist. …», with an empty Seat named «KI-spiller»; columns are reachable by keyboard (UX-DR50)
 **And** the Visningsbryter offers «Vis som liste»: every Klassespill with its four names as an HTML list, which is the chart's alternative (UX-DR50, NFR-6)
 
@@ -3147,7 +3147,7 @@ So that I can play with people I have arranged to play with.
 
 **Given** the «Velg spill og sete» screen
 **When** it is tested with Playwright and axe at 320, 360 and 1440 px
-**Then** it works at 360 px with a 320 px reflow floor, Seat state is text and never colour alone, tap targets are at least 44 px, and its copy comes from `web/src/copy/nb.ts` (FR-73, NFR-6, UX-DR75)
+**Then** it works at 360 px with a 320 px reflow floor, Seat state is text and never colour alone, tap targets are at least 44 px, and its copy comes from `frontend/src/copy/nb.ts` (FR-73, NFR-6, UX-DR75)
 
 **Covers:** FR-21, FR-73, NFR-6, AD-2, AD-4, AD-8, AD-17, UX-DR62, UX-DR75
 
@@ -3185,7 +3185,7 @@ So that I do not set everything up again.
 
 ## Epic 6: Students play the Class game
 
-When this epic is done, a group of up to four Students can play a full Class game on their phones or on a lab laptop: they see their Class game, Role and Seats on Hjem from the Start date, read the rules, do the Starting task, start the game, place one Order per Week on the graph-over-table play screen, see whom the game waits for, and end on the chain's Total cost. The epic owns the Student side of `api/app/modules/games/` and `web/src/modules/games/`, and creates `modules/progress`, `modules/content` (first with the Starting task) and the Starting task part of `modules/tests`. It also adds the shared pieces later epics reuse: the SSE stream and topic bridge, `drafts.ts`, `preview.ts`, the chart module, Graf over tabell, Kjedebånd, Setestatus, Stegene, Spillkort, Kjedens regning and Kjedens kostnad over tid. It reuses the number formatter Epic 5 put in `web/src/lib/`. Pause, Takeover, Reclaim, «I rommet», playout and turn reminders belong to Epic 8 and are not built here.
+When this epic is done, a group of up to four Students can play a full Class game on their phones or on a lab laptop: they see their Class game, Role and Seats on Hjem from the Start date, read the rules, do the Starting task, start the game, place one Order per Week on the graph-over-table play screen, see whom the game waits for, and end on the chain's Total cost. The epic owns the Student side of `backend/app/modules/games/` and `frontend/src/modules/games/`, and creates `modules/progress`, `modules/content` (first with the Starting task) and the Starting task part of `modules/tests`. It also adds the shared pieces later epics reuse: the SSE stream and topic bridge, `drafts.ts`, `preview.ts`, the chart module, Graf over tabell, Kjedebånd, Setestatus, Stegene, Spillkort, Kjedens regning and Kjedens kostnad over tid. It reuses the number formatter Epic 5 put in `frontend/src/lib/`. Pause, Takeover, Reclaim, «I rommet», playout and turn reminders belong to Epic 8 and are not built here.
 
 ### Story 6.1: See my Class game, Role and Seats on Hjem
 
@@ -3198,7 +3198,7 @@ So that I know where I play, with whom, and what comes next.
 **Given** a logged-in Student whose Class session has not reached the Start date, or who has no Seat yet
 **When** the Student opens Hjem
 **Then** Hjem shows no game card and the line «Du får Rolle og spill på startdatoen.» (draft copy), with Stegene greyed out; this holds also after the Lecturer has confirmed the allocation, because a Student sees the game from the Start date (UX-DR62, FR-22, founder decision 2026-11-12)
-**And** the page uses the Skjelett and the all-surface states from Epic 3, and takes all copy from `web/src/copy/nb.ts` (FR-72)
+**And** the page uses the Skjelett and the all-surface states from Epic 3, and takes all copy from `frontend/src/copy/nb.ts` (FR-72)
 
 **Given** the Class session is locked at the Start date and the Student holds a Seat
 **When** the Student opens Hjem
@@ -3216,11 +3216,11 @@ So that I know where I play, with whom, and what comes next.
 **When** Hjem renders
 **Then** Stegene shows the six steps Klassespill, Debrief, Quiz, Replay, Individuell test and Rapport, with the current one filled and marked «pågår» in text, and each later step listed as not active with the line that says what opens it, for example «Replay, åpnes når du har bestått Debrief-quizen.» and «Individuell test, åpnes når du har fullført Replay.» (UX-DR29)
 **And** EXPERIENCE.md gives no lock line for Debrief, Quiz or Rapport and no text for a finished step; this story adds draft lines for them to `nb.ts` in the pattern of the two above, for review (copy-to-write list)
-**And** the Stegene component is added to `web/src/components/` for reuse by Epics 9 to 13
+**And** the Stegene component is added to `frontend/src/components/` for reuse by Epics 9 to 13
 
 **Given** Stegene needs to know which steps are done
 **When** this story is built
-**Then** `api/app/modules/progress/` is created with one step table, `record_step(user, class_session, step, at)` and `has_step(...)`, and the closed step enum `starting_task`, `class_game`, `explanation`, `debrief`, `quiz_passed`, `replay`, `test_submitted`, `assessment_ready` (AD-16)
+**Then** `backend/app/modules/progress/` is created with one step table, `record_step(user, class_session, step, at)` and `has_step(...)`, and the closed step enum `starting_task`, `class_game`, `explanation`, `debrief`, `quiz_passed`, `replay`, `test_submitted`, `assessment_ready` (AD-16)
 **And** `record_step` is idempotent on `(user, class_session, step)`, emits `user:<id>` and `session:<id>` through `platform/events.emit` with its entry in the registry, and `progress` imports no feature module (AD-8, AD-16)
 **And** the step states Stegene shows are computed in the api; the web app holds no rule for which step is open (AD-10)
 
@@ -3256,7 +3256,7 @@ So that I know the objective and the rules without being told what the exercise 
 **And** the worked Uke is labelled «Demodata», as every onboarding example is (UX-DR70)
 **And** it tells the Student to play as if the business continues, and states no number of Weeks, true or false (FR-14)
 
-**Given** the briefing copy in `web/src/copy/nb.ts`
+**Given** the briefing copy in `frontend/src/copy/nb.ts`
 **When** the CI copy check runs
 **Then** it fails if the briefing or any other pre-Debrief string of this epic contains «Beer Game» or «bullwhip»; the product name «ØL-spillet» is the one allowed exception (FR-84, AD-19)
 **And** the copy has no exclamation mark, praise or recommended order (UX-DR78)
@@ -3282,7 +3282,7 @@ So that I know the sum behind the numbers on the play screen, and my answers can
 
 **Given** the Starting task content
 **When** this story is built
-**Then** `api/app/modules/content/` is created with immutable, versioned records and holds the Starting task as its first record type; an edit creates a new version (AD-23)
+**Then** `backend/app/modules/content/` is created with immutable, versioned records and holds the Starting task as its first record type; an edit creates a new version (AD-23)
 **And** the Starting task version is added as one entry in the open map of pinned content versions that Epic 5's `sessions.lock` writes to `SessionRuntime`, read through `content.service`; the lock itself is not rewritten (AD-4, AD-23)
 **And** the items shipped in this story are placeholders that include «Regn posisjonen for én Uke»; the final items are the non-code deliverable of issue #16 and replace them as a new content version without a code change
 
@@ -3290,7 +3290,7 @@ So that I know the sum behind the numbers on the play screen, and my answers can
 **When** the Student opens the Startoppgave
 **Then** the items show on one column of the week table, each answered by typing a whole number in a field with `inputmode="numeric"`; letters, decimals or an empty answer give the inline error «Skriv et helt tall.» with the `restordre` border, announced with `role="alert"` when the Student leaves the field or presses the button (FR-85, UX-DR63)
 **And** the task states that it counts toward nothing and works by keyboard alone; its length of about five minutes is a target for the content of issue #16 and is not tested here
-**And** the item component (one column, number entry, right and wrong states) is added to `web/src/components/` for reuse by Epic 11, which repeats the same items in the Individual test
+**And** the item component (one column, number entry, right and wrong states) is added to `frontend/src/components/` for reuse by Epic 11, which repeats the same items in the Individual test
 
 **Given** the Student sends an answer
 **When** the api scores it
@@ -3328,13 +3328,13 @@ So that what I see is always current and I never have to reload.
 
 **Given** a logged-in User
 **When** the web app opens `GET /api/events`
-**Then** the api serves one native SSE stream per User, fed from one `LISTEN` connection per `api` process, forwarding only the topics the User's `platform/authz` scope allows; a Student never receives `session:<id>` (AD-8, AD-12)
+**Then** the api serves one native SSE stream per User, fed from one `LISTEN` connection per `backend` process, forwarding only the topics the User's `platform/authz` scope allows; a Student never receives `session:<id>` (AD-8, AD-12)
 **And** each event carries `{topic, id, version}` only, never data; `session:<id>` is coalesced to at most one event per 2 seconds; a heartbeat is sent every 15 seconds; the stream holds no database session and is closed by the server after 10 to 13 minutes (AD-8)
 **And** the allowed topics are resolved on connect and again on every `user:<id>` event for that User, and the stream closes if the User is deactivated
 
 **Given** an event arrives in the browser
 **When** the web app handles it
-**Then** `web/src/lib/api/topics.ts` is the only map from topic to TanStack Query keys; every event invalidates its keys and the data is refetched over REST through the generated client; no event is dropped by comparing versions (AD-8, AD-10)
+**Then** `frontend/src/lib/api/topics.ts` is the only map from topic to TanStack Query keys; every event invalidates its keys and the data is refetched over REST through the generated client; no event is dropped by comparing versions (AD-8, AD-10)
 **And** updating never needs a pull-to-refresh or a reload (UX-DR78)
 
 **Given** Epic 4 and Epic 5 emit `user:<id>` and `session:<id>` but refetch nothing live
@@ -3365,7 +3365,7 @@ So that we can begin without waiting for the Lecturer.
 **When** the api handles it
 **Then** the game is started only through `games.commands.start`, in one transaction with the row lock on the Game, a `version` increment and the events `game:<id>`, `user:<id>` for each Student in the Game and, because `games.policy` says the Lecturer overview applies to a Class game, `session:<id>` (AD-2, AD-8)
 **And** if another Student or the Lecturer started it first, the press is treated as done and the Student lands on the game without an error
-**And** the Student lands on the play route, which this story creates in `web/src/modules/games/`, showing «Uke 1», the Role, the game number and the four Seats
+**And** the Student lands on the play route, which this story creates in `frontend/src/modules/games/`, showing «Uke 1», the Role, the game number and the four Seats
 
 **Given** two Students of the same Class game are on Hjem
 **When** one of them starts the game
@@ -3405,7 +3405,7 @@ So that I can read my situation on a phone without scrolling the page sideways.
 
 **Given** numbers and amounts anywhere in the product
 **When** they are displayed
-**Then** the one Norwegian number formatter that Epic 5 added to `web/src/lib/` renders them, and no second formatter is written: space as thousands separator, decimal comma, kroner to two decimals («2 266,00 kr»), a true minus sign, and an option for narrow cells to drop decimals (UX-DR5)
+**Then** the one Norwegian number formatter that Epic 5 added to `frontend/src/lib/` renders them, and no second formatter is written: space as thousands separator, decimal comma, kroner to two decimals («2 266,00 kr»), a true minus sign, and an option for narrow cells to drop decimals (UX-DR5)
 **And** where that formatter lacks kroner, the true minus sign or the narrow-cell option, this story extends it in place; it takes the api's decimal strings and the additions are covered by Vitest
 
 **Given** a screen narrower than the columns need, or larger text
@@ -3435,8 +3435,8 @@ So that I see the movement and can read the exact number under every mark.
 
 **Given** no chart exists yet
 **When** this story is built
-**Then** the chart module `web/src/components/charts` is created as the only place that imports a chart library; charts take a fixed width from the caller and never use `ResponsiveContainer`, and every chart SVG carries a `<title>` (AD-18)
-**And** Graf over tabell (graph plus the week table of Story 6.6 on one x-axis) is added to `web/src/components/` for reuse by Epics 7, 9, 10 and 13
+**Then** the chart module `frontend/src/components/charts` is created as the only place that imports a chart library; charts take a fixed width from the caller and never use `ResponsiveContainer`, and every chart SVG carries a `<title>` (AD-18)
+**And** Graf over tabell (graph plus the week table of Story 6.6 on one x-axis) is added to `frontend/src/components/` for reuse by Epics 7, 9, 10 and 13
 
 **Given** the spike AD-18 demands
 **When** the Netto lager graph is rendered over the week table
@@ -3521,7 +3521,7 @@ So that I understand where my units are before I order.
 
 **Given** the chart module
 **When** the band is built
-**Then** it is hand-made SVG (d3-scale, d3-shape) inside `web/src/components/charts`, takes a fixed width, and is added as the shared Kjedebånd component with a four-Role variant slot for the Debrief and for Spillinnsikt, both of which get it in Story 9.5; only the one-Seat variant is built here (AD-18, UX-DR15)
+**Then** it is hand-made SVG (d3-scale, d3-shape) inside `frontend/src/components/charts`, takes a fixed width, and is added as the shared Kjedebånd component with a four-Role variant slot for the Debrief and for Spillinnsikt, both of which get it in Story 9.5; only the one-Seat variant is built here (AD-18, UX-DR15)
 **And** it draws only numbers from `seat_state` and computes no game quantity (AD-1, AD-10)
 
 **Given** a screen reader
@@ -3597,7 +3597,7 @@ So that I make this Week's decision knowing when it arrives.
 **Given** a valid typed value of 24
 **When** the screen updates
 **Then** the value shows in the Din ordre cell at nå and in the Levering cell of its arrival Uke, joined by a thin line, the Kjedebånd shows «På vei 16 + 24» with the new box last on the pipe and a 1.5 px `ink` border, its order line reads «Din ordre 24» and its text for screen readers now ends «På vei 16 pluss 24», the button reads «Bekreft ordre på 24», and the line «Kommer fram om lag Uke 15. Kan ikke endres etter at du har bekreftet.» stands above it (UX-DR14, UX-DR17)
-**And** this is the only client arithmetic in the product: it lives in `web/src/lib/preview.ts`, uses only the preview coefficients in `seat_state`, hard-codes no delay, and is tested in Vitest against values from the engine's golden traces (AD-10)
+**And** this is the only client arithmetic in the product: it lives in `frontend/src/lib/preview.ts`, uses only the preview coefficients in `seat_state`, hard-codes no delay, and is tested in Vitest against values from the engine's golden traces (AD-10)
 **And** Posisjon at nå and «Kostnad så langt» do not change while typing
 **And** sending the Order is not built here: a press on the button with a valid value does nothing yet, and Story 6.12 gives the button its action
 
@@ -3629,8 +3629,8 @@ So that the decision is sent once, cannot be changed, and is never lost or sent 
 
 **Given** a typed value
 **When** the Student leaves the page, reloads or loses the connection before confirming
-**Then** `web/src/lib/drafts.ts` keeps it in `localStorage`, keyed by User and field, restores it into the field, and clears all drafts on logout; a restored Order is never sent without a press (AD-10)
-**And** `drafts.ts` is added to `web/src/lib/` for reuse by Epics 9 and 11
+**Then** `frontend/src/lib/drafts.ts` keeps it in `localStorage`, keyed by User and field, restores it into the field, and clears all drafts on logout; a restored Order is never sent without a press (AD-10)
+**And** `drafts.ts` is added to `frontend/src/lib/` for reuse by Epics 9 and 11
 
 **Given** the session expires while an Order is typed
 **When** the same User logs in again after «Du er logget ut. Logg inn igjen for å fortsette.»
@@ -3694,7 +3694,7 @@ So that I know whether it is my turn or someone else's.
 **When** the Setestatus renders
 **Then** it lists all four Seats, each with a dot, the Role, the name or «KI-spiller», and the status in text: «har bestilt», «venter, 3 min» or «venter (deg)»; a filled dot means ordered and a hollow dot waiting, and the text always repeats the state (FR-25, UX-DR25)
 **And** it stands on the play screen through the whole Uke, before and after the Student's own Order, under the Ordrefelt and its button, and on Hjem; with the list always in view no separate «Venter på: …» line is drawn under the button, and that text is the live announcement only (UX-DR25, founder decision 2026-11-14)
-**And** the component is added to `web/src/components/` for reuse by Epics 7 and 8
+**And** the component is added to `frontend/src/components/` for reuse by Epics 7 and 8
 
 **Given** the people side of the play envelope
 **When** the api builds it
@@ -3806,7 +3806,7 @@ So that I understand what my inventory and backlog cost without being told what 
 
 **Given** the charts in this story
 **When** they are built
-**Then** they come from `web/src/components/charts`, reuse Graf over tabell and the number formatter, and pass the same alignment check as Story 6.7 (AD-18)
+**Then** they come from `frontend/src/components/charts`, reuse Graf over tabell and the number formatter, and pass the same alignment check as Story 6.7 (AD-18)
 
 **Given** Playwright with axe at 320, 360 and 1440 px, and at 360 px with 200 % text
 **When** Alle rader og kostnad and the pinned panel render
@@ -3834,7 +3834,7 @@ So that I can see at a glance whether I must act.
 **Given** the mini graph
 **When** a screen reader reads the card
 **Then** the mini graph is `aria-hidden` and the card's text plus «Netto lager −13 i Uke 11.» is its alternative (NFR-6, UX-DR28)
-**And** the card reuses Graf over tabell from `web/src/components/` at mini scale with no new marks, and is added to `web/src/components/` as the shared Spillkort with a title variant, so Epic 13 can show «Oppfølgingsspill» with the same component and no copy of it
+**And** the card reuses Graf over tabell from `frontend/src/components/` at mini scale with no new marks, and is added to `frontend/src/components/` as the shared Spillkort with a title variant, so Epic 13 can show «Oppfølgingsspill» with the same component and no copy of it
 
 **Given** Hjem is open
 **When** another Seat orders or the Week advances
@@ -3882,8 +3882,8 @@ So that my group looks at the chain's result together before the Debrief.
 
 **Given** «Kjedens kostnad over tid»
 **When** it renders
-**Then** it is a stacked area of the chain's cumulative cost from Uke 1 to the last Uke with a true zero and the final values labelled at the right, from `web/src/components/charts`, and the Lenke «Vis som tabell» opens Uke / Lager / Restordre / Sum for the chain in place (UX-DR30, NFR-6)
-**And** Kjedens regning and Kjedens kostnad over tid are added to `web/src/components/` as shared components for reuse by Epic 9; Kjedens regning has a slot for the Debrief's extra rows, which stays empty here
+**Then** it is a stacked area of the chain's cumulative cost from Uke 1 to the last Uke with a true zero and the final values labelled at the right, from `frontend/src/components/charts`, and the Lenke «Vis som tabell» opens Uke / Lager / Restordre / Sum for the chain in place (UX-DR30, NFR-6)
+**And** Kjedens regning and Kjedens kostnad over tid are added to `frontend/src/components/` as shared components for reuse by Epic 9; Kjedens regning has a slot for the Debrief's extra rows, which stays empty here
 
 **Given** the result endpoint
 **When** a Student of the game calls it
@@ -4041,7 +4041,7 @@ So that I understand why goods stay in stock while orders wait.
 
 ## Epic 7: Lecturer overview, Game insight and Messages
 
-A Lecturer or Assistant lecturer can follow every Class game of a Class session live on the Oversikt, open any Game week by week in Spillinnsikt, and send one-way Messages that reach Students in the product and by email. The epic owns the staff side of `api/app/modules/games/` (`game_summaries`, the overview and insight read endpoints) with `web/src/modules/games/` (staff screens), and all of `api/app/modules/messaging/` (Messages) with `web/src/modules/messaging/`. It adds the Matrisevegg and the staff charts to the shared `web/src/components/charts`, and the wall aggregates to the shared `analysis/`. Pause, Takeover and the other Spillstyring actions come in Epic 8; here the Varselbånd shows the longest-waiting Class game with «Send Melding» only.
+A Lecturer or Assistant lecturer can follow every Class game of a Class session live on the Oversikt, open any Game week by week in Spillinnsikt, and send one-way Messages that reach Students in the product and by email. The epic owns the staff side of `backend/app/modules/games/` (`game_summaries`, the overview and insight read endpoints) with `frontend/src/modules/games/` (staff screens), and all of `backend/app/modules/messaging/` (Messages) with `frontend/src/modules/messaging/`. It adds the Matrisevegg and the staff charts to the shared `frontend/src/components/charts`, and the wall aggregates to the shared `analysis/`. Pause, Takeover and the other Spillstyring actions come in Epic 8; here the Varselbånd shows the longest-waiting Class game with «Send Melding» only.
 
 ### Story 7.1: See the status of every Class game on the Oversikt
 
@@ -4080,12 +4080,12 @@ So that I can see at a glance which groups are playing and which are stuck.
 
 **Given** the Start date has not passed, or a Class game has not started after it
 **When** the Lecturer opens the Oversikt
-**Then** before the Start date the wall area is empty and lists the allocation with no cost figures, and after it Class games that have not started are listed in their own group (copy to be written in `web/src/copy/nb.ts`)
+**Then** before the Start date the wall area is empty and lists the allocation with no cost figures, and after it Class games that have not started are listed in their own group (copy to be written in `frontend/src/copy/nb.ts`)
 **And** while the page loads it shows the Skjelett in the real layout, never a spinner.
 
 **Given** the Oversikt at 1440 px, at 1280 px with 400 % zoom (320 CSS px) and with 200 % text
 **When** the Playwright suite runs with axe
-**Then** the page is one column below 1024 px, has no page-level horizontal scroll and no action out of view, passes axe, and takes all copy from `web/src/copy/nb.ts` (NFR-6, FR-72, FR-73).
+**Then** the page is one column below 1024 px, has no page-level horizontal scroll and no action out of view, passes axe, and takes all copy from `frontend/src/copy/nb.ts` (NFR-6, FR-72, FR-73).
 
 **Covers:** FR-39, FR-5, FR-14, FR-72, FR-73, NFR-3, NFR-6, NFR-7, AD-2, AD-3, AD-12, AD-13, AD-14, AD-25, UX-DR40
 
@@ -4106,7 +4106,7 @@ So that I can see the same pattern building up across the whole class.
 **When** the wall renders
 **Then** the Matrisevegg shows one row per Class game and one column per Uke with Netto lager in the matrix steps (`net-neg-*`, `net-zero`, `net-pos-*`), square corners on all cells and no text under 9 px (UX-DR41, UX-DR4, UX-DR6)
 **And** a row shows one Role's Netto lager; the component takes the Role as a prop, and the Oversikt passes Fabrikk until another Role is chosen ([ASSUMPTION] to confirm: Fabrikk is the default Role)
-**And** the component is hand-made SVG added to `web/src/components/charts` with a fixed width passed in, for reuse by «Vis i plenum» in Epic 14 (AD-18).
+**And** the component is hand-made SVG added to `frontend/src/components/charts` with a fixed width passed in, for reuse by «Vis i plenum» in Epic 14 (AD-18).
 
 **Given** a cell
 **When** it is drawn
@@ -4194,7 +4194,7 @@ So that I can compare one group with the whole class.
 **Given** the deferred decision on wall filter aggregates
 **When** this story is built
 **Then** the decision is: the overview response carries no aggregates, and one endpoint, `GET /api/class-sessions/{id}/overview/aggregates?role=&cells=&status=`, serves them for one filter combination at a time, with an `ETag`
-**And** the values come from a pure function `analysis.wall_aggregates`, added to `api/app/analysis/` for reuse by the Class report, which takes stored Week states and returns per Uke the median row, the average chain cost row and the number of Games counted
+**And** the values come from a pure function `analysis.wall_aggregates`, added to `backend/app/analysis/` for reuse by the Class report, which takes stored Week states and returns per Uke the median row, the average chain cost row and the number of Games counted
 **And** the decision is recorded in this story's record and noted against the spine's Deferred item «Wall filter aggregates».
 
 **Given** Class games that have reached different Weeks
@@ -4203,7 +4203,7 @@ So that I can compare one group with the whole class.
 
 **Given** a filter combination
 **When** the wall renders
-**Then** the class median graph sits over the Matrisevegg on the same Uke columns, drawn by `web/src/components/charts`, and the wall's bottom rows hold the median for the chosen Role («Median, Fabrikk») and «Kjedekost/uke, snitt», each with its numbers printed in the same columns as the graph's marks (UX-DR40, UX-DR41)
+**Then** the class median graph sits over the Matrisevegg on the same Uke columns, drawn by `frontend/src/components/charts`, and the wall's bottom rows hold the median for the chosen Role («Median, Fabrikk») and «Kjedekost/uke, snitt», each with its numbers printed in the same columns as the graph's marks (UX-DR40, UX-DR41)
 **And** the web app renders these rows only from the endpoint's response and computes no median, average or cost (AD-10); a Vitest test renders them from a fixture response.
 
 **Given** the Lecturer changes a filter
@@ -4226,7 +4226,7 @@ So that I see changes within seconds without the page moving under me.
 
 **Given** the Oversikt is open
 **When** a command changes a listed Class game
-**Then** the existing `session:<id>` event reaches the staff member's SSE stream, the mapping added for it in `web/src/lib/api/topics.ts` invalidates the overview queries, and the page shows the change within 5 seconds without a reload (FR-39, AD-8)
+**Then** the existing `session:<id>` event reaches the staff member's SSE stream, the mapping added for it in `frontend/src/lib/api/topics.ts` invalidates the overview queries, and the page shows the change within 5 seconds without a reload (FR-39, AD-8)
 **And** an integration test places an Order and asserts the new value on the Oversikt inside 5 seconds with the 2-second coalescing on.
 
 **Given** an invalidation
@@ -4280,7 +4280,7 @@ So that I know how far the class has come without opening a report.
 
 **Given** finished Class games
 **When** «Klassens kostnad» renders
-**Then** the Kostnadsfordeling shows one tick per finished game, a box for the middle half and the labelled median («Median 1 954»), drawn by `web/src/components/charts`
+**Then** the Kostnadsfordeling shows one tick per finished game, a box for the middle half and the labelled median («Median 1 954»), drawn by `frontend/src/components/charts`
 **And** the median and the quartiles come from the api (a pure function in `analysis`, returned with the overview response); the web app computes none (AD-10)
 **And** a text summary sits under it («Median 1 954. Midterste halvdel 1 500–2 600.») with «Vis som tabell» (Spill, kjedekost, sorted) (UX-DR51)
 **And** the «Fjoråret» mark is not drawn in this epic; Epic 14 adds it when aggregates of earlier Class sessions exist.
@@ -4368,7 +4368,7 @@ So that I can show a group how the swings grew up the chain.
 
 **Given** the Debrief of Epic 9 needs the same chart
 **When** this story builds Ordrestolper and the Rolle × Uke table
-**Then** they are built in the shared `web/src/components/charts`, with a fixed width passed in and a prop for the viewer's own Role (unset for staff), so Epic 9's Debrief reuses them unchanged and adds only the four-Role Kjedebånd and the Ukeskrubber (AD-18)
+**Then** they are built in the shared `frontend/src/components/charts`, with a fixed width passed in and a prop for the viewer's own Role (unset for staff), so Epic 9's Debrief reuses them unchanged and adds only the four-Role Kjedebånd and the Ukeskrubber (AD-18)
 **And** Forsterkning is shown when the caller supplies it; Spillinnsikt gets it, and the four-Role Kjedebånd, when Story 9.5 builds the `analysis` function and the band, and shows neither before that.
 
 **Given** the Playwright suite with axe
@@ -4388,7 +4388,7 @@ So that I can nudge the right people without leaving the product.
 **Given** a staff member on the Oversikt or Spillinnsikt
 **When** they follow the Lenke for a Message to the whole Class session in the Oversikt header (a draft label in `nb.ts`, worded so it cannot be mistaken for the Varselbånd's «Send Melding»; this entry point is not in EXPERIENCE.md and stands in open-assumptions.md), «Melding» on Spillinnsikt (that Class game), or the link beside a Student's Seat (that Student)
 **Then** the Meldingsskjema opens as its own page with the recipient preset as its title (for example «Melding til Noah, Spill 2»), a multi-line Tekstfelt and the primary «Send Melding», and browser Back returns to where it was opened (FR-40, UX-DR46)
-**And** the Meldingsskjema is built in `web/src/modules/messaging/` so Epics 8, 13 and 14 can open it with a preset recipient.
+**And** the Meldingsskjema is built in `frontend/src/modules/messaging/` so Epics 8, 13 and 14 can open it with a preset recipient.
 
 **Given** the Meldingsskjema
 **When** the text is empty
@@ -4407,7 +4407,7 @@ So that I can nudge the right people without leaving the product.
 **Given** a sent Message
 **When** `messaging` claims its notices
 **Then** the kind `message` is registered as `immediate` in the delivery table that Story 3.5 built, and its mail pipeline defers a `mail` job per recipient right after commit, with ids only as arguments; this story builds no delivery of its own (AD-9)
-**And** the mail is rendered from a Norwegian Jinja2 template in `api/app/platform/email/templates/`, headed «ØL-spillet», with the Message text and a link to Hjem (FR-72, AD-19); locally it goes to the mock mailer (AD-17).
+**And** the mail is rendered from a Norwegian Jinja2 template in `backend/app/platform/email/templates/`, headed «ØL-spillet», with the Message text and a link to Hjem (FR-72, AD-19); locally it goes to the mock mailer (AD-17).
 
 **Given** a successful send
 **When** the page updates
@@ -4436,11 +4436,11 @@ So that I do not miss a notice if I have not opened my email.
 
 **Given** a Student who has received Messages
 **When** they open Hjem
-**Then** the Messages are listed newest first, each with the sender's name, the time in Europe/Oslo and the full text (headings and labels to be written in `web/src/copy/nb.ts`), and the list reflows at 320 and 360 px (FR-40, FR-73).
+**Then** the Messages are listed newest first, each with the sender's name, the time in Europe/Oslo and the full text (headings and labels to be written in `frontend/src/copy/nb.ts`), and the list reflows at 320 and 360 px (FR-40, FR-73).
 
 **Given** a Student with Hjem open
 **When** a Message is sent to them
-**Then** `platform/notify.enqueue` has emitted `user:<id>`, the topic mapping added in `web/src/lib/api/topics.ts` refetches the list, and the Message appears without a reload, announced politely and without moving focus (AD-8).
+**Then** `platform/notify.enqueue` has emitted `user:<id>`, the topic mapping added in `frontend/src/lib/api/topics.ts` refetches the list, and the Message appears without a reload, announced politely and without moving focus (AD-8).
 
 **Given** a Student
 **When** they call the Messages endpoint
@@ -4506,7 +4506,7 @@ So that the band is the only thing I have to act on.
 
 ## Epic 8: Every game finishes: Pause, Takeover and deadlines
 
-A missing Student never blocks a group: the game records its own clock, an AI player takes over after the Inactivity limit, Students can pause and put an AI player in an absent Seat, and a Student can take the Seat back. The Lecturer can start, pause, mark as in the room and fill Seats for one Class game or all of them, and can give one Student more time. At the Play deadline every unfinished Class game is played to its last Week. In a Guided Week, opening the Week counts as ordering (FR-24), so all of this also works there. The epic owns the turn side of `api/app/modules/games/` (the timing columns on `seat_turns`, `games.rules.turn_times` and `can_take_over`, and the commands `takeover`, `request_reclaim`, `pause`, `resume`, `set_agreed_time`, `mark_in_room`, `end_in_room`, `recompute_turn_times` and `playout`) and the Takeover, in-room, reminder and playout due actions in `api/app/modules/ops/`; its screens extend the Student play screen and the staff screens in `web/src/modules/games/`.
+A missing Student never blocks a group: the game records its own clock, an AI player takes over after the Inactivity limit, Students can pause and put an AI player in an absent Seat, and a Student can take the Seat back. The Lecturer can start, pause, mark as in the room and fill Seats for one Class game or all of them, and can give one Student more time. At the Play deadline every unfinished Class game is played to its last Week. In a Guided Week, opening the Week counts as ordering (FR-24), so all of this also works there. The epic owns the turn side of `backend/app/modules/games/` (the timing columns on `seat_turns`, `games.rules.turn_times` and `can_take_over`, and the commands `takeover`, `request_reclaim`, `pause`, `resume`, `set_agreed_time`, `mark_in_room`, `end_in_room`, `recompute_turn_times` and `playout`) and the Takeover, in-room, reminder and playout due actions in `backend/app/modules/ops/`; its screens extend the Student play screen and the staff screens in `frontend/src/modules/games/`.
 
 ### Story 8.1: Record when each Week opened and when each Seat ordered
 
@@ -4596,7 +4596,7 @@ So that my group is never stuck on one absent player.
 **When** they open Spill or Hjem
 **Then** they see «KI-spiller har bestilt for deg.» (UX-DR62)
 **And** when the Class session is Obligatorisk, a warning says the Takeover may affect the requirement; its wording never reveals the number of Weeks, in the product or in the Takeover notice mail (FR-17, FR-14)
-**And** the copy lives in `web/src/copy/nb.ts` and the mail template, and the CI copy check covers both: it fails if the warning holds a number or a reference to how many Uker the game has or has left. This is the only place the warning is built; Epic 13 does not repeat it.
+**And** the copy lives in `frontend/src/copy/nb.ts` and the mail template, and the CI copy check covers both: it fails if the warning holds a number or a reference to how many Uker the game has or has left. This is the only place the warning is built; Epic 13 does not repeat it.
 
 **Given** a Takeover
 **When** the command commits
@@ -4859,7 +4859,7 @@ So that the time limits never shut that Student out.
 
 **Given** a Lecturer on Spillinnsikt
 **When** they follow a Student's name
-**Then** a Studentside for that Student opens with the block «Tilrettelegging» only, built as a page of blocks in `web/src/modules/reports/` with its route under the Class session, so Story 13.2 extends the same page with its own blocks; it reads «Ingen tilrettelegging.» or the summary «Mer tid: 2 ×. Andel uker: 60 %.», with the secondary «Endre tilrettelegging» (UX-DR53)
+**Then** a Studentside for that Student opens with the block «Tilrettelegging» only, built as a page of blocks in `frontend/src/modules/reports/` with its route under the Class session, so Story 13.2 extends the same page with its own blocks; it reads «Ingen tilrettelegging.» or the summary «Mer tid: 2 ×. Andel uker: 60 %.», with the secondary «Endre tilrettelegging» (UX-DR53)
 **And** the block and its api are for Lecturers only; an Assistant lecturer does not see it and is refused through `platform/authz` (AD-12).
 
 **Given** the Lecturer presses «Endre tilrettelegging»
@@ -5056,7 +5056,7 @@ So that I do not hold my group up without knowing it.
 
 **Given** a reminder mail
 **When** it is rendered
-**Then** it comes from a Norwegian Jinja2 template in `api/app/platform/email/templates/`, headed «ØL-spillet», says that the game waits for the Student's Order with a link to Hjem, and holds no number of Uker, no customer demand and no other Seat's numbers (FR-72, FR-14, AD-19).
+**Then** it comes from a Norwegian Jinja2 template in `backend/app/platform/email/templates/`, headed «ØL-spillet», says that the game waits for the Student's Order with a link to Hjem, and holds no number of Uker, no customer demand and no other Seat's numbers (FR-72, FR-14, AD-19).
 
 **Given** FR-27's superseded assumption
 **When** a Takeover comes close
@@ -5116,7 +5116,7 @@ So that every Student can go on to the Debrief.
 
 ## Epic 9: Debrief and Debrief quiz
 
-When this epic is done, the Students of a finished Class game can write their Explanations, see the reveal, the whole chain and their own moments, answer reflection questions and pass the Debrief quiz, alone or together with a shared screen. The Debrief is built code-only first, so it works under any AI mode and with no LLM; narration and follow-up are added on top through the AI gateway. The epic owns `api/app/modules/debrief/` and `web/src/modules/debrief/`, adds the quiz, sentence templates and Detected pattern definitions to `modules/content`, and adds the shared facts, validator and renderer to `analysis/`, `ai/` and `modules/games` (`fact_sets`).
+When this epic is done, the Students of a finished Class game can write their Explanations, see the reveal, the whole chain and their own moments, answer reflection questions and pass the Debrief quiz, alone or together with a shared screen. The Debrief is built code-only first, so it works under any AI mode and with no LLM; narration and follow-up are added on top through the AI gateway. The epic owns `backend/app/modules/debrief/` and `frontend/src/modules/debrief/`, adds the quiz, sentence templates and Detected pattern definitions to `modules/content`, and adds the shared facts, validator and renderer to `analysis/`, `ai/` and `modules/games` (`fact_sets`).
 
 ### Story 9.1: Compute the facts of a finished Game
 
@@ -5194,7 +5194,7 @@ So that I can start reviewing while the game is fresh.
 
 **Given** the Debrief pages
 **When** Playwright runs at 320, 360 and 1440 px with axe
-**Then** the open, locked and held states pass, all copy comes from `web/src/copy/nb.ts`, and the Debrief routes are typed from the generated API client (NFR-6, AD-10, AD-19)
+**Then** the open, locked and held states pass, all copy comes from `frontend/src/copy/nb.ts`, and the Debrief routes are typed from the generated API client (NFR-6, AD-10, AD-19)
 
 **Covers:** FR-42, FR-14, AD-3, AD-8, AD-9, AD-21, AD-25, UX-DR12, UX-DR31
 
@@ -5208,12 +5208,12 @@ So that my account is my own and is kept as I wrote it.
 
 **Given** a Student on Debrief step 1
 **When** the step shows
-**Then** the heading is «Skriv Forklaringen først», the chart «Ditt netto lager, hele spillet» is drawn from the Student's own Decision log in their game (`games.service.student_game`) by `web/src/components/charts` with «Vis som tabell» (Uke, Netto lager), the prompt is «Hvorfor svingte lageret ditt?» and the primary button is «Send Forklaring» (UX-DR31, AD-18)
+**Then** the heading is «Skriv Forklaringen først», the chart «Ditt netto lager, hele spillet» is drawn from the Student's own Decision log in their game (`games.service.student_game`) by `frontend/src/components/charts` with «Vis som tabell» (Uke, Netto lager), the prompt is «Hvorfor svingte lageret ditt?» and the primary button is «Send Forklaring» (UX-DR31, AD-18)
 **And** the chart shows only the Student's own Seat and no customer demand
 
 **Given** a Student typing an Explanation
 **When** the connection drops, the page reloads or the session expires
-**Then** the text is restored from `web/src/lib/drafts.ts` and is never sent without a press on «Send Forklaring» (AD-10)
+**Then** the text is restored from `frontend/src/lib/drafts.ts` and is never sent without a press on «Send Forklaring» (AD-10)
 
 **Given** a Student who presses «Send Forklaring» with text
 **When** `debrief.commands.save_explanation` runs
@@ -5255,12 +5255,12 @@ So that I can compare my own picture of demand with the real one.
 
 **Given** step 2
 **When** the page shows
-**Then** the Etterspørselsbånd is added to `web/src/components/charts` and drawn with «Ordre inn: det eneste du så» and the Student's own Orders (for example «Din ordre, 24 i Uke 11»), not interactive (UX-DR32, AD-18)
+**Then** the Etterspørselsbånd is added to `frontend/src/components/charts` and drawn with «Ordre inn: det eneste du så» and the Student's own Orders (for example «Din ordre, 24 i Uke 11»), not interactive (UX-DR32, AD-18)
 **And** the table Uke / Kundene / Ordre inn / Din ordre sits under it on the same columns as an HTML `<table>` with `th` scopes and is the band's alternative (NFR-6)
 
 **Given** step 2
 **When** the Student reads it
-**Then** the exercise is named with «Øvelsen heter Beer Game.», and this string lives in a post-reveal section of `web/src/copy/nb.ts` that the CI copy check for «Beer Game» and «bullwhip» does not treat as pre-Debrief copy (FR-84, AD-19)
+**Then** the exercise is named with «Øvelsen heter Beer Game.», and this string lives in a post-reveal section of `frontend/src/copy/nb.ts` that the CI copy check for «Beer Game» and «bullwhip» does not treat as pre-Debrief copy (FR-84, AD-19)
 **And** the copy check still fails if either word appears in any copy reachable before a saved Explanation
 
 **Given** the numbers in the band and the table
@@ -5273,7 +5273,7 @@ So that I can compare my own picture of demand with the real one.
 
 **Given** step 2
 **When** Playwright runs at 320, 360 and 1440 px with axe
-**Then** the step passes, the links on the tinted band are `ink` underlined, and numbers use the shared Norwegian number formatter from `web/src/lib/` (UX-DR2, UX-DR5)
+**Then** the step passes, the links on the tinted band are `ink` underlined, and numbers use the shared Norwegian number formatter from `frontend/src/lib/` (UX-DR2, UX-DR5)
 
 **Covers:** FR-44, FR-73, FR-84, NFR-6, NFR-9, AD-10, AD-18, AD-19, AD-23, UX-DR31, UX-DR32
 
@@ -5287,20 +5287,20 @@ So that I can see the swings grow upstream and arrive later.
 
 **Given** a Student with a saved Explanation
 **When** step 3 opens
-**Then** the heading is «Hele kjeden: svingningene vokser oppstrøms og kommer senere» and the full four-Role chain is shown with the four-Role Kjedebånd variant from `web/src/components/charts`, upstream on the left, «Produksjon» at the left end and «Kundene» at the right (UX-DR31, UX-DR73)
+**Then** the heading is «Hele kjeden: svingningene vokser oppstrøms og kommer senere» and the full four-Role chain is shown with the four-Role Kjedebånd variant from `frontend/src/components/charts`, upstream on the left, «Produksjon» at the left end and «Kundene» at the right (UX-DR31, UX-DR73)
 **And** the four-Role variant is added in this story to the existing Kjedebånd component in the shared chart module, never as a copy
 **And** Spillinnsikt of Story 7.8 now shows the same four-Role Kjedebånd for the chosen Uke above its charts and gets Forsterkning for its Ordrestolper from the same `analysis` function, so the staff view holds both, as DESIGN.md says of the Kjedebånd and EXPERIENCE.md of Ordrestolper (UX-DR15, UX-DR33)
 
 **Given** step 3
 **When** the Ordrestolper show
-**Then** the Ordrestolper and the Rolle × Uke table are reused unchanged from `web/src/components/charts`, where Story 7.8 put them; there is one row per Role with Fabrikk at the top, the viewer's own Role in `ink`, the first Order of 10 or more marked with a dot and «Uke n» and joined by a diagonal, and Forsterkning at the right in `figure-amplification` (for example 1,8× to 7,6×) (UX-DR33, FR-44)
+**Then** the Ordrestolper and the Rolle × Uke table are reused unchanged from `frontend/src/components/charts`, where Story 7.8 put them; there is one row per Role with Fabrikk at the top, the viewer's own Role in `ink`, the first Order of 10 or more marked with a dot and «Uke n» and joined by a diagonal, and Forsterkning at the right in `figure-amplification` (for example 1,8× to 7,6×) (UX-DR33, FR-44)
 **And** the Rolle × Uke numbers sit underneath in the same columns in `flow-*` steps, each cell printing its number, and are the chart's alternative together with Forsterkning as text (NFR-6)
 
 **Given** the Order amplification and the marked Weeks
 **When** they are shown
 **Then** they are read from the stored facts set through the Debrief endpoint and equal the Story 9.1 values; inventory and backlog per Role and Week come from the stored Week states (FR-44, NFR-9, AD-7)
 
-**Given** the Ukeskrubber, added to `web/src/components/` for reuse
+**Given** the Ukeskrubber, added to `frontend/src/components/` for reuse
 **When** the Student drags it, presses «Én uke tilbake» or «Én uke fram», or uses the keys
 **Then** the chain spools to the chosen Uke with a dashed line across the bars; the control has `role="slider"`, the name «Velg uke», `aria-valuemin="1"`, `aria-valuemax` equal to the last Uke and `aria-valuetext` such as «Uke 15»; Left/Down is −1, Right/Up +1, PageDown/PageUp ±4, Home/End the first and last Uke (UX-DR34)
 **And** the line «Kjeden i Uke 15. Dra i skrubberen for å spole.» stands by the scrubber with the chosen Uke; the step buttons are at least 44 px and no task needs a drag (UX-DR34, UX-DR76)
@@ -5336,7 +5336,7 @@ So that I think through why the chain behaved as it did before I look at my own 
 
 **Given** a reflection question
 **When** the Student writes an answer and continues
-**Then** the answer is saved through `debrief.commands.complete_step`, stored keyed by `user_id` and Class session, and an unsent answer is kept in `web/src/lib/drafts.ts` (AD-10, AD-14, AD-21)
+**Then** the answer is saved through `debrief.commands.complete_step`, stored keyed by `user_id` and Class session, and an unsent answer is kept in `frontend/src/lib/drafts.ts` (AD-10, AD-14, AD-21)
 **And** a failed save shows «Det ble ikke lagret. Prøv igjen.» with the text kept
 
 **Given** a Group debrief
@@ -5364,7 +5364,7 @@ So that I can connect my own Orders to what happened in the chain.
 **Given** a Student past the reflection questions with at least 10 own Orders
 **When** step 4 opens
 **Then** the heading is rendered by code from the first moment's facts in the form «Ditt øyeblikk: Uke 11. Du bestilte 24 med 16 på vei. Og hva det kostet kjeden.» and at least three moments are paged within the step (FR-44, UX-DR31)
-**And** each moment shows «Dette så du» (the Graf over tabell from `web/src/components/charts` at that Uke), «Dette regnet du» (the Posisjon sum, for example «Posisjon 0 − 13 + 16 = 3. Med 24 ble den 27.»), «Dette kostet det senere» and «Dette så de andre i Uke 11»
+**And** each moment shows «Dette så du» (the Graf over tabell from `frontend/src/components/charts` at that Uke), «Dette regnet du» (the Posisjon sum, for example «Posisjon 0 − 13 + 16 = 3. Med 24 ble den 27.»), «Dette kostet det senere» and «Dette så de andre i Uke 11»
 
 **Given** a moment
 **When** its text is produced
@@ -5452,7 +5452,7 @@ So that I have the basic mechanism straight before the Replay.
 
 **Given** a Student with the `debrief` step recorded
 **When** step 5 «Debrief-quiz» opens
-**Then** the fixed questions come from the quiz record in `modules/content`, pinned by `sessions.lock`, each as a Quizvalg single choice in full-width rows; Quizvalg is added to `web/src/components/` for reuse by the Individual test (FR-46, AD-23, UX-DR37)
+**Then** the fixed questions come from the quiz record in `modules/content`, pinned by `sessions.lock`, each as a Quizvalg single choice in full-width rows; Quizvalg is added to `frontend/src/components/` for reuse by the Individual test (FR-46, AD-23, UX-DR37)
 **And** a Student without the `debrief` step gets `403 debrief_required` from the API, checked with `progress.has_step` (AD-16)
 **And** the quiz content is a non-code deliverable (issue #16); the story ships with a clearly marked placeholder quiz
 
@@ -5541,7 +5541,7 @@ So that we go through the same steps together, each on our own device.
 **Given** a shared Debrief session
 **When** another Student of the Class game presses join
 **Then** `debrief.commands.join` adds them to the joined set and emits `debrief:<id>`; a User who has no Seat in that Class game is refused by the `platform/authz` policy (AD-12, AD-21)
-**And** the web app reads the Debrief session id from the Debrief endpoint and maps `debrief:<id>` to its query keys only in `web/src/lib/api/topics.ts` (AD-8)
+**And** the web app reads the Debrief session id from the Debrief endpoint and maps `debrief:<id>` to its query keys only in `frontend/src/lib/api/topics.ts` (AD-8)
 
 **Given** joined Students on step 1
 **When** some have sent their Explanation and some have not
@@ -5664,7 +5664,7 @@ So that the Debrief reads as an explanation and I know which words came from an 
 **When** narration is requested
 **Then** a shared helper in `app/ai` calls `ai.run(purpose=debrief_narration, budget_scope=<Class session>, …)` with an output schema that references fact ids and sentence-template ids only; code renders every number and cause into the text (FR-44, AD-6, AD-7)
 **And** the helper takes the validator and the fallback renderer as arguments from its caller, so `app/ai` imports only `platform`; `modules/debrief` passes `analysis.validate_ai_text` and `analysis.render`, and later callers pass their own
-**And** the prompt is a versioned file under `api/app/ai/prompts/debrief_narration/`, its inputs carry Roles and numbers only, and the call may spend the budget `reserve` (AD-6, FR-69)
+**And** the prompt is a versioned file under `backend/app/ai/prompts/debrief_narration/`, its inputs carry Roles and numbers only, and the call may spend the budget `reserve` (AD-6, FR-69)
 **And** the default model config gets each new purpose of this story (`debrief_narration`, `quiz_explanation`) in its `prompts` map as a new config row made with `config edit … --prompt` of Story 2.2, since a config is immutable once referenced (AD-6)
 
 **Given** an LLM output
@@ -5714,7 +5714,7 @@ So that I can clear up what I did not understand without being handed answers.
 **When** the Student sends a follow-up question
 **Then** the api calls `ai.run(purpose=debrief_follow_up, budget_scope=<Class session>, …)` once with the Student's question, the stored facts set and the sentence templates; the gateway scrubs the question against the Roster before it leaves (FR-45, AD-6, C-1)
 **And** the output schema, validator and code rendering are the ones from Story 9.14, so an answer can only connect computed facts (AD-7)
-**And** the prompt is a versioned file under `api/app/ai/prompts/debrief_follow_up/`, and the default model config gets the purpose in its `prompts` map as a new config row made with `config edit … --prompt` of Story 2.2 (AD-6)
+**And** the prompt is a versioned file under `backend/app/ai/prompts/debrief_follow_up/`, and the default model config gets the purpose in its `prompts` map as a new config row made with `config edit … --prompt` of Story 2.2 (AD-6)
 **And** this is the first Student free text sent to an LLM, so `platform/pii.terms(class_session_id)` now queries the `identity` tables for the whole Roster's names, emails and student numbers; an import test shows that only the gateway calls it, and a test with a Roster name typed into a follow-up question and into an Explanation asserts that the name is absent from the request the provider receives and from the stored `llm_call` body (AD-6, AD-14, PRD §6.1)
 
 **Given** a question outside the Game and Beer Game concepts
@@ -5751,7 +5751,7 @@ So that I can clear up what I did not understand without being handed answers.
 
 ## Epic 10: Replay
 
-When this epic is done, a Student who has passed the Debrief quiz can play one Replay alone in the same Role against three AI players, under a Replay scenario that differs per Student, on the same play screen with the projection line, and then read a short walkthrough that compares it with the Class game. A Lecturer can keep the default Replay scenario or set every Game setting. The epic owns `api/app/modules/replay/` and `web/src/modules/replay/`; it creates `purpose=replay` Games through `games.commands` and reuses Epic 6's play screen and Epic 9's facts, renderer and validator.
+When this epic is done, a Student who has passed the Debrief quiz can play one Replay alone in the same Role against three AI players, under a Replay scenario that differs per Student, on the same play screen with the projection line, and then read a short walkthrough that compares it with the Class game. A Lecturer can keep the default Replay scenario or set every Game setting. The epic owns `backend/app/modules/replay/` and `frontend/src/modules/replay/`; it creates `purpose=replay` Games through `games.commands` and reuses Epic 6's play screen and Epic 9's facts, renderer and validator.
 
 ### Story 10.1: Get a default Replay scenario that differs per Student
 
@@ -5787,7 +5787,7 @@ So that the Replay is harder than the Class game and cannot be played from memor
 
 **Given** a Lecturer on the Klasseøkt screen
 **When** the Replay block shows
-**Then** it states that the Replay uses the default scenario and describes it in words (demand levels as in the Class game with variation, the step Week and the length differ per Student and stay hidden), with copy from `web/src/copy/nb.ts` (FR-49, FR-72)
+**Then** it states that the Replay uses the default scenario and describes it in words (demand levels as in the Class game with variation, the step Week and the length differ per Student and stay hidden), with copy from `frontend/src/copy/nb.ts` (FR-49, FR-72)
 **And** the choice is one column on `class_sessions`, added by this story through `modules/sessions`, and the block passes axe at 320 and 1440 px (NFR-6)
 
 **Given** a Class session at its Start date
@@ -5901,7 +5901,7 @@ So that I can try to order on the sum of what is on its way.
 **Given** a Student with a running Replay
 **When** the Replay opens
 **Then** it uses the play screen, Kjedebånd, Graf over tabell, Ordrefelt, Setestatus and order submit states from Epic 6 unchanged, reads `seat_state` and `table_status` from the same play endpoint, and places Orders only through `games.commands.place_order` (FR-48, AD-2, AD-3)
-**And** no component of the play screen is copied into `web/src/modules/replay/`
+**And** no component of the play screen is copied into `frontend/src/modules/replay/`
 
 **Given** the play envelope of a Game whose `games.policy` row has the projection on
 **When** the Graf over tabell renders
@@ -5911,7 +5911,7 @@ So that I can try to order on the sum of what is on its way.
 
 **Given** the projection value
 **When** the Student types an Order
-**Then** the value is display arithmetic in `web/src/lib/preview.ts` from fields the API returned in `SeatState` (Posisjon, incoming order, the delay horizon) plus the typed Order, and it updates as the Order is typed (AD-10)
+**Then** the value is display arithmetic in `frontend/src/lib/preview.ts` from fields the API returned in `SeatState` (Posisjon, incoming order, the delay horizon) plus the typed Order, and it updates as the Order is typed (AD-10)
 **And** if a field is missing it is added to `games.schemas.SeatState`, never beside it, and a Vitest test checks the projection against golden values produced by `engine` (AD-3)
 
 **Given** the projection line
@@ -5998,7 +5998,7 @@ So that no Game stays open after the Class session ends and the records show pla
 
 **Given** a closed Replay
 **When** the Student opens it or tries to order
-**Then** `place_order` answers `409 test_deadline_passed` and the screen states that the Replay was closed at the Testfrist and is not finished, with copy from `web/src/copy/nb.ts`
+**Then** `place_order` answers `409 test_deadline_passed` and the screen states that the Replay was closed at the Testfrist and is not finished, with copy from `frontend/src/copy/nb.ts`
 
 **Given** an `ai-orders` job still running for a Replay that is closed meanwhile
 **When** the job calls `place_order`
@@ -6026,7 +6026,7 @@ So that I can see what I did differently, knowing the two runs are not the same.
 **Given** a Student with a finished Replay
 **When** the Student opens «Gå til gjennomgangen»
 **Then** the Replay-gjennomgang shows the Student's Total cost, a chart of the run, a comparison with the Class game with both on one axis, and one or two specific moments from the Student's own Orders (FR-50)
-**And** every chart comes from `web/src/components/charts` and has «Vis som tabell» or a table on the same columns (AD-18, NFR-6)
+**And** every chart comes from `frontend/src/components/charts` and has «Vis som tabell» or a table on the same columns (AD-18, NFR-6)
 **And** a Replay that Story 10.6 closed (`end_reason = test_deadline`) has no walkthrough: the API answers a stable error code and the screen keeps the closed message of Story 10.6
 
 **Given** the walkthrough data
@@ -6043,7 +6043,7 @@ So that I can see what I did differently, knowing the two runs are not the same.
 **Given** a finished Replay in a Class session with Debrief AI text on
 **When** the Replay finishes
 **Then** one idempotent narration job is deferred on `llm-batch`, keyed by the Replay's `fact_set_id`, calling the shared `app/ai` helper from Story 9.14 with the purpose `replay_walkthrough`; the helper takes the validator and the fallback renderer as arguments, and this story passes `analysis.validate_ai_text` and its own code renderer of the walkthrough, so `app/ai` imports only `platform` (FR-50, AD-6, AD-7, AD-9)
-**And** the prompt is a versioned file under `api/app/ai/prompts/replay_walkthrough/`, and the default model config gets the new purpose in its `prompts` map as a new config row made with the command of Story 2.2, since a config is immutable once referenced (AD-6)
+**And** the prompt is a versioned file under `backend/app/ai/prompts/replay_walkthrough/`, and the default model config gets the new purpose in its `prompts` map as a new config row made with the command of Story 2.2, since a config is immutable once referenced (AD-6)
 **And** accepted text shows with «KI-generert, kan ta feil:» from the `ai_generated` flag (FR-34)
 
 **Given** the narration job is still live when the Student opens the walkthrough
@@ -6080,7 +6080,7 @@ So that the people behind the product learn whether the AI players and the repet
 
 **Given** a Student whose Class game had at least one AI-held Seat in any Week
 **When** the Student is on «Spillet er ferdig»
-**Then** the same five-point question is offered once, below «Gå til Debrief», as a shared component added to `web/src/components/` (FR-70)
+**Then** the same five-point question is offered once, below «Gå til Debrief», as a shared component added to `frontend/src/components/` (FR-70)
 **And** a Student whose Class game had no AI-held Seat is not asked
 
 **Given** an answer
@@ -6125,13 +6125,13 @@ So that I can let Students try the same chain with more or less to see.
 
 **Given** the form with the field
 **When** Playwright runs at 320 and 1440 px with axe, with the flag on and off
-**Then** both states pass, and the field states its scope in help text with copy from `web/src/copy/nb.ts` (NFR-6, UX-DR12)
+**Then** both states pass, and the field states its scope in help text with copy from `frontend/src/copy/nb.ts` (NFR-6, UX-DR12)
 
 **Covers:** FR-83, FR-49, NFR-6, AD-3, AD-4, AD-17, UX-DR12, UX-DR48
 
 ## Epic 11: Individual test
 
-A Student who has completed the Replay can open the Individual test, answer multiple-choice items, Interactive items, long answers and Adapted items over several evenings with autosave, and submit once; what is saved is submitted automatically at the Test deadline. A Lecturer can review the question set and Item weights, preview the Adapted item templates, edit the Scoring guide, require one timed sitting and extend one Student's deadline. The epic owns `api/app/modules/tests/` and `web/src/modules/tests/`, adds the question set, Adapted item templates and Scoring guide to `modules/content`, and adds computed scoring to the shared `analysis/` folder. The real question texts and the default Scoring guide are a non-code deliverable (issue #16); the product ships with a clearly marked draft set loaded as versioned records.
+A Student who has completed the Replay can open the Individual test, answer multiple-choice items, Interactive items, long answers and Adapted items over several evenings with autosave, and submit once; what is saved is submitted automatically at the Test deadline. A Lecturer can review the question set and Item weights, preview the Adapted item templates, edit the Scoring guide, require one timed sitting and extend one Student's deadline. The epic owns `backend/app/modules/tests/` and `frontend/src/modules/tests/`, adds the question set, Adapted item templates and Scoring guide to `modules/content`, and adds computed scoring to the shared `analysis/` folder. The real question texts and the default Scoring guide are a non-code deliverable (issue #16); the product ships with a clearly marked draft set loaded as versioned records.
 
 ### Story 11.1: Review the question set and Item weights
 
@@ -6152,7 +6152,7 @@ So that the Individual test fits my course and its weights always sum to 100%.
 **Given** a Lecturer opens Klasseøkt → «Spørsmål og vekter» before the Start date
 **When** the block loads
 **Then** it lists every question with its type, its Vekt in % and «Ta ut», plus one line for the Adapted items with their total weight, default 30%, which the Lecturer can change like any other Vekt; it is one total per Class session, the same for every Student (FR-52, FR-53, UX-DR49)
-**And** a draft set shows a notice that the questions are a draft and not approved, with copy from `web/src/copy/nb.ts` (issue #16)
+**And** a draft set shows a notice that the questions are a draft and not approved, with copy from `frontend/src/copy/nb.ts` (issue #16)
 
 **Given** the Lecturer changes weights or takes a question out so that the sum is not 100%
 **When** the sum is shown
@@ -6178,7 +6178,7 @@ So that the Individual test fits my course and its weights always sum to 100%.
 
 **Given** the block is built
 **When** CI runs
-**Then** Playwright covers it at 320, 360 and 1440 px with an axe check, the form is one column at 320 px, the sum message is announced politely, and every string comes from `web/src/copy/nb.ts` (NFR-6, UX-DR75, AD-19)
+**Then** Playwright covers it at 320, 360 and 1440 px with an axe check, the form is one column at 320 px, the sum message is announced politely, and every string comes from `frontend/src/copy/nb.ts` (NFR-6, UX-DR75, AD-19)
 
 **Covers:** FR-52, FR-53 (total weight, replacement items in the record), FR-80 (load check on items from another business), FR-18 (lock point for the question set), FR-66, FR-72, NFR-6, AD-10, AD-12, AD-17, AD-19, AD-23, UX-DR49 (Spørsmål og vekter)
 
@@ -6262,7 +6262,7 @@ So that I can start answering and come back to it until the Test deadline.
 
 **Given** the screens are built
 **When** CI runs
-**Then** Playwright covers locked, statement and open states at 320, 360 and 1440 px with an axe check, loading uses Skjelett from Epic 3, and all copy comes from `web/src/copy/nb.ts` (FR-73, NFR-6, UX-DR75)
+**Then** Playwright covers locked, statement and open states at 320, 360 and 1440 px with an axe check, loading uses Skjelett from Epic 3, and all copy comes from `frontend/src/copy/nb.ts` (FR-73, NFR-6, UX-DR75)
 
 **Covers:** FR-51, FR-45 (follow-up closes when the test opens), FR-5, FR-72, FR-73, NFR-5, NFR-6, AD-9, AD-10, AD-12, AD-16, AD-23, UX-DR65 (locked, own-work statement, open)
 
@@ -6276,7 +6276,7 @@ So that I can close the test and return without losing anything.
 
 **Given** an open attempt with multiple-choice items
 **When** the Student opens an item
-**Then** it shows as single choice with the Quizvalg control reused from `web/src/components/` (Epic 9), and no right or wrong state or explanation is shown at any time before the AI assessment (FR-52, FR-54)
+**Then** it shows as single choice with the Quizvalg control reused from `frontend/src/components/` (Epic 9), and no right or wrong state or explanation is shown at any time before the AI assessment (FR-52, FR-54)
 
 **Given** the Student picks or changes a choice
 **When** the web app autosaves
@@ -6285,7 +6285,7 @@ So that I can close the test and return without losing anything.
 
 **Given** an autosave fails or the device is offline
 **When** the Student keeps working
-**Then** «Ikke lagret. Svarene ligger på denne enheten, og vi prøver igjen.» is shown, the answer is kept through `web/src/lib/drafts.ts` keyed by User and item, and the save is retried until it succeeds (FR-51, AD-10, UX-DR65)
+**Then** «Ikke lagret. Svarene ligger på denne enheten, og vi prøver igjen.» is shown, the answer is kept through `frontend/src/lib/drafts.ts` keyed by User and item, and the save is retried until it succeeds (FR-51, AD-10, UX-DR65)
 
 **Given** the same attempt is open on two devices
 **When** both save the same item
@@ -6293,7 +6293,7 @@ So that I can close the test and return without losing anything.
 
 **Given** a multiple-choice answer and the item's answer key
 **When** it is scored
-**Then** the score comes only from the pure function `analysis.scoring.score_choice`, added to the existing `api/app/analysis/scoring.py` that Epic 6 created for the Starting task (extended, never a second copy), with no I/O and with pytest covering right, wrong and unanswered (FR-52, AD-1, AD-9)
+**Then** the score comes only from the pure function `analysis.scoring.score_choice`, added to the existing `backend/app/analysis/scoring.py` that Epic 6 created for the Starting task (extended, never a second copy), with no I/O and with pytest covering right, wrong and unanswered (FR-52, AD-1, AD-9)
 **And** no score is computed in the web app or returned to the Student while the attempt is open (AD-10)
 
 **Given** the item screens are built
@@ -6313,7 +6313,7 @@ So that I can show quantities and consistency, with keyboard or screen reader al
 **Given** an open attempt with a «Fyll inn kolonnen» item
 **When** the Student opens it
 **Then** the Interaktiv oppgave component shows the value table without a graph: an HTML `<table>` with `th` scopes and one outlined numeric cell per Uke, where unanswered Uker show an empty cell and «Ikke besvart» beside the row label (FR-80, UX-DR38)
-**And** the component is built in `web/src/modules/tests/` so that Story 11.14 can add the graph over the same table
+**And** the component is built in `frontend/src/modules/tests/` so that Story 11.14 can add the graph over the same table
 
 **Given** the Student types in a cell
 **When** the value is not a whole number (with a leading minus only where the item allows negative quantities)
@@ -6325,7 +6325,7 @@ So that I can show quantities and consistency, with keyboard or screen reader al
 
 **Given** the Starting task items that the question set repeats
 **When** they appear in the test
-**Then** they render with the Starting task item component reused from `web/src/components/` (Epic 6), are scored by the Starting task rules already in `analysis/scoring.py`, and no right or wrong state is shown (FR-52, FR-85)
+**Then** they render with the Starting task item component reused from `frontend/src/components/` (Epic 6), are scored by the Starting task rules already in `analysis/scoring.py`, and no right or wrong state is shown (FR-52, FR-85)
 
 **Given** a stored table or number answer and the item's scoring rule
 **When** it is scored
@@ -6334,7 +6334,7 @@ So that I can show quantities and consistency, with keyboard or screen reader al
 
 **Given** an Interactive item's introduction
 **When** the Student reads it
-**Then** it says that these items are hard, also for well-educated adults, with copy from `web/src/copy/nb.ts`, and the item uses «enheter», never «øl» (FR-80, UX-DR74)
+**Then** it says that these items are hard, also for well-educated adults, with copy from `frontend/src/copy/nb.ts`, and the item uses «enheter», never «øl» (FR-80, UX-DR74)
 
 **Given** the item screens are built
 **When** CI runs
@@ -6361,7 +6361,7 @@ So that I can build my argument over several evenings.
 
 **Given** a save fails or the session has expired
 **When** the Student continues or logs in again
-**Then** the text is kept in `web/src/lib/drafts.ts`, «Ikke lagret. Svarene ligger på denne enheten, og vi prøver igjen.» is shown, and after login the kept text is saved with a higher revision (AD-10, UX-DR59, UX-DR65)
+**Then** the text is kept in `frontend/src/lib/drafts.ts`, «Ikke lagret. Svarene ligger på denne enheten, og vi prøver igjen.» is shown, and after login the kept text is saved with a higher revision (AD-10, UX-DR59, UX-DR65)
 
 **Given** the Student is on a phone-width screen
 **When** a long-answer item opens
@@ -6431,7 +6431,7 @@ So that they read well and I know which text an AI produced.
 **Given** the job prepares a Student's set
 **When** it asks for wording
 **Then** it starts from the code-built items of Story 11.7 and requests the wording through `ai.run` with the purpose `adapted_item_wording` and the Class session as `budget_scope`; the output schema references fact ids and sentence-template ids only, and code renders every number, Week and Role into the text (FR-53, AD-6, AD-7)
-**And** the prompt is a versioned file under `api/app/ai/prompts/adapted_item_wording/`, and the default model config gets the new purpose in its `prompts` map as a new config row made with the command of Story 2.2, since a config is immutable once referenced (AD-6)
+**And** the prompt is a versioned file under `backend/app/ai/prompts/adapted_item_wording/`, and the default model config gets the new purpose in its `prompts` map as a new config row made with the command of Story 2.2, since a config is immutable once referenced (AD-6)
 
 **Given** the wording comes back
 **When** it is checked
@@ -6478,7 +6478,7 @@ So that I know what kind of questions my Students will get about their own decis
 
 **Given** the preview is built
 **When** CI runs
-**Then** Playwright covers it at 320, 360 and 1440 px with an axe check, and all copy comes from `web/src/copy/nb.ts` (NFR-6, AD-19)
+**Then** Playwright covers it at 320, 360 and 1440 px with an axe check, and all copy comes from `frontend/src/copy/nb.ts` (NFR-6, AD-19)
 
 **Covers:** FR-53 (Lecturer preview), NFR-6, NFR-9, AD-7, AD-12, AD-19, UX-DR70 (Demodata label)
 
@@ -6650,7 +6650,7 @@ So that a Student with a valid reason can finish without holding back the rest o
 
 **Given** the form is built
 **When** CI runs
-**Then** Playwright covers save, rejected date and the Student's own view at 360 and 1440 px with an axe check; the form's Norwegian strings are not given in EXPERIENCE.md, so they are added to `web/src/copy/nb.ts` and listed for founder review; the result line replaces the form and receives focus, as for the other Studentside blocks
+**Then** Playwright covers save, rejected date and the Student's own view at 360 and 1440 px with an axe check; the form's Norwegian strings are not given in EXPERIENCE.md, so they are added to `frontend/src/copy/nb.ts` and listed for founder review; the result line replaces the form and receives focus, as for the other Studentside blocks
 
 **Covers:** FR-18 (per-Student test extension), NFR-6, AD-8, AD-9, AD-12, AD-15
 
@@ -6669,7 +6669,7 @@ So that I can draw a stock over time, by pointer or by keyboard.
 
 **Given** a drawn item in an open attempt
 **When** the Student opens it
-**Then** the Interaktiv oppgave shows one graph over the value table of Story 11.5, built from `web/src/components/charts` with a fixed width: an 8 px `ink` point per Uke joined by a 2 px `ink` line, and unanswered Uker with no point (FR-80, AD-18, UX-DR38)
+**Then** the Interaktiv oppgave shows one graph over the value table of Story 11.5, built from `frontend/src/components/charts` with a fixed width: an 8 px `ink` point per Uke joined by a 2 px `ink` line, and unanswered Uker with no point (FR-80, AD-18, UX-DR38)
 
 **Given** the Student drags a point or taps a column
 **When** the point is placed
@@ -6695,7 +6695,7 @@ So that I can draw a stock over time, by pointer or by keyboard.
 
 ## Epic 12: AI assessment and Control test
 
-After the Test deadline a Student can read an AI assessment of their Individual test: computed scores, one overall score with written feedback per long-answer and Adapted item, and a weighted total, always labelled as AI-generated, possibly wrong and not a grade. A Lecturer can switch the AI assessment off, read it for their Students, see flags and set the Indicative letter; the Admin can run a Control test where humans score blind and the product shows how well the AI agrees. The epic owns `api/app/modules/assessment/` and `web/src/modules/assessment/`, adds `total_score`, `indicative_letter` and `agreement` to the shared `analysis/` folder, and adds the `control_test` kind to `modules/sessions`.
+After the Test deadline a Student can read an AI assessment of their Individual test: computed scores, one overall score with written feedback per long-answer and Adapted item, and a weighted total, always labelled as AI-generated, possibly wrong and not a grade. A Lecturer can switch the AI assessment off, read it for their Students, see flags and set the Indicative letter; the Admin can run a Control test where humans score blind and the product shows how well the AI agrees. The epic owns `backend/app/modules/assessment/` and `frontend/src/modules/assessment/`, adds `total_score`, `indicative_letter` and `agreement` to the shared `analysis/` folder, and adds the `control_test` kind to `modules/sessions`.
 
 ### Story 12.1: Switch the AI assessment off for a Class session
 
@@ -6752,12 +6752,12 @@ So that I can see where I stand without it counting toward anything.
 **Given** the `assess` job runs
 **When** it scores a long-answer or Adapted item
 **Then** it makes one `ai.run(purpose="assessment", budget_scope=<Class session>, …)` call per item, passing the question, the Student's answer, the pinned Scoring guide entry and, for Adapted items, the item's stored fact set; the output schema holds one overall score on the guide's five-step scale and never per-criterion scores (FR-54, FR-81, AD-6)
-**And** the job reads only the pinned Scoring guide version, question set version and model config, passes no model, prompt version or scrub terms, and never retries a typed failure itself; the prompt is a versioned file under `api/app/ai/prompts/assessment/`, and the default model config gets the `assessment` purpose in its `prompts` map as a new config row made with the command of Story 2.2, since a config is immutable once referenced (AD-6, AD-9, AD-23)
+**And** the job reads only the pinned Scoring guide version, question set version and model config, passes no model, prompt version or scrub terms, and never retries a typed failure itself; the prompt is a versioned file under `backend/app/ai/prompts/assessment/`, and the default model config gets the `assessment` purpose in its `prompts` map as a new config row made with the command of Story 2.2, since a config is immutable once referenced (AD-6, AD-9, AD-23)
 **And** scrubbing relies on the gateway and on `platform/pii.terms` querying the Roster (Story 9.15); this story adds its own test that a Roster name, email and student number written in a test answer do not appear in the request the provider receives (C-1, AD-6)
 
 **Given** the item scores exist
 **When** the total is computed
-**Then** it comes only from the pure function `analysis.total_score(computed, ai_items, weights)`, added to `api/app/analysis/`, using the pinned Item weights; `assessment` stores AI item scores only and never copies or recomputes the computed scores that `tests` stored (FR-54, AD-9)
+**Then** it comes only from the pure function `analysis.total_score(computed, ai_items, weights)`, added to `backend/app/analysis/`, using the pinned Item weights; `assessment` stores AI item scores only and never copies or recomputes the computed scores that `tests` stored (FR-54, AD-9)
 **And** pytest covers the function with golden cases, including excluded questions and the fixed Adapted weight
 
 **Given** an assessment is stored
@@ -6836,7 +6836,7 @@ So that I do not have to keep checking.
 
 **Given** the notice kind
 **When** this story is built
-**Then** `assessment_ready` is registered as a `digest` kind in the digest delivery of Story 3.5, with its Jinja2 template in `api/app/platform/email/templates/`: at most one mail per User per day and none between 22:00 and 07:00 Europe/Oslo; `assessment` does not import `messaging` (AD-9, AD-19)
+**Then** `assessment_ready` is registered as a `digest` kind in the digest delivery of Story 3.5, with its Jinja2 template in `backend/app/platform/email/templates/`: at most one mail per User per day and none between 22:00 and 07:00 Europe/Oslo; `assessment` does not import `messaging` (AD-9, AD-19)
 **And** the mail says that the assessment is AI-generated, counts toward nothing and is not a grade, and holds no score, no letter and no feedback text (FR-55, C-2)
 
 **Given** the notice is enqueued
@@ -6920,7 +6920,7 @@ So that I can read the total as a letter, knowing it is not a grade.
 
 **Given** a total score and thresholds
 **When** a letter is derived
-**Then** it comes only from the pure function `analysis.indicative_letter(total, thresholds)`, added to `api/app/analysis/`, with pytest covering every bound; no letter is derived for an `incomplete` assessment (FR-56, AD-1)
+**Then** it comes only from the pure function `analysis.indicative_letter(total, thresholds)`, added to `backend/app/analysis/`, with pytest covering every bound; no letter is derived for an `incomplete` assessment (FR-56, AD-1)
 
 **Given** the setting is off with Student choice
 **When** a Student opens their ready KI-vurdering
@@ -6937,7 +6937,7 @@ So that I can read the total as a letter, knowing it is not a grade.
 
 **Given** the screens are built
 **When** CI runs
-**Then** Playwright covers the three settings and the Student control at 320, 360 and 1440 px with an axe check; strings that EXPERIENCE.md does not give are added to `web/src/copy/nb.ts` and listed for founder review (NFR-6)
+**Then** Playwright covers the three settings and the Student control at 320, 360 and 1440 px with an axe check; strings that EXPERIENCE.md does not give are added to `frontend/src/copy/nb.ts` and listed for founder review (NFR-6)
 
 **Covers:** FR-56, FR-66, NFR-6, AD-1, AD-12, AD-17, UX-DR66 (Veiledende bokstav control)
 
@@ -7008,7 +7008,7 @@ So that their data is collected on a clear basis and never counts in a Class ses
 
 **Given** the screens are built
 **When** CI runs
-**Then** Playwright covers the test student list and the consent screen, accepted and declined, at 320, 360 and 1440 px with an axe check; the consent text is draft copy in `web/src/copy/nb.ts`, listed for founder review (NFR-6, UX-DR57)
+**Then** Playwright covers the test student list and the consent screen, accepted and declined, at 320, 360 and 1440 px with an axe check; the consent text is draft copy in `frontend/src/copy/nb.ts`, listed for founder review (NFR-6, UX-DR57)
 
 **Covers:** FR-82 (marked test students, consent), NFR-6, AD-6, AD-13, AD-27, UX-DR57 (Kontrolltest: marked test students)
 
@@ -7058,11 +7058,11 @@ So that I know whether the AI assessment can be relied on with this Scoring guid
 
 **Given** human scores and AI item scores of a Control test
 **When** the measures are computed
-**Then** they come only from the pure function `analysis.agreement(human_scores, ai_scores)`, added to `api/app/analysis/`: exact agreement, agreement within one step, systematic offset, compression of the scale, and agreement by answer length; pytest covers it with golden cases including a constant offset and a compressed scale (FR-82, AD-27, AD-1)
+**Then** they come only from the pure function `analysis.agreement(human_scores, ai_scores)`, added to `backend/app/analysis/`: exact agreement, agreement within one step, systematic offset, compression of the scale, and agreement by answer length; pytest covers it with golden cases including a constant offset and a compressed scale (FR-82, AD-27, AD-1)
 
 **Given** the Admin opens the results in «Kontrolltest»
 **When** the page loads
-**Then** it shows each item's human score and AI score side by side in an HTML table, and the five measures as numbers with a label each, formatted by the shared number formatter; any chart comes from `web/src/components/charts` with «Vis som tabell» (FR-82, NFR-6, UX-DR57)
+**Then** it shows each item's human score and AI score side by side in an HTML table, and the five measures as numbers with a label each, formatted by the shared number formatter; any chart comes from `frontend/src/components/charts` with «Vis som tabell» (FR-82, NFR-6, UX-DR57)
 **And** the page shows «Teller aldri med i en Klasseøkt.» and the Scoring guide version and model config the Control test is pinned to
 
 **Given** some human scores are still missing
@@ -7091,7 +7091,7 @@ So that I know whether the AI assessment can be relied on with this Scoring guid
 
 ## Epic 13: Completion and Student reports
 
-A Lecturer can see who met the requirement of an Obligatory class session, correct it with a logged reason, give a make-up game and message those who fell short. Students and staff can download the Student report as a tagged PDF, and the Lecturer can download all reports as a ZIP and the Completion export. The epic owns `api/app/modules/reports/` and `web/src/modules/reports/`, extends `modules/progress`, and adds the shared pieces `analysis.completion`, `reports.scope` and `platform/storage`.
+A Lecturer can see who met the requirement of an Obligatory class session, correct it with a logged reason, give a make-up game and message those who fell short. Students and staff can download the Student report as a tagged PDF, and the Lecturer can download all reports as a ZIP and the Completion export. The epic owns `backend/app/modules/reports/` and `frontend/src/modules/reports/`, extends `modules/progress`, and adds the shared pieces `analysis.completion`, `reports.scope` and `platform/storage`.
 
 ### Story 13.1: Completion is computed in one place and shown on the Student's Hjem
 
@@ -7104,7 +7104,7 @@ So that I know where I stand without asking the Lecturer.
 **Given** the step events from `modules/progress` and the Decision log
 **When** `analysis.completion(steps, decision_log_summary, corrections, settings) -> CompletionStatus` is called
 **Then** it returns, per step (Class game, Debrief, Debrief quiz, Replay, submitted Individual test), done or not done with the date, the share of Weeks ordered, and whether the requirement is met (FR-17, AD-16)
-**And** the function is pure, lives in `api/app/analysis/`, does no I/O, reads no clock, and has no input from the AI assessment or the Indicative letter (AD-1, AD-16, C-2).
+**And** the function is pure, lives in `backend/app/analysis/`, does no I/O, reads no clock, and has no input from the AI assessment or the Indicative letter (AD-1, AD-16, C-2).
 
 **Given** a Student's Class game
 **When** the share of Weeks ordered is computed
@@ -7137,7 +7137,7 @@ So that I know where I stand without asking the Lecturer.
 
 **Given** a Student in an Obligatory class session
 **When** the Student opens Hjem
-**Then** Stegene (reused from Epic 6) shows each step's status from the assembler, and one line states whether the requirement is met, in copy from `web/src/copy/nb.ts` (FR-17, UX-DR29)
+**Then** Stegene (reused from Epic 6) shows each step's status from the assembler, and one line states whether the requirement is met, in copy from `frontend/src/copy/nb.ts` (FR-17, UX-DR29)
 **And** where the Student's share is adjusted, the existing line «For deg er kravet 60 % av ukene.» shows the Student's own figure
 **And** no line reveals the number of Weeks while the Class game is running (FR-14).
 
@@ -7161,7 +7161,7 @@ So that I can answer a Student's question or check a shortfall without opening f
 **Then** the Studentside, extending the minimal page that Story 8.9 created, shows the Student's game, read through `games.service.student_game` from Story 6.1 (with a link to Spillinnsikt), Explanation, Debrief summary, Debrief quiz attempts, Replay, Individual test, AI assessment with the Student's flags, and a slot for the link to the Student report (FR-63, UX-DR55)
 **And** the slot is empty in this story; Story 13.12 adds the link
 **And** each part is read through the owning module's `service.py` (`games`, `debrief`, `replay`, `tests`, `assessment`), with no direct table access from `reports`
-**And** the page of blocks in `web/src/modules/reports/` already holds «Tilrettelegging» (Story 8.9), the test extension form (Story 11.13) and the «KI-vurdering» block (Story 12.5); these are kept unchanged and not rebuilt, and the AI assessment part of this page is that existing block.
+**And** the page of blocks in `frontend/src/modules/reports/` already holds «Tilrettelegging» (Story 8.9), the test extension form (Story 11.13) and the «KI-vurdering» block (Story 12.5); these are kept unchanged and not rebuilt, and the AI assessment part of this page is that existing block.
 
 **Given** the «Fullføring» block
 **When** the page loads
@@ -7345,7 +7345,7 @@ So that I can remind them in one action instead of one by one.
 **Given** the Meldingsskjema opened with this recipient
 **When** the Lecturer looks at who will get the Message
 **Then** a table above the text field lists the Students who have not met the requirement: the name as a Lenke to the Studentside, the share of Weeks ordered against the required share, and the share of Weeks played in the playout at the Play deadline where there is one, so a shortfall caused by the playout or the group's pace can be told from one the Student caused (FR-17)
-**And** the rows come from `reports.service.completion_status`, the table is an HTML `<table>` with `th` scopes, and its headings are draft copy in `web/src/copy/nb.ts` for review.
+**And** the rows come from `reports.service.completion_status`, the table is an HTML `<table>` with `th` scopes, and its headings are draft copy in `frontend/src/copy/nb.ts` for review.
 
 **Given** the Message is sent
 **When** delivery runs
@@ -7378,7 +7378,7 @@ So that I can document the work for approval or in another application.
 **And** `platform/storage` is added in this story for reuse: Supabase Storage in production, `./.local-storage/` as the mock when the keys are missing and `APP_ENV` is local, test or ci; the storage keys are already in the production startup guard of Story 3.14 (AD-17)
 **And** the job is idempotent, and a second request while one is running does not start a second render.
 
-**Given** the print route `web` `/print/report/<snapshot_id>`
+**Given** the print route `frontend` `/print/report/<snapshot_id>`
 **When** it is requested
 **Then** it is server-rendered, needs no JavaScript, reads only that snapshot with the render token, and a used or expired token gives an error with no data (AD-18)
 **And** a request for `/print/*` through the proxy is refused, checked by a test against Docker Compose (AD-11)
@@ -7424,7 +7424,7 @@ So that it documents what I did and what happened around me.
 
 **Given** the charts in the report
 **When** they render in the print route
-**Then** they come from `web/src/components/charts` with a fixed width, reusing the four-Role charts of Story 7.8 with no second chart implementation, each SVG carries a `<title>`, and a table follows every chart (AD-18, NFR-6, UX-DR68).
+**Then** they come from `frontend/src/components/charts` with a fixed width, reusing the four-Role charts of Story 7.8 with no second chart implementation, each SVG carries a `<title>`, and a table follows every chart (AD-18, NFR-6, UX-DR68).
 
 **Given** a Student whose game is a finished make-up (Story 13.5)
 **When** the report is built
@@ -7455,7 +7455,7 @@ So that I download my report in time.
 
 **Given** a Student on Hjem
 **When** the «Rapport» step is shown
-**Then** it states the deletion date and that the Student should download the report before it, in copy from `web/src/copy/nb.ts` (FR-57, UX-DR29).
+**Then** it states the deletion date and that the Student should download the report before it, in copy from `frontend/src/copy/nb.ts` (FR-57, UX-DR29).
 
 **Given** the deletion date is a configurable number of days away (placeholder 14)
 **When** the sweep of Story 3.5 runs the due action this story adds
@@ -7475,7 +7475,7 @@ So that it documents the whole Class session and not only the game.
 **Given** a Student who has done the Debrief
 **When** the report is built
 **Then** it holds the Explanation as written, the key moments from the Debrief summary and the number of Debrief quiz attempts, read through `debrief.service` (FR-58, FR-47)
-**And** answers to reflection questions on feelings are left out, and the reflection step of the Debrief (Story 9.6) gets one line, as draft copy in `web/src/copy/nb.ts` for review, that tells the Student who reads the answers (the Lecturers and Assistant lecturers of the Class) and that they are not in the report (FR-58)
+**And** answers to reflection questions on feelings are left out, and the reflection step of the Debrief (Story 9.6) gets one line, as draft copy in `frontend/src/copy/nb.ts` for review, that tells the Student who reads the answers (the Lecturers and Assistant lecturers of the Class) and that they are not in the report (FR-58)
 **And** no other Student's Explanation or name is included.
 
 **Given** a Student who has played the Replay
@@ -7485,7 +7485,7 @@ So that it documents the whole Class session and not only the game.
 **Given** a Student who has submitted the Individual test
 **When** the report is built
 **Then** it holds every question, the Student's answers and the scores on answer-key and Interactive items from `analysis.scoring` as stored by `tests`, and no AI score, feedback or Indicative letter (FR-58, C-2)
-**And** each Interactive item is rendered as an image of the Student's answer with its value table underneath, using the Interaktiv oppgave rendering from Epic 11, which moves to `web/src/components/` in this story because a second slice now needs it.
+**And** each Interactive item is rendered as an image of the Student's answer with its value table underneath, using the Interaktiv oppgave rendering from Epic 11, which moves to `frontend/src/components/` in this story because a second slice now needs it.
 
 **Given** a Student who has not done a step
 **When** the report is built
@@ -7649,7 +7649,7 @@ So that I can approve the course requirement in the course's own system.
 
 ## Epic 14: Class report and statistics
 
-A Lecturer can read a live Class report for a Class session, compare it with earlier Class sessions on written aggregates, and show all Class games in a plenary without names or ranking. Students can see all Class games side by side once their own Debrief is done and the Play deadline has passed. The epic owns the class part of `api/app/modules/reports/` and `web/src/modules/reports/`, and reuses `reports.scope`, the chart module and `game_summaries`.
+A Lecturer can read a live Class report for a Class session, compare it with earlier Class sessions on written aggregates, and show all Class games in a plenary without names or ranking. Students can see all Class games side by side once their own Debrief is done and the Play deadline has passed. The epic owns the class part of `backend/app/modules/reports/` and `frontend/src/modules/reports/`, and reuses `reports.scope`, the chart module and `game_summaries`.
 
 ### Story 14.1: Class report of the games
 
@@ -7682,7 +7682,7 @@ So that I can plan the plenary from what the class actually did.
 
 **Given** each chart on the page
 **When** it renders
-**Then** it comes from `web/src/components/charts`, reuses Kostnadsfordeling and Trakt from Epic 7, has «Vis som tabell» underneath, lists Roles with Fabrikk at the top in Role lists and Detaljist to Fabrikk in per-Role tables, and uses the shared number formatter (AD-18, UX-DR55, UX-DR73)
+**Then** it comes from `frontend/src/components/charts`, reuses Kostnadsfordeling and Trakt from Epic 7, has «Vis som tabell» underneath, lists Roles with Fabrikk at the top in Role lists and Detaljist to Fabrikk in per-Role tables, and uses the shared number formatter (AD-18, UX-DR55, UX-DR73)
 **And** cost is split into Lager and Restordre with both numbers printed, and Detected patterns are titled «Mønstre».
 
 **Given** an Assistant lecturer, a Lecturer of another Class, or an Admin without Class membership
@@ -7711,7 +7711,7 @@ So that I can see what the class learned and which questions were hard.
 **Given** AI assessments are ready
 **When** the report is shown
 **Then** it shows the distribution of AI assessment total scores with the Core-only subscore next to the total, and a note that Adapted items differ between Students (FR-64)
-**And** the Core-only subscore comes from a pure function this story adds to `api/app/analysis/` beside `analysis.total_score` of Story 12.2: the same weighting over Core items only, with Adapted items left out and the remaining Item weights rescaled to 100%, covered by pytest golden cases (AD-1)
+**And** the Core-only subscore comes from a pure function this story adds to `backend/app/analysis/` beside `analysis.total_score` of Story 12.2: the same weighting over Core items only, with Adapted items left out and the remaining Item weights rescaled to 100%, covered by pytest golden cases (AD-1)
 **And** the distribution is labelled as AI-generated and not a grade, with «Teller ikke. Ingen karakter.» (FR-55, C-2)
 **And** no Indicative letter and no self-enabled letter appears in any figure (FR-56).
 
@@ -7827,7 +7827,7 @@ So that I can see whether all teams behaved alike.
 **Given** both conditions hold
 **When** the Student opens the view
 **Then** it shows, per Role, the Orders per Week of every Class game in the Class session, with the Student's own Class game marked in text and by line style, not by colour alone (FR-86, NFR-6)
-**And** the charts come from `web/src/components/charts`, with «Vis som tabell» in game-number order.
+**And** the charts come from `frontend/src/components/charts`, with «Vis som tabell» in game-number order.
 
 **Given** the view must be anonymous and unranked
 **When** the data is served
@@ -7946,7 +7946,7 @@ So that I can analyse the games in my own tools.
 
 ## Epic 15: Data rights and pilot readiness
 
-A Student can see all data the product stores about them. The Admin can delete a User on instruction, let retention delete on schedule, export pseudonymised data, pin a model, watch AI cost and errors per Class session, and the founder can show that the platform is ready for the pilot. The epic owns `api/app/modules/ops/` and `web/src/modules/ops/`, extends `modules/identity` and `modules/admin`, and settles the per-session error counts store, the load test method and the pre-pilot operations checks.
+A Student can see all data the product stores about them. The Admin can delete a User on instruction, let retention delete on schedule, export pseudonymised data, pin a model, watch AI cost and errors per Class session, and the founder can show that the platform is ready for the pilot. The epic owns `backend/app/modules/ops/` and `frontend/src/modules/ops/`, extends `modules/identity` and `modules/admin`, and settles the per-session error counts store, the load test method and the pre-pilot operations checks.
 
 ### Story 15.1: A Student sees their own data in «Mine data»
 
@@ -7983,7 +7983,7 @@ So that I can use my right of access without asking anyone.
 
 **Given** the page at 320 px, 360 px and 200% text
 **When** Playwright and axe run
-**Then** it reflows without horizontal scroll, copy comes from `web/src/copy/nb.ts`, and axe reports no violations (NFR-6, FR-72).
+**Then** it reflows without horizontal scroll, copy comes from `frontend/src/copy/nb.ts`, and axe reports no violations (NFR-6, FR-72).
 
 **Covers:** FR-75, FR-5, FR-72, NFR-6, AD-12, AD-14, UX-DR67
 
@@ -8280,12 +8280,12 @@ So that a full Lab hour or a deploy overlap does not run out of database connect
 
 **Given** the Supabase session pooler on port 5432
 **When** this story is done
-**Then** the connection budget that Story 3.14 recorded in `docs/ops/connection-budget.md` is revised in place, not written a second time: per process (`api`, `worker-ai`, `worker-batch`) the SQLAlchemy pool with `max_overflow=0`, the procrastinate pool and the one LISTEN connection for `api`, the total, and the total times two for a deploy overlap (SETUP-GUIDE §5)
+**Then** the connection budget that Story 3.14 recorded in `docs/ops/connection-budget.md` is revised in place, not written a second time: per process (`backend`, `worker-ai`, `worker-batch`) the SQLAlchemy pool with `max_overflow=0`, the procrastinate pool and the one LISTEN connection for `backend`, the total, and the total times two for a deploy overlap (SETUP-GUIDE §5)
 **And** the starting values are `DB_POOL_SIZE` 10, 5 and 5 as stated placeholders, to be tuned under load (issue #28).
 
 **Given** each process starts
 **When** it reads its pool settings
-**Then** it logs its configured connections, and `api` exposes the sum against the budget on the Admin operations view of Story 15.8
+**Then** it logs its configured connections, and `backend` exposes the sum against the budget on the Admin operations view of Story 15.8
 **And** in production a process refuses to start if `DATABASE_URL` points at the transaction pooler on port 6543, because it breaks LISTEN/NOTIFY and procrastinate.
 
 **Given** the pooler's pool size cannot be read over the session pooler
@@ -8350,7 +8350,7 @@ So that game state is not lost and a failure in a Lab hour reaches a named perso
 
 **Given** the error-tracking tool is a founder decision (issue #28)
 **When** this story is built
-**Then** it does not choose the tool: it adds one error-reporting adapter in `api/app/platform/` behind one interface, configured by a DSN in the environment, with a recording mock when the DSN is missing and `APP_ENV` is local, test or ci (AD-17)
+**Then** it does not choose the tool: it adds one error-reporting adapter in `backend/app/platform/` behind one interface, configured by a DSN in the environment, with a recording mock when the DSN is missing and `APP_ENV` is local, test or ci (AD-17)
 **And** the story is done when the adapter and its tests pass on the mock; choosing and connecting the real tool is an item in the readiness record, not a condition for finishing this story.
 
 **Given** an error is raised while personal data is in scope
@@ -8365,7 +8365,7 @@ So that game state is not lost and a failure in a Lab hour reaches a named perso
 
 **Given** the founder decisions and manual checks that no code can make
 **When** this story creates the readiness record in the repository
-**Then** it lists these items, each open with its issue number until the founder records it with a date: the backup level, with the options the Supabase plan offers and what each means for NFR-4 ("game state is never lost once a Week has been shown"); the error-tracking tool and the uptime-monitoring tool, each with its region and the data it receives; one restore into a separate database checked with `verify_restore`; a deliberate error in production seen in the tracker and in `error_events`; and a stopped `api` health check that raises an uptime alert and reaches the named contact (NFR-4)
+**Then** it lists these items, each open with its issue number until the founder records it with a date: the backup level, with the options the Supabase plan offers and what each means for NFR-4 ("game state is never lost once a Week has been shown"); the error-tracking tool and the uptime-monitoring tool, each with its region and the data it receives; one restore into a separate database checked with `verify_restore`; a deliberate error in production seen in the tracker and in `error_events`; and a stopped `backend` health check that raises an uptime alert and reaches the named contact (NFR-4)
 **And** the story decides none of them; when the founder decides, the decision is also noted against the spine's Deferred list and issue #28.
 
 **Given** the DPIA pack needs a sub-processor register
@@ -8392,7 +8392,7 @@ So that no Student is invited before the Institution and the operator have an ag
 
 **Given** `REQUIRE_DPA_FOR_INVITATIONS` is on
 **When** a Lecturer sends Invitations to Students of a Class in an Institution without a recorded agreement
-**Then** `classes` asks `identity.service.has_processing_agreement` before the send of Story 4.4, refuses with a stable error code, and the Lecturer sees a message that the Institution's agreement is missing, as draft copy in `web/src/copy/nb.ts` (FR-8, PRD §6.1)
+**Then** `classes` asks `identity.service.has_processing_agreement` before the send of Story 4.4, refuses with a stable error code, and the Lecturer sees a message that the Institution's agreement is missing, as draft copy in `frontend/src/copy/nb.ts` (FR-8, PRD §6.1)
 **And** nothing is sent and no Roster row changes state.
 
 **Given** `REQUIRE_DPA_FOR_INVITATIONS` is off
@@ -8417,7 +8417,7 @@ So that NFR-6 is met with evidence.
 
 **Given** NFR-6 asks for an accessibility statement
 **When** this story is done
-**Then** the statement is published in the product, linked from the Landing (Story 3.13) and from the footer, in Norwegian bokmål from `web/src/copy/nb.ts`, with the contact route and the known deviations (NFR-6).
+**Then** the statement is published in the product, linked from the Landing (Story 3.13) and from the footer, in Norwegian bokmål from `frontend/src/copy/nb.ts`, with the contact route and the known deviations (NFR-6).
 
 **Given** the CI runs of Playwright with axe at 320, 360 and 1440 px and 400% zoom, and the veraPDF result
 **When** the founder runs the report command this story adds

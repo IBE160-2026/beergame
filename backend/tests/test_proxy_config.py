@@ -30,9 +30,9 @@ def test_matchers_cover_bare_and_nested_paths():
     assert m["@print"] == ["/print", "/print/*"]
 
 
-def test_api_goes_to_api_with_immediate_flush():
+def test_api_goes_to_backend_with_immediate_flush():
     body = handle_blocks()["@api"]
-    assert re.search(r"reverse_proxy\s+\{\$API_UPSTREAM:api:8000\}", body)
+    assert re.search(r"reverse_proxy\s+\{\$API_UPSTREAM:backend:8000\}", body)
     assert re.search(r"flush_interval\s+-1", body)
 
 
@@ -42,9 +42,9 @@ def test_print_answers_404_at_the_proxy():
     assert "reverse_proxy" not in body
 
 
-def test_everything_else_goes_to_web():
+def test_everything_else_goes_to_frontend():
     body = handle_blocks()["*"]
-    assert re.search(r"reverse_proxy\s+\{\$WEB_UPSTREAM:web:3000\}", body)
+    assert re.search(r"reverse_proxy\s+\{\$WEB_UPSTREAM:frontend:3000\}", body)
 
 
 def test_no_auth_rules_yet():

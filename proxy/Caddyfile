@@ -9,7 +9,7 @@
 	@print path /print /print/*
 
 	handle @api {
-		reverse_proxy {$API_UPSTREAM:api:8000} {
+		reverse_proxy {$API_UPSTREAM:backend:8000} {
 			flush_interval -1 # SSE: no buffering (AD-8)
 		}
 	}
@@ -19,6 +19,6 @@
 	}
 
 	handle {
-		reverse_proxy {$WEB_UPSTREAM:web:3000}
+		reverse_proxy {$WEB_UPSTREAM:frontend:3000}
 	}
 }

@@ -8,11 +8,11 @@ permissions:
   contents: read
 
 jobs:
-  api:
+  backend:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: api
+        working-directory: backend
     services:
       postgres:
         image: postgres:17
@@ -40,11 +40,11 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run pytest
 
-  web:
+  frontend:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: web
+        working-directory: frontend
     env:
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
@@ -53,7 +53,7 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
