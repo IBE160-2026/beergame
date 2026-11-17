@@ -30,3 +30,27 @@ Kjøre `bmad-sprint-planning` for ØL-spillet v1: først kontrollere at planlegg
 - Issue #31: antakelsene i `open-assumptions.md` er fortsatt ubekreftet, og sen registrering uten ledig sete (FR-20, Story 5.13) trenger avgjørelse.
 - Issue #32: arkitekturen mangler de nye kommandoene. Den første er `games.commands.advance` i Story 2.1.
 - Issue #21: datoplan for 199 stories mot kursdatoen mangler.
+
+## 2026-11-17 kl. 12:29 — Bård Pettersen
+
+### Oppgave
+Kjøre `bmad-sprint-planning` på nytt etter at funnene fra klarhetssjekken er rettet ([UX-avgjørelser etter klarhetssjekken](982-2026-11-14-17-41-55-ux-avgjorelser-etter-klarhetssjekk.md)), og lage `sprint-status.yaml`.
+
+### Plan
+- Kjøre de mekaniske kontrollene på nytt på den committede planen (`ff3eb3b`).
+- Lage sporingsfila med `sprint_plan.py generate` og validere den med `validate`.
+- Føre status inn i `implementation-readiness.md`.
+
+### Resultat
+- Kontrollene ga samme resultat som 2026-11-14: 199 stories, alle FR, NFR, AD-regler og UX-krav i en `Covers:`-linje, 450 av 468 siterte norske strenger stemmer nøyaktig med UX-dokumentene, og henvisningene til senere stories er overleveringer. Planfilene er uendret siden commiten.
+- Klarhetssjekken er ikke lest på nytt av uavhengige lesere. Vurderingen bygger på sjekken 2026-11-12 og rettingene 2026-11-14.
+- Ny fil `.docs/implementation-artifacts/sprint-status.yaml`: 15 epics, 199 stories og 15 retrospektiver. Alle epics og stories står som `backlog`, retrospektivene som `optional`. `validate` gir ingen feil, og ingen nøkler er like.
+- Skriptet ga to advarsler, som ved prøvekjøringen: dokumenttittelen og overskriften «Epic List» er ikke epics.
+- Nøklene er kuttet ved 60 tegn, og fem nøkler har æ, ø eller å (4.1, 6.9, 7.11, 13.2, 13.4).
+- `implementation-readiness.md` har fått en statuslinje for 2026-11-17.
+- Ikke committet: `sprint-status.yaml` og endringen i `implementation-readiness.md`.
+
+### Åpne punkter
+- Issue #31: bekrefte utkastene til tekst og valgene i `open-assumptions.md`, og avgjøre sen registrering uten ledig sete (Story 5.13, FR-20).
+- Issue #32: hendelsesemner per kommando og de andre tilleggene mangler fortsatt i arkitekturen.
+- Issue #21: datoplan mot kursdatoen mangler.
