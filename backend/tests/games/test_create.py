@@ -1,0 +1,196 @@
+import uuid
+from decimal import Decimal
+
+import pytest
+
+from app.engine import (
+    RULES_VERSION,
+    DemandRandom,
+    GameSettings,
+    Role,
+    SettingsError,
+    demand_series,
+)
+from app.modules.games import commands, service
+from tests.games.helpers import counts, listening, query
+
+
+async def test_create_stores_a_not_started_game_with_four_free_seats(games_db):
+    with listening(games_db) as events:
+        game_id = await commands.create("simulation", GameSettings(), seed=123)
+        received = events.drain()
+    assert uuid.UUID(game_id).version == 7
+    ((lifecycle, purpose, version),) = query(
+        games_db, "SELECT lifecycle, purpose, version FROM games WHERE id = %s", (game_id,)
+    )
+    assert (lifecycle, purpose, version) == ("not_started", "simulation", 1)
+    seats = query(games_db, "SELECT id, role, position FROM seats ORDER BY position")
+    assert [(role, position) for _, role, position in seats] == [
+        ("retailer", 0),
+        ("wholesaler", 1),
+        ("distributor", 2),
+        ("factory", 3),
+    ]
+    assert all(seat_id.version == 7 for seat_id, _, _ in seats)
+    assert counts(games_db) == (1, 4, 0)  # create fills no Seat
+    assert received == [{"topic": "game", "id": game_id, "version": 1}]
+
+
+async def test_create_freezes_the_snapshot(games_db):
+    game_id = await commands.create("simulation", GameSettings(), seed=123)
+    ((settings, series, seed, rules_version, runtime),) = query(
+        games_db,
+        "SELECT settings, demand_series, demand_seed, rules_version, session_runtime "
+        "FROM games WHERE id = %s",
+        (game_id,),
+    )
+    expected = GameSettings(demand_seed=123)
+    assert settings == expected.model_dump(mode="json")
+    assert settings["schema_version"] == 1
+    assert settings["holding_cost"] == "0.50"
+    assert GameSettings.model_validate(settings) == expected
+    assert series == list(demand_series(expected))
+    assert len(series) == 36 and series[:5] == [4, 4, 4, 4, 8]
+    assert seed == 123
+    assert rules_version == RULES_VERSION
+    assert runtime == {
+        "schema_version": 1,
+        "ai_mode": "rule_based",
+        "rule_based_params": "placeholder-unverified",
+        "rule_based_params_version": 1,
+    }
+
+
+async def test_demand_pattern_and_seed_replace_the_settings_ones(games_db):
+    pattern = DemandRandom(kind="random", mean=6, spread=3)
+    game_id = await commands.create(
+        "simulation", GameSettings(demand_seed=5), demand_pattern=pattern, seed=77
+    )
+    ((settings, series, seed),) = query(
+        games_db, "SELECT settings, demand_series, demand_seed FROM games WHERE id = %s", (game_id,)
+    )
+    expected = GameSettings(demand=pattern, demand_seed=77)
+    assert seed == 77 and settings["demand_seed"] == 77
+    assert settings["demand"] == pattern.model_dump(mode="json")
+    assert series == list(demand_series(expected))
+
+
+async def test_the_settings_seed_is_used_when_no_seed_is_given(games_db):
+    game_id = await commands.create("simulation", GameSettings(demand_seed=99))
+    assert query(games_db, "SELECT demand_seed FROM games WHERE id = %s", (game_id,)) == [(99,)]
+
+
+async def test_a_seed_is_drawn_when_none_is_given(games_db):
+    pattern = DemandRandom(kind="random", mean=4, spread=2)
+    first = await commands.create("simulation", GameSettings(), demand_pattern=pattern)
+    second = await commands.create("simulation", GameSettings(), demand_pattern=pattern)
+    rows = query(games_db, "SELECT id::text, settings, demand_seed, demand_series FROM games")
+    by_id = {row[0]: row[1:] for row in rows}
+    for game_id in (first, second):
+        settings, seed, series = by_id[game_id]
+        assert settings["demand_seed"] == seed
+        assert 0 <= seed <= 999_999_999
+        assert series == list(demand_series(GameSettings(demand=pattern, demand_seed=seed)))
+    assert by_id[first][1] != by_id[second][1]
+
+
+async def test_a_game_of_fewer_roles_gets_one_seat_per_role(games_db):
+    roles = (Role.RETAILER, Role.FACTORY)
+    await commands.create("simulation", GameSettings(roles=roles), seed=1)
+    assert query(games_db, "SELECT role FROM seats ORDER BY position") == [
+        ("retailer",),
+        ("factory",),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("settings", "fields"),
+    [
+        (
+            GameSettings(guided_weeks=5),
+            {"guided_weeks": "guided_weeks_not_before_demand_change"},
+        ),
+        (
+            GameSettings(weeks=101, holding_cost=Decimal("0.505")),
+            {"holding_cost": "too_many_decimal_places", "weeks": "out_of_range"},
+        ),
+    ],
+)
+async def test_invalid_settings_store_nothing_and_return_the_engine_codes(
+    games_db, settings, fields
+):
+    with listening(games_db) as events:
+        with pytest.raises(commands.CommandError) as caught:
+            await commands.create("simulation", settings, seed=1)
+        assert events.drain() == []
+    error = caught.value
+    assert (error.code, error.status) == ("invalid_settings", 422)
+    assert error.fields == fields
+    assert all(isinstance(e, SettingsError) for e in error.errors)
+    assert {e.field: e.code for e in error.errors} == fields
+    assert counts(games_db) == (0, 0, 0)
+
+
+async def test_an_out_of_range_seed_is_an_engine_error(games_db):
+    with pytest.raises(commands.CommandError) as caught:
+        await commands.create("simulation", GameSettings(), seed=-1)
+    assert caught.value.fields == {"demand_seed": "out_of_range"}
+    assert counts(games_db) == (0, 0, 0)
+
+
+async def test_a_seed_that_is_not_a_whole_number_is_invalid(games_db):
+    with pytest.raises(commands.CommandError) as caught:
+        await commands.create("simulation", GameSettings(), seed="12")  # type: ignore[arg-type]
+    assert (caught.value.code, caught.value.fields) == (
+        "invalid_settings",
+        {"demand_seed": "invalid"},
+    )
+    assert counts(games_db) == (0, 0, 0)
+
+
+async def test_an_unknown_parameter_set_stores_nothing(games_db):
+    with pytest.raises(commands.CommandError) as caught:
+        await commands.create("simulation", GameSettings(), seed=1, rule_based_params="nope")
+    assert (caught.value.code, caught.value.status) == ("unknown_parameter_set", 422)
+    assert counts(games_db) == (0, 0, 0)
+
+
+async def test_an_invalid_parameter_set_stores_nothing(games_db, monkeypatch):
+    monkeypatch.setattr(commands, "read_parameter_set", lambda kind, set_id: '{"id": "x"}')
+    with pytest.raises(commands.CommandError) as caught:
+        await commands.create("simulation", GameSettings(), seed=1)
+    assert (caught.value.code, caught.value.status) == ("invalid_parameter_set", 422)
+    assert counts(games_db) == (0, 0, 0)
+
+
+@pytest.mark.parametrize("purpose", ["class", "replay", "makeup", "lecturer_test", "party"])
+async def test_purposes_without_a_policy_cannot_be_created_yet(games_db, purpose):
+    with pytest.raises(commands.CommandError) as caught:
+        await commands.create(purpose, GameSettings(), seed=1)
+    assert (caught.value.code, caught.value.status) == ("purpose_not_supported", 422)
+    assert counts(games_db) == (0, 0, 0)
+
+
+async def test_service_reads_the_game_back(games_db):
+    game_id = await commands.create("simulation", GameSettings(), seed=8)
+    game = await service.get_game(game_id)
+    assert game is not None
+    assert (game.id, game.lifecycle, game.version, game.demand_seed) == (
+        game_id,
+        "not_started",
+        1,
+        8,
+    )
+    assert [seat.role for seat in game.seats] == [
+        "retailer",
+        "wholesaler",
+        "distributor",
+        "factory",
+    ]
+    assert all(seat.occupant_kind is None for seat in game.seats)
+    assert game.session_runtime.rule_based_params == "placeholder-unverified"
+
+
+@pytest.mark.parametrize("game_id", ["not-a-uuid", str(uuid.uuid7())])
+async def test_service_answers_none_for_an_unknown_game(games_db, game_id):
+    assert await service.get_game(game_id) is None

@@ -10,6 +10,7 @@ from alembic.config import Config
 from tests.conftest import libpq_dsn
 
 API_ROOT = Path(__file__).resolve().parents[1]
+HEAD_TABLES = {"alembic_version", "games", "seats", "seat_occupancy"}
 
 
 def reset_schema(url: str) -> None:
@@ -26,16 +27,46 @@ def tables(url: str) -> set[str]:
     return {r[0] for r in rows}
 
 
-def test_upgrade_head_from_empty_leaves_only_alembic_version(test_database):
-    reset_schema(test_database)
+def config(url: str) -> Config:
     cfg = Config(str(API_ROOT / "alembic.ini"))
-    cfg.attributes["database_url"] = test_database
+    cfg.attributes["database_url"] = url
     cfg.attributes["configure_logger"] = False
-    command.upgrade(cfg, "head")
-    assert tables(test_database) == {"alembic_version"}
-    with psycopg.connect(libpq_dsn(test_database)) as conn:
+    return cfg
+
+
+def current_version(url: str) -> str:
+    with psycopg.connect(libpq_dsn(url)) as conn:
         (version,) = conn.execute("SELECT version_num FROM alembic_version").fetchone()
-    assert version == "0001"
+    return version
+
+
+def test_upgrade_head_from_empty_creates_the_games_tables(test_database):
+    reset_schema(test_database)
+    command.upgrade(config(test_database), "head")
+    assert tables(test_database) == HEAD_TABLES
+    assert current_version(test_database) == "0002"
+
+
+def test_the_revisions_match_the_module_tables(test_database):
+    """`alembic check` fails when a module table and the revisions disagree."""
+    reset_schema(test_database)
+    cfg = config(test_database)
+    command.upgrade(cfg, "head")
+    command.check(cfg)
+
+
+def test_downgrade_to_the_baseline_removes_the_games_tables(test_database):
+    reset_schema(test_database)
+    cfg = config(test_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0001")
+    assert tables(test_database) == {"alembic_version"}
+    assert current_version(test_database) == "0001"
+    with psycopg.connect(libpq_dsn(test_database)) as conn:
+        functions = conn.execute(
+            "SELECT 1 FROM pg_proc WHERE proname = 'seat_occupancy_append_only'"
+        ).fetchall()
+    assert functions == []
 
 
 def test_alembic_cli_uses_database_url_from_environment(test_database):
@@ -52,4 +83,34 @@ def test_alembic_cli_uses_database_url_from_environment(test_database):
         timeout=60,
     )
     assert result.returncode == 0, result.stderr
-    assert tables(test_database) == {"alembic_version"}
+    assert tables(test_database) == HEAD_TABLES
+
+
+CHECKS = {
+    "ck_games_purpose": "Purpose",
+    "ck_games_lifecycle": "Lifecycle",
+    "ck_seat_occupancy_kind": "OccupantKind",
+    "ck_seat_occupancy_reason": "OccupancyReason",
+}
+
+
+def test_the_check_constraints_list_exactly_the_enum_values(test_database):
+    """`alembic check` does not compare CHECK contents, so compare them with the enums here."""
+    import re
+
+    from app.modules.games import schemas
+
+    reset_schema(test_database)
+    command.upgrade(config(test_database), "head")
+    with psycopg.connect(libpq_dsn(test_database)) as conn:
+        rows = dict(
+            conn.execute(
+                "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint "
+                "WHERE conname = ANY(%s)",
+                (list(CHECKS),),
+            ).fetchall()
+        )
+    assert set(rows) == set(CHECKS)
+    for name, enum in CHECKS.items():
+        listed = set(re.findall(r"'([a-z_]+)'", rows[name]))
+        assert listed == {member.value for member in getattr(schemas, enum)}, name

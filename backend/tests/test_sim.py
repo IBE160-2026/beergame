@@ -415,3 +415,148 @@ def test_rule_based_policy_skips_the_rule_only_in_guided_weeks(guided_weeks):
     assert called_in == [False] * guided_weeks + [True]
     assert all(set(orders.values()) == {4} for orders in placed[:guided_weeks])
     assert set(placed[guided_weeks].values()) == {7}
+
+
+# Story 1.7: `create` stores a simulation Game through games.commands.
+
+
+def create(capsys, *argv):
+    code = main(["create", *argv])
+    captured = capsys.readouterr()
+    lines = [line for line in captured.out.splitlines() if line.split(" ")[0] in REPORT]
+    return code, lines, captured.err
+
+
+REPORT = {"game", "seed", "lifecycle", "seat"}
+
+
+def test_create_prints_the_game_its_seed_and_seats_from_the_database(capsys, games_db):
+    from tests.games.helpers import query
+
+    code, lines, _ = create(capsys, "--settings", "classic", "--seats", "rule_based")
+    assert code == 0
+    game_id = lines[0].removeprefix("game ")
+    ((seed,),) = query(games_db, "SELECT demand_seed FROM games WHERE id = %s", (game_id,))
+    assert lines == [
+        f"game {game_id}",
+        f"seed {seed}",
+        "lifecycle not_started",
+        "seat retailer rule_based",
+        "seat wholesaler rule_based",
+        "seat distributor rule_based",
+        "seat factory rule_based",
+    ]
+
+
+def test_create_takes_one_occupant_per_role_and_a_seed(capsys, games_db):
+    spec = "rule_based,scripted:constant-4,rule_based,scripted:constant-4"
+    code, lines, _ = create(capsys, "--seats", spec, "--seed", "42")
+    assert code == 0
+    assert lines[1:] == [
+        "seed 42",
+        "lifecycle not_started",
+        "seat retailer rule_based",
+        "seat wholesaler scripted constant-4",
+        "seat distributor rule_based",
+        "seat factory scripted constant-4",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("argv", "message"),
+    [
+        (["--seats", "llm"], "unknown Seat spec 'llm'"),
+        (["--seats", "scripted:nope"], "unknown Seat spec 'scripted:nope'"),
+        (["--seats", "scripted:"], "unknown Seat spec"),
+        (["--seats", "rule_based,rule_based"], "--seats needs one occupant or 4, not 2"),
+    ],
+)
+def test_create_bad_seat_spec_exits_2_and_stores_nothing(capsys, games_db, argv, message):
+    from tests.games.helpers import counts
+
+    with pytest.raises(SystemExit) as info:
+        main(["create", *argv])
+    assert info.value.code == 2
+    assert message in capsys.readouterr().err
+    assert counts(games_db) == (0, 0, 0)
+
+
+def test_create_reports_the_engine_codes_and_exits_1(capsys, games_db):
+    from tests.games.helpers import counts
+
+    code, lines, err = create(capsys, "--seed", "-1")
+    assert (code, lines) == (1, [])
+    assert err.splitlines() == [
+        "error invalid_settings: the Game settings break the engine's rules",
+        "error out_of_range demand_seed",
+    ]
+    assert counts(games_db) == (0, 0, 0)
+
+
+def test_create_with_an_unknown_parameter_set_exits_1(capsys, games_db):
+    code, _, err = create(capsys, "--rule-based-params", "nope")
+    assert code == 1
+    assert err.startswith("error unknown_parameter_set: ")
+
+
+def test_create_without_a_database_exits_1(capsys, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://nobody:secretpw@127.0.0.1:1/none")
+    code, lines, err = create(capsys)
+    assert (code, lines) == (1, [])
+    assert err.strip() == "error db_unavailable: cannot reach the database"
+
+
+def test_create_reports_a_game_left_with_free_seats(capsys, games_db, monkeypatch):
+    from app.modules.games import commands as game_commands
+
+    async def refuse(*args):
+        raise game_commands.CommandError("seat_occupied", "taken", 409)
+
+    monkeypatch.setattr(game_commands, "assign_seat", refuse)
+    code, lines, err = create(capsys)
+    assert (code, lines) == (1, [])
+    first, note = err.splitlines()
+    assert first == "error seat_occupied: taken"
+    assert note.startswith("note: game ") and note.endswith(" was stored with Seats still free")
+
+
+def test_create_reports_other_database_errors_and_exits_1(capsys, monkeypatch):
+    from sqlalchemy.exc import ProgrammingError
+
+    from app.modules.games import commands as game_commands
+
+    async def broken(*args, **kwargs):
+        raise ProgrammingError("SELECT", {}, Exception("relation games does not exist"))
+
+    monkeypatch.setattr(game_commands, "create", broken)
+    code, lines, err = create(capsys)
+    assert (code, lines) == (1, [])
+    assert err.strip() == "error db_error: Exception"
+
+
+def test_create_seat_spec_allows_spaces(capsys, games_db):
+    code, lines, _ = create(
+        capsys, "--seats", "rule_based, scripted:constant-4, rule_based, rule_based"
+    )
+    assert code == 0
+    assert lines[4] == "seat wholesaler scripted constant-4"
+
+
+def test_create_as_a_program_prints_only_the_report_on_stdout(games_db):
+    import os
+    import subprocess
+    import sys
+
+    env = {**os.environ, "DATABASE_URL": os.environ["DATABASE_URL"]}
+    result = subprocess.run(
+        [sys.executable, "-m", "app.sim", "create", "--seed", "1"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    lines = result.stdout.splitlines()
+    assert [line.split(" ")[0] for line in lines] == ["game", "seed", "lifecycle"] + ["seat"] * 4
+    assert '"event": "game_created"' in result.stderr

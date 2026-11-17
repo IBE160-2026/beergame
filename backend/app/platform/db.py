@@ -2,10 +2,13 @@
 
 from functools import lru_cache
 
-from sqlalchemy import text
+from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
 from app.platform.config import get_settings
+
+metadata = MetaData()
+"""Every module's Core tables; Alembic compares its revisions against it."""
 
 
 @lru_cache

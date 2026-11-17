@@ -11,20 +11,27 @@ Subcommands:
   demand           print the seed and the demand series of a Demand pattern (FR-13); a
                    seed is drawn from OS entropy when none is given, and the same seed
                    prints the same series. Exit 1 when the pattern or seed breaks a rule.
+  create           store a simulation Game through `games.commands`, give every Seat its
+                   occupant (`--seats rule_based`, `scripted:<id>`, or one per Role,
+                   comma-separated) and print the Game id, seed and Seats read back from the
+                   database. Exit 1 when a command refuses (its code is printed).
 
 The runner computes no game quantities: every printed number is an engine field or the Order
 it was given.
 """
 
 import argparse
+import asyncio
 import json
 import re
 import secrets
-from collections.abc import Callable, Mapping, Sequence
+import sys
+from collections.abc import Callable, Coroutine, Mapping, Sequence
 from decimal import Decimal
 from pathlib import Path
 
 from pydantic import TypeAdapter, ValidationError
+from sqlalchemy.exc import DBAPIError, OperationalError
 
 from app.engine import (
     DEMAND_RANGES,
@@ -45,6 +52,12 @@ from app.engine import (
     warnings,
 )
 from app.engine.demand import new_seed, series
+from app.engine.scripted import REGISTRY
+from app.modules.games import commands as game_commands
+from app.modules.games import service as game_service
+from app.platform import db
+from app.platform.config import get_settings
+from app.platform.logging import configure_logging
 from app.platform.parameter_sets import UnknownParameterSetError, read_parameter_set
 
 DEMAND_PATTERN: TypeAdapter[DemandPattern] = TypeAdapter(DemandPattern)
@@ -55,7 +68,7 @@ type OrderPolicy = Callable[
 """Orders for the last opened Week of `states`, given the Order maps of the earlier Weeks."""
 
 RULE_BASED = "rule_based"
-DEFAULT_RULE_BASED_PARAMS = "placeholder-unverified"
+DEFAULT_RULE_BASED_PARAMS = rule_based.DEFAULT_SET_ID
 
 SETTINGS: dict[str, Callable[[], GameSettings]] = {"classic": GameSettings}
 
@@ -292,6 +305,78 @@ def _demand(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     return 0
 
 
+type Occupant = tuple[str, str | None]
+"""An occupant kind and its policy id (scripted only)."""
+
+
+def _seats_spec(text: str) -> list[Occupant]:
+    """`rule_based` or `scripted:<id>`, once for every Seat or once per Role, comma-separated."""
+    occupants: list[Occupant] = []
+    for part in (piece.strip() for piece in text.split(",")):
+        if part == RULE_BASED:
+            occupants.append((RULE_BASED, None))
+        elif part.startswith("scripted:") and part.removeprefix("scripted:") in REGISTRY:
+            occupants.append(("scripted", part.removeprefix("scripted:")))
+        else:
+            raise argparse.ArgumentTypeError(
+                f"unknown Seat spec {part!r}: use rule_based or scripted:<id> with id in "
+                f"{', '.join(sorted(REGISTRY))}"
+            )
+    return occupants
+
+
+def _run[T](coroutine: Coroutine[object, object, T]) -> T:
+    # psycopg's async mode cannot run on Windows' default Proactor loop. A factory also keeps
+    # asyncio.run from replacing the thread's current event loop.
+    factory = asyncio.SelectorEventLoop if sys.platform == "win32" else asyncio.new_event_loop
+    return asyncio.run(coroutine, loop_factory=factory)
+
+
+async def _create_game(
+    settings: GameSettings, occupants: Sequence[Occupant], seed: int | None, params: str
+) -> int:
+    game_id: str | None = None
+    try:
+        game_id = await game_commands.create(
+            "simulation", settings, seed=seed, rule_based_params=params
+        )
+        for role, (kind, policy_id) in zip(settings.roles, occupants, strict=True):
+            await game_commands.assign_seat(game_id, role, kind, policy_id)
+        game = await game_service.get_game(game_id)
+        if game is None:
+            raise game_commands.CommandError("game_not_found", f"no Game {game_id!r}", 404)
+    except (game_commands.CommandError, DBAPIError) as exc:
+        if isinstance(exc, game_commands.CommandError):
+            print(f"error {exc.code}: {exc.message}", file=sys.stderr)
+            for field, code in exc.fields.items():
+                print(f"error {code} {field}", file=sys.stderr)
+        elif isinstance(exc, OperationalError):
+            print("error db_unavailable: cannot reach the database", file=sys.stderr)
+        else:
+            print(f"error db_error: {type(exc.orig).__name__}", file=sys.stderr)
+        if game_id is not None:
+            print(f"note: game {game_id} was stored with Seats still free", file=sys.stderr)
+        return 1
+    finally:
+        await db.dispose()
+    print(f"game {game.id}")
+    print(f"seed {game.demand_seed}")
+    print(f"lifecycle {game.lifecycle}")
+    for seat in game.seats:
+        print(" ".join(["seat", seat.role, str(seat.occupant_kind), seat.policy_id or ""]).rstrip())
+    return 0
+
+
+def _create(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    settings = SETTINGS[args.settings]()
+    seats = args.seats
+    if len(seats) == 1:
+        seats = seats * len(settings.roles)
+    elif len(seats) != len(settings.roles):
+        parser.error(f"--seats needs one occupant or {len(settings.roles)}, not {len(seats)}")
+    return _run(_create_game(settings, seats, args.seed, args.rule_based_params))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m app.sim", description="Headless simulation runner."
@@ -333,6 +418,25 @@ def build_parser() -> argparse.ArgumentParser:
     demand.add_argument("--spread", type=int, default=2, help="random and step+noise: spread")
     demand.add_argument("--values", type=_values_spec, help="fixed: comma-separated series")
     demand.set_defaults(handler=_demand, command_parser=demand)
+    create = commands.add_parser(
+        "create", help="store a simulation Game with an occupant in every Seat"
+    )
+    create.add_argument("--settings", choices=sorted(SETTINGS), default="classic")
+    create.add_argument(
+        "--seats",
+        type=_seats_spec,
+        default=[(RULE_BASED, None)],
+        metavar="SPEC",
+        help="rule_based (default) or scripted:<id>, once or once per Role, comma-separated",
+    )
+    create.add_argument("--seed", type=int, help="demand seed (default: draw a new one)")
+    create.add_argument(
+        "--rule-based-params",
+        default=DEFAULT_RULE_BASED_PARAMS,
+        metavar="ID",
+        help=f"Rule-based parameter set id (default {DEFAULT_RULE_BASED_PARAMS})",
+    )
+    create.set_defaults(handler=_create, command_parser=create)
     return parser
 
 
@@ -343,4 +447,5 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    configure_logging(get_settings().log_level, stream=sys.stderr)  # stdout is the report
     raise SystemExit(main())

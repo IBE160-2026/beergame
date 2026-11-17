@@ -15,6 +15,9 @@ from app.engine.view import SeatView
 
 Weight = Annotated[Decimal, Field(ge=0, le=1, allow_inf_nan=False)]
 
+DEFAULT_SET_ID = "placeholder-unverified"
+"""The parameter set used when the caller names none (the only set shipped so far)."""
+
 
 class RuleBasedParams(BaseModel):
     """A named, versioned parameter set of the rule, held as configuration."""

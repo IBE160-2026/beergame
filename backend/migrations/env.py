@@ -8,7 +8,9 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
+import app.modules.games.models  # noqa: F401  (registers the games tables on the metadata)
 from app.platform.config import get_settings
+from app.platform.db import metadata
 from app.platform.logging import configure_logging
 
 config = context.config
@@ -16,8 +18,9 @@ config = context.config
 if config.attributes.get("configure_logger", True):
     configure_logging(get_settings().log_level)
 
-# No ORM metadata yet; each story adds its own explicit revision.
-target_metadata = None
+# Each story still writes its own explicit revision; the metadata lets `alembic check` (and a
+# test) prove the revisions and the module tables agree.
+target_metadata = metadata
 
 
 def database_url() -> str:

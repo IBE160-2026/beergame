@@ -10,9 +10,12 @@ import asyncio
 import os
 import sys
 import warnings
+from pathlib import Path
 
 import psycopg
 import pytest
+from alembic import command
+from alembic.config import Config
 from sqlalchemy.engine import make_url
 
 from app.platform import db
@@ -49,6 +52,23 @@ def _ensure_test_database() -> None:
 def test_database() -> str:
     _ensure_test_database()
     return TEST_DATABASE_URL
+
+
+def migrate(url: str, revision: str = "head") -> None:
+    cfg = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    cfg.attributes["database_url"] = url
+    cfg.attributes["configure_logger"] = False
+    command.upgrade(cfg, revision)
+
+
+@pytest.fixture
+def games_db(test_database) -> str:
+    """The test database at the latest revision with empty games tables. Upgrading per test
+    is needed because the migration tests drop the schema."""
+    migrate(test_database)
+    with psycopg.connect(libpq_dsn(test_database), autocommit=True) as conn:
+        conn.execute("TRUNCATE games, seats, seat_occupancy CASCADE")
+    return test_database
 
 
 def reset_caches() -> None:
