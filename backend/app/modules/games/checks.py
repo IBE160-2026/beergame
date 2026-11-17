@@ -21,7 +21,12 @@ from app.modules.games.schemas import GameCheck, Lifecycle, SeatState
 from app.modules.games.views import ViewError, build_seat_state, stored_orders
 from app.platform.db import get_sessionmaker
 
-__all__ = ["as_game_check", "rules_versions_without_package", "verify_finished"]
+__all__ = [
+    "as_game_check",
+    "finished_game_ids",
+    "rules_versions_without_package",
+    "verify_finished",
+]
 
 log = structlog.get_logger(__name__)
 
@@ -175,6 +180,13 @@ def _decision_log(
                 )
             )
     return found
+
+
+async def finished_game_ids() -> tuple[str, ...]:
+    """The id of every finished Game, oldest first: what `sim check --all` checks."""
+    async with get_sessionmaker()() as session:
+        ids = await repo.finished_game_ids(session)
+    return tuple(str(game_id) for game_id in ids)
 
 
 async def rules_versions_without_package() -> tuple[int, ...]:

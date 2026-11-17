@@ -4,7 +4,11 @@ import uuid
 
 from app.engine import GameSettings
 from app.modules.games import repo
-from app.modules.games.checks import rules_versions_without_package, verify_finished
+from app.modules.games.checks import (
+    finished_game_ids,
+    rules_versions_without_package,
+    verify_finished,
+)
 from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, policy
 from app.modules.games.schemas import (
     DecidedBy,
@@ -43,6 +47,7 @@ __all__ = [
     "TurnOverview",
     "ViewError",
     "decision_log",
+    "finished_game_ids",
     "game_summary",
     "get_game",
     "open_turn",

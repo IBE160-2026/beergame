@@ -207,3 +207,6 @@ All other findings were rejected; the reasons are in the triage log. Nothing def
 - TRUNCATE bypasses the append-only triggers (tests only).
 - One unreadable Week state row hides the other rules of that Game in its single stored check.
 - CI was not run on GitHub (no push).
+
+**Added afterwards (2026-11-17): `sim check --all`.**
+The acceptance criterion "Given I run `python -m app.sim check --all` / When it finishes / Then it prints the number of finished Games checked and lists any violations, and exits non-zero if there is one" was missed when the story was built and added later in its own commit. `check --all` calls `games.service.finished_game_ids()` (new; finished Games oldest first, via `repo.finished_game_ids`) and `verify_finished` for each, so a stored check is read back and a missing one is written. Only failed Games are listed (`game <id> check failed N` and its `violation` lines, or `game <id> check refused <code>: <message>` when the check is refused, e.g. a `rules_version` without a rules package, which counts as a failure and stores nothing). The last line is `checked N ok=X failed=Y`. Exit 0 when every check passed, also for an empty database (`checked 0 ok=0 failed=0`); 1 on a failed or refused check or a database error; 2 when neither or both of a Game id and `--all` are given. Tests are in `backend/tests/test_sim.py`.

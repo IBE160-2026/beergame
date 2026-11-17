@@ -27,8 +27,14 @@ Subcommands:
                    exit 1 when the check finds a violation.
   check            run (or read back) the finished-game check of a Game: `check ok`, or
                    `check failed N` and one `violation` line per broken rule. Exit 1 when it
-                   failed or was refused.
-  log              print the Decision log: one row per Week and Seat with what the Seat saw,
+                   failed or was refused. `check --all` checks every finished Game (oldest
+                   first; a stored check is read back), lists only the failed ones (`game <id>
+                   check failed N` and its violations, or `game <id> check refused <code>` when
+                   e.g. its `rules_version` has no rules package) and ends with `checked N ok=X
+                   failed=Y`. Exit 0 when every check passed (also when there is none), 1 when
+                   one failed or was refused, 2 when neither or both of a Game id and `--all`
+                   are given.
+  log             print the Decision log: one row per Week and Seat with what the Seat saw,
                    its Order, the Week's cost, who decided and the Rule-based reference Order.
   run              play a batch of simulation Games from a JSON batch file (`seed`, `games`,
                    `seats`, optional `settings`, `demand`, `rule_based_params`; Game i uses
@@ -523,14 +529,49 @@ async def _check_game(game_id: str) -> int:
         print("check ok")
         return 0
     print(f"check failed {len(check.violations)}")
+    _print_violations(check)
+    return 1
+
+
+def _print_violations(check: game_service.GameCheck) -> None:
     for violation in check.violations:
         role = violation.role.value if violation.role is not None else "-"
         week = violation.week if violation.week is not None else "-"
         print(f"violation {violation.rule} week {week} role {role}")
-    return 1
+
+
+async def _check_all() -> int:
+    """Check every finished Game. Only failed Games are listed: `game <id> check failed N` and
+    its violation lines, or `game <id> check refused <code>` when the check is refused (a
+    `rules_version` without a rules package). The last line counts the Games checked."""
+    failed = 0
+    try:
+        game_ids = await game_service.finished_game_ids()
+        for game_id in game_ids:
+            try:
+                check = await game_service.verify_finished(game_id)
+            except game_service.ViewError as exc:
+                failed += 1
+                print(f"game {game_id} check refused {exc.code}: {exc.message}")
+                continue
+            if not check.ok:
+                failed += 1
+                print(f"game {game_id} check failed {len(check.violations)}")
+                _print_violations(check)
+    except DBAPIError as exc:
+        _report(exc)
+        return 1
+    finally:
+        await db.dispose()
+    print(f"checked {len(game_ids)} ok={len(game_ids) - failed} failed={failed}")
+    return 1 if failed else 0
 
 
 def _check(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    if args.all == (args.game_id is not None):
+        parser.error("give a Game id or --all")
+    if args.all:
+        return _run(_check_all())
     return _run(_check_game(args.game_id))
 
 
@@ -904,7 +945,10 @@ def build_parser() -> argparse.ArgumentParser:
     check_game = commands.add_parser(
         "check", help="replay a finished Game and check its books (stored once)"
     )
-    check_game.add_argument("game_id")
+    check_game.add_argument("game_id", nargs="?")
+    check_game.add_argument(
+        "--all", action="store_true", help="check every finished Game and count them"
+    )
     check_game.set_defaults(handler=_check, command_parser=check_game)
     log = commands.add_parser("log", help="print the Decision log, one row per Week and Seat")
     log.add_argument("game_id")

@@ -880,6 +880,75 @@ def test_play_exits_1_when_the_finished_game_check_fails(capsys, games_db, monke
     ]
 
 
+CHECK_ALL = {"game", "violation", "checked"}
+
+
+def test_check_all_of_an_empty_database_checks_nothing_and_exits_0(capsys, games_db):
+    assert main(["check", "--all"]) == 0
+    assert report(capsys, CHECK_ALL) == ["checked 0 ok=0 failed=0"]
+
+
+def test_check_all_counts_the_finished_games_and_lists_only_failures(capsys, games_db):
+    from tests.games.helpers import query, tamper
+
+    good, bad, refused = (played_game(capsys) for _ in range(3))
+    running = created_game(capsys)
+    assert main(["start", running]) == 0
+    tamper(games_db, "DELETE FROM game_checks WHERE game_id IN (%s, %s)", (bad, refused))
+    tamper(
+        games_db,
+        "UPDATE game_weeks SET state = jsonb_set(state, '{seats,1,backlog}', '5') "
+        "WHERE game_id = %s AND week = 15 AND NOT finished",
+        (bad,),
+    )
+    tamper(games_db, "UPDATE games SET rules_version = 99 WHERE id = %s", (refused,))
+    capsys.readouterr()
+    for _ in range(2):  # the second run reads the stored checks back
+        assert main(["check", "--all"]) == 1
+        lines = report(capsys, CHECK_ALL)
+        assert lines[-1] == "checked 3 ok=1 failed=2"
+        assert not any(good in line for line in lines)
+        assert not any(running in line for line in lines)
+        failed = lines.index(next(line for line in lines if line.startswith(f"game {bad} ")))
+        count = int(lines[failed].removeprefix(f"game {bad} check failed "))
+        assert all(line.startswith("violation ") for line in lines[failed + 1 : failed + 1 + count])
+        assert "violation replay week 15 role wholesaler" in lines
+        assert (
+            f"game {refused} check refused rules_version_unsupported: "
+            "no rules package for rules version 99" in lines
+        )
+    # A refused check stores nothing; the tampered Game's failed check is stored once.
+    assert query(games_db, "SELECT game_id::text, ok FROM game_checks ORDER BY ok") == [
+        (bad, False),
+        (good, True),
+    ]
+
+
+def test_check_all_checks_a_finished_game_without_a_stored_check(capsys, games_db):
+    from tests.games.helpers import query, tamper
+
+    game_id = played_game(capsys)
+    tamper(games_db, "DELETE FROM game_checks WHERE game_id = %s", (game_id,))
+    capsys.readouterr()
+    assert main(["check", "--all"]) == 0
+    assert report(capsys, CHECK_ALL) == ["checked 1 ok=1 failed=0"]
+    assert query(games_db, "SELECT ok FROM game_checks WHERE game_id = %s", (game_id,)) == [(True,)]
+
+
+@pytest.mark.parametrize("argv", [["check"], ["check", "x", "--all"]])
+def test_check_needs_a_game_id_or_all(capsys, argv):
+    with pytest.raises(SystemExit) as info:
+        main(argv)
+    assert info.value.code == 2
+    assert "give a Game id or --all" in capsys.readouterr().err
+
+
+def test_check_all_without_a_database_exits_1(capsys, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://nobody:secretpw@127.0.0.1:1/none")
+    assert main(["check", "--all"]) == 1
+    assert capsys.readouterr().err.strip() == "error db_unavailable: cannot reach the database"
+
+
 # Story 1.11: `run` plays a batch of Games through `games.commands` and summarises them.
 
 SMOKE = Path(__file__).parents[1] / "batches" / "classic-smoke.json"

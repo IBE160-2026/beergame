@@ -253,6 +253,14 @@ async def insert_game_check(session: AsyncSession, values: dict[str, Any]) -> Ro
     return result.mappings().one_or_none()
 
 
+async def finished_game_ids(session: AsyncSession) -> list[uuid.UUID]:
+    """The id of every finished Game, oldest first (ids are UUIDv7)."""
+    result = await session.execute(
+        select(games.c.id).where(games.c.lifecycle == "finished").order_by(games.c.id)
+    )
+    return list(result.scalars())
+
+
 async def stored_rules_versions(session: AsyncSession) -> list[int]:
     """Every distinct `rules_version` stored on a Game."""
     result = await session.execute(
