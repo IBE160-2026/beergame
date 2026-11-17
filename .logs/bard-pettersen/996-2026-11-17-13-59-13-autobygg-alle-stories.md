@@ -114,3 +114,21 @@ Bygge Story 1.6 på `epic-1`.
 
 ### Åpne punkter
 - Issue #41: plassholderparametere og tolkninger i regelspilleren.
+
+## Story 1.7: Simuleringsspill med AI-spiller på hver plass (2026-11-17)
+
+### Oppgave
+Bygge Story 1.7 på `epic-1`.
+
+### Plan
+`bmad-build-auto` i én underagent, med implementering i egen kontekst og gjennomgang i underagenter.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-1-7-create-simulation-game-ai-seats.md`. Commit `47d58ef`.
+- Alembic `0002` med `games`, `seats` og `seat_occupancy` (trigger nekter endring), `games.commands.create` og `assign_seat`, `games.policy`, `platform/events`, `engine.scripted.REGISTRY` og `python -m app.sim create`.
+- 899 tester grønne, full grenddekning av motoren, ruff ren. `sim create --settings classic --seats rule_based` virker.
+- Gjennomgang: 38 funn (5 middels), de middels rettet, resten avvist med begrunnelse.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #42: beslutninger om spillopprettelse, policy og hendelser, og anbefalt oppfølgende gjennomgang.
