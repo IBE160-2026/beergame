@@ -352,3 +352,22 @@ Bygge Story 2.5 på `epic-2`.
 
 ### Åpne punkter
 - Issue #54: beslutninger om jobbene og fallback, det utsatte funnet om databasefeil og anbefalt oppfølgende gjennomgang.
+
+## Story 2.6: Hver LLM-ordre innenfor tidsbudsjettet (2026-11-18)
+
+### Oppgave
+Bygge Story 2.6 på `epic-2`, og løse de utsatte funnene i Issue #52 og #54.
+
+### Plan
+`bmad-build-auto` i én underagent, med injisert klokke i stedet for ekte ventetid i testene.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-6-keep-llm-orders-inside-time-budget.md`. Commit `a6f8247`.
+- Hver `llm`-tur lagrer `ai_deadline_at` (ren funksjon `games.rules.turn_times`). Jobben stopper modellkallet ved fristen. `worker-ai` kjører en redningsløkke hvert 5. s som legger inn `timeout`-fallback og åpner neste uke.
+- Issue #52: avbrutt forsøk logges som `cancelled`. Issue #54: databasefeil prøves på nytt to ganger, så tar løkka over.
+- Hele pakken: 1335 grønne på rundt 50 s, full grenddekning av motoren. Håndsjekk i Docker: løkka la inn 4 fallbacks etter fristen. Åtte tester i `test_rescue.py` tar 1–2,5 s.
+- Gjennomgang: 36 funn, 9 rettet. Alvorligst: Postgres-klokka gikk 96 s foran verten, så fristene regnes nå på databaseklokka.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #55: beslutninger om frister, nye forsøk og redningsløkka.
