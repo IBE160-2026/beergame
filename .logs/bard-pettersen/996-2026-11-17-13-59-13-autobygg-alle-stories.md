@@ -334,3 +334,21 @@ Bygge Story 2.4 på `epic-2`.
 
 ### Åpne punkter
 - Issue #53: beslutninger om prompten og gjenkjenningsprøven.
+
+## Story 2.5: LLM-ordrer som jobber med regelbasert fallback (2026-11-18)
+
+### Oppgave
+Bygge Story 2.5 på `epic-2`.
+
+### Plan
+`bmad-build-auto` i én underagent, med regelen om raske tester og at jobbtester ikke venter på klokka.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-5-place-llm-orders-as-jobs-rule-based-fallback.md`. Commit `e73998b`.
+- LLM-spillere får ordrene sine fra `ai-orders`-jobber (procrastinate 3.11.0, skjema i Alembic 0008). Feiler modellen, legger jobben inn den regelbaserte referanseordren, merket med feiltype og kall-id-er. Compose har nå `worker-ai` og `worker-batch`.
+- Hele pakken: 1307 grønne på 55 s, full grenddekning av motoren, golden-resultater uendret. `worker-ai` spilte et mock-LLM-spill på 36 uker i compose, og sjekken bestod.
+- Gjennomgang: 38 funn, de middels rettet (en jobb kunne stoppe et spill, feiltyper uten test, skjemaavvik). Ett utsatt.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #54: beslutninger om jobbene og fallback, det utsatte funnet om databasefeil og anbefalt oppfølgende gjennomgang.
