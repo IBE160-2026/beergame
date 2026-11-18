@@ -20,6 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity import repo
 from app.modules.identity.schemas import (
+    AccessRequestListOut,
+    AccessRequestOut,
     AccountRole,
     InstitutionListOut,
     InstitutionOut,
@@ -316,25 +318,61 @@ def _invitation_open(row, now: datetime) -> bool:
 
 
 async def send_invitation(
-    actor: uuid.UUID, address: str, role: AccountRole, *, now: datetime
+    actor: uuid.UUID,
+    address: str,
+    role: AccountRole,
+    *,
+    now: datetime,
+    access_request_id: uuid.UUID | None = None,
 ) -> InvitationOut:
     """Invite `address` to `role`. In one transaction: void the open Invitation to the same address
     and role, store the new one (its token only as a hash), enqueue its `invitation` notice and
     write the audit row. Raises `InvalidEmail` for a malformed address, before anything is
-    stored. The caller's policy has already checked that `actor` may manage Users."""
+    stored. The caller's policy has already checked that `actor` may manage Users.
+
+    With `access_request_id` naming an open request for lecturer access (Story 3.13), and a
+    Lecturer Invitation to that request's own address, the request is closed as invited in the
+    same transaction, and the one audit row is `access_request.invited` with both ids. A request
+    that is not open, or another address or role, leaves the request as it is."""
     address = normalise_email(address)
     if not email_is_valid(address):
         raise InvalidEmail
     role = AccountRole(role)
     async with get_sessionmaker().begin() as s:
         await repo.lock_invitation_address(s, address, role.value)
-        sent, voided = await _issue_invitation(s, actor, address, role, INVITATION_SENT, {}, now)
+        request = (
+            await repo.lock_open_access_request(s, access_request_id)
+            if access_request_id is not None
+            else None
+        )
+        # Only a Lecturer Invitation to the request's own address answers it.
+        if request is not None and (request["email"] != address or role is not ACCESS_REQUEST_ROLE):
+            request = None
+        if request is None:
+            sent, voided = await _issue_invitation(
+                s, actor, address, role, INVITATION_SENT, {}, now
+            )
+        else:
+            sent, voided = await _issue_invitation(
+                s,
+                actor,
+                address,
+                role,
+                ACCESS_REQUEST_INVITED,
+                {},
+                now,
+                targets={"access_request_id": request["id"]},
+            )
+            await repo.close_access_request(
+                s, request["id"], status="invited", actor=actor, now=now, invitation_id=sent.id
+            )
     log.info(
         "invitation_sent",
         invitation_id=str(sent.id),
         actor_user_id=str(actor),
         role=role.value,
         voided_count=voided,
+        access_request_id=str(request["id"]) if request is not None else None,
     )
     return sent
 
@@ -347,6 +385,8 @@ async def _issue_invitation(
     action: str,
     change: dict[str, object],
     now: datetime,
+    *,
+    targets: dict[str, uuid.UUID] | None = None,
 ) -> tuple[InvitationOut, int]:
     """Inside the caller's transaction, which holds `lock_invitation_address`: void the open
     Invitation to the address and role, store a new one (its token only as a hash), clear the
@@ -370,7 +410,9 @@ async def _issue_invitation(
     change = {"role": role.value, **change}
     if voided:
         change["voided_invitation_ids"] = voided
-    await audit.record(s, actor, action, {"invitation_id": invitation_id}, change, now)
+    await audit.record(
+        s, actor, action, {"invitation_id": invitation_id, **(targets or {})}, change, now
+    )
     sent = InvitationOut(
         id=invitation_id,
         email=address,
@@ -1015,6 +1057,90 @@ async def get_institution(institution_id: uuid.UUID) -> InstitutionOut | None:
     return _institution_out(row) if row else None
 
 
+# Requests for lecturer access from the Landing (Story 3.13, FR-1, FR-3). A request never
+# creates a User or an Invitation; the Admin invites from it (`send_invitation`) or dismisses it.
+
+ACCESS_REQUEST_IP = "access_request_ip"
+ACCESS_REQUEST_ROLE = AccountRole.lecturer
+"""The role a request for lecturer access asks for: only an Invitation to it answers the request
+(a data rule of the request, not an access check)."""
+ACCESS_REQUEST_INVITED = "access_request.invited"
+"""The audit action of an Invitation the Admin sends from a request: one row for both."""
+ACCESS_REQUEST_DISMISSED = "access_request.dismissed"
+"""The audit action of a request the Admin dismisses."""
+
+
+async def request_access(
+    name: str, address: str, institution: str, *, ip: str, now: datetime
+) -> int | None:
+    """Store a request for lecturer access, or update the open request of the same address.
+    Returns None when it was taken, or the seconds until the window ends when the per-IP limit
+    refused it (nothing is stored then). The answer never says whether the address has an
+    account. The caller has already checked and normalised the fields (`AccessRequestIn`)."""
+    settings = get_settings()
+    window = timedelta(minutes=settings.access_request_rate_limit_window_minutes)
+    async with get_sessionmaker().begin() as s:
+        count = await ratelimit.hit(s, ACCESS_REQUEST_IP, f"ip:{ip}", window=window, now=now)
+        limited = count > settings.access_request_rate_limit_per_ip
+        request_id = None
+        if not limited:
+            request_id = await repo.upsert_access_request(
+                s,
+                request_id=uuid.uuid7(),
+                name=name,
+                email=address,
+                institution=institution,
+                now=now,
+            )
+    if limited:
+        log.info("access_request_refused", error_code="rate_limited")
+        return ratelimit.seconds_left(now, window)
+    log.info("access_request_received", access_request_id=str(request_id))
+    return None
+
+
+def _access_request_out(row) -> AccessRequestOut:
+    return AccessRequestOut(
+        id=row["id"],
+        name=row["name"],
+        email=row["email"],
+        institution=row["institution"],
+        requested_at=row["requested_at"],
+    )
+
+
+async def access_request_page(cursor: str | None, limit: int) -> AccessRequestListOut:
+    """A page of the open requests, newest first. Raises `InvalidCursor` for a cursor this api
+    did not hand out."""
+    after = _decode_cursor(cursor) if cursor else None
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.list_open_access_requests(s, after=after, limit=limit + 1)
+    if rows is None:
+        raise InvalidCursor
+    page = rows[:limit]
+    return AccessRequestListOut(
+        items=[_access_request_out(row) for row in page],
+        next_cursor=_encode_cursor(page[-1]["id"]) if len(rows) > limit else None,
+    )
+
+
+async def dismiss_access_request(actor: uuid.UUID, request_id: uuid.UUID, *, now: datetime) -> bool:
+    """Close an open request as dismissed, with one audit row. False when no open request has the
+    id (unknown, invited or already dismissed)."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.lock_open_access_request(s, request_id)
+        if row is None:
+            return False
+        await repo.close_access_request(s, request_id, status="dismissed", actor=actor, now=now)
+        await audit.record(
+            s, actor, ACCESS_REQUEST_DISMISSED, {"access_request_id": request_id}, {}, now
+        )
+    log.info(
+        "access_request_dismissed", access_request_id=str(request_id), actor_user_id=str(actor)
+    )
+    return True
+
+
 # Labels for the audit page (Story 3.12, AD-14): audit rows hold ids, names are read here.
 
 
@@ -1036,6 +1162,12 @@ async def invitation_labels(ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
 async def institution_labels(ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
     """The Institutions' names now; registered for the target key `institution_id`."""
     return await _labels("institutions", ids)
+
+
+async def access_request_labels(ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """The names the requests for lecturer access were sent with; registered for the target key
+    `access_request_id` (Story 3.13)."""
+    return await _labels("access_requests", ids)
 
 
 # The first Admin (AD-17, Story 3.8).

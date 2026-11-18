@@ -126,7 +126,10 @@ def ai_db(test_database) -> str:
     return test_database
 
 
-IDENTITY_TABLES = "users, user_roles, rate_limit_counters, invitations, audit_events, institutions"
+IDENTITY_TABLES = (
+    "users, user_roles, rate_limit_counters, invitations, audit_events, institutions, "
+    "access_requests"
+)
 
 
 @pytest.fixture

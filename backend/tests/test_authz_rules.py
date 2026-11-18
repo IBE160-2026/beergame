@@ -29,8 +29,9 @@ PUBLIC_ROUTES = {
     ("POST", "/api/auth/invitation/accept"),
     ("POST", "/api/auth/invitation/accept-login"),
     ("POST", "/api/auth/invitation/renewal"),
-    # Later stories add theirs here, and only these kinds: the lecturer-access request (3.13)
-    # and webhooks (signature-checked).
+    # The lecturer-access request from the Landing (Story 3.13): the visitor has no account.
+    ("POST", "/api/auth/access-request"),
+    # Later stories add theirs here, and only this kind: webhooks (signature-checked).
 }
 
 

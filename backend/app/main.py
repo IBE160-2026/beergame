@@ -91,6 +91,7 @@ def create_app() -> FastAPI:
     audit.register_labels("user_id", identity_service.user_labels)
     audit.register_labels("invitation_id", identity_service.invitation_labels)
     audit.register_labels("institution_id", identity_service.institution_labels)
+    audit.register_labels("access_request_id", identity_service.access_request_labels)
     app.add_exception_handler(authz.NotAuthenticated, _not_authenticated)
     app.add_exception_handler(authz.Forbidden, _forbidden)
     app.add_exception_handler(RequestValidationError, _invalid_request)

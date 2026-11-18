@@ -30,10 +30,14 @@ export const invitationsKey = ["admin", "invitations"] as const;
  * again, so the new one stands in it. */
 export function useSendInvitation() {
   const queryClient = useQueryClient();
-  return useAction<SentInvitation, { email: string; role: AccountRole }>({
+  return useAction<SentInvitation, { email: string; role: AccountRole; access_request_id?: string }>({
     mutationFn: async (body) => await request(() => api.POST("/api/admin/invitations", { body })),
     fallback: nb.admin.users.invite.failed,
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: invitationsKey }),
+    onSuccess: (_, body) => {
+      void queryClient.invalidateQueries({ queryKey: invitationsKey });
+      // Sent from a request for lecturer access (Story 3.13): the request leaves the list.
+      if (body.access_request_id) void queryClient.invalidateQueries({ queryKey: accessRequestsKey });
+    },
   });
 }
 
@@ -255,5 +259,44 @@ export function useAuditActors() {
     queryKey: ["admin", "audit-actors"] as const,
     queryFn: () => request(() => api.GET("/api/admin/audit/actors")),
     retry: false,
+  });
+}
+
+export type AccessRequest = components["schemas"]["AccessRequestOut"];
+export type AccessRequestPage = components["schemas"]["AccessRequestListOut"];
+
+/** The query key of the open requests for lecturer access (Story 3.13). */
+export const accessRequestsKey = ["admin", "access-requests"] as const;
+
+/** The open requests for lecturer access, newest first, one page of the list envelope at a time
+ * (Story 3.13). */
+export function useAccessRequests() {
+  return useInfiniteQuery({
+    queryKey: accessRequestsKey,
+    queryFn: ({ pageParam }) =>
+      request(() =>
+        api.GET("/api/admin/access-requests", { params: { query: pageParam ? { cursor: pageParam } : {} } }),
+      ),
+    initialPageParam: "" as string,
+    getNextPageParam: (last: AccessRequestPage) => last.next_cursor ?? undefined,
+    retry: false,
+  });
+}
+
+/** Dismiss an open request (Story 3.13). Either way the list reads again: the request leaves it,
+ * and a refusal means it was already answered. The caller words the refusal. */
+export function useDismissAccessRequest() {
+  const queryClient = useQueryClient();
+  return useMutation<void, unknown, AccessRequest>({
+    mutationFn: async (item) => {
+      await request(() =>
+        api.POST("/api/admin/access-requests/{access_request_id}/dismiss", {
+          params: { path: { access_request_id: item.id } },
+        }),
+      );
+    },
+    networkMode: "always",
+    retry: false,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: accessRequestsKey }),
   });
 }

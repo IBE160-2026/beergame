@@ -42,6 +42,9 @@ services:
       INVITATION_ACCEPT_RATE_LIMIT_PER_INVITATION: ${INVITATION_ACCEPT_RATE_LIMIT_PER_INVITATION:-1000}
       INVITATION_RENEWAL_RATE_LIMIT_PER_IP: ${INVITATION_RENEWAL_RATE_LIMIT_PER_IP:-10000}
       INVITATION_RENEWAL_RATE_LIMIT_PER_INVITATION: ${INVITATION_RENEWAL_RATE_LIMIT_PER_INVITATION:-1000}
+      # The lecturer-access request limit (Story 3.13) far above the app's default (20 per IP an
+      # hour), for the same reason; the api tests check the limit.
+      ACCESS_REQUEST_RATE_LIMIT_PER_IP: ${ACCESS_REQUEST_RATE_LIMIT_PER_IP:-10000}
       # Mail (Story 3.5). No RESEND_API_KEY is passed, so every mail is the `[email:mock]` log
       # line locally, whatever the shell or .env holds (AD-17).
       EMAIL_FROM: ${EMAIL_FROM:-ØL-spillet <noreply@olspillet.local>}

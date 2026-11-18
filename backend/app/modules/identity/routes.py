@@ -1,7 +1,8 @@
 """`/api/auth/*`: login, logout and the current session (Story 3.2), the password reset
-(Story 3.6) and accepting an Invitation (Story 3.8). `/api/admin/*`: the Admin's actions on
-accounts: Invitations (Stories 3.7, 3.10), roles (3.9), deactivation and reactivation (3.10);
-and the Institutions (3.11)."""
+(Story 3.6), accepting an Invitation (Story 3.8) and asking for lecturer access (Story 3.13).
+`/api/admin/*`: the Admin's actions on accounts: Invitations (Stories 3.7, 3.10), roles (3.9),
+deactivation and reactivation (3.10), the requests for lecturer access (3.13); and the
+Institutions (3.11)."""
 
 import uuid
 from typing import Annotated
@@ -11,6 +12,8 @@ from fastapi.responses import JSONResponse
 
 from app.modules.identity import service
 from app.modules.identity.schemas import (
+    ACCESS_REQUEST_PAGE_DEFAULT,
+    ACCESS_REQUEST_PAGE_MAX,
     INSTITUTION_PAGE_DEFAULT,
     INSTITUTION_PAGE_MAX,
     INVITATION_PAGE_DEFAULT,
@@ -20,6 +23,8 @@ from app.modules.identity.schemas import (
     USER_PAGE_MAX,
     AcceptExistingIn,
     AcceptInvitationIn,
+    AccessRequestIn,
+    AccessRequestListOut,
     AccountRole,
     InstitutionIn,
     InstitutionListOut,
@@ -252,6 +257,34 @@ async def request_invitation_renewal(body: InvitationTokenIn, request: Request) 
     return Response(status_code=202)
 
 
+@router.post(
+    "/access-request",
+    status_code=202,
+    responses=documented(422, 429),
+    operation_id="requestAccess",
+    dependencies=[Depends(authz.public)],
+)
+async def request_access(body: AccessRequestIn, request: Request) -> Response:
+    """Ask for lecturer access from the Landing (Story 3.13). Stores the request for the Admin;
+    no account and no Invitation is created. The answer is the same `202` whether or not the
+    address has an account."""
+    retry_after = await service.request_access(
+        body.name,
+        body.email,
+        body.institution,
+        ip=ratelimit.client_ip(request),
+        now=auth.utcnow(),
+    )
+    if retry_after is not None:
+        return error_response(
+            429,
+            "rate_limited",
+            "Too many requests; wait until the window ends.",
+            headers={"Retry-After": str(retry_after)},
+        )
+    return Response(status_code=202)
+
+
 admin_router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
@@ -267,9 +300,16 @@ async def send_invitation(
     user: Annotated[UserOut, Depends(authz.require("users.manage"))],
 ) -> Response:
     """Invite an address to the Lecturer or Admin role (FR-1). Sending again to the same address
-    and role voids the earlier link."""
+    and role voids the earlier link. With `access_request_id` of an open request for lecturer
+    access, the request is closed as invited (Story 3.13)."""
     try:
-        sent = await service.send_invitation(user.id, body.email, body.role, now=auth.utcnow())
+        sent = await service.send_invitation(
+            user.id,
+            body.email,
+            body.role,
+            now=auth.utcnow(),
+            access_request_id=body.access_request_id,
+        )
     except service.InvalidEmail:
         return error_response(
             422, "invalid_request", "The e-mail address is not valid.", {"email": "invalid_email"}
@@ -518,3 +558,41 @@ async def rename_institution(
     except InvalidInstitutionName as error:
         return _bad_name(error)
     return _institution_answer(outcome)
+
+
+@admin_router.get(
+    "/access-requests",
+    response_model=AccessRequestListOut,
+    responses=documented(401, 403, 422),
+    operation_id="listAccessRequests",
+)
+async def list_access_requests(
+    _: Annotated[UserOut, Depends(authz.require("users.manage"))],
+    cursor: Annotated[str | None, Query(max_length=64)] = None,
+    limit: Annotated[int, Query(ge=1, le=ACCESS_REQUEST_PAGE_MAX)] = ACCESS_REQUEST_PAGE_DEFAULT,
+) -> Response:
+    """The open requests for lecturer access, newest first (Story 3.13, FR-1)."""
+    try:
+        page = await service.access_request_page(cursor, limit)
+    except service.InvalidCursor:
+        return error_response(
+            422, "invalid_request", "The cursor is not valid.", {"cursor": "invalid_cursor"}
+        )
+    return JSONResponse(page.model_dump(mode="json"))
+
+
+@admin_router.post(
+    "/access-requests/{access_request_id}/dismiss",
+    status_code=204,
+    responses=documented(401, 403, 404),
+    operation_id="dismissAccessRequest",
+)
+async def dismiss_access_request(
+    access_request_id: uuid.UUID,
+    user: Annotated[UserOut, Depends(authz.require("users.manage"))],
+) -> Response:
+    """Dismiss an open request for lecturer access, with one audit row (Story 3.13, FR-3). A
+    request that is not open, or unknown, is `not_found`."""
+    if not await service.dismiss_access_request(user.id, access_request_id, now=auth.utcnow()):
+        return error_response(404, "not_found", "No such open request.")
+    return Response(status_code=204)

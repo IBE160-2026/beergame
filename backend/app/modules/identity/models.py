@@ -114,3 +114,31 @@ institutions = Table(
 Names are unique case-insensitively. Times come from the api's clock. No delete in v1."""
 
 Index("uq_institutions_name", func.lower(institutions.c.name), unique=True)
+
+access_requests = Table(
+    "access_requests",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    # Trimmed with inner whitespace collapsed, as the requester typed them.
+    Column("name", Text, nullable=False),
+    # Stored trimmed and lower-cased, as `users.email`.
+    Column("email", Text, nullable=False),
+    Column("institution", Text, nullable=False),
+    Column("requested_at", DateTime(timezone=True), nullable=False),
+    Column("status", Text, nullable=False, server_default="open"),
+    Column("closed_at", DateTime(timezone=True), nullable=True),
+    # The Admin who invited from it or dismissed it.
+    Column("closed_by", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+    Column("invitation_id", Uuid, ForeignKey("invitations.id", ondelete="SET NULL"), nullable=True),
+    CheckConstraint("email = lower(btrim(email))", name="ck_access_requests_email_normalised"),
+    CheckConstraint("status IN ('open', 'invited', 'dismissed')", name="ck_access_requests_status"),
+    Index(
+        "uq_access_requests_open",
+        "email",
+        unique=True,
+        postgresql_where=text("status = 'open'"),
+    ),
+)
+"""One row per request for lecturer access from the Landing (Story 3.13, FR-1). `open` until the
+Admin invites from it (`invited`) or dismisses it (`dismissed`); at most one is open per address,
+and a repeat updates that row. Times come from the api's clock."""

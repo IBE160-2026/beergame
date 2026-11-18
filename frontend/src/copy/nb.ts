@@ -111,6 +111,53 @@ export const nb = {
     simulated: "Simulert",
   },
 
+  /** The Landing at `/` (Story 3.13, UX-DR61, UX-DR70). The headline, «Be om lærertilgang», the
+   * Seat caption, «Demodata» and the line about the class's stock curves are the story's and
+   * EXPERIENCE.md's own. The page holds no week counts, prices, customers, quotes or learning
+   * claims: `npm run check:copy` checks this section for them. */
+  landing: {
+    headline: "Hver uke har en strek og et tall. Studentene ser begge.",
+    // [ASSUMPTION] Story 3.13: the mockup's lead (01-landing.png) with its subject added.
+    lead: "ØL-spillet kjører hele forsyningskjedeøvelsen for emnet ditt, fra Invitasjon til PDF-rapport. På norsk, på mobil, for klasser på rundt 250 studenter.",
+    requestAccess: "Be om lærertilgang",
+    login: "Logg inn",
+    seat: {
+      caption: "Ett sete, Grossist, Uke 4. Veiledet uke.",
+      week: "Uke",
+      // The mockup's row label for the Seat's own order (01-landing.png).
+      yourOrder: "Din ordre",
+      // [ASSUMPTION] Story 3.13: the mockup's note, without the line about the graph's time axis.
+      ownNumbers: "Studenten ser bare sine egne tall.",
+      demoData: "Demodata",
+      classCurves: "Lagerkurvene for hele klassen ser du først når du er logget inn.",
+    },
+  },
+
+  /** «Be om lærertilgang» (Story 3.13, UX-DR61): a short public form the Admin answers by e-mail.
+   * EXPERIENCE.md leaves it undrawn; [ASSUMPTION] Story 3.13, all of it. `sent` is the same for
+   * every address, so it never says whether one has an account. */
+  accessRequest: {
+    pageTitle: "Be om lærertilgang",
+    title: "Be om lærertilgang",
+    lead: "Det finnes ingen åpen registrering. Admin leser forespørselen og sender deg en Invitasjon på e-post.",
+    name: "Navn",
+    email: "E-post",
+    institution: "Institusjon",
+    submit: "Send forespørsel",
+    sent: "Forespørselen er sendt. Admin svarer deg på e-post.",
+    toLanding: "Til forsiden",
+    errors: {
+      nameEmpty: "Skriv navnet ditt.",
+      nameLong: "Navnet kan ha høyst 200 tegn.",
+      emailEmpty: "Skriv e-postadressen din.",
+      institutionEmpty: "Skriv navnet på Institusjonen.",
+      institutionLong: "Navnet kan ha høyst 200 tegn.",
+      institutionInvalid: "Navnet kan ikke inneholde @ eller kontrolltegn.",
+    },
+    rateLimited: "For mange forespørsler. Prøv igjen om en time.",
+    failed: "Forespørselen ble ikke sendt. Prøv igjen.",
+  },
+
   auth: {
     login: {
       pageTitle: "Logg inn",
@@ -286,12 +333,16 @@ export const nb = {
         "user.reactivated": "Bruker aktivert igjen",
         "institution.created": "Institusjon opprettet",
         "institution.renamed": "Institusjon fikk nytt navn",
+        // Story 3.13.
+        "access_request.invited": "Invitert fra forespørsel",
+        "access_request.dismissed": "Forespørsel avvist",
       } as Record<string, string>,
       /** What an action concerns, by its target key. */
       targets: {
         user_id: (label: string) => label,
         invitation_id: (label: string) => `Invitasjon til ${label}`,
         institution_id: (label: string) => label,
+        access_request_id: (label: string) => `Forespørsel fra ${label}`,
       } as Record<string, (label: string) => string>,
       /** The labels of the change fields; an unknown field shows its own key. */
       fields: {
@@ -364,6 +415,24 @@ export const nb = {
         },
         // [ASSUMPTION] Story 3.7.
         failed: "Invitasjonen ble ikke sendt. Prøv igjen.",
+        // [ASSUMPTION] Story 3.13: the form filled from a request for lecturer access.
+        fromRequest: (name: string) => `Fyller inn fra forespørselen til ${name}.`,
+      },
+      /** The open requests for lecturer access from the Landing (Story 3.13, FR-1).
+       * [ASSUMPTION] Story 3.13, all of it. */
+      requests: {
+        title: "Forespørsler om lærertilgang",
+        lead: "Inviter fyller inn skjemaet over med adressen og rollen Faglærer. Ingenting sendes før du trykker Send Invitasjon.",
+        columns: { name: "Navn", email: "E-post", institution: "Institusjon", received: "Mottatt", actions: "Endre" },
+        invite: (name: string) => `Inviter ${name} som Faglærer`,
+        dismiss: (name: string) => `Avvis forespørselen fra ${name}`,
+        dismissed: (name: string) => `Forespørselen fra ${name} er avvist.`,
+        dismissFailed: "Forespørselen ble ikke avvist. Prøv igjen.",
+        // Another Admin answered it first; the list reads again without it.
+        alreadyAnswered: (name: string) => `Forespørselen fra ${name} er allerede besvart.`,
+        empty: "Ingen åpne forespørsler.",
+        more: "Vis flere forespørsler",
+        moreFailed: "Flere forespørsler kunne ikke lastes. Prøv igjen.",
       },
       /** The User list with its role buttons (Story 3.9, UX-DR57). «Ingen treff.» and the
        * blocked-revoke sentence are EXPERIENCE.md's and the epic's own; the rest is

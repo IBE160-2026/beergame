@@ -240,13 +240,16 @@ test("with reduced motion no state change is animated", async ({ page, context }
   await expect(line(page)).toHaveText(sys.reconnected);
 });
 
-test("`/` and the not-found page show the page error when the session cannot be read", async ({ page }) => {
+test("the not-found page shows the page error when the session cannot be read, and `/` the Landing", async ({
+  page,
+}) => {
   await loginByApi(page, "student");
   await page.route(ME, (route: Route) => route.fulfill({ status: 500, body: "" }));
-  for (const path of ["/", "/finnes-ikke"]) {
-    await page.goto(path);
-    await expect(line(page)).toContainText(sys.pageError);
-  }
+  // `/` is the public Landing (Story 3.13): it never waits for the session, so it stays readable.
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1, name: nb.landing.headline })).toBeVisible();
+  await page.goto("/finnes-ikke");
+  await expect(line(page)).toContainText(sys.pageError);
   await page.unroute(ME);
   await line(page).getByRole("button", { name: sys.retry }).click();
   await expect(page.getByRole("heading", { level: 1, name: nb.access.notFound })).toBeVisible();

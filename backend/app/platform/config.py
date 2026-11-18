@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     invitation_renewal_rate_limit_per_ip: int = Field(20, ge=1)
     invitation_renewal_rate_limit_per_invitation: int = Field(3, ge=1)
     invitation_rate_limit_window_minutes: int = Field(60, ge=1)
+    # The public «Be om lærertilgang» form (Story 3.13). PLACEHOLDER: requests per client address
+    # and window.
+    access_request_rate_limit_per_ip: int = Field(20, ge=1)
+    access_request_rate_limit_window_minutes: int = Field(60, ge=1)
     # The first Admin (AD-17, Story 3.8): comma-separated addresses. With APP_ENV=production the
     # api mails each one an Admin Invitation at startup; a listed User gains Admin at first login.
     bootstrap_admin_emails: str = ""

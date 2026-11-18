@@ -50,6 +50,98 @@
         "title": "AcceptInvitationIn",
         "type": "object"
       },
+      "AccessRequestIn": {
+        "description": "A request for lecturer access from the public form «Be om lærertilgang» (Story 3.13).\nEach field answers its own code: `name_empty`/`name_too_long`, `invalid_email`, and the\nInstitution name codes.",
+        "properties": {
+          "email": {
+            "maxLength": 320,
+            "title": "Email",
+            "type": "string"
+          },
+          "institution": {
+            "maxLength": 800,
+            "title": "Institution",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 800,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "institution"
+        ],
+        "title": "AccessRequestIn",
+        "type": "object"
+      },
+      "AccessRequestListOut": {
+        "description": "A page of open requests in the list envelope, newest first: `next_cursor` is null on the\nlast page.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AccessRequestOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "AccessRequestListOut",
+        "type": "object"
+      },
+      "AccessRequestOut": {
+        "description": "One open request on «Brukere og roller» (Story 3.13).",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "institution": {
+            "title": "Institution",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "requested_at": {
+            "format": "date-time",
+            "title": "Requested At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "institution",
+          "requested_at"
+        ],
+        "title": "AccessRequestOut",
+        "type": "object"
+      },
       "AccountRole": {
         "enum": [
           "admin",
@@ -268,6 +360,19 @@
         "title": "ErrorEnvelope",
         "type": "object"
       },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
       "InstitutionIn": {
         "description": "The name of a new or renamed Institution (Story 3.11). Checked by `institution_name` in the\nservice: a bad name answers `fields.name` with its code.",
         "properties": {
@@ -369,6 +474,18 @@
       "InvitationIn": {
         "description": "An Invitation to an account role (Story 3.7).",
         "properties": {
+          "access_request_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Request Id"
+          },
           "email": {
             "maxLength": 320,
             "title": "Email",
@@ -718,6 +835,46 @@
         ],
         "title": "UserOut",
         "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
       }
     }
   },
@@ -727,6 +884,156 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/admin/access-requests": {
+      "get": {
+        "description": "The open requests for lecturer access, newest first (Story 3.13, FR-1).",
+        "operationId": "listAccessRequests",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessRequestListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "List Access Requests",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/access-requests/{access_request_id}/dismiss": {
+      "post": {
+        "description": "Dismiss an open request for lecturer access, with one audit row (Story 3.13, FR-3). A\nrequest that is not open, or unknown, is `not_found`.",
+        "operationId": "dismissAccessRequest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "access_request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Access Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dismiss Access Request",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/audit": {
       "get": {
         "description": "Audit events newest first, with actor and target names read now (FR-3, AD-14). Filter by\n`actor` (a User id, or `system` for the rows with no actor), `action`, and the inclusive\nEurope/Oslo days `since` and `until`.",
@@ -1250,7 +1557,7 @@
         ]
       },
       "post": {
-        "description": "Invite an address to the Lecturer or Admin role (FR-1). Sending again to the same address\nand role voids the earlier link.",
+        "description": "Invite an address to the Lecturer or Admin role (FR-1). Sending again to the same address\nand role voids the earlier link. With `access_request_id` of an open request for lecturer\naccess, the request is closed as invited (Story 3.13).",
         "operationId": "sendInvitation",
         "requestBody": {
           "content": {
@@ -1819,6 +2126,56 @@
         "summary": "Revoke Role",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/api/auth/access-request": {
+      "post": {
+        "description": "Ask for lecturer access from the Landing (Story 3.13). Stores the request for the Admin;\nno account and no Invitation is created. The answer is the same `202` whether or not the\naddress has an account.",
+        "operationId": "requestAccess",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessRequestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Request Access",
+        "tags": [
+          "auth"
         ]
       }
     },

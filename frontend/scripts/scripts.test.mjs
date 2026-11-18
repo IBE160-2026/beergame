@@ -84,6 +84,53 @@ describe("copy check", () => {
     expect(strings.map((s) => s.text)).toEqual(["Hei"]);
   });
 
+  // The Landing's content rules (Story 3.13, UX-DR74), for the `landing` section only.
+  it.each([
+    ["Kundene ser alt.", "landing-customers"],
+    ["Pris per student", "landing-prices"],
+    ["Bare 990 kr i året", "landing-prices"],
+    ["Gratis for alle", "landing-prices"],
+    ["Se forsterkningen i kjeden", "landing-amplification"],
+    ["«Beste kurs jeg har tatt» – student", "landing-quotes"],
+    ["Studentene lærer seg mer", "landing-learning"],
+    ["Bedre læring", "landing-learning"],
+    ["Studentene forstår kjeden", "landing-learning"],
+    ["Uker spilt", "landing-week-counts"],
+    ["Spillet varer 36 uker", "landing-week-counts"],
+    ["Beer Game på norsk", "beer-game"],
+    ["Kasser øl", "ol"],
+  ])("fails %j on the Landing (%s)", (text, rule) => {
+    expect(checkText(text, { landing: true })).toContain(rule);
+  });
+
+  it("passes the Landing's own lines and keeps the rules off other sections", () => {
+    for (const text of [
+      "Hver uke har en strek og et tall. Studentene ser begge.",
+      "Ett sete, Grossist, Uke 4. Veiledet uke.",
+      "for klasser på rundt 250 studenter.",
+      "Skriv navnet ditt.",
+      "Be om lærertilgang",
+    ]) {
+      expect(checkText(text, { landing: true })).toEqual([]);
+    }
+    expect(checkText("Pris per student")).toEqual([]);
+  });
+
+  it("checks the landing section of nb.ts in a repo", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "copy-check-"));
+    const copy = path.join(root, "frontend", "src", "copy");
+    fs.mkdirSync(copy, { recursive: true });
+    fs.writeFileSync(
+      path.join(copy, "nb.ts"),
+      `export const nb = { landing: { seat: { a: "36 uker" } }, admin: { b: "36 uker" } };`,
+    );
+    try {
+      expect(checkRepo(root).map((f) => f.rule)).toEqual(["landing-week-counts"]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("finds a breach in a mail template and in nb.ts of a repo", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "copy-check-"));
     const tpl = path.join(root, "backend", "app", "platform", "email", "templates");

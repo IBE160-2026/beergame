@@ -49,6 +49,10 @@ class InvitationIn(BaseModel):
     # `fields.email = "invalid_email"`.
     email: str = Field(max_length=320)
     role: AccountRole
+    access_request_id: uuid.UUID | None = None
+    """The open request for lecturer access the Admin invites from (Story 3.13): sending closes
+    it when the Invitation is to its address with the Lecturer role. Otherwise, or when the request
+    is no longer open, it is ignored and the Invitation is sent as any other."""
 
 
 class InvitationOut(BaseModel):
@@ -248,3 +252,61 @@ def email_is_valid(email: str) -> bool:
     local, domain = email.split("@")
     labels = domain.split(".")
     return bool(local) and len(labels) >= 2 and all(labels)
+
+
+ACCESS_REQUEST_PAGE_DEFAULT = 50
+ACCESS_REQUEST_PAGE_MAX = 100
+
+
+class AccessRequestIn(BaseModel):
+    """A request for lecturer access from the public form «Be om lærertilgang» (Story 3.13).
+    Each field answers its own code: `name_empty`/`name_too_long`, `invalid_email`, and the
+    Institution name codes."""
+
+    name: str = Field(max_length=4 * NAME_MAX_LENGTH)
+    email: str = Field(max_length=320)
+    institution: str = Field(max_length=4 * INSTITUTION_NAME_MAX_LENGTH)
+
+    @field_validator("name")
+    @classmethod
+    def _name(cls, value: str) -> str:
+        value = " ".join(value.split())
+        if not value or any(not ch.isprintable() for ch in value):
+            raise PydanticCustomError("name_empty", "A name is required.")
+        if len(value) > NAME_MAX_LENGTH:
+            raise PydanticCustomError("name_too_long", "A name has at most 200 characters.")
+        return value
+
+    @field_validator("email")
+    @classmethod
+    def _email(cls, value: str) -> str:
+        value = normalise_email(value)
+        if not email_is_valid(value):
+            raise PydanticCustomError("invalid_email", "The e-mail address is not valid.")
+        return value
+
+    @field_validator("institution")
+    @classmethod
+    def _institution(cls, value: str) -> str:
+        try:
+            return institution_name(value)
+        except InvalidInstitutionName as error:
+            raise PydanticCustomError(error.code, "The Institution name is not valid.") from None
+
+
+class AccessRequestOut(BaseModel):
+    """One open request on «Brukere og roller» (Story 3.13)."""
+
+    id: uuid.UUID
+    name: str
+    email: str
+    institution: str
+    requested_at: datetime
+
+
+class AccessRequestListOut(BaseModel):
+    """A page of open requests in the list envelope, newest first: `next_cursor` is null on the
+    last page."""
+
+    items: list[AccessRequestOut]
+    next_cursor: str | None

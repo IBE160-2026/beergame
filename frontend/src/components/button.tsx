@@ -23,6 +23,12 @@ const variants = {
     "border-ink-muted bg-paper text-ink hover:not-aria-disabled:border-ink active:not-aria-disabled:bg-hairline aria-disabled:border-axis aria-disabled:bg-future-tint aria-disabled:text-ink-muted",
 } as const;
 
+/** The Knapper look for a link that navigates where the design draws a button, as the Landing's
+ * «Be om lærertilgang» and «Logg inn» (Story 3.13). It never commits anything. */
+export function buttonClassName(variant: "primary" | "secondary" = "secondary", className?: string): string {
+  return cn(base, variants[variant], "no-underline", className);
+}
+
 /** Wraps a click handler so presses are ignored while the control is unavailable. */
 export function guardUnavailable(
   unavailable: boolean,

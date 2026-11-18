@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import aggregate_order_by, array_agg, distin
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity.models import (
+    access_requests,
     institutions,
     invitations,
     password_resets,
@@ -518,12 +519,101 @@ async def list_institutions(
 async def labels_of(
     session: AsyncSession, table: str, ids: list[uuid.UUID]
 ) -> dict[uuid.UUID, str]:
-    """`id → name` of Users or Institutions, `id → e-mail address` of Invitations, for the audit
-    page (Story 3.12)."""
+    """`id → name` of Users, Institutions and access requests' senders, `id → e-mail address` of
+    Invitations, for the audit page (Stories 3.12, 3.13)."""
     source, column = {
         "users": (users, users.c.name),
         "invitations": (invitations, invitations.c.email),
         "institutions": (institutions, institutions.c.name),
+        "access_requests": (access_requests, access_requests.c.name),
     }[table]
     result = await session.execute(select(source.c.id, column).where(source.c.id.in_(ids)))
     return {row[0]: row[1] for row in result}
+
+
+# Requests for lecturer access (Story 3.13).
+
+
+async def upsert_access_request(
+    session: AsyncSession,
+    *,
+    request_id: uuid.UUID,
+    name: str,
+    email: str,
+    institution: str,
+    now: datetime,
+) -> uuid.UUID:
+    """Store an open request, or update the open request of the same address (name, Institution
+    and time); returns the id of the open row."""
+    statement = (
+        insert(access_requests)
+        .values(
+            id=request_id,
+            name=name,
+            email=email,
+            institution=institution,
+            requested_at=now,
+            status="open",
+        )
+        .on_conflict_do_update(
+            index_elements=[access_requests.c.email],
+            index_where=access_requests.c.status == "open",
+            set_={"name": name, "institution": institution, "requested_at": now},
+        )
+        .returning(access_requests.c.id)
+    )
+    return (await session.execute(statement)).scalar_one()
+
+
+async def list_open_access_requests(
+    session: AsyncSession, *, after: uuid.UUID | None, limit: int
+) -> list[RowMapping] | None:
+    """Up to `limit` open requests, newest first by `(requested_at, id)`, after the request
+    `after` when given (an unknown `after` gives None)."""
+    query = select(access_requests).where(access_requests.c.status == "open")
+    if after is not None:
+        anchor = (
+            await session.execute(
+                select(access_requests.c.requested_at).where(access_requests.c.id == after)
+            )
+        ).scalar_one_or_none()
+        if anchor is None:
+            return None
+        query = query.where(
+            tuple_(access_requests.c.requested_at, access_requests.c.id)
+            < tuple_(literal(anchor), literal(after))
+        )
+    result = await session.execute(
+        query.order_by(access_requests.c.requested_at.desc(), access_requests.c.id.desc()).limit(
+            limit
+        )
+    )
+    return list(result.mappings())
+
+
+async def lock_open_access_request(
+    session: AsyncSession, request_id: uuid.UUID
+) -> RowMapping | None:
+    """The open request `request_id`, locked for the caller's transaction, or None."""
+    result = await session.execute(
+        select(access_requests)
+        .where(access_requests.c.id == request_id, access_requests.c.status == "open")
+        .with_for_update()
+    )
+    return result.mappings().one_or_none()
+
+
+async def close_access_request(
+    session: AsyncSession,
+    request_id: uuid.UUID,
+    *,
+    status: str,
+    actor: uuid.UUID,
+    now: datetime,
+    invitation_id: uuid.UUID | None = None,
+) -> None:
+    await session.execute(
+        update(access_requests)
+        .where(access_requests.c.id == request_id)
+        .values(status=status, closed_at=now, closed_by=actor, invitation_id=invitation_id)
+    )

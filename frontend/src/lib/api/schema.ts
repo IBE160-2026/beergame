@@ -4,6 +4,47 @@
  */
 
 export interface paths {
+    "/api/admin/access-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Access Requests
+         * @description The open requests for lecturer access, newest first (Story 3.13, FR-1).
+         */
+        get: operations["listAccessRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/access-requests/{access_request_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss Access Request
+         * @description Dismiss an open request for lecturer access, with one audit row (Story 3.13, FR-3). A
+         *     request that is not open, or unknown, is `not_found`.
+         */
+        post: operations["dismissAccessRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/audit": {
         parameters: {
             query?: never;
@@ -110,7 +151,8 @@ export interface paths {
         /**
          * Send Invitation
          * @description Invite an address to the Lecturer or Admin role (FR-1). Sending again to the same address
-         *     and role voids the earlier link.
+         *     and role voids the earlier link. With `access_request_id` of an open request for lecturer
+         *     access, the request is closed as invited (Story 3.13).
          */
         post: operations["sendInvitation"];
         delete?: never;
@@ -238,6 +280,28 @@ export interface paths {
          *     with `last_admin` or `role_revoke_blocked` (`fields.classes`).
          */
         delete: operations["revokeRole"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/access-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Access
+         * @description Ask for lecturer access from the Landing (Story 3.13). Stores the request for the Admin;
+         *     no account and no Invitation is created. The answer is the same `202` whether or not the
+         *     address has an account.
+         */
+        post: operations["requestAccess"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -480,6 +544,53 @@ export interface components {
             token: string;
         };
         /**
+         * AccessRequestIn
+         * @description A request for lecturer access from the public form «Be om lærertilgang» (Story 3.13).
+         *     Each field answers its own code: `name_empty`/`name_too_long`, `invalid_email`, and the
+         *     Institution name codes.
+         */
+        AccessRequestIn: {
+            /** Email */
+            email: string;
+            /** Institution */
+            institution: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * AccessRequestListOut
+         * @description A page of open requests in the list envelope, newest first: `next_cursor` is null on the
+         *     last page.
+         */
+        AccessRequestListOut: {
+            /** Items */
+            items: components["schemas"]["AccessRequestOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * AccessRequestOut
+         * @description One open request on «Brukere og roller» (Story 3.13).
+         */
+        AccessRequestOut: {
+            /** Email */
+            email: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Institution */
+            institution: string;
+            /** Name */
+            name: string;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
+        };
+        /**
          * AccountRole
          * @enum {string}
          */
@@ -566,6 +677,11 @@ export interface components {
         ErrorEnvelope: {
             error: components["schemas"]["ErrorBody"];
         };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /**
          * InstitutionIn
          * @description The name of a new or renamed Institution (Story 3.11). Checked by `institution_name` in the
@@ -622,6 +738,8 @@ export interface components {
          * @description An Invitation to an account role (Story 3.7).
          */
         InvitationIn: {
+            /** Access Request Id */
+            access_request_id?: string | null;
             /** Email */
             email: string;
             role: components["schemas"]["AccountRole"];
@@ -778,6 +896,19 @@ export interface components {
             /** Roles */
             roles: components["schemas"]["AccountRole"][];
         };
+        /** ValidationError */
+        ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -787,6 +918,112 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listAccessRequests: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessRequestListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    dismissAccessRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                access_request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     listAuditEvents: {
         parameters: {
             query?: {
@@ -1525,6 +1762,48 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    requestAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessRequestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

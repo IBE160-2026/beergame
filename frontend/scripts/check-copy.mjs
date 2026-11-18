@@ -4,6 +4,8 @@
 //   - backend/app/**/templates/**         the Jinja2 mail and PDF templates: text outside tags and tags' code
 // It fails on an exclamation mark, on «øl» outside the product name «ØL-spillet», and on «optimal»
 // or «fasit». In copy shown before the Debrief it also fails on «Beer Game» and «bullwhip».
+// The Landing's section of nb.ts (`landing`) is also held to the Landing's content rules (Story
+// 3.13, UX-DR74): no customers, prices, amplification, quotes, learning claims or week counts.
 // Later stories put their copy in these places and add no check of their own.
 import fs from "node:fs";
 import path from "node:path";
@@ -33,9 +35,34 @@ export const RULES = [
   { id: "bullwhip", message: "«bullwhip» før Debriefen", pattern: /bullwhip/iu, preDebriefOnly: true },
 ];
 
-/** Rule ids the text breaks. */
-export function checkText(text, { preDebrief = true } = {}) {
-  return RULES.filter((rule) => preDebrief || !rule.preDebriefOnly)
+/** The Landing's content rules (EXPERIENCE.md → Landing, UX-DR74), for the `landing` section. */
+export const LANDING_SECTION = "landing";
+const NOT_LETTER_AFTER = "(?![\\p{L}\\p{N}])";
+export const LANDING_RULES = [
+  { id: "landing-customers", message: "kunder på Landing", pattern: new RegExp(`${NOT_LETTER_BEFORE}kunde`, "iu") },
+  {
+    id: "landing-prices",
+    message: "priser på Landing",
+    pattern: new RegExp(`${NOT_LETTER_BEFORE}(?:pris|kr${NOT_LETTER_AFTER}|kroner|gratis)`, "iu"),
+  },
+  { id: "landing-amplification", message: "forsterkning på Landing", pattern: new RegExp(`${NOT_LETTER_BEFORE}forsterk`, "iu") },
+  { id: "landing-quotes", message: "sitater på Landing", pattern: /[«»“”"]/u },
+  {
+    id: "landing-learning",
+    message: "læringspåstander på Landing",
+    pattern: new RegExp(`${NOT_LETTER_BEFORE}(?:lærer seg|læring|forstå)`, "iu"),
+  },
+  {
+    id: "landing-week-counts",
+    message: "antall uker på Landing",
+    pattern: new RegExp(`(?:uker spilt|\\d+\\s*uker${NOT_LETTER_AFTER})`, "iu"),
+  },
+];
+
+/** Rule ids the text breaks. `landing` adds the Landing's content rules. */
+export function checkText(text, { preDebrief = true, landing = false } = {}) {
+  return [...RULES, ...(landing ? LANDING_RULES : [])]
+    .filter((rule) => preDebrief || !rule.preDebriefOnly)
     .filter((rule) => rule.pattern.test(rule.prepare ? rule.prepare(text) : text))
     .map((rule) => rule.id);
 }
@@ -137,7 +164,8 @@ export function checkRepo(root = REPO_ROOT) {
   for (const file of files.ui) {
     for (const s of stringsFromSource(fs.readFileSync(file, "utf8"), file)) {
       const preDebrief = !POST_DEBRIEF_SECTIONS.has(s.section);
-      for (const rule of checkText(s.text, { preDebrief })) findings.push({ file, line: s.line, rule, text: s.text });
+      const landing = s.section === LANDING_SECTION;
+      for (const rule of checkText(s.text, { preDebrief, landing })) findings.push({ file, line: s.line, rule, text: s.text });
     }
   }
   // The print route renders the Student report, which comes after the Debrief.
@@ -158,7 +186,7 @@ export function checkRepo(root = REPO_ROOT) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const findings = checkRepo();
-  const messages = Object.fromEntries(RULES.map((r) => [r.id, r.message]));
+  const messages = Object.fromEntries([...RULES, ...LANDING_RULES].map((r) => [r.id, r.message]));
   for (const f of findings) {
     console.error(`${path.relative(REPO_ROOT, f.file)}:${f.line}: ${messages[f.rule]}: ${JSON.stringify(f.text)}`);
   }
