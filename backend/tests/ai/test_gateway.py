@@ -2,18 +2,19 @@
 
 import json
 import uuid
-from datetime import UTC, datetime, timedelta
+from collections.abc import Iterator
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import get_args
 
 import pytest
 from pydantic import BaseModel, Field
 
-from app.ai import budget, config, gateway, mock, models
+from app.ai import budget, config, gateway, mock, models, ratelimit
 from app.ai.gateway import Failure, GatewayError, Inputs, Result
 from app.ai.scrub import PLACEHOLDER
 from app.platform import pii
-from tests.ai.helpers import mock_config, query
+from tests.ai.helpers import StoppedClock, mock_config, query, stop_attempts
 
 TEMPLATE = "Stock: $stock units. Note: $note"
 GAME = uuid.UUID("00000000-0000-7000-8000-000000000001")
@@ -164,45 +165,57 @@ async def test_a_timed_out_attempt_is_logged_and_the_next_one_runs(ai_db, templa
     assert first["latency_ms"] >= 40 and first["response"] is None
 
 
-async def test_the_deadline_bounds_every_attempt(ai_db, template):
+@pytest.fixture
+def stopped(monkeypatch) -> Iterator[StoppedClock]:
+    """A `StoppedClock` for the gateway; an attempt that times out moves it on by its whole
+    timeout (the time it really waited)."""
+    clock = StoppedClock()
+    stop_attempts(monkeypatch, clock)
+    with ratelimit.use_clock(clock):
+        yield clock
+
+
+async def test_the_deadline_bounds_every_attempt(ai_db, template, stopped):
     scope = await scope_for()
-    past = datetime.now(UTC) - timedelta(seconds=1)
+    past = stopped.now() - timedelta(seconds=1)
     result = await call(scope, deadline=past)
     assert result == Failure("timeout", (), "the deadline passed")
     assert rows(ai_db) == []
 
-    soon = datetime.now(UTC) + timedelta(seconds=0.1)
+    # The 4 s attempt timeout is cut to the 0.1 s left; then the deadline has passed.
+    soon = stopped.now() + timedelta(seconds=0.1)
     with mock.script(*[mock.TIMEOUT] * 6):
         result = await call(scope, deadline=soon)
-    assert isinstance(result, Failure) and result.kind == "timeout"
-    found = rows(ai_db)
-    # The 4 s attempt timeout is cut to the deadline. The loop clock and the wall clock may
-    # differ by a hair, so a last sliver of an attempt may follow; all of it ends by 0.5 s.
-    assert {r["outcome"] for r in found} == {"timeout"}
-    assert sum(r["latency_ms"] for r in found) < 500
+    [only] = rows(ai_db)
+    assert result == Failure("timeout", (only["id"],), "the deadline passed")
+    assert stopped.given == [0.1] and only["outcome"] == "timeout"
+    assert only["latency_ms"] < 2000  # really cut: far below the 4 s attempt timeout
     with pytest.raises(GatewayError) as caught:
         await call(scope, deadline=datetime.now())
     assert caught.value.code == "inputs_invalid"
 
 
-async def test_a_retry_starts_only_when_its_whole_timeout_fits_before_the_deadline(ai_db, template):
+async def test_a_retry_starts_only_when_its_whole_timeout_fits_before_the_deadline(
+    ai_db, template, stopped
+):
     """Story 2.6: after a timed-out attempt, the next one starts only if it can finish inside
     the deadline; otherwise the call ends as `timeout`."""
     scope = await scope_for(effort_levels=[level(attempt_timeout_s=0.3)])
-    # After the first 0.3 s attempt about 0.15 s are left: less than a whole attempt.
-    tight = datetime.now(UTC) + timedelta(seconds=0.45)
+    # After the first 0.3 s attempt 0.15 s are left: less than a whole attempt.
+    tight = stopped.now() + timedelta(seconds=0.45)
     with mock.script(mock.TIMEOUT):
         result = await call(scope, inputs(mock_answer={"order": 2}), deadline=tight)
     [only] = rows(ai_db)
     assert result == Failure("timeout", (only["id"],), "no time left for another attempt")
-    assert only["outcome"] == "timeout"
+    assert only["outcome"] == "timeout" and stopped.given == [0.3]
 
     quick = await scope_for(effort_levels=[level(attempt_timeout_s=0.05)])
-    roomy = datetime.now(UTC) + timedelta(seconds=2)
+    roomy = stopped.now() + timedelta(seconds=2)
     with mock.script(mock.TIMEOUT):
         result = await call(quick, inputs(mock_answer={"order": 2}), deadline=roomy)
     assert result.output == Order(order=2)
     assert [r["outcome"] for r in rows(ai_db)[1:]] == ["timeout", "ok"]
+    assert stopped.given == [0.3, 0.05, 0.05]
 
 
 async def test_without_a_deadline_the_attempt_limit_and_timeout_still_apply(ai_db, template):
@@ -213,15 +226,28 @@ async def test_without_a_deadline_the_attempt_limit_and_timeout_still_apply(ai_d
     assert [r["outcome"] for r in rows(ai_db)] == ["timeout"] * 6
 
 
-async def test_a_cancelled_call_logs_the_attempt_in_flight(ai_db, template):
+async def test_a_cancelled_call_logs_the_attempt_in_flight(ai_db, template, monkeypatch):
     """Issue #52: a job stopped mid-call still leaves the attempt's row, then the
     cancellation goes on."""
     import asyncio
 
     scope = await scope_for()
+    in_attempt = asyncio.Event()
+    real = gateway._attempt
+
+    async def entered(*args, **kwargs):
+        in_attempt.set()
+        return await real(*args, **kwargs)
+
+    monkeypatch.setattr(gateway, "_attempt", entered)
     with mock.script(mock.TIMEOUT):
         task = asyncio.create_task(call(scope))
-        await asyncio.sleep(0.1)  # the call first reads the config and budget
+        # The call first reads the config and reserves its cost, then the model hangs until the
+        # 4 s attempt timeout.
+        waiting = asyncio.create_task(in_attempt.wait())
+        await asyncio.wait({task, waiting}, return_when=asyncio.FIRST_COMPLETED)
+        assert in_attempt.is_set(), "the call ended before its attempt"
+        await asyncio.sleep(0.1)
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task

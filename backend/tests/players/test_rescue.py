@@ -1,9 +1,12 @@
 """Story 2.6: every LLM Order inside its time budget (FR-32, NFR-2, NFR-4, AD-5, AD-6, AD-20).
 
-Deadlines are tiny (a fraction of a second) or the rescue loop gets an injected `now`; the job
-and the loop are driven directly, never with a multi-second sleep."""
+The rescue loop mostly gets an injected `now`; the job and the loop are driven directly, never
+with a multi-second sleep. Tests wait for events rather than fixed sleeps, the gateway's clock
+stands still where a job's time left matters, and real spans are measured on this process's
+monotonic clock with a generous `SLACK_S`, so a busy machine cannot change the outcome."""
 
 import asyncio
+import time
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -11,13 +14,13 @@ import psycopg
 import pytest
 from sqlalchemy.exc import OperationalError
 
-from app.ai import mock
+from app.ai import gateway, mock, ratelimit
 from app.modules.games import commands, service
 from app.modules.players import jobs as player_jobs
 from app.modules.players import rescue
 from app.platform import jobs
 from app.platform.db import get_sessionmaker
-from tests.ai.helpers import stored_config
+from tests.ai.helpers import StoppedClock, stop_attempts, stored_config
 from tests.games.helpers import execute, query
 from tests.players.test_llm_jobs import FIRST, calls, llm_game, rows, seat_id
 
@@ -82,21 +85,67 @@ async def test_an_llm_turn_gets_its_deadline_when_the_week_opens(games_db, ai_db
     assert logged(games_db, game_id, "wholesaler", FIRST)[5] is None
 
 
-async def test_a_killed_job_gets_the_fallback_within_the_budget_plus_one_interval(games_db, ai_db):
-    budget, interval = 0.3, 0.05
+SLACK_S = 2.0
+"""Seconds a step may take on a busy machine on top of the time the code under test allows,
+measured on this process's monotonic clock. The database clock is no measure of short spans:
+the local Postgres VM's clock runs slow, steps forward a few seconds every half minute and now
+and then back by its whole offset."""
+
+
+def db_now(url: str) -> datetime:
+    """The database clock, which stamps `opened_at`, `ai_deadline_at` and `ordered_at`."""
+    ((now,),) = query(url, "SELECT clock_timestamp()")
+    return now
+
+
+async def started_attempt(job: asyncio.Task, monkeypatch) -> None:
+    """Wait until `job` is inside its model call (the gateway's `_attempt`)."""
+    entered = asyncio.Event()
+    real = gateway._attempt
+
+    async def watched(*args, **kwargs):
+        entered.set()
+        return await real(*args, **kwargs)
+
+    monkeypatch.setattr(gateway, "_attempt", watched)
+    waiting = asyncio.create_task(entered.wait())
+    await asyncio.wait({job, waiting}, return_when=asyncio.FIRST_COMPLETED)
+    waiting.cancel()
+    assert entered.is_set(), "the job ended before its model call"
+
+
+async def test_a_killed_job_gets_the_fallback_within_the_budget_plus_one_interval(
+    games_db, ai_db, monkeypatch
+):
+    budget, interval = 1.0, 0.05
     game_id = await llm_game(("retailer",), config_id=await config(budget=budget, attempt=budget))
     retailer = seat_id(games_db, game_id, "retailer")
+    # The killed job's own deadline is not under test here (the next test covers it): without
+    # one it reaches its model call however slow the machine is, and is killed there.
+    monkeypatch.setattr(player_jobs, "_deadline", lambda turn: None)
     with mock.script(mock.TIMEOUT):  # the model hangs
         job = asyncio.create_task(player_jobs.place_llm_order(game_id, retailer, FIRST))
-        await asyncio.sleep(0.1)  # the call first reads the config and reserves its cost
+        await started_attempt(job, monkeypatch)
         job.cancel()  # the worker dies mid-call
         with pytest.raises(asyncio.CancelledError):
             await job
     assert logged(games_db, game_id, "retailer", FIRST) is None
+    # Each pass of the loop: its start on the database clock (the clock it compares deadlines
+    # on), its start and end on this process's monotonic clock, and the Orders it placed.
+    passes: list[tuple[datetime, float, float, int]] = []
+    real_once = rescue.rescue_once
+
+    async def timed_once(now=None):
+        began, start = db_now(games_db), time.monotonic()
+        done = await real_once(now)
+        passes.append((began, start, time.monotonic(), done.placed))
+        return done
+
+    monkeypatch.setattr(rescue, "rescue_once", timed_once)
     stop = asyncio.Event()
     loop = asyncio.create_task(rescue.run(interval_s=interval, stop=stop))
     try:
-        async with asyncio.timeout(2):
+        async with asyncio.timeout(budget + 60):  # only a guard against a hang
             while logged(games_db, game_id, "retailer", FIRST) is None:  # noqa: ASYNC110
                 await asyncio.sleep(0.01)  # polls the database, which signals no event
     finally:
@@ -106,9 +155,14 @@ async def test_a_killed_job_gets_the_fallback_within_the_budget_plus_one_interva
         games_db, game_id, "retailer", FIRST
     )
     assert (by, fallback, ids) == ("rule_based", "timeout", [])
-    assert deadline <= ordered_at
-    # Within the budget plus one loop interval (and a little for the pass itself).
-    assert ordered_at - opened_at <= timedelta(seconds=budget + interval + 0.2)
+    assert deadline == opened_at + timedelta(seconds=budget) and deadline <= ordered_at
+    # The first pass after the deadline placed the fallback: every pass before it began before
+    # the deadline, and it began one loop interval after the pass before it ended.
+    placing = next(i for i, (*_, placed) in enumerate(passes) if placed)
+    assert passes[placing][3] == 1
+    assert all(began < deadline for began, *_ in passes[:placing])
+    if placing:  # the loop was running before the deadline
+        assert passes[placing][1] - passes[placing - 1][2] <= interval + SLACK_S
     # Issue #52: the attempt in flight still has its row, tied to the turn by its caller ref.
     [(outcome, caller)] = query(games_db, "SELECT outcome, caller_ref FROM llm_call")
     assert outcome == "cancelled"
@@ -261,18 +315,40 @@ async def test_time_per_attempt_and_per_order_are_read_per_effort_level_from_row
     assert len(rows(games_db, game_id)) == 12
 
 
-async def test_the_job_keeps_a_hanging_model_inside_the_turns_deadline(games_db, ai_db):
+async def test_the_job_keeps_a_hanging_model_inside_the_turns_deadline(
+    games_db, ai_db, monkeypatch
+):
     """The job hands the turn's `ai_deadline_at` to the gateway: a hanging model is cut at
-    the deadline and the job places the `timeout` fallback itself."""
-    budget = 0.3
+    the deadline and the job places the `timeout` fallback itself.
+
+    The turn is read `left` seconds before its deadline (its `read_at` is set so), and the
+    gateway's clock stands still while the job prepares, so the time the attempt gets depends
+    neither on the machine's speed nor on the database clock's jumps."""
+    left, budget = 0.3, 60.0
     game_id = await llm_game(("retailer",), config_id=await config(budget=budget, attempt=budget))
     retailer = seat_id(games_db, game_id, "retailer")
-    with mock.script(*[mock.TIMEOUT] * 6):
+    clock = StoppedClock()
+    real_turn = service.llm_turn
+
+    async def read_late(*args):
+        turn = await real_turn(*args)
+        clock.at = datetime.now(UTC)  # the job turns `left` into a deadline after this
+        return turn.model_copy(update={"read_at": turn.ai_deadline_at - timedelta(seconds=left)})
+
+    monkeypatch.setattr(service, "llm_turn", read_late)
+    stop_attempts(monkeypatch, clock)
+    start = time.monotonic()
+    with ratelimit.use_clock(clock), mock.script(*[mock.TIMEOUT] * 6):
         await player_jobs.place_llm_order(game_id, retailer, FIRST)
-    by, fallback, ids, opened_at, ordered_at, _ = logged(games_db, game_id, "retailer", FIRST)
+    took = time.monotonic() - start
+    by, fallback, ids, *_ = logged(games_db, game_id, "retailer", FIRST)
     assert (by, fallback, len(ids)) == ("rule_based", "timeout", 1)
-    assert ordered_at - opened_at <= timedelta(seconds=budget + 0.3)
     assert query(games_db, "SELECT outcome FROM llm_call") == [("timeout",)]
+    # The one attempt got the time left before the deadline (plus the moment the job took to
+    # turn it into a deadline), not its own 60 s timeout, and no retry followed.
+    [seconds] = clock.given
+    assert left <= seconds < left + SLACK_S
+    assert took < left + 2 * SLACK_S  # one cut attempt, far from 6 x 60 s
 
 
 async def test_the_loop_survives_a_failed_pass(games_db, ai_db, monkeypatch):

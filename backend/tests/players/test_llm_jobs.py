@@ -315,7 +315,10 @@ async def test_place_order_refuses_llm_marks_that_do_not_fit_the_seat(games_db, 
 
 async def test_a_burst_of_429s_delays_the_orders_but_places_no_fallback(games_db, ai_db):
     """Story 2.7: HTTP 429 is back-off inside the deadline, not a failed attempt (AD-6, NFR-3).
-    The waits run on the tests' skipping clock (`tests/conftest.py`), never for real."""
+    The waits run on the tests' skipping clock (`tests/conftest.py`), never for real, but they
+    do use up the turn's time budget: six skipped seconds would leave the shipped 8 s budget
+    only 2 s of real time, which a busy machine can spend before the sixth 429. The roomy
+    budget of `stored_config` keeps the outcome independent of the machine's speed."""
     from app.ai import ratelimit
 
     game_id = await llm_game()
