@@ -76,7 +76,7 @@ development_status:
   3-7-invite-a-lecturer-or-admin-by-e-mail: done
   3-8-create-an-account-from-an-invitation: done
   3-9-find-users-and-grant-or-revoke-roles: done
-  3-10-deactivate-and-reactivate-users-and-resend-invitations: backlog
+  3-10-deactivate-and-reactivate-users-and-resend-invitations: in-progress
   3-11-create-institutions: backlog
   3-12-read-the-audit-log: backlog
   3-13-read-the-landing-page-and-ask-for-lecturer-access: backlog
