@@ -30,8 +30,10 @@ JOB_TABLES = {
     "procrastinate_workers",
 }
 """procrastinate's tables, from the SQL it ships (revision 0008, Story 2.5)."""
-HEAD_TABLES = AI_HEAD_TABLES | JOB_TABLES | {"simulation_batches"}
-HEAD = "0013"
+MEASUREMENT_TABLES = {"effort_measurements", "ai_default_pins"}
+"""The tables of revision 0014 (Story 2.12)."""
+HEAD_TABLES = AI_HEAD_TABLES | JOB_TABLES | {"simulation_batches"} | MEASUREMENT_TABLES
+HEAD = "0014"
 
 
 def reset_schema(url: str) -> None:
@@ -233,7 +235,7 @@ def test_downgrade_to_0012_removes_the_simulation_batches(migrations_database):
     cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0012")
-    assert tables(migrations_database) == HEAD_TABLES - {"simulation_batches"}
+    assert tables(migrations_database) == HEAD_TABLES - {"simulation_batches"} - MEASUREMENT_TABLES
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         columns = conn.execute(
             "SELECT table_name, column_name FROM information_schema.columns "
@@ -244,6 +246,21 @@ def test_downgrade_to_0012_removes_the_simulation_batches(migrations_database):
             "SELECT 1 FROM pg_proc WHERE proname = 'simulation_batches_append_only'"
         ).fetchall()
     assert columns == [] and functions == []
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_downgrade_to_0013_removes_the_effort_measurements_and_pins(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0013")
+    assert tables(migrations_database) == HEAD_TABLES - MEASUREMENT_TABLES
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        functions = conn.execute(
+            "SELECT 1 FROM pg_proc WHERE proname = 'effort_measurements_append_only'"
+        ).fetchall()
+    assert functions == []
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 

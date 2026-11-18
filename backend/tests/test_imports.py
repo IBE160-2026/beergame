@@ -72,8 +72,12 @@ AI_PUBLIC = (
     "app.ai.endpoint",
     # Reads of the call rows for reports (`sim report`, Story 2.11, AD-22).
     "app.ai.calls",
+    # The zero-config seed the api, the workers and `app.sim` run at start (Story 2.12, AD-17).
+    "app.ai.seed",
 )
-AI_TABLES = re.compile(r"\b(ai_model_configs|ai_budgets|llm_call)\b")
+AI_TABLES = re.compile(
+    r"\b(ai_model_configs|ai_budgets|llm_call|effort_measurements|ai_default_pins)\b"
+)
 """Whole words, so `llm_call_ids` (on the gateway's results) is not a table name."""
 
 

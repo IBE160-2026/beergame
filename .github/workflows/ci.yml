@@ -44,6 +44,8 @@ jobs:
         run: uv run python -m app.sim run batches/classic-smoke.json
       - name: Simulation LLM smoke run (mock provider, worker-ai, report)
         run: bash scripts/sim-llm-smoke.sh
+      - name: Prompt versions of stored configs (AD-6)
+        run: uv run python -m app.ai.cli prompts check
 
   frontend:
     runs-on: ubuntu-latest

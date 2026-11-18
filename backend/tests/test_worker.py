@@ -22,19 +22,29 @@ def test_a_missing_or_unknown_queue_exits_2(capsys, argv):
 
 def test_main_runs_a_worker_on_the_named_queues(monkeypatch):
     seen = {}
+    order = []
 
     async def run_worker(queues, *, concurrency):
+        order.append("serve")
         seen.update(queues=queues, concurrency=concurrency)
 
     async def loop(interval_s=5.0, stop=None):
         await stop.wait()
 
+    from app.ai import seed
     from app.modules.players import rescue
+
+    async def seeded():
+        order.append("seed")
+        seen["seeded"] = True
 
     monkeypatch.setattr(jobs, "run_worker", run_worker)
     monkeypatch.setattr(rescue, "run", loop)
+    monkeypatch.setattr(seed, "ensure_zero_config_logged", seeded)
     assert worker.main(["--queues", "ai-orders,llm-batch", "--concurrency", "3"]) == 0
-    assert seen == {"queues": ["ai-orders", "llm-batch"], "concurrency": 3}
+    # AD-17: the worker seeds the zero-config default before it serves (Story 2.12).
+    assert seen == {"seeded": True, "queues": ["ai-orders", "llm-batch"], "concurrency": 3}
+    assert order == ["seed", "serve"]
 
 
 def test_the_concurrency_must_be_positive(capsys):

@@ -25,3 +25,9 @@ echo "$report"
 # The worker played every LLM Order: 2 Games x 4 Weeks after the Guided ones x 4 Seats.
 echo "$report" | grep -qx '  llm_share orders=32/32 share=1.0000'
 echo "$report" | grep -qx 'cut_short no'
+# Story 2.12: a mock batch is never approved as a measurement.
+if approve=$(uv run python -m app.sim approve "$batch" --level standard 2>&1); then
+  echo "$approve"; echo "approve of a mock batch was not refused"; exit 1
+fi
+echo "$approve" | grep -q '^error mock_batch: '
+echo "approve refused: mock_batch"

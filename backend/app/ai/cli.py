@@ -13,7 +13,16 @@ Subcommands:
                          `--prompt` is then laid over that file's map).
   config list            one line per row, oldest first: id, name, model version, endpoint,
                          region and whether a Class session or a simulation run references it.
-  config show ID         the row as JSON.
+  config show ID         the row as JSON, with `active_default` (whether it is the pinned
+                         default) and `offered_effort_levels`: the levels offered here, each
+                         with `default` and the measurement behind it (Story 2.12).
+  pin ID                 make config ID the active default model config, which a Class session
+                         receives when it is created (Epic 5); scopes created before keep their
+                         config. Prints `pinned <id> name=…`, one `level <name> default=yes|no`
+                         line per offered Effort level and one `evidence …` line per
+                         measurement it rests on. Exit 1 when the config offers no Effort level
+                         (`no_offered_level`: none measured and approved, or its endpoint is
+                         refused here) or is the mock outside local/test/ci (`mock_config`).
   budget set             create or change one budget row: `--evaluation <config id>` (needs
                          `--limit`) or `--session <Class session id>` (limit defaults to
                          AI_DEFAULT_SESSION_BUDGET_USD); `--reserve` defaults to
@@ -177,22 +186,93 @@ def _config_list(args: argparse.Namespace, parser: argparse.ArgumentParser) -> i
 async def _show(config_id: str) -> int:
     try:
         row = await config.get(config_id)
+        if row is None:
+            _error("config_not_found", "", f"no model config {config_id}")
+            return 1
+        offered = await config.offered_effort_levels(row.id)
+        default = await config.active_default()
     except DBAPIError as exc:
         return _report_db(exc)
     finally:
         await db.dispose()
-    if row is None:
-        _error("config_not_found", "", f"no model config {config_id}")
-        return 1
     shown = {
         "id": str(row.id),
         **row.spec.model_dump(mode="json"),
         "derived_from": None if row.derived_from is None else str(row.derived_from),
         "referenced_at": None if row.referenced_at is None else row.referenced_at.isoformat(),
         "created_at": row.created_at.isoformat(),
+        "active_default": default is not None and default.id == row.id,
+        "offered_effort_levels": [
+            {
+                "name": level.name,
+                "default": level.default,
+                "measurement": _measurement_json(level.measurement),
+            }
+            for level in offered
+        ],
     }
     print(json.dumps(shown, indent=2))
     return 0
+
+
+def _text(value: object) -> str | None:
+    return None if value is None else str(value)
+
+
+def _measurement_json(row: config.EffortMeasurement) -> dict[str, object]:
+    return {
+        "id": str(row.id),
+        "batch_id": _text(row.batch_id),
+        "mock": row.mock,
+        "games": row.games,
+        "cost_per_game_usd": _text(row.cost_per_game_usd),
+        "time_per_order_median_s": _text(row.time_per_order_median_s),
+        "time_per_order_p95_s": _text(row.time_per_order_p95_s),
+        "retries_per_order_mean": _text(row.retries_per_order_mean),
+        "fallback_share": _text(row.fallback_share),
+        "switched_share": _text(row.switched_share),
+        "pass_lines": row.pass_lines,
+        "approved_at": row.approved_at.isoformat(),
+    }
+
+
+def _evidence_line(row: config.EffortMeasurement) -> str:
+    def value(item: object) -> str:
+        return "-" if item is None else str(item)
+
+    return (
+        f"evidence effort_level={row.effort_level} batch={value(row.batch_id)} "
+        f"mock={'yes' if row.mock else 'no'} games={value(row.games)} "
+        f"cost_per_game_usd={value(row.cost_per_game_usd)} "
+        f"time_per_order_median_s={value(row.time_per_order_median_s)} "
+        f"time_per_order_p95_s={value(row.time_per_order_p95_s)} "
+        f"retries_per_order_mean={value(row.retries_per_order_mean)} "
+        f"fallback_share={value(row.fallback_share)} "
+        f"switched_share={value(row.switched_share)} "
+        f"approved_at={row.approved_at.isoformat()}"
+    )
+
+
+async def _pin(config_id: str) -> int:
+    try:
+        pinned = await config.pin(config_id)
+    except (config.ConfigNotFound, config.ConfigRefused) as exc:
+        _error(exc.code, "", exc.message)
+        return 1
+    except DBAPIError as exc:
+        return _report_db(exc)
+    finally:
+        await db.dispose()
+    print(f"pinned {pinned.config.id} name={pinned.config.spec.name}")
+    for level in pinned.offered:
+        print(f"level {level.name} default={'yes' if level.default else 'no'}")
+    for row in pinned.evidence:
+        print(_evidence_line(row))
+    return 0
+
+
+def _pin_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    return _run(_pin(args.config_id))
 
 
 def _config_show(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
@@ -359,6 +439,10 @@ def build_parser() -> argparse.ArgumentParser:
     cost.add_argument("--scope", type=_id, required=True, metavar="ID")
     cost.add_argument("--kind", choices=SCOPE_KINDS)
     cost.set_defaults(handler=_cost_command, command_parser=cost)
+
+    pin = groups.add_parser("pin", help="make a config with an offered Effort level the default")
+    pin.add_argument("config_id")
+    pin.set_defaults(handler=_pin_command, command_parser=pin)
 
     prompts_parser = groups.add_parser("prompts", help="prompt files and their hash lock")
     prompts_commands = prompts_parser.add_subparsers(dest="command", required=True)

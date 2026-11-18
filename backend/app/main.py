@@ -38,6 +38,9 @@ async def health():
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()  # refuses to start on a bad production config
     log.info("startup", app_env=settings.app_env)
+    from app.ai import seed
+
+    await seed.ensure_zero_config_logged()  # AD-17: a default model config with zero keys
     yield
     await db.dispose()
 

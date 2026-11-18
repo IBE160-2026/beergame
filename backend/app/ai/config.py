@@ -7,6 +7,14 @@ it); an edit always writes a new row (`derive`). Credentials are never stored: a
 only the environment variable that holds the key.
 
 Other modules read and change model configs only through this module (AD-6).
+
+Story 2.12 (FR-68, FR-78, FR-79): `approve_effort` stores the measurement of an Effort level
+from a simulation batch's figures, refused unless the batch was real and passed its cost, time
+and switched-share lines; `offered_effort_levels` is the one list of levels a Class session may
+be offered; `pin` makes a config with an offered level the active default (`active_default`).
+Mock measurements come only from the zero-config seed (`app.ai.seed`) and count only in
+`local`, `test` and `ci`: with `APP_ENV=production` a database holding only mock measurements
+offers no Effort level at all.
 """
 
 import re
@@ -24,7 +32,8 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.db import transaction
-from app.ai.models import model_configs
+from app.ai.models import default_pins, effort_measurements, model_configs
+from app.platform.config import get_settings
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 """Prompt files live at `prompts/<purpose>/v<N>.md` (AD-6)."""
@@ -465,3 +474,348 @@ async def mark_referenced(
         if config is None:
             raise ConfigNotFound(config_id)
         return config
+
+
+# --- Measured Effort levels and the default config (Story 2.12) ------------------------------
+
+PASS_LINE_NAMES = ("cost_per_game_usd", "time_per_order_p95_s", "switched_share")
+"""The pass lines an approval needs, each passed (FR-78, FR-79, C-3)."""
+
+MOCK_ENVS = ("local", "test", "ci")
+"""Where a mock measurement counts (AD-17); the same set as `adapters.MOCK_ENVS`."""
+
+
+class ConfigRefused(Exception):
+    """An approval or a pin breaks a rule; nothing was stored."""
+
+    def __init__(self, code: str, message: str) -> None:
+        self.code = code
+        self.message = message
+        super().__init__(f"{code}: {message}")
+
+
+@dataclass(frozen=True)
+class PassVerdict:
+    """One pass line of a batch as its report states it."""
+
+    name: str
+    line: Decimal | None
+    """None: the batch file has no such line."""
+    measured: Decimal | None
+    verdict: str
+    """`pass`, `miss`, `miss (cut short)`, `n/a` or `no line` (`app.sim_report`)."""
+
+
+@dataclass(frozen=True)
+class EffortFigures:
+    """What the simulation runner's report of one batch says (Story 2.11), handed to
+    `approve_effort`; built outside `app/ai`, so it carries plain values only (AD-6)."""
+
+    model_config_id: str | None
+    effort_levels: tuple[str, ...]
+    """The Effort levels the batch's Games froze."""
+    mock: bool
+    games: int
+    cost_per_game_usd: Decimal | None
+    time_per_order_median_s: Decimal | None
+    time_per_order_p95_s: Decimal | None
+    """Retries and back-off included."""
+    retries_per_order_mean: Decimal | None
+    fallback_share: Decimal | None
+    """LLM-path Orders with any fallback over all LLM-path Orders."""
+    switched_share: Decimal | None
+    """`llm` Seats the Play guard switched over all `llm` Seats."""
+    pass_lines: tuple[PassVerdict, ...]
+
+
+@dataclass(frozen=True)
+class EffortMeasurement:
+    """One stored `effort_measurements` row."""
+
+    id: uuid.UUID
+    model_config_id: uuid.UUID
+    effort_level: str
+    batch_id: uuid.UUID | None
+    mock: bool
+    games: int | None
+    cost_per_game_usd: Decimal | None
+    time_per_order_median_s: Decimal | None
+    time_per_order_p95_s: Decimal | None
+    retries_per_order_mean: Decimal | None
+    fallback_share: Decimal | None
+    switched_share: Decimal | None
+    pass_lines: dict[str, Any]
+    approved_at: datetime
+
+
+@dataclass(frozen=True)
+class OfferedLevel:
+    """An Effort level a Class session may be offered, with its measured effect (FR-78)."""
+
+    name: str
+    default: bool
+    measurement: EffortMeasurement
+    """The newest measurement that counts in this environment."""
+
+
+@dataclass(frozen=True)
+class Pinned:
+    config: ModelConfig
+    offered: list[OfferedLevel]
+    evidence: list[EffortMeasurement]
+    """The counted measurements of the offered levels, newest first."""
+
+
+def _measurement(row: Any) -> EffortMeasurement:
+    return EffortMeasurement(
+        row.id,
+        row.model_config_id,
+        row.effort_level,
+        row.batch_id,
+        row.mock,
+        row.games,
+        row.cost_per_game_usd,
+        row.time_per_order_median_s,
+        row.time_per_order_p95_s,
+        row.retries_per_order_mean,
+        row.fallback_share,
+        row.switched_share,
+        row.pass_lines,
+        row.approved_at,
+    )
+
+
+def _pass_problems(figures: EffortFigures) -> tuple[str, list[str]] | None:
+    """The refusal code and the problem per line, or None when every line passed."""
+    by_name = {verdict.name: verdict for verdict in figures.pass_lines}
+    missing = [
+        name for name in PASS_LINE_NAMES if name not in by_name or by_name[name].line is None
+    ]
+    if missing:
+        return "pass_line_missing", [f"{name}: no line" for name in missing]
+    missed = []
+    for name in PASS_LINE_NAMES:
+        verdict = by_name[name]
+        assert verdict.line is not None
+        if verdict.verdict != "pass" or verdict.measured is None or verdict.measured > verdict.line:
+            missed.append(
+                f"{name}: {verdict.verdict} (measured {verdict.measured}, line {verdict.line})"
+            )
+    return ("pass_line_missed", missed) if missed else None
+
+
+def _pass_lines_json(figures: EffortFigures) -> dict[str, Any]:
+    return {
+        verdict.name: {
+            "line": None if verdict.line is None else str(verdict.line),
+            "measured": None if verdict.measured is None else str(verdict.measured),
+            "verdict": verdict.verdict,
+        }
+        for verdict in figures.pass_lines
+    }
+
+
+async def approve_effort(
+    config_id: uuid.UUID | str,
+    level: str,
+    batch_id: uuid.UUID | str,
+    figures: EffortFigures,
+    *,
+    session: AsyncSession | None = None,
+) -> EffortMeasurement:
+    """Store the measurement of `level` from batch `batch_id`'s report figures (FR-78, C-3).
+    Refused (`ConfigRefused`, nothing stored) unless the figures are of this config and of
+    exactly this level, the batch did not run on the mock, and it passed its cost, time and
+    switched-share lines; a batch is approved once. The config row never changes."""
+    batch = _uuid(batch_id)
+    if batch is None:
+        raise ConfigRefused("batch_id_invalid", f"{batch_id!s} is not a batch id")
+    async with transaction(session) as s:
+        found = await get(config_id, session=s)
+        if found is None:
+            raise ConfigNotFound(config_id)
+        if figures.model_config_id is None or _uuid(figures.model_config_id) != found.id:
+            raise ConfigRefused(
+                "config_mismatch",
+                f"the batch measured model config {figures.model_config_id or '-'}, not {found.id}",
+            )
+        if found.effort_level(level) is None:
+            raise ConfigRefused(
+                "effort_level_unknown", f"model config {found.id} has no Effort level {level!r}"
+            )
+        if figures.mock:
+            raise ConfigRefused(
+                "mock_batch", "the mock answered this batch: mock numbers are not measurements"
+            )
+        if figures.effort_levels != (level,):
+            played = ", ".join(figures.effort_levels) or "none"
+            raise ConfigRefused(
+                "effort_level_mismatch", f"the batch played Effort level(s) {played}, not {level}"
+            )
+        problems = _pass_problems(figures)
+        if problems is not None:
+            code, lines = problems
+            raise ConfigRefused(code, "; ".join(lines))
+        taken = (
+            await s.execute(
+                select(effort_measurements.c.id).where(effort_measurements.c.batch_id == batch)
+            )
+        ).first()
+        if taken is not None:
+            raise ConfigRefused(
+                "already_approved", f"batch {batch} is already measurement {taken.id}"
+            )
+        row = (
+            await s.execute(
+                effort_measurements.insert()
+                .values(
+                    id=uuid.uuid7(),
+                    model_config_id=found.id,
+                    effort_level=level,
+                    batch_id=batch,
+                    mock=False,
+                    games=figures.games,
+                    cost_per_game_usd=figures.cost_per_game_usd,
+                    time_per_order_median_s=figures.time_per_order_median_s,
+                    time_per_order_p95_s=figures.time_per_order_p95_s,
+                    retries_per_order_mean=figures.retries_per_order_mean,
+                    fallback_share=figures.fallback_share,
+                    switched_share=figures.switched_share,
+                    pass_lines=_pass_lines_json(figures),
+                )
+                .returning(*effort_measurements.c)
+            )
+        ).one()
+    return _measurement(row)
+
+
+async def add_mock_measurement(
+    config_id: uuid.UUID, level: str, *, session: AsyncSession | None = None
+) -> EffortMeasurement:
+    """The zero-config seed's measurement (AD-17): marked `mock`, no batch, no figures. It
+    makes the level offered in `local`, `test` and `ci` only; `approve_effort` never stores
+    one."""
+    async with transaction(session) as s:
+        row = (
+            await s.execute(
+                effort_measurements.insert()
+                .values(
+                    id=uuid.uuid7(),
+                    model_config_id=config_id,
+                    effort_level=level,
+                    batch_id=None,
+                    mock=True,
+                    pass_lines={},
+                )
+                .returning(*effort_measurements.c)
+            )
+        ).one()
+    return _measurement(row)
+
+
+async def measurements(
+    config_id: uuid.UUID | str, *, session: AsyncSession | None = None
+) -> list[EffortMeasurement]:
+    """Every measurement of a config, newest first, mock ones included."""
+    key = _uuid(config_id)
+    if key is None:
+        return []
+    async with transaction(session) as s:
+        rows = (
+            await s.execute(
+                select(effort_measurements)
+                .where(effort_measurements.c.model_config_id == key)
+                .order_by(effort_measurements.c.approved_at.desc(), effort_measurements.c.id.desc())
+            )
+        ).all()
+    return [_measurement(row) for row in rows]
+
+
+def _counts(measurement: EffortMeasurement, app_env: str) -> bool:
+    """A real measurement always counts; a mock one only where the mock may answer."""
+    return not measurement.mock or app_env in MOCK_ENVS
+
+
+async def offered_effort_levels(
+    config_id: uuid.UUID | str, *, session: AsyncSession | None = None
+) -> list[OfferedLevel]:
+    """The Effort levels of a config a Class session may be offered (FR-78), in the config's
+    order: those its endpoint supports in this environment (its calls are not refused) with a
+    measurement that counts here, each with its newest such measurement. The first is the
+    default. The one source Epic 5's Class session screen reads."""
+    from app.ai import adapters  # imports this module
+
+    app_env = get_settings().app_env
+    async with transaction(session) as s:
+        found = await get(config_id, session=s)
+        if found is None:
+            raise ConfigNotFound(config_id)
+        if adapters.availability(found.spec, app_env).kind == "refused":
+            return []
+        rows = await measurements(found.id, session=s)
+    newest: dict[str, EffortMeasurement] = {}
+    for row in rows:
+        if _counts(row, app_env):
+            newest.setdefault(row.effort_level, row)
+    names = [level.name for level in found.spec.effort_levels if level.name in newest]
+    return [OfferedLevel(name, index == 0, newest[name]) for index, name in enumerate(names)]
+
+
+async def pin(config_id: uuid.UUID | str, *, session: AsyncSession | None = None) -> Pinned:
+    """Make a config the active default (FR-68): a Class session created from now on receives
+    it (Epic 5); scopes created before keep the config id they hold. Refused for the mock
+    provider outside `local`, `test` and `ci`, and for a config with no offered Effort level.
+    The config is marked referenced, so its content never changes."""
+    app_env = get_settings().app_env
+    async with transaction(session) as s:
+        found = await get(config_id, session=s)
+        if found is None:
+            raise ConfigNotFound(config_id)
+        if found.spec.provider == "mock" and app_env not in MOCK_ENVS:
+            raise ConfigRefused(
+                "mock_config", f"the mock config can never be pinned with APP_ENV={app_env}"
+            )
+        offered = await offered_effort_levels(found.id, session=s)
+        if not offered:
+            raise ConfigRefused(
+                "no_offered_level",
+                f"model config {found.id} has no measured, approved Effort level its endpoint "
+                "supports here",
+            )
+        found = await mark_referenced(found.id, session=s)
+        # The time of the insert, not of the transaction start: the pin made last wins.
+        await s.execute(
+            default_pins.insert().values(
+                id=uuid.uuid7(), model_config_id=found.id, pinned_at=func.clock_timestamp()
+            )
+        )
+        offered_names = {level.name for level in offered}
+        evidence = [
+            row
+            for row in await measurements(found.id, session=s)
+            if row.effort_level in offered_names and _counts(row, app_env)
+        ]
+    return Pinned(found, offered, evidence)
+
+
+async def active_default(*, session: AsyncSession | None = None) -> ModelConfig | None:
+    """The config of the newest pin that offers an Effort level in this environment, or None.
+    A pin whose config offers nothing here (the seeded mock config once `APP_ENV=production`,
+    a real config whose key is not set) is passed over, so a Class session is never handed a
+    default it cannot use."""
+    async with transaction(session) as s:
+        rows = (
+            await s.execute(
+                select(default_pins.c.model_config_id).order_by(
+                    default_pins.c.pinned_at.desc(), default_pins.c.id.desc()
+                )
+            )
+        ).all()
+        checked: set[uuid.UUID] = set()
+        for row in rows:
+            if row.model_config_id in checked:
+                continue
+            checked.add(row.model_config_id)
+            if await offered_effort_levels(row.model_config_id, session=s):
+                return await get(row.model_config_id, session=s)
+    return None

@@ -2,6 +2,7 @@
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -135,3 +136,52 @@ llm_calls = Table(
     ),
     Index("ix_llm_call_scope", "scope_kind", "scope_id"),
 )
+
+MEASUREMENT_FIGURES = (
+    "games",
+    "cost_per_game_usd",
+    "time_per_order_median_s",
+    "time_per_order_p95_s",
+    "retries_per_order_mean",
+    "fallback_share",
+    "switched_share",
+)
+"""The figures of a batch an approval stores (Story 2.12); a mock measurement has none."""
+
+effort_measurements = Table(
+    "effort_measurements",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("model_config_id", Uuid, ForeignKey("ai_model_configs.id"), nullable=False),
+    Column("effort_level", Text, nullable=False),
+    # The simulation batch the figures come from; NULL only for the zero-config seed's mock
+    # measurement. No FK: `app/ai` knows no games table (AD-6).
+    Column("batch_id", Uuid, nullable=True),
+    Column("mock", Boolean, nullable=False),
+    Column("games", Integer, nullable=True),
+    Column("cost_per_game_usd", MONEY, nullable=True),
+    Column("time_per_order_median_s", Numeric, nullable=True),
+    Column("time_per_order_p95_s", Numeric, nullable=True),
+    Column("retries_per_order_mean", Numeric, nullable=True),
+    Column("fallback_share", Numeric, nullable=True),
+    Column("switched_share", Numeric, nullable=True),
+    # The batch's pass lines and verdicts the approval checked.
+    Column("pass_lines", JSONB, nullable=False),
+    Column("approved_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("mock = (batch_id IS NULL)", name="ck_effort_measurements_source"),
+    CheckConstraint(
+        "mock OR (" + " AND ".join(f"{name} IS NOT NULL" for name in MEASUREMENT_FIGURES) + ")",
+        name="ck_effort_measurements_figures",
+    ),
+    UniqueConstraint("batch_id", name="uq_effort_measurements_batch"),
+    Index("ix_effort_measurements_config", "model_config_id"),
+)
+
+default_pins = Table(
+    "ai_default_pins",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("model_config_id", Uuid, ForeignKey("ai_model_configs.id"), nullable=False),
+    Column("pinned_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+"""One row per `pin`; the newest row names the active default model config (FR-68)."""

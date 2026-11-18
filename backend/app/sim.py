@@ -80,6 +80,15 @@ Subcommands:
                    in which Game and Week); pass or miss against each pass line. Every figure is
                    read from the Decision log and the LLM call rows. Exit 1 when the batch is
                    unknown or one of its Games has not finished.
+  approve          approve an Effort level from a stored batch (Story 2.12, FR-78): computes the
+                   batch's report, prints it, and hands its figures, pass-line verdicts and
+                   mock flag to `ai.config.approve_effort`, which stores one measurement
+                   row; then prints `approved config <id> effort_level
+                   <name> batch <id> measurement <id>`. `--level NAME` is required. Exit 1 with
+                   `error <code>` when refused: the mock answered the batch (`mock_batch`), a
+                   cost, time or switched-share line is missing or missed (cut short
+                   included), the batch played another level, it was approved before, or it
+                   is unknown or unfinished.
   prompt           print the exact LLM request for one Seat's open Week without calling a model
                    (`ai.gateway.preview`): the `player_order` prompt version and its source
                    (`config` or `newest file`), the prompt built
@@ -110,6 +119,9 @@ Subcommands:
                    calls are logged and charged to the config's evaluation budget. Last line
                    `endpoint ok` or `endpoint failed: <reasons>`; exit 0 / 1, 2 when the config
                    would not reach a real endpoint (mock in use, key missing, unknown config).
+
+Run as a program in `local`, `test` or `ci`, every subcommand but `trace`, `settings` and
+`demand` first seeds the zero-config default model config when none is stored (AD-17).
 
 The runner computes no game quantities: every printed number is an engine field, the Order it
 was given, a number read back from the database, or (the `run` batch totals) a sum of those.
@@ -1283,34 +1295,29 @@ def _run_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> i
     return _run(_run_batch(batch, export, worker=args.worker))
 
 
-async def _report_batch(batch_id: str) -> int:
-    """Read a batch and its Games back and print its report (`app.sim_report`)."""
+async def _batch_figures(batch_id: str) -> Any:
+    """Read a batch and its Games back and compute its report figures (`app.sim_report`).
+    Raises `ViewError` when the batch is unknown or a Game has not finished."""
     from app import sim_report
     from app.ai import calls
 
-    try:
-        batch = await game_service.get_batch(batch_id)
-        attempts = await calls.game_attempts(batch.game_ids)
-        games = []
-        for game_id in batch.game_ids:
-            game = await game_service.get_game(game_id)
-            if game is None:
-                raise game_service.ViewError("game_not_found", f"no Game {game_id!r}", 404)
-            games.append(
-                sim_report.GameInput(
-                    summary=await game_service.game_summary(game_id),
-                    log=await game_service.decision_log(game_id),
-                    occupancy=await game_service.occupancy_history(game_id),
-                    attempts=[attempt for attempt in attempts if attempt.game == game_id],
-                    effort_level=game.session_runtime.effort_level,
-                )
+    batch = await game_service.get_batch(batch_id)
+    attempts = await calls.game_attempts(batch.game_ids)
+    games = []
+    for game_id in batch.game_ids:
+        game = await game_service.get_game(game_id)
+        if game is None:
+            raise game_service.ViewError("game_not_found", f"no Game {game_id!r}", 404)
+        games.append(
+            sim_report.GameInput(
+                summary=await game_service.game_summary(game_id),
+                log=await game_service.decision_log(game_id),
+                occupancy=await game_service.occupancy_history(game_id),
+                attempts=[attempt for attempt in attempts if attempt.game == game_id],
+                effort_level=game.session_runtime.effort_level,
             )
-    except (game_service.ViewError, DBAPIError) as exc:
-        _report(exc)
-        return 1
-    finally:
-        await db.dispose()
-    figures = sim_report.measure(
+        )
+    return sim_report.measure(
         batch.id,
         batch.started_at,
         mock=batch.mock,
@@ -1318,6 +1325,19 @@ async def _report_batch(batch_id: str) -> int:
         pass_lines=batch.pass_lines,
         games=games,
     )
+
+
+async def _report_batch(batch_id: str) -> int:
+    """Read a batch and its Games back and print its report (`app.sim_report`)."""
+    from app import sim_report
+
+    try:
+        figures = await _batch_figures(batch_id)
+    except (game_service.ViewError, DBAPIError) as exc:
+        _report(exc)
+        return 1
+    finally:
+        await db.dispose()
     for line in sim_report.report_lines(figures):
         print(line)
     return 0
@@ -1325,6 +1345,70 @@ async def _report_batch(batch_id: str) -> int:
 
 def _report_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     return _run(_report_batch(args.batch_id))
+
+
+def effort_figures(figures: Any) -> Any:
+    """The report's figures as `ai.config.EffortFigures` (Story 2.12): plain values, so
+    `app/ai` reads no games table (AD-6). The fallback share is the LLM-path Orders with any
+    fallback over all of them; times are in seconds."""
+    from app.ai import config as ai_config
+
+    total = figures.total
+    fallen = sum(count for kind, count in total.fallbacks if kind is not game_service.Fallback.NONE)
+    median = total.order_time_ms.median
+    # The p95 time and the switched share are the very values the pass lines were judged on.
+    measured = {line.name: line.measured for line in figures.pass_lines}
+    return ai_config.EffortFigures(
+        model_config_id=figures.model_config_id,
+        effort_levels=figures.effort_levels,
+        mock=figures.mock,
+        games=len(figures.games),
+        cost_per_game_usd=figures.cost_per_game_usd,
+        time_per_order_median_s=None if median is None else Decimal(median) / 1000,
+        time_per_order_p95_s=measured["time_per_order_p95_s"],
+        retries_per_order_mean=total.retries_mean,
+        fallback_share=(Decimal(fallen) / total.llm_orders if total.llm_orders else None),
+        switched_share=measured["switched_share"],
+        pass_lines=tuple(
+            ai_config.PassVerdict(line.name, line.line, line.measured, line.verdict)
+            for line in figures.pass_lines
+        ),
+    )
+
+
+async def _approve(batch_id: str, level: str) -> int:
+    """Story 2.12: compute the batch's report and hand its figures to
+    `ai.config.approve_effort`; print the report, then the stored measurement."""
+    from app import sim_report
+    from app.ai import config as ai_config
+
+    try:
+        figures = await _batch_figures(batch_id)
+        for line in sim_report.report_lines(figures):
+            print(line)
+        if figures.model_config_id is None:
+            print("error model_config_missing: the batch names no model config", file=sys.stderr)
+            return 1
+        row = await ai_config.approve_effort(
+            figures.model_config_id, level, figures.batch_id, effort_figures(figures)
+        )
+    except (ai_config.ConfigRefused, ai_config.ConfigNotFound) as exc:
+        print(f"error {exc.code}: {exc.message}", file=sys.stderr)
+        return 1
+    except (game_service.ViewError, DBAPIError) as exc:
+        _report(exc)
+        return 1
+    finally:
+        await db.dispose()
+    print(
+        f"approved config {row.model_config_id} effort_level {row.effort_level} "
+        f"batch {row.batch_id} measurement {row.id}"
+    )
+    return 0
+
+
+def _approve_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    return _run(_approve(args.batch_id, args.level))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1437,6 +1521,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     report.add_argument("batch_id")
     report.set_defaults(handler=_report_command, command_parser=report)
+    approve = commands.add_parser(
+        "approve", help="approve a batch's Effort level from its report (Story 2.12)"
+    )
+    approve.add_argument("batch_id")
+    approve.add_argument("--level", required=True, metavar="NAME", help="the Effort level")
+    approve.set_defaults(handler=_approve_command, command_parser=approve)
     prompt = commands.add_parser(
         "prompt", help="print the LLM prompt and schema for one Seat's open Week (no call)"
     )
@@ -1473,12 +1563,29 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+OFFLINE_COMMANDS = frozenset({"trace", "settings", "demand"})
+"""Subcommands that use no database: no zero-config seed before them."""
+
+
+async def _zero_config() -> None:
+    from app.ai import seed
+
+    try:
+        await seed.ensure_zero_config_logged()
+    finally:
+        await db.dispose()
+
+
+def main(argv: Sequence[str] | None = None, *, zero_config: bool = False) -> int:
+    """`zero_config`: seed the default model config first where allowed (AD-17); the program
+    entry does, tests calling `main` do not."""
     parser = build_parser()
     args = parser.parse_args(argv)
+    if zero_config and args.command not in OFFLINE_COMMANDS:
+        _run(_zero_config())
     return args.handler(args, args.command_parser)
 
 
 if __name__ == "__main__":
     configure_logging(get_settings().log_level, stream=sys.stderr)  # stdout is the report
-    raise SystemExit(main())
+    raise SystemExit(main(zero_config=True))

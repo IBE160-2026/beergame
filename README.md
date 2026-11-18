@@ -58,6 +58,20 @@ uv run python -m app.sim report <B>
 
 The worst case is what the gateway reserves per attempt (request size plus the Effort level's 4,096 `max_output_tokens`); retries add up to 5 more attempts per Order. Set the budget limit at or above the expected cost (`--limit 1` covers the default batch; raise it for 10 Games or more): when it runs out, the rest of the batch is played by Rule-based players and the report marks the batch as cut short and misses every pass line.
 
+### Offering an Effort level and pinning the model (Story 2.12)
+
+A batch that ran on the real endpoint and passed its cost, time and switched-share lines becomes the measurement of its Effort level; the default model config is the one pinned last:
+
+```sh
+uv run python -m app.sim approve <B> --level standard   # prints the report, then: approved config <ID> …
+uv run python -m app.ai.cli pin <ID>                     # the default for new Class sessions, with its evidence
+uv run python -m app.ai.cli config show <ID>             # the config, its offered levels and measurements, active_default
+```
+
+`approve` is refused when the mock answered the batch (`mock_batch`), when a line is missing or missed (a cut-short batch misses every line), when the batch played another level, or when it was approved before. Only approved levels whose endpoint can be reached here are offered (`ai.config.offered_effort_levels`, read by Epic 5); `pin` is refused for a config with none. A Class session or Game keeps the config id it was created with when the default changes later.
+
+Zero config: in `local`, `test` and `ci`, when no model config is stored, the api, the workers and `python -m app.sim` seed a config named `mock` (the content of `ai-configs/mock.json`) with a measurement marked `mock`, a USD 10 evaluation budget of mock money, and pin it. Mock measurements count only there: with `APP_ENV=production` nothing is seeded, a mock batch is never approved, the mock config is never pinned, and a database with only mock measurements offers no Effort level at all. A local database that already held configs before Story 2.12 is not seeded; pin one with `uv run python -m app.ai.cli pin <ID>` once it offers a level. The active default is the newest pin whose config offers a level here.
+
 Every LLM attempt first reserves its worst-case cost (request size and the Effort level's `max_output_tokens` at the config's prices) on the scope's budget row; LLM players may spend only `limit − reserve`. When a player's reservation does not fit, every LLM Seat of every running Game on that budget switches to a Rule-based player for good. `uv run python -m app.ai.cli cost --scope <ID>` prints the budget row and the AI cost per Game and per day.
 
 `openrouter-deepseek.json` goes through OpenRouter's global router (`openrouter.ai`) to one upstream endpoint run by an EU company (Nebius, zero retention, no fallback); the router itself is not EU-only. `ai-configs/openrouter-deepseek-eu.json` uses OpenRouter's EU in-region endpoint (`eu.openrouter.ai`, Business plan), which keeps prompts in the EU. The region, upstream provider, routing switches, prices and rate limit are config data.

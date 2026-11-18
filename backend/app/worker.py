@@ -70,8 +70,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     configure_logging(get_settings().log_level)
     # psycopg's async mode cannot run on Windows' default Proactor loop.
     factory = asyncio.SelectorEventLoop if sys.platform == "win32" else asyncio.new_event_loop
-    asyncio.run(serve(names, concurrency=args.concurrency), loop_factory=factory)
+    asyncio.run(_start(names, concurrency=args.concurrency), loop_factory=factory)
     return 0
+
+
+async def _start(names: Sequence[str], *, concurrency: int) -> None:
+    """Seed the zero-config default where allowed (AD-17), then serve."""
+    from app.ai import seed
+
+    await seed.ensure_zero_config_logged()
+    await serve(names, concurrency=concurrency)
 
 
 if __name__ == "__main__":
