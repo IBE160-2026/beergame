@@ -518,3 +518,18 @@ Seks tidsavhengige tester feilet av og til under last (sett i Story 2.8 og 2.13)
 
 ### Åpne punkter
 - Issue #63: ustabil klokke i lokal Docker-Postgres.
+
+## Oppfølgende gjennomgang av Epic 1–2 (2026-11-18)
+
+### Oppgave
+Lese rettingene som kom etter gjennomgangen i Story 1.2, 1.7, 2.3–2.8 og 2.11–2.13.
+
+### Plan
+Én uavhengig agent fikk specene og koden, ikke konklusjonene.
+
+### Resultat
+- Commit `74205cc`. To feil rettet: fallback når budsjettomfanget ikke kan leses (2.5), og lesetiden for fristen (2.6). Ny test for Story 2.5 der `place_order` avviser en modellordre.
+- Hele pakken: 1550 grønne på 61 s, ruff ren.
+
+### Åpne punkter
+- Issue #64: tre tvilsomme funn.
