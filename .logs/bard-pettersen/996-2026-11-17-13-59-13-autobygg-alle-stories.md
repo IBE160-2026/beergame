@@ -747,3 +747,23 @@ Bygge Story 3.11 på `epic-3` og kontrollere den visuelt.
 
 ### Åpne punkter
 - Issue #78: beslutninger om institusjoner og visuelle avvik.
+
+## Story 3.12: Lese revisjonsloggen (2026-11-18)
+
+### Oppgave
+Bygge Story 3.12 på `epic-3` og kontrollere den visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent. Deretter visuell kontroll i en egen underagent, med en forfalsket logg som dekker alle handlingene.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-12-read-audit-log.md`. Commit `85dc7f0`, visuell retting `69f85b4`.
+- Filtrert lesing i `platform/audit`, ny `modules/admin` med `GET /api/admin/audit` og `/actors` (bare Admin), og siden `/admin/revisjonslogg` med fire filtre.
+- En API-test sjekker at hver Admin-handling i Epic 3 gir nøyaktig én rad.
+- Backend: 1859 grønne på 71 s. Frontend: typecheck, Vitest (295), sjekker og bygg grønne. Playwright: 102 av 104. De to feilene var den kjente ustabile `system-states`-testen.
+- Gjennomgang: 33 lave funn, 6 rettet.
+- Visuell kontroll: 26 skjermbilder, én retting og to punkter til vurdering.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #79: beslutninger om revisjonsloggen, datoformat og visuelle avvik.
