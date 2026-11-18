@@ -169,7 +169,7 @@ async def test_add_stores_one_row_with_every_field(ai_db):
 
 
 async def test_a_referenced_config_cannot_change_and_an_edit_writes_a_new_row(ai_db):
-    source = await config.add(config.parse(MOCK))
+    source = await config.add(config.parse(mock_config()))
     with psycopg.connect(libpq_dsn(ai_db)) as conn:
         for sql in (  # before it is referenced, only referenced_at may be set
             "UPDATE ai_model_configs SET model_version = 'other' WHERE id = %s",

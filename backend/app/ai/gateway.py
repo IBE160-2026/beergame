@@ -9,6 +9,8 @@ retries set to 0: the retry loop is this module's.
 
 The caller gets a validated `Result` or a typed `Failure`; no provider exception reaches it.
 `GatewayError` is raised only for a mistake of the caller or the config, before any attempt.
+`preview` returns the request `run` would send (prompt, output schema, model settings) without
+calling a model, for `python -m app.sim prompt` and the recognition probe.
 """
 
 import asyncio
@@ -164,12 +166,8 @@ def _exhausted(state: budget.Budget | None, purpose: purposes.Purpose) -> bool:
     return state.spent >= state.limit or (purpose.player and state.players_exhausted_at is not None)
 
 
-async def _prepare(
-    purpose_name: str,
-    scope: budget.BudgetScope,
-    inputs: Inputs,
-    output_schema: type[BaseModel],
-) -> _Call | Failure:
+def _checked(purpose_name: str, inputs: Inputs) -> tuple[purposes.Purpose, dict[str, str | int]]:
+    """The purpose and the stored caller reference; refuses a caller mistake."""
     purpose = purposes.get(purpose_name)
     if purpose is None:
         raise GatewayError("unknown_purpose", f"no purpose {purpose_name!r}")
@@ -178,7 +176,13 @@ async def _prepare(
     for name, value in inputs.values.items():
         if not isinstance(name, str) or not isinstance(value, Scalar):
             raise GatewayError("inputs_invalid", f"render value {name!r} is not a scalar")
-    caller = _caller(inputs.caller)
+    return purpose, _caller(inputs.caller)
+
+
+async def _resolve(
+    scope: budget.BudgetScope, purpose: purposes.Purpose
+) -> tuple[config.ModelConfig, config.EffortLevel, int]:
+    """The scope's model config, its Effort level and the purpose's prompt version."""
     if scope.kind != "evaluation":
         # A Class session's config comes from its binding, which Epic 5 adds.
         raise GatewayError("scope_unresolved", f"no model config is bound to {scope.kind}")
@@ -199,15 +203,20 @@ async def _prepare(
         raise GatewayError(
             "prompt_not_in_config", f"config {scope.id} names no prompt for {purpose.name}"
         )
+    return model_config, level, version
+
+
+def _template(purpose: purposes.Purpose, version: int) -> str:
     template = prompt_files.load(purpose.name, version)
     if template is None:
         raise GatewayError("prompt_missing", f"no prompt file {purpose.name}/v{version}.md")
-    state = await budget.get(scope)
-    if state is None:
-        raise GatewayError("budget_not_found", f"no budget for {scope.kind} {scope.id}")
-    if _exhausted(state, purpose):
-        return Failure("budget_exhausted", (), f"budget {scope.kind} {scope.id} is spent")
-    terms = pii.terms(scope)
+    return template
+
+
+def _render(
+    purpose: purposes.Purpose, version: int, template: str, inputs: Inputs, terms: list[str]
+) -> tuple[str, dict[str, OffsetMap]]:
+    """The prompt rendered from the scrubbed values, and each string value's offset map."""
     scrubbed = {
         name: scrub(value, terms) for name, value in inputs.values.items() if isinstance(value, str)
     }
@@ -219,6 +228,37 @@ async def _prepare(
         prompt = string.Template(template).substitute(rendered)
     except (KeyError, ValueError) as exc:
         raise GatewayError("render_failed", f"prompt {purpose.name}/v{version}: {exc}") from None
+    return prompt, {name: item.offsets for name, item in scrubbed.items()}
+
+
+def _request(
+    prompt: str, output_schema: type[BaseModel], settings: dict[str, Any]
+) -> dict[str, Any]:
+    """What is handed to the model layer and stored on every row: the scrubbed prompt, the
+    output JSON schema and the model settings. Ids and the mock answer are never in it."""
+    return {
+        "prompt": prompt,
+        "output_schema": output_schema.model_json_schema(),
+        "model_settings": settings,
+    }
+
+
+async def _prepare(
+    purpose_name: str,
+    scope: budget.BudgetScope,
+    inputs: Inputs,
+    output_schema: type[BaseModel],
+) -> _Call | Failure:
+    purpose, caller = _checked(purpose_name, inputs)
+    model_config, level, version = await _resolve(scope, purpose)
+    template = _template(purpose, version)
+    state = await budget.get(scope)
+    if state is None:
+        raise GatewayError("budget_not_found", f"no budget for {scope.kind} {scope.id}")
+    if _exhausted(state, purpose):
+        return Failure("budget_exhausted", (), f"budget {scope.kind} {scope.id} is spent")
+    terms = pii.terms(scope)
+    prompt, offset_maps = _render(purpose, version, template, inputs, terms)
     settings = _settings(level)
     return _Call(
         purpose=purpose,
@@ -229,14 +269,45 @@ async def _prepare(
         prompt=prompt,
         caller=caller,
         terms=terms,
-        offset_maps={name: item.offsets for name, item in scrubbed.items()},
+        offset_maps=offset_maps,
         settings=settings,
-        request={
-            "prompt": prompt,
-            "output_schema": output_schema.model_json_schema(),
-            "model_settings": settings,
-        },
+        request=_request(prompt, output_schema, settings),
     )
+
+
+@dataclass(frozen=True)
+class Preview:
+    """What `run` would send for these inputs: the prompt version and the request (the scrubbed
+    prompt, the output JSON schema and the model settings), exactly as a row stores it."""
+
+    prompt_version: int
+    request: Mapping[str, Any]
+
+
+async def preview(
+    purpose: str,
+    inputs: Inputs,
+    output_schema: type[BaseModel],
+    budget_scope: budget.BudgetScope | None = None,
+) -> Preview:
+    """The request `run` would make, without a model, a budget check or a row.
+
+    With a scope it is resolved as `run` resolves it (config, Effort level, prompt version,
+    scrubbing terms). Without one, the newest prompt file of the purpose is rendered with no
+    terms and no model settings. Raises `GatewayError` like `run`."""
+    checked, _ = _checked(purpose, inputs)
+    if budget_scope is None:
+        version = prompt_files.latest(checked.name)
+        if version is None:
+            raise GatewayError("prompt_missing", f"no prompt file for {checked.name}")
+        terms: list[str] = []
+        settings: dict[str, Any] = {}
+    else:
+        _, level, version = await _resolve(budget_scope, checked)
+        terms = pii.terms(budget_scope)
+        settings = _settings(level)
+    prompt, _ = _render(checked, version, _template(checked, version), inputs, terms)
+    return Preview(version, _request(prompt, output_schema, settings))
 
 
 def _model(call: _Call, inputs: Inputs, output_schema: type[BaseModel]) -> Model | str:

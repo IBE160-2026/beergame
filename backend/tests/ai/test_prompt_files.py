@@ -24,9 +24,10 @@ def test_the_repository_prompts_match_their_lock(monkeypatch):
 
 def test_lock_records_new_files_and_check_finds_every_breach(prompts):
     assert prompt_files.check([("player_order", 1)]) == [
-        "prompt_unlocked player_order/v1: run `python -m app.ai.cli prompts lock`"
+        "prompt_unlocked player_order/v1: run `python -m app.ai.cli prompts lock`",
+        "prompt_unlocked recognition_probe/v1: run `python -m app.ai.cli prompts lock`",
     ]
-    assert prompt_files.lock() == ["player_order/v1"]
+    assert prompt_files.lock() == ["player_order/v1", "recognition_probe/v1"]
     assert prompt_files.lock() == []
     assert prompt_files.check([("player_order", 1)]) == []
 
@@ -56,9 +57,12 @@ def test_prompts_check_runs_over_stored_configs(ai_db, prompts, capsys, tmp_path
     assert main(["config", "add", str(path)]) == 0
     capsys.readouterr()
     assert main(["prompts", "lock"]) == 0
-    assert capsys.readouterr().out.splitlines() == ["locked player_order/v1"]
+    assert capsys.readouterr().out.splitlines() == [
+        "locked player_order/v1",
+        "locked recognition_probe/v1",
+    ]
     assert main(["prompts", "check"]) == 0
-    assert capsys.readouterr().out.splitlines() == ["prompts ok: 1 locked, 1 referenced"]
+    assert capsys.readouterr().out.splitlines() == ["prompts ok: 2 locked, 1 referenced"]
 
     (prompts / "player_order" / "v1.md").unlink()
     assert main(["prompts", "lock"]) == 1  # locking reports what it cannot fix
@@ -68,3 +72,12 @@ def test_prompts_check_runs_over_stored_configs(ai_db, prompts, capsys, tmp_path
     assert err == [
         "error prompt_removed player_order/v1: locked but the file is gone",
     ]
+
+
+def test_latest_is_the_newest_version_with_a_file(prompts):
+    """Story 2.4: `sim prompt` without a config renders the newest version."""
+    assert prompt_files.latest("player_order") == 1
+    (prompts / "player_order" / "v10.md").write_text("x", encoding="utf-8")
+    (prompts / "player_order" / "v02.md").write_text("x", encoding="utf-8")
+    assert prompt_files.latest("player_order") == 10
+    assert prompt_files.latest("player") is None

@@ -11,7 +11,7 @@
     "output_usd_per_mtok": "0.40"
   },
   "rate_limit_rpm": 60,
-  "prompts": {},
+  "prompts": {"player_order": 1, "recognition_probe": 1},
   "effort_levels": [
     {
       "name": "standard",

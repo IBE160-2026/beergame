@@ -30,7 +30,7 @@ def added_id(lines: list[str]) -> str:
     return match[1]
 
 
-def test_config_add_list_show_and_edit(ai_db, capsys, tmp_path):
+def test_config_add_list_show_and_edit(ai_db, capsys, tmp_path, prompts):
     code, lines, err = run(capsys, "config", "add", str(CONFIGS / "openrouter-deepseek.json"))
     assert code == 0, err
     first = added_id(lines)
@@ -52,17 +52,19 @@ def test_config_add_list_show_and_edit(ai_db, capsys, tmp_path):
         f"config {second} name=mock model=mock-1 endpoint=mock://local region=local referenced=no",
     ]
 
-    code, lines, _ = run(capsys, "config", "edit", first, "--prompt", "player_order=v1")
+    (prompts / "player_order" / "v2.md").write_text("prompt 2", encoding="utf-8")
+    code, lines, _ = run(capsys, "config", "edit", first, "--prompt", "player_order=v2")
     assert code == 0
     third = added_id(lines)
     assert lines[1] == f"from {first}"
     code, lines, _ = run(capsys, "config", "show", third)
     shown = json.loads("\n".join(lines))
-    assert shown["prompts"] == {"player_order": 1}
+    assert shown["prompts"] == {"player_order": 2, "recognition_probe": 1}
     assert shown["derived_from"] == first and shown["referenced_at"] is None
     assert shown["credential_env"] == "OPENROUTER_API_KEY"
     code, lines, _ = run(capsys, "config", "show", first)
-    assert json.loads("\n".join(lines))["prompts"] == {}  # the referenced row is unchanged
+    # The referenced row is unchanged.
+    assert json.loads("\n".join(lines))["prompts"] == {"player_order": 1, "recognition_probe": 1}
 
     code, lines, _ = run(
         capsys, "config", "edit", second, "--from", write(tmp_path, mock_config(name="b"))

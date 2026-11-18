@@ -53,6 +53,26 @@ Subcommands:
                    parameter set, which `create` refuses; the ids of the Games already stored
                    are printed); 2 when the batch file cannot be read or does not have the
                    batch file's shape.
+  prompt           print the exact LLM request for one Seat's open Week without calling a model
+                   (`ai.gateway.preview`): the `player_order` prompt version and its source
+                   (`config` or `newest file`), the prompt built
+                   by `players.llm` from the Seat's `SeatState` alone, the JSON schema of the
+                   Order and the model settings. `--config ID` resolves it for that model
+                   config's evaluation scope; without it the newest prompt file is used. A
+                   Guided Week, or a Seat that has already ordered, is noted on stderr (no
+                   model is asked in a Guided Week). Exit 1 when the
+                   Game is finished or not started, or a Game, Seat or config is unknown.
+  probe            ask whether a model recognises the exercise (FR-31, issue #19): for a seeded
+                   sample (`--sample`, `--seed`) of stored non-Guided Seat states (`--game`,
+                   default the 10 newest finished Games) it sends the player prompt with one
+                   added question under the `recognition_probe` purpose and prompt version,
+                   charged to the config's evaluation budget and logged by the gateway (one row
+                   per attempt), and prints each answer with its call ids as it comes back. It
+                   places no Order; the player prompt's answer-format line is left out. A config
+                   stored before Story 2.4 names no `recognition_probe` prompt: derive one with
+                   `python -m app.ai.cli config edit ID --prompt recognition_probe=v1`. Exit 1
+                   when there is nothing to sample, the call cannot be prepared, or no sample
+                   got an answer.
 
 The runner computes no game quantities: every printed number is an engine field, the Order it
 was given, a number read back from the database, or (the `run` batch totals) a sum of those.
@@ -62,9 +82,11 @@ import argparse
 import asyncio
 import csv
 import json
+import random
 import re
 import secrets
 import sys
+import uuid
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from decimal import Decimal
 from pathlib import Path
@@ -604,6 +626,169 @@ def _log(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     return _run(_print_log(args.game_id))
 
 
+class ConfigIdError(ValueError):
+    """`--config` is not a model config id."""
+
+
+def _report_ai(exc: Exception) -> bool:
+    """Print a refused gateway preparation (`GatewayError`) or a bad `--config`; False when
+    `exc` is neither. The gateway is imported here, never at module level: it loads
+    pydantic-ai, which no other subcommand needs."""
+    from app.ai import gateway
+
+    if isinstance(exc, gateway.GatewayError):
+        print(f"error {exc.code}: {exc.message}", file=sys.stderr)
+        return True
+    if isinstance(exc, ConfigIdError):
+        print(f"error config_not_found: {exc}", file=sys.stderr)
+        return True
+    return False
+
+
+def _scope(config_id: str | None) -> Any:
+    """The evaluation scope of `--config`, or None without one."""
+    from app.ai import budget
+
+    if config_id is None:
+        return None
+    try:
+        return budget.BudgetScope.evaluation(config_id)
+    except ValueError:
+        raise ConfigIdError(f"{config_id!r} is not a model config id") from None
+
+
+def _seat_id(game: game_service.GameOverview, seat: str) -> str:
+    """The id of the Seat named by a Role or by its id in any form `uuid.UUID` reads."""
+    try:
+        wanted: uuid.UUID | None = uuid.UUID(seat)
+    except ValueError:
+        wanted = None
+    for row in game.seats:
+        if seat == row.role or wanted == uuid.UUID(row.id):
+            return row.id
+    raise game_service.ViewError("seat_not_found", f"the Game has no Seat {seat!r}", 404)
+
+
+async def _print_prompt(game_id: str, seat: str, config_id: str | None) -> int:
+    from app.ai import gateway
+    from app.modules.players import llm
+
+    try:
+        scope = _scope(config_id)
+        game = await game_service.get_game(game_id)
+        if game is None:
+            raise game_service.ViewError("game_not_found", f"no Game {game_id!r}", 404)
+        if game.lifecycle == game_service.Lifecycle.FINISHED:
+            raise game_service.ViewError("game_finished", "the Game has no open Week", 409)
+        state = await game_service.seat_state(game_id, seat)
+        turn = await game_service.open_turn(game_id, seat, state.week)
+        seat_id = _seat_id(game, seat)
+        inputs = llm.request_inputs(
+            game.id, seat_id, state.week, state, turn.rule_based_reference_order
+        )
+        schema = llm.order_schema(state.min_order, state.max_order)
+        shown = await gateway.preview(llm.PURPOSE, inputs, schema, scope)
+    except (game_service.ViewError, DBAPIError, gateway.GatewayError, ConfigIdError) as exc:
+        if not _report_ai(exc):
+            _report(exc)
+        return 1
+    finally:
+        await db.dispose()
+    request = shown.request
+    source = "config" if scope is not None else "newest file"
+    print(f"purpose {llm.PURPOSE} prompt_version {shown.prompt_version} from {source}")
+    print("--- prompt")
+    print(request["prompt"].rstrip("\n"))
+    print("--- output_schema")
+    print(json.dumps(request["output_schema"], indent=2))
+    print(f"--- model_settings {json.dumps(request['model_settings'])}")
+    if turn.guided:
+        print(
+            f"note: Week {state.week} is a Guided Week: the Guided Order is placed and no model "
+            "is asked",
+            file=sys.stderr,
+        )
+    if turn.ordered_at is not None:
+        print(f"note: the Seat has already ordered in Week {state.week}", file=sys.stderr)
+    return 0
+
+
+def _prompt(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    return _run(_print_prompt(args.game_id, args.seat, args.config))
+
+
+PROBE_GAMES = 10
+"""Without `--game`, `probe` samples the Seat states of this many newest finished Games."""
+
+
+async def _probe_states(
+    game_ids: Sequence[str], sample: int, seed: int
+) -> list[tuple[str, game_service.DecisionLogRow]]:
+    """A seeded sample of the non-Guided Decision log rows (each with its Game id)."""
+    rows: list[tuple[str, game_service.DecisionLogRow]] = []
+    if not game_ids:
+        game_ids = (await game_service.finished_game_ids())[-PROBE_GAMES:]
+    for game_id in dict.fromkeys(game_ids):  # a Game named twice is sampled once
+        rows += [
+            (game_id, row)
+            for row in await game_service.decision_log(game_id)
+            if row.decided_by != game_service.DecidedBy.GUIDED
+        ]
+    return list(random.Random(seed).sample(rows, min(sample, len(rows))))
+
+
+async def _probe(config_id: str, game_ids: Sequence[str], sample: int, seed: int) -> int:
+    """Each answer is printed as soon as it comes back, so the calls already charged stay
+    visible when a later sample fails. Exit 1 when no sample got an answer."""
+    from app.ai import gateway
+    from app.modules.players import llm
+
+    answered = recognised = probed = 0
+    try:
+        scope = _scope(config_id)
+        picked = await _probe_states(game_ids, sample, seed)
+        if not picked:
+            print("error no_seat_states: no stored non-Guided Seat state to probe", file=sys.stderr)
+            return 1
+        for game_id, row in picked:
+            state = row.state_seen
+            inputs = llm.request_inputs(
+                game_id, row.seat_id, row.week, state, row.rule_based_reference_order
+            )
+            schema = llm.order_schema(state.min_order, state.max_order)
+            shown = await gateway.preview(llm.PURPOSE, inputs, schema, scope)
+            probe = gateway.Inputs(
+                values={"player_prompt": llm.without_answer_format(shown.request["prompt"])},
+                caller=inputs.caller,
+            )
+            result = await gateway.run(llm.PROBE_PURPOSE, scope, probe, llm.ProbeAnswer, None)
+            probed += 1
+            ids = ",".join(str(call_id) for call_id in result.llm_call_ids) or "-"
+            print(f"game {game_id} week {row.week} role {row.role} calls {ids}", flush=True)
+            if isinstance(result, gateway.Failure):
+                print(f"  failure {result.kind}: {result.detail}", flush=True)
+                continue
+            answer = result.output
+            answered += 1
+            recognised += answer.recognised
+            print(f"  recognised {'yes' if answer.recognised else 'no'} name {answer.name!r}")
+            print(f"  explanation {answer.explanation}", flush=True)
+    except (game_service.ViewError, DBAPIError, gateway.GatewayError, ConfigIdError) as exc:
+        if not _report_ai(exc):
+            _report(exc)
+        return 1
+    finally:
+        await db.dispose()
+    print(f"probed {probed} answered={answered} recognised={recognised}")
+    return 0 if answered else 1
+
+
+def _probe_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    if args.sample < 1:
+        parser.error("--sample must be at least 1")
+    return _run(_probe(args.config, args.game or (), args.sample, args.seed))
+
+
 MAX_BATCH_GAMES = 100
 
 
@@ -946,6 +1131,28 @@ def build_parser() -> argparse.ArgumentParser:
         "--export", metavar="DIR", help=f"write the Decision log as DIR/{EXPORT_FILE}"
     )
     batch.set_defaults(handler=_run_command, command_parser=batch)
+    prompt = commands.add_parser(
+        "prompt", help="print the LLM prompt and schema for one Seat's open Week (no call)"
+    )
+    prompt.add_argument("game_id")
+    prompt.add_argument("--seat", required=True, metavar="SEAT", help="Role or Seat id")
+    prompt.add_argument(
+        "--config", metavar="ID", help="resolve for this model config (default: newest prompt)"
+    )
+    prompt.set_defaults(handler=_prompt, command_parser=prompt)
+    probe = commands.add_parser(
+        "probe", help="ask a model whether it recognises the exercise in stored Seat states"
+    )
+    probe.add_argument("--config", required=True, metavar="ID", help="model config id")
+    probe.add_argument("--sample", type=int, default=4, help="Seat states to send (default 4)")
+    probe.add_argument("--seed", type=int, default=0, help="sampling seed (default 0)")
+    probe.add_argument(
+        "--game",
+        action="append",
+        metavar="ID",
+        help=f"sample from this Game (repeatable; default the {PROBE_GAMES} newest finished)",
+    )
+    probe.set_defaults(handler=_probe_command, command_parser=probe)
     return parser
 
 

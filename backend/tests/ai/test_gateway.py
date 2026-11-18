@@ -322,3 +322,27 @@ def test_the_outcomes_match_the_table_check():
     assert set(get_args(gateway.Outcome)) == set(models.OUTCOMES)
     failures = set(get_args(gateway.FailureKind))
     assert failures - {"budget_exhausted"} == set(models.OUTCOMES) - {"ok"}
+
+
+async def test_preview_resolves_a_scope_as_run_does_and_uses_the_newest_file_without_one(
+    ai_db, template, prompts
+):
+    """Story 2.4: `preview` with a scope takes the config's prompt version and Effort level
+    settings, and equals what `run` stores; without one, the newest file and no settings."""
+    (prompts / "player_order" / "v2.md").write_text("Newer: $stock $note", encoding="utf-8")
+    seeded = level(provider_params={"seed": 1, "temperature": 0.2})
+    scope = await scope_for(effort_levels=[seeded])
+    scoped = await gateway.preview("player_order", inputs(), Order, scope)
+    assert scoped.prompt_version == 1
+    assert scoped.request["prompt"] == "Stock: 12 units. Note: no backlog"
+    assert scoped.request["model_settings"] == {"seed": 1, "temperature": 0.2}
+    bare = await gateway.preview("player_order", inputs(), Order)
+    assert bare.prompt_version == 2 and bare.request["model_settings"] == {}
+    assert bare.request["prompt"] == "Newer: 12 no backlog"
+    await call(scope, inputs(mock_answer={"order": 4}))
+    [row] = rows(ai_db)
+    assert row["request"] == json.loads(json.dumps(scoped.request))
+    assert rows(ai_db)[0]["outcome"] == "ok"
+    with pytest.raises(GatewayError) as caught:
+        await gateway.preview("debrief", inputs(), Order)
+    assert caught.value.code == "unknown_purpose"

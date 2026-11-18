@@ -29,6 +29,13 @@ def load(purpose: str, version: int) -> str | None:
     return path.read_text(encoding="utf-8") if path.is_file() else None
 
 
+def latest(purpose: str) -> int | None:
+    """The newest version with a file for the purpose, or None when there is none."""
+    prefix = f"{purpose}/v"
+    versions = [int(name.removeprefix(prefix)) for name in files() if name.startswith(prefix)]
+    return max(versions, default=None)
+
+
 def digest(text: str) -> str:
     """sha256 of the text with `\\r\\n` as `\\n`, so a Windows checkout hashes the same."""
     return hashlib.sha256(text.replace("\r\n", "\n").encode("utf-8")).hexdigest()

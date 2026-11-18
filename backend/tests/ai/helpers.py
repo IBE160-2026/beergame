@@ -13,8 +13,10 @@ MOCK = json.loads((CONFIGS / "mock.json").read_text(encoding="utf-8"))
 
 
 def mock_config(**changes: object) -> dict:
-    """The shipped mock config with top-level fields replaced."""
+    """The shipped mock config with an empty `prompts` map (so a test names the prompt versions
+    it relies on) and top-level fields replaced."""
     data = copy.deepcopy(MOCK)
+    data["prompts"] = {}
     data.update(changes)
     return data
 

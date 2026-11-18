@@ -19,6 +19,9 @@ class Purpose:
 PURPOSES: dict[str, Purpose] = {
     # At most 6 attempts for one player Order (FR-32).
     "player_order": Purpose("player_order", attempt_limit=6, player=True),
+    # `python -m app.sim probe`: does a model recognise the exercise (FR-31, issue #19)? An
+    # evaluation tool, not a player: it places no Order.
+    "recognition_probe": Purpose("recognition_probe", attempt_limit=3, player=False),
 }
 
 

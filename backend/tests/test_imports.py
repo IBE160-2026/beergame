@@ -26,11 +26,17 @@ def imports(package: Path) -> list[tuple[Path, int, str]]:
 
 
 def test_players_imports_only_the_games_service_and_commands():
+    """`players` may reach the LLM only through the gateway (Story 2.4, AD-6), and only from
+    `players/llm.py`: the order source that `games` imports loads no provider library."""
     allowed = ("app.modules.games.service", "app.modules.games.commands")
     for path, line, name in imports(APP / "modules" / "players"):
         if name.startswith("app.modules.") and not name.startswith("app.modules.players"):
             assert name in allowed, f"{path.name}:{line} imports {name}"
+        if path.stem == "llm" and name == "app.ai.gateway":
+            continue
         assert not name.startswith(LLM_IMPORTS), f"{path.name}:{line} imports {name}"
+        # `players.llm` loads pydantic-ai; the order source that `games` imports never does.
+        assert not name.startswith("app.modules.players.llm"), f"{path.name}:{line} imports {name}"
 
 
 def test_games_has_no_llm_or_provider_import():
@@ -39,6 +45,7 @@ def test_games_has_no_llm_or_provider_import():
         if name.startswith("app.modules.") and not name.startswith("app.modules.games"):
             # The order source, called when a Week opens; nothing else of another module.
             assert name == "app.modules.players.service", f"{path.name}:{line} imports {name}"
+            assert not name.startswith("app.modules.players.llm")
 
 
 AI_PUBLIC = ("app.ai.config", "app.ai.budget", "app.ai.gateway")
