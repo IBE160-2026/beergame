@@ -15,12 +15,15 @@
     "test:e2e": "playwright test",
     "check:copy": "node scripts/check-copy.mjs",
     "lint:colours": "node scripts/lint-colours.mjs",
-    "theme": "node scripts/build-theme.mjs"
+    "theme": "node scripts/build-theme.mjs",
+    "api:generate": "openapi-typescript src/lib/api/openapi.json -o src/lib/api/schema.ts"
   },
   "dependencies": {
     "@fontsource/source-sans-3": "5.3.1",
+    "@tanstack/react-query": "5.105.3",
     "clsx": "2.1.1",
     "next": "16.4.6",
+    "openapi-fetch": "0.17.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "tailwind-merge": "3.7.0"

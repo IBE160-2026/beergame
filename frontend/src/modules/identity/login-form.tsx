@@ -1,22 +1,30 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/button";
 import { Link } from "@/components/link";
 import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
+import { ApiRequestError } from "@/lib/api/client";
 
+import { useLogin } from "./api";
+import { loginErrorMessage } from "./login-errors";
 import { type LoginErrors, validateEmail, validateLogin, validatePassword } from "./validate-login";
 
 const copy = nb.auth.login;
 
 /**
- * The «Logg inn» form. In Story 3.1 it validates on the client and sends nothing. Story 3.2
- * connects it to the API.
+ * The «Logg inn» form. It validates on the client first (Story 3.1), then logs in through the API
+ * (Story 3.2). A refused login shows one line that never says which field was wrong; the input is
+ * kept. After a login the User goes to `/`.
  */
 export function LoginForm() {
+  const router = useRouter();
+  const login = useLogin();
   const [errors, setErrors] = useState<LoginErrors>({});
+  const [serverError, setServerError] = useState<string>();
   const [submitted, setSubmitted] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -31,15 +39,29 @@ export function LoginForm() {
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const result = validateLogin({
-      email: emailRef.current?.value ?? "",
-      password: passwordRef.current?.value ?? "",
-    });
+    if (login.isPending) return;
+    const email = emailRef.current?.value ?? "";
+    const password = passwordRef.current?.value ?? "";
+    const result = validateLogin({ email, password });
     setErrors(result);
     setSubmitted(true);
+    setServerError(undefined);
     const field = result.email ? "email" : result.password ? "password" : undefined;
-    if (field) setFocusRequest((prev) => ({ field, n: (prev?.n ?? 0) + 1 }));
-    // Valid input: the login request comes in Story 3.2. Nothing is sent here.
+    if (field) {
+      setFocusRequest((prev) => ({ field, n: (prev?.n ?? 0) + 1 }));
+      return;
+    }
+    login.mutate(
+      { email, password },
+      {
+        onSuccess: () => router.push("/"),
+        onError: (error) => {
+          const code = error instanceof ApiRequestError ? error.code : "unknown_error";
+          setServerError(loginErrorMessage(code));
+          setFocusRequest((prev) => ({ field: "email", n: (prev?.n ?? 0) + 1 }));
+        },
+      },
+    );
   }
 
   // After the first press, a field is checked again when it is left, so a fixed error clears.
@@ -76,7 +98,12 @@ export function LoginForm() {
         error={errors.password ? copy.errors[errors.password] : undefined}
         onBlur={onPasswordBlur}
       />
-      <Button type="submit" variant="primary" className="mt-1 w-full">
+      {serverError ? (
+        <p role="alert" className="text-body-phone text-restordre">
+          {serverError}
+        </p>
+      ) : null}
+      <Button type="submit" variant="primary" unavailable={login.isPending} className="mt-1 w-full">
         {copy.submit}
       </Button>
       <p>

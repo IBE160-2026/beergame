@@ -13,6 +13,7 @@ from pydantic import Field, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LOCAL_DATABASE_URL = "postgresql+psycopg://olspillet:olspillet@localhost:5432/olspillet"
+LOCAL_JWT_SECRET = "local-only-jwt-secret-not-for-production"
 
 # Variables that must be set, and not to a built-in default, in production.
 # Later epics add JWT_SECRET, RESEND_API_KEY and the storage keys here.
@@ -47,6 +48,17 @@ class Settings(BaseSettings):
     # the AI assessment when a budget is created without one.
     ai_default_session_budget_usd: Decimal = Field(Decimal("15.00"), ge=0, decimal_places=8)
     ai_budget_reserve_usd: Decimal = Field(Decimal("1.00"), ge=0, decimal_places=8)
+
+    # Session and login (AD-11, Story 3.2). JWT_SECRET's production guard comes with Story 3.14.
+    jwt_secret: str = LOCAL_JWT_SECRET
+    session_max_age_hours: int = Field(168, ge=1)
+    # bcrypt cost; the tests set the minimum, 4, so hashing stays cheap.
+    bcrypt_rounds: int = Field(12, ge=4, le=16)
+    # PLACEHOLDERS to be confirmed before the pilot: failed logins allowed per window. The IP
+    # limit stays far above a class size, since a whole class can share one NAT address.
+    login_rate_limit_per_ip: int = Field(300, ge=1)
+    login_rate_limit_per_account: int = Field(5, ge=1)
+    login_rate_limit_window_minutes: int = Field(15, ge=1)
 
     @field_validator("log_level", mode="before")
     @classmethod

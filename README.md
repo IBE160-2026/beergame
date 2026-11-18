@@ -80,6 +80,35 @@ Every LLM attempt first reserves its worst-case cost (request size and the Effor
 
 `openrouter-deepseek.json` goes through OpenRouter's global router (`openrouter.ai`) to one upstream endpoint run by an EU company (Nebius, zero retention, no fallback); the router itself is not EU-only. `ai-configs/openrouter-deepseek-eu.json` uses OpenRouter's EU in-region endpoint (`eu.openrouter.ai`, Business plan), which keeps prompts in the EU. The region, upstream provider, routing switches, prices and rate limit are config data.
 
+### Logging in locally (Story 3.2)
+
+With `APP_ENV=local` (the compose default) and an empty `users` table, the backend seeds two demo accounts at start. Nothing is seeded in any other environment.
+
+| Role | E-post | Passord |
+|------|--------|---------|
+| Admin | `admin@example.com` | `olspillet-demo` |
+| Faglærer (Lecturer) | `faglaerer@example.com` | `olspillet-demo` |
+
+Log in at <http://127.0.0.1:8080/logg-inn>. A database that already holds Users is not seeded again. To start over, empty the tables with `docker compose exec postgres psql -U olspillet -c "TRUNCATE users CASCADE"`, then restart `backend`.
+
+Playwright tests and visual checks use the same test login: `frontend/e2e/support/auth.ts` exports `DEMO_USERS`, `DEMO_PASSWORD`, `loginAs(page, role)` (through the «Logg inn» page) and `loginByApi(page, role)` (through the API only, which is faster). `role` is `admin` or `lecturer`.
+
+Session and login:
+
+- The session is an HS256 JWT in the `olspillet_session` cookie (`HttpOnly; Secure; SameSite=Lax`). Chromium and Firefox keep a `Secure` cookie on `http://127.0.0.1` and `http://localhost`; Safari may not, so log in locally with Chromium or Firefox. `JWT_SECRET` has a local default and must be set to a long random value outside local (the production guard comes with Story 3.14). `SESSION_MAX_AGE_HOURS` defaults to 168. Logout deletes the cookie; a copied token stays valid until it expires unless the User is deactivated.
+- Every mutating `/api` request needs the header `X-Requested-With: olspillet`. The generated client sends it.
+- Failed logins are rate-limited in Postgres. The limits are placeholders until the pilot: `LOGIN_RATE_LIMIT_PER_IP` (300), `LOGIN_RATE_LIMIT_PER_ACCOUNT` (5) and `LOGIN_RATE_LIMIT_WINDOW_MINUTES` (15). A successful login resets the account's count.
+- `BCRYPT_ROUNDS` (12) sets the hashing cost. The tests use 4.
+
+The typed API client in `frontend/src/lib/api/` is generated from the backend's OpenAPI schema. After you change a route or schema, regenerate it:
+
+```sh
+cd backend && uv run python -m app.openapi ../frontend/src/lib/api/openapi.json
+cd frontend && npm run api:generate
+```
+
+CI regenerates both files and fails on any difference.
+
 Checks, as CI runs them:
 
 ```sh

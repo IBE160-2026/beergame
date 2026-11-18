@@ -4,22 +4,19 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import APIRouter, FastAPI
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 
+from app.modules.identity import routes as identity_routes
+from app.modules.identity import seed as identity_seed
+from app.modules.identity.service import NotAuthenticated
 from app.platform import db
+from app.platform.auth import CsrfMiddleware
 from app.platform.config import get_settings
+from app.platform.errors import error_response
 from app.platform.logging import RequestLogMiddleware, configure_logging
 
 log = structlog.get_logger("app.main")
-
-
-def error_response(status: int, code: str, message: str, fields: dict | None = None):
-    return JSONResponse(
-        status_code=status,
-        content={"error": {"code": code, "message": message, "fields": fields or {}}},
-    )
-
 
 router = APIRouter(prefix="/api")
 
@@ -41,8 +38,23 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     from app.ai import seed
 
     await seed.ensure_zero_config_logged()  # AD-17: a default model config with zero keys
+    await identity_seed.ensure_demo_users_logged()  # AD-17: local demo Admin and Lecturer
     yield
     await db.dispose()
+
+
+async def _not_authenticated(_: Request, __: NotAuthenticated):
+    return error_response(401, "not_authenticated", "No valid session.")
+
+
+async def _invalid_request(_: Request, exc: RequestValidationError):
+    # The AD-19 envelope also for a body that fails validation; the field names only, never
+    # the submitted values (a password could be among them).
+    fields = {
+        ".".join(str(part) for part in error["loc"][1:]) or "body": error["type"]
+        for error in exc.errors()
+    }
+    return error_response(422, "invalid_request", "The request is not valid.", fields)
 
 
 def create_app() -> FastAPI:
@@ -54,7 +66,11 @@ def create_app() -> FastAPI:
         redoc_url=None,
     )
     app.include_router(router)
-    app.add_middleware(RequestLogMiddleware)
+    app.include_router(identity_routes.router)
+    app.add_exception_handler(NotAuthenticated, _not_authenticated)
+    app.add_exception_handler(RequestValidationError, _invalid_request)
+    app.add_middleware(CsrfMiddleware)
+    app.add_middleware(RequestLogMiddleware)  # outermost: refused requests are logged too
     return app
 
 

@@ -182,7 +182,7 @@ test("is operable by keyboard alone, with a visible focus ring", async ({ page }
   expect(sent).toEqual([]);
 });
 
-test("shows the reason beside a malformed e-mail, clears it when fixed, and sends nothing", async ({ page }) => {
+test("shows the reason beside a malformed e-mail, sends nothing until valid, then sends the login", async ({ page }) => {
   const sent = apiRequests(page);
   await page.goto("/logg-inn");
   const email = page.getByLabel(copy.email);
@@ -214,12 +214,15 @@ test("shows the reason beside a malformed e-mail, clears it when fixed, and send
   await expect(password).not.toHaveAttribute("aria-invalid");
   await expect(page.getByText(copy.errors.passwordEmpty)).toHaveCount(0);
 
-  // Fixed and left: the reason clears. Valid input: nothing is sent and the page stays.
-  await email.fill("ola@uib.no");
+  // Up to here nothing was sent. Fixed and left: the reason clears. Valid input is sent to the
+  // login API (Story 3.2); a unique address, so repeated runs never reach the account limit.
+  expect(sent).toEqual([]);
+  await email.fill(`ola.${Date.now()}@uib.no`);
   await password.focus();
   await expect(email).not.toHaveAttribute("aria-invalid");
+  const request = page.waitForRequest((r) => r.url().endsWith("/api/auth/login") && r.method() === "POST");
   await submit.click();
+  await request;
   await expect(page.getByText(copy.errors.emailNoDomain)).toHaveCount(0);
   await expect(page).toHaveURL(/\/logg-inn$/);
-  expect(sent).toEqual([]);
 });

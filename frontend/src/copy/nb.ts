@@ -132,10 +132,20 @@ export const nb = {
         emailSpace: "Fjern mellomrommet",
         passwordEmpty: "Skriv passordet ditt.",
       },
-      // Used from Story 3.2 on (EXPERIENCE.md → State Patterns → Account and access).
+      // EXPERIENCE.md → State Patterns → Account and access. `deactivated` shows only after the
+      // right password; its staff wording is open in Issue #31.
       invalidCredentials: "Feil e-post eller passord.",
       deactivated: "Kontoen er deaktivert. Ta kontakt med faglæreren din.",
       sessionExpired: "Du er logget ut. Logg inn igjen for å fortsette.",
+      // [ASSUMPTION] Story 3.2: too many failed logins, and any other failure.
+      rateLimited: "For mange forsøk. Vent noen minutter og prøv igjen.",
+      failed: "Innloggingen gikk ikke. Prøv igjen.",
+    },
+    session: {
+      // [ASSUMPTION] Story 3.2: the signed-in placeholder until Story 3.3 builds the homes.
+      signedIn: "Du er logget inn.",
+      logout: "Logg ut",
+      logoutFailed: "Utloggingen gikk ikke. Prøv igjen.",
     },
   },
 } as const;

@@ -47,6 +47,7 @@ TEST_DATABASE_URL = _base_url.set(database=f"{_base_url.database}_test{_suffix}"
 )
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ.setdefault("APP_ENV", "test")
+os.environ.setdefault("BCRYPT_ROUNDS", "4")  # bcrypt's minimum cost: hashing stays cheap
 
 
 def libpq_dsn(url: str) -> str:
@@ -120,6 +121,17 @@ def ai_db(test_database) -> str:
     tables (TRUNCATE fires no row trigger, so referenced configs go too)."""
     with psycopg.connect(libpq_dsn(test_database), autocommit=True) as conn:
         conn.execute(f"TRUNCATE {AI_TABLES}")
+    return test_database
+
+
+IDENTITY_TABLES = "users, user_roles, rate_limit_counters"
+
+
+@pytest.fixture
+def identity_db(test_database) -> str:
+    """The test database at the latest revision with no Users and no rate-limit counts."""
+    with psycopg.connect(libpq_dsn(test_database), autocommit=True) as conn:
+        conn.execute(f"TRUNCATE {IDENTITY_TABLES} CASCADE")
     return test_database
 
 

@@ -9,6 +9,8 @@ import "./globals.css";
 
 import { nb } from "@/copy/nb";
 
+import { Providers } from "./providers";
+
 export const metadata: Metadata = {
   title: { default: nb.product.name, template: `%s – ${nb.product.name}` },
 };
@@ -16,7 +18,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="nb">
-      <body>{children}</body>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

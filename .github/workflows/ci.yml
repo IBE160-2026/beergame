@@ -68,6 +68,36 @@ jobs:
         run: npm run check:copy
       - run: npm run build # prebuild runs the colour lint (UX-DR1)
 
+  # The typed API client is generated from the FastAPI schema; fail on any drift (AD-10).
+  api-client:
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: ci
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.13.7"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: uv sync --locked
+        working-directory: backend
+      - name: Export the OpenAPI schema
+        run: uv run python -m app.openapi ../frontend/src/lib/api/openapi.json
+        working-directory: backend
+      - run: npm ci
+        working-directory: frontend
+      - name: Regenerate the client types
+        run: npm run api:generate
+        working-directory: frontend
+      - name: Fail on drift (changed, new or deleted files)
+        run: |
+          git status --porcelain -- frontend/src/lib/api
+          test -z "$(git status --porcelain -- frontend/src/lib/api)"
+
   # Playwright with axe against the compose stack (NFR-6, UX-DR75, UX-DR76).
   e2e:
     runs-on: ubuntu-latest

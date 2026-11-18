@@ -27,6 +27,9 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-olspillet}:${POSTGRES_PASSWORD:-olspillet}@postgres:5432/${POSTGRES_DB:-olspillet}
       DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # bcrypt's minimum cost locally, so the Playwright login tests stay fast. The app's own
+      # default (12) applies everywhere this is not set, production included.
+      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-4}
       FEATURE_STUDENT_CHOICE: ${FEATURE_STUDENT_CHOICE:-true}
       FEATURE_CROSS_INSTITUTION_STATS: ${FEATURE_CROSS_INSTITUTION_STATS:-true}
       FEATURE_RERUN: ${FEATURE_RERUN:-true}
