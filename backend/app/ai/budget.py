@@ -2,8 +2,8 @@
 
 One row per scope: a model config's evaluation budget (simulation runs) or a Class session's
 budget. Money is `NUMERIC(18,8)` USD. The row holds `limit`, `reserve` (kept for the Debrief and
-the AI assessment), `spent` and `players_exhausted_at` (the cost-limit state). Reservations
-against it come with the gateway (Story 2.8).
+the AI assessment), `spent` and `players_exhausted_at` (the cost-limit state). The gateway adds
+each attempt's cost to `spent` (`charge`); reservations against it come with Story 2.8.
 
 Other modules read and change budgets only through this module (AD-6); Epic 5 creates a Class
 session's row with `set_budget(BudgetScope.class_session(id))`, whose limit defaults to
@@ -11,12 +11,12 @@ session's row with `set_budget(BudgetScope.class_session(id))`, whose limit defa
 """
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,16 +30,25 @@ ScopeKind = Literal["evaluation", "class_session"]
 
 @dataclass(frozen=True)
 class BudgetScope:
+    """Whose budget a call charges. `effort_level` is the Effort level the scope froze (a
+    simulation batch, later a Class session); the gateway uses the config's first level when it
+    is `None`. It does not take part in equality: one scope has one budget row."""
+
     kind: ScopeKind
     id: uuid.UUID
+    effort_level: str | None = field(default=None, compare=False)
 
     @classmethod
-    def evaluation(cls, config_id: uuid.UUID | str) -> BudgetScope:
-        return cls("evaluation", uuid.UUID(str(config_id)))
+    def evaluation(
+        cls, config_id: uuid.UUID | str, *, effort_level: str | None = None
+    ) -> BudgetScope:
+        return cls("evaluation", uuid.UUID(str(config_id)), effort_level)
 
     @classmethod
-    def class_session(cls, class_session_id: uuid.UUID | str) -> BudgetScope:
-        return cls("class_session", uuid.UUID(str(class_session_id)))
+    def class_session(
+        cls, class_session_id: uuid.UUID | str, *, effort_level: str | None = None
+    ) -> BudgetScope:
+        return cls("class_session", uuid.UUID(str(class_session_id)), effort_level)
 
 
 @dataclass(frozen=True)
@@ -135,3 +144,14 @@ async def get(scope: BudgetScope, *, session: AsyncSession | None = None) -> Bud
             )
         ).one_or_none()
     return None if row is None else _row(row)
+
+
+async def charge(scope: BudgetScope, amount: Decimal, *, session: AsyncSession) -> None:
+    """Add one attempt's cost to `spent` with a single `UPDATE`, in the caller's transaction
+    (the gateway writes the attempt's `llm_call` row in the same one). Story 2.8 replaces this
+    with reserve-then-settle."""
+    await session.execute(
+        update(budgets)
+        .where(budgets.c.scope_kind == scope.kind, budgets.c.scope_id == scope.id)
+        .values(spent_usd=budgets.c.spent_usd + amount, updated_at=func.now())
+    )

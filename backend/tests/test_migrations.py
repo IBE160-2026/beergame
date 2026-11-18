@@ -21,7 +21,7 @@ GAMES_HEAD_TABLES = {
     "game_checks",
 }
 """The tables at revision 0005, the last games revision."""
-HEAD_TABLES = GAMES_HEAD_TABLES | {"ai_model_configs", "ai_budgets"}
+HEAD_TABLES = GAMES_HEAD_TABLES | {"ai_model_configs", "ai_budgets", "llm_call"}
 
 
 def reset_schema(url: str) -> None:
@@ -55,7 +55,7 @@ def test_upgrade_head_from_empty_creates_the_games_tables(migrations_database):
     reset_schema(migrations_database)
     command.upgrade(config(migrations_database), "head")
     assert tables(migrations_database) == HEAD_TABLES
-    assert current_version(migrations_database) == "0006"
+    assert current_version(migrations_database) == "0007"
 
 
 def test_the_revisions_match_the_module_tables(migrations_database):
@@ -93,7 +93,7 @@ def test_downgrade_to_0002_removes_the_week_tables(migrations_database):
         ).fetchall()
     assert functions == []
     command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == "0006"
+    assert current_version(migrations_database) == "0007"
 
 
 def test_downgrade_to_0003_restores_the_week_tables_of_story_1_8(migrations_database):
@@ -124,7 +124,7 @@ def test_downgrade_to_0003_restores_the_week_tables_of_story_1_8(migrations_data
     assert primary_key == ("PRIMARY KEY (game_id, week)",)
     assert "finished" not in columns
     command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == "0006"
+    assert current_version(migrations_database) == "0007"
 
 
 def test_downgrade_to_0004_removes_the_check_table(migrations_database):
@@ -142,7 +142,7 @@ def test_downgrade_to_0004_removes_the_check_table(migrations_database):
         ).fetchall()
     assert functions == []
     command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == "0006"
+    assert current_version(migrations_database) == "0007"
 
 
 def test_alembic_cli_uses_database_url_from_environment(migrations_database):
@@ -181,6 +181,7 @@ def test_the_check_constraints_list_exactly_the_enum_values(migrations_database)
 
     from app.ai import budget as ai_budget
     from app.ai import config as ai_config
+    from app.ai import models as ai_models
     from app.modules.games import schemas
 
     ai_checks = {
@@ -188,6 +189,8 @@ def test_the_check_constraints_list_exactly_the_enum_values(migrations_database)
         "ck_ai_model_configs_provider": set(
             get_args(ai_config.ModelConfigSpec.model_fields["provider"].annotation)
         ),
+        "ck_llm_call_outcome": set(ai_models.OUTCOMES),
+        "ck_llm_call_scope_kind": set(get_args(ai_budget.ScopeKind)),
     }
     reset_schema(migrations_database)
     command.upgrade(config(migrations_database), "head")

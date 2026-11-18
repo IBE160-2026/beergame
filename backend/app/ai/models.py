@@ -1,10 +1,13 @@
-"""Tables owned by `app/ai` (AD-6). Only `app.ai.config` and `app.ai.budget` read or write them."""
+"""Tables owned by `app/ai` (AD-6). Only modules of `app/ai` read or write them."""
 
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
     Column,
     DateTime,
+    Double,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     Table,
@@ -75,4 +78,55 @@ budgets = Table(
     ),
     CheckConstraint("reserve_usd <= limit_usd", name="ck_ai_budgets_reserve"),
     UniqueConstraint("scope_kind", "scope_id", name="uq_ai_budgets_scope"),
+)
+
+OUTCOMES = ("ok", "invalid_output", "timeout", "provider_error")
+"""How one attempt ended (FR-67)."""
+
+llm_calls = Table(
+    "llm_call",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("purpose", Text, nullable=False),
+    Column("scope_kind", Text, nullable=False),
+    Column("scope_id", Uuid, nullable=False),
+    # Ids only (for a player Order the Game, Seat and Week); stored, never rendered.
+    Column("caller_ref", JSONB, nullable=False),
+    Column("model_config_id", Uuid, ForeignKey("ai_model_configs.id"), nullable=False),
+    Column("provider", Text, nullable=False),
+    Column("endpoint", Text, nullable=False),
+    Column("model_version", Text, nullable=False),
+    Column("quantisation", Text, nullable=False),
+    Column("effort_level", Text, nullable=False),
+    Column("seed", BigInteger, nullable=True),
+    Column("temperature", Double, nullable=True),
+    Column("prompt_version", Integer, nullable=False),
+    Column("attempt", Integer, nullable=False),
+    Column("input_tokens", Integer, nullable=False),
+    Column("output_tokens", Integer, nullable=False),
+    # Part of output_tokens; stored on its own (FR-78).
+    Column("reasoning_tokens", Integer, nullable=False),
+    Column("cost_usd", MONEY, nullable=False),
+    Column("latency_ms", Integer, nullable=False),
+    Column("outcome", Text, nullable=False),
+    Column("error", Text, nullable=True),
+    # The scrubbed request and response (AD-6, C-1).
+    Column("request", JSONB, nullable=False),
+    Column("response", Text, nullable=True),
+    Column("started_at", DateTime(timezone=True), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint(
+        f"scope_kind IN ({', '.join(repr(kind) for kind in SCOPE_KINDS)})",
+        name="ck_llm_call_scope_kind",
+    ),
+    CheckConstraint(
+        f"outcome IN ({', '.join(repr(outcome) for outcome in OUTCOMES)})",
+        name="ck_llm_call_outcome",
+    ),
+    CheckConstraint(
+        "attempt >= 1 AND input_tokens >= 0 AND output_tokens >= 0 AND reasoning_tokens >= 0 "
+        "AND cost_usd >= 0 AND latency_ms >= 0",
+        name="ck_llm_call_counts",
+    ),
+    Index("ix_llm_call_scope", "scope_kind", "scope_id"),
 )

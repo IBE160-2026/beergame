@@ -1,4 +1,4 @@
-"""Model configs and budgets from the command line (`python -m app.ai.cli`, AD-6, Story 2.2).
+"""Model configs, budgets and prompt files from the command line (`python -m app.ai.cli`, AD-6).
 
 Subcommands:
   config add FILE        store a model config from a JSON file and print `config <id>`. Exit 1
@@ -18,6 +18,14 @@ Subcommands:
                          `--limit`) or `--session <Class session id>` (limit defaults to
                          AI_DEFAULT_SESSION_BUDGET_USD); `--reserve` defaults to
                          AI_BUDGET_RESERVE_USD. Prints the row. Exit 1 when refused.
+  prompts check          check the prompt files against `prompts/hashes.json` and every prompt
+                         version a stored config references: one `error <problem>` line on
+                         stderr per locked version changed or removed, file not locked, or
+                         referenced version missing; exit 1 when there is any (Story 2.3).
+  prompts lock           record the hash of every prompt file not locked yet and print
+                         `locked <purpose>/v<N>` per file; existing entries never change.
+                         Exit 1, with the problems on stderr, when a locked version was
+                         changed or removed.
 
 No credential is read, stored or printed: a config names only the environment variable.
 
@@ -36,7 +44,7 @@ from pathlib import Path
 
 from sqlalchemy.exc import DBAPIError, OperationalError
 
-from app.ai import budget, config
+from app.ai import budget, config, prompt_files
 from app.platform import db
 from app.platform.config import get_settings
 from app.platform.logging import configure_logging
@@ -232,10 +240,42 @@ def _budget_set(args: argparse.Namespace, parser: argparse.ArgumentParser) -> in
     return _run(_set_budget(scope, args.limit, args.reserve))
 
 
+async def _check_prompts() -> int:
+    try:
+        rows = await config.list_all()
+    except DBAPIError as exc:
+        return _report_db(exc)
+    finally:
+        await db.dispose()
+    references = [
+        (purpose, version) for row in rows for purpose, version in row.spec.prompts.items()
+    ]
+    problems = prompt_files.check(references)
+    for problem in problems:
+        print(f"error {problem}", file=sys.stderr)
+    if problems:
+        return 1
+    print(f"prompts ok: {len(prompt_files.read_lock())} locked, {len(set(references))} referenced")
+    return 0
+
+
+def _prompts_check(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    return _run(_check_prompts())
+
+
+def _prompts_lock(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    for name in prompt_files.lock():
+        print(f"locked {name}")
+    problems = prompt_files.check()  # locking never hides a changed or removed version
+    for problem in problems:
+        print(f"error {problem}", file=sys.stderr)
+    return 1 if problems else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m app.ai.cli",
-        description="Register model configs and budgets (AD-6).",
+        description="Register model configs and budgets, check prompt files (AD-6).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     groups = parser.add_subparsers(dest="group", required=True)
@@ -272,6 +312,13 @@ def build_parser() -> argparse.ArgumentParser:
     set_.add_argument("--limit", type=_usd, metavar="USD")
     set_.add_argument("--reserve", type=_usd, metavar="USD")
     set_.set_defaults(handler=_budget_set, command_parser=set_)
+
+    prompts_parser = groups.add_parser("prompts", help="prompt files and their hash lock")
+    prompts_commands = prompts_parser.add_subparsers(dest="command", required=True)
+    check = prompts_commands.add_parser("check", help="check prompt files and stored configs")
+    check.set_defaults(handler=_prompts_check, command_parser=check)
+    lock = prompts_commands.add_parser("lock", help="record hashes of new prompt files")
+    lock.set_defaults(handler=_prompts_lock, command_parser=lock)
     return parser
 
 
