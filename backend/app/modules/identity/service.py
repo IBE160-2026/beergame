@@ -479,6 +479,7 @@ async def accept_invitation_new(
         log.info("invitation_accept_refused", error_code="invitation_link_invalid")
         return AcceptRefused("invitation_link_invalid")
     if checked.has_account:
+        log.info("invitation_accept_refused", error_code="account_exists")
         return AcceptRefused("account_exists")
     password_hash = await asyncio.to_thread(auth.hash_password, password)
     user_id = uuid.uuid7()
@@ -489,6 +490,7 @@ async def accept_invitation_new(
             return AcceptRefused("invitation_link_invalid")
         await repo.lock_user_address(s, row["email"])
         if await repo.user_by_email(s, row["email"]) is not None:
+            log.info("invitation_accept_refused", error_code="account_exists")
             return AcceptRefused("account_exists")
         await repo.insert_user(
             s,
@@ -639,11 +641,14 @@ async def ensure_bootstrap_invitations(now: datetime) -> list[uuid.UUID]:
 async def _grant_bootstrap_admin(
     s: AsyncSession, user_id: uuid.UUID, address: str, now: datetime
 ) -> bool:
-    """Give a listed address the Admin role at its first login, once: the audit row marks it done,
-    so a later revoke in the Admin-område sticks. The mark is written also when the User already
-    holds the role (`role_added: false`). True when the role was granted now."""
-    if address not in bootstrap_addresses():
+    """In production, give a listed address the Admin role at its first login, once: the audit
+    row marks it done, so a later revoke in the Admin-område sticks. The mark is written also when
+    the User already holds the role (`role_added: false`). True when the role was granted now."""
+    # The Given of the bootstrap AC is production; elsewhere the list grants nothing.
+    if get_settings().app_env != "production" or address not in bootstrap_addresses():
         return False
+    # One login of the User at a time here, so parallel logins write one mark.
+    await repo.lock_user(s, user_id)
     events = await audit.events_for_target(s, "user_id", user_id)
     if any(event.action == ROLE_BOOTSTRAP_GRANTED for event in events):
         return False

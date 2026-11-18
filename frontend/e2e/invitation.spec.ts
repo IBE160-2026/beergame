@@ -140,6 +140,35 @@ test.describe("Admin Invitation", () => {
   });
 });
 
+test.describe("account made meanwhile", () => {
+  test("a new-account form whose address gains an account switches to the login that adds the role", async ({
+    page,
+    browser,
+  }) => {
+    const request = await adminApi(browser);
+    const address = freshAddress("meanwhile");
+    const lecturerLink = await invite(page, request, address, "lecturer");
+    await page.goto(lecturerLink);
+    await expect(page.getByLabel(copy.name)).toBeVisible();
+
+    // Meanwhile the address takes an Admin Invitation in another tab.
+    const adminLink = await invite(page, request, address, "admin");
+    const other = await browser.newContext({ baseURL: test.info().project.use.baseURL });
+    const accepted = await other.request.post("/api/auth/invitation/accept", {
+      data: { token: adminLink.split("#")[1], name: "Ny Admin", password: PASSWORD },
+      headers: CSRF,
+    });
+    expect(accepted.status()).toBe(200);
+    await other.close();
+
+    await page.getByLabel(copy.name).fill("Ny Faglærer");
+    await page.getByLabel(copy.password).fill(PASSWORD);
+    await page.getByRole("button", { name: copy.submit }).click();
+    await expect(page.getByText(copy.existing.lead(copy.roles.lecturer))).toBeVisible();
+    await expect(page.getByRole("button", { name: copy.existing.submit })).toBeVisible();
+  });
+});
+
 test.describe("unknown link", () => {
   test("a link with no token shows the expired-or-used state", async ({ page }) => {
     await page.goto("/invitasjon");

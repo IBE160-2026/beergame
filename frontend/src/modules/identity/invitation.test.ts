@@ -6,6 +6,7 @@ describe("validateName", () => {
   it("asks for a name when only spaces are typed", () => {
     expect(validateName("")).toBe("nameEmpty");
     expect(validateName("  \t ")).toBe("nameEmpty");
+    expect(validateName("Ola\u0000")).toBe("nameEmpty");
   });
 
   it("takes a name up to 200 characters, counted as the API counts them", () => {

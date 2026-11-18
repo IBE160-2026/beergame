@@ -204,7 +204,8 @@ export const nb = {
       },
       // [ASSUMPTION] Story 3.8.
       failed: "Kontoen ble ikke opprettet. Prøv igjen.",
-      rateLimited: "For mange forsøk. Prøv igjen om en time.",
+      // The window differs between the limits that apply, so no time is named.
+      rateLimited: "For mange forsøk. Vent litt og prøv igjen.",
       /** The address already has an account: logging in adds the role. [ASSUMPTION] Story 3.8. */
       existing: {
         lead: (role: string) => `Adressen har allerede en konto. Logg inn, så får kontoen rollen ${role}.`,

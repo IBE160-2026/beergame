@@ -4,6 +4,7 @@ never read."""
 
 import asyncio
 import json
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -62,6 +63,13 @@ async def renewal(c, token: str):
 
 def users_with(email: str = INVITED) -> list[tuple]:
     return rows("SELECT id, name FROM users WHERE lower(email) = lower(%s)", email)
+
+
+def assert_no_secrets(logs, *secrets: str) -> None:
+    """No address, name or token in a log line (AD-14)."""
+    text = json.dumps(logs, default=str, ensure_ascii=False).lower()
+    for secret in secrets:
+        assert secret.lower() not in text
 
 
 def accepted_at(invitation_id) -> object:
@@ -130,8 +138,7 @@ async def test_accepting_creates_the_account_with_its_role_and_logs_in(admin, cl
     assert target == {"invitation_id": str(invitation_id), "user_id": str(user_id)}
     assert change == {"role": "lecturer", "account": "created"}
     # No address, name or token in a log line.
-    text = json.dumps(logs, default=str)
-    assert INVITED not in text and "Faglærer" not in text and token not in text
+    assert_no_secrets(logs, INVITED, "Faglærer", token)
 
 
 async def test_an_admin_invitation_makes_an_admin(admin, clock):
@@ -154,17 +161,45 @@ async def test_an_account_made_meanwhile_is_not_made_twice(admin, clock):
     assert accepted_at(invitation_id) is None
 
 
+async def test_an_account_made_during_acceptance_is_409_not_a_second_user(
+    admin, clock, monkeypatch
+):
+    """The account appears after the early check, while the password is hashed: the re-check
+    under the address lock answers 409 instead of a unique-constraint error."""
+    invitation_id, token = await invitation(admin, clock)
+    hash_password = auth.hash_password
+
+    def hash_and_race(password: str) -> str:
+        rows(
+            "INSERT INTO users (id, email, name, password_hash) "
+            "VALUES (%s, %s, 'Ola', 'x') RETURNING id",
+            uuid.uuid4(),
+            INVITED,
+        )
+        return hash_password(password)
+
+    monkeypatch.setattr(auth, "hash_password", hash_and_race)
+    async with client() as c:
+        response = await accept(c, token)
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "account_exists"
+    assert len(users_with()) == 1
+    assert accepted_at(invitation_id) is None
+
+
 async def test_an_existing_account_logs_in_and_gains_the_role(admin, clock):
     user_id = await service.create_user(
         email=INVITED, name="Ola", password=PASSWORD, roles=[AccountRole.lecturer]
     )
     invitation_id, token = await invitation(admin, clock, role="admin")
     async with client() as c:
-        wrong = await accept_login(c, token, "feil-passord")
+        with capture_logs() as logs:
+            wrong = await accept_login(c, token, "feil-passord")
         assert wrong.status_code == 401
         assert wrong.json()["error"]["code"] == "invalid_credentials"
         assert accepted_at(invitation_id) is None
-        response = await accept_login(c, token, PASSWORD)
+        with capture_logs() as more:
+            response = await accept_login(c, token, PASSWORD)
         assert response.status_code == 200
         assert response.json()["user"]["roles"] == ["admin", "lecturer"]
         assert (await c.get("/api/auth/me")).status_code == 200
@@ -172,6 +207,21 @@ async def test_an_existing_account_logs_in_and_gains_the_role(admin, clock):
     assert accepted_at(invitation_id) == clock["now"]
     [(change,)] = rows("SELECT change FROM audit_events WHERE action = 'invitation.accepted'")
     assert change == {"role": "admin", "account": "existing", "role_added": True}
+    assert_no_secrets(logs + more, INVITED, "Ola", token)
+
+
+async def test_a_login_lockout_through_the_invitation_says_when_to_retry(admin, clock, monkeypatch):
+    monkeypatch.setenv("LOGIN_RATE_LIMIT_PER_ACCOUNT", "1")
+    get_settings.cache_clear()
+    await service.create_user(email=INVITED, name="Ola", password=PASSWORD)
+    invitation_id, token = await invitation(admin, clock, role="admin")
+    async with client() as c:
+        assert (await accept_login(c, token, "feil-passord")).status_code == 401
+        response = await accept_login(c, token, PASSWORD)
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "rate_limited"
+    assert int(response.headers["Retry-After"]) > 0
+    assert accepted_at(invitation_id) is None
 
 
 async def test_the_existing_account_route_refuses_an_address_with_no_account(admin, clock):
@@ -186,7 +236,11 @@ async def test_parallel_acceptances_make_one_account(admin, clock):
     _, token = await invitation(admin, clock)
     async with client() as c:
         responses = await asyncio.gather(accept(c, token), accept(c, token))
-    assert sorted(r.status_code for r in responses) == [200, 410]
+    # The loser sees the link used (410), or, when its two-statement check reads the Invitation
+    # before the winner commits and the User after, an account that exists (409). Never a 500.
+    first, second = sorted(r.status_code for r in responses)
+    assert first == 200
+    assert second in (409, 410)
     assert len(users_with()) == 1
 
 
@@ -196,6 +250,7 @@ async def test_parallel_acceptances_make_one_account(admin, clock):
         ("   ", NEW_PASSWORD, "name"),
         ("Ola", "kort123", "password"),
         ("Ola\x00", NEW_PASSWORD, "name"),
+        ("ø" * 201, NEW_PASSWORD, "name"),
     ],
 )
 async def test_a_bad_name_or_password_is_refused(admin, clock, name, password, field):
@@ -206,6 +261,14 @@ async def test_a_bad_name_or_password_is_refused(admin, clock, name, password, f
     assert field in response.json()["error"]["fields"]
     assert users_with() == []
     assert accepted_at(invitation_id) is None
+
+
+async def test_the_name_limit_counts_the_trimmed_name(admin, clock):
+    _, token = await invitation(admin, clock)
+    async with client() as c:
+        response = await accept(c, token, name="  " + "ø" * 200 + "   ")
+    assert response.status_code == 200
+    assert response.json()["user"]["name"] == "ø" * 200
 
 
 async def test_acceptance_attempts_are_rate_limited_per_link(admin, clock, monkeypatch):
@@ -235,16 +298,41 @@ async def test_acceptance_attempts_are_rate_limited_per_address(admin, clock, mo
 
 async def test_asking_for_a_new_invitation_answers_the_same_for_any_link(admin, clock):
     expired_id, expired = await invitation(admin, clock, email="gammel@example.com")
+    accepted_id, accepted = await invitation(admin, clock, email="brukt@example.com")
+    voided_id, voided = await invitation(admin, clock, email="erstattet@example.com")
+    async with client() as c:
+        assert (await accept(c, accepted)).status_code == 200
     clock["now"] += timedelta(days=15)
     open_id, open_token = await invitation(admin, clock)
+    newer_id, _ = await invitation(admin, clock, email="erstattet@example.com")
+    tokens = (expired, accepted, voided, "z" * 43, open_token)
     async with client() as c:
-        answers = [await renewal(c, t) for t in (expired, "z" * 43, open_token)]
-    assert [(r.status_code, r.content) for r in answers] == [(202, b"")] * 3
+        with capture_logs() as logs:
+            answers = [await renewal(c, t) for t in tokens]
+    assert [(r.status_code, r.content) for r in answers] == [(202, b"")] * len(tokens)
     marks = dict(rows("SELECT id, renewal_requested_at FROM invitations"))
-    assert marks == {expired_id: clock["now"], open_id: None}
+    assert marks == {
+        expired_id: clock["now"],
+        accepted_id: None,
+        voided_id: clock["now"],
+        open_id: None,
+        newer_id: None,
+    }
+    assert_no_secrets(logs, "gammel@", "brukt@", "erstattet@", *tokens)
 
 
-async def test_asking_for_a_new_invitation_is_rate_limited(admin, clock, monkeypatch):
+async def test_asking_for_a_new_invitation_is_rate_limited_per_address(admin, clock, monkeypatch):
+    monkeypatch.setenv("INVITATION_RENEWAL_RATE_LIMIT_PER_IP", "1")
+    get_settings.cache_clear()
+    async with client() as c:
+        first = await renewal(c, "a" * 43)
+        second = await renewal(c, "b" * 43)
+    assert first.status_code == 202
+    assert second.status_code == 429
+    assert int(second.headers["Retry-After"]) > 0
+
+
+async def test_asking_for_a_new_invitation_is_rate_limited(admin, clock):
     _, token = await invitation(admin, clock)
     async with client() as c:
         answers = [(await renewal(c, token)).status_code for _ in range(4)]
@@ -262,7 +350,8 @@ async def test_the_bootstrap_invitation_is_made_once_for_an_address_with_no_acco
         " Forste.Admin@Example.com, ikke-en-adresse, , kari.admin@example.com",
     )
     get_settings.cache_clear()
-    [invitation_id] = await service.ensure_bootstrap_invitations(clock["now"])
+    with capture_logs() as logs:
+        [invitation_id] = await service.ensure_bootstrap_invitations(clock["now"])
     assert await service.ensure_bootstrap_invitations(clock["now"]) == []
     assert rows("SELECT email, role, invited_by FROM invitations") == [
         ("forste.admin@example.com", "admin", None)
@@ -279,6 +368,7 @@ async def test_the_bootstrap_invitation_is_made_once_for_an_address_with_no_acco
     clock["now"] += timedelta(days=15)
     [renewed] = await service.ensure_bootstrap_invitations(clock["now"])
     assert renewed != invitation_id
+    assert_no_secrets(logs, "forste.admin", "ikke-en-adresse", "kari.admin")
 
 
 async def test_the_api_makes_bootstrap_invitations_only_in_production(monkeypatch):
@@ -309,6 +399,7 @@ async def test_a_listed_user_gains_admin_at_first_login_only(
     identity_db, mail_db, clock, monkeypatch
 ):
     monkeypatch.setenv("BOOTSTRAP_ADMIN_EMAILS", INVITED)
+    monkeypatch.setenv("APP_ENV", "production")
     get_settings.cache_clear()
     user_id = await service.create_user(
         email=INVITED, name="Ola", password=PASSWORD, roles=[AccountRole.lecturer]
@@ -325,3 +416,27 @@ async def test_a_listed_user_gains_admin_at_first_login_only(
         "role.bootstrap_granted",
         {"role": "admin", "role_added": True},
     )
+
+
+async def test_a_listed_admin_is_marked_once_without_a_second_grant(
+    identity_db, mail_db, clock, monkeypatch
+):
+    monkeypatch.setenv("BOOTSTRAP_ADMIN_EMAILS", INVITED)
+    monkeypatch.setenv("APP_ENV", "production")
+    get_settings.cache_clear()
+    await service.create_user(
+        email=INVITED, name="Ola", password=PASSWORD, roles=[AccountRole.admin]
+    )
+    async with client() as c:
+        await asyncio.gather(*(login(c, INVITED, PASSWORD) for _ in range(3)))
+    assert rows("SELECT change FROM audit_events") == [({"role": "admin", "role_added": False},)]
+
+
+async def test_the_list_grants_nothing_outside_production(identity_db, mail_db, monkeypatch):
+    monkeypatch.setenv("BOOTSTRAP_ADMIN_EMAILS", INVITED)
+    get_settings.cache_clear()
+    await service.create_user(email=INVITED, name="Ola", password=PASSWORD)
+    async with client() as c:
+        response = await login(c, INVITED, PASSWORD)
+    assert response.json()["user"]["roles"] == []
+    assert rows("SELECT count(*) FROM audit_events") == [(0,)]

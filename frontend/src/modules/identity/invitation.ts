@@ -16,7 +16,8 @@ export type InvitationErrors = { name?: NameError; password?: NewPasswordError }
  * the API does. */
 export function validateName(value: string): NameError | undefined {
   const name = normaliseName(value);
-  if (name === "") return "nameEmpty";
+  // A control character is refused by the API as no name at all.
+  if (name === "" || /\p{Cc}/u.test(name)) return "nameEmpty";
   if ([...name].length > NAME_MAX_LENGTH) return "nameLong";
   return undefined;
 }

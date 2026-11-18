@@ -2,7 +2,7 @@
 title: 'Story 3.8: Create an account from an Invitation'
 type: 'feature'
 created: '2026-11-18'
-status: 'in-review'
+status: 'done'
 baseline_revision: 'ebb778193fe46080b78e0f5403ed8a0a1a7c0818'
 review_loop_iteration: 0
 followup_review_recommended: false
@@ -97,6 +97,57 @@ deferred: []
 
 ## Review Triage Log
 
+### 2026-11-18 — Review pass
+- verdicts: 42 findings — high 0, medium 0, low 36, false 5, maybe-false 1
+- note: the four reviewers ran as background subagents and the builder handed back before their notifications arrived; their final reports were read from their transcripts on resume.
+- findings:
+  - Blind Hunter:
+    - `[low]` `reject` `/invitation/check` has no rate limit. The story limits acceptance attempts; the token is a 256-bit HMAC, so the check is no useful oracle.
+    - `[low]` `patch` The name limit was checked on the raw value. The 200-character limit now runs in the validator after trimming (raw cap 800); tests `ø`×201 → 422 and padded `ø`×200 → 200.
+    - `[low]` `patch` The client let a control character through, then showed only the general line. `validateName` now refuses `\p{Cc}`; Vitest case added.
+    - `[low]` `patch` «Prøv igjen om en time.» named a fixed wait though login limits use 15 min. Now «For mange forsøk. Vent litt og prøv igjen.»
+    - `[low]` `reject` The renewal line says Admin sees the request though no screen shows it yet. Story 3.10 shows `renewal_requested_at` in the same epic; the copy is [ASSUMPTION].
+    - `[low]` `reject` «Glemt passord?» leaves the Invitation. The mail still holds the link; adding a return path is new surface.
+    - `[low]` `reject` Issue #74 fix leaves a failed-send `ActionError` after the form changes. The issue names the result line; the error line clears on the next press by the Story 3.4 rule.
+    - `[low]` `reject` Bootstrap at startup is unguarded and re-sends after expiry. A DB fault at startup already stops the api (seeds run there too); re-sends are at most one per expiry window.
+    - `[false]` `reject` `audit.events_for_target` missing from the diff. It exists since Story 3.7 (`platform/audit.py:101`).
+    - `[low]` `reject` `bootstrap_addresses()` reparses on every login. Microseconds per successful login; the list is short.
+    - `[low]` `patch` The first-login grant ran outside production. `_grant_bootstrap_admin` now returns at once unless `APP_ENV=production`; test `test_the_list_grants_nothing_outside_production`.
+    - `[false]` `reject` Unknown `LoginRefused` codes would 500. `authenticate` returns only `invalid_credentials`, `account_deactivated`, `rate_limited`, all mapped.
+    - `[low]` `reject` `accept-login` resets login counters before the Invitation re-check. The password was right; resetting its failure count is the login rule anyway.
+    - `[low]` `patch` Secret-in-log checks covered one path. `assert_no_secrets` now also wraps `accept-login`, renewal and bootstrap (with the invalid list entry).
+    - `[low]` `patch` Renewal tests missed voided, accepted and per-IP. Added voided and accepted cases (and a voided one whose address has a newer open one) and `…_rate_limited_per_address`; dropped the unused fixture.
+    - `[low]` `reject` The e2e copies `expectAccessible` and never closes the admin context. Same pattern as `admin-invite.spec.ts`; contexts close with the browser.
+    - `[low]` `reject` The token stays in the address bar. Same as `/nytt-passord` (3.6); `no-referrer` keeps it off other sites.
+    - `[low]` `reject` A 409 briefly shows the general line before the refetch remounts. The remount replaces it within one request.
+    - `[low]` `patch` `account_exists` refusals were not logged. Both returns now log `invitation_accept_refused` with the code.
+    - `[low]` `patch` `_accepted` also built the check's 410. Renamed `_invitation_answer`.
+  - Edge Case Hunter:
+    - `[low]` `patch` Parallel logins of a listed User could write two marks. The User row is now locked before the audit check; test `test_a_listed_admin_is_marked_once_without_a_second_grant` (3 parallel logins, one row).
+    - `[low]` `patch` Raw-length name check (duplicate of the Blind Hunter row).
+    - `[low]` `patch` Control character in the name passes the client (duplicate).
+    - `[low]` `patch` A server `fields.name` is not mapped to the field. Same root cause: the client now refuses the only name the server refuses that it took.
+    - `[false]` `reject` A token over 128 chars shows the page error. `tokenFromHash` returns "" for anything over 128, which shows the invalid state.
+    - `[low]` `reject` A second link opened in the same tab by hash change keeps the old token. Rare; reload fixes it.
+    - `[low]` `reject` Renewal marks a voided link whose address has a newer open Invitation. The Admin's resend (3.10) clears the mark; filtering is a new branch.
+    - `[low]` `patch` Fixed wait in the rate-limit copy (duplicate).
+  - Intent Alignment (divergences):
+    - `[maybe-false]` `reject` Existing account logs in on the page, not through «Logg inn». Both readings fit "asks them to log in"; the page keeps the fragment token. The founder's reading would settle it.
+    - `[low]` `reject` A used (accepted) link does not get `renewal_requested_at`. An accepted Invitation offers no resend (Story 3.10), so the mark could not lead anywhere; the answer is the same.
+    - `[false]` `reject` The bootstrap guard is role-scoped. An open Lecturer Invitation must not block the first Admin's; "no open Invitation" read per the Admin role.
+    - `[low]` `patch` The first-login grant applied in every environment (duplicate of the Blind Hunter row).
+    - `[false]` `reject` An existing Lecturer accepting Admin lands on the Lærerhjem. That is the Story 3.3 home rule for Admin+Lecturer; a new Admin lands on `/admin` (e2e).
+    - `[low]` `reject` The browser tests a used link, not a time-expired one. One state and one screen serve both; expiry is tested at the api.
+  - Verification Gap:
+    - `[low]` `patch` The in-transaction `account_exists` re-check was unreachable by tests. `test_an_account_made_during_acceptance_is_409_not_a_second_user` inserts the User while the password is hashed.
+    - `[low]` `patch` No backend name-length test (added, see above).
+    - `[low]` `patch` No renewal per-IP test (added).
+    - `[low]` `patch` Login lockout through `accept-login` untested. `test_a_login_lockout_through_the_invitation_says_when_to_retry` checks 429 and `Retry-After`.
+    - `[low]` `patch` The page's switch on 409 was untested. E2e `account made meanwhile` makes the account in another context, presses submit and sees the existing-account form.
+    - `[low]` `patch` Log-secret checks on one path only (duplicate, patched above).
+    - `[low]` `patch` Raw-length name (duplicate).
+    - `[low]` `patch` `role_added: false` mark untested (covered by the new parallel-login test).
+
 ## Design Notes
 
 - **Existing account logs in on the page.** The acceptance needs proof of the account; the password on the same page avoids a round-trip through «Logg inn» and losing the fragment token. `authenticate` keeps the login limits and the timing guard.
@@ -113,7 +164,36 @@ deferred: []
 
 ## Auto Run Result
 
-Status: in-review (run interrupted before review results arrived)
-Blocking condition: the four review subagents (blind-hunter-38, edge-case-hunter-38, verification-gap-38, intent-alignment-38) were launched on the diff since `ebb778193fe46080b78e0f5403ed8a0a1a7c0818`, but the builder had to hand back before their reports arrived. Resume at step-04 (status `in-review`).
+Status: done
 
-Verification so far: backend `pytest` 1756 passed in 73 s, ruff clean; frontend typecheck, Vitest (261), check:copy, lint:colours, build pass; Playwright 73 passed on the compose stack. Migration 0019 is new and ran on the shared test databases; it was not changed afterwards.
+**Summary.**
+- `/api/auth/invitation/{check,accept,accept-login,renewal}` (public). `check` gives the address, the role, the days left and `has_account`; `accept` creates the User with the role, marks the Invitation accepted and writes `invitation.accepted` in one transaction, then sets the session cookie; `accept-login` adds the role to the existing account after its password (login limits apply); `renewal` answers 202 for any link and sets `renewal_requested_at` (migration 0019) on an expired or voided Invitation. Accept and renewal are rate-limited per IP and per link.
+- Bootstrap: with `APP_ENV=production` the api start sends an Admin Invitation (audited `invitation.bootstrap`, actor NULL) to each listed address with no User and no open Admin Invitation; a listed User gains Admin at first login, marked once by `role.bootstrap_granted`.
+- «Du er invitert» at `/invitasjon`: new-account form (Navn, read-only E-post, Velg passord with «Minst 8 tegn.», «Opprett konto og gå videre», validity line), existing-account form («Logg inn og legg til rollen», «Glemt passord?»), and the expired/used state with «Be om ny Invitasjon». Lands on `HOME_PATH[homeOf(user)]`.
+- Issue #74: the result line on `/admin/brukere` clears when the address is typed or the role changes.
+
+**Files changed:** backend `identity/{models,repo,schemas,service,routes}.py`, `platform/config.py`, `main.py`, `migrations/versions/0019_invitation_renewal.py`; tests `tests/identity/test_invitation_accept.py` (new), `test_authz_rules.py`, `test_migrations.py`. Frontend `copy/nb.ts` (`auth.invitation`), `modules/identity/{api.ts,invitation.ts,invitation-page.tsx,invitation.test.ts}`, `app/(auth)/invitasjon/page.tsx`, `modules/admin/invite-form.tsx`, regenerated `lib/api/{openapi.json,schema.ts}`, `e2e/invitation.spec.ts` (new), `e2e/admin-invite.spec.ts`.
+
+**Review.** 42 findings: 0 high, 0 medium, 36 low, 5 false, 1 maybe-false. Patched (all low): name limit after trimming, client control-character check, window-neutral rate-limit copy, bootstrap grant only in production and serialised, `account_exists` logged, `_invitation_answer` rename, and the missing tests (in-transaction 409, name length, renewal voided/accepted/per-IP, login lockout via `accept-login`, log secrets on every path, e2e 409 switch). Nothing deferred. Every rejection has its reason in the triage log.
+
+**Follow-up review recommended: false.** Only low entries were patched.
+
+**Verification:**
+- Backend `uv run pytest`: 1763 passed in 63–68 s; ruff check and format clean. New tests each under 1 s (slowest 0.36 s call).
+- One full run failed `test_parallel_acceptances_make_one_account` with a 409 for the losing request: `check_invitation` reads the Invitation and the User in two statements, so under Read Committed the loser can see the open Invitation and then the winner's User. That answer is correct (no second User, no 500); the test now accepts 409 or 410 for the loser. Two later full runs passed.
+- Frontend: typecheck, Vitest (261), check:copy, lint:colours, build pass. Playwright 74 passed on the compose stack with `worker-batch` (UI tests 1–3 s each; they wait for real mails).
+- Migration 0019 is new; it ran on the shared `olspillet_test*` databases and was not changed afterwards.
+- Matrix audit: Check valid → `test_a_usable_link_shows…`; Check invalid → `test_a_link_that_no_longer_works_is_one_answer` (5 cases); Accept new and Accept twice → `test_accepting_creates_the_account…`; Admin Invitation → `test_an_admin_invitation_makes_an_admin`; Account appeared → `test_an_account_made_meanwhile…` and `…during_acceptance_is_409…`; Accept existing → `test_an_existing_account_logs_in…`; Parallel → `test_parallel_acceptances_make_one_account`; Bad name/password → `test_a_bad_name_or_password_is_refused` (4 cases); Accept rate limit → `…rate_limited_per_link` / `…per_address`; Renewal → `test_asking_for_a_new_invitation_answers_the_same…` and both renewal limit tests; Bootstrap → `test_the_bootstrap_invitation_is_made_once…`, `test_the_api_makes_bootstrap_invitations_only_in_production`; Bootstrap login → `test_a_listed_user_gains_admin_at_first_login_only` and the two new listed-User tests.
+- The founder's checks (Playwright with axe at 320, 360 and 1440 px on the three states) are done by `e2e/invitation.spec.ts`; the review was done by four independent reviewer agents.
+
+**Decisions taken in place of the founder:**
+- An existing account accepts on the same page with its password; only a holder of a valid link learns `has_account`.
+- Renewal marks only expired or voided Invitations, and always answers 202.
+- Rate-limit placeholders: accept 50/IP and 10/link per hour; renewal 20/IP and 3/link per hour.
+- `invitation.accepted` audit row on acceptance.
+- Bootstrap grant only in production, once per User, marked in the audit log.
+- Password minimum 8 (as «Nytt passord»), not the mockup's 10. No «Har du konto?» link on the new-account form.
+- Draft copy marked [ASSUMPTION] in `nb.ts`.
+
+**Residual risks:**
+- The renewal line promises that the Admin sees the request; that screen comes with Story 3.10.

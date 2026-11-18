@@ -139,8 +139,9 @@ INVITATION_REFUSALS = {
 }
 
 
-def _accepted(outcome: UserOut | service.AcceptRefused) -> Response:
-    """A logged-in session for the accepted Invitation, or the refusal."""
+def _invitation_answer(outcome: UserOut | service.AcceptRefused) -> Response:
+    """The answer to an Invitation route: a logged-in session for an accepted Invitation, or the
+    refusal."""
     if isinstance(outcome, service.AcceptRefused):
         status, message = INVITATION_REFUSALS[outcome.code]
         headers = {"Retry-After": str(outcome.retry_after)} if outcome.retry_after else None
@@ -161,7 +162,7 @@ async def check_invitation(body: InvitationTokenIn) -> Response:
     """Whether an Invitation link still works, and what «Du er invitert» shows for it."""
     checked = await service.check_invitation(body.token, now=auth.utcnow())
     if checked is None:
-        return _accepted(service.AcceptRefused("invitation_link_invalid"))
+        return _invitation_answer(service.AcceptRefused("invitation_link_invalid"))
     out = InvitationCheckOut(
         email=checked.email,
         role=checked.role,
@@ -180,7 +181,7 @@ async def check_invitation(body: InvitationTokenIn) -> Response:
 )
 async def accept_invitation(body: AcceptInvitationIn, request: Request) -> Response:
     """Create the account an Invitation offers, with its role, and log in (FR-1, FR-4)."""
-    return _accepted(
+    return _invitation_answer(
         await service.accept_invitation_new(
             body.token,
             body.name,
@@ -200,7 +201,7 @@ async def accept_invitation(body: AcceptInvitationIn, request: Request) -> Respo
 )
 async def accept_invitation_with_login(body: AcceptExistingIn, request: Request) -> Response:
     """Add an Invitation's role to the account its address already has, and log in."""
-    return _accepted(
+    return _invitation_answer(
         await service.accept_invitation_existing(
             body.token, body.password, ip=ratelimit.client_ip(request), now=auth.utcnow()
         )

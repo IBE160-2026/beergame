@@ -84,7 +84,8 @@ class AcceptInvitationIn(BaseModel):
     """A new account from an Invitation."""
 
     token: str = Field(max_length=128)
-    name: str = Field(max_length=NAME_MAX_LENGTH)
+    # Trimmed and collapsed first; the length limit applies to the result.
+    name: str = Field(max_length=4 * NAME_MAX_LENGTH)
     password: str = Field(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
 
     @field_validator("name")
@@ -93,6 +94,8 @@ class AcceptInvitationIn(BaseModel):
         value = " ".join(value.split())
         if not value or any(not ch.isprintable() for ch in value):
             raise PydanticCustomError("name_empty", "A name is required.")
+        if len(value) > NAME_MAX_LENGTH:
+            raise PydanticCustomError("name_too_long", "A name has at most 200 characters.")
         return value
 
 
