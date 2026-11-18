@@ -612,3 +612,21 @@ Bygge Story 3.4 på `epic-3` og kontrollere den visuelt.
 
 ### Åpne punkter
 - Issue #71: beslutninger, visuelle avvik og anbefalt oppfølgende gjennomgang.
+
+## Story 3.5: All e-post gjennom én kanal (2026-11-18)
+
+### Oppgave
+Bygge Story 3.5 på `epic-3`.
+
+### Plan
+`bmad-build-auto` i én underagent. Bare mock-e-post, og leverandøren bak en adapter (Issue #29). Ingen endring under `frontend/`, så ingen visuell kontroll.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-5-send-every-mail-through-one-pipeline.md`. Commit `d0294bb`. Migrering 0016.
+- `platform/notify` (tabellen `notices`, `enqueue`), `platform/email` (Jinja2-maler, `Sender`-adapter, Resend eller `[email:mock]`), `modules/messaging` (leveranser, kø, nye forsøk, regler for samlemeldinger, `send-test`) og `modules/ops` (`ops.sweep` i `worker-batch --sweeper`).
+- Backend: 1688 grønne på 63 s, ingen ny test over 1 s. I compose kom en umiddelbar e-post som én `[email:mock]`-linje på rundt 1 s, og en samlemelding ved neste sveip.
+- Gjennomgang: 34 funn, 3 reelle feil rettet.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #72: beslutninger om e-postkanalen, og at Story 3.6 trenger malvariabler.
