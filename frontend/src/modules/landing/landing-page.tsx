@@ -23,11 +23,13 @@ export function LandingPage() {
     <div className="min-h-dvh">
       <GoHome />
       <AppHeader />
-      <main className="px-gutter-phone pt-10 pb-16 lg:px-margin-laptop lg:pt-16">
-        <div className="grid gap-x-16 gap-y-6 border-t border-hairline pt-8 lg:grid-cols-[3fr_2fr] lg:pt-10">
+      {/* The hairline sits directly under the header, as in 01-landing.png; the headline column is
+          wide enough at 1280 px to break between the two sentences. */}
+      <main className="px-gutter-phone pt-5 pb-16 lg:px-margin-laptop lg:pt-6">
+        <div className="grid gap-x-12 gap-y-6 border-t border-hairline pt-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:pt-12">
           <h1 className="text-title-phone text-ink lg:text-display">{copy.headline}</h1>
           <div className="flex flex-col gap-6">
-            <p className="max-w-prose text-body-phone text-ink-secondary lg:text-body-lead">{copy.lead}</p>
+            <p className="max-w-prose text-body-lead text-ink-secondary">{copy.lead}</p>
             <div className="flex flex-wrap gap-3">
               <NextLink href={ACCESS_REQUEST_PATH} className={buttonClassName("primary")}>
                 {copy.requestAccess}

@@ -14,10 +14,25 @@ const LABELS: Record<(typeof DEMO_ROWS)[number][0], string> = {
 };
 
 /**
+ * The Netto lager cell's matrix step (DESIGN.md → Matrix steps): bins |v| 1–9 / 10–19 / 20–34 /
+ * 35+, blue above zero, red below; `ink` text on steps 1–2, `paper` on 3–4. Literal class names so
+ * Tailwind finds them.
+ */
+const NET_POS = ["bg-net-pos-1", "bg-net-pos-2", "bg-net-pos-3 text-paper", "bg-net-pos-4 text-paper"];
+const NET_NEG = ["bg-net-neg-1", "bg-net-neg-2", "bg-net-neg-3 text-paper", "bg-net-neg-4 text-paper"];
+
+function netStep(v: number): string {
+  if (v === 0) return "bg-net-zero";
+  const a = Math.abs(v);
+  const bin = a < 10 ? 0 : a < 20 ? 1 : a < 35 ? 2 : 3;
+  return (v > 0 ? NET_POS : NET_NEG)[bin];
+}
+
+/**
  * The Landing's Seat figure (Story 3.13, UX-DR70, UX-DR3): one Seat in a Veiledet uke from the
  * synthetic fixture, as an HTML week table with tabular lining figures and the «Demodata» label.
  * Weeks are columns, as in the game's table under the graph; Story 6.8 puts the shared graph
- * over this same table. Net stock carries the `lager-fill` tint, the current week its weight.
+ * over this same table. Net stock carries its matrix step, the current week its weight.
  */
 export function SeatTable() {
   const current = DEMO_SEAT.currentWeek;
@@ -52,7 +67,7 @@ export function SeatTable() {
                   key={w.week}
                   className={cn(
                     "py-2 pl-2",
-                    key === "netInventory" && "bg-lager-fill",
+                    key === "netInventory" && netStep(value(w)),
                     w.week === current && "font-bold",
                   )}
                 >
