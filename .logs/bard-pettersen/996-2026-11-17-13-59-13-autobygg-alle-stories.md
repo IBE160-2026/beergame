@@ -276,3 +276,21 @@ Brukeren ba om raske tester. Backend-pakken tok 618 s lokalt og 4–5 min i CI.
 
 ### Åpne punkter
 - Issue #50: neste steg er færre lesinger per plass i `place_order(within=…)`.
+
+## Story 2.2: Modellkonfig og evalueringsbudsjett fra kommandolinja (2026-11-18)
+
+### Oppgave
+Bygge Story 2.2 på `epic-2`.
+
+### Plan
+`bmad-build-auto` i én underagent, med regelen om raske tester.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-2-register-model-config-and-evaluation-budget.md`. Commit `6693c8e`.
+- Migrering `0006` med `ai_model_configs` og `ai_budgets`, modulene `ai.config` og `ai.budget`, `python -m app.ai.cli` (`config add|edit|list|show`, `budget set`) og to eksempelkonfiger i `backend/ai-configs/`.
+- Hele pakken: 1223 grønne på 46 s, full grenddekning av motoren, ruff ren. Én ny test tar 1,3 s fordi den starter en egen prosess.
+- Gjennomgang: 43 funn (3 middels). Hovedrettingen avviser hemmeligheter skrevet inn i endepunkt-URL-en. Ett middels funn er utsatt.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #51: beslutninger om konfigformat, hemmeligheter, plassholderpriser og budsjett, og det utsatte funnet om validering av gamle rader.
