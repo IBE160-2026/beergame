@@ -11,7 +11,10 @@ from app.engine import GameSettings
 from app.modules.games import commands
 from app.platform.db import get_engine
 from app.platform.events.registry import COMMAND_TOPICS
-from tests.games.helpers import listening, play_to_end
+from tests.conftest import TEST_DATABASE_URL
+from tests.games.helpers import listening, play_to_end, seat_student
+
+SHORT = GameSettings(weeks=8, guided_weeks=2)
 
 
 def public_commands() -> set[str]:
@@ -25,7 +28,7 @@ def public_commands() -> set[str]:
 
 
 async def _run_create() -> str:
-    return await commands.create("simulation", GameSettings(), seed=1)
+    return await commands.create("simulation", SHORT, seed=1)
 
 
 async def _run_assign_seat() -> str:
@@ -35,7 +38,9 @@ async def _run_assign_seat() -> str:
 
 
 async def _run_start() -> str:
+    """A Student holds every Seat, so the Game waits in Week 1."""
     game_id = await _run_create()
+    seat_student(TEST_DATABASE_URL, game_id, *(role.value for role in SHORT.roles))
     await commands.start(game_id)
     return game_id
 
@@ -53,19 +58,56 @@ async def _run_finish() -> str:
     return game_id
 
 
+async def _run_advance() -> str:
+    """`start` leaves Week 1 complete but open when its own advances are held back."""
+    game_id = await _run_create()
+    settle = commands._settle
+    commands._settle = _no_settle
+    try:
+        await commands.start(game_id)
+    finally:
+        commands._settle = settle
+    assert await commands.advance(game_id)
+    return game_id
+
+
+async def _no_settle(game_id: str) -> None:
+    return None
+
+
+async def _run_switch_to_rule_based() -> str:
+    game_id = await _run_start()
+    await commands.switch_to_rule_based(game_id, "retailer", "takeover_staff")
+    return game_id
+
+
 RUNNERS = {
     "create": _run_create,
     "assign_seat": _run_assign_seat,
     "start": _run_start,
     "place_order": _run_place_order,
     "finish": _run_finish,
+    "advance": _run_advance,
+    "switch_to_rule_based": _run_switch_to_rule_based,
 }
 """How to run each command once; a command added without a runner fails the test below."""
 
 
 def test_every_command_is_exported_and_registered():
     found = public_commands()
-    assert found == {"create", "assign_seat", "start", "place_order", "finish"} == set(RUNNERS)
+    assert (
+        found
+        == {
+            "create",
+            "assign_seat",
+            "start",
+            "place_order",
+            "finish",
+            "advance",
+            "switch_to_rule_based",
+        }
+        == set(RUNNERS)
+    )
     assert found <= set(commands.__all__)
     games_entries = {
         key.removeprefix("games.") for key in COMMAND_TOPICS if key.startswith("games.")
@@ -110,12 +152,30 @@ async def test_each_command_locks_bumps_and_notifies_in_one_transaction(games_db
         assert_locked_bump_notify(statements)
         statements.clear()
         commits.clear()
+        seat_student(TEST_DATABASE_URL, game_id, "wholesaler")  # the Game waits in Week 1
         await commands.start(game_id)
         assert len(commits) == 1
         assert_locked_bump_notify(statements)
         writes = [s for s in statements if s.startswith("INSERT INTO")]
         assert any("seat_occupancy" in s for s in writes)  # three free Seats filled
         assert any("game_weeks" in s for s in writes) and any("seat_turns" in s for s in writes)
+        statements.clear()
+        commits.clear()
+        settle = commands._settle
+        commands._settle = _no_settle  # the switch completes Week 1; count only its own commit
+        try:
+            await commands.switch_to_rule_based(game_id, "wholesaler", "takeover_staff")
+            assert len(commits) == 1
+            assert_locked_bump_notify(statements)
+            game_id = await _run_create()
+            await commands.start(game_id)
+        finally:
+            commands._settle = settle
+        statements.clear()
+        commits.clear()
+        assert await commands._advance_once(game_id)
+        assert len(commits) == 1
+        assert_locked_bump_notify(statements)
     finally:
         event.remove(sync_engine, "before_cursor_execute", record)
         event.remove(sync_engine, "commit", commit)

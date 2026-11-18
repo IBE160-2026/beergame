@@ -1,0 +1,10 @@
+{
+  "seed": 7,
+  "games": 2,
+  "seats": {
+    "retailer": "scripted:order-incoming",
+    "wholesaler": "scripted:constant-4",
+    "distributor": "scripted:order-incoming",
+    "factory": "scripted:constant-4"
+  }
+}

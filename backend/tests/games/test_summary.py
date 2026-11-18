@@ -6,20 +6,18 @@ import pytest
 
 from app.engine import GameSettings
 from app.modules.games import commands, service
-from tests.games.helpers import play_to_end, query, tamper
+from tests.games.helpers import classic_game, query, tamper
 
 
-async def finished_game(*, check: bool = True) -> str:
-    game_id = await commands.create("simulation", GameSettings(), seed=7)
-    await commands.start(game_id)  # every free Seat gets a Rule-based player
-    await play_to_end(game_id)
+async def finished_game(url: str, *, check: bool = True) -> str:
+    game_id = await classic_game(url)
     if check:
         await service.verify_finished(game_id)
     return game_id
 
 
 async def test_summary_numbers_equal_the_stored_tables(games_db):
-    game_id = await finished_game()
+    game_id = await finished_game(games_db)
     summary = await service.game_summary(game_id)
     assert (summary.game_id, summary.demand_seed, summary.weeks) == (game_id, 7, 36)
     stored = query(
@@ -60,12 +58,12 @@ async def test_summary_numbers_equal_the_stored_tables(games_db):
 
 
 async def test_summary_without_a_check_reports_none(games_db):
-    game_id = await finished_game(check=False)
+    game_id = await finished_game(games_db, check=False)
     assert (await service.game_summary(game_id)).check is None
 
 
 async def test_summary_shows_a_failed_check(games_db):
-    game_id = await finished_game(check=False)
+    game_id = await finished_game(games_db, check=False)
     tamper(
         games_db,
         "UPDATE game_weeks SET state = jsonb_set(state, '{seats,0,inventory}', '99') "
@@ -85,7 +83,10 @@ async def test_summary_of_an_unknown_game_is_refused(games_db, game_id):
 
 
 async def test_summary_of_a_running_game_is_refused(games_db):
+    from tests.games.helpers import seat_student
+
     game_id = await commands.create("simulation", GameSettings(), seed=7)
+    seat_student(games_db, game_id, "retailer")  # the Game waits for the Student
     await commands.start(game_id)
     with pytest.raises(service.ViewError) as caught:
         await service.game_summary(game_id)

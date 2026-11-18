@@ -21,17 +21,32 @@ from app.engine import (
 from app.modules.games import commands, rules, service
 from app.platform.db import get_engine
 from app.platform.parameter_sets import read_parameter_set
-from tests.conftest import libpq_dsn
-from tests.games.helpers import execute, listening, play_to_end, play_week, query
+from tests.conftest import TEST_DATABASE_URL, libpq_dsn
+from tests.games.helpers import (
+    execute,
+    listening,
+    play_to_end,
+    play_week,
+    query,
+    seat_student,
+)
 
 ROLES = ("retailer", "wholesaler", "distributor", "factory")
 SETTINGS = GameSettings(demand_seed=1)
 
 
 async def started(*occupants: tuple[str, str | None], **settings) -> str:
+    """A started Game whose Seats get `occupants` in chain order; every other Seat gets a
+    Student, whose Orders the test places itself (Story 2.1: the order source places the
+    others' Orders when each Week opens)."""
     game_id = await commands.create("simulation", GameSettings(**settings), seed=1)
+    students = list(ROLES[len(occupants) :])
     for role, (kind, policy_id) in zip(ROLES, occupants, strict=False):
-        await commands.assign_seat(game_id, role, kind, policy_id)
+        if kind == "student":
+            students.append(role)
+        else:
+            await commands.assign_seat(game_id, role, kind, policy_id)
+    seat_student(TEST_DATABASE_URL, game_id, *students)
     await commands.start(game_id)
     return game_id
 
@@ -77,15 +92,15 @@ async def assert_refused(url: str, game_id: str, call, code: str, status: int) -
 
 
 async def test_an_order_writes_one_decision_log_row_with_the_state_seen(games_db):
-    game_id = await started(("scripted", "constant-4"))
+    game_id = await started()
     seen = await service.seat_state(game_id, "retailer")
     turn = await service.open_turn(game_id, "retailer")
     with listening(games_db) as events:
         placed = await commands.place_order(game_id, "retailer", 1, 4, "guided")
         received = events.drain()
-    assert received == [{"topic": "game", "id": game_id, "version": 4}]
+    assert received == [{"topic": "game", "id": game_id, "version": 3}]
     assert (placed.week, placed.open_week, placed.lifecycle) == (1, 1, "running")
-    assert counts(games_db, game_id) == (4, 1, 1, 4, 1)  # no advance
+    assert counts(games_db, game_id) == (3, 1, 1, 4, 1)  # no advance
     (row,) = log_rows(games_db, game_id)
     assert str(row["id"]) == placed.seat_week_id and uuid.UUID(placed.seat_week_id).version == 7
     assert (row["role"], row["week"], row["order"], row["decided_by"], row["fallback"]) == (
@@ -95,7 +110,7 @@ async def test_an_order_writes_one_decision_log_row_with_the_state_seen(games_db
         "guided",
         "none",
     )
-    assert (row["occupant_kind"], row["reason"]) == ("scripted", "initial")
+    assert (row["occupant_kind"], row["reason"]) == ("student", "initial")
     assert row["opened_at"] == turn.opened_at
     assert row["rule_based_reference_order"] == turn.rule_based_reference_order
     assert row["state_seen"] == json.loads(seen.model_dump_json())
@@ -165,12 +180,14 @@ async def test_the_order_that_completes_the_week_advances_it_in_the_same_transac
 
 
 @pytest.mark.parametrize(
-    "occupants",
-    [(), (("scripted", "constant-4"),) * 4],
+    "occupant",
+    [("rule_based", None), ("scripted", "constant-4")],
     ids=["rule_based", "scripted"],
 )
-async def test_guided_weeks_take_only_the_guided_order_for_every_occupant(games_db, occupants):
-    game_id = await started(*occupants)
+async def test_guided_weeks_take_only_the_guided_order_for_every_occupant(games_db, occupant):
+    """The Student's Guided Orders are refused unless guided; the order source places the
+    other Seats' Guided Orders."""
+    game_id = await started(("student", None), occupant, occupant, occupant)
     for week in range(1, SETTINGS.guided_weeks + 1):
         await assert_refused(
             games_db,
@@ -187,13 +204,12 @@ async def test_guided_weeks_take_only_the_guided_order_for_every_occupant(games_
                 "guided_order_required",
                 422,
             )
-        for role in ROLES:
-            await commands.place_order(game_id, role, week, guided_order(SETTINGS), "guided")
-    rows = log_rows(games_db, game_id)
+        await commands.place_order(game_id, "retailer", week, guided_order(SETTINGS), "guided")
+    rows = [r for r in log_rows(games_db, game_id) if r["week"] <= SETTINGS.guided_weeks]
     assert len(rows) == 4 * SETTINGS.guided_weeks
     assert {(r["order"], r["decided_by"]) for r in rows} == {(4, "guided")}
-    kind = occupants[0][0] if occupants else "rule_based"
-    assert {r["occupant_kind"] for r in rows} == {kind}
+    assert {r["occupant_kind"] for r in rows if r["role"] != "retailer"} == {occupant[0]}
+    assert {r["occupant_kind"] for r in rows if r["role"] == "retailer"} == {"student"}
 
 
 async def test_guided_is_refused_after_the_guided_weeks(games_db):
@@ -314,13 +330,14 @@ async def test_a_game_not_started_takes_no_order(games_db):
 
 
 async def test_the_last_week_finishes_the_game(games_db):
-    game_id = await started()
-    await to_week(game_id, SETTINGS.weeks)
+    last = 8  # a short Game: the length is not the point
+    game_id = await started(weeks=last)
+    await to_week(game_id, last)
     for role in ROLES[:3]:
         await commands.place_order(
             game_id,
             role,
-            SETTINGS.weeks,
+            last,
             (await service.open_turn(game_id, role)).rule_based_reference_order,
             "rule_based",
         )
@@ -328,7 +345,7 @@ async def test_the_last_week_finishes_the_game(games_db):
         placed = await commands.place_order(
             game_id,
             "factory",
-            SETTINGS.weeks,
+            last,
             (await service.open_turn(game_id, "factory")).rule_based_reference_order,
             "rule_based",
         )
@@ -342,26 +359,29 @@ async def test_the_last_week_finishes_the_game(games_db):
         "SELECT week, finished, state FROM game_weeks WHERE game_id = %s ORDER BY week, finished",
         (game_id,),
     )
-    assert [(w, f) for w, f, _ in weeks] == [(w, False) for w in range(1, 37)] + [(36, True)]
+    assert [(w, f) for w, f, _ in weeks] == [(w, False) for w in range(1, last + 1)] + [
+        (last, True)
+    ]
     final = WeekState.model_validate(weeks[-1][2])
-    assert final.finished and final.week == 36
-    assert counts(games_db, game_id)[1:] == (144, 37, 144, 144)  # no Week 37 turn
+    assert final.finished and final.week == last
+    # No turn for the Week after the last.
+    assert counts(games_db, game_id)[1:] == (4 * last, last + 1, 4 * last, 4 * last)
     await assert_refused(
         games_db,
         game_id,
-        commands.place_order(game_id, "retailer", 36, 4, "rule_based"),
+        commands.place_order(game_id, "retailer", last, 4, "rule_based"),
         "game_finished",
         409,
     )
     await assert_refused(
         games_db,
         game_id,
-        commands.place_order(game_id, "retailer", 37, 4, "rule_based"),
+        commands.place_order(game_id, "retailer", last + 1, 4, "rule_based"),
         "game_finished",
         409,
     )
     # What each Seat saw in the last Week stays readable.
-    assert (await service.seat_state(game_id, "retailer")).week == 36
+    assert (await service.seat_state(game_id, "retailer")).week == last
 
 
 async def test_finish_needs_the_finished_state():

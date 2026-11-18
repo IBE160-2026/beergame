@@ -21,6 +21,7 @@ services:
 
   backend:
     build: ./backend
+    image: olspillet-backend:local
     environment:
       APP_ENV: ${APP_ENV:-local}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-olspillet}:${POSTGRES_PASSWORD:-olspillet}@postgres:5432/${POSTGRES_DB:-olspillet}
@@ -46,6 +47,32 @@ services:
       timeout: 5s
       retries: 30
       start_period: 5s
+
+  # Job workers (AD-9, AD-24): the image `backend` builds, so the same commit; no keys (the AI
+  # mock answers locally). The backend applies the migrations; the workers start once it is
+  # healthy.
+  worker-ai:
+    image: olspillet-backend:local
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker", "--queues", "ai-orders"]
+    environment: &worker-env
+      APP_ENV: ${APP_ENV:-local}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-olspillet}:${POSTGRES_PASSWORD:-olspillet}@postgres:5432/${POSTGRES_DB:-olspillet}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      RUN_MIGRATIONS: "false"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  worker-batch:
+    image: olspillet-backend:local
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker", "--queues", "llm-batch"]
+    environment: *worker-env
+    depends_on:
+      backend:
+        condition: service_healthy
 
   frontend:
     build: ./frontend

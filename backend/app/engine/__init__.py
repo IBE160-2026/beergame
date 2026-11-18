@@ -3,6 +3,8 @@ passed-in seed (`app.engine.demand.series`; callers draw seeds with `demand.new_
 
 `app.engine.check.conservation` checks the bookkeeping of a list of Week states (FR-29).
 `app.engine.rule_based.order` is the Rule-based player's Order for one `SeatView` (FR-33).
+`app.engine.near_optimal.order` is the near-optimal reference Order from the whole chain state
+and demand series, which no player sees (FR-79).
 `app.engine.scripted.REGISTRY` holds the closed set of scripted Order policies (AD-22).
 `app.engine.rules` holds one package per rules version; `advance` and `initial_state` take the
 `rules_version` to run (AD-4), and `app.engine.replay.replay` replays a stored Game (FR-29)."""

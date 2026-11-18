@@ -8,6 +8,7 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
+import app.ai.models  # noqa: F401  (registers the model config and budget tables)
 import app.modules.games.models  # noqa: F401  (registers the games tables on the metadata)
 from app.platform.config import get_settings
 from app.platform.db import metadata
@@ -23,18 +24,31 @@ if config.attributes.get("configure_logger", True):
 target_metadata = metadata
 
 
+def include_name(name: str | None, type_: str, parent_names: object) -> bool:
+    """procrastinate's tables and indexes come from the SQL it ships (revision 0008), not from
+    the module tables, so `alembic check` leaves them out."""
+    return not (name or "").startswith(("procrastinate_", "idx_procrastinate_"))
+
+
 def database_url() -> str:
     return config.attributes.get("database_url") or get_settings().database_url
 
 
 def run_migrations_offline() -> None:
-    context.configure(url=database_url(), target_metadata=target_metadata, literal_binds=True)
+    context.configure(
+        url=database_url(),
+        target_metadata=target_metadata,
+        literal_binds=True,
+        include_name=include_name,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection, target_metadata=target_metadata, include_name=include_name
+    )
     with context.begin_transaction():
         context.run_migrations()
 

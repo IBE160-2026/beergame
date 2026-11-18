@@ -6,6 +6,7 @@ not in the Stack table, so the draws come from `random.Random` here in the tests
 itself never touches `random`.
 """
 
+import functools
 import random
 from decimal import Decimal
 
@@ -123,10 +124,22 @@ def run_seed(run):
     return f"{SEED}-{run}"
 
 
-def games():
+@functools.cache
+def _played():
+    """Every run's Game, played once for both tests, with the state of its generator after it."""
+    played = []
     for run in range(RUNS):
         rng = random.Random(run_seed(run))
-        yield run, rng, *random_game(rng)
+        game = random_game(rng)
+        played.append((run, rng.getstate(), game))
+    return tuple(played)
+
+
+def games():
+    for run, rng_state, game in _played():
+        rng = random.Random()
+        rng.setstate(rng_state)
+        yield run, rng, *game
 
 
 def test_every_generated_game_keeps_its_books():

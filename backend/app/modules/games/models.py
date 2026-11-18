@@ -9,6 +9,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     SmallInteger,
     Table,
@@ -17,8 +18,9 @@ from sqlalchemy import (
     Uuid,
     false,
     func,
+    text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 
 from app.modules.games.schemas import (
     DecidedBy,
@@ -35,6 +37,22 @@ def _in(column: str, values: type[StrEnum]) -> str:
     return f"{column} IN ({', '.join(repr(value.value) for value in values)})"
 
 
+simulation_batches = Table(
+    "simulation_batches",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    # The batch file as `python -m app.sim run` played it (its `model_config` filled in).
+    Column("batch_file", JSONB, nullable=False),
+    # The pass lines from the batch file (`{}` when it has none); never a code default (C-3).
+    Column("pass_lines", JSONB, nullable=False),
+    # The batch's LLM Seats were answered by the mock provider (AD-17).
+    Column("mock", Boolean, nullable=False),
+    Column("started_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+"""One row per simulation batch (Story 2.11, AD-22), written once by
+`games.service.create_batch`. A trigger refuses UPDATE and DELETE, so its pass lines never
+change after its first Game starts."""
+
 games = Table(
     "games",
     metadata,
@@ -48,6 +66,14 @@ games = Table(
     Column("rules_version", Integer, nullable=False),
     Column("session_runtime", JSONB, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    # The simulation batch the Game was played in (Story 2.11); None for every other Game.
+    Column(
+        "batch_id",
+        Uuid,
+        ForeignKey("simulation_batches.id"),
+        nullable=True,
+        index=True,
+    ),
     CheckConstraint(_in("purpose", Purpose), name="ck_games_purpose"),
     CheckConstraint(_in("lifecycle", Lifecycle), name="ck_games_lifecycle"),
     CheckConstraint("version >= 0", name="ck_games_version"),
@@ -106,13 +132,31 @@ seat_turns = Table(
     Column("opened_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("ordered_at", DateTime(timezone=True), nullable=True),
     Column("rule_based_reference_order", Integer, nullable=False),
+    # When an LLM player's Order is due (AD-5, AD-20): set by `games.rules.turn_times`, NULL for
+    # every other turn; the `worker-ai` rescue loop places the fallback Order after it.
+    Column("ai_deadline_at", DateTime(timezone=True), nullable=True),
+    # The near-optimal reference Order and the algorithm version that computed it (Story 2.9,
+    # FR-67, FR-79); NULL only on turns opened before revision 0012.
+    Column("near_optimal_reference_order", Integer, nullable=True),
+    Column("near_optimal_algorithm_version", Text, nullable=True),
     CheckConstraint("week >= 1", name="ck_seat_turns_week"),
     CheckConstraint("rule_based_reference_order >= 0", name="ck_seat_turns_reference_order"),
+    CheckConstraint("near_optimal_reference_order >= 0", name="ck_seat_turns_near_optimal_order"),
+    CheckConstraint(
+        "(near_optimal_reference_order IS NULL) = (near_optimal_algorithm_version IS NULL)",
+        name="ck_seat_turns_near_optimal_pair",
+    ),
     UniqueConstraint("game_id", "week", "seat_id", name="uq_seat_turns_game_week_seat"),
+    Index(
+        "ix_seat_turns_ai_deadline",
+        "ai_deadline_at",
+        postgresql_where=text("ordered_at IS NULL AND ai_deadline_at IS NOT NULL"),
+    ),
 )
 """One row per Seat per opened Week (AD-20). A trigger refuses DELETE and any UPDATE of the
-Week, the Seat, `opened_at`, an `ordered_at` already set, or the Rule-based reference Order,
-which is computed once when the Week opens (AD-5)."""
+Week, the Seat, `opened_at`, an `ordered_at` already set, an `ai_deadline_at` already set, the
+Rule-based reference Order, or a near-optimal reference already set: both references are
+computed once when the Week opens (AD-5)."""
 
 seat_weeks = Table(
     "seat_weeks",
@@ -132,9 +176,24 @@ seat_weeks = Table(
     Column("opened_at", DateTime(timezone=True), nullable=False),
     Column("ordered_at", DateTime(timezone=True), nullable=False),
     Column("rule_based_reference_order", Integer, nullable=False),
+    # The LLM call rows behind the Order (FR-67): its attempts, or the failed ones behind a
+    # fallback Order.
+    Column("llm_call_ids", ARRAY(Uuid), nullable=False, server_default=text("'{}'")),
+    # The turn's AI deadline, copied like its other times (AD-15, AD-20).
+    Column("ai_deadline_at", DateTime(timezone=True), nullable=True),
+    # The turn's near-optimal reference and its algorithm version, copied (Story 2.9).
+    Column("near_optimal_reference_order", Integer, nullable=True),
+    Column("near_optimal_algorithm_version", Text, nullable=True),
+    # The Effort level the Game froze, on rows an `llm` occupant ordered (Story 2.11, FR-78).
+    Column("effort_level", Text, nullable=True),
     CheckConstraint("week >= 1", name="ck_seat_weeks_week"),
     CheckConstraint('"order" >= 0', name="ck_seat_weeks_order"),
     CheckConstraint("rule_based_reference_order >= 0", name="ck_seat_weeks_reference_order"),
+    CheckConstraint("near_optimal_reference_order >= 0", name="ck_seat_weeks_near_optimal_order"),
+    CheckConstraint(
+        "(near_optimal_reference_order IS NULL) = (near_optimal_algorithm_version IS NULL)",
+        name="ck_seat_weeks_near_optimal_pair",
+    ),
     CheckConstraint(_in("decided_by", DecidedBy), name="ck_seat_weeks_decided_by"),
     CheckConstraint(_in("fallback", Fallback), name="ck_seat_weeks_fallback"),
     CheckConstraint(_in("occupant_kind", OccupantKind), name="ck_seat_weeks_occupant_kind"),

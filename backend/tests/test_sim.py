@@ -504,7 +504,7 @@ def test_create_takes_one_occupant_per_role_and_a_seed(capsys, games_db):
 @pytest.mark.parametrize(
     ("argv", "message"),
     [
-        (["--seats", "llm"], "unknown Seat spec 'llm'"),
+        (["--seats", "robot"], "unknown Seat spec 'robot'"),
         (["--seats", "scripted:nope"], "unknown Seat spec 'scripted:nope'"),
         (["--seats", "scripted:"], "unknown Seat spec"),
         (["--seats", "rule_based,rule_based"], "--seats needs one occupant or 4, not 2"),
@@ -538,8 +538,8 @@ def test_create_with_an_unknown_parameter_set_exits_1(capsys, games_db):
     assert err.startswith("error unknown_parameter_set: ")
 
 
-def test_create_without_a_database_exits_1(capsys, monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://nobody:secretpw@127.0.0.1:1/none")
+def test_create_without_a_database_exits_1(capsys, monkeypatch, unreachable_database):
+    monkeypatch.setenv("DATABASE_URL", unreachable_database)
     code, lines, err = create(capsys)
     assert (code, lines) == (1, [])
     assert err.strip() == "error db_unavailable: cannot reach the database"
@@ -610,7 +610,8 @@ def created_game(capsys) -> str:
     return lines[0].removeprefix("game ")
 
 
-def test_start_prints_the_running_game_and_its_seats(capsys, games_db):
+def test_start_prints_the_game_and_its_seats(capsys, games_db):
+    """Four Rule-based players: the order source plays the Game to its end inside `start`."""
     game_id = created_game(capsys)
     code = main(["start", game_id])
     out = [
@@ -621,7 +622,7 @@ def test_start_prints_the_running_game_and_its_seats(capsys, games_db):
     assert code == 0
     assert out == [
         f"game {game_id}",
-        "lifecycle running",
+        "lifecycle finished",
         "week 1",
         "seat retailer rule_based",
         "seat wholesaler rule_based",
@@ -642,16 +643,17 @@ def test_start_twice_reports_the_conflict(capsys, games_db):
 
 def test_show_prints_the_seat_state_and_the_open_turn(capsys, games_db):
     from app.modules.games.schemas import SeatState
-    from tests.games.helpers import query
+    from tests.games.helpers import query, seat_student
 
     game_id = created_game(capsys)
+    seat_student(games_db, game_id, "retailer")  # the Game waits in Week 1 for the Student
     main(["start", game_id])
     capsys.readouterr()
     code = main(["show", game_id, "--seat", "retailer"])
     out = capsys.readouterr().out
     assert code == 0
     out = out[out.index("{") :]  # structlog lines precede the report under pytest
-    body, opened, reference = out.rstrip("\n").rsplit("\n", 2)
+    body, opened, reference, near = out.rstrip("\n").rsplit("\n", 3)
     state = SeatState.model_validate_json(body)
     assert (state.role, state.week, state.inventory, state.incoming_order) == (
         "retailer",
@@ -659,14 +661,17 @@ def test_show_prints_the_seat_state_and_the_open_turn(capsys, games_db):
         12,
         4,
     )
-    ((opened_at, order),) = query(
+    ((opened_at, order, near_order),) = query(
         games_db,
-        "SELECT t.opened_at, t.rule_based_reference_order FROM seat_turns t "
+        "SELECT t.opened_at, t.rule_based_reference_order, t.near_optimal_reference_order "
+        "FROM seat_turns t "
         "JOIN seats s ON s.id = t.seat_id WHERE t.game_id = %s AND s.role = 'retailer'",
         (game_id,),
     )
     assert opened == f"opened_at {opened_at.isoformat()}"
     assert reference == f"reference_order {order}"
+    assert near == f"near_optimal_reference_order {near_order} placeholder-0"
+    assert near_order == 8  # Classic step: 12 + (4 + 4 + 4 + 8) - 24 (Story 2.9)
 
 
 @pytest.mark.parametrize(
@@ -694,8 +699,8 @@ def test_show_needs_a_seat(capsys):
     assert info.value.code == 2
 
 
-def test_show_without_a_database_exits_1(capsys, monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://nobody:secretpw@127.0.0.1:1/none")
+def test_show_without_a_database_exits_1(capsys, monkeypatch, unreachable_database):
+    monkeypatch.setenv("DATABASE_URL", unreachable_database)
     game_id = "01a1eb10-f299-75a6-8ec2-a251c50791e1"
     assert main(["show", game_id, "--seat", "retailer"]) == 1
     assert capsys.readouterr().err.strip() == "error db_unavailable: cannot reach the database"
@@ -710,6 +715,14 @@ def report(capsys, prefixes: set[str]) -> list[str]:
 
 
 def played_game(capsys, seats: str = "rule_based") -> str:
+    """A Game created, started and played to its end with `create`, `start` and `play`. The
+    first call per `seats` runs the commands; later ones store a copy of that Game's rows."""
+    from tests.conftest import TEST_DATABASE_URL
+    from tests.games.helpers import remember, stored_copy
+
+    copy = stored_copy(TEST_DATABASE_URL, ("sim play", seats))
+    if copy is not None:
+        return copy
     code, lines, _ = create(capsys, "--seats", seats, "--seed", "7")
     assert code == 0
     game_id = lines[0].removeprefix("game ")
@@ -721,6 +734,7 @@ def played_game(capsys, seats: str = "rule_based") -> str:
         "lifecycle finished",
         "weeks 36",
     ]
+    remember(TEST_DATABASE_URL, ("sim play", seats), game_id)
     return game_id
 
 
@@ -778,13 +792,31 @@ def test_play_and_log_report_refusals(capsys, games_db, argv, error):
     assert captured.out == "" and captured.err.startswith(error)
 
 
-def test_play_of_a_game_not_started_or_finished_exits_1(capsys, games_db):
+def test_play_of_a_game_not_started_exits_1(capsys, games_db):
     game_id = created_game(capsys)
     assert main(["play", game_id]) == 1
     assert capsys.readouterr().err.startswith("error game_not_started: ")
+
+
+def test_play_of_a_finished_game_reports_it_again(capsys, games_db):
     game_id = played_game(capsys)
+    assert main(["play", game_id]) == 0
+    assert report(capsys, {"lifecycle", "weeks", "check"}) == [
+        "lifecycle finished",
+        "weeks 36",
+        "check ok",
+    ]
+
+
+def test_play_of_a_game_waiting_for_a_student_exits_1(capsys, games_db):
+    from tests.games.helpers import seat_student
+
+    game_id = created_game(capsys)
+    seat_student(games_db, game_id, "factory")
+    assert main(["start", game_id]) == 0
+    capsys.readouterr()
     assert main(["play", game_id]) == 1
-    assert capsys.readouterr().err.startswith("error game_finished: ")
+    assert capsys.readouterr().err.startswith("error game_not_finished: ")
 
 
 def test_log_of_a_game_without_orders_prints_the_header_only(capsys, games_db):
@@ -792,41 +824,19 @@ def test_log_of_a_game_without_orders_prints_the_header_only(capsys, games_db):
     assert len(log_lines(capsys, game_id)) == 1
 
 
-def test_play_refuses_an_occupant_it_cannot_play():
-    from app import sim
-
-    seat = sim.game_service.SeatOverview(
-        id="x", role="retailer", occupant_kind="scripted", policy_id="gone"
-    )
-    turn = sim.game_service.TurnOverview(
-        week=5,
-        guided=False,
-        opened_at="2026-11-17T00:00:00Z",
-        ordered_at=None,
-        rule_based_reference_order=4,
-    )
-    with pytest.raises(sim.game_commands.CommandError) as caught:
-        sim._decide(None, seat, None, turn)  # type: ignore[arg-type]
-    assert caught.value.code == "occupant_not_playable"
-
-
-def test_play_continues_a_partly_played_week(capsys, games_db):
-    import asyncio
-
+def test_play_moves_on_a_game_stopped_between_two_advances(capsys, games_db, monkeypatch):
+    """Story 2.1: the runner chooses no Order; it moves a complete open Week on with
+    `advance`, which plays the rest of the Game."""
     from app.modules.games import commands
 
+    async def no_settle(game_id: str) -> None:
+        return None
+
     game_id = created_game(capsys)
+    monkeypatch.setattr(commands, "_settle", no_settle)
     assert main(["start", game_id]) == 0
-    capsys.readouterr()
-
-    async def order_two() -> None:
-        for role in ("retailer", "distributor"):
-            await commands.place_order(game_id, role, 1, 4, "guided")
-        from app.platform import db
-
-        await db.dispose()
-
-    asyncio.run(order_two(), loop_factory=asyncio.SelectorEventLoop)
+    assert "lifecycle running" in report(capsys, {"lifecycle"})
+    monkeypatch.undo()
     assert main(["play", game_id]) == 0
     assert report(capsys, {"lifecycle", "weeks"}) == ["lifecycle finished", "weeks 36"]
     assert len(log_lines(capsys, game_id)) == 1 + 36 * 4
@@ -886,7 +896,10 @@ def test_check_reports_refusals(capsys, games_db, argv, error):
 
 
 def test_check_of_a_running_game_exits_1(capsys, games_db):
+    from tests.games.helpers import seat_student
+
     game_id = created_game(capsys)
+    seat_student(games_db, game_id, "retailer")
     assert main(["start", game_id]) == 0
     capsys.readouterr()
     assert main(["check", game_id]) == 1
@@ -928,10 +941,11 @@ def test_check_all_of_an_empty_database_checks_nothing_and_exits_0(capsys, games
 
 
 def test_check_all_counts_the_finished_games_and_lists_only_failures(capsys, games_db):
-    from tests.games.helpers import query, tamper
+    from tests.games.helpers import query, seat_student, tamper
 
     good, bad, refused = (played_game(capsys) for _ in range(3))
     running = created_game(capsys)
+    seat_student(games_db, running, "retailer")
     assert main(["start", running]) == 0
     tamper(games_db, "DELETE FROM game_checks WHERE game_id IN (%s, %s)", (bad, refused))
     tamper(
@@ -982,8 +996,8 @@ def test_check_needs_a_game_id_or_all(capsys, argv):
     assert "give a Game id or --all" in capsys.readouterr().err
 
 
-def test_check_all_without_a_database_exits_1(capsys, monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://nobody:secretpw@127.0.0.1:1/none")
+def test_check_all_without_a_database_exits_1(capsys, monkeypatch, unreachable_database):
+    monkeypatch.setenv("DATABASE_URL", unreachable_database)
     assert main(["check", "--all"]) == 1
     assert capsys.readouterr().err.strip() == "error db_unavailable: cannot reach the database"
 
@@ -991,6 +1005,8 @@ def test_check_all_without_a_database_exits_1(capsys, monkeypatch):
 # Story 1.11: `run` plays a batch of Games through `games.commands` and summarises them.
 
 SMOKE = Path(__file__).parents[1] / "batches" / "classic-smoke.json"
+SHORT = {"weeks": 8}
+"""Settings of a short Game, for batch tests that do not need the Classic 36 Weeks."""
 SUMMARY = {"game", "cost", "orders", "batch"}
 
 
@@ -1047,10 +1063,15 @@ def test_run_plays_the_smoke_batch_and_summarises_it_from_the_tables(capsys, gam
     assert query(games_db, "SELECT ok, count(*) FROM game_checks GROUP BY ok") == [(True, 3)]
 
 
-def test_run_places_the_order_of_each_scripted_policy(capsys, games_db):
+def smoke(tmp_path, games: int) -> str:
+    """The smoke batch with fewer Games, for tests where the batch size is not the point."""
+    return batch_file(tmp_path, {**json.loads(SMOKE.read_text(encoding="utf-8")), "games": games})
+
+
+def test_run_places_the_order_of_each_scripted_policy(capsys, games_db, tmp_path):
     from tests.games.helpers import query
 
-    code, _, _ = run_batch(capsys, str(SMOKE))
+    code, _, _ = run_batch(capsys, smoke(tmp_path, 1))
     assert code == 0
     rows = query(
         games_db,
@@ -1070,7 +1091,7 @@ def test_run_places_the_order_of_each_scripted_policy(capsys, games_db):
     assert len(by_role["wholesaler"]) > 1  # it follows its incoming order, not a constant
 
 
-def test_run_twice_gives_identical_orders_and_costs(capsys, games_db):
+def test_run_twice_gives_identical_orders_and_costs(capsys, games_db, tmp_path):
     from tests.games.helpers import query
 
     def weeks(game_id: str) -> list[tuple]:
@@ -1082,11 +1103,12 @@ def test_run_twice_gives_identical_orders_and_costs(capsys, games_db):
             (game_id,),
         )
 
-    first = run_batch(capsys, str(SMOKE))
-    second = run_batch(capsys, str(SMOKE))
+    path = smoke(tmp_path, 1)
+    first = run_batch(capsys, path)
+    second = run_batch(capsys, path)
     assert first[0] == second[0] == 0
     pairs = list(zip(batch_ids(first[1]), batch_ids(second[1]), strict=True))
-    assert len(pairs) == 3
+    assert len(pairs) == 1
     for one, other in pairs:
         assert one != other
         assert len(weeks(one)) == 36 * 4
@@ -1100,7 +1122,7 @@ def test_run_exports_the_decision_log_as_csv(capsys, games_db, tmp_path):
     import csv
 
     out = tmp_path / "new" / "dir"
-    code, lines, _ = run_batch(capsys, str(SMOKE), "--export", str(out))
+    code, lines, _ = run_batch(capsys, smoke(tmp_path, 2), "--export", str(out))
     assert code == 0
     with (out / "decision-log.csv").open(encoding="utf-8", newline="") as file:
         rows = list(csv.reader(file))
@@ -1125,7 +1147,7 @@ def test_run_exports_the_decision_log_as_csv(capsys, games_db, tmp_path):
         "total_cost",
     ]
     body = rows[1:]
-    assert len(body) == 3 * 36 * 4
+    assert len(body) == 2 * 36 * 4
     assert [row[0] for row in body[:: 36 * 4]] == batch_ids(lines)
     assert [(row[1], row[3]) for row in body[:4]] == [
         ("1", "retailer"),
@@ -1194,7 +1216,8 @@ def test_run_with_a_seeded_demand_pattern_gives_each_game_its_own_seed(capsys, g
         ({"games": 1, "seats": "rule_based"}, "seed"),
         ({"seed": 1, "games": 1, "seats": {"retailer": "rule_based"}}, "one spec for each Role"),
         ({"seed": 1, "games": 1, "seats": "scripted:constant-5"}, "seats: unknown Seat spec"),
-        ({"seed": 1, "games": 1, "seats": "llm"}, "seats: unknown Seat spec"),
+        ({"seed": 1, "games": 1, "seats": "robot"}, "seats: unknown Seat spec"),
+        ({"seed": 1, "games": 1, "seats": "llm"}, "model_config: llm Seats need a model config"),
         ({"seed": 1, "games": 1, "seats": "rule_based,rule_based"}, "seats: "),
         ({"seed": 999_999_999, "games": 2, "seats": "rule_based"}, "must not exceed"),
         ({"seed": 1, "games": 1, "seats": "rule_based", "settings": {"weeks": "x"}}, "weeks"),
@@ -1246,7 +1269,7 @@ def test_run_takes_one_seat_spec_per_role(capsys, games_db, tmp_path):
         "wholesaler": "rule_based",
         "distributor": "rule_based",
     }
-    path = batch_file(tmp_path, {"seed": 3, "games": 1, "seats": seats})
+    path = batch_file(tmp_path, {"seed": 3, "games": 1, "seats": seats, "settings": SHORT})
     code, _, _ = run_batch(capsys, path)
     assert code == 0
     stored = query(
@@ -1294,24 +1317,26 @@ def test_run_exits_1_and_counts_a_failed_check(capsys, games_db, tmp_path, monke
         return await verify(game_id)
 
     monkeypatch.setattr(sim.game_service, "verify_finished", tampered_then_verified)
-    path = batch_file(tmp_path, {"seed": 7, "games": 1, "seats": "rule_based"})
+    path = batch_file(
+        tmp_path, {"seed": 7, "games": 1, "seats": "rule_based", "settings": {"weeks": 12}}
+    )
     code, lines, _ = run_batch(capsys, path)
     assert code == 1
     assert lines[0].split(" ")[6:8] == ["check", "failed"]
     assert int(lines[0].split(" ")[8]) > 0
-    assert lines[-3] == "batch games 1 weeks 36 checks ok=0 failed=1"
+    assert lines[-3] == "batch games 1 weeks 12 checks ok=0 failed=1"
 
 
 def test_run_reports_a_failing_export_write(capsys, games_db, tmp_path, monkeypatch):
     from app import sim
 
     monkeypatch.setattr(sim, "EXPORT_FILE", "missing-dir/decision-log.csv")
-    path = batch_file(tmp_path, {"seed": 7, "games": 1, "seats": "rule_based"})
+    path = batch_file(tmp_path, {"seed": 7, "games": 1, "seats": "rule_based", "settings": SHORT})
     assert main(["run", path, "--export", str(tmp_path / "out")]) == 1
     captured = capsys.readouterr()
     assert captured.err.startswith("error export_failed: ")
     # The Games were played and checked: their summary is still printed.
-    assert "batch games 1 weeks 36 checks ok=1 failed=0" in captured.out.splitlines()
+    assert "batch games 1 weeks 8 checks ok=1 failed=0" in captured.out.splitlines()
 
 
 def test_run_uses_the_batch_rule_based_parameter_set(capsys, games_db, tmp_path, monkeypatch):
@@ -1320,13 +1345,23 @@ def test_run_uses_the_batch_rule_based_parameter_set(capsys, games_db, tmp_path,
     from tests.games.helpers import query
 
     write_set(tmp_path, "stock-30", desired_inventory=30)
+    shipped = parameter_sets.read_parameter_set
     monkeypatch.setattr(
         commands,
         "read_parameter_set",
-        lambda kind, set_id: parameter_sets.read_parameter_set(kind, set_id, root=tmp_path),
+        lambda kind, set_id: (
+            shipped(kind, set_id, root=tmp_path) if kind == "rule_based" else shipped(kind, set_id)
+        ),
     )
     path = batch_file(
-        tmp_path, {"seed": 7, "games": 1, "seats": "rule_based", "rule_based_params": "stock-30"}
+        tmp_path,
+        {
+            "seed": 7,
+            "games": 1,
+            "seats": "rule_based",
+            "rule_based_params": "stock-30",
+            "settings": SHORT,
+        },
     )
     code, _, _ = run_batch(capsys, path)
     assert code == 0
@@ -1365,7 +1400,7 @@ def test_run_stopped_partway_names_the_games_already_stored(
         return await verify(game_id)
 
     monkeypatch.setattr(sim.game_service, "verify_finished", refuse_the_second)
-    path = batch_file(tmp_path, {"seed": 7, "games": 3, "seats": "rule_based"})
+    path = batch_file(tmp_path, {"seed": 7, "games": 3, "seats": "rule_based", "settings": SHORT})
     code, lines, err = run_batch(capsys, path)
     assert code == 1 and lines == []
     first, note = err.strip().splitlines()[-2:]

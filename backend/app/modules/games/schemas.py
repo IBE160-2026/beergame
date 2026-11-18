@@ -3,9 +3,9 @@
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.engine import (
     CostLine,
@@ -66,17 +66,23 @@ class DecidedBy(StrEnum):
 
 
 class Fallback(StrEnum):
-    """Why an Order is not the occupant's own decision; Epic 2 adds the fallback reasons."""
+    """Why an Order is not the occupant's own decision (FR-32, AD-15): `none`, or the typed
+    failure of the LLM call whose Week got the Rule-based reference Order instead. Kept apart
+    from `decided_by`, which then says `rule_based`."""
 
     NONE = "none"
+    TIMEOUT = "timeout"
+    INVALID_OUTPUT = "invalid_output"
+    BUDGET_EXHAUSTED = "budget_exhausted"
+    PROVIDER_ERROR = "provider_error"
 
 
 _FROZEN = ConfigDict(frozen=True, extra="forbid")
 
 
 class SessionRuntime(BaseModel):
-    """The runtime part of a Game's snapshot (AD-4). Later epics add fields here (Effort level,
-    Inactivity limit, model config, prompt and content versions)."""
+    """The runtime part of a Game's snapshot (AD-4). Later epics add fields here (Inactivity
+    limit, prompt and content versions)."""
 
     model_config = _FROZEN
 
@@ -85,6 +91,23 @@ class SessionRuntime(BaseModel):
     rule_based_params: str
     """Id of the Rule-based parameter set every Rule-based player of the Game uses."""
     rule_based_params_version: int
+    model_config_id: str | None = None
+    """The model config every LLM player of the Game uses (AD-22, FR-78); None: no LLM player
+    may hold a Seat."""
+    effort_level: str | None = None
+    """The config's Effort level the Game froze, set together with `model_config_id`."""
+    play_guard_params: str | None = None
+    """Id of the Play guard parameter set the Game froze (FR-79); None only on Games created
+    before Story 2.10, for which the guard does not run."""
+    play_guard_params_version: int | None = None
+
+    @model_validator(mode="after")
+    def _config_and_level(self) -> SessionRuntime:
+        if (self.model_config_id is None) != (self.effort_level is None):
+            raise ValueError("model_config_id and effort_level are set together")
+        if (self.play_guard_params is None) != (self.play_guard_params_version is None):
+            raise ValueError("play_guard_params and its version are set together")
+        return self
 
 
 class SeatOverview(BaseModel):
@@ -163,6 +186,39 @@ class TurnOverview(BaseModel):
     opened_at: datetime
     ordered_at: datetime | None
     rule_based_reference_order: int
+    near_optimal_reference_order: int | None = None
+    """Computed from the whole chain when the Week opened (FR-79); None only on turns opened
+    before Story 2.9."""
+    near_optimal_algorithm_version: str | None = None
+    """The algorithm that computed it (`engine.near_optimal.ALGORITHM_VERSION`)."""
+
+
+class PendingTurn(BaseModel):
+    """A Seat's turn in the open Week as the order source sees it inside the running command's
+    transaction (AD-5): who holds the Seat in that Week and what it may order from."""
+
+    model_config = _FROZEN
+
+    game_id: str
+    seat_id: str
+    role: str
+    week: int
+    guided: bool
+    """A Guided Week: every non-student occupant orders `guided_order`."""
+    guided_order: int
+    occupant_kind: OccupantKind
+    """The occupant in force in `week` (`from_week <= week`, newest)."""
+    policy_id: str | None
+    rule_based_reference_order: int
+    """Stored on the turn when the Week opened; never recomputed."""
+    ordered: bool
+    """The Seat already has an Order for `week`."""
+    ai_deadline_at: datetime | None = None
+    """When the LLM player's Order is due (`games.rules.turn_times`); None: no deadline."""
+    read_at: datetime | None = None
+    """The database clock when the turn was read (`llm_turn`): the clock `ai_deadline_at` is
+    on, so `ai_deadline_at - read_at` is the time left on any other clock."""
+    seat_state: SeatState
 
 
 class OrderPlaced(BaseModel):
@@ -194,8 +250,52 @@ class DecisionLogRow(BaseModel):
     reason: OccupancyReason
     opened_at: datetime
     ordered_at: datetime
+    ai_deadline_at: datetime | None = None
+    """When an LLM player's Order was due (AD-20); None for every other Order."""
     rule_based_reference_order: int
+    near_optimal_reference_order: int | None = None
+    """Copied from the turn (FR-67, FR-79); None only on rows written before Story 2.9."""
+    near_optimal_algorithm_version: str | None = None
+    """The algorithm that computed it, copied from the turn."""
+    llm_call_ids: tuple[str, ...] = ()
+    """The LLM call rows behind the Order: every attempt of an LLM Order or of the failed call
+    behind a fallback Order (FR-67)."""
+    effort_level: str | None = None
+    """The Effort level the Game froze, on rows an `llm` occupant ordered (FR-78); None on every
+    other row and on rows written before Story 2.11."""
     state_seen: SeatState
+
+
+class OccupancyRow(BaseModel):
+    """One row of a Seat's append-only occupancy history (AD-5): who holds the Seat from
+    `from_week` on, and why. A Play guard switch is a `guard_switch` row whose `from_week` is
+    the Week after the Order that caused it (FR-79, FR-67)."""
+
+    model_config = _FROZEN
+
+    role: str
+    seat_id: str
+    from_week: int
+    occupant_kind: OccupantKind
+    policy_id: str | None
+    reason: OccupancyReason
+
+
+class SimulationBatch(BaseModel):
+    """One `simulation_batches` row with its Games (Story 2.11, AD-22)."""
+
+    model_config = _FROZEN
+
+    id: str
+    batch_file: dict[str, Any]
+    """The batch file as it was played (`model_config` filled in)."""
+    pass_lines: dict[str, Any]
+    """The pass lines from the batch file; empty when it has none."""
+    mock: bool
+    """The batch's LLM Seats were answered by the mock provider."""
+    started_at: datetime
+    game_ids: tuple[str, ...]
+    """The batch's Games in the order they were created."""
 
 
 class GameCheck(BaseModel):

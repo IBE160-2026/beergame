@@ -1,0 +1,9 @@
+game 0 seed 7 weeks 36 check ok
+cost retailer=1446.00 wholesaler=1554.00 distributor=216.00 factory=216.00 chain=3432.00
+orders scripted=128 guided=16
+game 1 seed 8 weeks 36 check ok
+cost retailer=1446.00 wholesaler=1554.00 distributor=216.00 factory=216.00 chain=3432.00
+orders scripted=128 guided=16
+batch games 2 weeks 72 checks ok=2 failed=0
+cost retailer=2892.00 wholesaler=3108.00 distributor=432.00 factory=432.00 chain=6864.00
+orders scripted=256 guided=32

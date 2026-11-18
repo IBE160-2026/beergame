@@ -12,19 +12,29 @@ Subcommands:
                    seed is drawn from OS entropy when none is given, and the same seed
                    prints the same series. Exit 1 when the pattern or seed breaks a rule.
   create           store a simulation Game through `games.commands`, give every Seat its
-                   occupant (`--seats rule_based`, `scripted:<id>`, or one per Role,
+                   occupant (`--seats rule_based`, `scripted:<id>`, `llm`, or one per Role,
                    comma-separated) and print the Game id, seed and Seats read back from the
-                   database. Exit 1 when a command refuses (its code is printed).
+                   database. `llm` Seats need `--config ID` (a model config with an evaluation
+                   budget) and use its first Effort level unless `--effort-level` names one;
+                   both are frozen into the Game. Exit 1 when a command refuses (its code is
+                   printed).
   start            start a stored Game through `games.commands.start` (free Seats get a
-                   Rule-based player, Week 1 opens) and print its lifecycle, Week and Seats.
+                   Rule-based player, Week 1 opens and every Week is played by the order
+                   source) and print its lifecycle, the Week it opened and its Seats.
   show             print what one Seat sees in the open Week (`SeatState` as JSON), then the
-                   open turn's `opened_at` and Rule-based reference Order.
-  play             play a started Game to its end through `games.commands.place_order`: the
-                   Guided Order in a Guided Week (`guided`), else the turn's stored Rule-based
-                   reference Order (`rule_based`) or the Seat's scripted policy (`scripted`).
-                   Prints the lifecycle and the number of Weeks played, then runs the
-                   finished-game check (`games.service.verify_finished`) and prints its result;
-                   exit 1 when the check finds a violation.
+                   open turn's `opened_at`, its Rule-based reference Order and its
+                   near-optimal reference Order with the algorithm version.
+  play             wait for a started Game to finish and check it. The runner chooses no
+                   Orders: `players.ensure_order` places the Guided Order in a Guided Week
+                   (`guided`), else the turn's stored Rule-based reference Order (`rule_based`)
+                   or the Seat's scripted policy (`scripted`), and `games.commands` advances the
+                   Game, so it has finished when `start` returns. An `llm` Seat's Orders come
+                   from `ai-orders` jobs, which the runner works off in this process (the real
+                   job, gateway and fallback path) until none is left. A Game left with a
+                   complete open Week is moved on with `games.commands.advance`. Prints the
+                   lifecycle and the number of Weeks played, then runs the finished-game check
+                   (`games.service.verify_finished`) and prints its result; exit 1 when the
+                   check finds a violation or the Game still waits for an Order.
   check            run (or read back) the finished-game check of a Game: `check ok`, or
                    `check failed N` and one `violation` line per broken rule. Exit 1 when it
                    failed or was refused. `check --all` checks every finished Game (oldest
@@ -37,17 +47,86 @@ Subcommands:
   log             print the Decision log: one row per Week and Seat with what the Seat saw,
                    its Order, the Week's cost, who decided and the Rule-based reference Order.
   run              play a batch of simulation Games from a JSON batch file (`seed`, `games`,
-                   `seats`, optional `settings`, `demand`, `rule_based_params`; Game i uses
-                   demand seed `seed + i`): each Game is created, started, played and checked
-                   through `games.commands` as `play` does. Prints per Game and for the batch
-                   the Total cost per Role and for the chain, the Weeks played, the Orders per
-                   `decided_by` and the check result, all read back from the database.
+                   `seats`, optional `settings`, `demand`, `rule_based_params`, and for `llm`
+                   Seats `model_config` and `effort_level`; Game i uses demand seed
+                   `seed + i`): each Game is created and started through
+                   `games.commands`, waited for and checked as `play` does. Prints per Game
+                   and for the batch the Total cost per Role and for the chain, the Weeks
+                   played, the Orders per `decided_by` and the check result, all read back
+                   from the database.
+                   Story 2.11: the batch is stored first (`simulation_batches`: the batch file
+                   as played, its `pass_lines` with `cost_per_game_usd`, `time_per_order_p95_s`
+                   and `switched_share`, none with a default, whether the mock answers and the
+                   start time; it never changes) and `batch_id <id>` is printed before the first
+                   Game; every Game carries the batch id. `--config ID` fills the file's
+                   `model_config` when it names none (exit 2 when it names another).
+                   `--worker` leaves the `ai-orders` jobs to a separate `worker-ai` process and
+                   waits; a Game that has not moved for `WORKER_STALL_S` stops the run.
                    `--export DIR` writes the Decision log to `DIR/decision-log.csv` (replacing
                    one already there). Exit 0 when every check passed; 1 on a failed check or a
                    refused command (also settings that break the engine rules or an unknown
                    parameter set, which `create` refuses; the ids of the Games already stored
                    are printed); 2 when the batch file cannot be read or does not have the
-                   batch file's shape.
+                   batch file's shape, or when its model config's key variable is not set
+                   outside `local`, `test` and `ci` (in those three the mock answers, and a
+                   note says so).
+  report           print a stored batch's report (`app.sim_report`, Story 2.11): first a
+                   warning when the mock answered (or `provider real` / `provider none`), then
+                   per Game and for the batch the AI cost, tokens, latency per attempt and time
+                   per Order (median, p95), retries per Order, fallback share by type, Play
+                   guard switches as a share of `llm` Seats, the Share of LLM Orders and the
+                   chain cost; for the batch also the cost per Game and the coefficient of
+                   variation of chain Total cost; whether the cost limit cut the batch short (and
+                   in which Game and Week); pass or miss against each pass line. Every figure is
+                   read from the Decision log and the LLM call rows. Exit 1 when the batch is
+                   unknown or one of its Games has not finished.
+  approve          approve an Effort level from a stored batch (Story 2.12, FR-78): computes the
+                   batch's report, prints it, and hands its figures, pass-line verdicts and
+                   mock flag to `ai.config.approve_effort`, which stores one measurement
+                   row; then prints `approved config <id> effort_level
+                   <name> batch <id> measurement <id>`. `--level NAME` is required. Exit 1 with
+                   `error <code>` when refused: the mock answered the batch (`mock_batch`), a
+                   cost, time or switched-share line is missing or missed (cut short
+                   included), the batch played another level, it was approved before, or it
+                   is unknown or unfinished.
+  prompt           print the exact LLM request for one Seat's open Week without calling a model
+                   (`ai.gateway.preview`): the `player_order` prompt version and its source
+                   (`config` or `newest file`), the prompt built
+                   by `players.llm` from the Seat's `SeatState` alone, the JSON schema of the
+                   Order and the model settings. `--config ID` resolves it for that model
+                   config's evaluation scope; without it the newest prompt file is used. A
+                   Guided Week, or a Seat that has already ordered, is noted on stderr (no
+                   model is asked in a Guided Week). Exit 1 when the
+                   Game is finished or not started, or a Game, Seat or config is unknown.
+  probe            ask whether a model recognises the exercise (FR-31, issue #19): for a seeded
+                   sample (`--sample`, `--seed`) of stored non-Guided Seat states (`--game`,
+                   default the 10 newest finished Games) it sends the player prompt with one
+                   added question under the `recognition_probe` purpose and prompt version,
+                   charged to the config's evaluation budget and logged by the gateway (one row
+                   per attempt), and prints each answer with its call ids as it comes back. It
+                   places no Order; the player prompt's answer-format line is left out. A config
+                   stored before Story 2.4 names no `recognition_probe` prompt: derive one with
+                   `python -m app.ai.cli config edit ID --prompt recognition_probe=v1`. Exit 1
+                   when there is nothing to sample, the call cannot be prepared, or no sample
+                   got an answer.
+  endpoint         check a real endpoint by hand (Story 2.7; needs the config's key variable
+                   set): whether `GET {endpoint}/models` lists the config's model, `--orders`
+                   Orders one after another through the gateway (outcome, served model and
+                   upstream provider, latency, tokens, cost), then a `--burst` of calls at
+                   once (valid answers, HTTP 429s, longest rate-limiter wait), and totals. The
+                   requests are built from stored Seat states; with no finished Game one short
+                   all-Rule-based Game (Classic, 8 Weeks) is played first and stays stored. The
+                   calls are logged and charged to the config's evaluation budget. Last line
+                   `endpoint ok` or `endpoint failed: <reasons>`; exit 0 / 1, 2 when the config
+                   would not reach a real endpoint (mock in use, key missing, unknown config).
+  describe         print the Norwegian description of each AI player type (Story 2.13, FR-33):
+                   for `rule_based`, then `llm`, a line `description <kind> v<N>` and the text
+                   from `players.service.describe`. Uses no database. This is how a Lecturer
+                   reads them until Epic 5 shows them next to the AI mode choice.
+
+Run as a program in `local`, `test` or `ci`, every subcommand but `trace`, `settings`,
+`demand` and `describe` first seeds the zero-config default model config when none is stored
+(AD-17).
 
 The runner computes no game quantities: every printed number is an engine field, the Order it
 was given, a number read back from the database, or (the `run` batch totals) a sum of those.
@@ -56,10 +135,14 @@ was given, a number read back from the database, or (the `run` batch totals) a s
 import argparse
 import asyncio
 import csv
+import io
 import json
+import random
 import re
 import secrets
 import sys
+import time
+import uuid
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from decimal import Decimal
 from pathlib import Path
@@ -104,6 +187,7 @@ type OrderPolicy = Callable[
 """Orders for the last opened Week of `states`, given the Order maps of the earlier Weeks."""
 
 RULE_BASED = "rule_based"
+LLM = "llm"
 DEFAULT_RULE_BASED_PARAMS = rule_based.DEFAULT_SET_ID
 
 SETTINGS: dict[str, Callable[[], GameSettings]] = {"classic": GameSettings}
@@ -348,16 +432,17 @@ type Occupant = tuple[str, str | None]
 
 
 def _seats_spec(text: str) -> list[Occupant]:
-    """`rule_based` or `scripted:<id>`, once for every Seat or once per Role, comma-separated."""
+    """`rule_based`, `llm` or `scripted:<id>`, once for every Seat or once per Role,
+    comma-separated."""
     occupants: list[Occupant] = []
     for part in (piece.strip() for piece in text.split(",")):
-        if part == RULE_BASED:
-            occupants.append((RULE_BASED, None))
+        if part in (RULE_BASED, LLM):
+            occupants.append((part, None))
         elif part.startswith("scripted:") and part.removeprefix("scripted:") in REGISTRY:
             occupants.append(("scripted", part.removeprefix("scripted:")))
         else:
             raise argparse.ArgumentTypeError(
-                f"unknown Seat spec {part!r}: use rule_based or scripted:<id> with id in "
+                f"unknown Seat spec {part!r}: use rule_based, llm or scripted:<id> with id in "
                 f"{', '.join(sorted(REGISTRY))}"
             )
     return occupants
@@ -383,12 +468,22 @@ def _report(exc: Exception) -> None:
 
 
 async def _create_game(
-    settings: GameSettings, occupants: Sequence[Occupant], seed: int | None, params: str
+    settings: GameSettings,
+    occupants: Sequence[Occupant],
+    seed: int | None,
+    params: str,
+    model_config: str | None = None,
+    effort_level: str | None = None,
 ) -> int:
     game_id: str | None = None
     try:
         game_id = await game_commands.create(
-            "simulation", settings, seed=seed, rule_based_params=params
+            "simulation",
+            settings,
+            seed=seed,
+            rule_based_params=params,
+            model_config_id=model_config,
+            effort_level=effort_level,
         )
         for role, (kind, policy_id) in zip(settings.roles, occupants, strict=True):
             await game_commands.assign_seat(game_id, role, kind, policy_id)
@@ -417,7 +512,11 @@ def _create(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         seats = seats * len(settings.roles)
     elif len(seats) != len(settings.roles):
         parser.error(f"--seats needs one occupant or {len(settings.roles)}, not {len(seats)}")
-    return _run(_create_game(settings, seats, args.seed, args.rule_based_params))
+    return _run(
+        _create_game(
+            settings, seats, args.seed, args.rule_based_params, args.config, args.effort_level
+        )
+    )
 
 
 async def _start_game(game_id: str) -> int:
@@ -455,6 +554,10 @@ async def _show_seat(game_id: str, seat: str) -> int:
     print(state.model_dump_json(indent=2))
     print(f"opened_at {turn.opened_at.isoformat()}")
     print(f"reference_order {turn.rule_based_reference_order}")
+    print(
+        f"near_optimal_reference_order {turn.near_optimal_reference_order} "
+        f"{turn.near_optimal_algorithm_version}"
+    )
     return 0
 
 
@@ -462,53 +565,61 @@ def _show(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     return _run(_show_seat(args.game_id, args.seat))
 
 
-def _decide(
-    game: game_service.GameOverview,
-    seat: game_service.SeatOverview,
-    state: game_service.SeatState,
-    turn: game_service.TurnOverview,
-) -> tuple[int, game_service.DecidedBy]:
-    """The Order of one open turn and who decided it: the Guided Order in a Guided Week, else
-    the stored Rule-based reference Order or the scripted policy on the Seat."""
-    if turn.guided:
-        return guided_order(game.settings), game_service.DecidedBy.GUIDED
-    if seat.occupant_kind == game_service.OccupantKind.RULE_BASED:
-        return turn.rule_based_reference_order, game_service.DecidedBy.RULE_BASED
-    if seat.occupant_kind == game_service.OccupantKind.SCRIPTED and seat.policy_id in REGISTRY:
-        return REGISTRY[seat.policy_id](state), game_service.DecidedBy.SCRIPTED
-    raise game_commands.CommandError(
-        "occupant_not_playable", f"the runner cannot play a {seat.occupant_kind} occupant", 422
-    )
+async def _work_off_llm_orders(game: game_service.GameOverview) -> None:
+    """Run the waiting `ai-orders` jobs in this process until none is left, when an `llm`
+    occupant holds a Seat: each job places its Order and the Week it completes opens the next
+    Week's jobs. It works off the whole queue, so jobs of other Games waiting in the same
+    database run here too (a `worker-ai` running beside it shares them)."""
+    if any(seat.occupant_kind == game_service.OccupantKind.LLM for seat in game.seats):
+        from app.platform import jobs
+
+        await jobs.run_until_idle([jobs.AI_ORDERS])
 
 
-async def _play_to_end(game_id: str) -> tuple[game_service.GameOverview, int]:
-    """Place every open turn's Order through `place_order` until the Game has finished; returns
-    the finished Game and the last Week. Raises a refused command or read."""
+WORKER_POLL_S = 0.2
+"""`run --worker`: how often the runner looks at a Game that a `worker-ai` plays."""
+WORKER_STALL_S = 120.0
+"""`run --worker`: a Game whose version has not moved for this long waits for an Order no
+worker places (no `worker-ai` running, or one stuck)."""
+
+
+async def _wait_finished(game_id: str, *, worker: bool = False) -> game_service.GameOverview:
+    """Wait for a started Game to finish. The order source in `games` places every Order of a
+    Game without Students or LLM players, so it has finished by the time `start` returns; the
+    Orders of `llm` Seats come from `ai-orders` jobs, worked off here, or with `worker` by a
+    separate `worker-ai` process while the runner waits. A Game left with a complete open Week
+    (a stop between two advances) is moved on with `advance`. Raises `game_not_finished` when
+    the Game still waits for an Order no order source places (with `worker`: when its version
+    has not moved for `WORKER_STALL_S`)."""
     game = await game_service.get_game(game_id)
     if game is None:
         raise game_commands.CommandError("game_not_found", f"no Game {game_id!r}", 404)
-    if game.lifecycle == game_service.Lifecycle.FINISHED:
-        raise game_commands.CommandError("game_finished", "the Game has finished", 409)
-    week = 0
-    while game.lifecycle != game_service.Lifecycle.FINISHED:
-        for seat in game.seats:
-            state = await game_service.seat_state(game_id, seat.id)
-            turn = await game_service.open_turn(game_id, seat.id, state.week)
-            week = state.week
-            if turn.ordered_at is not None:
-                continue
-            order, decided_by = _decide(game, seat, state, turn)
-            await game_commands.place_order(game_id, seat.id, state.week, order, decided_by)
-        # Read the Game again: its occupants and lifecycle may have changed meanwhile.
+    if game.lifecycle == game_service.Lifecycle.NOT_STARTED:
+        raise game_commands.CommandError("game_not_started", "the Game has not started", 409)
+    moved_at = time.monotonic()
+    while game is not None and game.lifecycle != game_service.Lifecycle.FINISHED:
+        version = game.version
+        if worker:
+            await asyncio.sleep(WORKER_POLL_S)
+        else:
+            await _work_off_llm_orders(game)
+        await game_commands.advance(game_id)
         game = await game_service.get_game(game_id)
-        if game is None:
-            raise game_commands.CommandError("game_not_found", f"no Game {game_id!r}", 404)
-    return game, week
+        if game is not None and game.version != version:
+            moved_at = time.monotonic()
+        elif not worker or time.monotonic() - moved_at >= WORKER_STALL_S:
+            break  # nothing moved: the Game waits for an Order no order source places
+    if game is None or game.lifecycle != game_service.Lifecycle.FINISHED:
+        raise game_commands.CommandError(
+            "game_not_finished", "the Game waits for an Order no order source places", 409
+        )
+    return game
 
 
 async def _play_game(game_id: str) -> int:
     try:
-        game, week = await _play_to_end(game_id)
+        game = await _wait_finished(game_id)
+        week = (await game_service.game_summary(game_id)).weeks
     except (game_commands.CommandError, game_service.ViewError, DBAPIError) as exc:
         _report(exc)
         return 1
@@ -622,7 +733,261 @@ def _log(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     return _run(_print_log(args.game_id))
 
 
+class ConfigIdError(ValueError):
+    """`--config` is not a model config id."""
+
+
+def _report_ai(exc: Exception) -> bool:
+    """Print a refused gateway preparation (`GatewayError`) or a bad `--config`; False when
+    `exc` is neither. The gateway is imported here, never at module level: it loads
+    pydantic-ai, which no other subcommand needs."""
+    from app.ai import gateway
+
+    if isinstance(exc, gateway.GatewayError):
+        print(f"error {exc.code}: {exc.message}", file=sys.stderr)
+        return True
+    if isinstance(exc, ConfigIdError):
+        print(f"error config_not_found: {exc}", file=sys.stderr)
+        return True
+    return False
+
+
+def _scope(config_id: str | None) -> Any:
+    """The evaluation scope of `--config`, or None without one."""
+    from app.ai import budget
+
+    if config_id is None:
+        return None
+    try:
+        return budget.BudgetScope.evaluation(config_id)
+    except ValueError:
+        raise ConfigIdError(f"{config_id!r} is not a model config id") from None
+
+
+def _seat_id(game: game_service.GameOverview, seat: str) -> str:
+    """The id of the Seat named by a Role or by its id in any form `uuid.UUID` reads."""
+    try:
+        wanted: uuid.UUID | None = uuid.UUID(seat)
+    except ValueError:
+        wanted = None
+    for row in game.seats:
+        if seat == row.role or wanted == uuid.UUID(row.id):
+            return row.id
+    raise game_service.ViewError("seat_not_found", f"the Game has no Seat {seat!r}", 404)
+
+
+async def _print_prompt(game_id: str, seat: str, config_id: str | None) -> int:
+    from app.ai import gateway
+    from app.modules.players import llm
+
+    try:
+        scope = _scope(config_id)
+        game = await game_service.get_game(game_id)
+        if game is None:
+            raise game_service.ViewError("game_not_found", f"no Game {game_id!r}", 404)
+        if game.lifecycle == game_service.Lifecycle.FINISHED:
+            raise game_service.ViewError("game_finished", "the Game has no open Week", 409)
+        state = await game_service.seat_state(game_id, seat)
+        turn = await game_service.open_turn(game_id, seat, state.week)
+        seat_id = _seat_id(game, seat)
+        inputs = llm.request_inputs(
+            game.id, seat_id, state.week, state, turn.rule_based_reference_order
+        )
+        schema = llm.order_schema(state.min_order, state.max_order)
+        shown = await gateway.preview(llm.PURPOSE, inputs, schema, scope)
+    except (game_service.ViewError, DBAPIError, gateway.GatewayError, ConfigIdError) as exc:
+        if not _report_ai(exc):
+            _report(exc)
+        return 1
+    finally:
+        await db.dispose()
+    request = shown.request
+    source = "config" if scope is not None else "newest file"
+    print(f"purpose {llm.PURPOSE} prompt_version {shown.prompt_version} from {source}")
+    print("--- prompt")
+    print(request["prompt"].rstrip("\n"))
+    print("--- output_schema")
+    print(json.dumps(request["output_schema"], indent=2))
+    print(f"--- model_settings {json.dumps(request['model_settings'])}")
+    if turn.guided:
+        print(
+            f"note: Week {state.week} is a Guided Week: the Guided Order is placed and no model "
+            "is asked",
+            file=sys.stderr,
+        )
+    if turn.ordered_at is not None:
+        print(f"note: the Seat has already ordered in Week {state.week}", file=sys.stderr)
+    return 0
+
+
+def _prompt(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    return _run(_print_prompt(args.game_id, args.seat, args.config))
+
+
+PROBE_GAMES = 10
+"""Without `--game`, `probe` samples the Seat states of this many newest finished Games."""
+
+
+async def _probe_states(
+    game_ids: Sequence[str], sample: int, seed: int
+) -> list[tuple[str, game_service.DecisionLogRow]]:
+    """A seeded sample of the non-Guided Decision log rows (each with its Game id)."""
+    rows: list[tuple[str, game_service.DecisionLogRow]] = []
+    if not game_ids:
+        game_ids = (await game_service.finished_game_ids())[-PROBE_GAMES:]
+    for game_id in dict.fromkeys(game_ids):  # a Game named twice is sampled once
+        rows += [
+            (game_id, row)
+            for row in await game_service.decision_log(game_id)
+            if row.decided_by != game_service.DecidedBy.GUIDED
+        ]
+    return list(random.Random(seed).sample(rows, min(sample, len(rows))))
+
+
+async def _probe(config_id: str, game_ids: Sequence[str], sample: int, seed: int) -> int:
+    """Each answer is printed as soon as it comes back, so the calls already charged stay
+    visible when a later sample fails. Exit 1 when no sample got an answer."""
+    from app.ai import gateway
+    from app.modules.players import llm
+
+    answered = recognised = probed = 0
+    try:
+        scope = _scope(config_id)
+        picked = await _probe_states(game_ids, sample, seed)
+        if not picked:
+            print("error no_seat_states: no stored non-Guided Seat state to probe", file=sys.stderr)
+            return 1
+        for game_id, row in picked:
+            state = row.state_seen
+            inputs = llm.request_inputs(
+                game_id, row.seat_id, row.week, state, row.rule_based_reference_order
+            )
+            schema = llm.order_schema(state.min_order, state.max_order)
+            shown = await gateway.preview(llm.PURPOSE, inputs, schema, scope)
+            probe = gateway.Inputs(
+                values={"player_prompt": llm.without_answer_format(shown.request["prompt"])},
+                caller=inputs.caller,
+            )
+            result = await gateway.run(llm.PROBE_PURPOSE, scope, probe, llm.ProbeAnswer, None)
+            probed += 1
+            ids = ",".join(str(call_id) for call_id in result.llm_call_ids) or "-"
+            print(f"game {game_id} week {row.week} role {row.role} calls {ids}", flush=True)
+            if isinstance(result, gateway.Failure):
+                print(f"  failure {result.kind}: {result.detail}", flush=True)
+                continue
+            answer = result.output
+            answered += 1
+            recognised += answer.recognised
+            print(f"  recognised {'yes' if answer.recognised else 'no'} name {answer.name!r}")
+            print(f"  explanation {answer.explanation}", flush=True)
+    except (game_service.ViewError, DBAPIError, gateway.GatewayError, ConfigIdError) as exc:
+        if not _report_ai(exc):
+            _report(exc)
+        return 1
+    finally:
+        await db.dispose()
+    print(f"probed {probed} answered={answered} recognised={recognised}")
+    return 0 if answered else 1
+
+
+def _probe_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    if args.sample < 1:
+        parser.error("--sample must be at least 1")
+    return _run(_probe(args.config, args.game or (), args.sample, args.seed))
+
+
+PROBE_GAME_WEEKS = 8
+"""The length of the Game `endpoint` plays when no finished Game is stored: the Classic
+settings cut to 8 Weeks (4 Guided, 4 played), enough Seat states for a few requests."""
+
+
+async def _rule_based_game() -> None:
+    """Play one short all-Rule-based Game, so the endpoint probe has Seat states."""
+    settings = GameSettings(weeks=PROBE_GAME_WEEKS)
+    game_id = await game_commands.create(
+        "simulation", settings, seed=0, rule_based_params=DEFAULT_RULE_BASED_PARAMS
+    )
+    for role in settings.roles:
+        await game_commands.assign_seat(game_id, role, RULE_BASED, None)
+    await game_commands.start(game_id)
+    await _wait_finished(game_id)
+
+
+async def _endpoint(config_id: str, orders: int, burst: int) -> int:
+    from app.ai import endpoint, gateway
+    from app.modules.players import llm
+
+    try:
+        _scope(config_id)  # checks the id's form
+        found = await endpoint.availability(config_id)
+        if found is None:
+            print(f"error config_not_found: no model config {config_id}", file=sys.stderr)
+            return 2
+        if found.kind != "real":
+            print(
+                f"error endpoint_unavailable: {found.kind}: {found.reason}; the probe needs "
+                "the config's key variable set",
+                file=sys.stderr,
+            )
+            return 2
+        picked = await _probe_states((), orders, 0)
+        if not picked:
+            print("note: no finished Game; playing one Rule-based Game first", file=sys.stderr)
+            await _rule_based_game()
+            picked = await _probe_states((), orders, 0)
+        requests = [
+            (
+                llm.request_inputs(
+                    game_id, row.seat_id, row.week, row.state_seen, row.rule_based_reference_order
+                ),
+                llm.order_schema(row.state_seen.min_order, row.state_seen.max_order),
+            )
+            for game_id, row in picked
+        ]
+        ok, lines = await endpoint.probe(config_id, requests, burst)
+    except (
+        game_commands.CommandError,
+        game_service.ViewError,
+        DBAPIError,
+        gateway.GatewayError,
+        ConfigIdError,
+    ) as exc:
+        if not _report_ai(exc):
+            _report(exc)
+        return 2 if isinstance(exc, ConfigIdError) else 1
+    finally:
+        await db.dispose()
+    for line in lines:
+        print(line)
+    return 0 if ok else 1
+
+
+def _endpoint_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    if args.orders < 1:
+        parser.error("--orders must be at least 1")
+    if args.burst < 0:
+        parser.error("--burst must be at least 0")
+    return _run(_endpoint(args.config, args.orders, args.burst))
+
+
 MAX_BATCH_GAMES = 100
+
+_Line = Annotated[Decimal, Field(ge=0, allow_inf_nan=False)]
+_ShareLine = Annotated[Decimal, Field(ge=0, le=1, allow_inf_nan=False)]
+
+
+class PassLines(BaseModel):
+    """The pass lines of a batch (Story 2.11, PRD §10.1), written down before it runs; each is
+    optional and none has a default in code (C-3)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    cost_per_game_usd: _Line | None = None
+    """The batch's mean AI cost per Game must be at most this (SM-6: 0.10)."""
+    time_per_order_p95_s: _Line | None = None
+    """The batch's p95 time per LLM Order, retries included, in seconds (NFR-2)."""
+    switched_share: _ShareLine | None = None
+    """The share of `llm` Seats the Play guard switched (FR-79)."""
 
 
 class BatchFile(BaseModel):
@@ -634,11 +999,16 @@ class BatchFile(BaseModel):
     """Demand seed of the first Game; Game i (from 0) uses `seed + i`."""
     games: Annotated[int, Field(strict=True, ge=1, le=MAX_BATCH_GAMES)]
     seats: str | dict[str, str]
-    """One Seat spec for every Role, or one per Role: `rule_based` or `scripted:<id>`."""
+    """One Seat spec for every Role, or one per Role: `rule_based`, `llm` or `scripted:<id>`."""
     settings: dict[str, Any] = {}
     """GameSettings overrides; missing keys keep the Classic values."""
     demand: DemandPattern | None = None
     rule_based_params: str = DEFAULT_RULE_BASED_PARAMS
+    model_config_id: str | None = Field(None, alias="model_config")
+    """The model config of the `llm` Seats (its evaluation budget pays their calls)."""
+    effort_level: str | None = None
+    """One of that config's Effort levels; default its first."""
+    pass_lines: PassLines | None = None
 
 
 class Batch(BaseModel):
@@ -653,6 +1023,12 @@ class Batch(BaseModel):
     occupants: tuple[Occupant, ...]
     """One occupant per Role, in chain order."""
     rule_based_params: str
+    model_config_id: str | None = None
+    effort_level: str | None = None
+    stored: dict[str, Any] = {}
+    """The batch file's JSON as it is played (`model_config` filled in), stored with the batch."""
+    pass_lines: dict[str, Any] = {}
+    """The pass lines as the file gives them (JSON numbers), stored with the batch."""
 
 
 class BatchError(ValueError):
@@ -665,8 +1041,9 @@ def _errors(exc: ValidationError) -> str:
     )
 
 
-def load_batch(path: str) -> Batch:
-    """Read and check a batch file; raises `BatchError` with what is wrong."""
+def load_batch(path: str, config: str | None = None) -> Batch:
+    """Read and check a batch file; raises `BatchError` with what is wrong. `config` fills the
+    file's `model_config` when it names none, and must match it when it does."""
     try:
         text = Path(path).read_text(encoding="utf-8-sig")
     except OSError as exc:
@@ -675,8 +1052,14 @@ def load_batch(path: str) -> Batch:
         raise BatchError(f"{path} is not UTF-8 text") from None
     try:
         data = json.loads(text, parse_float=Decimal)
+        stored = json.loads(text)
     except ValueError as exc:
         raise BatchError(f"{path} is not JSON: {exc}") from None
+    if config is not None and isinstance(data, dict):
+        named = data.get("model_config")
+        if named is not None and named != config:
+            raise BatchError(f"model_config: the file names {named!r}, --config {config!r}")
+        data["model_config"] = stored["model_config"] = config
     try:
         spec = BatchFile.model_validate(data)
         settings = GameSettings.model_validate(spec.settings)
@@ -700,6 +1083,8 @@ def load_batch(path: str) -> Batch:
         except (argparse.ArgumentTypeError, ValueError) as exc:
             raise BatchError(f"seats: {exc}") from None
         occupants.append(occupant)
+    if spec.model_config_id is None and any(kind == LLM for kind, _ in occupants):
+        raise BatchError("model_config: llm Seats need a model config")
     return Batch(
         seed=spec.seed,
         games=spec.games,
@@ -707,10 +1092,16 @@ def load_batch(path: str) -> Batch:
         demand=spec.demand,
         occupants=tuple(occupants),
         rule_based_params=spec.rule_based_params,
+        model_config_id=spec.model_config_id,
+        effort_level=spec.effort_level,
+        stored=stored,
+        pass_lines=stored.get("pass_lines") or {},
     )
 
 
-async def _play_one(batch: Batch, index: int, stored: list[str]) -> str:
+async def _play_one(
+    batch: Batch, index: int, stored: list[str], batch_id: str | None = None, *, worker: bool
+) -> str:
     """Create, start, play and check Game `index` of the batch; returns its id. The id is
     appended to `stored` as soon as the Game is stored."""
     game_id = await game_commands.create(
@@ -719,12 +1110,15 @@ async def _play_one(batch: Batch, index: int, stored: list[str]) -> str:
         batch.demand,
         seed=batch.seed + index,
         rule_based_params=batch.rule_based_params,
+        model_config_id=batch.model_config_id,
+        effort_level=batch.effort_level,
+        batch_id=batch_id,
     )
     stored.append(game_id)
     for role, (kind, policy_id) in zip(batch.settings.roles, batch.occupants, strict=True):
         await game_commands.assign_seat(game_id, role, kind, policy_id)
     await game_commands.start(game_id)
-    await _play_to_end(game_id)
+    await _wait_finished(game_id, worker=worker)
     await game_service.verify_finished(game_id)
     return game_id
 
@@ -827,11 +1221,45 @@ def summary_lines(summaries: Sequence[game_service.GameSummary]) -> list[str]:
     return lines
 
 
-async def _run_batch(batch: Batch, export: Path | None) -> int:
+async def _key_check(batch: Batch) -> tuple[int | None, bool]:
+    """Story 2.7 (AD-17): the batch's `llm` Seats must reach a model. Exit 2 naming the reason
+    (a key variable that is not set outside `local`, `test` and `ci`); in those three a note
+    says when the mock answers. Returns the exit code to stop with (None: go on) and whether the
+    mock answers the batch's `llm` Seats (Story 2.11 stores it with the batch). An unknown config
+    exits 1 here, before the batch is stored."""
+    if batch.model_config_id is None or not any(kind == LLM for kind, _ in batch.occupants):
+        return None, False
+    from app.ai import endpoint
+
+    found = await endpoint.availability(batch.model_config_id)
+    if found is None:
+        print(f"error config_not_found: no model config {batch.model_config_id}", file=sys.stderr)
+        return 1, False
+    if found.kind == "refused":
+        if found.missing_key is not None:
+            print(f"error key_missing: {found.missing_key} is not set", file=sys.stderr)
+        else:
+            print(f"error model_unavailable: {found.reason}", file=sys.stderr)
+        return 2, False
+    if found.kind == "mock":
+        print(
+            f"note: mock provider in use for config {batch.model_config_id} ({found.reason})",
+            file=sys.stderr,
+        )
+        return None, True
+    return None, False
+
+
+async def _run_batch(batch: Batch, export: Path | None, *, worker: bool = False) -> int:
     game_ids: list[str] = []
     try:
+        refused, mock = await _key_check(batch)
+        if refused is not None:
+            return refused
+        batch_id = await game_service.create_batch(batch.stored, batch.pass_lines, mock=mock)
+        print(f"batch_id {batch_id}", flush=True)
         for index in range(batch.games):
-            await _play_one(batch, index, game_ids)
+            await _play_one(batch, index, game_ids, batch_id, worker=worker)
         summaries = [await game_service.game_summary(game_id) for game_id in game_ids]
         logs = [await game_service.decision_log(game_id) for game_id in game_ids] if export else []
     except (game_commands.CommandError, game_service.ViewError, DBAPIError) as exc:
@@ -858,7 +1286,7 @@ async def _run_batch(batch: Batch, export: Path | None) -> int:
 
 def _run_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     try:
-        batch = load_batch(args.batch)
+        batch = load_batch(args.batch, args.config)
     except BatchError as exc:
         print(f"error invalid_batch: {exc}", file=sys.stderr)
         return 2
@@ -870,7 +1298,123 @@ def _run_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> i
         except OSError as exc:
             print(f"error invalid_export: {exc.strerror or exc}", file=sys.stderr)
             return 2
-    return _run(_run_batch(batch, export))
+    return _run(_run_batch(batch, export, worker=args.worker))
+
+
+async def _batch_figures(batch_id: str) -> Any:
+    """Read a batch and its Games back and compute its report figures (`app.sim_report`).
+    Raises `ViewError` when the batch is unknown or a Game has not finished."""
+    from app import sim_report
+    from app.ai import calls
+
+    batch = await game_service.get_batch(batch_id)
+    attempts = await calls.game_attempts(batch.game_ids)
+    games = []
+    for game_id in batch.game_ids:
+        game = await game_service.get_game(game_id)
+        if game is None:
+            raise game_service.ViewError("game_not_found", f"no Game {game_id!r}", 404)
+        games.append(
+            sim_report.GameInput(
+                summary=await game_service.game_summary(game_id),
+                log=await game_service.decision_log(game_id),
+                occupancy=await game_service.occupancy_history(game_id),
+                attempts=[attempt for attempt in attempts if attempt.game == game_id],
+                effort_level=game.session_runtime.effort_level,
+            )
+        )
+    return sim_report.measure(
+        batch.id,
+        batch.started_at,
+        mock=batch.mock,
+        model_config_id=batch.batch_file.get("model_config"),
+        pass_lines=batch.pass_lines,
+        games=games,
+    )
+
+
+async def _report_batch(batch_id: str) -> int:
+    """Read a batch and its Games back and print its report (`app.sim_report`)."""
+    from app import sim_report
+
+    try:
+        figures = await _batch_figures(batch_id)
+    except (game_service.ViewError, DBAPIError) as exc:
+        _report(exc)
+        return 1
+    finally:
+        await db.dispose()
+    for line in sim_report.report_lines(figures):
+        print(line)
+    return 0
+
+
+def _report_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    return _run(_report_batch(args.batch_id))
+
+
+def effort_figures(figures: Any) -> Any:
+    """The report's figures as `ai.config.EffortFigures` (Story 2.12): plain values, so
+    `app/ai` reads no games table (AD-6). The fallback share is the LLM-path Orders with any
+    fallback over all of them; times are in seconds."""
+    from app.ai import config as ai_config
+
+    total = figures.total
+    fallen = sum(count for kind, count in total.fallbacks if kind is not game_service.Fallback.NONE)
+    median = total.order_time_ms.median
+    # The p95 time and the switched share are the very values the pass lines were judged on.
+    measured = {line.name: line.measured for line in figures.pass_lines}
+    return ai_config.EffortFigures(
+        model_config_id=figures.model_config_id,
+        effort_levels=figures.effort_levels,
+        mock=figures.mock,
+        games=len(figures.games),
+        cost_per_game_usd=figures.cost_per_game_usd,
+        time_per_order_median_s=None if median is None else Decimal(median) / 1000,
+        time_per_order_p95_s=measured["time_per_order_p95_s"],
+        retries_per_order_mean=total.retries_mean,
+        fallback_share=(Decimal(fallen) / total.llm_orders if total.llm_orders else None),
+        switched_share=measured["switched_share"],
+        pass_lines=tuple(
+            ai_config.PassVerdict(line.name, line.line, line.measured, line.verdict)
+            for line in figures.pass_lines
+        ),
+    )
+
+
+async def _approve(batch_id: str, level: str) -> int:
+    """Story 2.12: compute the batch's report and hand its figures to
+    `ai.config.approve_effort`; print the report, then the stored measurement."""
+    from app import sim_report
+    from app.ai import config as ai_config
+
+    try:
+        figures = await _batch_figures(batch_id)
+        for line in sim_report.report_lines(figures):
+            print(line)
+        if figures.model_config_id is None:
+            print("error model_config_missing: the batch names no model config", file=sys.stderr)
+            return 1
+        row = await ai_config.approve_effort(
+            figures.model_config_id, level, figures.batch_id, effort_figures(figures)
+        )
+    except (ai_config.ConfigRefused, ai_config.ConfigNotFound) as exc:
+        print(f"error {exc.code}: {exc.message}", file=sys.stderr)
+        return 1
+    except (game_service.ViewError, DBAPIError) as exc:
+        _report(exc)
+        return 1
+    finally:
+        await db.dispose()
+    print(
+        f"approved config {row.model_config_id} effort_level {row.effort_level} "
+        f"batch {row.batch_id} measurement {row.id}"
+    )
+    return 0
+
+
+def _approve_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    return _run(_approve(args.batch_id, args.level))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -923,9 +1467,13 @@ def build_parser() -> argparse.ArgumentParser:
         type=_seats_spec,
         default=[(RULE_BASED, None)],
         metavar="SPEC",
-        help="rule_based (default) or scripted:<id>, once or once per Role, comma-separated",
+        help="rule_based (default), llm or scripted:<id>, once or once per Role, comma-separated",
     )
     create.add_argument("--seed", type=int, help="demand seed (default: draw a new one)")
+    create.add_argument("--config", metavar="ID", help="model config of the llm Seats")
+    create.add_argument(
+        "--effort-level", metavar="NAME", help="Effort level of --config (default: its first)"
+    )
     create.add_argument(
         "--rule-based-params",
         default=DEFAULT_RULE_BASED_PARAMS,
@@ -963,16 +1511,105 @@ def build_parser() -> argparse.ArgumentParser:
     batch.add_argument(
         "--export", metavar="DIR", help=f"write the Decision log as DIR/{EXPORT_FILE}"
     )
+    batch.add_argument(
+        "--config",
+        metavar="ID",
+        help="model config of the llm Seats when the batch file names none",
+    )
+    batch.add_argument(
+        "--worker",
+        action="store_true",
+        help="leave the ai-orders jobs to a running worker-ai instead of running them here",
+    )
     batch.set_defaults(handler=_run_command, command_parser=batch)
+    report = commands.add_parser(
+        "report", help="print what a stored batch cost and how its LLM players behaved"
+    )
+    report.add_argument("batch_id")
+    report.set_defaults(handler=_report_command, command_parser=report)
+    approve = commands.add_parser(
+        "approve", help="approve a batch's Effort level from its report (Story 2.12)"
+    )
+    approve.add_argument("batch_id")
+    approve.add_argument("--level", required=True, metavar="NAME", help="the Effort level")
+    approve.set_defaults(handler=_approve_command, command_parser=approve)
+    prompt = commands.add_parser(
+        "prompt", help="print the LLM prompt and schema for one Seat's open Week (no call)"
+    )
+    prompt.add_argument("game_id")
+    prompt.add_argument("--seat", required=True, metavar="SEAT", help="Role or Seat id")
+    prompt.add_argument(
+        "--config", metavar="ID", help="resolve for this model config (default: newest prompt)"
+    )
+    prompt.set_defaults(handler=_prompt, command_parser=prompt)
+    probe = commands.add_parser(
+        "probe", help="ask a model whether it recognises the exercise in stored Seat states"
+    )
+    probe.add_argument("--config", required=True, metavar="ID", help="model config id")
+    probe.add_argument("--sample", type=int, default=4, help="Seat states to send (default 4)")
+    probe.add_argument("--seed", type=int, default=0, help="sampling seed (default 0)")
+    probe.add_argument(
+        "--game",
+        action="append",
+        metavar="ID",
+        help=f"sample from this Game (repeatable; default the {PROBE_GAMES} newest finished)",
+    )
+    probe.set_defaults(handler=_probe_command, command_parser=probe)
+    check_endpoint = commands.add_parser(
+        "endpoint", help="check a real endpoint: model id, valid Orders, rate limit, cost"
+    )
+    check_endpoint.add_argument("--config", required=True, metavar="ID", help="model config id")
+    check_endpoint.add_argument(
+        "--orders", type=int, default=3, help="Orders sent one after another (default 3)"
+    )
+    check_endpoint.add_argument(
+        "--burst", type=int, default=5, help="calls sent at once (default 5)"
+    )
+    check_endpoint.set_defaults(handler=_endpoint_command, command_parser=check_endpoint)
+    describe = commands.add_parser(
+        "describe", help="print the Norwegian description of each AI player type"
+    )
+    describe.set_defaults(handler=_describe, command_parser=describe)
     return parser
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def _describe(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    """Both AI player descriptions, each after a `description <kind> v<N>` line (FR-33)."""
+    from app.modules.players import service as players_service
+
+    if isinstance(sys.stdout, io.TextIOWrapper):  # a Windows console is not UTF-8
+        sys.stdout.reconfigure(encoding="utf-8")
+    for kind in players_service.DESCRIBED_KINDS:
+        description = players_service.describe(kind)
+        print(f"description {description.kind.value} v{description.version}")
+        print(description.text.rstrip("\n"))
+        print()
+    return 0
+
+
+OFFLINE_COMMANDS = frozenset({"trace", "settings", "demand", "describe"})
+"""Subcommands that use no database: no zero-config seed before them."""
+
+
+async def _zero_config() -> None:
+    from app.ai import seed
+
+    try:
+        await seed.ensure_zero_config_logged()
+    finally:
+        await db.dispose()
+
+
+def main(argv: Sequence[str] | None = None, *, zero_config: bool = False) -> int:
+    """`zero_config`: seed the default model config first where allowed (AD-17); the program
+    entry does, tests calling `main` do not."""
     parser = build_parser()
     args = parser.parse_args(argv)
+    if zero_config and args.command not in OFFLINE_COMMANDS:
+        _run(_zero_config())
     return args.handler(args, args.command_parser)
 
 
 if __name__ == "__main__":
     configure_logging(get_settings().log_level, stream=sys.stderr)  # stdout is the report
-    raise SystemExit(main())
+    raise SystemExit(main(zero_config=True))

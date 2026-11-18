@@ -1,7 +1,10 @@
 import json
+import re
+import uuid
 from contextlib import contextmanager
 
 import psycopg
+from psycopg import sql
 
 from app.platform import events
 from tests.conftest import libpq_dsn
@@ -55,9 +58,91 @@ async def play_week(game_id: str) -> object:
 
 
 async def play_to_end(game_id: str) -> None:
-    """Play every Week of a started Game with Guided and reference Orders."""
-    while (await play_week(game_id)).lifecycle != "finished":
-        pass
+    """Play every Week of a started Game with Guided and reference Orders; the order source
+    places those of the Seats no Student holds."""
+    from app.modules.games import service
+
+    while (await service.get_game(game_id)).lifecycle != "finished":
+        await play_week(game_id)
+
+
+_ONE_GAME = {
+    "games": "SELECT * FROM games WHERE id = {}",
+    "seats": "SELECT * FROM seats WHERE game_id = {}",
+    "seat_occupancy": (
+        "SELECT o.* FROM seat_occupancy o JOIN seats s ON s.id = o.seat_id WHERE s.game_id = {}"
+    ),
+    "game_weeks": "SELECT * FROM game_weeks WHERE game_id = {}",
+    "seat_turns": "SELECT * FROM seat_turns WHERE game_id = {}",
+    "seat_weeks": "SELECT * FROM seat_weeks WHERE game_id = {}",
+    "game_checks": "SELECT * FROM game_checks WHERE game_id = {}",
+}
+"""Every stored row of one Game, table by table in the order they can be inserted."""
+
+_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+_played: dict[object, dict[str, str]] = {}
+
+
+def _dump(url: str, game_id: str) -> dict[str, str]:
+    with psycopg.connect(libpq_dsn(url)) as conn, conn.cursor() as cur:
+        dumped = {}
+        for table, select in _ONE_GAME.items():
+            statement = sql.SQL("COPY ({}) TO STDOUT").format(
+                sql.SQL(select).format(sql.Literal(game_id))
+            )
+            with cur.copy(statement) as copy:
+                dumped[table] = b"".join(bytes(block) for block in copy).decode()
+        return dumped
+
+
+def _restore(url: str, dumped: dict[str, str]) -> str:
+    """Store a copy of a dumped Game under new ids (UUIDv7, drawn in the order of the old ones,
+    so every ordering by id is kept); returns the new Game id."""
+    old = sorted(set(_UUID.findall("".join(dumped.values()))))
+    new = {value: str(uuid.uuid7()) for value in old}
+    game_id = new[_UUID.search(dumped["games"]).group()]
+    with psycopg.connect(libpq_dsn(url)) as conn, conn.cursor() as cur:
+        for table, rows in dumped.items():
+            with cur.copy(sql.SQL("COPY {} FROM STDIN").format(sql.Identifier(table))) as copy:
+                copy.write(_UUID.sub(lambda m: new.get(m.group(), m.group()), rows))
+    return game_id
+
+
+def stored_copy(url: str, key: object) -> str | None:
+    """A new copy of the Game remembered under `key`, or None before one is remembered."""
+    return _restore(url, _played[key]) if key in _played else None
+
+
+def remember(url: str, key: object, game_id: str) -> None:
+    """Remember the stored rows of the Game for `stored_copy`."""
+    _played[key] = _dump(url, game_id)
+
+
+async def played_once(url: str, key: object, play) -> str:
+    """The id of a Game that `await play()` stores. The first call with `key` plays it; later
+    calls, in any test, store a copy of its rows under new ids instead of playing the same
+    Game again. Only for tests that read a played Game, never for tests of the play itself."""
+    copy = stored_copy(url, key)
+    if copy is not None:
+        return copy
+    game_id = await play()
+    remember(url, key, game_id)
+    return game_id
+
+
+async def classic_game(url: str, seed: int = 7) -> str:
+    """A finished Classic simulation Game of four Rule-based players, played once per seed and
+    session (`played_once`)."""
+    from app.engine import GameSettings
+    from app.modules.games import commands
+
+    async def play() -> str:
+        game_id = await commands.create("simulation", GameSettings(), seed=seed)
+        await commands.start(game_id)  # four Rule-based players: finished on return
+        await play_to_end(game_id)
+        return game_id
+
+    return await played_once(url, ("classic", seed), play)
 
 
 @contextmanager
@@ -67,10 +152,33 @@ def listening(url: str):
     conn.execute(f"LISTEN {events.CHANNEL}")
 
     class Events:
-        def drain(self, timeout: float = 0.5) -> list[dict]:
-            return [json.loads(n.payload) for n in conn.notifies(timeout=timeout)]
+        def drain(self, timeout: float = 5.0) -> list[dict]:
+            """Every event committed so far. Postgres delivers notifications in commit order,
+            so a marker this connection sends now arrives after all of them: reading up to it
+            needs no fixed wait."""
+            marker = {"drain": str(uuid.uuid4())}
+            conn.execute("SELECT pg_notify(%s, %s)", (events.CHANNEL, json.dumps(marker)))
+            received = []
+            for notify in conn.notifies(timeout=timeout):
+                payload = json.loads(notify.payload)
+                if payload == marker:
+                    return received
+                received.append(payload)
+            raise AssertionError(f"the drain marker did not arrive within {timeout} s")
 
     try:
         yield Events()
     finally:
         conn.close()
+
+
+def seat_student(url: str, game_id: str, *roles: str) -> None:
+    """Give each Seat of `roles` a `student` occupant before the start, as allocation will
+    (Epic 5). No order source places a Student's Order, so the test places it."""
+    for role in roles:
+        execute(
+            url,
+            "INSERT INTO seat_occupancy (id, seat_id, from_week, occupant_kind, reason) "
+            "SELECT %s, id, 1, 'student', 'initial' FROM seats WHERE game_id = %s AND role = %s",
+            (uuid.uuid7(), game_id, role),
+        )

@@ -15,6 +15,7 @@ from app.modules.games.models import (
     seat_turns,
     seat_weeks,
     seats,
+    simulation_batches,
 )
 
 
@@ -51,6 +52,13 @@ async def bump_version(session: AsyncSession, game_id: uuid.UUID) -> int:
 async def seat_by_role(session: AsyncSession, game_id: uuid.UUID, role: str) -> RowMapping | None:
     result = await session.execute(
         select(seats).where(seats.c.game_id == game_id, seats.c.role == role)
+    )
+    return result.mappings().one_or_none()
+
+
+async def seat(session: AsyncSession, game_id: uuid.UUID, seat_id: uuid.UUID) -> RowMapping | None:
+    result = await session.execute(
+        select(seats).where(seats.c.game_id == game_id, seats.c.id == seat_id)
     )
     return result.mappings().one_or_none()
 
@@ -109,8 +117,21 @@ async def insert_week(
     )
 
 
+async def now(session: AsyncSession) -> Any:
+    """The transaction's `now()`: the time every row the transaction stamps carries."""
+    return (await session.execute(select(func.now()))).scalar_one()
+
+
+async def clock_now(session: AsyncSession) -> Any:
+    """The database clock at this statement (`clock_timestamp()`), not at the transaction's
+    start: the moment a read ended, on the clock deadlines are stamped with."""
+    return (await session.execute(select(func.clock_timestamp()))).scalar_one()
+
+
 async def insert_turns(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
-    await session.execute(seat_turns.insert(), rows)
+    # One multi-row INSERT: an executemany goes through psycopg's pipeline mode, which costs
+    # tens of milliseconds per call for these few rows.
+    await session.execute(seat_turns.insert().values(rows))
 
 
 async def week_states(session: AsyncSession, game_id: uuid.UUID) -> list[dict[str, Any]]:
@@ -121,6 +142,16 @@ async def week_states(session: AsyncSession, game_id: uuid.UUID) -> list[dict[st
         .order_by(game_weeks.c.week, game_weeks.c.finished)
     )
     return list(result.scalars())
+
+
+async def open_week(session: AsyncSession, game_id: uuid.UUID) -> int | None:
+    """The newest opened Week of the Game (a finished state is not opened), or None."""
+    result = await session.execute(
+        select(func.max(game_weeks.c.week)).where(
+            game_weeks.c.game_id == game_id, game_weeks.c.finished.is_(False)
+        )
+    )
+    return result.scalar_one()
 
 
 async def turn(
@@ -209,6 +240,35 @@ async def decision_log(session: AsyncSession, game_id: uuid.UUID) -> list[RowMap
     return list(result.mappings())
 
 
+async def seat_guard_rows(
+    session: AsyncSession, game_id: uuid.UUID, seat_id: uuid.UUID
+) -> list[RowMapping]:
+    """The Seat's Decision log rows with what the Play guard reads, by Week."""
+    result = await session.execute(
+        select(
+            seat_weeks.c.week,
+            seat_weeks.c.order,
+            seat_weeks.c.decided_by,
+            seat_weeks.c.rule_based_reference_order,
+            seat_weeks.c.near_optimal_reference_order,
+        )
+        .where(seat_weeks.c.game_id == game_id, seat_weeks.c.seat_id == seat_id)
+        .order_by(seat_weeks.c.week)
+    )
+    return list(result.mappings())
+
+
+async def occupancy_history(session: AsyncSession, game_id: uuid.UUID) -> list[RowMapping]:
+    """Every occupancy row of the Game's Seats, by chain order and then as appended."""
+    result = await session.execute(
+        select(seat_occupancy, seats.c.role)
+        .select_from(seat_occupancy.join(seats, seats.c.id == seat_occupancy.c.seat_id))
+        .where(seats.c.game_id == game_id)
+        .order_by(seats.c.position, seat_occupancy.c.id)
+    )
+    return list(result.mappings())
+
+
 async def orders_by_decided_by(session: AsyncSession, game_id: uuid.UUID) -> dict[str, int]:
     """The number of Decision log rows of the Game per `decided_by`."""
     result = await session.execute(
@@ -261,9 +321,99 @@ async def finished_game_ids(session: AsyncSession) -> list[uuid.UUID]:
     return list(result.scalars())
 
 
+async def running_games_of_config(
+    session: AsyncSession, purpose: str, model_config_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """The id of every running Game of `purpose` whose `SessionRuntime` froze
+    `model_config_id`, oldest first."""
+    result = await session.execute(
+        select(games.c.id)
+        .where(
+            games.c.lifecycle == "running",
+            games.c.purpose == purpose,
+            games.c.session_runtime["model_config_id"].astext == str(model_config_id),
+        )
+        .order_by(games.c.id)
+    )
+    return list(result.scalars())
+
+
 async def stored_rules_versions(session: AsyncSession) -> list[int]:
     """Every distinct `rules_version` stored on a Game."""
     result = await session.execute(
         select(games.c.rules_version).distinct().order_by(games.c.rules_version)
+    )
+    return list(result.scalars())
+
+
+def _open_weeks() -> Any:
+    """Each running Game's open Week (`game_id`, `week`) as a subquery."""
+    return (
+        select(game_weeks.c.game_id, func.max(game_weeks.c.week).label("week"))
+        .select_from(game_weeks.join(games, games.c.id == game_weeks.c.game_id))
+        .where(games.c.lifecycle == "running", game_weeks.c.finished.is_(False))
+        .group_by(game_weeks.c.game_id)
+        .subquery()
+    )
+
+
+async def overdue_llm_turns(session: AsyncSession, now: Any | None) -> list[RowMapping]:
+    """`game_id`, `seat_id`, `week` of every turn in a running Game's open Week that has no
+    Order and whose `ai_deadline_at` is at or before `now` (default: the database's `now()`),
+    oldest deadline first."""
+    open_weeks = _open_weeks()
+    result = await session.execute(
+        select(seat_turns.c.game_id, seat_turns.c.seat_id, seat_turns.c.week)
+        .select_from(
+            seat_turns.join(
+                open_weeks,
+                (open_weeks.c.game_id == seat_turns.c.game_id)
+                & (open_weeks.c.week == seat_turns.c.week),
+            )
+        )
+        .where(
+            seat_turns.c.ordered_at.is_(None),
+            seat_turns.c.ai_deadline_at.is_not(None),
+            seat_turns.c.ai_deadline_at <= (func.now() if now is None else now),
+        )
+        .order_by(seat_turns.c.ai_deadline_at)
+    )
+    return list(result.mappings())
+
+
+async def complete_running_games(session: AsyncSession) -> list[uuid.UUID]:
+    """The id of every running Game whose open Week has turns and all of them have an Order."""
+    open_weeks = _open_weeks()
+    result = await session.execute(
+        select(open_weeks.c.game_id)
+        .select_from(
+            open_weeks.join(
+                seat_turns,
+                (seat_turns.c.game_id == open_weeks.c.game_id)
+                & (seat_turns.c.week == open_weeks.c.week),
+            )
+        )
+        .group_by(open_weeks.c.game_id)
+        .having(func.bool_and(seat_turns.c.ordered_at.is_not(None)))
+        .order_by(open_weeks.c.game_id)
+    )
+    return list(result.scalars())
+
+
+async def insert_batch(session: AsyncSession, values: dict[str, Any]) -> None:
+    await session.execute(simulation_batches.insert().values(**values))
+
+
+async def get_batch(session: AsyncSession, batch_id: uuid.UUID) -> RowMapping | None:
+    result = await session.execute(
+        select(simulation_batches).where(simulation_batches.c.id == batch_id)
+    )
+    return result.mappings().one_or_none()
+
+
+async def batch_game_ids(session: AsyncSession, batch_id: uuid.UUID) -> list[uuid.UUID]:
+    """The id of every Game of the batch, in the order they were created (ids are UUIDv7)."""
+    result = await session.execute(
+        select(games.c.id).where(games.c.batch_id == batch_id).order_by(games.c.id)
     )
     return list(result.scalars())

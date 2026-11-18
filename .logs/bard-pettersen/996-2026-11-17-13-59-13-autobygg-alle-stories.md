@@ -240,3 +240,296 @@ Bygge Story 1.12 på `epic-1`, den siste i Epic 1. Underveis valgte brukeren Ope
 ### Åpne punkter
 - Issue #48: beslutninger om kapasitet og funksjonsflagget.
 - Issue #9: modellen må verifiseres mot OpenRouter og EU-ruting i Story 2.7.
+
+## Story 2.1: Én ordrekilde for alle plasser som ikke er studenter (2026-11-18)
+
+### Oppgave
+Bygge Story 2.1 på `epic-2`, etter at Epic 1 er merget (PR #49). Underveis ba brukeren om at testene må være raske.
+
+### Plan
+`bmad-build-auto` i én underagent. Regelen om raske tester ble sendt til agenten underveis, lagt i minnet og i malen for senere stories.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-1-one-order-source-for-non-student-seats.md`. Commit `5a63c8d`.
+- `players.ensure_order` legger alle veiledede, regelbaserte og skriptede ordrer i samme transaksjon som åpner uka. Nye kommandoer `advance` og `switch_to_rule_based`. `sim` har ikke lenger egen ordreløkke.
+- Hele pakken: 1153 grønne, én feilet test ble rettet og kjørt på nytt for seg (22 grønne). Røyktesten 3/3. Golden-batchene gir samme ordrer og kostnader som før.
+- Trege tester: hele spill tar 6–7 s hver, batchtestene i `test_sim.py` 13–39 s.
+- Gjennomgang: 34 funn, 6 rettet, 1 utsatt (historikken leses på nytt per plass).
+- Status: `done`.
+
+### Åpne punkter
+- Issue #50: beslutninger om ordrekilden og det utsatte ytelsesfunnet.
+
+## Raskere testpakke (2026-11-18)
+
+### Oppgave
+Brukeren ba om raske tester. Backend-pakken tok 618 s lokalt og 4–5 min i CI.
+
+### Plan
+Én underagent måler med `--durations` og retter årsakene uten å svekke det testene beviser.
+
+### Resultat
+- Commit `825b071` (egen logg i `75fdf7d`). Hele pakken: 42 s lokalt (1154 grønne), full grenddekning av motoren beholdt.
+- Produksjonsretting: ordrekilden gjenbruker historikken i stedet for å lese den per plass, og turer settes inn med én INSERT. Et spill på 36 uker gikk fra 6,4 til 3,2 s.
+- Testoppsett: migrering én gang per sesjon, `pytest-xdist==3.8.0` med én database per arbeider, delte ferdigspilte spill, raskere `drain()`.
+- Regelen står i minnet, i kjøreboka og i malen for byggeagentene.
+
+### Åpne punkter
+- Issue #50: neste steg er færre lesinger per plass i `place_order(within=…)`.
+
+## Story 2.2: Modellkonfig og evalueringsbudsjett fra kommandolinja (2026-11-18)
+
+### Oppgave
+Bygge Story 2.2 på `epic-2`.
+
+### Plan
+`bmad-build-auto` i én underagent, med regelen om raske tester.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-2-register-model-config-and-evaluation-budget.md`. Commit `6693c8e`.
+- Migrering `0006` med `ai_model_configs` og `ai_budgets`, modulene `ai.config` og `ai.budget`, `python -m app.ai.cli` (`config add|edit|list|show`, `budget set`) og to eksempelkonfiger i `backend/ai-configs/`.
+- Hele pakken: 1223 grønne på 46 s, full grenddekning av motoren, ruff ren. Én ny test tar 1,3 s fordi den starter en egen prosess.
+- Gjennomgang: 43 funn (3 middels). Hovedrettingen avviser hemmeligheter skrevet inn i endepunkt-URL-en. Ett middels funn er utsatt.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #51: beslutninger om konfigformat, hemmeligheter, plassholderpriser og budsjett, og det utsatte funnet om validering av gamle rader.
+
+## Story 2.3: Validert LLM-kall gjennom gatewayen (2026-11-18)
+
+### Oppgave
+Bygge Story 2.3 på `epic-2`. Før storyen: rette CI, som feilet etter fartsjobben.
+
+### Plan
+- CI-feilen: xdist-arbeiderne arvet en omskrevet `DATABASE_URL` og koblet til en testdatabase som ikke finnes i en tom CI-database. Original-URL-en holdes nå i `OLSPILLET_BASE_DATABASE_URL`, og databaser opprettes fra `postgres`. Prøvd lokalt mot en ikke-eksisterende basedatabase.
+- `bmad-build-auto` i én underagent.
+
+### Resultat
+- CI-rettingen: commit på `epic-2`. CI grønn igjen, 1 min 18 s per kjøring (mot rundt 5 min før).
+- Spec: `.docs/implementation-artifacts/spec-2-3-validated-llm-call-through-gateway.md`. Commit `529c0b6`.
+- `app.ai.gateway.run(...)`, tabellen `llm_call` (migrering 0007), vasking av personopplysninger med tilbakeoversetting, deterministisk mock-leverandør, hash-lås på promptfiler (`prompts check|lock`) og en importsjekk som holder leverandør-SDK-er inne i `app/ai`.
+- Hele pakken: 1251 grønne på 63 s, full grenddekning av motoren, ruff ren.
+- Gjennomgang: 51 funn, 17 rettet, 1 utsatt.
+- Migrering 0007 ble endret etter at de delte testdatabasene var migrert, så jeg slettet `olspillet_test*` etterpå, og de bygges på nytt.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #52: beslutninger om gatewayen, det utsatte funnet om avbrutte kall og anbefalt oppfølgende gjennomgang.
+
+## Story 2.4: LLM-spiller som bestiller fra plassens tilstand (2026-11-18)
+
+### Oppgave
+Bygge Story 2.4 på `epic-2`.
+
+### Plan
+`bmad-build-auto` i én underagent, med regelen om raske tester.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-4-ask-llm-player-for-order-from-seat-state.md`. Commit `74f2201`.
+- `backend/app/modules/players/llm.py` bygger promptverdier bare fra `SeatState`, med streng ordreskjema. Promptene `player_order/v1.md` og `recognition_probe/v1.md` er låst. `gateway.preview` viser nøyaktig forespørsel uten modellkall. Nye kommandoer `sim prompt` og `sim probe`.
+- Hele pakken: 1271 grønne på 49 s, full grenddekning av motoren. Fire nye prøvetester tar 1,5–2,2 s hver.
+- Gjennomgang: 40 funn. Rettet blant annet krasj i `sim prompt` ved store bokstaver, tapte svar i prøven og to ulike svarformater.
+- Oppfølgende gjennomgang anbefalt (også for 1.7 og 2.3). Den samles ved slutten av Epic 2.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #53: beslutninger om prompten og gjenkjenningsprøven.
+
+## Story 2.5: LLM-ordrer som jobber med regelbasert fallback (2026-11-18)
+
+### Oppgave
+Bygge Story 2.5 på `epic-2`.
+
+### Plan
+`bmad-build-auto` i én underagent, med regelen om raske tester og at jobbtester ikke venter på klokka.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-5-place-llm-orders-as-jobs-rule-based-fallback.md`. Commit `e73998b`.
+- LLM-spillere får ordrene sine fra `ai-orders`-jobber (procrastinate 3.11.0, skjema i Alembic 0008). Feiler modellen, legger jobben inn den regelbaserte referanseordren, merket med feiltype og kall-id-er. Compose har nå `worker-ai` og `worker-batch`.
+- Hele pakken: 1307 grønne på 55 s, full grenddekning av motoren, golden-resultater uendret. `worker-ai` spilte et mock-LLM-spill på 36 uker i compose, og sjekken bestod.
+- Gjennomgang: 38 funn, de middels rettet (en jobb kunne stoppe et spill, feiltyper uten test, skjemaavvik). Ett utsatt.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #54: beslutninger om jobbene og fallback, det utsatte funnet om databasefeil og anbefalt oppfølgende gjennomgang.
+
+## Story 2.6: Hver LLM-ordre innenfor tidsbudsjettet (2026-11-18)
+
+### Oppgave
+Bygge Story 2.6 på `epic-2`, og løse de utsatte funnene i Issue #52 og #54.
+
+### Plan
+`bmad-build-auto` i én underagent, med injisert klokke i stedet for ekte ventetid i testene.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-6-keep-llm-orders-inside-time-budget.md`. Commit `a6f8247`.
+- Hver `llm`-tur lagrer `ai_deadline_at` (ren funksjon `games.rules.turn_times`). Jobben stopper modellkallet ved fristen. `worker-ai` kjører en redningsløkke hvert 5. s som legger inn `timeout`-fallback og åpner neste uke.
+- Issue #52: avbrutt forsøk logges som `cancelled`. Issue #54: databasefeil prøves på nytt to ganger, så tar løkka over.
+- Hele pakken: 1335 grønne på rundt 50 s, full grenddekning av motoren. Håndsjekk i Docker: løkka la inn 4 fallbacks etter fristen. Åtte tester i `test_rescue.py` tar 1–2,5 s.
+- Gjennomgang: 36 funn, 9 rettet. Alvorligst: Postgres-klokka gikk 96 s foran verten, så fristene regnes nå på databaseklokka.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #55: beslutninger om frister, nye forsøk og redningsløkka.
+
+## Story 2.7: Ekte EU-endepunkt innenfor ratebegrensningen (2026-11-18)
+
+### Oppgave
+Bygge Story 2.7 på `epic-2` mot OpenRouter med `deepseek/deepseek-v4.1-flash-1017`, og kjøre en prøve mot det ekte endepunktet.
+
+### Plan
+- Første forsøk ga agenten lov til å bruke nøkkelen i `.env`. Det automatiske sikkerhetsfilteret stoppet det (`Unauthorized Access`), og det ble ikke prøvd å omgå det.
+- Andre forsøk: bygge og teste alt mot mocken og en falsk HTTP-transport, lese OpenRouters offentlige modelliste uten nøkkel, og lage en prøvekommando grunnleggeren kan kjøre.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-7-call-real-eu-endpoint-within-rate-limit.md`. Commit `539afb2`.
+- OpenAI-kompatibel adapter med OpenRouter-ruting (ingen fallback, ZDR, nektet datainnsamling) i modellkonfigen, ratebegrenser, 429-ventetid, og `python -m app.sim endpoint --config <ID>`.
+- Modellen finnes (50 endepunkter, 43 ZDR). Region per endepunkt er ikke offentlig. Konfigen låser til Nebius.
+- Hele pakken: 1371 grønne på rundt 55 s, full grenddekning av motoren.
+- Gjennomgang: 43 funn, 18 rettet, 2 utsatt.
+- Status: `review`. Prøven med ekte kall venter på grunnleggeren.
+
+### Åpne punkter
+- Issue #56: kjør prøven med nøkkelen, bekreft at Nebius kjører modellen i EU, og to utsatte funn.
+
+## Story 2.8: Budsjettreservasjon per kall og bytte ved kostnadsgrensen (2026-11-18)
+
+### Oppgave
+Bygge Story 2.8 på `epic-2`.
+
+### Plan
+`bmad-build-auto` i én underagent, uten ekte nøkler.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-8-reserve-budget-per-call-switch-at-cost-limit.md`. Commit `7ed4021`.
+- Gatewayen reserverer verste kostnad før hvert forsøk med én betinget `UPDATE`, og gjør opp i samme transaksjon som `llm_call`-raden. LLM-spillere kan bruke budsjettet opp til `limit − reserve`. Ved grensen legger jobben inn regelbasert ordre (`budget_exhausted`), og alle LLM-plasser på budsjettet byttes til regelbaserte (`cost_limit`). Migrering 0011 og `python -m app.ai.cli cost --scope`.
+- Hele pakken: 1387 grønne på 57 s, full grenddekning, golden-resultater uendret. To eldre tidstester feilet én gang og bestod så fem ganger.
+- Gjennomgang: 34 funn, 3 middels og 4 lave rettet, 1 utsatt.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #57: beslutninger om reservasjon og kostnadsgrense, og mulig ustabile tidstester.
+
+## Story 2.9: Nær-optimal referanseordre for hver plass og uke (2026-11-18)
+
+### Oppgave
+Bygge Story 2.9 på `epic-2`.
+
+### Plan
+`bmad-build-auto` i én underagent. Golden-verdiene sjekkes av en uavhengig agent i stedet for grunnleggeren.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-9-store-near-optimal-reference-order.md`. Commit `3660e00`.
+- Ren funksjon `engine.near_optimal.order(...)` (`placeholder-0`). Referansen regnes én gang per plass når uka åpner og lagres på turen. `place_order` kopierer den til beslutningsloggen. Migrering 0012 med trigger mot endring.
+- Hele pakken: 1415 grønne på 60 s, full grenddekning, golden-resultater uendret. To nye tester over 1 s (3,6 s og 1,0 s).
+- Uavhengig sjekk: alle 36 uker stemte.
+- Gjennomgang: 26 funn, 2 middels og flere lave rettet, ingenting utsatt.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #58: plassholderalgoritmen må erstattes, og hvordan verdiene lagres.
+
+## Story 2.10: Spillvakten bytter en LLM-plass som driver ut (2026-11-18)
+
+### Oppgave
+Bygge Story 2.10 på `epic-2`.
+
+### Plan
+`bmad-build-auto` i én underagent, med navngitte plassholdere for de åpne valgene i Issue #20. Agenten brukte lang tid på å lese inn bakgrunnen og fikk en statusforespørsel underveis. Den sto ikke fast.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-10-play-guard-switch-drifting-llm-seat.md`. Commit `b6f1fbd`.
+- `place_order` kjører spillvakten (`backend/app/analysis/play_guard.py`) på hver LLM-ordre. Går plassen ut av båndet, legges det til en rad (`rule_based`, `guard_switch`) fra neste uke, og plassen er regelbasert resten av spillet. Ingen migrering.
+- Hele pakken: 1449 grønne på 60 s, full dekning av motor og analyse, golden-resultater uendret. Seks nye tester tar 1,3–2,7 s.
+- Gjennomgang: 26 funn, 1 middels og 4 lave rettet.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #59: plassholdere for spillvakten, og at vakten kan bytte ut en spiller som spiller nær optimalt.
+- Issue #20: kalibrering av spillvakten.
+
+## Story 2.11: Måle modell og effort-nivå på simulerte batcher (2026-11-18)
+
+### Oppgave
+Bygge Story 2.11 på `epic-2`. Storyen skal måle den valgte modellen på ekte kall.
+
+### Plan
+`bmad-build-auto` i én underagent, uten nøkkel: alt bygges og testes mot mocken, og kommandoer og kostnadsanslag for den ekte målingen skrives ned.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-11-measure-model-effort-level-on-sim-batches.md`. Commit `ac74190`.
+- `sim run` lagrer hver batch (migrering 0013: `simulation_batches`, `games.batch_id`, `seat_weeks.effort_level`), og `sim report <id>` skriver alle tallene storyen ber om. Ny CI-sjekk `backend/scripts/sim-llm-smoke.sh` med ekte `worker-ai` og mock.
+- Hele pakken: 1484 grønne på 61 s, full grenddekning, golden-resultater uendret. Fire nye tester tar 1,2–5,2 s i full kjøring.
+- Gjennomgang: 31 funn, 11 rettet.
+- Status: `review`. Den ekte målingen venter på grunnleggeren.
+
+### Åpne punkter
+- Issue #60: kjør målingen med nøkkelen, kostnadsanslag og beslutninger.
+
+## Story 2.12: Bare målte effort-nivåer, og låst modell (2026-11-18)
+
+### Oppgave
+Bygge Story 2.12 på `epic-2`, uten at noen ekte måling er kjørt (Issue #56 og #60).
+
+### Plan
+`bmad-build-auto` i én underagent. Mock-batcher skal aldri telle som ekte måling i produksjon.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-12-offer-measured-effort-levels-pin-model.md`. Commit `72bbba4`.
+- `python -m app.sim approve <batch> --level <navn>` lagrer en måling bare for en ekte batch som besto alle tre grensene. `ai.config.offered_effort_levels` lister bare målte nivåer. `ai.cli pin` setter standardkonfig. Migrering 0014.
+- I produksjon tilbys ingen nivåer før en ekte måling er godkjent. Lokalt og i CI tilbyr en seedet mock-konfig `standard`.
+- Hele pakken: 1523 grønne på 65 s, full grenddekning, golden-resultater uendret.
+- Gjennomgang: 31 funn, 12 rettet, 1 utsatt (mock-flagget per batch).
+- Status: `done`.
+
+### Åpne punkter
+- Issue #61: beslutninger om godkjenning, låsing og seeding, og det utsatte funnet om mock-flagget.
+
+## Story 2.13: Beskrive hver AI-spillertype på enkelt norsk (2026-11-18)
+
+### Oppgave
+Bygge Story 2.13 på `epic-2`, den siste i Epic 2.
+
+### Plan
+`bmad-build-auto` i én underagent. Norsken sjekkes av uavhengige språkagenter i stedet for grunnleggeren. Agenten sto lenge på steg 1 (ventet på en mappeliste) og fikk en statusforespørsel.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-13-describe-ai-player-types-plain-norwegian.md`. Commit `cd9cc1a`.
+- To norske tekster (regelbasert og LLM), `players.service.describe(kind, version=None)` og `python -m app.sim describe`. 24 nye tester binder tekstene til koden.
+- Gjennomgang: fire kodegjennomgåere og to språkgjennomgåere, 53 funn, 36 rettet.
+- Hele pakken: 1538 grønne på 59 s før rettingene. Etter rettingene feilet 2 tester i hver av tre fulle kjøringer, fra tre tidsavhengige tester i `test_llm_jobs.py`, `test_sim_llm.py` og `test_rescue.py`, under last fra andre prosesser. De rettes før PR-en for Epic 2.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #62: beslutninger om tekstene og versjonering.
+
+## Deterministiske tidstester (2026-11-18)
+
+### Oppgave
+Seks tidsavhengige tester feilet av og til under last (sett i Story 2.8 og 2.13).
+
+### Plan
+Én underagent finner årsakene og gjør testene deterministiske uten å svekke påstandene.
+
+### Resultat
+- Commit `ccd2f5b`, bare tester. Stoppede klokker i stedet for ekte frister, hendelser i stedet for faste `sleep`, og et sjenerøst standard tidsbudsjett der fristen ikke er det som testes.
+- Verifisert: fire filer 20 ganger med `-n 16`, fire av dem med full CPU-last, og hele pakken tre ganger (1547 grønne).
+- Årsak: klokka i den lokale Docker-Postgres er ustabil.
+
+### Åpne punkter
+- Issue #63: ustabil klokke i lokal Docker-Postgres.
+
+## Oppfølgende gjennomgang av Epic 1–2 (2026-11-18)
+
+### Oppgave
+Lese rettingene som kom etter gjennomgangen i Story 1.2, 1.7, 2.3–2.8 og 2.11–2.13.
+
+### Plan
+Én uavhengig agent fikk specene og koden, ikke konklusjonene.
+
+### Resultat
+- Commit `74205cc`. To feil rettet: fallback når budsjettomfanget ikke kan leses (2.5), og lesetiden for fristen (2.6). Ny test for Story 2.5 der `place_order` avviser en modellordre.
+- Hele pakken: 1550 grønne på 61 s, ruff ren.
+
+### Åpne punkter
+- Issue #64: tre tvilsomme funn.

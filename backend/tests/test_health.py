@@ -14,8 +14,8 @@ async def test_health_ok_when_database_reachable(test_database):
     assert response.json() == {"status": "ok"}
 
 
-async def test_health_503_when_database_unreachable(monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://nobody:secretpw@127.0.0.1:1/none")
+async def test_health_503_when_database_unreachable(monkeypatch, unreachable_database):
+    monkeypatch.setenv("DATABASE_URL", unreachable_database)
     async with client() as c:
         response = await c.get("/api/health")
     assert response.status_code == 503

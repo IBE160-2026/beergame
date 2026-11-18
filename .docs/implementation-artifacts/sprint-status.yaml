@@ -29,13 +29,13 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-17-2026 23:24
+last_updated: 11-18-2026 05:45
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
 story_location: .docs/implementation-artifacts
 development_status:
-  epic-1: in-progress
+  epic-1: done
   1-1-scaffold-the-repo-so-it-starts-locally-with-zero-keys: done
   1-2-run-the-classic-chain-week-by-week-and-match-the-reference-t: done
   1-3-check-changed-game-settings-against-ranges-and-warnings: done
@@ -50,20 +50,20 @@ development_status:
   1-12-cap-what-a-seat-can-ship-per-week-cut-list-feature_capacity: done
   epic-1-retrospective: optional
 
-  epic-2: backlog
-  2-1-give-every-non-student-seat-its-order-from-one-order-source: backlog
-  2-2-register-a-model-config-and-an-evaluation-budget-from-the-co: backlog
-  2-3-make-a-validated-llm-call-through-the-gateway-and-log-every: backlog
-  2-4-ask-an-llm-player-for-an-order-from-the-seat-state-alone: backlog
-  2-5-place-llm-orders-as-jobs-with-the-rule-based-order-as-fallba: backlog
-  2-6-keep-every-llm-order-inside-its-time-budget: backlog
-  2-7-call-a-real-eu-endpoint-within-its-rate-limit: backlog
-  2-8-reserve-budget-per-call-and-switch-to-rule-based-players-at: backlog
-  2-9-store-a-near-optimal-reference-order-for-every-seat-and-week: backlog
-  2-10-switch-a-drifting-llm-seat-to-a-rule-based-player-with-the-p: backlog
-  2-11-measure-a-model-and-effort-level-on-batches-of-simulated-gam: backlog
-  2-12-offer-only-measured-effort-levels-and-pin-the-model: backlog
-  2-13-describe-each-ai-player-type-in-plain-norwegian: backlog
+  epic-2: in-progress
+  2-1-give-every-non-student-seat-its-order-from-one-order-source: done
+  2-2-register-a-model-config-and-an-evaluation-budget-from-the-co: done
+  2-3-make-a-validated-llm-call-through-the-gateway-and-log-every: done
+  2-4-ask-an-llm-player-for-an-order-from-the-seat-state-alone: done
+  2-5-place-llm-orders-as-jobs-with-the-rule-based-order-as-fallba: done
+  2-6-keep-every-llm-order-inside-its-time-budget: done
+  2-7-call-a-real-eu-endpoint-within-its-rate-limit: review
+  2-8-reserve-budget-per-call-and-switch-to-rule-based-players-at: done
+  2-9-store-a-near-optimal-reference-order-for-every-seat-and-week: done
+  2-10-switch-a-drifting-llm-seat-to-a-rule-based-player-with-the-p: done
+  2-11-measure-a-model-and-effort-level-on-batches-of-simulated-gam: review
+  2-12-offer-only-measured-effort-levels-and-pin-the-model: done
+  2-13-describe-each-ai-player-type-in-plain-norwegian: done
   epic-2-retrospective: optional
 
   epic-3: backlog

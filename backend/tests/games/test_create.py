@@ -58,7 +58,66 @@ async def test_create_freezes_the_snapshot(games_db):
         "ai_mode": "rule_based",
         "rule_based_params": "placeholder-unverified",
         "rule_based_params_version": 1,
+        "model_config_id": None,
+        "effort_level": None,
+        "play_guard_params": "placeholder-0",
+        "play_guard_params_version": 1,
     }
+
+
+def two_levels() -> list[dict]:
+    level = {"provider_params": {}, "attempt_timeout_s": 4, "order_time_budget_s": 8}
+    return [{"name": "standard", **level}, {"name": "deep", **level}]
+
+
+async def test_create_freezes_a_model_config_and_its_effort_level(games_db, ai_db):
+    """Story 2.5 (AD-4, AD-22, FR-78): the config id and one of its Effort levels go into the
+    `SessionRuntime`, the config is marked referenced, and `budget_scope` answers its
+    evaluation budget with that level."""
+    from app.ai import budget, config
+    from tests.ai.helpers import stored_config
+
+    config_id = await stored_config(effort_levels=two_levels())
+    game_id = await commands.create(
+        "simulation", GameSettings(), seed=1, model_config_id=config_id, effort_level="deep"
+    )
+    ((runtime,),) = query(games_db, "SELECT session_runtime FROM games WHERE id = %s", (game_id,))
+    assert (runtime["ai_mode"], runtime["model_config_id"], runtime["effort_level"]) == (
+        "llm",
+        config_id,
+        "deep",
+    )
+    assert (await config.get(config_id)).referenced
+    scope = await service.budget_scope(game_id)
+    assert scope == budget.BudgetScope.evaluation(config_id)
+    assert scope.effort_level == "deep"
+    default = await commands.create("simulation", GameSettings(), seed=1, model_config_id=config_id)
+    assert (await service.budget_scope(default)).effort_level == "standard"
+    plain = await commands.create("simulation", GameSettings(), seed=1)
+    assert await service.budget_scope(plain) is None
+
+
+@pytest.mark.parametrize(
+    ("config", "level", "code"),
+    [
+        ("stored", "turbo", "effort_level_unknown"),
+        ("019a0000-0000-7000-8000-000000000000", None, "config_not_found"),
+        ("not-an-id", None, "config_not_found"),
+        (None, "standard", "model_config_required"),
+    ],
+)
+async def test_create_refuses_an_unknown_config_or_effort_level(
+    games_db, ai_db, config, level, code
+):
+    from tests.ai.helpers import stored_config
+
+    config_id = await stored_config() if config == "stored" else config
+    with pytest.raises(commands.CommandError) as refused:
+        await commands.create(
+            "simulation", GameSettings(), seed=1, model_config_id=config_id, effort_level=level
+        )
+    assert (refused.value.code, refused.value.status) == (code, 422)
+    assert counts(games_db) == (0, 0, 0)
 
 
 async def test_demand_pattern_and_seed_replace_the_settings_ones(games_db):
@@ -191,7 +250,7 @@ async def test_service_reads_the_game_back(games_db):
     assert game.session_runtime.rule_based_params == "placeholder-unverified"
 
 
-@pytest.mark.parametrize("game_id", ["not-a-uuid", str(uuid.uuid7())])
+@pytest.mark.parametrize("game_id", ["not-a-uuid", "01a1eb10-f299-75a6-8ec2-a251c50791e1"])
 async def test_service_answers_none_for_an_unknown_game(games_db, game_id):
     assert await service.get_game(game_id) is None
 
