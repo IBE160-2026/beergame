@@ -533,3 +533,25 @@ Lese rettingene som kom etter gjennomgangen i Story 1.2, 1.7, 2.3–2.8 og 2.11�
 
 ### Åpne punkter
 - Issue #64: tre tvilsomme funn.
+
+## Story 3.1: «Logg inn» i produktets design (2026-11-18)
+
+### Oppgave
+Bygge Story 3.1 på `epic-3`, den første storyen med en skjerm, og kontrollere den visuelt.
+
+### Plan
+- `bmad-build-auto` i én underagent.
+- Visuell kontroll i en egen underagent: compose, Playwright, skjermbilder i 390 og 1280 px, sammenlignet med mockup, DESIGN.md og EXPERIENCE.md.
+- Rette en ustabil tidstest (Issue #63).
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-1-see-logg-inn-in-product-design.md`. Commit `11423a7`.
+- Tokens fra DESIGN.md, selvhostet Source Sans 3, felles knapp, lenke og tekstfelt, all tekst i `nb.ts`, tekst- og fargesjekk i bygget. `/logg-inn` sjekker feltene i nettleseren. Vitest og Playwright med axe, og ny e2e-jobb i CI.
+- Frontend: typecheck, Vitest (181), tekstsjekk, bygg og Playwright (7) grønne.
+- Tidstesten `test_the_turns_read_time_is_when_the_read_ended` tåler nå treg Docker-klokke (commit `90072cd`).
+- Visuell kontroll: 11 skjermbilder i `.docs/implementation-artifacts/screenshots/3.1/`, ingen klare avvik, fire punkter til vurdering. Passordet havner ikke i URL-en.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #67: beslutninger og utsatte funn.
+- Issue #66: visuelle avvik til vurdering.
