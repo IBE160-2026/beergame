@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-18-2026 00:58
+last_updated: 11-18-2026 01:14
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -52,7 +52,7 @@ development_status:
 
   epic-2: in-progress
   2-1-give-every-non-student-seat-its-order-from-one-order-source: done
-  2-2-register-a-model-config-and-an-evaluation-budget-from-the-co: in-progress
+  2-2-register-a-model-config-and-an-evaluation-budget-from-the-co: done
   2-3-make-a-validated-llm-call-through-the-gateway-and-log-every: backlog
   2-4-ask-an-llm-player-for-an-order-from-the-seat-state-alone: backlog
   2-5-place-llm-orders-as-jobs-with-the-rule-based-order-as-fallba: backlog
