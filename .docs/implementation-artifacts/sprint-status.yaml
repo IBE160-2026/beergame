@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-18-2026 04:40
+last_updated: 11-18-2026 05:06
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -61,7 +61,7 @@ development_status:
   2-8-reserve-budget-per-call-and-switch-to-rule-based-players-at: done
   2-9-store-a-near-optimal-reference-order-for-every-seat-and-week: done
   2-10-switch-a-drifting-llm-seat-to-a-rule-based-player-with-the-p: done
-  2-11-measure-a-model-and-effort-level-on-batches-of-simulated-gam: in-progress
+  2-11-measure-a-model-and-effort-level-on-batches-of-simulated-gam: review
   2-12-offer-only-measured-effort-levels-and-pin-the-model: backlog
   2-13-describe-each-ai-player-type-in-plain-norwegian: backlog
   epic-2-retrospective: optional
