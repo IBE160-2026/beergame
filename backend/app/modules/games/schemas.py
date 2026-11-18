@@ -96,11 +96,17 @@ class SessionRuntime(BaseModel):
     may hold a Seat."""
     effort_level: str | None = None
     """The config's Effort level the Game froze, set together with `model_config_id`."""
+    play_guard_params: str | None = None
+    """Id of the Play guard parameter set the Game froze (FR-79); None only on Games created
+    before Story 2.10, for which the guard does not run."""
+    play_guard_params_version: int | None = None
 
     @model_validator(mode="after")
     def _config_and_level(self) -> SessionRuntime:
         if (self.model_config_id is None) != (self.effort_level is None):
             raise ValueError("model_config_id and effort_level are set together")
+        if (self.play_guard_params is None) != (self.play_guard_params_version is None):
+            raise ValueError("play_guard_params and its version are set together")
         return self
 
 
@@ -255,6 +261,21 @@ class DecisionLogRow(BaseModel):
     """The LLM call rows behind the Order: every attempt of an LLM Order or of the failed call
     behind a fallback Order (FR-67)."""
     state_seen: SeatState
+
+
+class OccupancyRow(BaseModel):
+    """One row of a Seat's append-only occupancy history (AD-5): who holds the Seat from
+    `from_week` on, and why. A Play guard switch is a `guard_switch` row whose `from_week` is
+    the Week after the Order that caused it (FR-79, FR-67)."""
+
+    model_config = _FROZEN
+
+    role: str
+    seat_id: str
+    from_week: int
+    occupant_kind: OccupantKind
+    policy_id: str | None
+    reason: OccupancyReason
 
 
 class GameCheck(BaseModel):

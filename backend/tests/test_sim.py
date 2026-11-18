@@ -1345,10 +1345,13 @@ def test_run_uses_the_batch_rule_based_parameter_set(capsys, games_db, tmp_path,
     from tests.games.helpers import query
 
     write_set(tmp_path, "stock-30", desired_inventory=30)
+    shipped = parameter_sets.read_parameter_set
     monkeypatch.setattr(
         commands,
         "read_parameter_set",
-        lambda kind, set_id: parameter_sets.read_parameter_set(kind, set_id, root=tmp_path),
+        lambda kind, set_id: (
+            shipped(kind, set_id, root=tmp_path) if kind == "rule_based" else shipped(kind, set_id)
+        ),
     )
     path = batch_file(
         tmp_path,

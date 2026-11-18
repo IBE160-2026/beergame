@@ -60,6 +60,8 @@ async def test_create_freezes_the_snapshot(games_db):
         "rule_based_params_version": 1,
         "model_config_id": None,
         "effort_level": None,
+        "play_guard_params": "placeholder-0",
+        "play_guard_params_version": 1,
     }
 
 

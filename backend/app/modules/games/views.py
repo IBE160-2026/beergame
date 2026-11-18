@@ -13,10 +13,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.engine import GameSettings, Role, WeekState, seat_detail, seat_view
 from app.modules.games import repo, rules
 from app.modules.games.policy import policy
-from app.modules.games.schemas import DecisionLogRow, Lifecycle, SeatState, TurnOverview
+from app.modules.games.schemas import (
+    DecisionLogRow,
+    Lifecycle,
+    OccupancyRow,
+    SeatState,
+    TurnOverview,
+)
 from app.platform.db import get_sessionmaker
 
-__all__ = ["ViewError", "build_seat_state", "decision_log", "open_turn", "seat_state"]
+__all__ = [
+    "ViewError",
+    "build_seat_state",
+    "decision_log",
+    "occupancy_history",
+    "open_turn",
+    "seat_state",
+]
 
 
 class ViewError(Exception):
@@ -160,6 +173,28 @@ async def decision_log(game_id: str) -> tuple[DecisionLogRow, ...]:
             near_optimal_algorithm_version=row["near_optimal_algorithm_version"],
             llm_call_ids=tuple(str(call_id) for call_id in row["llm_call_ids"]),
             state_seen=SeatState.model_validate(row["state_seen"]),
+        )
+        for row in rows
+    )
+
+
+async def occupancy_history(game_id: str) -> tuple[OccupancyRow, ...]:
+    """Every Seat's occupancy history, by chain order and then as appended (AD-5): the Week a
+    Seat was switched is the `from_week` of its switch row (FR-67, FR-79)."""
+    game_uuid = _uuid(game_id)
+    async with get_sessionmaker()() as session:
+        game = await repo.get_game(session, game_uuid) if game_uuid else None
+        if game is None:
+            raise ViewError("game_not_found", f"no Game {game_id!r}", 404)
+        rows = await repo.occupancy_history(session, game_uuid)
+    return tuple(
+        OccupancyRow(
+            role=row["role"],
+            seat_id=str(row["seat_id"]),
+            from_week=row["from_week"],
+            occupant_kind=row["occupant_kind"],
+            policy_id=row["policy_id"],
+            reason=row["reason"],
         )
         for row in rows
     )

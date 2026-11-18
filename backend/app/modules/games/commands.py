@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget as ai_budget
 from app.ai import config as ai_config
+from app.analysis import play_guard
 from app.engine import (
     RULES_VERSION,
     DemandPattern,
@@ -76,6 +77,10 @@ log = structlog.get_logger(__name__)
 
 ASSIGNABLE = frozenset({OccupantKind.RULE_BASED, OccupantKind.SCRIPTED, OccupantKind.LLM})
 """Occupant kinds `assign_seat` takes; `student` comes with Epic 5."""
+
+DEFAULT_PLAY_GUARD_SET = "placeholder-0"
+"""The Play guard parameter set a new Game freezes when the caller names none (FR-79). A new
+set, or a new settings profile in one, is a configuration file, not a change in `analysis`."""
 
 
 class CommandError(Exception):
@@ -148,6 +153,35 @@ def _rule_based_params(set_id: str) -> rule_based.RuleBasedParams:
         ) from None
 
 
+def _play_guard_params(set_id: str) -> play_guard.PlayGuardParams:
+    try:
+        return play_guard.parse_params(read_parameter_set("play_guard", set_id), set_id)
+    except UnknownParameterSetError:
+        raise CommandError(
+            "unknown_parameter_set", f"no Play guard parameter set {set_id!r}", 422
+        ) from None
+    except ValueError:
+        raise CommandError(
+            "invalid_parameter_set", f"Play guard parameter set {set_id!r} is invalid", 422
+        ) from None
+
+
+def _frozen_play_guard(runtime: SessionRuntime) -> play_guard.PlayGuardParams | None:
+    """The Play guard set the Game froze, or None for a Game created before Story 2.10;
+    refuses a set whose version has changed since (AD-4)."""
+    if runtime.play_guard_params is None:
+        return None
+    guard = _play_guard_params(runtime.play_guard_params)
+    if guard.version != runtime.play_guard_params_version:
+        raise CommandError(
+            "parameter_set_changed",
+            f"Play guard parameter set {guard.id!r} is now version {guard.version}, the Game "
+            f"froze version {runtime.play_guard_params_version}",
+            409,
+        )
+    return guard
+
+
 async def _commit_change(session: AsyncSession, game_id: uuid.UUID) -> int:
     """Lock the Game row, raise its version and announce it; the caller's transaction commits."""
     await repo.lock_game(session, game_id)
@@ -165,17 +199,20 @@ async def create(
     rule_based_params: str = rule_based.DEFAULT_SET_ID,
     model_config_id: str | None = None,
     effort_level: str | None = None,
+    play_guard_params: str = DEFAULT_PLAY_GUARD_SET,
 ) -> str:
     """Store a `not_started` Game with one free Seat per Role and its frozen snapshot (AD-4).
 
     `demand_pattern` and `seed` replace the ones in `settings`; with no seed anywhere a new one
     is drawn. `model_config_id` and one of that config's Effort levels (default: its first) are
     frozen into the `SessionRuntime` for the Game's LLM players (AD-22, FR-78), and the config
-    is marked referenced, so it can never change. Returns the Game id.
+    is marked referenced, so it can never change. The Play guard parameter set
+    `play_guard_params` is frozen too (FR-79). Returns the Game id.
     """
     _policy(purpose)
     effective = _effective_settings(settings, demand_pattern, seed)
     params = _rule_based_params(rule_based_params)
+    guard = _play_guard_params(play_guard_params)
     if effort_level is not None and model_config_id is None:
         raise CommandError("model_config_required", "an Effort level needs a model config", 422)
     game_id = uuid.uuid7()
@@ -189,6 +226,8 @@ async def create(
             rule_based_params_version=params.version,
             model_config_id=model_config_id,
             effort_level=level,
+            play_guard_params=guard.id,
+            play_guard_params_version=guard.version,
         )
         await repo.insert_game(
             session,
@@ -365,6 +404,7 @@ def _snapshot(game: Mapping[str, object]) -> tuple[GameSettings, rule_based.Rule
             f"froze version {runtime.rule_based_params_version}",
             409,
         )
+    _frozen_play_guard(runtime)
     return settings, params
 
 
@@ -701,12 +741,58 @@ async def _place(
             "llm_call_ids": list(call_ids),
         },
     )
+    if decider is DecidedBy.LLM:
+        await _run_play_guard(session, game, settings, row, week)
     lifecycle, open_week = Lifecycle(game["lifecycle"]), week
     if advance_week and rules.week_complete(await repo.week_turns(session, game_uuid, week)):
         lifecycle, open_week = await _step(session, game, settings, params, states)
     log.info("order_placed", game_id=str(game_uuid), seat_id=str(row["id"]), week=week)
     return OrderPlaced(
         seat_week_id=str(seat_week_id), week=week, open_week=open_week, lifecycle=lifecycle
+    )
+
+
+async def _run_play_guard(
+    session: AsyncSession,
+    game: Mapping[str, object],
+    settings: GameSettings,
+    seat: Mapping[str, object],
+    week: int,
+) -> None:
+    """Run the Play guard over the Seat's stored Decision log rows, the new LLM Order included,
+    in the caller's transaction (FR-79, AD-5). On `switch` the Seat gets a Rule-based player
+    from the next Week for the rest of the Game: one appended occupancy row, reason
+    `guard_switch`. Games created before Story 2.10 froze no set and are not guarded."""
+    guard = _frozen_play_guard(SessionRuntime.model_validate(game["session_runtime"]))
+    if guard is None:
+        return
+    rows = await repo.seat_guard_rows(session, game["id"], seat["id"])
+    result = play_guard.evaluate(
+        [play_guard.GuardRow.model_validate(dict(row)) for row in rows],
+        guard,
+        calibrated=play_guard.is_calibrated(settings, guard),
+    )
+    if result.decision is not play_guard.GuardDecision.SWITCH:
+        return
+    await repo.append_occupancy(
+        session,
+        {
+            "id": uuid.uuid7(),
+            "seat_id": seat["id"],
+            "from_week": week + 1,
+            "occupant_kind": OccupantKind.RULE_BASED.value,
+            "policy_id": None,
+            "reason": OccupancyReason.GUARD_SWITCH.value,
+        },
+    )
+    log.info(
+        "play_guard_switched",
+        game_id=str(game["id"]),
+        seat_id=str(seat["id"]),
+        week=week,
+        statistic=result.statistic,
+        value=str(result.value),
+        parameter_set=guard.id,
     )
 
 
@@ -733,7 +819,10 @@ async def place_order(
 
     `fallback` and `llm_call_ids` are stored on the row as given (FR-32, FR-67): an LLM Order
     carries the ids of its attempts; a fallback Order (`decided_by = rule_based`, the turn's
-    reference Order, an `llm` occupant) carries its failure type and the failed attempts."""
+    reference Order, an `llm` occupant) carries its failure type and the failed attempts.
+
+    An Order with `decided_by = llm` runs the Play guard in the same transaction; on `switch`
+    the Seat is Rule-based from the next Week, reason `guard_switch` (FR-79, AD-5)."""
     if within is not None:
         if within.game_id != _game_uuid(game_id):
             raise ValueError("place_order within another Game's transaction")

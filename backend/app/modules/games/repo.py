@@ -233,6 +233,35 @@ async def decision_log(session: AsyncSession, game_id: uuid.UUID) -> list[RowMap
     return list(result.mappings())
 
 
+async def seat_guard_rows(
+    session: AsyncSession, game_id: uuid.UUID, seat_id: uuid.UUID
+) -> list[RowMapping]:
+    """The Seat's Decision log rows with what the Play guard reads, by Week."""
+    result = await session.execute(
+        select(
+            seat_weeks.c.week,
+            seat_weeks.c.order,
+            seat_weeks.c.decided_by,
+            seat_weeks.c.rule_based_reference_order,
+            seat_weeks.c.near_optimal_reference_order,
+        )
+        .where(seat_weeks.c.game_id == game_id, seat_weeks.c.seat_id == seat_id)
+        .order_by(seat_weeks.c.week)
+    )
+    return list(result.mappings())
+
+
+async def occupancy_history(session: AsyncSession, game_id: uuid.UUID) -> list[RowMapping]:
+    """Every occupancy row of the Game's Seats, by chain order and then as appended."""
+    result = await session.execute(
+        select(seat_occupancy, seats.c.role)
+        .select_from(seat_occupancy.join(seats, seats.c.id == seat_occupancy.c.seat_id))
+        .where(seats.c.game_id == game_id)
+        .order_by(seats.c.position, seat_occupancy.c.id)
+    )
+    return list(result.mappings())
+
+
 async def orders_by_decided_by(session: AsyncSession, game_id: uuid.UUID) -> dict[str, int]:
     """The number of Decision log rows of the Game per `decided_by`."""
     result = await session.execute(
