@@ -5,6 +5,7 @@ import { GuardedPage } from "@/modules/identity/home-page";
 import { ADMIN_USERS_PATH, HOME_PATH } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 
+import { InvitationList } from "./invitation-list";
 import { InviteForm } from "./invite-form";
 import { UserList } from "./user-list";
 
@@ -15,9 +16,9 @@ const CRUMBS = [
   { label: copy.title, href: ADMIN_USERS_PATH },
 ] as const;
 
-/** «Brukere og roller» in the Admin-område: the invite form (Story 3.7), then the User list with
- * its role buttons (Story 3.9). Only an Admin sees it; anyone else gets the permission-denied page
- * and no form. */
+/** «Brukere og roller» in the Admin-område: the invite form (Story 3.7), the User list with its
+ * role and status buttons (Stories 3.9, 3.10), then the Invitations sent (Story 3.10). Only an
+ * Admin sees it; anyone else gets the permission-denied page and no form. */
 export function UsersPage() {
   return (
     <GuardedPage page="adminArea">
@@ -35,6 +36,12 @@ export function UsersPage() {
               {copy.list.title}
             </h2>
             <UserList selfId={user.id} />
+          </section>
+          <section aria-labelledby="invitations-title" className="mt-12">
+            <h2 id="invitations-title" className="mb-4 text-headline text-ink">
+              {copy.invitations.title}
+            </h2>
+            <InvitationList />
           </section>
         </PageShell>
       )}

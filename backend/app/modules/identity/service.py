@@ -21,7 +21,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.identity import repo
 from app.modules.identity.schemas import (
     AccountRole,
+    InvitationListItem,
+    InvitationListOut,
     InvitationOut,
+    InvitationStatus,
     UserListItem,
     UserListOut,
     UserOut,
@@ -53,7 +56,10 @@ INVITATION_SENT = "invitation.sent"
 
 @dataclass(frozen=True)
 class LoginOk:
+    """A User who may be given a session: the cookie carries `session_version` (Story 3.10)."""
+
     user: UserOut
+    session_version: int
 
 
 @dataclass(frozen=True)
@@ -117,14 +123,15 @@ async def authenticate(
         log.info("login_refused", error_code="account_deactivated", user_id=str(row["id"]))
         return LoginRefused("account_deactivated")
     log.info("login", user_id=str(row["id"]))
-    return LoginOk(_user_out(row, roles))
+    return LoginOk(_user_out(row, roles), row["session_version"])
 
 
-async def load_user(user_id: uuid.UUID) -> UserOut | None:
-    """The active User with their roles, or None when the User is gone or deactivated."""
+async def load_user(user_id: uuid.UUID, session_version: int) -> UserOut | None:
+    """The active User with their roles, or None when the User is gone or deactivated, or the
+    session predates the User's session version (a deactivation or a password reset since)."""
     async with get_sessionmaker().begin() as s:
         row = await repo.user_by_id(s, user_id)
-        if row is None or not row["is_active"]:
+        if row is None or not row["is_active"] or row["session_version"] != session_version:
             return None
         return _user_out(row, await repo.roles_of(s, user_id))
 
@@ -239,7 +246,8 @@ async def check_password_reset(token: str, *, now: datetime) -> str | None:
 
 async def confirm_password_reset(token: str, password: str, *, now: datetime) -> str | None:
     """Set a new password through a usable link: the link is marked used, the User's other open
-    links are voided and the failed-login count of the account is cleared. Returns the e-mail, or
+    links are voided, every session of the User ends (Story 3.10) and the failed-login count of the
+    account is cleared. Returns the e-mail, or
     None when the link is not usable (nothing changes then).
 
     The link is checked before the costly hash, so a made-up token costs one lookup. The write
@@ -257,6 +265,8 @@ async def confirm_password_reset(token: str, password: str, *, now: datetime) ->
             log.info("password_reset_refused", error_code="reset_link_invalid")
             return None
         await repo.set_password_hash(s, user["id"], password_hash, now)
+        # Every session the User had ends, also one a thief holds (Issue #73).
+        await repo.bump_session_version(s, user["id"])
         await repo.close_password_resets(s, used_id=reset["id"], user_id=user["id"], now=now)
         await ratelimit.reset(s, LOGIN_ACCOUNT, f"account:{user['email']}")
     log.info("password_reset_done", user_id=str(user["id"]))
@@ -313,42 +323,59 @@ async def send_invitation(
     if not email_is_valid(address):
         raise InvalidEmail
     role = AccountRole(role)
-    invitation_id = uuid.uuid7()
-    expires_at = now + timedelta(days=get_settings().role_invitation_valid_days)
     async with get_sessionmaker().begin() as s:
         await repo.lock_invitation_address(s, address, role.value)
-        voided = await repo.void_open_invitations(s, email=address, role=role.value, now=now)
-        await repo.insert_invitation(
-            s,
-            invitation_id=invitation_id,
-            email=address,
-            role=role.value,
-            token_hash=auth.token_hash(auth.link_token(INVITATION, invitation_id)),
-            created_at=now,
-            expires_at=expires_at,
-            invited_by=actor,
-        )
-        await notify.enqueue(
-            s, None, INVITATION, f"{INVITATION}:{invitation_id}", ref=invitation_id
-        )
-        change: dict[str, object] = {"role": role.value}
-        if voided:
-            change["voided_invitation_ids"] = voided
-        await audit.record(s, actor, INVITATION_SENT, {"invitation_id": invitation_id}, change, now)
+        sent, voided = await _issue_invitation(s, actor, address, role, INVITATION_SENT, {}, now)
     log.info(
         "invitation_sent",
-        invitation_id=str(invitation_id),
+        invitation_id=str(sent.id),
         actor_user_id=str(actor),
         role=role.value,
-        voided_count=len(voided),
+        voided_count=voided,
     )
-    return InvitationOut(
+    return sent
+
+
+async def _issue_invitation(
+    s: AsyncSession,
+    actor: uuid.UUID,
+    address: str,
+    role: AccountRole,
+    action: str,
+    change: dict[str, object],
+    now: datetime,
+) -> tuple[InvitationOut, int]:
+    """Inside the caller's transaction, which holds `lock_invitation_address`: void the open
+    Invitation to the address and role, store a new one (its token only as a hash), clear the
+    requests for a new one (Story 3.10), enqueue its mail and write the audit row `action`.
+    Returns the new Invitation and how many were voided."""
+    invitation_id = uuid.uuid7()
+    expires_at = now + timedelta(days=get_settings().role_invitation_valid_days)
+    voided = await repo.void_open_invitations(s, email=address, role=role.value, now=now)
+    await repo.insert_invitation(
+        s,
+        invitation_id=invitation_id,
+        email=address,
+        role=role.value,
+        token_hash=auth.token_hash(auth.link_token(INVITATION, invitation_id)),
+        created_at=now,
+        expires_at=expires_at,
+        invited_by=actor,
+    )
+    await repo.clear_renewal_requests(s, address, role.value)
+    await notify.enqueue(s, None, INVITATION, f"{INVITATION}:{invitation_id}", ref=invitation_id)
+    change = {"role": role.value, **change}
+    if voided:
+        change["voided_invitation_ids"] = voided
+    await audit.record(s, actor, action, {"invitation_id": invitation_id}, change, now)
+    sent = InvitationOut(
         id=invitation_id,
         email=address,
         role=role,
         expires_at=expires_at,
         valid_days=_days_left(expires_at, now),
     )
+    return sent, len(voided)
 
 
 async def invitation_mail_recipient(
@@ -470,7 +497,7 @@ async def _locked_open_invitation(s: AsyncSession, token: str, now: datetime):
 
 async def accept_invitation_new(
     token: str, name: str, password: str, *, ip: str, now: datetime
-) -> UserOut | AcceptRefused:
+) -> LoginOk | AcceptRefused:
     """Create the account an Invitation offers: in one transaction the User with the Invitation's
     role, the Invitation marked accepted, and one audit row. The caller logs the User in.
     `account_exists` when the address has a User by then (nothing changes)."""
@@ -514,12 +541,13 @@ async def accept_invitation_new(
             now,
         )
     log.info("invitation_accepted", invitation_id=str(row["id"]), user_id=str(user_id))
-    return UserOut(id=user_id, name=name, email=row["email"], roles=[AccountRole(row["role"])])
+    user = UserOut(id=user_id, name=name, email=row["email"], roles=[AccountRole(row["role"])])
+    return LoginOk(user, 0)
 
 
 async def accept_invitation_existing(
     token: str, password: str, *, ip: str, now: datetime
-) -> UserOut | AcceptRefused:
+) -> LoginOk | AcceptRefused:
     """Add an Invitation's role to the account its address already has, proven by that account's
     password (the login limits apply). In one transaction: the role, the Invitation marked
     accepted, one audit row. The caller logs the User in."""
@@ -553,7 +581,7 @@ async def accept_invitation_existing(
         )
         roles = await repo.roles_of(s, user["id"])
     log.info("invitation_accepted", invitation_id=str(row["id"]), user_id=str(user["id"]))
-    return _user_out(user, roles)
+    return LoginOk(_user_out(user, roles), user["session_version"])
 
 
 async def request_invitation_renewal(token: str, *, ip: str, now: datetime) -> int | None:
@@ -712,6 +740,175 @@ async def revoke_role(
         roles = await repo.roles_of(s, user_id)
     log.info("role_revoked", user_id=str(user_id), action=ROLE_REVOKED)
     return _list_item(user, roles)
+
+
+# Deactivating and reactivating Users (Story 3.10, FR-3, AD-8, AD-11, AD-15).
+
+USER_DEACTIVATED = "user.deactivated"
+"""The audit action of a User the Admin deactivates (FR-3)."""
+USER_REACTIVATED = "user.reactivated"
+"""The audit action of a User the Admin reactivates (FR-3)."""
+
+
+@dataclass(frozen=True)
+class StatusRefused:
+    code: str  # not_found | last_admin
+
+
+async def deactivate_user(
+    actor: uuid.UUID, user_id: uuid.UUID, *, now: datetime
+) -> UserListItem | StatusRefused:
+    """Deactivate the User. In one transaction: `is_active` false, every session of theirs ended
+    (the session version), their open reset links and Invitations voided, one audit row and
+    `user:<id>`. Nothing
+    else of theirs changes: roles, name, e-mail and password stay. Refused with `last_admin` for
+    the actor themselves, and when it would leave no active holder of a role in
+    `ROLES_KEEP_ONE_ACTIVE`. An inactive User changes and writes nothing."""
+    async with get_sessionmaker().begin() as s:
+        # The role locks first, as `revoke_role` takes them: a deactivation and a revoke of the
+        # last two Admins run in turn, so they cannot both pass the count below.
+        for role in sorted(ROLES_KEEP_ONE_ACTIVE):
+            await repo.lock_role(s, role)
+        user = await repo.lock_user(s, user_id)
+        if user is None:
+            return StatusRefused("not_found")
+        roles = await repo.roles_of(s, user_id)
+        if not user["is_active"]:
+            return _list_item(user, roles)
+        if user_id == actor:
+            log.info("user_deactivate_refused", user_id=str(user_id), error_code="last_admin")
+            return StatusRefused("last_admin")
+        for role in sorted(ROLES_KEEP_ONE_ACTIVE & set(roles)):
+            if await repo.count_active_holders(s, role, excluding=user_id) == 0:
+                log.info("user_deactivate_refused", user_id=str(user_id), error_code="last_admin")
+                return StatusRefused("last_admin")
+        await repo.set_active(s, user_id, False, now)
+        await repo.bump_session_version(s, user_id)
+        await repo.void_open_password_resets(s, user_id, now)
+        # Their open Invitations too: the list then shows them as expired, and none works again
+        # after a reactivation.
+        await repo.void_open_invitations_to(s, user["email"], now)
+        await audit.record(s, actor, USER_DEACTIVATED, {"user_id": user_id}, {}, now)
+        await events.emit(s, "user", str(user_id))
+        user = await repo.user_by_id(s, user_id)
+    log.info("user_deactivated", user_id=str(user_id), action=USER_DEACTIVATED)
+    return _list_item(user, roles)
+
+
+async def reactivate_user(
+    actor: uuid.UUID, user_id: uuid.UUID, *, now: datetime
+) -> UserListItem | StatusRefused:
+    """Reactivate the User: they log in again with the same password and roles. In one
+    transaction with one audit row and `user:<id>`. An active User changes and writes nothing.
+    Sessions from before the deactivation stay ended."""
+    async with get_sessionmaker().begin() as s:
+        user = await repo.lock_user(s, user_id)
+        if user is None:
+            return StatusRefused("not_found")
+        roles = await repo.roles_of(s, user_id)
+        if user["is_active"]:
+            return _list_item(user, roles)
+        await repo.set_active(s, user_id, True, now)
+        await audit.record(s, actor, USER_REACTIVATED, {"user_id": user_id}, {}, now)
+        await events.emit(s, "user", str(user_id))
+        user = await repo.user_by_id(s, user_id)
+    log.info("user_reactivated", user_id=str(user_id), action=USER_REACTIVATED)
+    return _list_item(user, roles)
+
+
+# The Invitation list and resending (Story 3.10, FR-1, FR-3).
+
+INVITATION_RESENT = "invitation.resent"
+"""The audit action of an Invitation the Admin sends again (FR-3)."""
+
+
+@dataclass(frozen=True)
+class ResendRefused:
+    code: str  # not_found | invitation_accepted | invitation_superseded | account_deactivated
+
+
+def _invitation_status(row, now: datetime) -> InvitationStatus:
+    if row["accepted_at"] is not None:
+        return InvitationStatus.accepted
+    return InvitationStatus.open if _invitation_open(row, now) else InvitationStatus.expired
+
+
+def _link_end(row) -> datetime:
+    """When the link stops or stopped working: its expiry, or the moment it was voided."""
+    voided = row["voided_at"]
+    return voided if voided is not None and voided < row["expires_at"] else row["expires_at"]
+
+
+async def list_invitations(cursor: str | None, limit: int, *, now: datetime) -> InvitationListOut:
+    """A page of the newest Invitation per address and role, newest first. Raises
+    `InvalidCursor` for a cursor this api did not hand out."""
+    after = _decode_cursor(cursor) if cursor else None
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.list_invitations(s, after=after, limit=limit + 1)
+    if rows is None:
+        raise InvalidCursor
+    page = rows[:limit]
+    return InvitationListOut(
+        items=[
+            InvitationListItem(
+                id=row["id"],
+                email=row["email"],
+                role=AccountRole(row["role"]),
+                status=_invitation_status(row, now),
+                expires_at=_link_end(row),
+                renewal_requested=row["renewal_requested"],
+            )
+            for row in page
+        ],
+        next_cursor=_encode_cursor(page[-1]["id"]) if len(rows) > limit else None,
+    )
+
+
+async def resend_invitation(
+    actor: uuid.UUID, invitation_id: uuid.UUID, *, now: datetime
+) -> InvitationOut | ResendRefused:
+    """Send an open or expired Invitation again: its link stops working and a new Invitation to the
+    same address and role, with a new token and expiry, is mailed; the requests for a new one are
+    cleared; one audit row. Refused for an accepted Invitation, one a newer Invitation to the
+    address and role replaced, and an address whose account is deactivated."""
+    async with get_sessionmaker().begin() as s:
+        found = await repo.invitation_by_id(s, invitation_id)
+        if found is None:
+            return ResendRefused("not_found")
+        address, role = found["email"], AccountRole(found["role"])
+        await repo.lock_invitation_address(s, address, role.value)
+        # Locked as an acceptance locks it, so an acceptance under way finishes first.
+        row = await repo.lock_invitation(s, invitation_id)
+        refusal = None
+        if row["accepted_at"] is not None:
+            refusal = "invitation_accepted"
+        elif await repo.newest_invitation_id(s, address, role.value) != invitation_id:
+            refusal = "invitation_superseded"
+        else:
+            user = await repo.user_by_email(s, address)
+            if user is not None and not user["is_active"]:
+                refusal = "account_deactivated"
+        if refusal is not None:
+            log.info(
+                "invitation_resend_refused", invitation_id=str(invitation_id), error_code=refusal
+            )
+            return ResendRefused(refusal)
+        sent, _ = await _issue_invitation(
+            s,
+            actor,
+            address,
+            role,
+            INVITATION_RESENT,
+            {"resent_invitation_id": invitation_id},
+            now,
+        )
+    log.info(
+        "invitation_resent",
+        invitation_id=str(sent.id),
+        resent_invitation_id=str(invitation_id),
+        actor_user_id=str(actor),
+    )
+    return sent
 
 
 # The first Admin (AD-17, Story 3.8).

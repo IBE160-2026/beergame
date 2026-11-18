@@ -50,7 +50,7 @@ HEAD_TABLES = (
     | RESET_TABLES
     | INVITATION_TABLES
 )
-HEAD = "0019"  # 0019 adds `invitations.renewal_requested_at` (Story 3.8), no table
+HEAD = "0020"  # 0020 adds `users.session_version` (Story 3.10), no table
 
 
 def reset_schema(url: str) -> None:
@@ -348,6 +348,21 @@ def test_downgrade_to_0017_removes_the_invitation_and_audit_tables(migrations_da
             "SELECT 1 FROM pg_proc WHERE proname = 'audit_events_append_only'"
         ).fetchall()
     assert functions == []
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_downgrade_to_0019_removes_the_session_version(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0019")
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        columns = conn.execute(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = 'users' AND column_name = 'session_version'"
+        ).fetchall()
+    assert columns == []
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 

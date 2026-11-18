@@ -146,6 +146,40 @@ class RoleIn(BaseModel):
     role: AccountRole
 
 
+class InvitationStatus(StrEnum):
+    """An Invitation as the Admin's list states it (Story 3.10). Expiry is read from `expires_at`
+    against the api's clock; a voided Invitation that was never accepted reads as expired."""
+
+    open = "open"
+    accepted = "accepted"
+    expired = "expired"
+
+
+class InvitationListItem(BaseModel):
+    """The newest Invitation to one address and role, on «Brukere og roller» (Story 3.10)."""
+
+    id: uuid.UUID
+    email: str
+    role: AccountRole
+    status: InvitationStatus
+    expires_at: datetime
+    """When the link stops working, or stopped: its expiry, or when it was voided if earlier."""
+    renewal_requested: bool
+    """Whether the recipient asked for a new Invitation from a link that no longer works
+    (Story 3.8) since the last one was sent."""
+
+
+class InvitationListOut(BaseModel):
+    """A page of Invitations in the list envelope: `next_cursor` is null on the last page."""
+
+    items: list[InvitationListItem]
+    next_cursor: str | None
+
+
+INVITATION_PAGE_DEFAULT = 50
+INVITATION_PAGE_MAX = 100
+
+
 def normalise_email(email: str) -> str:
     return email.strip().lower()
 

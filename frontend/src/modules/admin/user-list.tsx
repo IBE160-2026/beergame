@@ -9,8 +9,18 @@ import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
 import { usePageState } from "@/lib/page-state";
 
-import { type AccountRole, type ListedUser, useChangeRole, usersKey, useUsers } from "./api";
-import { changedLine, holds, refusalLine, ROLES, roleButtonLabel, rolesText } from "./user-roles";
+import { type AccountRole, type ListedUser, useChangeRole, useChangeStatus, usersKey, useUsers } from "./api";
+import {
+  changedLine,
+  holds,
+  refusalLine,
+  ROLES,
+  roleButtonLabel,
+  rolesText,
+  statusButtonLabel,
+  statusChangedLine,
+  statusRefusalLine,
+} from "./user-roles";
 
 const copy = nb.admin.users.list;
 
@@ -20,14 +30,15 @@ export const SEARCH_DELAY_MS = 250;
 /** The api's longest search text (`SEARCH_MAX_LENGTH` in `identity/schemas.py`). */
 const SEARCH_MAX_LENGTH = 200;
 
-type RowLine = { userId: string; text: string; refused: boolean };
+export type RowLine = { key: string; text: string; refused: boolean };
 
 /**
  * The User list on «Brukere og roller» (Story 3.9, FR-2, FR-3, UX-DR57, UX-DR75): a search field
  * and a table of Users with their roles and status, one page of the list envelope at a time.
  * Below laptop width every row is one block with each field labelled. Each row has one button
  * per account role, stating its effect and the User's first name; pressing it changes the role
- * at once, with no dialog. The row then says what changed, or why nothing did.
+ * at once, with no dialog, and one status button that deactivates or reactivates the User
+ * (Story 3.10). The row then says what changed, or why nothing did.
  */
 export function UserList({ selfId }: { selfId: string }) {
   const [typed, setTyped] = useState("");
@@ -44,21 +55,32 @@ export function UserList({ selfId }: { selfId: string }) {
   const phase = moreFailed ? "ready" : pageState.phase;
   const retry = pageState.retry;
   const change = useChangeRole(selfId);
+  const status = useChangeStatus();
+  const busy = change.isPending || status.isPending;
   const [line, setLine] = useState<RowLine>();
   const items = users.data?.pages.flatMap((page) => page.items) ?? [];
 
   function press(user: ListedUser, role: AccountRole) {
-    if (change.isPending) return;
+    if (busy) return;
     const grant = !holds(user, role);
     // A new press ends the earlier line, so it never stands beside a new result.
     setLine(undefined);
     change.mutate(
       { user, role, grant },
       {
-        onSuccess: (updated) => setLine({ userId: user.id, text: changedLine(updated, role, grant), refused: false }),
-        onError: (error) => setLine({ userId: user.id, text: refusalLine(error, user), refused: true }),
+        onSuccess: (updated) => setLine({ key: user.id, text: changedLine(updated, role, grant), refused: false }),
+        onError: (error) => setLine({ key: user.id, text: refusalLine(error, user), refused: true }),
       },
     );
+  }
+
+  function pressStatus(user: ListedUser) {
+    if (busy) return;
+    setLine(undefined);
+    status.mutate(user, {
+      onSuccess: (updated) => setLine({ key: user.id, text: statusChangedLine(updated), refused: false }),
+      onError: (error) => setLine({ key: user.id, text: statusRefusalLine(error, user, selfId), refused: true }),
+    });
   }
 
   return (
@@ -137,14 +159,21 @@ export function UserList({ selfId }: { selfId: string }) {
                           <Button
                             key={role}
                             className="@max-[60em]:w-full @min-[60em]:px-3"
-                            unavailable={change.isPending}
+                            unavailable={busy}
                             onClick={() => press(user, role)}
                           >
                             {roleButtonLabel(user, role)}
                           </Button>
                         ))}
+                        <Button
+                          className="text-left @max-[60em]:w-full @min-[60em]:max-w-[22em] @min-[60em]:px-3"
+                          unavailable={busy}
+                          onClick={() => pressStatus(user)}
+                        >
+                          {statusButtonLabel(user)}
+                        </Button>
                       </div>
-                      <RowMessage line={line?.userId === user.id ? line : undefined} />
+                      <RowMessage line={line?.key === user.id ? line : undefined} />
                     </td>
                   </tr>
                 ))}
@@ -168,7 +197,7 @@ export function UserList({ selfId }: { selfId: string }) {
 }
 
 /** A table cell; below laptop width it is a labelled line of the row's block. */
-function Cell({ label, children }: { label: string; children: ReactNode }) {
+export function Cell({ label, children }: { label: string; children: ReactNode }) {
   return (
     <td className="py-3 pr-6 @max-[60em]:flex @max-[60em]:gap-3 @max-[60em]:py-1 @max-[60em]:pr-0">
       <span className="w-20 shrink-0 text-ink-secondary @min-[60em]:hidden">{label}</span>
@@ -179,7 +208,7 @@ function Cell({ label, children }: { label: string; children: ReactNode }) {
 
 /** The row's result line, or its refusal with `role="alert"` (as `ActionError`), announced as
  * it appears; focus stays on the pressed button. */
-function RowMessage({ line }: { line?: RowLine }) {
+export function RowMessage({ line }: { line?: RowLine }) {
   if (!line) return null;
   return (
     <p

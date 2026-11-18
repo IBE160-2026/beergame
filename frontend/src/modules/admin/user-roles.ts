@@ -49,3 +49,24 @@ export function refusalLine(error: unknown, user: ListedUser): string {
   }
   return copy.failed;
 }
+
+/** The status button states its effect: «Deaktiver Bård. Bård kan ikke logge inn, og dataene
+ * blir værende.» or «Aktiver Bård igjen» (Story 3.10, UX-DR57). */
+export function statusButtonLabel(user: ListedUser): string {
+  const name = firstName(user.name);
+  return user.is_active ? copy.deactivate(name) : copy.reactivate(name);
+}
+
+/** The line after a status change, from the answer: «Bård er deaktivert.» */
+export function statusChangedLine(user: ListedUser): string {
+  const name = firstName(user.name);
+  return user.is_active ? copy.reactivatedLine(name) : copy.deactivatedLine(name);
+}
+
+/** The line for a refused status change: oneself, the last Admin, or the general line. */
+export function statusRefusalLine(error: unknown, user: ListedUser, selfId: string): string {
+  if (error instanceof ApiRequestError && error.code === "last_admin") {
+    return user.id === selfId ? copy.deactivateSelf : copy.lastAdmin(firstName(user.name));
+  }
+  return copy.statusFailed;
+}

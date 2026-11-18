@@ -154,7 +154,10 @@ test.describe("failure", () => {
   test("a send that fails says so beside the button and keeps the address", async ({ page }) => {
     await loginByApi(page, "admin");
     await page.goto("/admin/brukere");
-    await page.route("**/api/admin/invitations", (route) => route.fulfill({ status: 500, body: "" }));
+    // Only the send: the Invitation list on the same page (Story 3.10) reads the same path.
+    await page.route("**/api/admin/invitations", (route) =>
+      route.request().method() === "POST" ? route.fulfill({ status: 500, body: "" }) : route.continue(),
+    );
     const address = freshAddress("failure");
     const email = page.getByLabel(invite.email, { exact: true });
     await email.fill(address);
@@ -171,6 +174,7 @@ test.describe("result line", () => {
     await page.goto("/admin/brukere");
     // The answer of a send, without storing an Invitation: this test is about the form only.
     await page.route("**/api/admin/invitations", async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
       const body = route.request().postDataJSON() as { email: string; role: string };
       await route.fulfill({
         status: 201,

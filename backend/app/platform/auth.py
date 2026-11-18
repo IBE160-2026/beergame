@@ -3,7 +3,9 @@
 - A password is SHA-256 hashed and base64-encoded before bcrypt, because bcrypt 5 rejects input
   over 72 bytes. The cost is `BCRYPT_ROUNDS`.
 - The session is an HS256 JWT in an `httpOnly; Secure; SameSite=Lax` cookie. Its claims are
-  `user_id`, `iat` and `exp`: no name, e-mail or role. Who the User is and which roles they hold
+  `user_id`, `sv` (the User's session version, Story 3.10), `iat` and `exp`: no name, e-mail or
+  role. A deactivation or a password reset raises the User's version, which ends every older
+  session. Who the User is and which roles they hold
   is loaded from the database on every request (`authz.current_principal`, which calls the
   loader `identity` registers).
 - Every mutating `/api` request must carry `X-Requested-With: olspillet`; only `/api/webhooks/*`
@@ -17,6 +19,7 @@ import hashlib
 import hmac
 import json
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import bcrypt
@@ -83,16 +86,34 @@ def token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def issue_token(user_id: uuid.UUID, now: datetime | None = None) -> str:
+@dataclass(frozen=True)
+class Session:
+    """What a session cookie names: the User and the session version it was issued at."""
+
+    user_id: uuid.UUID
+    version: int
+
+
+def issue_token(
+    user_id: uuid.UUID, now: datetime | None = None, *, session_version: int = 0
+) -> str:
     now = now or utcnow()
     max_age = timedelta(hours=get_settings().session_max_age_hours)
-    claims = {"user_id": str(user_id), "iat": now, "exp": now + max_age}
+    claims = {"user_id": str(user_id), "sv": session_version, "iat": now, "exp": now + max_age}
     return jwt.encode(claims, get_settings().jwt_secret, algorithm=ALGORITHM)
 
 
 def read_token(token: str | None, now: datetime | None = None) -> uuid.UUID | None:
     """The token's `user_id`, or None when it is missing, tampered, signed with another secret,
     expired or malformed."""
+    session = read_session(token, now)
+    return session.user_id if session else None
+
+
+def read_session(token: str | None, now: datetime | None = None) -> Session | None:
+    """The token's User and session version, or None when it is missing, tampered, signed with
+    another secret, expired or malformed. A token without `sv` (issued before Story 3.10) is
+    version 0."""
     if not token:
         return None
     now = now or utcnow()
@@ -111,16 +132,26 @@ def read_token(token: str | None, now: datetime | None = None) -> uuid.UUID | No
         if datetime.fromtimestamp(claims["exp"], UTC) <= now:
             return None
         user_id = claims["user_id"]
-        return uuid.UUID(user_id) if isinstance(user_id, str) else None
+        version = claims.get("sv", 0)
+        # bool is an int to Python; a version is never one.
+        if not isinstance(user_id, str) or type(version) is not int:
+            return None
+        return Session(uuid.UUID(user_id), version)
     # A validly signed token can still hold an absurd `exp` or a non-string `user_id`.
     except jwt.InvalidTokenError, ValueError, TypeError, KeyError, OverflowError, OSError:
         return None
 
 
-def set_session_cookie(response: Response, user_id: uuid.UUID, now: datetime | None = None) -> None:
+def set_session_cookie(
+    response: Response,
+    user_id: uuid.UUID,
+    now: datetime | None = None,
+    *,
+    session_version: int,
+) -> None:
     response.set_cookie(
         COOKIE_NAME,
-        issue_token(user_id, now),
+        issue_token(user_id, now, session_version=session_version),
         max_age=get_settings().session_max_age_hours * 3600,
         path="/",
         httponly=True,

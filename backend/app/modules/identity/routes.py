@@ -1,6 +1,6 @@
 """`/api/auth/*`: login, logout and the current session (Story 3.2), the password reset
 (Story 3.6) and accepting an Invitation (Story 3.8). `/api/admin/*`: the Admin's actions on
-accounts, from the Invitation (Story 3.7)."""
+accounts: Invitations (Stories 3.7, 3.10), roles (3.9), deactivation and reactivation (3.10)."""
 
 import uuid
 from typing import Annotated
@@ -10,6 +10,8 @@ from fastapi.responses import JSONResponse
 
 from app.modules.identity import service
 from app.modules.identity.schemas import (
+    INVITATION_PAGE_DEFAULT,
+    INVITATION_PAGE_MAX,
     SEARCH_MAX_LENGTH,
     USER_PAGE_DEFAULT,
     USER_PAGE_MAX,
@@ -18,6 +20,7 @@ from app.modules.identity.schemas import (
     AccountRole,
     InvitationCheckOut,
     InvitationIn,
+    InvitationListOut,
     InvitationOut,
     InvitationTokenIn,
     LoginIn,
@@ -58,8 +61,13 @@ async def login(body: LoginIn, request: Request) -> Response:
         status, message = REFUSALS[outcome.code]
         headers = {"Retry-After": str(outcome.retry_after)} if outcome.retry_after else None
         return error_response(status, outcome.code, message, headers=headers)
+    return _signed_in(outcome)
+
+
+def _signed_in(outcome: service.LoginOk) -> Response:
+    """The session answer: the User, and the cookie at their current session version."""
     response = JSONResponse(SessionOut(user=outcome.user).model_dump(mode="json"))
-    auth.set_session_cookie(response, outcome.user.id)
+    auth.set_session_cookie(response, outcome.user.id, session_version=outcome.session_version)
     return response
 
 
@@ -147,16 +155,14 @@ INVITATION_REFUSALS = {
 }
 
 
-def _invitation_answer(outcome: UserOut | service.AcceptRefused) -> Response:
+def _invitation_answer(outcome: service.LoginOk | service.AcceptRefused) -> Response:
     """The answer to an Invitation route: a logged-in session for an accepted Invitation, or the
     refusal."""
     if isinstance(outcome, service.AcceptRefused):
         status, message = INVITATION_REFUSALS[outcome.code]
         headers = {"Retry-After": str(outcome.retry_after)} if outcome.retry_after else None
         return error_response(status, outcome.code, message, headers=headers)
-    response = JSONResponse(SessionOut(user=outcome).model_dump(mode="json"))
-    auth.set_session_cookie(response, outcome.id)
-    return response
+    return _signed_in(outcome)
 
 
 @router.post(
@@ -331,3 +337,95 @@ async def revoke_role(
     """Take the Lecturer or Admin role from a User; it ends at their next request (FR-2). Refused
     with `last_admin` or `role_revoke_blocked` (`fields.classes`)."""
     return _role_answer(await service.revoke_role(user.id, user_id, role, now=auth.utcnow()))
+
+
+STATUS_REFUSALS = {
+    "not_found": (404, "No such User."),
+    "last_admin": (409, "The product would be left without an active Admin."),
+}
+
+
+def _status_answer(outcome: UserListItem | service.StatusRefused) -> Response:
+    if isinstance(outcome, service.StatusRefused):
+        status, message = STATUS_REFUSALS[outcome.code]
+        return error_response(status, outcome.code, message)
+    return JSONResponse(outcome.model_dump(mode="json"))
+
+
+@admin_router.post(
+    "/users/{user_id}/deactivate",
+    response_model=UserListItem,
+    responses=documented(401, 403, 404, 409, 422),
+    operation_id="deactivateUser",
+)
+async def deactivate_user(
+    user_id: uuid.UUID,
+    user: Annotated[UserOut, Depends(authz.require("users.manage"))],
+) -> Response:
+    """Deactivate a User: they cannot log in, their sessions end at once, and none of their data
+    is deleted (FR-3). Refused with `last_admin` for oneself or the last active Admin."""
+    return _status_answer(await service.deactivate_user(user.id, user_id, now=auth.utcnow()))
+
+
+@admin_router.post(
+    "/users/{user_id}/reactivate",
+    response_model=UserListItem,
+    responses=documented(401, 403, 404, 422),
+    operation_id="reactivateUser",
+)
+async def reactivate_user(
+    user_id: uuid.UUID,
+    user: Annotated[UserOut, Depends(authz.require("users.manage"))],
+) -> Response:
+    """Reactivate a User: they log in again with the same password and roles (FR-3)."""
+    return _status_answer(await service.reactivate_user(user.id, user_id, now=auth.utcnow()))
+
+
+@admin_router.get(
+    "/invitations",
+    response_model=InvitationListOut,
+    responses=documented(401, 403, 422),
+    operation_id="listInvitations",
+)
+async def list_invitations(
+    _: Annotated[UserOut, Depends(authz.require("users.list"))],
+    cursor: Annotated[str | None, Query(max_length=64)] = None,
+    limit: Annotated[int, Query(ge=1, le=INVITATION_PAGE_MAX)] = INVITATION_PAGE_DEFAULT,
+) -> Response:
+    """The newest Invitation to each address and role, newest first, with its status and whether
+    the recipient asked for a new one (FR-1, FR-3)."""
+    try:
+        page = await service.list_invitations(cursor, limit, now=auth.utcnow())
+    except service.InvalidCursor:
+        return error_response(
+            422, "invalid_request", "The cursor is not valid.", {"cursor": "invalid_cursor"}
+        )
+    return JSONResponse(page.model_dump(mode="json"))
+
+
+RESEND_REFUSALS = {
+    "not_found": (404, "No such Invitation."),
+    "invitation_accepted": (409, "The Invitation is accepted."),
+    "invitation_superseded": (409, "A newer Invitation to the address and role exists."),
+    "account_deactivated": (409, "The address belongs to a deactivated account."),
+}
+
+
+@admin_router.post(
+    "/invitations/{invitation_id}/resend",
+    status_code=201,
+    response_model=InvitationOut,
+    responses=documented(401, 403, 404, 409, 422),
+    operation_id="resendInvitation",
+)
+async def resend_invitation(
+    invitation_id: uuid.UUID,
+    user: Annotated[UserOut, Depends(authz.require("users.manage"))],
+) -> Response:
+    """Send an open or expired Invitation again with a new link and expiry; the old link stops
+    working (FR-3)."""
+    outcome = await service.resend_invitation(user.id, invitation_id, now=auth.utcnow())
+    if isinstance(outcome, service.ResendRefused):
+        status, message = RESEND_REFUSALS[outcome.code]
+        return error_response(status, outcome.code, message)
+    return JSONResponse(outcome.model_dump(mode="json"), status_code=201)

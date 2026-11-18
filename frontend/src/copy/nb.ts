@@ -269,7 +269,7 @@ export const nb = {
       list: {
         title: "Brukere",
         search: "Søk etter navn eller e-post",
-        columns: { name: "Navn", email: "E-post", roles: "Roller", status: "Status", actions: "Endre rolle" },
+        columns: { name: "Navn", email: "E-post", roles: "Roller", status: "Status", actions: "Endre" },
         roles: { lecturer: "Faglærer", admin: "Admin" },
         noRole: "Ingen rolle",
         active: "Aktiv",
@@ -287,6 +287,33 @@ export const nb = {
             : `${name} eier ${classes} Klasser. Legg til en annen Faglærer eller arkiver Klassene først.`,
         lastAdmin: (name: string) => `${name} er den eneste aktive Admin. Gi en annen bruker rollen Admin først.`,
         failed: "Rollen ble ikke endret. Prøv igjen.",
+        // Story 3.10 (UX-DR57): the deactivate button states the consequence, in EXPERIENCE.md's
+        // own words; the rest is [ASSUMPTION] Story 3.10.
+        deactivate: (name: string) => `Deaktiver ${name}. ${name} kan ikke logge inn, og dataene blir værende.`,
+        reactivate: (name: string) => `Aktiver ${name} igjen`,
+        deactivatedLine: (name: string) => `${name} er deaktivert.`,
+        reactivatedLine: (name: string) => `${name} er aktiv igjen.`,
+        deactivateSelf: "Du kan ikke deaktivere deg selv.",
+        statusFailed: "Statusen ble ikke endret. Prøv igjen.",
+      },
+      /** The Invitations sent, newest first, and resending one (Story 3.10, FR-1, FR-3).
+       * [ASSUMPTION] Story 3.10, including the renewal-request line the epic asks this story to
+       * write. */
+      invitations: {
+        title: "Invitasjoner",
+        columns: { email: "E-post", role: "Rolle", status: "Status", expires: "Utløper", actions: "Send på nytt" },
+        status: { open: "Åpen", accepted: "Akseptert", expired: "Utløpt" },
+        renewalRequested: "Mottakeren har bedt om en ny invitasjon.",
+        resend: (email: string) => `Send ny invitasjon til ${email}`,
+        resent: (email: string, days: number) =>
+          `Ny invitasjon sendt til ${email}. Den er gyldig i ${days === 1 ? "én dag" : `${days} dager`}.`,
+        failed: "Invitasjonen ble ikke sendt på nytt. Prøv igjen.",
+        deactivatedAccount: "Kontoen med denne adressen er deaktivert. Aktiver den før du sender på nytt.",
+        empty: "Ingen invitasjoner ennå.",
+        // Not «Vis flere» alone: the User list above has that button.
+        more: "Vis flere invitasjoner",
+        moreFailed: "Flere invitasjoner kunne ikke lastes. Prøv igjen.",
+        months: ["jan.", "feb.", "mar.", "apr.", "mai", "jun.", "jul.", "aug.", "sep.", "okt.", "nov.", "des."],
       },
     },
   },

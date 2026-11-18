@@ -187,6 +187,18 @@ async def test_an_account_made_during_acceptance_is_409_not_a_second_user(
     assert accepted_at(invitation_id) is None
 
 
+async def test_an_account_whose_sessions_were_ended_gets_a_working_cookie(admin, clock):
+    """The cookie carries the User's current session version (Story 3.10), not 0."""
+    user_id = await service.create_user(email=INVITED, name="Ola", password=PASSWORD)
+    await service.deactivate_user(admin, user_id, now=clock["now"])
+    await service.reactivate_user(admin, user_id, now=clock["now"])
+    assert rows("SELECT session_version FROM users WHERE id = %s", user_id) == [(1,)]
+    _, token = await invitation(admin, clock)
+    async with client() as c:
+        assert (await accept_login(c, token, PASSWORD)).status_code == 200
+        assert (await c.get("/api/auth/me")).status_code == 200
+
+
 async def test_an_existing_account_logs_in_and_gains_the_role(admin, clock):
     user_id = await service.create_user(
         email=INVITED, name="Ola", password=PASSWORD, roles=[AccountRole.lecturer]

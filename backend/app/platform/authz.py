@@ -9,8 +9,9 @@ modules ask `can(user, action, resource)`, they never compare roles themselves.
 - `current_principal` reads the session cookie and loads the User and their roles from the
   database on every request, through the loader `identity` registers at app start
   (`register_principal_loader`). A role granted or revoked takes effect at the next request. No
-  cookie is `NotAuthenticated`; a cookie that is expired or tampered, or whose User is deleted
-  or deactivated, is `SessionExpired`.
+  cookie is `NotAuthenticated`; a cookie that is expired or tampered, whose User is deleted or
+  deactivated, or that is older than the User's session version (a deactivation or a password
+  reset since, Story 3.10), is `SessionExpired`.
 - A policy runs before the route handler, so a refusal is the same 403 `forbidden` whether or not
   the item exists: the answer never reveals what is there.
 - The account roles are `admin` and `lecturer`. A Student or an Assistent is not an account role:
@@ -82,7 +83,9 @@ def can(user: Principal, action: str, resource: Any = None) -> bool:
     return ANY_USER in allowed or not allowed.isdisjoint(user.roles)
 
 
-PrincipalLoader = Callable[[uuid.UUID], Awaitable[Principal | None]]
+PrincipalLoader = Callable[[uuid.UUID, int], Awaitable[Principal | None]]
+"""`(user_id, session_version)` → the active User, or None when the User is gone, deactivated, or
+the session is older than the User's session version."""
 _loader: PrincipalLoader | None = None
 
 
@@ -99,8 +102,8 @@ async def current_principal(request: Request) -> Principal:
     token = request.cookies.get(auth.COOKIE_NAME)
     if not token:
         raise NotAuthenticated
-    user_id = auth.read_token(token)
-    user = await _loader(user_id) if user_id else None
+    session = auth.read_session(token)
+    user = await _loader(session.user_id, session.version) if session else None
     if user is None:
         raise SessionExpired
     return user

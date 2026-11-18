@@ -1,0 +1,235 @@
+import AxeBuilder from "@axe-core/playwright";
+import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
+
+import { nb } from "../src/copy/nb";
+import { DEMO_PASSWORD, DEMO_USERS, latestMail, loginByApi, nextMail } from "./support/auth";
+
+/** Deactivating and reactivating a User, and the Invitation list with its resend, on «Brukere og
+ * roller» (Story 3.10, FR-1, FR-3, UX-DR57, UX-DR61, NFR-6), on the local stack with the mail
+ * worker. Every User a test deactivates is a fresh account made from an Invitation; demo Users
+ * are never deactivated. */
+const list = nb.admin.users.list;
+const invitations = nb.admin.users.invitations;
+const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
+const CSRF = { "X-Requested-With": "olspillet" };
+const PASSWORD = "et-godt-passord";
+
+const VIEWPORTS = [
+  { name: "320 px", width: 320, height: 640, phone: true },
+  { name: "1440 px", width: 1440, height: 900, phone: false },
+];
+
+async function expectAccessible(page: Page, phone: boolean) {
+  const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
+  expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+  const scrolls = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+  expect(scrolls).toBe(false);
+  if (!phone) return;
+  const small = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>("main a, main button, main input")]
+      .filter((el) => el.offsetParent !== null)
+      .map((el) => ({ name: el.id || el.textContent?.trim(), ...el.getBoundingClientRect().toJSON() }))
+      .filter((b) => b.height < 44 || b.width < 44),
+  );
+  expect(small).toEqual([]);
+}
+
+const usersSection = (page: Page) => page.getByRole("region", { name: list.title, exact: true });
+const invitationsSection = (page: Page) => page.getByRole("region", { name: invitations.title, exact: true });
+
+/** The demo Admin's api, in a browser context of its own. */
+async function adminApi(browser: Browser): Promise<BrowserContext> {
+  const context = await browser.newContext({ baseURL: test.info().project.use.baseURL });
+  const login = await context.request.post("/api/auth/login", {
+    data: { email: DEMO_USERS.admin.email, password: DEMO_PASSWORD },
+    headers: CSRF,
+  });
+  expect(login.status()).toBe(200);
+  return context;
+}
+
+/** Send a Lecturer Invitation to a fresh address and return the address and its mailed token. */
+async function invite(page: Page, browser: Browser, prefix: string) {
+  const tag = `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
+  const address = `${prefix}-${tag}@example.com`;
+  const admin = await adminApi(browser);
+  const before = await latestMail(page, address);
+  const sent = await admin.request.post("/api/admin/invitations", {
+    data: { email: address, role: "lecturer" },
+    headers: CSRF,
+  });
+  expect(sent.status()).toBe(201);
+  await admin.close();
+  const mail = await nextMail(page, address, before);
+  const token = mail.text.match(/\/invitasjon#([A-Za-z0-9_-]+)/)![1];
+  return { address, tag, token, mail };
+}
+
+/** A fresh Lecturer, made from an Invitation and logged in, in a browser context of its own. */
+async function freshLecturer(page: Page, browser: Browser) {
+  const { address, tag, token } = await invite(page, browser, "status");
+  const first = `Stine${tag}`;
+  const context = await browser.newContext({ baseURL: test.info().project.use.baseURL });
+  const accepted = await context.request.post("/api/auth/invitation/accept", {
+    data: { token, name: `${first} Testesen`, password: PASSWORD },
+    headers: CSRF,
+  });
+  expect(accepted.status()).toBe(200);
+  return { context, address, first };
+}
+
+async function openUsers(page: Page) {
+  await loginByApi(page, "admin");
+  await page.goto("/admin/brukere");
+  await expect(page.getByRole("heading", { level: 2, name: list.title })).toBeVisible();
+}
+
+for (const vp of VIEWPORTS) {
+  test.describe(vp.name, () => {
+    test.use({ viewport: { width: vp.width, height: vp.height } });
+
+    test("the Admin deactivates a User, who is out at once, and reactivates them", async ({ page, browser }) => {
+      const fresh = await freshLecturer(page, browser);
+      expect((await fresh.context.request.get("/api/auth/me")).status()).toBe(200);
+
+      await openUsers(page);
+      await page.getByLabel(list.search).fill(fresh.address);
+      await expect(usersSection(page).locator("tbody tr")).toHaveCount(1);
+      const deactivate = page.getByRole("button", { name: list.deactivate(fresh.first) });
+      await expect(deactivate).toBeVisible();
+      await expectAccessible(page, vp.phone);
+      await expect(page.locator("main button.bg-ink")).toHaveCount(1);
+
+      // No dialog: the status changes at once, the pressed button keeps focus and states its new
+      // effect, and the row says what changed.
+      const dialogs: string[] = [];
+      page.on("dialog", (dialog) => dialogs.push(dialog.message()));
+      await deactivate.click();
+      const reactivate = page.getByRole("button", { name: list.reactivate(fresh.first) });
+      await expect(reactivate).toBeFocused();
+      await expect(page.getByRole("status").filter({ hasText: list.deactivatedLine(fresh.first) })).toBeVisible();
+      await expect(usersSection(page).getByText(list.deactivated, { exact: true })).toBeVisible();
+      expect(dialogs).toEqual([]);
+      await expectAccessible(page, vp.phone);
+
+      // The live cookie is rejected at once, and the right password names the deactivation.
+      expect((await fresh.context.request.get("/api/auth/me")).status()).toBe(401);
+      const own = await fresh.context.newPage();
+      await own.goto("/logg-inn");
+      await own.getByLabel(nb.auth.login.email).fill(fresh.address);
+      await own.getByLabel(nb.auth.login.password).fill(PASSWORD);
+      await own.getByRole("button", { name: nb.auth.login.submit }).click();
+      await expect(own.getByText(nb.auth.login.deactivated)).toBeVisible();
+
+      await reactivate.click();
+      await expect(deactivate).toBeFocused();
+      await expect(page.getByRole("status").filter({ hasText: list.reactivatedLine(fresh.first) })).toBeVisible();
+      await own.getByRole("button", { name: nb.auth.login.submit }).click();
+      await expect(own).toHaveURL(/\/laererhjem$/);
+      await fresh.context.close();
+    });
+
+    test("the Invitation list shows each Invitation and resends an open one with a new link", async ({
+      page,
+      browser,
+    }) => {
+      const { address, token: oldToken } = await invite(page, browser, "liste");
+      await openUsers(page);
+      const section = invitationsSection(page);
+      const resend = section.getByRole("button", { name: invitations.resend(address) });
+      await expect(resend).toBeVisible();
+      await expect(section.getByText(invitations.status.open, { exact: true }).first()).toBeVisible();
+      await expectAccessible(page, vp.phone);
+
+      const before = await latestMail(page, address);
+      await resend.click();
+      await expect(resend).toBeFocused();
+      await expect(section.getByRole("status").filter({ hasText: invitations.resent(address, 14) })).toBeVisible();
+      const mail = await nextMail(page, address, before);
+      const newToken = mail.text.match(/\/invitasjon#([A-Za-z0-9_-]+)/)![1];
+      expect(newToken).not.toBe(oldToken);
+      const check = (token: string) =>
+        page.request.post("/api/auth/invitation/check", { data: { token }, headers: CSRF });
+      expect((await check(oldToken)).status()).toBe(410);
+      expect((await check(newToken)).status()).toBe(200);
+
+      // The list read again: the row now holds the new Invitation, so a second resend works.
+      const again = await latestMail(page, address);
+      await resend.click();
+      const third = (await nextMail(page, address, again)).text.match(/\/invitasjon#([A-Za-z0-9_-]+)/)![1];
+      expect((await check(newToken)).status()).toBe(410);
+      expect((await check(third)).status()).toBe(200);
+      await expect(section.getByRole("alert")).toHaveCount(0);
+    });
+  });
+}
+
+test.describe("Invitation states", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test("an accepted Invitation offers no resend, and a renewal request says so", async ({ page, browser }) => {
+    const fresh = await freshLecturer(page, browser);
+    await fresh.context.close();
+    await page.route("**/api/admin/invitations", (route) =>
+      route.request().method() === "GET"
+        ? route.fulfill({
+            json: {
+              items: [
+                {
+                  id: "00000000-0000-7000-8000-000000000001",
+                  email: "utlopt@example.com",
+                  role: "admin",
+                  status: "expired",
+                  expires_at: "2026-11-02T11:00:00Z",
+                  renewal_requested: true,
+                },
+              ],
+              next_cursor: null,
+            },
+          })
+        : route.continue(),
+    );
+    await openUsers(page);
+    const section = invitationsSection(page);
+    await expect(section.getByText(invitations.status.expired, { exact: true })).toBeVisible();
+    await expect(section.getByText(invitations.renewalRequested)).toBeVisible();
+    await expect(section.getByText("2. nov. 2026")).toBeVisible();
+    await expect(section.getByRole("button", { name: invitations.resend("utlopt@example.com") })).toBeVisible();
+
+    // The real list: the fresh account's Invitation is accepted and has no resend button.
+    await page.unroute("**/api/admin/invitations");
+    await page.reload();
+    const row = invitationsSection(page).getByRole("row").filter({ hasText: fresh.address });
+    await expect(row.getByText(invitations.status.accepted, { exact: true })).toBeVisible();
+    await expect(row.getByRole("button")).toHaveCount(0);
+  });
+
+  test("an Invitation sent from the form appears in the list at once", async ({ page }) => {
+    const address = `skjema-${Date.now()}${Math.floor(Math.random() * 1e6)}@example.com`;
+    await openUsers(page);
+    await expect(invitationsSection(page).getByRole("table")).toBeVisible();
+    await page.getByLabel(nb.admin.users.invite.email, { exact: true }).fill(address);
+    await page.getByRole("button", { name: nb.admin.users.invite.submit }).click();
+    await expect(invitationsSection(page).getByRole("button", { name: invitations.resend(address) })).toBeVisible();
+  });
+
+  test("an Admin who presses their own deactivate button is told why nothing changed", async ({ page }) => {
+    // The demo Admin must never be deactivated: the api's refusal is answered by the test, so a
+    // broken server-side check cannot lock the shared account out.
+    await page.route("**/api/admin/users/*/deactivate", (route) =>
+      route.fulfill({
+        status: 409,
+        json: { error: { code: "last_admin", message: "The product would be left without an active Admin.", fields: {} } },
+      }),
+    );
+    await openUsers(page);
+    await page.getByLabel(list.search).fill(DEMO_USERS.admin.email);
+    await expect(usersSection(page).locator("tbody tr")).toHaveCount(1);
+    const own = page.getByRole("button", { name: list.deactivate("Demo") });
+    await own.click();
+    await expect(page.getByRole("alert").filter({ hasText: list.deactivateSelf })).toBeVisible();
+    await expect(own).toBeFocused();
+    // The demo Admin is still active.
+    await expect(usersSection(page).getByText(list.active, { exact: true })).toBeVisible();
+  });
+});

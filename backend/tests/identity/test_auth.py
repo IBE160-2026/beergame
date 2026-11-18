@@ -39,13 +39,26 @@ def test_the_dummy_hash_is_a_real_hash_that_matches_no_typed_password():
     assert not auth.verify_password("", auth.dummy_hash())
 
 
-def test_the_token_carries_the_user_id_and_its_times_only():
+def test_the_token_carries_the_user_id_its_session_version_and_its_times_only():
     user_id = uuid.uuid7()
-    token = auth.issue_token(user_id, NOW)
+    token = auth.issue_token(user_id, NOW, session_version=3)
     claims = jwt.decode(token, options={"verify_signature": False})
-    assert set(claims) == {"user_id", "iat", "exp"}
+    assert set(claims) == {"user_id", "sv", "iat", "exp"}
     assert jwt.get_unverified_header(token)["alg"] == "HS256"
     assert auth.read_token(token, NOW + timedelta(hours=1)) == user_id
+    assert auth.read_session(token, NOW) == auth.Session(user_id, 3)
+
+
+def test_a_token_without_a_session_version_is_version_0_and_a_bad_one_is_refused():
+    """Tokens issued before Story 3.10 carry no `sv`."""
+    secret = get_settings().jwt_secret
+    user_id = uuid.uuid7()
+    claims = {"user_id": str(user_id), "iat": NOW, "exp": NOW + timedelta(hours=1)}
+    old = jwt.encode(claims, secret, algorithm="HS256")
+    assert auth.read_session(old, NOW) == auth.Session(user_id, 0)
+    for bad in ("1", True, 1.5, None):
+        token = jwt.encode({**claims, "sv": bad}, secret, algorithm="HS256")
+        assert auth.read_session(token, NOW) is None
 
 
 def test_an_expired_token_is_refused():
@@ -90,7 +103,7 @@ def test_a_token_without_a_claim_or_with_a_bad_user_id_is_refused():
 
 def test_the_cookie_is_httponly_secure_and_samesite_lax():
     response = Response()
-    auth.set_session_cookie(response, uuid.uuid7(), NOW)
+    auth.set_session_cookie(response, uuid.uuid7(), NOW, session_version=0)
     cookie = response.headers["set-cookie"]
     assert cookie.startswith(f"{auth.COOKIE_NAME}=")
     for part in ("HttpOnly", "Secure", "SameSite=lax", "Path=/"):

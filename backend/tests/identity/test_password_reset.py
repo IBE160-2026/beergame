@@ -239,3 +239,19 @@ async def test_a_late_mail_states_the_time_left(lecturer, clock):
         await ask(c)
     await drain(clock["now"] + timedelta(minutes=59, seconds=30))
     assert "Lenken virker i ett minutt" in mails()[0].text
+
+
+async def test_a_new_password_ends_every_other_session_of_the_user(lecturer, clock):
+    """A thief with a stolen session loses it when the owner resets the password (Issue #73)."""
+    async with client() as thief, client("198.51.100.4") as owner:
+        assert (await login(thief, EMAIL, OLD)).status_code == 200
+        assert (await thief.get("/api/auth/me")).status_code == 200
+        assert (await ask(owner)).status_code == 202
+        token = await mailed_token(clock["now"])
+        assert (await confirm(owner, token)).status_code == 200
+        stale = await thief.get("/api/auth/me")
+        assert (await login(owner, EMAIL, NEW)).status_code == 200
+        fresh = await owner.get("/api/auth/me")
+    assert stale.status_code == 401
+    assert stale.json()["error"]["code"] == "session_expired"
+    assert fresh.status_code == 200

@@ -35,6 +35,10 @@ async function expectAccessible(page: Page, phone: boolean) {
   expect(small).toEqual([]);
 }
 
+/** The «Brukere» section: the page also lists Invitations in a table of its own (Story 3.10). */
+const usersSection = (page: Page) => page.getByRole("region", { name: list.title, exact: true });
+const userRows = (page: Page) => usersSection(page).locator("tbody tr");
+
 type Fresh = { context: BrowserContext; address: string; first: string };
 
 /** A fresh account with only the Admin role, made from an Invitation the demo Admin sends, and
@@ -95,10 +99,10 @@ for (const vp of VIEWPORTS) {
 
       await openUsers(page, vp.text200);
       await page.getByLabel(list.search).fill(fresh.address);
-      await expect(page.locator("main tbody tr")).toHaveCount(1);
+      await expect(userRows(page)).toHaveCount(1);
       const grant = page.getByRole("button", { name: list.grant(fresh.first, list.roles.lecturer) });
       await expect(grant).toBeVisible();
-      await expect(page.getByText(fresh.address, { exact: true })).toBeVisible();
+      await expect(usersSection(page).getByText(fresh.address, { exact: true })).toBeVisible();
       await expect(page.getByText(list.active, { exact: true })).toBeVisible();
       await expectAccessible(page, vp.phone);
       // The invite button is the page's one primary button; the role buttons are secondary.
@@ -141,10 +145,10 @@ test.describe("search", () => {
 
   test("a search with no match says «Ingen treff.»", async ({ page }) => {
     await openUsers(page);
-    await expect(page.getByRole("table")).toBeVisible();
+    await expect(usersSection(page).getByRole("table")).toBeVisible();
     await page.getByLabel(list.search).fill("ingen-slik-bruker-finnes");
     await expect(page.getByRole("status").filter({ hasText: list.noMatches })).toBeVisible();
-    await expect(page.getByRole("table")).toHaveCount(0);
+    await expect(usersSection(page).getByRole("table")).toHaveCount(0);
   });
 });
 
@@ -156,7 +160,7 @@ test.describe("own role", () => {
     const own = await fresh.context.newPage();
     await own.goto("/admin/brukere");
     await own.getByLabel(list.search).fill(fresh.address);
-    await expect(own.locator("main tbody tr")).toHaveCount(1);
+    await expect(userRows(own)).toHaveCount(1);
     await own.getByRole("button", { name: list.revoke(fresh.first, list.roles.admin) }).click();
     await expect(own.getByRole("heading", { level: 1, name: nb.access.denied })).toBeVisible();
     await fresh.context.close();
@@ -183,11 +187,11 @@ test.describe("paging", () => {
       });
     });
     await openUsers(page);
-    await expect(page.getByRole("cell", { name: "Side 1", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: list.more }).click();
-    await expect(page.getByRole("cell", { name: "Side 2", exact: true })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "Side 1", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: list.more })).toHaveCount(0);
+    await expect(usersSection(page).getByRole("cell", { name: "Side 1", exact: true })).toBeVisible();
+    await usersSection(page).getByRole("button", { name: list.more }).click();
+    await expect(usersSection(page).getByRole("cell", { name: "Side 2", exact: true })).toBeVisible();
+    await expect(usersSection(page).getByRole("cell", { name: "Side 1", exact: true })).toBeVisible();
+    await expect(usersSection(page).getByRole("button", { name: list.more })).toHaveCount(0);
     expect(cursors).toContain("neste");
   });
 });
@@ -205,14 +209,14 @@ test.describe("refusals", () => {
     );
     await openUsers(page);
     await page.getByLabel(list.search).fill(DEMO_USERS.lecturer.name);
-    await expect(page.locator("main tbody tr")).toHaveCount(1);
+    await expect(userRows(page)).toHaveCount(1);
     const button = page.getByRole("button", { name: list.revoke("Demo", list.roles.lecturer) });
     await button.click();
     await expect(page.locator("main").getByRole("alert")).toHaveText(
       "Demo eier 2 Klasser. Legg til en annen Faglærer eller arkiver Klassene først.",
     );
     await expect(button).toBeFocused();
-    await expect(page.getByRole("cell", { name: list.roles.lecturer, exact: true })).toBeVisible();
+    await expect(usersSection(page).getByRole("cell", { name: list.roles.lecturer, exact: true })).toBeVisible();
   });
 
   test("revoking the last active Admin is refused with its reason", async ({ page }) => {
@@ -221,8 +225,8 @@ test.describe("refusals", () => {
     );
     await openUsers(page);
     await page.getByLabel(list.search).fill(DEMO_USERS.admin.email);
-    await expect(page.locator("main tbody tr")).toHaveCount(1);
-    await expect(page.getByRole("cell", { name: DEMO_USERS.admin.email, exact: true })).toBeVisible();
+    await expect(userRows(page)).toHaveCount(1);
+    await expect(usersSection(page).getByRole("cell", { name: DEMO_USERS.admin.email, exact: true })).toBeVisible();
     await page.getByRole("button", { name: list.revoke("Demo", list.roles.admin) }).click();
     await expect(page.locator("main").getByRole("alert")).toHaveText(list.lastAdmin("Demo"));
   });

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import RowMapping, delete, func, literal, or_, select, text, tuple_, update
-from sqlalchemy.dialects.postgresql import aggregate_order_by, array_agg, insert
+from sqlalchemy.dialects.postgresql import aggregate_order_by, array_agg, distinct_on, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity.models import invitations, password_resets, user_roles, users
@@ -315,3 +315,111 @@ async def invitation_ids_for_email(session: AsyncSession, email: str) -> list[uu
         select(invitations.c.id).where(invitations.c.email == email).order_by(invitations.c.id)
     )
     return list(result.scalars())
+
+
+# Deactivation and reactivation (Story 3.10).
+
+
+async def set_active(
+    session: AsyncSession, user_id: uuid.UUID, is_active: bool, now: datetime
+) -> None:
+    await session.execute(
+        update(users).where(users.c.id == user_id).values(is_active=is_active, updated_at=now)
+    )
+
+
+async def bump_session_version(session: AsyncSession, user_id: uuid.UUID) -> None:
+    """End every session issued to the User so far."""
+    await session.execute(
+        update(users)
+        .where(users.c.id == user_id)
+        .values(session_version=users.c.session_version + 1)
+    )
+
+
+async def void_open_password_resets(
+    session: AsyncSession, user_id: uuid.UUID, now: datetime
+) -> None:
+    """Void every unused reset link of the User, so none works again after a reactivation."""
+    await session.execute(
+        update(password_resets)
+        .where(
+            password_resets.c.user_id == user_id,
+            password_resets.c.used_at.is_(None),
+            password_resets.c.voided_at.is_(None),
+        )
+        .values(voided_at=now)
+    )
+
+
+async def void_open_invitations_to(session: AsyncSession, email: str, now: datetime) -> None:
+    """Void every open Invitation to `email`, whatever its role."""
+    await session.execute(
+        update(invitations)
+        .where(
+            invitations.c.email == email,
+            invitations.c.accepted_at.is_(None),
+            invitations.c.voided_at.is_(None),
+        )
+        .values(voided_at=now)
+    )
+
+
+# The Invitation list and resending (Story 3.10).
+
+
+async def list_invitations(
+    session: AsyncSession, *, after: uuid.UUID | None, limit: int
+) -> list[RowMapping] | None:
+    """The newest Invitation of each address and role, newest first, after the Invitation `after`
+    when given (an unknown `after` gives None). Each row has `renewal_requested`: whether any
+    Invitation of its address and role holds a renewal request."""
+    if after is not None:
+        found = await session.execute(select(invitations.c.id).where(invitations.c.id == after))
+        if found.scalar_one_or_none() is None:
+            return None
+    newest = (
+        select(invitations)
+        .ext(distinct_on(invitations.c.email, invitations.c.role))
+        .order_by(invitations.c.email, invitations.c.role, invitations.c.id.desc())
+        .subquery()
+    )
+    asked = invitations.alias("asked")
+    requested = (
+        select(asked.c.id)
+        .where(
+            asked.c.email == newest.c.email,
+            asked.c.role == newest.c.role,
+            asked.c.renewal_requested_at.is_not(None),
+        )
+        .exists()
+    )
+    query = select(newest, requested.label("renewal_requested"))
+    if after is not None:
+        query = query.where(newest.c.id < after)
+    result = await session.execute(query.order_by(newest.c.id.desc()).limit(limit))
+    return list(result.mappings())
+
+
+async def newest_invitation_id(session: AsyncSession, email: str, role: str) -> uuid.UUID | None:
+    """The id of the newest Invitation to `email` for `role` (ids are UUIDv7: time-ordered)."""
+    result = await session.execute(
+        select(invitations.c.id)
+        .where(invitations.c.email == email, invitations.c.role == role)
+        .order_by(invitations.c.id.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def clear_renewal_requests(session: AsyncSession, email: str, role: str) -> None:
+    """A new Invitation answers every request for one to this address and role."""
+    await session.execute(
+        update(invitations)
+        .where(
+            invitations.c.email == email,
+            invitations.c.role == role,
+            invitations.c.renewal_requested_at.is_not(None),
+        )
+        .values(renewal_requested_at=None)
+    )
