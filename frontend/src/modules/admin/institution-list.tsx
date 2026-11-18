@@ -65,8 +65,13 @@ export function InstitutionList() {
             <table className="w-full border-collapse text-left text-table-cell tabular-nums lining-nums text-ink @max-[60em]:block lg:text-table-cell-laptop">
               <thead className="@max-[60em]:hidden">
                 <tr className="border-b border-axis">
+                  {/* Opprettet has a fixed width, so the date column stays put whatever the names. */}
                   {[copy.list.columns.name, copy.list.columns.created, copy.list.columns.actions].map((heading) => (
-                    <th key={heading} scope="col" className="py-2 pr-6 align-bottom text-label font-semibold text-ink">
+                    <th
+                      key={heading}
+                      scope="col"
+                      className={`py-2 pr-6 align-bottom text-label font-semibold text-ink ${heading === copy.list.columns.created ? "w-[9em]" : ""}`}
+                    >
                       {heading}
                     </th>
                   ))}
