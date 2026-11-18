@@ -767,3 +767,22 @@ Bygge Story 3.12 på `epic-3` og kontrollere den visuelt.
 
 ### Åpne punkter
 - Issue #79: beslutninger om revisjonsloggen, datoformat og visuelle avvik.
+
+## Story 3.13: Forsiden og forespørsel om faglærertilgang (2026-11-18)
+
+### Oppgave
+Bygge Story 3.13 på `epic-3` og kontrollere forsiden visuelt mot mockupen.
+
+### Plan
+`bmad-build-auto` i én underagent, med beskjed om at designet skal være datasentrisk og uten metaforer. Deretter en visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-13-read-landing-ask-lecturer-access.md`. Commit `7bca194`, visuelle rettinger `aa5e8fa`. Migrering 0022.
+- `/` er forsiden, med én plass med demodata som uketabell. Skjemaet `/laerertilgang` lagrer i `access_requests`. «Brukere og roller» lister åpne forespørsler med «Inviter» og «Avvis».
+- Backend: 1881 grønne på 71 s. Frontend: typecheck, Vitest (319), sjekker og bygg grønne. Playwright: 116 av 118 (den kjente ustabile `system-states`-testen).
+- Gjennomgang: 45 funn, én middels rettet, én utsatt (oppbevaring av forespørsler).
+- Visuell kontroll: 23 skjermbilder, fire rettinger på forsiden, fire punkter til vurdering.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #80: beslutninger, oppbevaring og nå-linja i uketabellen.
