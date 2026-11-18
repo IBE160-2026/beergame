@@ -197,10 +197,10 @@ async def test_the_ip_limit_counts_failures_across_accounts(admin, frozen, monke
         assert (await login(other, "kari.admin@example.com", PASSWORD)).status_code == 200
 
 
-async def test_the_ip_is_read_from_the_last_forwarded_entry(admin, frozen, monkeypatch):
+async def test_the_ip_is_read_from_the_proxys_forwarded_entry(admin, frozen, monkeypatch):
     monkeypatch.setenv("LOGIN_RATE_LIMIT_PER_IP", "1")
     get_settings.cache_clear()
-    async with client() as c:
+    async with client(ip="10.1.2.3") as c:  # the proxy's private address
         headers = {**CSRF, "X-Forwarded-For": "10.0.0.1, 192.0.2.44"}
         body = {"email": "ukjent@example.com", "password": "feil"}
         await c.post("/api/auth/login", json=body, headers=headers)
@@ -216,6 +216,20 @@ async def test_the_ip_is_read_from_the_last_forwarded_entry(admin, frozen, monke
         )
     assert same.status_code == 429
     assert other.status_code == 200
+
+
+async def test_a_forwarded_entry_from_outside_the_proxy_is_ignored(admin, frozen, monkeypatch):
+    monkeypatch.setenv("LOGIN_RATE_LIMIT_PER_IP", "1")
+    get_settings.cache_clear()
+    body = {"email": "ukjent@example.com", "password": "feil"}
+    async with client() as c:  # a public peer: the address its header names does not count
+        await c.post("/api/auth/login", json=body, headers={**CSRF, "X-Forwarded-For": "192.0.2.1"})
+        again = await c.post(
+            "/api/auth/login",
+            json={"email": "kari.admin@example.com", "password": PASSWORD},
+            headers={**CSRF, "X-Forwarded-For": "192.0.2.2"},
+        )
+    assert again.status_code == 429
 
 
 async def test_no_email_or_ip_is_stored_in_the_rate_limit_table(admin, frozen):

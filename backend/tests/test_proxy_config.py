@@ -51,3 +51,20 @@ def test_no_auth_rules_yet():
     text = CADDYFILE.read_text(encoding="utf-8")
     for directive in ("basic_auth", "basicauth", "forward_auth"):
         assert directive not in text
+
+
+def test_the_client_address_is_read_only_from_trusted_hops():
+    # Story 3.14: Railway's edge overwrites X-Real-IP; Caddy believes it only from these peers.
+    text = re.sub(r"#.*", "", CADDYFILE.read_text(encoding="utf-8"))
+    servers = re.search(r"servers\s*\{([^}]*)\}", text)
+    assert servers
+    assert re.search(
+        r"trusted_proxies\s+static\s+private_ranges\s+100\.0\.0\.0/8\s*$", servers[1], re.M
+    )
+    assert re.search(r"client_ip_headers\s+X-Real-IP\s*$", servers[1], re.M)
+
+
+def test_the_api_gets_exactly_the_resolved_client_address():
+    body = handle_blocks()["@api"]
+    assert re.search(r"header_up\s+X-Forwarded-For\s+\{client_ip\}", body)
+    assert re.search(r"header_up\s+-X-Real-IP", body)

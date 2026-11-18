@@ -12,7 +12,7 @@ import pytest
 from app.ai import config, seed
 from app.platform.config import get_settings
 from tests.ai.helpers import CONFIGS, MOCK, query, stored_config
-from tests.conftest import reset_caches
+from tests.conftest import enter_production, reset_caches
 from tests.games.helpers import execute
 
 LINES = {"cost_per_game_usd": "0.10", "time_per_order_p95_s": "8", "switched_share": "0.25"}
@@ -53,6 +53,9 @@ def figures(config_id: str, **changes: object) -> config.EffortFigures:
 
 
 def set_env(monkeypatch, app_env: str) -> None:
+    if app_env == "production":
+        enter_production(monkeypatch)
+        return
     monkeypatch.setenv("APP_ENV", app_env)
     get_settings.cache_clear()
 

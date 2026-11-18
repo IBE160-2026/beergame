@@ -15,13 +15,16 @@ hit again stay until a sweep removes them (`purge_before`, for `ops.sweep` in St
 """
 
 import hashlib
+import ipaddress
 from datetime import datetime, timedelta
+from functools import lru_cache
 
 from sqlalchemy import Column, DateTime, Integer, Table, Text, delete, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
+from app.platform.config import get_settings, trusted_networks
 from app.platform.db import metadata
 
 rate_limit_counters = Table(
@@ -110,11 +113,49 @@ async def purge_before(session: AsyncSession, cutoff: datetime) -> int:
 
 
 def client_ip(request: Request) -> str:
-    """The client address: the last `X-Forwarded-For` entry, which the proxy in front of the api
-    (Caddy) writes, else the socket peer. Caddy replaces a header it does not trust, so a client
-    cannot choose its own address."""
+    """The client address (Story 3.14). The proxy in front of the api (Caddy) decides it: it
+    reads Railway's `X-Real-IP` only from a trusted edge hop and sends the result as the one
+    `X-Forwarded-For` value. The api believes that header only when the socket peer is in
+    `TRUSTED_PROXY_CIDRS` and its last entry is an IP address; otherwise it uses the peer, so a
+    request that reaches the api some other way cannot choose its own address. An IPv6 client
+    counts as its /64 (see `_key`)."""
+    peer = request.client.host if request.client else None
+    if peer is None:
+        return "unknown"
+    peer_address = _address(peer)
+    if peer_address is None:
+        return peer
+    if not any(peer_address in network for network in _trusted_networks()):
+        return _key(peer_address)
     forwarded = request.headers.get("x-forwarded-for", "")
     entries = [part.strip() for part in forwarded.split(",") if part.strip()]
-    if entries:
-        return entries[-1]
-    return request.client.host if request.client else "unknown"
+    client = _address(entries[-1]) if entries else None
+    return _key(client or peer_address)
+
+
+def _address(text: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    """The address in `text`, an IPv4-mapped IPv6 address as plain IPv4; None if it is none."""
+    try:
+        address = ipaddress.ip_address(text)
+    except ValueError:
+        return None
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
+        return address.ipv4_mapped
+    return address
+
+
+def _key(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> str:
+    """The rate-limit key of an address: the address for IPv4, its /64 for IPv6, since one
+    IPv6 client holds a whole /64 and could otherwise step through it."""
+    if isinstance(address, ipaddress.IPv6Address):
+        return str(ipaddress.ip_network(f"{address}/64", strict=False))
+    return str(address)
+
+
+@lru_cache(maxsize=8)
+def _networks_of(value: str) -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
+    return tuple(trusted_networks(value))
+
+
+def _trusted_networks() -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
+    return _networks_of(get_settings().trusted_proxy_cidrs)

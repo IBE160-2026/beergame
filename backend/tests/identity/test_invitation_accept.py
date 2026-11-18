@@ -13,7 +13,8 @@ from structlog.testing import capture_logs
 from app.modules.identity import service
 from app.modules.identity.schemas import AccountRole
 from app.platform import auth
-from app.platform.config import get_settings
+from app.platform.config import Settings, get_settings
+from tests.conftest import enter_production
 from tests.identity.helpers import CSRF, client, login
 from tests.messaging.helpers import drain, mails, rows
 
@@ -399,6 +400,7 @@ async def test_the_api_makes_bootstrap_invitations_only_in_production(monkeypatc
     import app.ai.seed
 
     monkeypatch.setattr(app.ai.seed, "ensure_zero_config_logged", nothing)
+    monkeypatch.setattr(Settings, "production_problems", lambda self: [])  # no TLS locally
     for env, expected in (("local", 0), ("production", 1)):
         monkeypatch.setenv("APP_ENV", env)
         get_settings.cache_clear()
@@ -411,7 +413,7 @@ async def test_a_listed_user_gains_admin_at_first_login_only(
     identity_db, mail_db, clock, monkeypatch
 ):
     monkeypatch.setenv("BOOTSTRAP_ADMIN_EMAILS", INVITED)
-    monkeypatch.setenv("APP_ENV", "production")
+    enter_production(monkeypatch)
     get_settings.cache_clear()
     user_id = await service.create_user(
         email=INVITED, name="Ola", password=PASSWORD, roles=[AccountRole.lecturer]
@@ -434,7 +436,7 @@ async def test_a_listed_admin_is_marked_once_without_a_second_grant(
     identity_db, mail_db, clock, monkeypatch
 ):
     monkeypatch.setenv("BOOTSTRAP_ADMIN_EMAILS", INVITED)
-    monkeypatch.setenv("APP_ENV", "production")
+    enter_production(monkeypatch)
     get_settings.cache_clear()
     await service.create_user(
         email=INVITED, name="Ola", password=PASSWORD, roles=[AccountRole.admin]

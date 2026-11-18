@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from app.modules.identity import seed, service
 from app.modules.identity.models import user_roles, users
 from app.platform.db import get_sessionmaker
+from tests.conftest import enter_production
 from tests.identity.helpers import client, login
 
 
@@ -40,7 +41,7 @@ async def test_no_seed_outside_local(identity_db, monkeypatch, env):
 
 
 async def test_production_never_seeds(identity_db, monkeypatch):
-    monkeypatch.setenv("APP_ENV", "production")
+    enter_production(monkeypatch)
     monkeypatch.setenv("DATABASE_URL", identity_db)
     assert await seed.ensure_demo_users() == 0
     assert await _counts() == (0, 0)

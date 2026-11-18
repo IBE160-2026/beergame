@@ -7,6 +7,7 @@ from sqlalchemy import select
 from starlette.requests import Request
 
 from app.platform import ratelimit
+from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
 WINDOW = timedelta(minutes=15)
@@ -79,9 +80,51 @@ def _request(headers: dict[str, str], peer: str | None = "192.0.2.1") -> Request
     return Request(scope)
 
 
-def test_client_ip_prefers_the_last_forwarded_entry():
-    assert ratelimit.client_ip(_request({"X-Forwarded-For": "1.1.1.1, 2.2.2.2"})) == "2.2.2.2"
-    assert ratelimit.client_ip(_request({"X-Forwarded-For": " 3.3.3.3 "})) == "3.3.3.3"
-    assert ratelimit.client_ip(_request({})) == "192.0.2.1"
-    assert ratelimit.client_ip(_request({"X-Forwarded-For": " , "})) == "192.0.2.1"
+def test_client_ip_reads_the_forwarded_entry_only_from_a_trusted_proxy():
+    proxy = "10.1.2.3"
+    assert ratelimit.client_ip(_request({"X-Forwarded-For": "192.0.2.44"}, proxy)) == "192.0.2.44"
+    two = {"X-Forwarded-For": "1.1.1.1, 2.2.2.2"}
+    assert ratelimit.client_ip(_request(two, proxy)) == "2.2.2.2"
+    assert ratelimit.client_ip(_request({"X-Forwarded-For": " 3.3.3.3 "}, "::1")) == "3.3.3.3"
+    v6 = {"X-Forwarded-For": "2001:db8::1"}
+    assert ratelimit.client_ip(_request(v6, "fd12::5")) == "2001:db8::/64"
+    assert ratelimit.client_ip(_request({"X-Forwarded-For": "192.0.2.44"}, "100.64.0.9")) == (
+        "192.0.2.44"
+    )
+
+
+def test_client_ip_ignores_the_header_from_any_other_peer():
+    outside = {"X-Forwarded-For": "192.0.2.44"}
+    assert ratelimit.client_ip(_request(outside, "203.0.113.7")) == "203.0.113.7"
+    assert ratelimit.client_ip(_request(outside, "testclient")) == "testclient"
+
+
+def test_client_ip_falls_back_to_the_peer_on_a_missing_or_junk_header():
+    proxy = "10.1.2.3"
+    assert ratelimit.client_ip(_request({}, proxy)) == proxy
+    assert ratelimit.client_ip(_request({"X-Forwarded-For": " , "}, proxy)) == proxy
+    assert ratelimit.client_ip(_request({"X-Forwarded-For": "not-an-ip"}, proxy)) == proxy
     assert ratelimit.client_ip(_request({}, peer=None)) == "unknown"
+
+
+def test_the_trusted_networks_come_from_the_settings(monkeypatch):
+    monkeypatch.setenv("TRUSTED_PROXY_CIDRS", "198.51.100.0/24")
+    get_settings.cache_clear()
+    header = {"X-Forwarded-For": "192.0.2.44"}
+    assert ratelimit.client_ip(_request(header, "198.51.100.10")) == "192.0.2.44"
+    assert ratelimit.client_ip(_request(header, "10.1.2.3")) == "10.1.2.3"
+
+
+def test_an_ipv4_mapped_proxy_peer_is_trusted():
+    header = {"X-Forwarded-For": "::ffff:192.0.2.44"}
+    assert ratelimit.client_ip(_request(header, "::ffff:10.1.2.3")) == "192.0.2.44"
+    assert ratelimit.client_ip(_request({}, "::ffff:203.0.113.7")) == "203.0.113.7"
+
+
+def test_an_ipv6_client_counts_as_its_slash_64():
+    one = ratelimit.client_ip(_request({"X-Forwarded-For": "2001:db8:1:2::1"}, "10.1.2.3"))
+    two = ratelimit.client_ip(_request({"X-Forwarded-For": "2001:db8:1:2:ffff::9"}, "10.1.2.3"))
+    other = ratelimit.client_ip(_request({"X-Forwarded-For": "2001:db8:1:3::1"}, "10.1.2.3"))
+    assert one == two == "2001:db8:1:2::/64"
+    assert other != one
+    assert ratelimit.client_ip(_request({}, "2001:db8:5::7")) == "2001:db8:5::/64"

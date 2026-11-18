@@ -15,6 +15,7 @@ from app.platform import email, jobs, notify
 from app.platform.config import Settings
 from app.platform.email import senders
 from app.platform.logging import configure_logging
+from tests.conftest import enter_production
 from tests.messaging.helpers import deliveries, drain, enqueue, mails, oslo, rows, user
 
 
@@ -197,7 +198,7 @@ async def test_in_production_without_a_key_the_mail_fails_and_stays_unsent(mail_
     await enqueue(user_id, "test_immediate")
     [(notice_id,)] = rows("SELECT id FROM notices")
     delivery_id = await service.claim_notice(notice_id, datetime.now(UTC))
-    monkeypatch.setenv("APP_ENV", "production")
+    enter_production(monkeypatch)
     monkeypatch.setattr(delivery, "table", lambda settings=None: delivery.TEST_KINDS)
     monkeypatch.setattr(
         email, "get_sender", lambda: senders.get_sender(Settings(app_env="production"))

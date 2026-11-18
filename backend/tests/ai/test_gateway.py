@@ -15,6 +15,7 @@ from app.ai.gateway import Failure, GatewayError, Inputs, Result
 from app.ai.scrub import PLACEHOLDER
 from app.platform import pii
 from tests.ai.helpers import StoppedClock, mock_config, query, stop_attempts
+from tests.conftest import enter_production
 
 TEMPLATE = "Stock: $stock units. Note: $note"
 GAME = uuid.UUID("00000000-0000-7000-8000-000000000001")
@@ -263,7 +264,7 @@ async def test_a_cancelled_call_logs_the_attempt_in_flight(ai_db, template, monk
 
 async def test_production_never_uses_the_mock(ai_db, template, monkeypatch):
     scope = await scope_for()
-    monkeypatch.setenv("APP_ENV", "production")
+    enter_production(monkeypatch)
     from app.platform.config import get_settings
 
     get_settings.cache_clear()
@@ -296,7 +297,7 @@ async def test_a_real_provider_without_a_key_gets_the_mock_outside_production(
     assert "Connection" in result.detail
     # In production a missing key is a provider error too, never the mock.
     monkeypatch.delenv("OLSPILLET_TEST_KEY")
-    monkeypatch.setenv("APP_ENV", "production")
+    enter_production(monkeypatch)
     from app.platform.config import get_settings
 
     get_settings.cache_clear()

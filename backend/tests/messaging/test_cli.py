@@ -7,6 +7,7 @@ import pytest
 
 from app.modules.messaging import cli
 from app.modules.ops import sweep
+from tests.conftest import enter_production
 from tests.messaging.helpers import deliveries, drain, mails, oslo, user
 
 
@@ -35,7 +36,7 @@ async def test_send_test_needs_an_active_user(mail_db):
 
 
 def test_send_test_does_not_exist_in_production(monkeypatch, capsys):
-    monkeypatch.setenv("APP_ENV", "production")
+    enter_production(monkeypatch)
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://u:p@db:5432/prod")
     assert cli.main(["send-test", "--user", str(uuid.uuid7()), "--kind", "test_immediate"]) == 2
     assert "production" in capsys.readouterr().err

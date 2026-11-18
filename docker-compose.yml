@@ -20,7 +20,10 @@ services:
       retries: 30
 
   backend:
-    build: ./backend
+    # Every image builds from the repo root, as on Railway (railway/<service>/railway.toml).
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     image: olspillet-backend:local
     environment:
       APP_ENV: ${APP_ENV:-local}
@@ -100,7 +103,9 @@ services:
         condition: service_healthy
 
   frontend:
-    build: ./frontend
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
     environment:
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://backend:8000}
     healthcheck:
@@ -115,7 +120,9 @@ services:
       start_period: 5s
 
   proxy:
-    build: ./proxy
+    build:
+      context: .
+      dockerfile: proxy/Dockerfile
     environment:
       PORT: 8080
       API_UPSTREAM: backend:8000

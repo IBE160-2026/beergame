@@ -25,7 +25,7 @@ from sqlalchemy.engine import make_url
 
 from app.ai import adapters, ratelimit
 from app.platform import db
-from app.platform.config import LOCAL_DATABASE_URL, get_settings
+from app.platform.config import LOCAL_DATABASE_URL, Settings, get_settings
 
 if sys.platform == "win32":
     # psycopg's async mode cannot run on the default Proactor loop.
@@ -191,6 +191,16 @@ async def _fresh_settings():
     yield
     await db.dispose()  # close pooled connections before the engine is dropped
     reset_caches()
+
+
+def enter_production(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`APP_ENV=production` from here on, for tests of production behaviour (no AI mock, no dev
+    mailbox, the bootstrap Admin, no demo seed). They run on the local test database, which has
+    no TLS, so the startup guard is set aside; `test_config.py` and `test_production_startup.py`
+    test the guard itself (Story 3.14)."""
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setattr(Settings, "production_problems", lambda self: [])
+    get_settings.cache_clear()
 
 
 def _refuse(request: httpx2.Request) -> httpx2.Response:

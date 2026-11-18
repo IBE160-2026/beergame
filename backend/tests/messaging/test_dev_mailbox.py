@@ -8,6 +8,7 @@ from fastapi.routing import APIRoute, iter_route_contexts
 from app.main import create_app
 from app.modules.identity import service as identity
 from app.platform import auth
+from tests.conftest import enter_production
 from tests.identity.helpers import CSRF, client
 from tests.messaging.helpers import drain, mails
 
@@ -34,7 +35,7 @@ async def test_it_returns_the_newest_mail_sent_to_the_address(identity_db, mail_
 
 
 def test_it_is_not_routed_in_production(monkeypatch):
-    monkeypatch.setenv("APP_ENV", "production")
+    enter_production(monkeypatch)
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db.example/olspillet")
     paths = {
         ctx.path

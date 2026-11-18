@@ -5,21 +5,38 @@ With APP_ENV=production the process refuses to start when a required
 secret is missing or still has its built-in local default.
 """
 
+import ipaddress
 from decimal import Decimal
+from email.utils import parseaddr
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import parse_qs, urlsplit
 
 from pydantic import Field, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LOCAL_DATABASE_URL = "postgresql+psycopg://olspillet:olspillet@localhost:5432/olspillet"
 LOCAL_JWT_SECRET = "local-only-jwt-secret-not-for-production"
+LOCAL_EMAIL_FROM = "ØL-spillet <noreply@olspillet.local>"
+LOCAL_PUBLIC_BASE_URL = "http://127.0.0.1:8080"
+# The peers whose `X-Forwarded-For` the api believes: loopback, private networks, the shared
+# address space Railway's network uses, and IPv6 unique-local (Railway's private network). The
+# api is never public; the proxy in front of it decides the client address (Story 3.14).
+LOCAL_TRUSTED_PROXY_CIDRS = (
+    "127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,100.64.0.0/10,fc00::/7"
+)
 
-# Variables that must be set, and not to a built-in default, in production.
-# Later epics add JWT_SECRET, RESEND_API_KEY and the storage keys here.
-PRODUCTION_REQUIRED: dict[str, str] = {
-    "database_url": LOCAL_DATABASE_URL,
-}
+# Production guard (AD-17, NFR-7, Story 3.14). Each rule names one variable; the message lists
+# the names of the variables that break a rule, never their values.
+JWT_SECRET_MIN_LENGTH = 32
+JWT_SECRET_MIN_DISTINCT = 8
+BCRYPT_ROUNDS_MIN_PRODUCTION = 12
+RATE_LIMIT_PRODUCTION_FACTOR = 10
+"""A rate limit above this many times its built-in default is a local raised limit (the
+compose file's) and refused in production."""
+TLS_SSLMODES = frozenset({"require", "verify-ca", "verify-full"})
+REQUIRED_SECRETS = ("resend_api_key", "supabase_url", "supabase_service_role_key")
+"""Secrets with no default at all; the storage keys are used from `platform/storage` on."""
 
 
 class ConfigError(SystemExit):
@@ -49,7 +66,7 @@ class Settings(BaseSettings):
     ai_default_session_budget_usd: Decimal = Field(Decimal("15.00"), ge=0, decimal_places=8)
     ai_budget_reserve_usd: Decimal = Field(Decimal("1.00"), ge=0, decimal_places=8)
 
-    # Session and login (AD-11, Story 3.2). JWT_SECRET's production guard comes with Story 3.14.
+    # Session and login (AD-11, Story 3.2). Production refuses a missing, default or weak one.
     jwt_secret: str = LOCAL_JWT_SECRET
     session_max_age_hours: int = Field(168, ge=1)
     # bcrypt cost; the tests set the minimum, 4, so hashing stays cheap.
@@ -85,9 +102,17 @@ class Settings(BaseSettings):
 
     # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
     # to the `[email:mock]` sender; the compose file never passes a key.
-    email_from: str = "ØL-spillet <noreply@olspillet.local>"
-    public_base_url: str = "http://127.0.0.1:8080"
+    email_from: str = LOCAL_EMAIL_FROM
+    public_base_url: str = LOCAL_PUBLIC_BASE_URL
     resend_api_key: str = ""
+
+    # Storage (AD-17): required in production from Story 3.14 on, used by `platform/storage`
+    # in a later epic. Server only, never sent to the browser.
+    supabase_url: str = ""
+    supabase_service_role_key: str = ""
+
+    # Comma-separated networks whose `X-Forwarded-For` the api believes (Story 3.14).
+    trusted_proxy_cidrs: str = LOCAL_TRUSTED_PROXY_CIDRS
 
     @field_validator("log_level", mode="before")
     @classmethod
@@ -103,19 +128,86 @@ class Settings(BaseSettings):
                 return "postgresql+psycopg://" + v[len(prefix) :]
         return v
 
-    def check_production(self) -> None:
+    @field_validator("trusted_proxy_cidrs")
+    @classmethod
+    def _networks(cls, v: str) -> str:
+        trusted_networks(v)  # a malformed entry refuses at load, naming the variable
+        return v
+
+    def production_problems(self) -> list[str]:
+        """The fields that break a production rule, in declaration order; empty outside
+        production."""
         if self.app_env != "production":
-            return
-        bad = [
-            name.upper()
-            for name, default in PRODUCTION_REQUIRED.items()
-            if not getattr(self, name) or getattr(self, name) == default
-        ]
+            return []
+        bad: list[str] = []
+        if self.database_url == LOCAL_DATABASE_URL or not _requires_tls(self.database_url):
+            bad.append("database_url")
+        secret = self.jwt_secret
+        if (
+            secret == LOCAL_JWT_SECRET
+            or len(secret) < JWT_SECRET_MIN_LENGTH
+            or len(set(secret)) < JWT_SECRET_MIN_DISTINCT
+        ):
+            bad.append("jwt_secret")
+        if self.bcrypt_rounds < BCRYPT_ROUNDS_MIN_PRODUCTION:
+            bad.append("bcrypt_rounds")
+        for name, field in type(self).model_fields.items():
+            if "_rate_limit_per_" in name and isinstance(field.default, int):
+                if getattr(self, name) > field.default * RATE_LIMIT_PRODUCTION_FACTOR:
+                    bad.append(name)
+        if not _addresses_are_valid(self.bootstrap_admin_emails):
+            bad.append("bootstrap_admin_emails")
+        if self.email_from.strip() == LOCAL_EMAIL_FROM or not _addresses_are_valid(
+            parseaddr(self.email_from)[1]
+        ):
+            bad.append("email_from")
+        base = urlsplit(self.public_base_url)
+        if (
+            self.public_base_url == LOCAL_PUBLIC_BASE_URL
+            or base.scheme != "https"
+            or not base.hostname
+        ):
+            bad.append("public_base_url")
+        bad.extend(name for name in REQUIRED_SECRETS if not getattr(self, name).strip())
+        networks = trusted_networks(self.trusted_proxy_cidrs)
+        if not networks or any(net.prefixlen == 0 for net in networks):
+            bad.append("trusted_proxy_cidrs")
+        return bad
+
+    def check_production(self) -> None:
+        bad = self.production_problems()
         if bad:
             raise ConfigError(
                 "Refusing to start with APP_ENV=production: "
-                f"missing or default value for {', '.join(bad)}"
+                f"missing, default or unsafe value for {', '.join(n.upper() for n in bad)}"
             )
+
+
+def trusted_networks(value: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    """The networks of a comma-separated CIDR list; raises ValueError on a malformed entry."""
+    return [ipaddress.ip_network(part.strip()) for part in value.split(",") if part.strip()]
+
+
+def _requires_tls(database_url: str) -> bool:
+    """True when the URL asks libpq for TLS (`sslmode` require or stricter, NFR-7)."""
+    modes = parse_qs(urlsplit(database_url).query).get("sslmode", [])
+    return bool(modes) and all(mode in TLS_SSLMODES for mode in modes)
+
+
+def _addresses_are_valid(value: str) -> bool:
+    """At least one address, and every non-empty entry shaped like one: no whitespace, one `@`,
+    a name before it and a dotted domain after it (the rule of `identity`'s address check)."""
+    entries = [part.strip() for part in value.split(",") if part.strip()]
+    if not entries:
+        return False
+    for entry in entries:
+        if any(ch.isspace() or not ch.isprintable() for ch in entry) or entry.count("@") != 1:
+            return False
+        local, domain = entry.split("@")
+        labels = domain.split(".")
+        if not local or len(labels) < 2 or not all(labels):
+            return False
+    return True
 
 
 def load_settings() -> Settings:

@@ -10,6 +10,7 @@ from app.ai import adapters, budget, config
 from app.platform.config import get_settings
 from tests.ai.helpers import mock_config, stored_config
 from tests.ai.test_adapters import KEY_ENV, MODEL, FakeEndpoint, real_config
+from tests.conftest import enter_production
 from tests.test_sim_llm import batch, run, setup
 
 
@@ -94,7 +95,7 @@ def test_run_refuses_a_missing_key_outside_the_mock_environments(
     code, out, err = run(capsys, "run", path)  # APP_ENV=test: the mock answers
     assert code == 0, err
     assert f"note: mock provider in use for config {config_id} ({KEY_ENV} is not set)" in err
-    monkeypatch.setenv("APP_ENV", "production")
+    enter_production(monkeypatch)
     get_settings.cache_clear()
     code, out, err = run(capsys, "run", path)
     assert (code, out) == (2, "")
@@ -106,7 +107,7 @@ def test_a_mock_config_in_production_is_refused_by_run(
 ):
     config_id = setup(stored_config())
     assert mock_config()["provider"] == "mock"
-    monkeypatch.setenv("APP_ENV", "production")
+    enter_production(monkeypatch)
     get_settings.cache_clear()
     code, _, err = run(capsys, "run", batch(tmp_path, config_id))
     assert code == 2
