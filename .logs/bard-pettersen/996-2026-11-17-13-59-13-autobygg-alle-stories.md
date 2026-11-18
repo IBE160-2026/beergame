@@ -409,3 +409,22 @@ Bygge Story 2.8 på `epic-2`.
 
 ### Åpne punkter
 - Issue #57: beslutninger om reservasjon og kostnadsgrense, og mulig ustabile tidstester.
+
+## Story 2.9: Nær-optimal referanseordre for hver plass og uke (2026-11-18)
+
+### Oppgave
+Bygge Story 2.9 på `epic-2`.
+
+### Plan
+`bmad-build-auto` i én underagent. Golden-verdiene sjekkes av en uavhengig agent i stedet for grunnleggeren.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-9-store-near-optimal-reference-order.md`. Commit `3660e00`.
+- Ren funksjon `engine.near_optimal.order(...)` (`placeholder-0`). Referansen regnes én gang per plass når uka åpner og lagres på turen. `place_order` kopierer den til beslutningsloggen. Migrering 0012 med trigger mot endring.
+- Hele pakken: 1415 grønne på 60 s, full grenddekning, golden-resultater uendret. To nye tester over 1 s (3,6 s og 1,0 s).
+- Uavhengig sjekk: alle 36 uker stemte.
+- Gjennomgang: 26 funn, 2 middels og flere lave rettet, ingenting utsatt.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #58: plassholderalgoritmen må erstattes, og hvordan verdiene lagres.
