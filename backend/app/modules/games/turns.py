@@ -88,7 +88,8 @@ async def pending_turn(game: OpenGame, seat_id: str) -> PendingTurn | None:
 async def llm_turn(game_id: str, seat_id: str, week: int) -> PendingTurn | None:
     """The Seat's turn as an `ai-orders` job sees it, read in a session of its own: the turn of
     `pending_turn` when `week` is still the open Week of the running Game, else None. `read_at`
-    is the database clock at the read."""
+    is the database clock when the read ended (`clock_timestamp()`, not the transaction start
+    `now()`), so the time the reads took is not handed to the job as time left."""
     game_uuid = _uuid(game_id)
     if game_uuid is None:
         return None
@@ -96,4 +97,4 @@ async def llm_turn(game_id: str, seat_id: str, week: int) -> PendingTurn | None:
         turn = await pending_turn(OpenGame(session=session, game_id=game_uuid), seat_id)
         if turn is None or turn.week != week:
             return None
-        return turn.model_copy(update={"read_at": await repo.now(session)})
+        return turn.model_copy(update={"read_at": await repo.clock_now(session)})

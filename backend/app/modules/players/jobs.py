@@ -62,9 +62,10 @@ async def _decide(
     """The Order, who decided it, the fallback mark and the LLM call ids."""
     reference = turn.rule_based_reference_order
     fallback = (reference, games_service.DecidedBy.RULE_BASED)
-    scope = await games_service.budget_scope(turn.game_id)
     state = turn.seat_state
     try:
+        # Inside the try: a failed read of the scope also gets the fallback Order.
+        scope = await games_service.budget_scope(turn.game_id)
         if scope is None:
             raise gateway.GatewayError("scope_unresolved", "the Game has no model config")
         result = await gateway.run(

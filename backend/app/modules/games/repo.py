@@ -122,6 +122,12 @@ async def now(session: AsyncSession) -> Any:
     return (await session.execute(select(func.now()))).scalar_one()
 
 
+async def clock_now(session: AsyncSession) -> Any:
+    """The database clock at this statement (`clock_timestamp()`), not at the transaction's
+    start: the moment a read ended, on the clock deadlines are stamped with."""
+    return (await session.execute(select(func.clock_timestamp()))).scalar_one()
+
+
 async def insert_turns(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
     # One multi-row INSERT: an executemany goes through psycopg's pipeline mode, which costs
     # tens of milliseconds per call for these few rows.

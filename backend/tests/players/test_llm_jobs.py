@@ -205,6 +205,65 @@ async def test_any_other_failure_of_the_call_still_places_the_fallback(
     assert (by, mark) == ("rule_based", "provider_error")
 
 
+async def test_a_failed_read_of_the_scope_still_places_the_fallback(games_db, ai_db, monkeypatch):
+    async def broken(_):
+        raise RuntimeError("database gone")
+
+    game_id = await llm_game(("retailer",))
+    monkeypatch.setattr(service, "budget_scope", broken)
+    seat = seat_id(games_db, game_id, "retailer")
+    await player_jobs.place_llm_order(game_id=game_id, seat_id=seat, week=FIRST)
+    ((by, mark),) = [(r[3], r[4]) for r in rows(games_db, game_id) if r[1] == "retailer"][-1:]
+    assert (by, mark) == ("rule_based", "provider_error")
+    assert calls(games_db) == 0
+
+
+async def test_a_refused_llm_order_is_replaced_by_the_marked_reference_order(
+    games_db, ai_db, monkeypatch
+):
+    """`place_order` refuses the model's Order (here one above the Game's largest Order): the
+    Week still gets the reference Order, marked `invalid_output`, with the call ids."""
+    from app.ai import gateway
+
+    call_id = uuid.uuid7()
+
+    async def too_large(_purpose, _scope, _inputs, schema, deadline):
+        return gateway.Result(schema.model_construct(order=10**6), (call_id,), {})
+
+    game_id = await llm_game(("retailer",))
+    monkeypatch.setattr(gateway, "run", too_large)
+    seat = seat_id(games_db, game_id, "retailer")
+    await player_jobs.place_llm_order(game_id=game_id, seat_id=seat, week=FIRST)
+    ((_, _, order, by, mark, ids, reference),) = [
+        row for row in rows(games_db, game_id) if row[1] == "retailer" and row[0] == FIRST
+    ]
+    assert (order, by, mark, ids) == (reference, "rule_based", "invalid_output", [call_id])
+
+
+async def test_the_turns_read_time_is_when_the_read_ended(games_db, ai_db, monkeypatch):
+    """`read_at` is the database clock after the reads, not the transaction's start: the time
+    the reads took is never handed to the job as time left before the deadline."""
+    import asyncio
+    from datetime import timedelta
+
+    from app.modules.games import repo, turns
+
+    game_id = await llm_game(("retailer",))
+    seat = seat_id(games_db, game_id, "retailer")
+    real = turns.pending_turn
+    started = []
+
+    async def slow(game, seat_id):
+        started.append(await repo.now(game.session))  # the transaction's start
+        turn = await real(game, seat_id)
+        await asyncio.sleep(0.2)  # slow reads
+        return turn
+
+    monkeypatch.setattr(turns, "pending_turn", slow)
+    turn = await service.llm_turn(game_id, seat, FIRST)
+    assert turn.read_at - started[0] >= timedelta(seconds=0.2)
+
+
 async def test_a_job_whose_turn_no_longer_waits_asks_no_model(games_db, ai_db):
     """A late job (its Week moved on), a Guided Week's job and a job for a Seat no LLM player
     holds end at once, without a call."""
