@@ -15,6 +15,11 @@ import { Cell } from "./user-list";
 
 const copy = nb.admin.audit;
 
+/** Set widths for the short columns, so a name or an action stays on one line and the columns
+ * do not shift when a filter changes the rows (fixed layout); «Gjelder» and «Endring» share the
+ * rest. */
+const COLUMN_WIDTH: Record<string, string> = { time: "w-[11.5em]", actor: "w-[10em]", action: "w-[14em]" };
+
 const NO_FILTERS: AuditFilters = {
   actor: "",
   action: "",
@@ -70,12 +75,16 @@ export function AuditLog() {
             {items.length === 0 ? (filtered ? copy.list.noMatches : copy.list.empty) : null}
           </p>
           {items.length > 0 ? (
-            <table className="w-full border-collapse text-left text-table-cell tabular-nums lining-nums text-ink @max-[60em]:block lg:text-table-cell-laptop">
+            <table className="w-full border-collapse text-left text-table-cell @min-[60em]:table-fixed tabular-nums lining-nums text-ink @max-[60em]:block lg:text-table-cell-laptop">
               <caption className="sr-only">{copy.list.title}</caption>
               <thead className="@max-[60em]:hidden">
                 <tr className="border-b border-axis">
-                  {Object.values(copy.list.columns).map((heading) => (
-                    <th key={heading} scope="col" className="py-2 pr-6 align-bottom text-label font-semibold text-ink">
+                  {Object.entries(copy.list.columns).map(([key, heading]) => (
+                    <th
+                      key={key}
+                      scope="col"
+                      className={`py-2 pr-6 align-bottom text-label font-semibold text-ink ${COLUMN_WIDTH[key] ?? ""}`}
+                    >
                       {heading}
                     </th>
                   ))}
@@ -115,7 +124,7 @@ function EventRow({ event }: { event: AuditEvent }) {
         </time>
       </Cell>
       <Cell label={columns.actor}>
-        <span className={event.actor_id === null ? "text-ink-secondary" : undefined}>{actorText(event)}</span>
+        <span className={`[overflow-wrap:anywhere] ${event.actor_id === null ? "text-ink-secondary" : ""}`}>{actorText(event)}</span>
       </Cell>
       <Cell label={columns.action}>
         <span className="font-semibold [overflow-wrap:anywhere]">{actionLabel(event.action)}</span>
