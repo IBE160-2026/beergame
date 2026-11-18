@@ -574,3 +574,22 @@ Bygge Story 3.2 på `epic-3` og kontrollere den visuelt.
 ### Åpne punkter
 - Issue #69: beslutninger om økt, grenser, tekst og testinnlogging.
 - Issue #68: produktnavnet flytter seg mellom sidene.
+
+## Story 3.3: Egen hjemside og rollestyring (2026-11-18)
+
+### Oppgave
+Bygge Story 3.3 på `epic-3` og kontrollere den visuelt. Løse Issue #68 (produktnavnet flytter seg).
+
+### Plan
+`bmad-build-auto` i én underagent, og visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-3-land-on-own-home-held-to-role.md`. Commit `76f7c76`.
+- `platform/authz` med `can(user, action, resource)`, en policy på hver API-rute, roller lest fra databasen ved hver forespørsel, og 403 `forbidden` uansett om tingen finnes. Hjemsidene `/admin`, `/laererhjem` og `/hjem` har felles toppfelt. Det finnes også en side for manglende tilgang, en side for ukjent adresse og en brødsmulesti.
+- Retting fra 3.2: deadlock ved parallelle innlogginger.
+- Backend: 1629 grønne på 69 s. Frontend: typecheck, Vitest (206), tekstsjekk og bygg grønne. Playwright: 35 grønne.
+- Visuell kontroll: 20 skjermbilder i `.docs/implementation-artifacts/screenshots/3.3/`, alle stemmer. Issue #68 er løst.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #70: beslutninger, og stilen på toppfeltet til vurdering.
