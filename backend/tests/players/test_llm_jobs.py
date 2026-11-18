@@ -256,12 +256,14 @@ async def test_the_turns_read_time_is_when_the_read_ended(games_db, ai_db, monke
     async def slow(game, seat_id):
         started.append(await repo.now(game.session))  # the transaction's start
         turn = await real(game, seat_id)
-        await asyncio.sleep(0.2)  # slow reads
+        await asyncio.sleep(0.5)  # slow reads
         return turn
 
     monkeypatch.setattr(turns, "pending_turn", slow)
     turn = await service.llm_turn(game_id, seat, FIRST)
-    assert turn.read_at - started[0] >= timedelta(seconds=0.2)
+    # Half the sleep is the floor: the local Docker clock can run slow against the host's
+    # (Issue #63), and transaction-start `now()` would give 0 here, so the claim still holds.
+    assert turn.read_at - started[0] >= timedelta(seconds=0.25)
 
 
 async def test_a_job_whose_turn_no_longer_waits_asks_no_model(games_db, ai_db):
