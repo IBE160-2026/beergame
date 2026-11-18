@@ -484,3 +484,21 @@ Bygge Story 2.12 på `epic-2`, uten at noen ekte måling er kjørt (Issue #56 og
 
 ### Åpne punkter
 - Issue #61: beslutninger om godkjenning, låsing og seeding, og det utsatte funnet om mock-flagget.
+
+## Story 2.13: Beskrive hver AI-spillertype på enkelt norsk (2026-11-18)
+
+### Oppgave
+Bygge Story 2.13 på `epic-2`, den siste i Epic 2.
+
+### Plan
+`bmad-build-auto` i én underagent. Norsken sjekkes av uavhengige språkagenter i stedet for grunnleggeren. Agenten sto lenge på steg 1 (ventet på en mappeliste) og fikk en statusforespørsel.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-13-describe-ai-player-types-plain-norwegian.md`. Commit `cd9cc1a`.
+- To norske tekster (regelbasert og LLM), `players.service.describe(kind, version=None)` og `python -m app.sim describe`. 24 nye tester binder tekstene til koden.
+- Gjennomgang: fire kodegjennomgåere og to språkgjennomgåere, 53 funn, 36 rettet.
+- Hele pakken: 1538 grønne på 59 s før rettingene. Etter rettingene feilet 2 tester i hver av tre fulle kjøringer, fra tre tidsavhengige tester i `test_llm_jobs.py`, `test_sim_llm.py` og `test_rescue.py`, under last fra andre prosesser. De rettes før PR-en for Epic 2.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #62: beslutninger om tekstene og versjonering.
