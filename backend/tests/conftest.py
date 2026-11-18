@@ -31,7 +31,12 @@ if sys.platform == "win32":
         warnings.simplefilter("ignore", DeprecationWarning)
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-_base_url = make_url(os.environ.get("DATABASE_URL", LOCAL_DATABASE_URL))
+# The controller process rewrites DATABASE_URL below, and xdist workers inherit that, so the
+# original URL is kept in its own variable and every process derives its names from it.
+os.environ.setdefault(
+    "OLSPILLET_BASE_DATABASE_URL", os.environ.get("DATABASE_URL", LOCAL_DATABASE_URL)
+)
+_base_url = make_url(os.environ["OLSPILLET_BASE_DATABASE_URL"])
 _worker = os.environ.get("PYTEST_XDIST_WORKER")
 """`gw0`, `gw1`, … under pytest-xdist: each worker gets databases of its own."""
 _suffix = f"_{_worker}" if _worker else ""
@@ -56,7 +61,10 @@ MIGRATIONS_DATABASE_URL = (
 
 
 def _ensure_database(url: str) -> None:
-    admin = _base_url.set(drivername="postgresql").render_as_string(hide_password=False)
+    # Connect to the server's maintenance database: the test databases may not exist yet.
+    admin = _base_url.set(drivername="postgresql", database="postgres").render_as_string(
+        hide_password=False
+    )
     with psycopg.connect(admin, autocommit=True, connect_timeout=5) as conn:
         name = make_url(url).database
         exists = conn.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,)).fetchone()
