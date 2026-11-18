@@ -315,3 +315,22 @@ Bygge Story 2.3 på `epic-2`. Før storyen: rette CI, som feilet etter fartsjobb
 
 ### Åpne punkter
 - Issue #52: beslutninger om gatewayen, det utsatte funnet om avbrutte kall og anbefalt oppfølgende gjennomgang.
+
+## Story 2.4: LLM-spiller som bestiller fra plassens tilstand (2026-11-18)
+
+### Oppgave
+Bygge Story 2.4 på `epic-2`.
+
+### Plan
+`bmad-build-auto` i én underagent, med regelen om raske tester.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-4-ask-llm-player-for-order-from-seat-state.md`. Commit `74f2201`.
+- `backend/app/modules/players/llm.py` bygger promptverdier bare fra `SeatState`, med streng ordreskjema. Promptene `player_order/v1.md` og `recognition_probe/v1.md` er låst. `gateway.preview` viser nøyaktig forespørsel uten modellkall. Nye kommandoer `sim prompt` og `sim probe`.
+- Hele pakken: 1271 grønne på 49 s, full grenddekning av motoren. Fire nye prøvetester tar 1,5–2,2 s hver.
+- Gjennomgang: 40 funn. Rettet blant annet krasj i `sim prompt` ved store bokstaver, tapte svar i prøven og to ulike svarformater.
+- Oppfølgende gjennomgang anbefalt (også for 1.7 og 2.3). Den samles ved slutten av Epic 2.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #53: beslutninger om prompten og gjenkjenningsprøven.
