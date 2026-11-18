@@ -371,3 +371,23 @@ Bygge Story 2.6 på `epic-2`, og løse de utsatte funnene i Issue #52 og #54.
 
 ### Åpne punkter
 - Issue #55: beslutninger om frister, nye forsøk og redningsløkka.
+
+## Story 2.7: Ekte EU-endepunkt innenfor ratebegrensningen (2026-11-18)
+
+### Oppgave
+Bygge Story 2.7 på `epic-2` mot OpenRouter med `deepseek/deepseek-v4.1-flash-1017`, og kjøre en prøve mot det ekte endepunktet.
+
+### Plan
+- Første forsøk ga agenten lov til å bruke nøkkelen i `.env`. Det automatiske sikkerhetsfilteret stoppet det (`Unauthorized Access`), og det ble ikke prøvd å omgå det.
+- Andre forsøk: bygge og teste alt mot mocken og en falsk HTTP-transport, lese OpenRouters offentlige modelliste uten nøkkel, og lage en prøvekommando grunnleggeren kan kjøre.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-7-call-real-eu-endpoint-within-rate-limit.md`. Commit `539afb2`.
+- OpenAI-kompatibel adapter med OpenRouter-ruting (ingen fallback, ZDR, nektet datainnsamling) i modellkonfigen, ratebegrenser, 429-ventetid, og `python -m app.sim endpoint --config <ID>`.
+- Modellen finnes (50 endepunkter, 43 ZDR). Region per endepunkt er ikke offentlig. Konfigen låser til Nebius.
+- Hele pakken: 1371 grønne på rundt 55 s, full grenddekning av motoren.
+- Gjennomgang: 43 funn, 18 rettet, 2 utsatt.
+- Status: `review`. Prøven med ekte kall venter på grunnleggeren.
+
+### Åpne punkter
+- Issue #56: kjør prøven med nøkkelen, bekreft at Nebius kjører modellen i EU, og to utsatte funn.
