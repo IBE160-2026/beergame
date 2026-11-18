@@ -465,3 +465,22 @@ Bygge Story 2.11 på `epic-2`. Storyen skal måle den valgte modellen på ekte k
 
 ### Åpne punkter
 - Issue #60: kjør målingen med nøkkelen, kostnadsanslag og beslutninger.
+
+## Story 2.12: Bare målte effort-nivåer, og låst modell (2026-11-18)
+
+### Oppgave
+Bygge Story 2.12 på `epic-2`, uten at noen ekte måling er kjørt (Issue #56 og #60).
+
+### Plan
+`bmad-build-auto` i én underagent. Mock-batcher skal aldri telle som ekte måling i produksjon.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-12-offer-measured-effort-levels-pin-model.md`. Commit `72bbba4`.
+- `python -m app.sim approve <batch> --level <navn>` lagrer en måling bare for en ekte batch som besto alle tre grensene. `ai.config.offered_effort_levels` lister bare målte nivåer. `ai.cli pin` setter standardkonfig. Migrering 0014.
+- I produksjon tilbys ingen nivåer før en ekte måling er godkjent. Lokalt og i CI tilbyr en seedet mock-konfig `standard`.
+- Hele pakken: 1523 grønne på 65 s, full grenddekning, golden-resultater uendret.
+- Gjennomgang: 31 funn, 12 rettet, 1 utsatt (mock-flagget per batch).
+- Status: `done`.
+
+### Åpne punkter
+- Issue #61: beslutninger om godkjenning, låsing og seeding, og det utsatte funnet om mock-flagget.
