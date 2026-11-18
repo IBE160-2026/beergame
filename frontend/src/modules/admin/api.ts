@@ -68,6 +68,68 @@ export function useResendInvitation() {
   });
 }
 
+export type Institution = components["schemas"]["InstitutionOut"];
+export type InstitutionPage = components["schemas"]["InstitutionListOut"];
+
+/** The query key of the Institution list (Story 3.11). */
+export const institutionsKey = ["admin", "institutions"] as const;
+
+/** The Institutions, newest first, one page of the list envelope at a time (Story 3.11). */
+export function useInstitutions() {
+  return useInfiniteQuery({
+    queryKey: institutionsKey,
+    queryFn: ({ pageParam }) =>
+      request(() =>
+        api.GET("/api/admin/institutions", { params: { query: pageParam ? { cursor: pageParam } : {} } }),
+      ),
+    initialPageParam: "" as string,
+    getNextPageParam: (last: InstitutionPage) => last.next_cursor ?? undefined,
+    retry: false,
+  });
+}
+
+/** Create an Institution (Story 3.11). The list reads again, so the new one stands at its top. The
+ * caller words the refusals: a bad or taken name goes beside the field. */
+export function useCreateInstitution() {
+  const queryClient = useQueryClient();
+  return useMutation<Institution, unknown, string>({
+    mutationFn: (name) => request(() => api.POST("/api/admin/institutions", { body: { name } })),
+    networkMode: "always",
+    retry: false,
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: institutionsKey }),
+  });
+}
+
+/** Rename an Institution (Story 3.11). The answer replaces its row in place; a refusal reads the
+ * list again, since the row may be out of date. */
+export function useRenameInstitution() {
+  const queryClient = useQueryClient();
+  return useMutation<Institution, unknown, { id: string; name: string }>({
+    mutationFn: ({ id, name }) =>
+      request(() =>
+        api.PATCH("/api/admin/institutions/{institution_id}", {
+          params: { path: { institution_id: id } },
+          body: { name },
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSuccess: (updated) =>
+      queryClient.setQueryData<InfiniteData<InstitutionPage>>(institutionsKey, (data) =>
+        data
+          ? {
+              ...data,
+              pages: data.pages.map((page) => ({
+                ...page,
+                items: page.items.map((item) => (item.id === updated.id ? updated : item)),
+              })),
+            }
+          : data,
+      ),
+    onError: () => void queryClient.invalidateQueries({ queryKey: institutionsKey }),
+  });
+}
+
 /** The query key of the User list for one search text (Story 3.9). */
 export const usersKey = (search: string) => ["admin", "users", search] as const;
 

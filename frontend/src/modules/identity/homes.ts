@@ -22,6 +22,9 @@ export const HOME_PATH: Record<Home, string> = {
 /** «Brukere og roller» in the Admin-område (Story 3.7). */
 export const ADMIN_USERS_PATH = "/admin/brukere";
 
+/** «Institusjoner» in the Admin-område (Story 3.11). */
+export const ADMIN_INSTITUTIONS_PATH = "/admin/institusjoner";
+
 /** The link that leads to each home («Til Lærerhjem» …). */
 export const HOME_LINK: Record<Home, string> = {
   adminArea: nb.navigation.toAdminArea,

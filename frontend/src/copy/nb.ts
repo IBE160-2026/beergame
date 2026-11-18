@@ -241,6 +241,42 @@ export const nb = {
     /** The pages the Admin-område links to; later stories add theirs. */
     sections: {
       users: "Brukere og roller",
+      // The working term «Institusjon» (EXPERIENCE.md → Terms, [ASSUMPTION]); Story 3.11.
+      institutions: "Institusjoner",
+    },
+    /** «Institusjoner» (Story 3.11, FR-3): create and rename the Institutions Classes belong to.
+     * [ASSUMPTION] Story 3.11, all of it. */
+    institutions: {
+      title: "Institusjoner",
+      create: {
+        title: "Ny Institusjon",
+        lead: "Klasser hører til én Institusjon. Navnet kan endres senere, men en Institusjon kan ikke slettes.",
+        name: "Navn",
+        submit: "Opprett Institusjon",
+        created: (name: string) => `${name} er opprettet.`,
+        failed: "Institusjonen ble ikke opprettet. Prøv igjen.",
+      },
+      errors: {
+        name_empty: "Skriv navnet på Institusjonen.",
+        name_too_long: "Navnet kan ha høyst 200 tegn.",
+        name_invalid: "Navnet kan ikke inneholde @ eller kontrolltegn.",
+        institution_name_taken: "Det finnes allerede en Institusjon med dette navnet.",
+      },
+      list: {
+        title: "Alle Institusjoner",
+        columns: { name: "Navn", created: "Opprettet", actions: "Endre" },
+        empty: "Ingen Institusjoner ennå. Opprett den første over.",
+        more: "Vis flere Institusjoner",
+        moreFailed: "Flere Institusjoner kunne ikke lastes. Prøv igjen.",
+      },
+      rename: {
+        open: (name: string) => `Gi ${name} nytt navn`,
+        field: (name: string) => `Nytt navn på ${name}`,
+        save: "Lagre navnet",
+        cancel: "Avbryt",
+        renamed: (old: string, name: string) => `${old} heter nå ${name}.`,
+        failed: "Navnet ble ikke endret. Prøv igjen.",
+      },
     },
     users: {
       title: "Brukere og roller",

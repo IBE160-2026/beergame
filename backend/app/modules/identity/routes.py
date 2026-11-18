@@ -1,6 +1,7 @@
 """`/api/auth/*`: login, logout and the current session (Story 3.2), the password reset
 (Story 3.6) and accepting an Invitation (Story 3.8). `/api/admin/*`: the Admin's actions on
-accounts: Invitations (Stories 3.7, 3.10), roles (3.9), deactivation and reactivation (3.10)."""
+accounts: Invitations (Stories 3.7, 3.10), roles (3.9), deactivation and reactivation (3.10);
+and the Institutions (3.11)."""
 
 import uuid
 from typing import Annotated
@@ -10,6 +11,8 @@ from fastapi.responses import JSONResponse
 
 from app.modules.identity import service
 from app.modules.identity.schemas import (
+    INSTITUTION_PAGE_DEFAULT,
+    INSTITUTION_PAGE_MAX,
     INVITATION_PAGE_DEFAULT,
     INVITATION_PAGE_MAX,
     SEARCH_MAX_LENGTH,
@@ -18,6 +21,10 @@ from app.modules.identity.schemas import (
     AcceptExistingIn,
     AcceptInvitationIn,
     AccountRole,
+    InstitutionIn,
+    InstitutionListOut,
+    InstitutionOut,
+    InvalidInstitutionName,
     InvitationCheckOut,
     InvitationIn,
     InvitationListOut,
@@ -429,3 +436,85 @@ async def resend_invitation(
         status, message = RESEND_REFUSALS[outcome.code]
         return error_response(status, outcome.code, message)
     return JSONResponse(outcome.model_dump(mode="json"), status_code=201)
+
+
+INSTITUTION_REFUSALS = {
+    "not_found": (404, "No such Institution."),
+    "institution_name_taken": (409, "Another Institution has this name."),
+}
+
+
+def _institution_answer(
+    outcome: InstitutionOut | service.InstitutionRefused, status_code: int = 200
+) -> Response:
+    if isinstance(outcome, service.InstitutionRefused):
+        status, message = INSTITUTION_REFUSALS[outcome.code]
+        return error_response(status, outcome.code, message)
+    return JSONResponse(outcome.model_dump(mode="json"), status_code=status_code)
+
+
+def _bad_name(error: InvalidInstitutionName) -> Response:
+    return error_response(422, "invalid_request", "The name is not valid.", {"name": error.code})
+
+
+@admin_router.get(
+    "/institutions",
+    response_model=InstitutionListOut,
+    responses=documented(401, 403, 422),
+    operation_id="listInstitutions",
+)
+async def list_institutions(
+    _: Annotated[UserOut, Depends(authz.require("institutions.manage"))],
+    cursor: Annotated[str | None, Query(max_length=64)] = None,
+    limit: Annotated[int, Query(ge=1, le=INSTITUTION_PAGE_MAX)] = INSTITUTION_PAGE_DEFAULT,
+) -> Response:
+    """The Institutions with name and creation date, newest first (FR-3)."""
+    try:
+        page = await service.institution_page(cursor, limit)
+    except service.InvalidCursor:
+        return error_response(
+            422, "invalid_request", "The cursor is not valid.", {"cursor": "invalid_cursor"}
+        )
+    return JSONResponse(page.model_dump(mode="json"))
+
+
+@admin_router.post(
+    "/institutions",
+    status_code=201,
+    response_model=InstitutionOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="createInstitution",
+)
+async def create_institution(
+    body: InstitutionIn,
+    user: Annotated[UserOut, Depends(authz.require("institutions.manage"))],
+) -> Response:
+    """Create an Institution (FR-3). Refused with `institution_name_taken` when another has the
+    name, compared case-insensitively; a bad name answers `fields.name`."""
+    try:
+        outcome = await service.create_institution(user.id, body.name, now=auth.utcnow())
+    except InvalidInstitutionName as error:
+        return _bad_name(error)
+    return _institution_answer(outcome, 201)
+
+
+@admin_router.patch(
+    "/institutions/{institution_id}",
+    response_model=InstitutionOut,
+    responses=documented(401, 403, 404, 409, 422),
+    operation_id="renameInstitution",
+)
+async def rename_institution(
+    institution_id: uuid.UUID,
+    body: InstitutionIn,
+    user: Annotated[UserOut, Depends(authz.require("institutions.manage"))],
+) -> Response:
+    """Give an Institution a new name (FR-3). Refused as creating is; an unknown id is
+    `not_found`."""
+    try:
+        outcome = await service.rename_institution(
+            user.id, institution_id, body.name, now=auth.utcnow()
+        )
+    except InvalidInstitutionName as error:
+        return _bad_name(error)
+    return _institution_answer(outcome)

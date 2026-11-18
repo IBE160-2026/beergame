@@ -21,6 +21,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.identity import repo
 from app.modules.identity.schemas import (
     AccountRole,
+    InstitutionListOut,
+    InstitutionOut,
     InvitationListItem,
     InvitationListOut,
     InvitationOut,
@@ -29,6 +31,7 @@ from app.modules.identity.schemas import (
     UserListOut,
     UserOut,
     email_is_valid,
+    institution_name,
     normalise_email,
 )
 from app.platform import audit, auth, email, events, notify, ratelimit
@@ -909,6 +912,107 @@ async def resend_invitation(
         actor_user_id=str(actor),
     )
     return sent
+
+
+# Institutions (Story 3.11, FR-3). Other modules read them through `list_institutions` and
+# `get_institution`; there is no delete in v1.
+
+INSTITUTION_CREATED = "institution.created"
+INSTITUTION_RENAMED = "institution.renamed"
+"""The audit actions of an Institution the Admin creates or renames (FR-3, AD-15)."""
+
+
+@dataclass(frozen=True)
+class InstitutionRefused:
+    code: str  # not_found | institution_name_taken
+
+
+def _institution_out(row) -> InstitutionOut:
+    return InstitutionOut(id=row["id"], name=row["name"], created_at=row["created_at"])
+
+
+async def create_institution(
+    actor: uuid.UUID, name: str, *, now: datetime
+) -> InstitutionOut | InstitutionRefused:
+    """Store a new Institution with one audit row, in one transaction. Raises
+    `InvalidInstitutionName` for a name the rule refuses; refused with `institution_name_taken`
+    when another Institution has the name, compared case-insensitively."""
+    name = institution_name(name)
+    async with get_sessionmaker().begin() as s:
+        await repo.lock_institution_names(s)
+        if await repo.institution_name_taken(s, name):
+            log.info("institution_refused", error_code="institution_name_taken")
+            return InstitutionRefused("institution_name_taken")
+        row = await repo.insert_institution(s, uuid.uuid7(), name, now)
+        await audit.record(
+            s, actor, INSTITUTION_CREATED, {"institution_id": row["id"]}, {"name": name}, now
+        )
+    log.info("institution_created", institution_id=str(row["id"]), actor_user_id=str(actor))
+    return _institution_out(row)
+
+
+async def rename_institution(
+    actor: uuid.UUID, institution_id: uuid.UUID, name: str, *, now: datetime
+) -> InstitutionOut | InstitutionRefused:
+    """Give an Institution a new name, with one audit row holding the old and the new name. The
+    exact current name changes and writes nothing; a change of case only is a rename. Raises
+    `InvalidInstitutionName`; refused with `not_found` or `institution_name_taken`."""
+    name = institution_name(name)
+    async with get_sessionmaker().begin() as s:
+        await repo.lock_institution_names(s)
+        row = await repo.lock_institution(s, institution_id)
+        if row is None:
+            return InstitutionRefused("not_found")
+        old = row["name"]
+        if name == old:
+            return _institution_out(row)
+        if await repo.institution_name_taken(s, name, excluding=institution_id):
+            log.info(
+                "institution_refused",
+                institution_id=str(institution_id),
+                error_code="institution_name_taken",
+            )
+            return InstitutionRefused("institution_name_taken")
+        row = await repo.rename_institution(s, institution_id, name, now)
+        await audit.record(
+            s,
+            actor,
+            INSTITUTION_RENAMED,
+            {"institution_id": institution_id},
+            {"old_name": old, "new_name": name},
+            now,
+        )
+    log.info("institution_renamed", institution_id=str(institution_id), actor_user_id=str(actor))
+    return _institution_out(row)
+
+
+async def institution_page(cursor: str | None, limit: int) -> InstitutionListOut:
+    """A page of Institutions for the Admin, newest first. Raises `InvalidCursor` for a cursor
+    this api did not hand out."""
+    after = _decode_cursor(cursor) if cursor else None
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.list_institutions(s, after=after, limit=limit + 1)
+    if rows is None:
+        raise InvalidCursor
+    page = rows[:limit]
+    return InstitutionListOut(
+        items=[_institution_out(row) for row in page],
+        next_cursor=_encode_cursor(page[-1]["id"]) if len(rows) > limit else None,
+    )
+
+
+async def list_institutions() -> list[InstitutionOut]:
+    """Every Institution, by name: for the modules that let a User choose one (Epic 4 on)."""
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.all_institutions(s)
+    return [_institution_out(row) for row in rows]
+
+
+async def get_institution(institution_id: uuid.UUID) -> InstitutionOut | None:
+    """One Institution, or None when there is none with that id."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.institution_by_id(s, institution_id)
+    return _institution_out(row) if row else None
 
 
 # The first Admin (AD-17, Story 3.8).

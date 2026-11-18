@@ -179,6 +179,57 @@ class InvitationListOut(BaseModel):
 INVITATION_PAGE_DEFAULT = 50
 INVITATION_PAGE_MAX = 100
 
+INSTITUTION_NAME_MAX_LENGTH = 200
+INSTITUTION_PAGE_DEFAULT = 50
+INSTITUTION_PAGE_MAX = 100
+
+
+class InvalidInstitutionName(ValueError):
+    """A name the Institution rule refuses; `code` is `name_empty`, `name_too_long` or
+    `name_invalid`."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+def institution_name(value: str) -> str:
+    """The stored form of an Institution name: trimmed, inner whitespace collapsed. Refuses an
+    empty name, one over 200 characters, and one holding a control character or `@` (an audit row
+    holds the name, and `platform/audit` refuses anything that looks like an e-mail address). The
+    web app checks it before sending (`modules/admin/institutions.ts`); this one decides."""
+    value = " ".join(value.split())
+    if not value:
+        raise InvalidInstitutionName("name_empty")
+    if len(value) > INSTITUTION_NAME_MAX_LENGTH:
+        raise InvalidInstitutionName("name_too_long")
+    if "@" in value or any(not ch.isprintable() for ch in value):
+        raise InvalidInstitutionName("name_invalid")
+    return value
+
+
+class InstitutionIn(BaseModel):
+    """The name of a new or renamed Institution (Story 3.11). Checked by `institution_name` in the
+    service: a bad name answers `fields.name` with its code."""
+
+    name: str = Field(max_length=4 * INSTITUTION_NAME_MAX_LENGTH)
+
+
+class InstitutionOut(BaseModel):
+    """One Institution (Story 3.11): what the Admin's list shows and what other modules read."""
+
+    id: uuid.UUID
+    name: str
+    created_at: datetime
+
+
+class InstitutionListOut(BaseModel):
+    """A page of Institutions in the list envelope, newest first: `next_cursor` is null on the
+    last page."""
+
+    items: list[InstitutionOut]
+    next_cursor: str | None
+
 
 def normalise_email(email: str) -> str:
     return email.strip().lower()

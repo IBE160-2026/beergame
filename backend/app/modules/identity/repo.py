@@ -7,7 +7,13 @@ from sqlalchemy import RowMapping, delete, func, literal, or_, select, text, tup
 from sqlalchemy.dialects.postgresql import aggregate_order_by, array_agg, distinct_on, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.identity.models import invitations, password_resets, user_roles, users
+from app.modules.identity.models import (
+    institutions,
+    invitations,
+    password_resets,
+    user_roles,
+    users,
+)
 
 
 async def user_by_email(session: AsyncSession, email: str) -> RowMapping | None:
@@ -423,3 +429,87 @@ async def clear_renewal_requests(session: AsyncSession, email: str, role: str) -
         )
         .values(renewal_requested_at=None)
     )
+
+
+# Institutions (Story 3.11).
+
+
+async def lock_institution_names(session: AsyncSession) -> None:
+    """Serialise creating and renaming Institutions until the transaction ends, so two writes of
+    one name cannot both pass the check for a taken name."""
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": "institution_names"},
+    )
+
+
+async def institution_name_taken(
+    session: AsyncSession, name: str, *, excluding: uuid.UUID | None = None
+) -> bool:
+    """Whether another Institution has `name`, compared case-insensitively by Postgres's own
+    `lower()`, the function `uq_institutions_name` uses (Python's `str.lower` differs for some
+    letters, such as «İ»)."""
+    query = select(institutions.c.id).where(
+        func.lower(institutions.c.name) == func.lower(literal(name))
+    )
+    if excluding is not None:
+        query = query.where(institutions.c.id != excluding)
+    result = await session.execute(query.limit(1))
+    return result.scalar_one_or_none() is not None
+
+
+async def insert_institution(
+    session: AsyncSession, institution_id: uuid.UUID, name: str, now: datetime
+) -> RowMapping:
+    result = await session.execute(
+        insert(institutions)
+        .values(id=institution_id, name=name, created_at=now, updated_at=now)
+        .returning(institutions)
+    )
+    return result.mappings().one()
+
+
+async def lock_institution(session: AsyncSession, institution_id: uuid.UUID) -> RowMapping | None:
+    result = await session.execute(
+        select(institutions).where(institutions.c.id == institution_id).with_for_update()
+    )
+    return result.mappings().one_or_none()
+
+
+async def rename_institution(
+    session: AsyncSession, institution_id: uuid.UUID, name: str, now: datetime
+) -> RowMapping:
+    result = await session.execute(
+        update(institutions)
+        .where(institutions.c.id == institution_id)
+        .values(name=name, updated_at=now)
+        .returning(institutions)
+    )
+    return result.mappings().one()
+
+
+async def institution_by_id(session: AsyncSession, institution_id: uuid.UUID) -> RowMapping | None:
+    result = await session.execute(select(institutions).where(institutions.c.id == institution_id))
+    return result.mappings().one_or_none()
+
+
+async def all_institutions(session: AsyncSession) -> list[RowMapping]:
+    """Every Institution, by name (case-insensitively), then id."""
+    result = await session.execute(
+        select(institutions).order_by(func.lower(institutions.c.name), institutions.c.id)
+    )
+    return list(result.mappings())
+
+
+async def list_institutions(
+    session: AsyncSession, *, after: uuid.UUID | None, limit: int
+) -> list[RowMapping] | None:
+    """Up to `limit` Institutions, newest first (ids are UUIDv7), after the Institution `after`
+    when given (an unknown `after` gives None)."""
+    if after is not None and await institution_by_id(session, after) is None:
+        return None
+    query = select(institutions)
+    if after is not None:
+        query = query.where(institutions.c.id < after)
+    result = await session.execute(query.order_by(institutions.c.id.desc()).limit(limit))
+    return list(result.mappings())

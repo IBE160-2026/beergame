@@ -99,3 +99,18 @@ invitations = Table(
 """One row per Invitation to an account role (Story 3.7, FR-1). Sending again for the same address
 and role voids the open one, so at most one is open per address and role. Times come from the
 api's clock; expiry is read from `expires_at`, with no background job."""
+
+institutions = Table(
+    "institutions",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    # Trimmed with inner whitespace collapsed (`schemas.institution_name`).
+    Column("name", Text, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("name <> ''", name="ck_institutions_name_not_empty"),
+)
+"""One row per Institution the Admin creates (Story 3.11, FR-3); Classes belong to one (Epic 4).
+Names are unique case-insensitively. Times come from the api's clock. No delete in v1."""
+
+Index("uq_institutions_name", func.lower(institutions.c.name), unique=True)

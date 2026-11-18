@@ -9,7 +9,7 @@ import { usePageState } from "@/lib/page-state";
 import { loginPath } from "@/lib/return-path";
 
 import { meKey, type SessionUser, useMe } from "./api";
-import { ADMIN_USERS_PATH, canView, HOME_LINK, HOME_PATH, type Home, homeOf } from "./homes";
+import { ADMIN_INSTITUTIONS_PATH, ADMIN_USERS_PATH, canView, HOME_LINK, HOME_PATH, type Home, homeOf } from "./homes";
 import { PageLink, PageShell } from "./page-shell";
 
 const TITLE: Record<Home, string> = {
@@ -52,6 +52,11 @@ function AdminSections() {
       <li className="border-b border-hairline">
         <Link href={ADMIN_USERS_PATH} standalone>
           {nb.admin.sections.users}
+        </Link>
+      </li>
+      <li className="border-b border-hairline">
+        <Link href={ADMIN_INSTITUTIONS_PATH} standalone>
+          {nb.admin.sections.institutions}
         </Link>
       </li>
     </ul>
