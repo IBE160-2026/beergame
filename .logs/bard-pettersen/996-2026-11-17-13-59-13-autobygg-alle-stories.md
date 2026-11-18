@@ -786,3 +786,20 @@ Bygge Story 3.13 på `epic-3` og kontrollere forsiden visuelt mot mockupen.
 
 ### Åpne punkter
 - Issue #80: beslutninger, oppbevaring og nå-linja i uketabellen.
+
+## Story 3.14: Streng produksjonskonfigurasjon i repoet (2026-11-18)
+
+### Oppgave
+Bygge Story 3.14 på `epic-3` uten skykonto, og ta med det som ble utsatt fra Story 3.2 (`JWT_SECRET` og klient-IP).
+
+### Plan
+`bmad-build-auto` i én underagent, som bare lager filer i repoet. Ingen skjermendring, så ingen visuell kontroll.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-14-strict-production-configuration.md`. Commit `4de78da`.
+- Produksjonsvakter for hemmeligheter, flagg og grenser, klient-IP gjennom Caddy med `TRUSTED_PROXY_CIDRS`, `railway.toml` per tjeneste, bygg fra rotmappa, tilkoblingsbudsjett og `scripts/smoke`.
+- Backend: 1962 grønne på 65 s. `scripts/smoke` og Playwright `logg-inn` og `landing` (19/19) er grønne mot den gjenoppbygde stacken.
+- Status: `done`. Det som krever konto, står under «For Story 3.15» i specen.
+
+### Åpne punkter
+- Issue #81: beslutninger, og punktene til Story 3.15 (blant annet at `railway.toml` er merket utgått fra 2026-12-01).
