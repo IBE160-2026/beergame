@@ -17,7 +17,7 @@ from app.modules.games import commands as games_commands
 from app.modules.games import service as games_service
 from app.platform import jobs
 
-__all__ = ["PLACE_LLM_ORDER", "ensure_order", "llm_order_key"]
+__all__ = ["PLACE_LLM_ORDER", "apply_cost_limit", "ensure_order", "llm_order_key"]
 
 PLACE_LLM_ORDER = "players.place_llm_order"
 """The `ai-orders` task that places an LLM player's Order (`players.jobs`)."""
@@ -83,3 +83,37 @@ async def ensure_order(game: games_service.OpenGame, seat: str) -> None:
         turn.game_id, turn.seat_id, turn.week, order, decided_by, within=game
     )
     log.debug("order_ensured", game_id=turn.game_id, seat_id=turn.seat_id, week=turn.week)
+
+
+SWITCH_ENDED = frozenset({"game_finished", "game_not_started", "game_not_found"})
+"""Refusals of a switch that mean the Game no longer has a Seat to switch."""
+
+
+async def apply_cost_limit(game_id: str) -> int:
+    """Hand every `llm` Seat of every running Game charged to the same budget as `game_id` to
+    the Rule-based player (`games.commands.switch_to_rule_based`, reason `cost_limit`), for the
+    rest of each Game (FR-69, AD-5). Called once the budget's players' cost limit is reached;
+    safe to call again: a Seat already switched has no `llm` occupant. Games that have not
+    started get Rule-based players at `start`. Returns the number of Seats switched."""
+    scope = await games_service.budget_scope(game_id)
+    if scope is None:
+        return 0
+    switched = 0
+    for charged in await games_service.games_charged_to(scope):
+        game = await games_service.get_game(charged)
+        if game is None:
+            continue
+        for seat in game.seats:
+            if seat.occupant_kind != games_service.OccupantKind.LLM:
+                continue
+            try:
+                await games_commands.switch_to_rule_based(
+                    charged, seat.id, games_service.OccupancyReason.COST_LIMIT
+                )
+            except games_commands.CommandError as exc:
+                if exc.code not in SWITCH_ENDED:
+                    raise
+                break
+            switched += 1
+    log.info("cost_limit_applied", game_id=game_id, scope_id=str(scope.id), seats_switched=switched)
+    return switched

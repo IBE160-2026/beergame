@@ -31,6 +31,8 @@ uv run python -m app.ai.cli budget set --evaluation <ID> --limit 1 --reserve 0
 uv run python -m app.sim endpoint --config <ID>     # model id, 3 Orders, a burst of 5, latency, cost
 ```
 
+Every LLM attempt first reserves its worst-case cost (request size and the Effort level's `max_output_tokens` at the config's prices) on the scope's budget row; LLM players may spend only `limit − reserve`. When a player's reservation does not fit, every LLM Seat of every running Game on that budget switches to a Rule-based player for good. `uv run python -m app.ai.cli cost --scope <ID>` prints the budget row and the AI cost per Game and per day.
+
 `openrouter-deepseek.json` goes through OpenRouter's global router (`openrouter.ai`) to one upstream endpoint run by an EU company (Nebius, zero retention, no fallback); the router itself is not EU-only. `ai-configs/openrouter-deepseek-eu.json` uses OpenRouter's EU in-region endpoint (`eu.openrouter.ai`, Business plan), which keeps prompts in the EU. The region, upstream provider, routing switches, prices and rate limit are config data.
 
 Checks, as CI runs them:

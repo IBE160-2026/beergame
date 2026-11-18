@@ -65,11 +65,17 @@ class EffortLevel(_Spec):
     provider_params: dict[str, Any] = Field(default_factory=dict)
     attempt_timeout_s: Seconds
     order_time_budget_s: Seconds
+    max_output_tokens: Annotated[StrictInt, Field(ge=1, le=1_000_000)] = 4096
+    """The most output tokens (reasoning included) one attempt may produce, sent as
+    `max_tokens`; with the prices it bounds the cost each attempt reserves (Story 2.8). The
+    default is a placeholder until the prototype (issue #8)."""
     placeholder: bool = True
 
 
 RESERVED_PARAMS = frozenset(
     {
+        "max_tokens",
+        "max_completion_tokens",
         "provider",
         "models",
         "route",
@@ -83,8 +89,9 @@ RESERVED_PARAMS = frozenset(
     }
 )
 """Request fields an Effort level may not set: router preferences come from `routing` only, a
-model list or route would let the router fall back to another model (FR-68), and the others
-would override the pinned model, the prompt or the output schema."""
+model list or route would let the router fall back to another model (FR-68), the output token
+bound comes from `max_output_tokens` (it bounds the reservation), and the others would override
+the pinned model, the prompt or the output schema."""
 
 
 class Routing(_Spec):

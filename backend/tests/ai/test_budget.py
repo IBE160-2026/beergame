@@ -1,12 +1,15 @@
 """Story 2.2: budgets (`ai.budget`)."""
 
+import asyncio
 import uuid
 from decimal import Decimal
 
 import pytest
+from structlog.testing import capture_logs
 
 from app.ai import budget, config
 from app.platform.config import get_settings
+from app.platform.db import get_sessionmaker
 from tests.ai.helpers import MOCK, query
 
 
@@ -71,3 +74,81 @@ async def test_an_evaluation_budget_needs_a_stored_config(ai_db):
     with pytest.raises(budget.BudgetRefused) as caught:
         await budget.set_budget(budget.BudgetScope.evaluation(uuid.uuid7()), limit=Decimal(1))
     assert caught.value.code == "config_not_found"
+
+
+# --- Story 2.8: reservations ------------------------------------------------------------------
+
+
+async def evaluation(limit: str, reserve: str = "0") -> budget.BudgetScope:
+    row = await config.add(config.parse(MOCK))
+    scope = budget.BudgetScope.evaluation(row.id)
+    await budget.set_budget(scope, limit=Decimal(limit), reserve=Decimal(reserve))
+    return scope
+
+
+async def test_parallel_reservations_never_take_the_row_past_its_limit(ai_db):
+    """AD-6: each reservation is one conditional UPDATE; 20 at once on a row that fits 10."""
+    scope = await evaluation("1")
+    held = await asyncio.gather(
+        *(budget.reserve(scope, Decimal("0.1"), player=False) for _ in range(20))
+    )
+    assert sum(item is not None for item in held) == 10
+    state = await budget.state(scope)
+    assert (state.spent, state.reserved) == (0, Decimal("1"))
+    # Settling takes each reservation off and adds the actual cost.
+    for item in filter(None, held):
+        async with get_sessionmaker().begin() as session:
+            await budget.settle(item, scope, Decimal("0.02"), session=session)
+    state = await budget.state(scope)
+    assert (state.spent, state.reserved) == (Decimal("0.2"), 0)
+
+
+async def test_a_player_may_not_spend_the_reserve_and_sets_the_cost_limit_once(ai_db):
+    scope = await evaluation("1", reserve="0.6")
+    assert await budget.reserve(scope, Decimal("0.4"), player=True) is not None
+    with capture_logs() as logs:
+        assert await budget.reserve(scope, Decimal("0.1"), player=True) is None
+        reached = (await budget.state(scope)).players_exhausted_at
+        assert await budget.reserve(scope, Decimal("0.01"), player=True) is None
+    assert reached is not None and (await budget.state(scope)).players_exhausted_at == reached
+    assert [entry for entry in logs if entry["event"] == "ai_cost_limit_reached"] == [
+        {
+            "event": "ai_cost_limit_reached",
+            "log_level": "warning",
+            "scope_kind": "evaluation",
+            "scope_id": str(scope.id),
+        }
+    ]
+    # Other purposes may still spend the reserve, up to the limit.
+    other = await budget.reserve(scope, Decimal("0.6"), player=False)
+    assert other is not None
+    assert await budget.reserve(scope, Decimal("0.00000001"), player=False) is None
+    await budget.release(other)
+    state = await budget.state(scope)
+    assert (state.limit, state.reserve, state.spent, state.reserved) == (
+        1,
+        Decimal("0.6"),
+        0,
+        Decimal("0.4"),
+    )
+
+
+async def test_a_non_player_reservation_that_does_not_fit_leaves_the_players_alone(ai_db):
+    scope = await evaluation("0.1")
+    assert await budget.reserve(scope, Decimal("0.2"), player=False) is None
+    assert (await budget.state(scope)).players_exhausted_at is None
+    assert (
+        await budget.reserve(budget.BudgetScope.evaluation(uuid.uuid7()), Decimal(0), player=True)
+        is None
+    )
+
+
+async def test_a_cost_above_its_reservation_is_recorded_and_logged(ai_db):
+    scope = await evaluation("1")
+    held = await budget.reserve(scope, Decimal("0.01"), player=True)
+    with capture_logs() as logs:
+        async with get_sessionmaker().begin() as session:
+            await budget.settle(held, scope, Decimal("0.03"), session=session)
+    state = await budget.state(scope)
+    assert (state.spent, state.reserved) == (Decimal("0.03"), 0)
+    assert [entry["event"] for entry in logs] == ["ai_cost_above_reservation"]

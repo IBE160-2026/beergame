@@ -285,6 +285,23 @@ async def finished_game_ids(session: AsyncSession) -> list[uuid.UUID]:
     return list(result.scalars())
 
 
+async def running_games_of_config(
+    session: AsyncSession, purpose: str, model_config_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """The id of every running Game of `purpose` whose `SessionRuntime` froze
+    `model_config_id`, oldest first."""
+    result = await session.execute(
+        select(games.c.id)
+        .where(
+            games.c.lifecycle == "running",
+            games.c.purpose == purpose,
+            games.c.session_runtime["model_config_id"].astext == str(model_config_id),
+        )
+        .order_by(games.c.id)
+    )
+    return list(result.scalars())
+
+
 async def stored_rules_versions(session: AsyncSession) -> list[int]:
     """Every distinct `rules_version` stored on a Game."""
     result = await session.execute(

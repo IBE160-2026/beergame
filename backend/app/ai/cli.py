@@ -18,6 +18,14 @@ Subcommands:
                          `--limit`) or `--session <Class session id>` (limit defaults to
                          AI_DEFAULT_SESSION_BUDGET_USD); `--reserve` defaults to
                          AI_BUDGET_RESERVE_USD. Prints the row. Exit 1 when refused.
+  cost --scope ID        AI cost of one budget scope (`--kind evaluation|class_session` when
+                         the id has budgets of both kinds): the budget row (limit, reserve,
+                         spent, open reservations, players_exhausted_at), then the total, one
+                         `game <id> usd=… calls=N` line per Game in the rows' caller reference
+                         (`-` for calls without one, dearest first) and one `day YYYY-MM-DD`
+                         line per UTC day, summed from the `llm_call` rows of every outcome.
+                         Exit 1 when no budget matches (`budget_not_found`) or the id is
+                         ambiguous (`scope_ambiguous`).
   prompts check          check the prompt files against `prompts/hashes.json` and every prompt
                          version a stored config references: one `error <problem>` line on
                          stderr per locked version changed or removed, file not locked, or
@@ -44,7 +52,8 @@ from pathlib import Path
 
 from sqlalchemy.exc import DBAPIError, OperationalError
 
-from app.ai import budget, config, prompt_files
+from app.ai import budget, calls, config, prompt_files
+from app.ai.models import SCOPE_KINDS
 from app.platform import db
 from app.platform.config import get_settings
 from app.platform.logging import configure_logging
@@ -223,13 +232,46 @@ async def _set_budget(
         return _report_db(exc)
     finally:
         await db.dispose()
+    _print_budget(row, reserved=False)
+    return 0
+
+
+def _print_budget(row: budget.Budget, *, reserved: bool = True) -> None:
     exhausted = "-" if row.players_exhausted_at is None else row.players_exhausted_at.isoformat()
+    held = f"reserved={_money(row.reserved)} " if reserved else ""
     print(
         f"budget {row.scope.kind} {row.scope.id} limit={_money(row.limit)} "
-        f"reserve={_money(row.reserve)} spent={_money(row.spent)} "
+        f"reserve={_money(row.reserve)} spent={_money(row.spent)} {held}"
         f"players_exhausted_at={exhausted}"
     )
+
+
+async def _cost(scope_id: uuid.UUID, kind: str | None) -> int:
+    try:
+        rows = [row for row in await budget.find(scope_id) if kind in (None, row.scope.kind)]
+        if not rows:
+            _error("budget_not_found", "", f"no budget for scope {scope_id}")
+            return 1
+        if len(rows) > 1:
+            _error("scope_ambiguous", "", f"scope {scope_id} has budgets of several kinds; --kind")
+            return 1
+        [row] = rows
+        found = await calls.costs(row.scope)
+    except DBAPIError as exc:
+        return _report_db(exc)
+    finally:
+        await db.dispose()
+    _print_budget(row)
+    print(f"total usd={_money(found.total.usd)} calls={found.total.calls}")
+    for line in found.games:
+        print(f"game {line.key} usd={_money(line.usd)} calls={line.calls}")
+    for line in found.days:
+        print(f"day {line.key} usd={_money(line.usd)} calls={line.calls}")
     return 0
+
+
+def _cost_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    return _run(_cost(args.scope, args.kind))
 
 
 def _budget_set(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
@@ -312,6 +354,11 @@ def build_parser() -> argparse.ArgumentParser:
     set_.add_argument("--limit", type=_usd, metavar="USD")
     set_.add_argument("--reserve", type=_usd, metavar="USD")
     set_.set_defaults(handler=_budget_set, command_parser=set_)
+
+    cost = groups.add_parser("cost", help="AI cost of a scope per Game and day")
+    cost.add_argument("--scope", type=_id, required=True, metavar="ID")
+    cost.add_argument("--kind", choices=SCOPE_KINDS)
+    cost.set_defaults(handler=_cost_command, command_parser=cost)
 
     prompts_parser = groups.add_parser("prompts", help="prompt files and their hash lock")
     prompts_commands = prompts_parser.add_subparsers(dest="command", required=True)

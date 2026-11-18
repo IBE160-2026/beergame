@@ -65,6 +65,8 @@ budgets = Table(
     Column("limit_usd", MONEY, nullable=False),
     Column("reserve_usd", MONEY, nullable=False),
     Column("spent_usd", MONEY, nullable=False, server_default=text("0")),
+    # The worst-case cost of the attempts under way (Story 2.8); settled to `spent_usd`.
+    Column("reserved_usd", MONEY, nullable=False, server_default=text("0")),
     Column("players_exhausted_at", DateTime(timezone=True), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
@@ -76,6 +78,7 @@ budgets = Table(
         "limit_usd >= 0 AND reserve_usd >= 0 AND spent_usd >= 0", name="ck_ai_budgets_money"
     ),
     CheckConstraint("reserve_usd <= limit_usd", name="ck_ai_budgets_reserve"),
+    CheckConstraint("reserved_usd >= 0", name="ck_ai_budgets_reserved"),
     UniqueConstraint("scope_kind", "scope_id", name="uq_ai_budgets_scope"),
 )
 

@@ -20,6 +20,7 @@ from pydantic import ValidationError
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai import budget as ai_budget
 from app.ai import config as ai_config
 from app.engine import (
     RULES_VERSION,
@@ -51,6 +52,7 @@ from app.modules.games.schemas import (
     Purpose,
     SessionRuntime,
 )
+from app.modules.games.service import scope_of
 from app.modules.games.turns import OpenGame, play_of
 from app.modules.games.views import build_seat_state, stored_orders, stored_play
 from app.platform import events
@@ -286,7 +288,11 @@ async def assign_seat(
             raise CommandError("unknown_role", f"the Game has no Seat for {role!r}", 422)
         if await repo.has_occupant(session, seat["id"]):
             raise CommandError("seat_occupied", f"the {role} Seat already has an occupant", 409)
-        occupancy_id = await _append_initial(session, seat["id"], occupant, policy_id)
+        reason = OccupancyReason.INITIAL
+        if occupant is OccupantKind.LLM and await _cost_limited(session, game):
+            # The scope reached the players' cost limit: no new LLM player (FR-69, AD-5).
+            occupant, reason = OccupantKind.RULE_BASED, OccupancyReason.COST_LIMIT
+        occupancy_id = await _append_initial(session, seat["id"], occupant, policy_id, reason)
         await _commit_change(session, game_uuid)
     log.info("seat_assigned", game_id=game_id, seat_id=str(seat["id"]))
     await _settle(game_id)
@@ -294,9 +300,14 @@ async def assign_seat(
 
 
 async def _append_initial(
-    session: AsyncSession, seat_id: uuid.UUID, occupant: OccupantKind, policy_id: str | None
+    session: AsyncSession,
+    seat_id: uuid.UUID,
+    occupant: OccupantKind,
+    policy_id: str | None,
+    reason: OccupancyReason = OccupancyReason.INITIAL,
 ) -> uuid.UUID:
-    """Append a Seat's first occupancy row (`from_week` 1, reason `initial`)."""
+    """Append an occupancy row from Week 1 (reason `initial`, or `cost_limit` for an LLM
+    player the cost limit turned into a Rule-based one before the Game started)."""
     occupancy_id = uuid.uuid7()
     await repo.append_occupancy(
         session,
@@ -306,10 +317,21 @@ async def _append_initial(
             "from_week": 1,
             "occupant_kind": occupant.value,
             "policy_id": policy_id,
-            "reason": OccupancyReason.INITIAL.value,
+            "reason": reason.value,
         },
     )
     return occupancy_id
+
+
+async def _cost_limited(session: AsyncSession, game: Mapping[str, object]) -> bool:
+    """Whether the budget the Game charges has reached the players' cost limit
+    (`players_exhausted_at`, FR-69): from then on no Seat of it gets an LLM player."""
+    runtime = SessionRuntime.model_validate(game["session_runtime"])
+    scope = scope_of(str(game["purpose"]), runtime)
+    if scope is None:
+        return False
+    state = await ai_budget.state(scope, session=session)
+    return state is not None and state.players_exhausted_at is not None
 
 
 def _game_uuid(game_id: str) -> uuid.UUID:
@@ -465,9 +487,19 @@ async def start(game_id: str) -> int:
             raise CommandError("game_already_started", "the Game has already started", 409)
         settings, params = _snapshot(game)
         seat_rows = await repo.seats_with_occupant(session, game_uuid)
+        llm_seats = [s for s in seat_rows if s["occupant_kind"] == OccupantKind.LLM]
+        limited = bool(llm_seats) and await _cost_limited(session, game)
         for seat in seat_rows:
             if seat["occupant_kind"] is None:
                 await _append_initial(session, seat["id"], OccupantKind.RULE_BASED, None)
+            elif limited and seat["occupant_kind"] == OccupantKind.LLM:
+                # The cost limit was reached before the start (FR-69, AD-5).
+                await _append_initial(
+                    session, seat["id"], OccupantKind.RULE_BASED, None, OccupancyReason.COST_LIMIT
+                )
+        if limited:
+            seat_rows = await repo.seats_with_occupant(session, game_uuid)
+            log.info("seats_cost_limited", game_id=game_id, seats=len(llm_seats))
         state = initial_state(settings, game["rules_version"])
         await repo.set_lifecycle(session, game_uuid, Lifecycle.RUNNING.value)
         await _open_week(session, game, settings, params, [state], [], seat_rows)

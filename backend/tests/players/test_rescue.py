@@ -88,7 +88,7 @@ async def test_a_killed_job_gets_the_fallback_within_the_budget_plus_one_interva
     retailer = seat_id(games_db, game_id, "retailer")
     with mock.script(mock.TIMEOUT):  # the model hangs
         job = asyncio.create_task(player_jobs.place_llm_order(game_id, retailer, FIRST))
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.1)  # the call first reads the config and reserves its cost
         job.cancel()  # the worker dies mid-call
         with pytest.raises(asyncio.CancelledError):
             await job

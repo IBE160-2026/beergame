@@ -3,8 +3,9 @@
 One call resolves the scope's model config and the purpose's prompt version from it, scrubs
 free text, renders the prompt, and makes up to the purpose's number of attempts inside the
 deadline. Each attempt is timed and written as its own `llm_call` row with the caller
-reference, tokens, cost and outcome, in its own transaction, and its cost is added to the
-budget. A real endpoint's requests wait on its rate limiter, and an HTTP 429 is back-off inside
+reference, tokens, cost and outcome, in its own transaction, which also settles the worst-case
+cost the attempt reserved on the budget before it started (Story 2.8). A real endpoint's
+requests wait on its rate limiter, and an HTTP 429 is back-off inside
 the deadline, not an attempt (Story 2.7). pydantic-ai validates the answer against the output
 schema with its own output retries set to 0: the retry loop is this module's.
 
@@ -15,13 +16,14 @@ calling a model, for `python -m app.sim prompt` and the recognition probe.
 """
 
 import asyncio
+import json
 import string
 import time
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import ROUND_CEILING, Decimal
 from typing import Any, Literal
 
 import pydantic_ai
@@ -176,11 +178,10 @@ def _caller(caller: Mapping[str, object]) -> dict[str, str | int]:
     return stored
 
 
-def _exhausted(state: budget.Budget | None, purpose: purposes.Purpose) -> bool:
-    """The budget allows no further attempt (until Story 2.8's reservations)."""
-    if state is None:
-        return True
-    return state.spent >= state.limit or (purpose.player and state.players_exhausted_at is not None)
+def _players_stopped(state: budget.Budget, purpose: purposes.Purpose) -> bool:
+    """The scope reached the players' cost limit: a player purpose makes no attempt at all. Every
+    other limit is decided by the reservation before each attempt (`budget.reserve`)."""
+    return purpose.player and state.players_exhausted_at is not None
 
 
 def _checked(purpose_name: str, inputs: Inputs) -> tuple[purposes.Purpose, dict[str, str | int]]:
@@ -272,7 +273,7 @@ async def _prepare(
     state = await budget.get(scope)
     if state is None:
         raise GatewayError("budget_not_found", f"no budget for {scope.kind} {scope.id}")
-    if _exhausted(state, purpose):
+    if _players_stopped(state, purpose):
         return Failure("budget_exhausted", (), f"budget {scope.kind} {scope.id} is spent")
     terms = pii.terms(scope)
     prompt, offset_maps = _render(purpose, version, template, inputs, terms)
@@ -417,17 +418,65 @@ async def _attempt(
     return attempt
 
 
-def cost(spec: config.ModelConfigSpec, input_tokens: int, output_tokens: int) -> Decimal:
-    """USD at the config's prices; reasoning tokens are part of the output tokens."""
+def cost(
+    spec: config.ModelConfigSpec, input_tokens: int, output_tokens: int, *, rounding: str = ""
+) -> Decimal:
+    """USD at the config's prices; reasoning tokens are part of the output tokens. A
+    reservation rounds up (`rounding=ROUND_CEILING`) so it never falls below the true cost."""
     prices = spec.prices
     total = input_tokens * prices.input_usd_per_mtok + output_tokens * prices.output_usd_per_mtok
-    return (total / Decimal(1_000_000)).quantize(Decimal("1e-8"))
+    quantum = Decimal("1e-8")
+    if rounding:
+        return (total / Decimal(1_000_000)).quantize(quantum, rounding=rounding)
+    return (total / Decimal(1_000_000)).quantize(quantum)
 
 
-async def _log(call: _Call, number: int, attempt: _Attempt) -> uuid.UUID:
+INPUT_OVERHEAD_TOKENS = 256
+"""Tokens a request may add around its content (message framing, the chat template)."""
+
+
+def worst_case(call: _Call) -> Decimal:
+    """The most one attempt of `call` can cost (Story 2.8): every byte of the request it sends
+    (prompt, output schema, settings) as one input token — a byte-level tokenizer never makes
+    more tokens than bytes — plus `INPUT_OVERHEAD_TOKENS`, and the Effort level's
+    `max_output_tokens`, which the request sends as `max_tokens`."""
+    sent = len(json.dumps(call.request, default=str).encode("utf-8"))
+    return cost(
+        call.config.spec,
+        sent + INPUT_OVERHEAD_TOKENS,
+        call.level.max_output_tokens,
+        rounding=ROUND_CEILING,
+    )
+
+
+async def _log(
+    call: _Call, number: int, attempt: _Attempt, held: budget.Reservation | None = None
+) -> uuid.UUID:
+    """Write the attempt's row and settle its reservation to its actual cost, in one
+    transaction."""
     spec = call.config.spec
     amount = cost(spec, attempt.input_tokens, attempt.output_tokens)
     row_id = uuid.uuid7()
+    try:
+        await _write(call, number, attempt, held, row_id, amount)
+    except Exception:
+        # The row and the settle rolled back together: give the reservation back, so a
+        # failed write never keeps budget held (Story 2.8).
+        if held is not None:
+            await budget.release(held)
+        raise
+    return row_id
+
+
+async def _write(
+    call: _Call,
+    number: int,
+    attempt: _Attempt,
+    held: budget.Reservation | None,
+    row_id: uuid.UUID,
+    amount: Decimal,
+) -> None:
+    spec = call.config.spec
     async with transaction(None) as session:
         await session.execute(
             llm_calls.insert().values(
@@ -460,9 +509,25 @@ async def _log(call: _Call, number: int, attempt: _Attempt) -> uuid.UUID:
                 started_at=attempt.started_at,
             )
         )
-        if amount:
-            await budget.charge(call.scope, amount, session=session)
-    return row_id
+        await budget.settle(held, call.scope, amount, session=session)
+
+
+async def _reserve(call: _Call, amount: Decimal) -> budget.Reservation | None:
+    """`budget.reserve`, shielded: a cancel while it runs lets it finish, gives back what it
+    held and then goes on, so no reservation is left behind."""
+    task = asyncio.ensure_future(budget.reserve(call.scope, amount, player=call.purpose.player))
+    try:
+        return await asyncio.shield(task)
+    except asyncio.CancelledError:
+        while not task.done():  # a second cancel (shutdown) still waits for the reservation
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                continue
+        held = None if task.cancelled() or task.exception() else task.result()
+        if held is not None:
+            await asyncio.shield(budget.release(held))
+        raise
 
 
 def _no_model(error: str) -> _Attempt:
@@ -487,6 +552,11 @@ async def run[T: BaseModel](
     deadline allows (`timeout` when it does not; `provider_error` after `RATE_LIMITED_MAX` in a
     row without a deadline).
 
+    Each attempt first reserves its worst-case cost on the scope's budget row (`worst_case`,
+    `budget.reserve`) and settles it to the actual cost with its row; a reservation that does
+    not fit ends the call with `budget_exhausted` (for a player purpose it also sets the
+    scope's cost-limit state).
+
     Cancelling the call (a job stopped mid-call) logs the attempt in flight with outcome
     `cancelled` and then raises `CancelledError`."""
     if deadline is not None and deadline.tzinfo is None:
@@ -501,6 +571,7 @@ async def run[T: BaseModel](
     spec = call.config.spec
     key = adapters.endpoint_key(spec)
     clock = ratelimit.clock
+    worst = worst_case(call)
     ids: list[uuid.UUID] = []
     last: _Attempt | None = None
     number = 1
@@ -516,9 +587,6 @@ async def run[T: BaseModel](
                 # A retry starts only when it can finish inside the deadline (NFR-2); the first
                 # attempt takes the time that is left.
                 return Failure("timeout", tuple(ids), "no time left for another attempt")
-        if number > 1 and limited == 0 and _exhausted(await budget.get(call.scope), call.purpose):
-            # Each attempt's cost is charged as it ends, so a call stops once it is spent.
-            return Failure("budget_exhausted", tuple(ids), "the budget was spent during the call")
         if paced:
             # The longest wait that still lets this attempt start under the rules above.
             allowed = None if left is None else left - (timeout if number > 1 else 0)
@@ -528,16 +596,30 @@ async def run[T: BaseModel](
             timeout = min(timeout, (deadline - clock.now()).total_seconds())
             if timeout <= 0:
                 return Failure("timeout", tuple(ids), "the deadline passed")
+        # Every attempt first holds its worst-case cost on the budget row (Story 2.8).
+        held = await _reserve(call, worst)
+        if held is None:
+            detail = (
+                "the budget was spent during the call"
+                if number > 1
+                else f"budget {call.scope.kind} {call.scope.id} is spent"
+            )
+            return Failure("budget_exhausted", tuple(ids), detail)
         try:
             last = await _attempt(call, model, output_schema, timeout)
         except _Cancelled as cancelled:
             try:
                 # Shielded: a second cancel (shutdown) does not roll the row back.
-                await asyncio.shield(_log(call, number, cancelled.attempt))
+                await asyncio.shield(_log(call, number, cancelled.attempt, held))
             finally:
                 raise cancelled.original
+        except BaseException:
+            await asyncio.shield(budget.release(held))
+            raise
         if last.rate_limited:
-            # Back-off inside the deadline, not an attempt: no row, the number is not used up.
+            # Back-off inside the deadline, not an attempt: no row, the number is not used up,
+            # and the reservation is given back.
+            await asyncio.shield(budget.release(held))
             limited += 1
             wait = last.retry_after_s
             if wait is None:
@@ -556,7 +638,7 @@ async def run[T: BaseModel](
                 await clock.sleep(wait)
             continue
         limited = 0
-        ids.append(await asyncio.shield(_log(call, number, last)))
+        ids.append(await asyncio.shield(_log(call, number, last, held)))
         if last.output is not None:
             return Result(last.output, tuple(ids), call.offset_maps)  # type: ignore[arg-type]
         if last.final:

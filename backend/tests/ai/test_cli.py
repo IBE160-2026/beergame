@@ -216,3 +216,66 @@ def test_budget_set_bad_arguments_exit_2(capsys, argv):
     with pytest.raises(SystemExit) as caught:
         main(["budget", "set", *argv])
     assert caught.value.code == 2
+
+
+def logged_call(url: str, config_id: str, game: str | None, usd: str, day: str, outcome="ok"):
+    """One `llm_call` row of the evaluation scope of `config_id`, as the gateway writes it."""
+    caller = {"game": game, "seat": str(uuid.uuid7()), "week": 2} if game else {}
+    query(
+        url,
+        "INSERT INTO llm_call (id, purpose, scope_kind, scope_id, caller_ref, model_config_id, "
+        "provider, endpoint, model_version, quantisation, effort_level, prompt_version, attempt, "
+        "input_tokens, output_tokens, reasoning_tokens, cost_usd, latency_ms, outcome, request, "
+        "started_at) VALUES (%s, 'player_order', 'evaluation', %s, %s, %s, 'mock', 'mock://local', "
+        "'mock-1', 'none', 'standard', 1, 1, 10, 5, 0, %s, 3, %s, '{}', %s) RETURNING id",
+        (
+            str(uuid.uuid7()),
+            config_id,
+            json.dumps(caller),
+            config_id,
+            usd,
+            outcome,
+            f"{day}T23:30:00+00:00",
+        ),
+    )
+
+
+def test_cost_sums_the_scope_per_game_and_day(ai_db, capsys, tmp_path):
+    """Story 2.8 (FR-69): from settled `llm_call` costs of every outcome, with the budget row."""
+    _, lines, _ = run(capsys, "config", "add", write(tmp_path, MOCK))
+    config_id = added_id(lines)
+    run(capsys, "budget", "set", "--evaluation", config_id, "--limit", "2", "--reserve", "0.5")
+    one, two = str(uuid.uuid7()), str(uuid.uuid7())
+    logged_call(ai_db, config_id, one, "0.001", "2026-11-17")
+    logged_call(ai_db, config_id, one, "0.002", "2026-11-18", outcome="timeout")
+    logged_call(ai_db, config_id, two, "0.004", "2026-11-18")
+    logged_call(ai_db, config_id, None, "0.0005", "2026-11-18")  # a probe: no Game
+    query(ai_db, "UPDATE ai_budgets SET spent_usd = 0.0075, reserved_usd = 0.01 RETURNING id")
+    code, lines, err = run(capsys, "cost", "--scope", config_id)
+    assert code == 0, err
+    assert lines == [
+        f"budget evaluation {config_id} limit=2.00000000 reserve=0.50000000 "
+        "spent=0.00750000 reserved=0.01000000 players_exhausted_at=-",
+        "total usd=0.00750000 calls=4",
+        f"game {two} usd=0.00400000 calls=1",
+        f"game {one} usd=0.00300000 calls=2",
+        "game - usd=0.00050000 calls=1",
+        "day 2026-11-17 usd=0.00100000 calls=1",
+        "day 2026-11-18 usd=0.00650000 calls=3",
+    ]
+    code, lines, _ = run(capsys, "cost", "--scope", config_id, "--kind", "evaluation")
+    assert code == 0 and lines[1] == "total usd=0.00750000 calls=4"
+
+
+def test_cost_refuses_an_unknown_or_ambiguous_scope(ai_db, capsys, tmp_path):
+    _, lines, _ = run(capsys, "config", "add", write(tmp_path, MOCK))
+    config_id = added_id(lines)
+    code, out, err = run(capsys, "cost", "--scope", config_id)
+    assert (code, out) == (1, []) and err.startswith("error budget_not_found:")
+    run(capsys, "budget", "set", "--evaluation", config_id, "--limit", "1")
+    run(capsys, "budget", "set", "--session", config_id)  # the same id as a session scope
+    code, out, err = run(capsys, "cost", "--scope", config_id)
+    assert (code, out) == (1, []) and err.startswith("error scope_ambiguous:")
+    code, out, _ = run(capsys, "cost", "--scope", config_id, "--kind", "class_session")
+    assert code == 0 and out[0].startswith(f"budget class_session {config_id} ")
+    assert out[1:] == ["total usd=0.00000000 calls=0"]

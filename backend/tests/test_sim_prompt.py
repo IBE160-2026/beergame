@@ -80,7 +80,9 @@ def test_prompt_prints_the_request_for_the_open_week(games_db, ai_db, capsys):
     )
     assert code == 0, err
     assert with_config.splitlines()[0] == "purpose player_order prompt_version 1 from config"
-    assert with_config.splitlines()[1:] == lines[1:]
+    # The config's Effort level adds its output bound (Story 2.8); the rest is the same.
+    assert with_config.splitlines()[1:-1] == lines[1:-1]
+    assert with_config.splitlines()[-1] == '--- model_settings {"max_tokens": 4096}'
     # A Seat id in any form `uuid.UUID` reads names the same Seat.
     (seat_id,) = query(
         games_db,

@@ -1,13 +1,15 @@
-"""Reading `llm_call` rows (FR-67): what one call's attempts cost and took, for reports such as
-`python -m app.sim endpoint`. Only `app/ai` reads the table (AD-6)."""
+"""Reading `llm_call` rows (FR-67, FR-69): what one call's attempts cost and took, for reports
+such as `python -m app.sim endpoint`, and a scope's cost per Game and day for
+`python -m app.ai.cli cost`. Only `app/ai` reads the table (AD-6)."""
 
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
+from app.ai.budget import BudgetScope
 from app.ai.db import transaction
 from app.ai.models import llm_calls
 
@@ -24,6 +26,58 @@ class Attempt:
     served_model: str | None
     served_by: str | None
     error: str | None
+
+
+@dataclass(frozen=True)
+class CostLine:
+    """The summed cost and the number of attempts of one group of `llm_call` rows."""
+
+    key: str
+    usd: Decimal
+    calls: int
+
+
+@dataclass(frozen=True)
+class Costs:
+    total: CostLine
+    games: list[CostLine]
+    """Per Game in the rows' caller reference (`-` for rows without one), dearest first."""
+    days: list[CostLine]
+    """Per UTC day of `started_at`, oldest first."""
+
+
+async def costs(scope: BudgetScope) -> Costs:
+    """The AI cost of a scope summed from its settled `llm_call` rows (every outcome, so failed
+    and late attempts count too), in total, per Game and per day (FR-69)."""
+    where = (llm_calls.c.scope_kind == scope.kind) & (llm_calls.c.scope_id == scope.id)
+    usd = func.coalesce(func.sum(llm_calls.c.cost_usd), 0)
+    calls = func.count(llm_calls.c.id)
+    # Labelled, so GROUP BY and ORDER BY name the column instead of repeating its parameters.
+    game = func.coalesce(llm_calls.c.caller_ref["game"].astext, "-").label("game")
+    day = func.to_char(func.timezone("UTC", llm_calls.c.started_at), "YYYY-MM-DD").label("day")
+    usd = usd.label("usd")
+    async with transaction(None) as session:
+        total = (await session.execute(select(usd, calls).where(where))).one()
+        games = (
+            await session.execute(
+                select(game, usd, calls)
+                .where(where)
+                .group_by(game)
+                .order_by(usd.desc(), game.asc())
+            )
+        ).all()
+        days = (
+            await session.execute(select(day, usd, calls).where(where).group_by(day).order_by(day))
+        ).all()
+
+    def line(key: str, amount: object, count: int) -> CostLine:
+        return CostLine(key, Decimal(str(amount)).quantize(Decimal("1e-8")), count)
+
+    return Costs(
+        line("total", *total),
+        [line(*row) for row in games],
+        [line(*row) for row in days],
+    )
 
 
 async def get(ids: Sequence[uuid.UUID]) -> list[Attempt]:

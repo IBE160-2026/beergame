@@ -8,7 +8,9 @@ and places the Order through `games.commands.place_order`:
 - a typed failure (`timeout`, `invalid_output`, `budget_exhausted`, `provider_error`): the
   Rule-based reference Order stored on the turn, `decided_by = rule_based`, `fallback` = the
   failure type, with the ids of the failed attempts. The occupancy stays `llm`, so the model is
-  asked again next Week.
+  asked again next Week — except after `budget_exhausted`: the scope reached its players' cost
+  limit, so `players.service.apply_cost_limit` then switches every `llm` Seat of every running
+  Game charged to it to the Rule-based player for good (Story 2.8, FR-69).
 
 The call is bounded by the turn's `ai_deadline_at` (Story 2.6). The job never asks the model
 twice and never stalls the Game: a call the gateway refuses to prepare (`GatewayError`, a
@@ -29,7 +31,7 @@ from sqlalchemy.exc import InterfaceError, OperationalError
 from app.ai import gateway
 from app.modules.games import commands as games_commands
 from app.modules.games import service as games_service
-from app.modules.players import llm
+from app.modules.players import llm, service
 from app.modules.players.service import PLACE_LLM_ORDER
 from app.platform import jobs
 
@@ -118,6 +120,19 @@ async def place_llm_order(game_id: str, seat_id: str, week: int) -> None:
         # Week still gets the reference Order, marked as an invalid answer.
         log.error("llm_order_refused", game_id=game_id, seat_id=seat_id, code=exc.code)
         await _place_fallback(turn, games_service.Fallback.INVALID_OUTPUT, ids)
+    finally:
+        if fallback is games_service.Fallback.BUDGET_EXHAUSTED:
+            await _apply_cost_limit(game_id)
+
+
+async def _apply_cost_limit(game_id: str) -> None:
+    """The scope reached its players' cost limit: switch its LLM Seats to Rule-based players
+    (Story 2.8). A failure is logged, never raised: the next LLM Order of the scope gets
+    `budget_exhausted` again and tries the switch again."""
+    try:
+        await service.apply_cost_limit(game_id)
+    except Exception:
+        log.exception("cost_limit_switch_failed", game_id=game_id)
 
 
 async def _place(

@@ -230,6 +230,9 @@ async def test_a_cancelled_call_logs_the_attempt_in_flight(ai_db, template):
     assert row["error"] == "the caller cancelled the attempt"
     assert row["caller_ref"] == {"game": str(GAME), "seat": str(SEAT), "week": 3}
     assert row["latency_ms"] >= 30
+    # Story 2.8: the attempt's reservation was settled with its row.
+    state = await budget.state(scope)
+    assert (state.spent, state.reserved) == (row["cost_usd"], 0)
 
 
 async def test_production_never_uses_the_mock(ai_db, template, monkeypatch):
@@ -289,13 +292,26 @@ async def test_a_spent_budget_makes_no_attempt(ai_db, template):
     assert rows(ai_db) == []
 
 
+async def worst(scope, given: Inputs | None = None) -> Decimal:
+    """The worst-case cost one attempt of `call(scope, given)` reserves."""
+    prepared = await gateway._prepare("player_order", scope, given or inputs(), Order)
+    return gateway.worst_case(prepared)
+
+
 async def test_a_call_stops_when_its_attempts_spend_the_budget(ai_db, template):
-    scope = await scope_for(limit="0.00000001")
-    result = await call(scope, inputs(mock_answer={"order": -1}))
+    """Story 2.8: the limit fits one worst case; the first attempt's actual cost leaves too
+    little for the second reservation."""
+    scope = await scope_for()
+    given = inputs(mock_answer={"order": -1})
+    await budget.set_budget(scope, limit=await worst(scope, given), reserve=Decimal(0))
+    result = await call(scope, given)
     [row] = rows(ai_db)
     assert result == Failure(
         "budget_exhausted", (row["id"],), "the budget was spent during the call"
     )
+    state = await budget.state(scope)
+    assert (state.spent, state.reserved) == (row["cost_usd"], 0)
+    assert state.players_exhausted_at is not None  # a player purpose reached the limit
 
 
 async def test_free_text_is_scrubbed_before_it_is_sent_or_stored(ai_db, template, monkeypatch):
@@ -330,14 +346,15 @@ async def test_the_effort_level_comes_from_the_scope(ai_db, template):
     await call(scope)
     [row] = rows(ai_db)
     assert (row["effort_level"], row["seed"], row["temperature"]) == ("careful", 7, 0.2)
-    assert row["request"]["model_settings"] == {"seed": 7, "temperature": 0.2}
-    assert mock.last_model_settings == {"seed": 7, "temperature": 0.2}  # sent, not only logged
+    sent = {"max_tokens": 4096, "seed": 7, "temperature": 0.2}
+    assert row["request"]["model_settings"] == sent
+    assert mock.last_model_settings == sent  # sent, not only logged
 
     # A scope that names no level gets the config's first one.
     default = budget.BudgetScope.evaluation(scope.id)
     await call(default)
     assert rows(ai_db)[-1]["effort_level"] == "standard"
-    assert mock.last_model_settings == {}
+    assert mock.last_model_settings == {"max_tokens": 4096}
 
 
 async def test_caller_and_config_mistakes_raise_before_any_attempt(ai_db, template, prompts):
@@ -384,7 +401,7 @@ async def test_preview_resolves_a_scope_as_run_does_and_uses_the_newest_file_wit
     scoped = await gateway.preview("player_order", inputs(), Order, scope)
     assert scoped.prompt_version == 1
     assert scoped.request["prompt"] == "Stock: 12 units. Note: no backlog"
-    assert scoped.request["model_settings"] == {"seed": 1, "temperature": 0.2}
+    assert scoped.request["model_settings"] == {"max_tokens": 4096, "seed": 1, "temperature": 0.2}
     bare = await gateway.preview("player_order", inputs(), Order)
     assert bare.prompt_version == 2 and bare.request["model_settings"] == {}
     assert bare.request["prompt"] == "Newer: 12 no backlog"
@@ -395,3 +412,154 @@ async def test_preview_resolves_a_scope_as_run_does_and_uses_the_newest_file_wit
     with pytest.raises(GatewayError) as caught:
         await gateway.preview("debrief", inputs(), Order)
     assert caught.value.code == "unknown_purpose"
+
+
+# --- Story 2.8: reservations ------------------------------------------------------------------
+
+
+async def test_each_attempt_reserves_its_worst_case_and_settles_to_its_cost(
+    ai_db, template, monkeypatch
+):
+    scope = await scope_for()
+    seen: list[Decimal] = []
+    real = budget.reserve
+
+    async def watched(target, amount, *, player):
+        seen.append(amount)
+        held = await real(target, amount, player=player)
+        assert (await budget.state(target)).reserved == amount  # held during the attempt
+        return held
+
+    monkeypatch.setattr(budget, "reserve", watched)
+    result = await call(scope, inputs(mock_answer={"order": 4}))
+    [row] = rows(ai_db)
+    assert isinstance(result, Result) and seen == [await worst(scope)]
+    # The worst case covers every byte sent plus the output bound at the config's prices.
+    sent = len(json.dumps(row["request"]).encode())
+    assert (
+        seen[0]
+        >= ((sent + gateway.INPUT_OVERHEAD_TOKENS) * Decimal("0.10") + 4096 * Decimal("0.40"))
+        / 1_000_000
+    )
+    assert seen[0] > row["cost_usd"] > 0
+    state = await budget.state(scope)
+    assert (state.spent, state.reserved) == (row["cost_usd"], 0)
+
+
+async def test_parallel_calls_never_hold_more_than_the_limit(ai_db, template, monkeypatch):
+    """Eight calls at once on a limit that fits three worst cases: every call reserves before
+    any attempt ends, so exactly three run and five get `budget_exhausted`."""
+    import asyncio
+
+    scope = await scope_for()
+    limit = 3 * await worst(scope)
+    await budget.set_budget(scope, limit=limit, reserve=Decimal(0))
+    tried, all_tried = 0, asyncio.Event()
+    real_reserve, real_attempt = budget.reserve, gateway._attempt
+
+    async def counted(*args, **kwargs):
+        nonlocal tried
+        held = await real_reserve(*args, **kwargs)
+        tried += 1
+        if tried == 8:
+            all_tried.set()
+        return held
+
+    async def gated(*args, **kwargs):
+        await all_tried.wait()
+        return await real_attempt(*args, **kwargs)
+
+    monkeypatch.setattr(budget, "reserve", counted)
+    monkeypatch.setattr(gateway, "_attempt", gated)
+    results = await asyncio.gather(*(call(scope) for _ in range(8)))
+    assert sum(isinstance(r, Result) for r in results) == 3
+    assert [r.kind for r in results if isinstance(r, Failure)] == ["budget_exhausted"] * 5
+    state = await budget.state(scope)
+    assert state.reserved == 0 and state.spent == sum(r["cost_usd"] for r in rows(ai_db)) <= limit
+
+
+async def test_a_player_purpose_leaves_the_reserve_to_other_purposes(ai_db, prompts):
+    (prompts / "player_order" / "v1.md").write_text(TEMPLATE, encoding="utf-8")
+    (prompts / "recognition_probe").mkdir(exist_ok=True)
+    (prompts / "recognition_probe" / "v1.md").write_text("Do you know $stock?", encoding="utf-8")
+    data = mock_config(prompts={"player_order": 1, "recognition_probe": 1})
+    row = await config.add(config.parse(data))
+    scope = budget.BudgetScope.evaluation(row.id)
+    await budget.set_budget(scope, limit=Decimal(1), reserve=Decimal(1))
+    player = await call(scope)
+    assert player == Failure("budget_exhausted", (), f"budget evaluation {scope.id} is spent")
+    assert (await budget.state(scope)).players_exhausted_at is not None
+    probe = await gateway.run("recognition_probe", scope, inputs(), Order, None)
+    assert isinstance(probe, Result)
+    # Once the players' limit is reached, a player call makes no attempt at all.
+    await budget.set_budget(scope, limit=Decimal(2), reserve=Decimal(0))
+    assert (await call(scope)).kind == "budget_exhausted"
+    assert [r["purpose"] for r in rows(ai_db)] == ["recognition_probe"]
+
+
+async def test_a_429_gives_its_reservation_back(ai_db, template):
+    scope = await scope_for()
+    with mock.script(mock.RATE_LIMITED):
+        result = await call(scope, inputs(mock_answer={"order": 2}))
+    [row] = rows(ai_db)
+    assert isinstance(result, Result) and row["attempt"] == 1
+    state = await budget.state(scope)
+    assert (state.spent, state.reserved) == (row["cost_usd"], 0)
+
+
+async def test_a_cancel_while_reserving_gives_the_reservation_back(ai_db, template, monkeypatch):
+    import asyncio
+
+    scope = await scope_for()
+    entered, gate = asyncio.Event(), asyncio.Event()
+    real = budget.reserve
+
+    async def slow(*args, **kwargs):
+        entered.set()
+        await gate.wait()
+        return await real(*args, **kwargs)
+
+    monkeypatch.setattr(budget, "reserve", slow)
+    task = asyncio.create_task(call(scope))
+    await entered.wait()
+    task.cancel()
+    await asyncio.sleep(0)
+    task.cancel()  # a second cancel (shutdown) while the reservation still runs
+    gate.set()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    state = await budget.state(scope)
+    assert (state.spent, state.reserved) == (0, 0) and rows(ai_db) == []
+
+
+@pytest.mark.parametrize("broken", ["_attempt", "_write"])
+async def test_an_unexpected_error_gives_the_reservation_back(ai_db, template, monkeypatch, broken):
+    """An attempt that raises, or a row that cannot be written, leaves no budget held."""
+    scope = await scope_for()
+
+    async def fails(*_, **__):
+        raise RuntimeError("unexpected")
+
+    monkeypatch.setattr(gateway, broken, fails)
+    with pytest.raises(RuntimeError):
+        await call(scope)
+    state = await budget.state(scope)
+    assert (state.spent, state.reserved) == (0, 0) and rows(ai_db) == []
+
+
+async def test_the_effort_levels_output_bound_is_sent_and_reserved(ai_db, template):
+    levels = [level(), level("short", max_output_tokens=100)]
+    scope = await scope_for(effort_levels=levels, effort_level="short")
+    prepared = await gateway._prepare("player_order", scope, inputs(), Order)
+    sent = len(json.dumps(prepared.request).encode())
+    expected = gateway.cost(
+        prepared.config.spec,
+        sent + gateway.INPUT_OVERHEAD_TOKENS,
+        100,
+        rounding="ROUND_CEILING",
+    )
+    assert gateway.worst_case(prepared) == expected
+    assert expected < await worst(budget.BudgetScope.evaluation(scope.id))  # the 4096 level
+    await call(scope)
+    assert mock.last_model_settings["max_tokens"] == 100
+    assert rows(ai_db)[-1]["request"]["model_settings"]["max_tokens"] == 100

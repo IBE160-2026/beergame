@@ -2,8 +2,15 @@
 
 One row per scope: a model config's evaluation budget (simulation runs) or a Class session's
 budget. Money is `NUMERIC(18,8)` USD. The row holds `limit`, `reserve` (kept for the Debrief and
-the AI assessment), `spent` and `players_exhausted_at` (the cost-limit state). The gateway adds
-each attempt's cost to `spent` (`charge`); reservations against it come with Story 2.8.
+the AI assessment), `spent`, `reserved` (the worst-case cost of the attempts under way) and
+`players_exhausted_at` (the cost-limit state).
+
+Before each attempt the gateway reserves its worst-case cost with one conditional `UPDATE`
+(`reserve`); a player purpose may take the row only up to `limit − reserve`, other purposes up
+to `limit`. The attempt's `llm_call` row and `settle` (reservation off, actual cost on `spent`)
+share one transaction. No limit check ever sums `llm_call` rows (Story 2.8, AD-6, FR-69). A
+player reservation that does not fit sets `players_exhausted_at` once, for the rest of the
+scope's life; `players` then switches the scope's LLM Seats to Rule-based players.
 
 Other modules read and change budgets only through this module (AD-6); Epic 5 creates a Class
 session's row with `set_budget(BudgetScope.class_session(id))`, whose limit defaults to
@@ -16,6 +23,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Literal
 
+import structlog
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +34,8 @@ from app.ai.models import budgets
 from app.platform.config import get_settings
 
 ScopeKind = Literal["evaluation", "class_session"]
+
+log = structlog.get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -59,6 +69,8 @@ class Budget:
     spent: Decimal
     players_exhausted_at: datetime | None
     updated_at: datetime
+    reserved: Decimal = Decimal(0)
+    """The worst-case cost of the attempts under way."""
 
 
 class BudgetRefused(Exception):
@@ -86,6 +98,7 @@ def _row(row: Any) -> Budget:
         row.spent_usd,
         row.players_exhausted_at,
         row.updated_at,
+        row.reserved_usd,
     )
 
 
@@ -146,12 +159,98 @@ async def get(scope: BudgetScope, *, session: AsyncSession | None = None) -> Bud
     return None if row is None else _row(row)
 
 
-async def charge(scope: BudgetScope, amount: Decimal, *, session: AsyncSession) -> None:
-    """Add one attempt's cost to `spent` with a single `UPDATE`, in the caller's transaction
-    (the gateway writes the attempt's `llm_call` row in the same one). Story 2.8 replaces this
-    with reserve-then-settle."""
+async def find(scope_id: uuid.UUID) -> list[Budget]:
+    """Every budget row whose scope id is `scope_id` (one per scope kind at most)."""
+    async with transaction(None) as s:
+        rows = (
+            await s.execute(
+                select(budgets).where(budgets.c.scope_id == scope_id).order_by(budgets.c.scope_kind)
+            )
+        ).all()
+    return [_row(row) for row in rows]
+
+
+async def state(scope: BudgetScope, *, session: AsyncSession | None = None) -> Budget | None:
+    """The scope's cost state: limit, reserve, spent, reserved and the time the players' limit
+    was reached (`players_exhausted_at`), for Epic 3's notice and Epic 15's cost view."""
+    return await get(scope, session=session)
+
+
+@dataclass(frozen=True)
+class Reservation:
+    """An amount held on a scope's row until `settle` or `release`."""
+
+    scope: BudgetScope
+    amount: Decimal
+
+
+def _where(scope: BudgetScope) -> Any:
+    return (budgets.c.scope_kind == scope.kind) & (budgets.c.scope_id == scope.id)
+
+
+async def reserve(scope: BudgetScope, amount: Decimal, *, player: bool) -> Reservation | None:
+    """Hold `amount` (an attempt's worst-case cost) on the scope's row with one conditional
+    `UPDATE`, in its own transaction; None when it does not fit. A player purpose fits only
+    within `limit − reserve` and while `players_exhausted_at` is unset; when it does not fit,
+    `players_exhausted_at` is set (once) and `ai_cost_limit_reached` is logged after the
+    commit."""
+    ceiling = budgets.c.limit_usd - budgets.c.reserve_usd if player else budgets.c.limit_usd
+    condition = _where(scope) & (budgets.c.spent_usd + budgets.c.reserved_usd + amount <= ceiling)
+    if player:
+        condition = condition & budgets.c.players_exhausted_at.is_(None)
+    reached = False
+    async with transaction(None) as session:
+        held = (
+            await session.execute(
+                update(budgets)
+                .where(condition)
+                .values(reserved_usd=budgets.c.reserved_usd + amount, updated_at=func.now())
+                .returning(budgets.c.id)
+            )
+        ).first()
+        if held is None and player:
+            reached = (
+                await session.execute(
+                    update(budgets)
+                    .where(_where(scope) & budgets.c.players_exhausted_at.is_(None))
+                    .values(players_exhausted_at=func.now(), updated_at=func.now())
+                    .returning(budgets.c.id)
+                )
+            ).first() is not None
+    if reached:
+        log.warning("ai_cost_limit_reached", scope_kind=scope.kind, scope_id=str(scope.id))
+    return None if held is None else Reservation(scope, amount)
+
+
+async def settle(
+    reservation: Reservation | None, scope: BudgetScope, actual: Decimal, *, session: AsyncSession
+) -> None:
+    """Take the reservation off the row and add the attempt's actual cost to `spent`, in the
+    caller's transaction (the gateway writes the attempt's `llm_call` row in the same one)."""
+    held = Decimal(0) if reservation is None else reservation.amount
+    if not held and not actual:
+        return
+    if actual > held:
+        log.warning(
+            "ai_cost_above_reservation",
+            scope_kind=scope.kind,
+            scope_id=str(scope.id),
+            reserved_usd=str(held),
+            cost_usd=str(actual),
+        )
     await session.execute(
         update(budgets)
-        .where(budgets.c.scope_kind == scope.kind, budgets.c.scope_id == scope.id)
-        .values(spent_usd=budgets.c.spent_usd + amount, updated_at=func.now())
+        .where(_where(scope))
+        .values(
+            reserved_usd=budgets.c.reserved_usd - held,
+            spent_usd=budgets.c.spent_usd + actual,
+            updated_at=func.now(),
+        )
     )
+
+
+async def release(reservation: Reservation) -> None:
+    """Give a reservation back without a cost: its attempt made no `llm_call` row (an HTTP 429,
+    or the call stopped before the attempt started)."""
+    async with transaction(None) as session:
+        await settle(reservation, reservation.scope, Decimal(0), session=session)

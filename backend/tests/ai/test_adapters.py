@@ -223,7 +223,8 @@ def test_the_forced_switches_may_be_stated_and_reserved_params_are_refused(promp
     stated = {**ROUTING, "allow_fallbacks": False, "data_collection": "deny", "zdr": True}
     assert config.parse(real_config(routing=stated)).routing.zdr is True
     level = {"name": "x", "attempt_timeout_s": 1, "order_time_budget_s": 2}
-    for param in ("provider", "models", "route", "model", "messages", "response_format"):
+    reserved = ("provider", "models", "route", "model", "messages", "response_format")
+    for param in (*reserved, "max_tokens", "max_completion_tokens"):
         with pytest.raises(config.ConfigInvalid) as caught:
             config.parse(real_config(effort_levels=[{**level, "provider_params": {param: 1}}]))
         assert [e.code for e in caught.value.errors] == ["param_reserved"]
@@ -235,6 +236,7 @@ def test_the_forced_switches_may_be_stated_and_reserved_params_are_refused(promp
 def test_a_config_without_routing_sends_no_provider_object(prompts):
     spec = config.parse(real_config(routing=None))
     assert adapters.model_settings(spec, spec.effort_levels[0]) == {
+        "max_tokens": 4096,
         "seed": 3,
         "extra_body": {"reasoning": {"effort": "low"}},
     }

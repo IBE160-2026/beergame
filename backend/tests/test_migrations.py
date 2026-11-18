@@ -31,7 +31,7 @@ JOB_TABLES = {
 }
 """procrastinate's tables, from the SQL it ships (revision 0008, Story 2.5)."""
 HEAD_TABLES = AI_HEAD_TABLES | JOB_TABLES
-HEAD = "0010"
+HEAD = "0011"
 
 
 def reset_schema(url: str) -> None:

@@ -131,7 +131,7 @@ def test_other_rules_name_the_field(changes, expected):
 def test_ordinary_names_are_not_taken_for_credentials():
     level = {
         **MOCK["effort_levels"][0],
-        "provider_params": {"prompt_cache_key": "x", "max_tokens": 5},
+        "provider_params": {"prompt_cache_key": "x", "top_k": 5},
     }
     spec = config.parse(mock_config(effort_levels=[level], prompts={}))
     assert spec.effort_levels[0].provider_params["prompt_cache_key"] == "x"
@@ -170,6 +170,7 @@ async def test_add_stores_one_row_with_every_field(ai_db):
             "provider_params": {},
             "attempt_timeout_s": 4.0,
             "order_time_budget_s": 8.0,
+            "max_output_tokens": 4096,
             "placeholder": True,
         }
     ]

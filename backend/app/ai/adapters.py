@@ -77,10 +77,11 @@ def router_without_routing(spec: config.ModelConfigSpec) -> str | None:
 
 
 def model_settings(spec: config.ModelConfigSpec, level: config.EffortLevel) -> dict[str, Any]:
-    """The model settings of every attempt: seed and temperature from the Effort level where it
-    sets them; its other provider params and the router preferences as `extra_body`."""
+    """The model settings of every attempt: the Effort level's output token bound as
+    `max_tokens`, seed and temperature where it sets them; its other provider params and the
+    router preferences as `extra_body`."""
     params = level.provider_params
-    settings: dict[str, Any] = {}
+    settings: dict[str, Any] = {"max_tokens": level.max_output_tokens}
     seed = params.get("seed")
     if isinstance(seed, int) and not isinstance(seed, bool):
         settings["seed"] = seed
