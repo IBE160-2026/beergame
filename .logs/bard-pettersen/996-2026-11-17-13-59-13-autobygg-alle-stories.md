@@ -630,3 +630,22 @@ Bygge Story 3.5 på `epic-3`.
 
 ### Åpne punkter
 - Issue #72: beslutninger om e-postkanalen, og at Story 3.6 trenger malvariabler.
+
+## Story 3.6: Tilbakestille glemt passord på e-post (2026-11-18)
+
+### Oppgave
+Bygge Story 3.6 på `epic-3` og kontrollere den visuelt. Rette en kjent feil på `/logg-inn`: knappen flytter seg når en feilmelding forsvinner.
+
+### Plan
+`bmad-build-auto` i én underagent, deretter visuell kontroll i en egen underagent som også retter feilen på `/logg-inn`.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-6-reset-forgotten-password-by-email.md`. Commit `a5ef6de`, visuelle rettinger `7b9a5d3`. Migrering 0017.
+- Tre offentlige endepunkter for tilbakestilling, malvariabler i e-post til brukere, sidene `/glemt-passord` og `/nytt-passord`, og et lokalt testendepunkt for postkassen.
+- Backend: 1706 grønne på 72 s. Frontend: typecheck, Vitest (250), tekstsjekk og bygg grønne. Playwright: 59 grønne. Tre nye flyttester tar 4–10 s hver, fordi de sender ekte mock-e-post gjennom arbeideren.
+- Gjennomgang: 49 funn. Rettet blant annet at bcrypt kjørte før token-sjekken, og at to lenker for samme bruker kunne bekreftes samtidig.
+- Visuell kontroll: 18 skjermbilder, to rettinger, tre punkter til vurdering.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #73: beslutninger, sikkerhetsrisikoen (andre økter logges ikke ut) og visuelle avvik.
