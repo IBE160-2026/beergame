@@ -1015,6 +1015,29 @@ async def get_institution(institution_id: uuid.UUID) -> InstitutionOut | None:
     return _institution_out(row) if row else None
 
 
+# Labels for the audit page (Story 3.12, AD-14): audit rows hold ids, names are read here.
+
+
+async def _labels(table: str, ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    async with get_sessionmaker().begin() as s:
+        return await repo.labels_of(s, table, ids)
+
+
+async def user_labels(ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """The Users' names now; registered with `platform/audit` for the target key `user_id`."""
+    return await _labels("users", ids)
+
+
+async def invitation_labels(ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """The Invitations' addresses; registered for the target key `invitation_id`."""
+    return await _labels("invitations", ids)
+
+
+async def institution_labels(ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """The Institutions' names now; registered for the target key `institution_id`."""
+    return await _labels("institutions", ids)
+
+
 # The first Admin (AD-17, Story 3.8).
 
 

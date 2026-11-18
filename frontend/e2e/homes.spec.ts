@@ -48,9 +48,10 @@ for (const vp of VIEWPORTS) {
         await expect(page.getByRole("heading", { level: 1, name: TITLE[role] })).toBeVisible();
         await expectSession(page, role);
         // No global navigation bar (UX-DR77), and no link to a home that is not theirs. The
-        // Admin-område lists its own pages (Stories 3.7, 3.11).
+        // Admin-område lists its own pages (Stories 3.7, 3.11, 3.12).
         await expect(page.locator("nav")).toHaveCount(0);
-        const links = role === "admin" ? [nb.admin.sections.users, nb.admin.sections.institutions] : [];
+        const links =
+          role === "admin" ? [nb.admin.sections.users, nb.admin.sections.institutions, nb.admin.sections.audit] : [];
         await expect(page.getByRole("main").getByRole("link")).toHaveText(links);
         await expectAccessible(page);
       });

@@ -513,3 +513,17 @@ async def list_institutions(
         query = query.where(institutions.c.id < after)
     result = await session.execute(query.order_by(institutions.c.id.desc()).limit(limit))
     return list(result.mappings())
+
+
+async def labels_of(
+    session: AsyncSession, table: str, ids: list[uuid.UUID]
+) -> dict[uuid.UUID, str]:
+    """`id → name` of Users or Institutions, `id → e-mail address` of Invitations, for the audit
+    page (Story 3.12)."""
+    source, column = {
+        "users": (users, users.c.name),
+        "invitations": (invitations, invitations.c.email),
+        "institutions": (institutions, institutions.c.name),
+    }[table]
+    result = await session.execute(select(source.c.id, column).where(source.c.id.in_(ids)))
+    return {row[0]: row[1] for row in result}

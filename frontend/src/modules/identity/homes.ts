@@ -25,6 +25,9 @@ export const ADMIN_USERS_PATH = "/admin/brukere";
 /** «Institusjoner» in the Admin-område (Story 3.11). */
 export const ADMIN_INSTITUTIONS_PATH = "/admin/institusjoner";
 
+/** «Revisjonslogg» in the Admin-område (Story 3.12). */
+export const ADMIN_AUDIT_PATH = "/admin/revisjonslogg";
+
 /** The link that leads to each home («Til Lærerhjem» …). */
 export const HOME_LINK: Record<Home, string> = {
   adminArea: nb.navigation.toAdminArea,

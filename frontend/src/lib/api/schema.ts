@@ -4,6 +4,49 @@
  */
 
 export interface paths {
+    "/api/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Audit Events
+         * @description Audit events newest first, with actor and target names read now (FR-3, AD-14). Filter by
+         *     `actor` (a User id, or `system` for the rows with no actor), `action`, and the inclusive
+         *     Europe/Oslo days `since` and `until`.
+         */
+        get: operations["listAuditEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/audit/actors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Audit Actors
+         * @description Everyone who appears as actor in the log, for the filter: the system first (`id` null),
+         *     then Users by name.
+         */
+        get: operations["listAuditActors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/institutions": {
         parameters: {
             query?: never;
@@ -441,6 +484,73 @@ export interface components {
          * @enum {string}
          */
         AccountRole: "admin" | "lecturer";
+        /**
+         * AuditActor
+         * @description An actor of the log for the filter: a User with their name, or the system (both null).
+         */
+        AuditActor: {
+            /** Id */
+            id: string | null;
+            /** Name */
+            name: string | null;
+        };
+        /** AuditActorsOut */
+        AuditActorsOut: {
+            /** Items */
+            items: components["schemas"]["AuditActor"][];
+        };
+        /**
+         * AuditEventOut
+         * @description One audit row with names resolved at read time. No actor (`actor_id` null) is the system.
+         */
+        AuditEventOut: {
+            /** Action */
+            action: string;
+            /** Actor Id */
+            actor_id: string | null;
+            /** Actor Name */
+            actor_name: string | null;
+            /** Change */
+            change: {
+                [key: string]: unknown;
+            };
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Targets */
+            targets: components["schemas"]["AuditTarget"][];
+        };
+        /**
+         * AuditListOut
+         * @description A page of audit rows in the list envelope, newest first; `next_cursor` is null on the last
+         *     page.
+         */
+        AuditListOut: {
+            /** Items */
+            items: components["schemas"]["AuditEventOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * AuditTarget
+         * @description One id the action touched: its key in the row (`user_id`, `invitation_id`, …) and what the
+         *     owning module calls it now; `label` is null when no module knows it.
+         */
+        AuditTarget: {
+            /** Id */
+            id: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string | null;
+        };
         /** ErrorBody */
         ErrorBody: {
             /** Code */
@@ -677,6 +787,98 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listAuditEvents: {
+        parameters: {
+            query?: {
+                actor?: string | null;
+                action?: string | null;
+                since?: string | null;
+                until?: string | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listAuditActors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditActorsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     listInstitutions: {
         parameters: {
             query?: {

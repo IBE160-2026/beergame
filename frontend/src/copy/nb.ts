@@ -243,6 +243,72 @@ export const nb = {
       users: "Brukere og roller",
       // The working term «Institusjon» (EXPERIENCE.md → Terms, [ASSUMPTION]); Story 3.11.
       institutions: "Institusjoner",
+      // [ASSUMPTION] Story 3.12.
+      audit: "Revisjonslogg",
+    },
+    /** «Revisjonslogg» (Story 3.12, FR-3): every Admin action with who did it and when. The page
+     * renders any action from these entries; a later epic adds its own action names here and the
+     * page needs no other change. [ASSUMPTION] Story 3.12, all of it. */
+    audit: {
+      title: "Revisjonslogg",
+      lead: "Hver handling i Admin-området, med hvem som gjorde den og når. Loggen kan ikke endres.",
+      filters: {
+        title: "Filtrer",
+        actor: "Utført av",
+        action: "Handling",
+        all: "Alle",
+        since: "Fra og med",
+        until: "Til og med",
+        rangeReversed: "Til og med-datoen kan ikke være før fra og med-datoen.",
+      },
+      list: {
+        title: "Hendelser",
+        columns: { time: "Tidspunkt", actor: "Utført av", action: "Handling", target: "Gjelder", change: "Endring" },
+        empty: "Ingen hendelser ennå.",
+        noMatches: "Ingen treff.",
+        more: "Vis flere hendelser",
+        moreFailed: "Flere hendelser kunne ikke lastes. Prøv igjen.",
+      },
+      /** «18. nov. 2026 kl. 13:01», Europe/Oslo. */
+      at: (date: string, time: string) => `${date} kl. ${time}`,
+      system: "Systemet",
+      unknown: "Ukjent",
+      noChange: "–",
+      actions: {
+        "invitation.sent": "Invitasjon sendt",
+        "invitation.resent": "Invitasjon sendt på nytt",
+        "invitation.accepted": "Invitasjon akseptert",
+        "invitation.bootstrap": "Første Admin invitert",
+        "role.bootstrap_granted": "Første Admin fikk rollen",
+        "role.granted": "Rolle gitt",
+        "role.revoked": "Rolle fjernet",
+        "user.deactivated": "Bruker deaktivert",
+        "user.reactivated": "Bruker aktivert igjen",
+        "institution.created": "Institusjon opprettet",
+        "institution.renamed": "Institusjon fikk nytt navn",
+      } as Record<string, string>,
+      /** What an action concerns, by its target key. */
+      targets: {
+        user_id: (label: string) => label,
+        invitation_id: (label: string) => `Invitasjon til ${label}`,
+        institution_id: (label: string) => label,
+      } as Record<string, (label: string) => string>,
+      /** The labels of the change fields; an unknown field shows its own key. */
+      fields: {
+        role: "Rolle",
+        account: "Konto",
+        role_added: "Rollen lagt til",
+        name: "Navn",
+        old_name: "Gammelt navn",
+        new_name: "Nytt navn",
+        voided_invitation_ids: "Lenker gjort ugyldige",
+      } as Record<string, string>,
+      values: {
+        roles: { lecturer: "Faglærer", admin: "Admin" } as Record<string, string>,
+        account: { created: "Ny konto", existing: "Eksisterende konto" } as Record<string, string>,
+        yes: "Ja",
+        no: "Nei",
+      },
     },
     /** «Institusjoner» (Story 3.11, FR-3): create and rename the Institutions Classes belong to.
      * [ASSUMPTION] Story 3.11, all of it. */

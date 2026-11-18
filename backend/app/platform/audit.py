@@ -11,24 +11,40 @@ action itself, so the row commits with the action or not at all: exactly one row
   here (AD-14). `record` refuses any string holding `@`.
 - `at` comes from the caller's clock; nothing here reads the database clock.
 
-There is no update or delete: a trigger refuses both (migration 0018). Rows have no foreign key,
-so the history outlives anything it names. Reading the log for the Admin comes with Story 3.12.
-This module imports no `app.modules` code.
+There is no update or delete: a trigger refuses both (migration 0018), and this module offers
+neither. Rows have no foreign key, so the history outlives anything it names.
+
+Reading (Story 3.12): `page` lists rows newest first with filters, `actors` the distinct actors.
+Names are never stored, so the audit page asks the owning modules for them at read time: a module
+registers a labeler per target key at app start (`register_labels("user_id", …)`), and `labels`
+answers with whatever that module calls the ids now. An unregistered key has no labels; the page
+still shows the row. This module imports no `app.modules` code.
 """
 
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Column, DateTime, Index, Table, Text, Uuid, select
+from sqlalchemy import Column, DateTime, Index, Table, Text, Uuid, and_, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.platform.db import metadata
 
-__all__ = ["AuditEvent", "audit_events", "events_for_target", "record"]
+__all__ = [
+    "SYSTEM",
+    "AuditEvent",
+    "Labeler",
+    "actors",
+    "audit_events",
+    "events_for_target",
+    "labels",
+    "page",
+    "record",
+    "register_labels",
+]
 
 audit_events = Table(
     "audit_events",
@@ -106,3 +122,70 @@ async def events_for_target(session: AsyncSession, key: str, value: uuid.UUID) -
         .order_by(audit_events.c.occurred_at, audit_events.c.id)
     )
     return [AuditEvent(**row) for row in result.mappings()]
+
+
+class _System:
+    """The actor filter for rows the system wrote (no actor)."""
+
+    def __repr__(self) -> str:
+        return "SYSTEM"
+
+
+SYSTEM = _System()
+"""`page(actor=SYSTEM)`: only the rows with no actor."""
+
+
+async def page(
+    session: AsyncSession,
+    *,
+    limit: int,
+    after: tuple[datetime, uuid.UUID] | None = None,
+    actor: uuid.UUID | _System | None = None,
+    action: str | None = None,
+    since: datetime | None = None,
+    until: datetime | None = None,
+) -> list[AuditEvent]:
+    """Up to `limit` rows, newest first by `(occurred_at, id)`, strictly after the keyset `after`.
+    `actor` None means any actor, `SYSTEM` the rows with none; `since` is inclusive and `until`
+    exclusive."""
+    c = audit_events.c
+    query = select(audit_events).order_by(c.occurred_at.desc(), c.id.desc()).limit(limit)
+    if after is not None:
+        at, last_id = after
+        query = query.where(or_(c.occurred_at < at, and_(c.occurred_at == at, c.id < last_id)))
+    if isinstance(actor, _System):
+        query = query.where(c.actor_user_id.is_(None))
+    elif actor is not None:
+        query = query.where(c.actor_user_id == actor)
+    if action is not None:
+        query = query.where(c.action == action)
+    if since is not None:
+        query = query.where(c.occurred_at >= since)
+    if until is not None:
+        query = query.where(c.occurred_at < until)
+    result = await session.execute(query)
+    return [AuditEvent(**row) for row in result.mappings()]
+
+
+async def actors(session: AsyncSession) -> list[uuid.UUID | None]:
+    """Every distinct actor of the log; None stands for the system."""
+    result = await session.execute(select(audit_events.c.actor_user_id).distinct())
+    return list(result.scalars())
+
+
+Labeler = Callable[[list[uuid.UUID]], Awaitable[Mapping[uuid.UUID, str]]]
+"""`ids` → what the owning module calls each id now; an id it does not know is left out."""
+_labelers: dict[str, Labeler] = {}
+
+
+def register_labels(key: str, labeler: Labeler) -> None:
+    """Called once per target key by `create_app()`, e.g. `user_id` with `identity`'s names."""
+    _labelers[key] = labeler
+
+
+async def labels(key: str, ids: Sequence[uuid.UUID]) -> Mapping[uuid.UUID, str]:
+    """The labels of `ids` under target key `key`; none for a key no module registered."""
+    labeler = _labelers.get(key)
+    if labeler is None or not ids:
+        return {}
+    return await labeler(list(dict.fromkeys(ids)))

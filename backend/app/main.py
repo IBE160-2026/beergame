@@ -7,11 +7,12 @@ import structlog
 from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 
+from app.modules.admin import routes as admin_routes
 from app.modules.identity import routes as identity_routes
 from app.modules.identity import seed as identity_seed
 from app.modules.identity import service as identity_service
 from app.modules.messaging import routes as messaging_routes
-from app.platform import auth, authz, db
+from app.platform import audit, auth, authz, db
 from app.platform.auth import CsrfMiddleware
 from app.platform.config import get_settings
 from app.platform.errors import error_response
@@ -82,9 +83,14 @@ def create_app() -> FastAPI:
     app.include_router(router)
     app.include_router(identity_routes.router)
     app.include_router(identity_routes.admin_router)
+    app.include_router(admin_routes.router)
     if get_settings().app_env != "production":
         app.include_router(messaging_routes.router)  # the dev mailbox (Story 3.6), local only
     authz.register_principal_loader(identity_service.load_user)
+    # The audit page shows names, read at request time from the module that owns them (AD-14).
+    audit.register_labels("user_id", identity_service.user_labels)
+    audit.register_labels("invitation_id", identity_service.invitation_labels)
+    audit.register_labels("institution_id", identity_service.institution_labels)
     app.add_exception_handler(authz.NotAuthenticated, _not_authenticated)
     app.add_exception_handler(authz.Forbidden, _forbidden)
     app.add_exception_handler(RequestValidationError, _invalid_request)

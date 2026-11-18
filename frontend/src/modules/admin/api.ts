@@ -5,6 +5,7 @@ import {
   keepPreviousData,
   useInfiniteQuery,
   useMutation,
+  useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 
@@ -215,5 +216,44 @@ export function useChangeRole(selfId: string) {
     // A refusal may mean the row is out of date (another Admin changed it, or the User is gone):
     // read the list again, so the buttons match the server.
     onError: () => void queryClient.invalidateQueries({ queryKey: ["admin", "users"] }),
+  });
+}
+
+export type AuditEvent = components["schemas"]["AuditEventOut"];
+export type AuditTarget = components["schemas"]["AuditTarget"];
+export type AuditActor = components["schemas"]["AuditActor"];
+export type AuditPage = components["schemas"]["AuditListOut"];
+
+/** The audit log's filters (Story 3.12): an actor id or `system`, an action, and inclusive
+ * Europe/Oslo days as ISO dates. An empty string means no filter. */
+export type AuditFilters = { actor: string; action: string; since: string; until: string };
+
+/** The query key of the audit log for one set of filters (Story 3.12). */
+export const auditKey = (filters: AuditFilters) => ["admin", "audit", filters] as const;
+
+/** The audit log, newest first, one page of the list envelope at a time (Story 3.12). */
+export function useAuditEvents(filters: AuditFilters) {
+  return useInfiniteQuery({
+    queryKey: auditKey(filters),
+    queryFn: ({ pageParam }) => {
+      const query: Record<string, string> = {};
+      for (const [key, value] of Object.entries(filters)) if (value) query[key] = value;
+      if (pageParam) query.cursor = pageParam;
+      return request(() => api.GET("/api/admin/audit", { params: { query } }));
+    },
+    initialPageParam: "" as string,
+    getNextPageParam: (last: AuditPage) => last.next_cursor ?? undefined,
+    // A new filter keeps the rows in view until its answer arrives: no Skjelett per filter.
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+}
+
+/** Everyone who appears as actor in the log, for the «Utført av» filter (Story 3.12). */
+export function useAuditActors() {
+  return useQuery({
+    queryKey: ["admin", "audit-actors"] as const,
+    queryFn: () => request(() => api.GET("/api/admin/audit/actors")),
+    retry: false,
   });
 }
