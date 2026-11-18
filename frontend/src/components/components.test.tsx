@@ -9,6 +9,7 @@ import { AppHeader } from "./app-header";
 import { Breadcrumb } from "./breadcrumb";
 import { Button, guardUnavailable } from "./button";
 import { ConnectionNotice } from "./connection-notice";
+import { SegmentedChoice } from "./segmented-choice";
 import { LoadingNote, Skeleton } from "./skeleton";
 import { TextField } from "./text-field";
 
@@ -151,5 +152,31 @@ describe("ActionError", () => {
     expect(renderToStaticMarkup(<ActionError message={nb.system.actionFailed} />)).toMatch(
       /^<p role="alert" class="[^"]*text-restordre[^"]*">Det ble ikke lagret. Prøv igjen.<\/p>$/,
     );
+  });
+});
+
+describe("SegmentedChoice", () => {
+  const html = renderToStaticMarkup(
+    <SegmentedChoice
+      name="role"
+      legend="Rolle"
+      options={[
+        { value: "lecturer", label: "Faglærer" },
+        { value: "admin", label: "Admin" },
+      ]}
+      value="admin"
+      onChange={() => {}}
+    />,
+  );
+
+  it("is a fieldset of native radios named by its legend", () => {
+    expect(html).toMatch(/^<fieldset[^>]*><legend[^>]*>Rolle<\/legend>/);
+    expect(html.match(/type="radio"/g)).toHaveLength(2);
+    expect(html.match(/name="role"/g)).toHaveLength(2);
+  });
+
+  it("checks exactly the chosen option", () => {
+    expect(html.match(/checked=""/g)).toHaveLength(1);
+    expect(html).toMatch(/checked="" value="admin"/);
   });
 });

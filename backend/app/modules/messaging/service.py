@@ -179,10 +179,10 @@ async def claim(item: DueItem, now: datetime) -> uuid.UUID | None:
 
 
 async def _recipient(
-    session: AsyncSession, row, first: notify.Notice, entry: delivery.Delivery
+    session: AsyncSession, row, first: notify.Notice, entry: delivery.Delivery, now: datetime
 ) -> email.Recipient | None:
     if entry.resolve_ref is not None:
-        return None if first.ref is None else await entry.resolve_ref(session, first.ref)
+        return None if first.ref is None else await entry.resolve_ref(session, first.ref, now)
     if row["user_id"] is None:
         return None
     return await identity.mail_recipient(session, row["user_id"])
@@ -225,7 +225,7 @@ async def _compose(
 ) -> email.Mail | str:
     """The mail for a delivery, or the reason it has none (`no_recipient`, `stale`)."""
     first = carried[0]
-    recipient = await _recipient(session, row, first, table[first.kind])
+    recipient = await _recipient(session, row, first, table[first.kind], now)
     if recipient is None:
         return "no_recipient"
     sections = await _sections(session, row, carried, table, now)
@@ -280,14 +280,15 @@ async def send(delivery_id: uuid.UUID, now: datetime | None = None) -> str:
 
 
 async def latest_sent_mail(address: str) -> tuple[email.Mail, datetime] | None:
-    """The newest mail sent to the User with this e-mail, rendered again on its send time, with
-    that time; None when there is none, or when its content is gone (a reset link used since).
-    For the local dev mailbox only (`routes.py`): it lets the Playwright tests read a link from
-    the `[email:mock]` mail, which logs ids only."""
+    """The newest mail sent to this e-mail (to its User, or for one of its Invitations), rendered
+    again on its send time, with that time; None when there is none, or when its content is gone
+    (a link used since). For the local dev mailbox only (`routes.py`): it lets the Playwright
+    tests read a link from the `[email:mock]` mail, which logs ids only."""
     table = delivery.table()
     async with get_sessionmaker().begin() as session:
         user_id = await identity.user_id_for_email(session, address)
-        row = None if user_id is None else await repo.latest_sent_for_user(session, user_id)
+        refs = await identity.invitation_ids_for_email(session, address)
+        row = await repo.latest_sent_for(session, user_id, refs)
         if row is None:
             return None
         carried = [n for n in await notify.get(session, row["notice_ids"]) if n.kind in table]

@@ -193,6 +193,36 @@ export const nb = {
     home: "Hjem",
   },
 
+  /** The Admin-område and its pages (FR-1–FR-3). «Brukere og roller» is EXPERIENCE.md's own. */
+  admin: {
+    /** The pages the Admin-område links to; later stories add theirs. */
+    sections: {
+      users: "Brukere og roller",
+    },
+    users: {
+      title: "Brukere og roller",
+      invite: {
+        // [ASSUMPTION] Story 3.7: the section heading and its lead, which states the consequence.
+        title: "Inviter",
+        lead: "Invitasjonen gir rollen så snart kontoen er laget. Ingen godkjenning etterpå.",
+        email: "E-post",
+        role: "Rolle",
+        roles: { lecturer: "Faglærer", admin: "Admin" },
+        // [ASSUMPTION] Story 3.7: the button says what happens.
+        submit: "Send Invitasjon",
+        // [ASSUMPTION] Story 3.7: the result line, with the address, the role and the real days.
+        sent: (email: string, role: string, days: number) =>
+          `Invitasjonen er sendt til ${email} som ${role}. Den er gyldig i ${days === 1 ? "én dag" : `${days} dager`}.`,
+        errors: {
+          // [ASSUMPTION] Story 3.7: the empty field; the other reasons are those of «Logg inn».
+          emailEmpty: "Skriv e-postadressen.",
+        },
+        // [ASSUMPTION] Story 3.7.
+        failed: "Invitasjonen ble ikke sendt. Prøv igjen.",
+      },
+    },
+  },
+
   /** Links between pages (Story 3.3). Each names where it goes. */
   navigation: {
     // «Til Hjem» and «Til Lærerhjem» are EXPERIENCE.md's own (State Patterns → permission denied).

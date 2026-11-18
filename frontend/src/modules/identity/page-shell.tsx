@@ -3,6 +3,7 @@
 import { type ReactNode, useEffect } from "react";
 
 import { AppHeader } from "@/components/app-header";
+import { Breadcrumb, type Crumb } from "@/components/breadcrumb";
 import { ConnectionLine } from "@/components/connection-notice";
 import { Link } from "@/components/link";
 import { LoadingNote, Skeleton } from "@/components/skeleton";
@@ -23,9 +24,12 @@ export function PageShell({
   phase = "ready",
   onRetry,
   updatedAt,
+  crumbs,
   children,
 }: {
   user?: SessionUser;
+  /** The staff breadcrumb to this page (UX-DR77), shown above the heading. */
+  crumbs?: readonly Crumb[];
   title?: string;
   phase?: PagePhase;
   onRetry?: () => void;
@@ -47,6 +51,11 @@ export function PageShell({
             <Skeleton />
             <LoadingNote visible={phase === "slow"} />
           </>
+        ) : null}
+        {ready && crumbs ? (
+          <div className="mb-4">
+            <Breadcrumb items={crumbs} />
+          </div>
         ) : null}
         {ready && title ? <h1 className="text-title-phone text-ink lg:text-title-page">{title}</h1> : null}
         {ready ? children : null}

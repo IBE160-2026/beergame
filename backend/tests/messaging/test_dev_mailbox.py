@@ -47,3 +47,19 @@ def test_it_is_not_routed_in_production(monkeypatch):
 
 def test_it_is_not_in_the_openapi_schema():
     assert not any(path.startswith("/api/dev") for path in create_app().openapi()["paths"])
+
+
+async def test_it_finds_an_invitation_mail_by_its_address(identity_db, mail_db, monkeypatch):
+    from app.modules.identity.schemas import AccountRole
+
+    monkeypatch.setattr(auth, "utcnow", lambda: NOW)
+    admin = await identity.create_user(
+        email="admin@example.com", name="Admin", password="et passord", roles=[AccountRole.admin]
+    )
+    await identity.send_invitation(admin, "ny@example.com", AccountRole.lecturer, now=NOW)
+    await drain(NOW)
+    async with client() as c:
+        found = await c.get("/api/dev/mailbox/latest", params={"to": "Ny@example.com"})
+    assert found.status_code == 200
+    [sent] = mails()
+    assert found.json()["text"] == sent.text

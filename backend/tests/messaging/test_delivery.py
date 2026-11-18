@@ -77,7 +77,7 @@ def by_reference(monkeypatch):
     """A kind addressed by reference, as Story 3.7's Invitation will be."""
     found: dict[uuid.UUID, email.Recipient] = {}
 
-    async def resolve(session, ref):
+    async def resolve(session, ref, now):
         return found.get(ref)
 
     kinds = dict(delivery.KINDS) | {
@@ -101,7 +101,7 @@ async def test_a_notice_by_reference_is_addressed_through_the_owning_resolver(
 
 
 async def test_a_failing_resolver_counts_as_a_failed_try(mail_db, monkeypatch):
-    async def broken(session, ref):
+    async def broken(session, ref, now):
         raise RuntimeError("ny@example.no is unknown")
 
     kinds = dict(delivery.KINDS) | {
@@ -114,7 +114,7 @@ async def test_a_failing_resolver_counts_as_a_failed_try(mail_db, monkeypatch):
 
 
 def test_a_digest_kind_cannot_be_addressed_by_reference():
-    async def resolve(session, ref):
+    async def resolve(session, ref, now):
         return None
 
     with pytest.raises(ValueError, match="digest"):
@@ -124,7 +124,7 @@ def test_a_digest_kind_cannot_be_addressed_by_reference():
 
 
 def test_a_kind_by_reference_takes_no_context_resolver():
-    async def resolve(session, ref):
+    async def resolve(session, ref, now):
         return None
 
     async def context(session, user_id, ref, now):

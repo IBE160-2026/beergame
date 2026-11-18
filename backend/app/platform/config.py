@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     password_reset_rate_limit_per_ip: int = Field(50, ge=1)
     password_reset_rate_limit_per_account: int = Field(5, ge=1)
     password_reset_rate_limit_window_minutes: int = Field(60, ge=1)
+    # Invitations to the Lecturer or Admin role (Story 3.7). PLACEHOLDER: the 14 days of the UX
+    # spine («Invitasjonen er gyldig i 14 dager.»).
+    role_invitation_valid_days: int = Field(14, ge=1)
 
     # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
     # to the `[email:mock]` sender; the compose file never passes a key.

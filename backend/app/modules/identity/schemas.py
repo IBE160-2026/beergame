@@ -1,6 +1,7 @@
 """API shapes of `modules/identity`."""
 
 import uuid
+from datetime import datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -40,6 +41,24 @@ class ResetEmailOut(BaseModel):
     email: str
 
 
+class InvitationIn(BaseModel):
+    """An Invitation to an account role (Story 3.7)."""
+
+    # Checked by `email_is_valid` in the service: a bad address answers
+    # `fields.email = "invalid_email"`.
+    email: str = Field(max_length=320)
+    role: AccountRole
+
+
+class InvitationOut(BaseModel):
+    id: uuid.UUID
+    email: str
+    role: AccountRole
+    expires_at: datetime
+    valid_days: int
+    """Whole days the Invitation is valid, as the result line and the mail state it."""
+
+
 class UserOut(BaseModel):
     id: uuid.UUID
     name: str
@@ -53,3 +72,18 @@ class SessionOut(BaseModel):
 
 def normalise_email(email: str) -> str:
     return email.strip().lower()
+
+
+def email_is_valid(email: str) -> bool:
+    """The web app's check of an address (`validate-login.ts`), on the normalised value: no
+    whitespace or control character (Postgres refuses NUL), exactly one `@`, a name before it
+    and a domain of two or more labels after it."""
+    if (
+        not email
+        or any(ch.isspace() or not ch.isprintable() for ch in email)
+        or email.count("@") != 1
+    ):
+        return False
+    local, domain = email.split("@")
+    labels = domain.split(".")
+    return bool(local) and len(labels) >= 2 and all(labels)

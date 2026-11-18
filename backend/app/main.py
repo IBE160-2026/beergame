@@ -78,6 +78,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(router)
     app.include_router(identity_routes.router)
+    app.include_router(identity_routes.admin_router)
     if get_settings().app_env != "production":
         app.include_router(messaging_routes.router)  # the dev mailbox (Story 3.6), local only
     authz.register_principal_loader(identity_service.load_user)

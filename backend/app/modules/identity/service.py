@@ -17,8 +17,14 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity import repo
-from app.modules.identity.schemas import AccountRole, UserOut, normalise_email
-from app.platform import auth, email, notify, ratelimit
+from app.modules.identity.schemas import (
+    AccountRole,
+    InvitationOut,
+    UserOut,
+    email_is_valid,
+    normalise_email,
+)
+from app.platform import audit, auth, email, notify, ratelimit
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
@@ -32,6 +38,13 @@ RESET_ACCOUNT = "password_reset_account"
 PASSWORD_RESET = "password_reset"
 """The notice kind of a reset mail; `messaging` delivers it at once (Story 3.6)."""
 RESET_LINK_PATH = "/nytt-passord"
+
+INVITATION = "invitation"
+"""The notice kind of an Invitation mail, addressed by reference to the Invitation (Story 3.7)."""
+INVITATION_LINK_PATH = "/invitasjon"
+"""Where an Invitation link leads: «Du er invitert» (Story 3.8)."""
+INVITATION_SENT = "invitation.sent"
+"""The audit action of an Invitation the Admin sends (FR-3)."""
 
 
 @dataclass(frozen=True)
@@ -261,3 +274,97 @@ async def password_reset_mail_context(
         # What is left of the link's time, so a mail sent late never promises the full hour.
         "valid_minutes": math.ceil((reset["expires_at"] - now) / timedelta(minutes=1)),
     }
+
+
+# Invitations to an account role (Story 3.7, FR-1, AD-11, AD-15).
+
+
+class InvalidEmail(ValueError):
+    """The address is not one an Invitation can go to."""
+
+
+def _days_left(expires_at: datetime, now: datetime) -> int:
+    return max(1, math.ceil((expires_at - now) / timedelta(days=1)))
+
+
+def _invitation_open(row, now: datetime) -> bool:
+    return (
+        row is not None
+        and row["accepted_at"] is None
+        and row["voided_at"] is None
+        and now < row["expires_at"]
+    )
+
+
+async def send_invitation(
+    actor: uuid.UUID, address: str, role: AccountRole, *, now: datetime
+) -> InvitationOut:
+    """Invite `address` to `role`. In one transaction: void the open Invitation to the same address
+    and role, store the new one (its token only as a hash), enqueue its `invitation` notice and
+    write the audit row. Raises `InvalidEmail` for a malformed address, before anything is
+    stored. The caller's policy has already checked that `actor` may manage Users."""
+    address = normalise_email(address)
+    if not email_is_valid(address):
+        raise InvalidEmail
+    role = AccountRole(role)
+    invitation_id = uuid.uuid7()
+    expires_at = now + timedelta(days=get_settings().role_invitation_valid_days)
+    async with get_sessionmaker().begin() as s:
+        await repo.lock_invitation_address(s, address, role.value)
+        voided = await repo.void_open_invitations(s, email=address, role=role.value, now=now)
+        await repo.insert_invitation(
+            s,
+            invitation_id=invitation_id,
+            email=address,
+            role=role.value,
+            token_hash=auth.token_hash(auth.link_token(INVITATION, invitation_id)),
+            created_at=now,
+            expires_at=expires_at,
+            invited_by=actor,
+        )
+        await notify.enqueue(
+            s, None, INVITATION, f"{INVITATION}:{invitation_id}", ref=invitation_id
+        )
+        change: dict[str, object] = {"role": role.value}
+        if voided:
+            change["voided_invitation_ids"] = voided
+        await audit.record(s, actor, INVITATION_SENT, {"invitation_id": invitation_id}, change, now)
+    log.info(
+        "invitation_sent",
+        invitation_id=str(invitation_id),
+        actor_user_id=str(actor),
+        role=role.value,
+        voided_count=len(voided),
+    )
+    return InvitationOut(
+        id=invitation_id,
+        email=address,
+        role=role,
+        expires_at=expires_at,
+        valid_days=_days_left(expires_at, now),
+    )
+
+
+async def invitation_mail_recipient(
+    session: AsyncSession, ref: uuid.UUID, now: datetime
+) -> email.Recipient | None:
+    """Where an Invitation mail goes, for `messaging` at send time (AD-9, AD-14): the address,
+    with the link (path and token), the role and the whole days left. None when the Invitation is
+    gone, accepted, voided or expired, so no dead link is mailed. Never stored or logged."""
+    row = await repo.invitation_by_id(session, ref)
+    if not _invitation_open(row, now):
+        return None
+    return email.Recipient(
+        email=row["email"],
+        name=None,
+        context={
+            "link": f"{INVITATION_LINK_PATH}#{auth.link_token(INVITATION, ref)}",
+            "role": row["role"],
+            "valid_days": _days_left(row["expires_at"], now),
+        },
+    )
+
+
+async def invitation_ids_for_email(session: AsyncSession, address: str) -> list[uuid.UUID]:
+    """The ids of every Invitation to this address. For the local dev mailbox only."""
+    return await repo.invitation_ids_for_email(session, normalise_email(address))

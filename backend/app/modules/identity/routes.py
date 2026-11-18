@@ -1,5 +1,5 @@
 """`/api/auth/*`: login, logout and the current session (Story 3.2), and the password reset
-(Story 3.6)."""
+(Story 3.6). `/api/admin/*`: the Admin's actions on accounts, from the Invitation (Story 3.7)."""
 
 from typing import Annotated
 
@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse
 
 from app.modules.identity import service
 from app.modules.identity.schemas import (
+    InvitationIn,
+    InvitationOut,
     LoginIn,
     NewPasswordIn,
     PasswordResetIn,
@@ -122,3 +124,28 @@ async def confirm_password_reset(body: NewPasswordIn) -> Response:
     if address is None:
         return error_response(*RESET_LINK_INVALID)
     return JSONResponse(ResetEmailOut(email=address).model_dump(mode="json"))
+
+
+admin_router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+@admin_router.post(
+    "/invitations",
+    status_code=201,
+    response_model=InvitationOut,
+    responses=documented(401, 403, 422),
+    operation_id="sendInvitation",
+)
+async def send_invitation(
+    body: InvitationIn,
+    user: Annotated[UserOut, Depends(authz.require("users.manage"))],
+) -> Response:
+    """Invite an address to the Lecturer or Admin role (FR-1). Sending again to the same address
+    and role voids the earlier link."""
+    try:
+        sent = await service.send_invitation(user.id, body.email, body.role, now=auth.utcnow())
+    except service.InvalidEmail:
+        return error_response(
+            422, "invalid_request", "The e-mail address is not valid.", {"email": "invalid_email"}
+        )
+    return JSONResponse(sent.model_dump(mode="json"), status_code=201)

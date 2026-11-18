@@ -4,10 +4,11 @@ import uuid
 from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import RowMapping, and_, select, text, update
+from sqlalchemy import RowMapping, and_, any_, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.messaging.models import mail_deliveries
+from app.platform.notify import notices
 
 
 async def insert_delivery(
@@ -118,11 +119,29 @@ async def unsent_claimed_before(session: AsyncSession, cutoff: datetime) -> list
     return list(result.mappings())
 
 
-async def latest_sent_for_user(session: AsyncSession, user_id: uuid.UUID) -> RowMapping | None:
-    """The User's most recently sent delivery."""
+async def latest_sent_for(
+    session: AsyncSession, user_id: uuid.UUID | None, refs: Sequence[uuid.UUID]
+) -> RowMapping | None:
+    """The most recently sent delivery to the User `user_id`, or for a notice addressed by
+    reference to one of `refs` (an address's Invitations)."""
+    conditions = []
+    if user_id is not None:
+        conditions.append(mail_deliveries.c.user_id == user_id)
+    if refs:
+        by_ref = (
+            select(notices.c.id)
+            .where(
+                notices.c.id == any_(mail_deliveries.c.notice_ids),
+                notices.c.ref.in_(list(refs)),
+            )
+            .exists()
+        )
+        conditions.append(and_(mail_deliveries.c.user_id.is_(None), by_ref))
+    if not conditions:
+        return None
     result = await session.execute(
         select(mail_deliveries)
-        .where(mail_deliveries.c.user_id == user_id, mail_deliveries.c.sent_at.is_not(None))
+        .where(mail_deliveries.c.sent_at.is_not(None), or_(*conditions))
         .order_by(mail_deliveries.c.sent_at.desc(), mail_deliveries.c.id.desc())
         .limit(1)
     )

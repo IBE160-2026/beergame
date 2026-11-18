@@ -1,0 +1,10 @@
+{# Invitation to an account role (Story 3.7, FR-1). `link` (path with the token), `role` and
+   `valid_days` come from `identity.service.invitation_mail_recipient` at send time. #}
+{% set subject = "Invitasjon til ØL-spillet" %}
+{% set role_name = {"lecturer": "Faglærer", "admin": "Admin"}[role] %}
+{% set validity = "én dag" if valid_days == 1 else valid_days ~ " dager" %}
+Du er invitert til ØL-spillet som {{ role_name }}. Opprett kontoen din her:
+
+{{ url(link) }}
+
+Invitasjonen er gyldig i {{ validity }} og kan brukes én gang. Venter du ikke denne invitasjonen, kan du se bort fra e-posten.

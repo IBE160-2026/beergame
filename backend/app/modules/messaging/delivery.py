@@ -6,7 +6,10 @@ in Europe/Oslo, never between 22:00 and 07:00 there (founder decision 2026-11-12
 
 A kind addressed to a User resolves the address through `identity.service.mail_recipient`. A kind
 addressed by reference (the notice's `user_id` is None, its `ref` the record holding the address)
-names the owning module's `service.py` resolver here. A digest kind is always addressed to a User.
+names the owning module's `service.py` resolver here; it gets the job's clock and returns the
+address with the kind's template variables, or None when no mail is needed any more (the
+Invitation was accepted, voided or has expired), and the mail is then skipped as
+`no_recipient`. A digest kind is always addressed to a User.
 A kind whose mail carries its own variables (a link with a token) names the owning module's context
 resolver; it returns None when the notice no longer needs a mail (the link is used or expired), and
 the mail is then skipped as `stale`.
@@ -39,7 +42,8 @@ QUIET_FROM = time(22, 0)
 QUIET_UNTIL = time(7, 0)
 """… until 07:00, Europe/Oslo."""
 
-RefResolver = Callable[[AsyncSession, uuid.UUID], Awaitable[Recipient | None]]
+RefResolver = Callable[[AsyncSession, uuid.UUID, datetime], Awaitable[Recipient | None]]
+"""`(session, ref, now)` → the recipient with the kind's template variables, or None for no mail."""
 ContextResolver = Callable[
     [AsyncSession, uuid.UUID, uuid.UUID | None, datetime],
     Awaitable[Mapping[str, object] | None],
@@ -71,9 +75,12 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         identity.PASSWORD_RESET: Delivery(
             IMMEDIATE, "password_reset", context=identity.password_reset_mail_context
         ),
+        identity.INVITATION: Delivery(
+            IMMEDIATE, "invitation", resolve_ref=identity.invitation_mail_recipient
+        ),
     }
 )
-"""The product's kinds. Story 3.6 adds `password_reset`; Story 3.7 adds `invitation`."""
+"""The product's kinds: `password_reset` (Story 3.6) and `invitation` (Story 3.7)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

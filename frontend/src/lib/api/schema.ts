@@ -4,6 +4,27 @@
  */
 
 export interface paths {
+    "/api/admin/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Invitation
+         * @description Invite an address to the Lecturer or Admin role (FR-1). Sending again to the same address
+         *     and role voids the earlier link.
+         */
+        post: operations["sendInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/login": {
         parameters: {
             query?: never;
@@ -157,6 +178,34 @@ export interface components {
         ErrorEnvelope: {
             error: components["schemas"]["ErrorBody"];
         };
+        /**
+         * InvitationIn
+         * @description An Invitation to an account role (Story 3.7). The address is checked by `email_is_valid`
+         *     in the route, so a bad one answers `fields.email = "invalid_email"`.
+         */
+        InvitationIn: {
+            /** Email */
+            email: string;
+            role: components["schemas"]["AccountRole"];
+        };
+        /** InvitationOut */
+        InvitationOut: {
+            /** Email */
+            email: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            role: components["schemas"]["AccountRole"];
+            /** Valid Days */
+            valid_days: number;
+        };
         /** LoginIn */
         LoginIn: {
             /** Email */
@@ -216,6 +265,57 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    sendInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvitationIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     login: {
         parameters: {
             query?: never;

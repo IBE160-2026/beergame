@@ -3,10 +3,10 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import RowMapping, select, update
+from sqlalchemy import RowMapping, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.identity.models import password_resets, user_roles, users
+from app.modules.identity.models import invitations, password_resets, user_roles, users
 
 
 async def user_by_email(session: AsyncSession, email: str) -> RowMapping | None:
@@ -112,3 +112,65 @@ async def close_password_resets(
         )
         .values(voided_at=now)
     )
+
+
+async def lock_invitation_address(session: AsyncSession, email: str, role: str) -> None:
+    """Serialise Invitations to one address and role until the transaction ends."""
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": f"invitation:{email}:{role}"},
+    )
+
+
+async def void_open_invitations(
+    session: AsyncSession, *, email: str, role: str, now: datetime
+) -> list[uuid.UUID]:
+    """Void every open Invitation to `email` for `role`; returns their ids."""
+    result = await session.execute(
+        update(invitations)
+        .where(
+            invitations.c.email == email,
+            invitations.c.role == role,
+            invitations.c.accepted_at.is_(None),
+            invitations.c.voided_at.is_(None),
+        )
+        .values(voided_at=now)
+        .returning(invitations.c.id)
+    )
+    return sorted(result.scalars())
+
+
+async def insert_invitation(
+    session: AsyncSession,
+    *,
+    invitation_id: uuid.UUID,
+    email: str,
+    role: str,
+    token_hash: str,
+    created_at: datetime,
+    expires_at: datetime,
+    invited_by: uuid.UUID | None,
+) -> None:
+    await session.execute(
+        invitations.insert().values(
+            id=invitation_id,
+            email=email,
+            role=role,
+            token_hash=token_hash,
+            created_at=created_at,
+            expires_at=expires_at,
+            invited_by=invited_by,
+        )
+    )
+
+
+async def invitation_by_id(session: AsyncSession, invitation_id: uuid.UUID) -> RowMapping | None:
+    result = await session.execute(select(invitations).where(invitations.c.id == invitation_id))
+    return result.mappings().one_or_none()
+
+
+async def invitation_ids_for_email(session: AsyncSession, email: str) -> list[uuid.UUID]:
+    result = await session.execute(
+        select(invitations.c.id).where(invitations.c.email == email).order_by(invitations.c.id)
+    )
+    return list(result.scalars())
