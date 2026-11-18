@@ -37,11 +37,13 @@ export function createApiClient(options: { baseUrl?: string; fetch?: typeof fetc
 
 export const api = createApiClient();
 
-/** An API answer that is not 2xx, carrying the AD-19 error code (or `network_error`). */
+/** An API answer that is not 2xx, carrying the AD-19 error code (or `network_error`) and the
+ * envelope's `fields`. */
 export class ApiRequestError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
+    readonly fields: Readonly<Record<string, unknown>> = {},
   ) {
     super(code);
     this.name = "ApiRequestError";
@@ -62,5 +64,10 @@ export function toApiError(status: number, body: unknown): ApiRequestError {
     typeof (body as { error?: { code?: unknown } }).error?.code === "string"
       ? (body as { error: { code: string } }).error.code
       : "unknown_error";
-  return new ApiRequestError(status, code);
+  const fields = (body as { error?: { fields?: unknown } } | null)?.error?.fields;
+  return new ApiRequestError(
+    status,
+    code,
+    typeof fields === "object" && fields !== null ? (fields as Record<string, unknown>) : {},
+  );
 }

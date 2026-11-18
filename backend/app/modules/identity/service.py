@@ -7,9 +7,10 @@ request (registered in `create_app()`), so a role change or a deactivation takes
 """
 
 import asyncio
+import base64
 import math
 import uuid
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -21,11 +22,13 @@ from app.modules.identity import repo
 from app.modules.identity.schemas import (
     AccountRole,
     InvitationOut,
+    UserListItem,
+    UserListOut,
     UserOut,
     email_is_valid,
     normalise_email,
 )
-from app.platform import audit, auth, email, notify, ratelimit
+from app.platform import audit, auth, email, events, notify, ratelimit
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
@@ -578,6 +581,137 @@ async def request_invitation_renewal(token: str, *, ip: str, now: datetime) -> i
         log.info("invitation_renewal_refused", error_code="rate_limited")
         return ratelimit.seconds_left(now, window)
     return None
+
+
+# «Brukere og roller»: the User list and the account roles (Story 3.9, FR-2, FR-3, AD-8, AD-15).
+
+ROLE_GRANTED = "role.granted"
+"""The audit action of a role the Admin grants (FR-3)."""
+ROLE_REVOKED = "role.revoked"
+"""The audit action of a role the Admin revokes (FR-3)."""
+ROLES_KEEP_ONE_ACTIVE = frozenset({AccountRole.admin.value})
+"""Roles at least one active User always holds: the product is never left without an Admin."""
+
+RevokeBlocker = Callable[[AsyncSession, uuid.UUID], Awaitable[int]]
+"""Asked inside the revoke transaction: how many Classes the User owns that keep the role. Epic 4
+registers the one that reads Class ownership."""
+_REVOKE_BLOCKERS: dict[str, list[RevokeBlocker]] = {}
+
+
+def register_revoke_blocker(role: AccountRole, blocker: RevokeBlocker) -> None:
+    """Called by the module that owns what a revoke of `role` must not orphan, at import."""
+    _REVOKE_BLOCKERS.setdefault(AccountRole(role).value, []).append(blocker)
+
+
+class InvalidCursor(ValueError):
+    """A `cursor` this api did not hand out."""
+
+
+@dataclass(frozen=True)
+class RoleRefused:
+    code: str  # not_found | last_admin | role_revoke_blocked
+    classes: int = 0
+
+
+def _list_item(row, roles: list[str]) -> UserListItem:
+    return UserListItem(
+        id=row["id"],
+        name=row["name"],
+        email=row["email"],
+        roles=[AccountRole(role) for role in roles],
+        is_active=row["is_active"],
+    )
+
+
+def _encode_cursor(user_id: uuid.UUID) -> str:
+    return base64.urlsafe_b64encode(user_id.bytes).decode().rstrip("=")
+
+
+def _decode_cursor(cursor: str) -> uuid.UUID:
+    try:
+        raw = base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4))
+        return uuid.UUID(bytes=raw)
+    except ValueError as error:
+        raise InvalidCursor from error
+
+
+async def list_users(search: str, cursor: str | None, limit: int) -> UserListOut:
+    """A page of Users for the Admin, searched in `users` only. The search text is never logged
+    (AD-14). Raises `InvalidCursor` for a cursor this api did not hand out."""
+    after = _decode_cursor(cursor) if cursor else None
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.list_users(s, search=search.strip(), after=after, limit=limit + 1)
+    if rows is None:  # the cursor names no User
+        raise InvalidCursor
+    page = rows[:limit]
+    return UserListOut(
+        items=[_list_item(row, row["roles"] or []) for row in page],
+        next_cursor=_encode_cursor(page[-1]["id"]) if len(rows) > limit else None,
+    )
+
+
+async def grant_role(
+    actor: uuid.UUID, user_id: uuid.UUID, role: AccountRole, *, now: datetime
+) -> UserListItem | RoleRefused:
+    """Give the User `role`. In one transaction: the role, one audit row and `user:<id>`, so the
+    User's next request carries it. A role already held changes and writes nothing."""
+    role = AccountRole(role)
+    async with get_sessionmaker().begin() as s:
+        user = await repo.lock_user(s, user_id)
+        if user is None:
+            return RoleRefused("not_found")
+        if await repo.grant_role(s, user_id, role.value):
+            await audit.record(
+                s, actor, ROLE_GRANTED, {"user_id": user_id}, {"role": role.value}, now
+            )
+            await events.emit(s, "user", str(user_id))
+            granted = True
+        else:
+            granted = False
+        roles = await repo.roles_of(s, user_id)
+    if granted:
+        log.info("role_granted", user_id=str(user_id), action=ROLE_GRANTED)
+    return _list_item(user, roles)
+
+
+async def revoke_role(
+    actor: uuid.UUID, user_id: uuid.UUID, role: AccountRole, *, now: datetime
+) -> UserListItem | RoleRefused:
+    """Take `role` from the User. In one transaction: the role, one audit row and `user:<id>`, so
+    the User's next request is held to it. Refused, with nothing changed, when it would leave no
+    active holder of a role in `ROLES_KEEP_ONE_ACTIVE` (`last_admin`) or when a registered revoke
+    blocker reports owned Classes (`role_revoke_blocked`). A role not held writes nothing."""
+    role = AccountRole(role)
+    async with get_sessionmaker().begin() as s:
+        # Every revoke of one role runs in turn, so two Admins revoking each other cannot both
+        # pass the count below.
+        await repo.lock_role(s, role.value)
+        user = await repo.lock_user(s, user_id)
+        if user is None:
+            return RoleRefused("not_found")
+        roles = await repo.roles_of(s, user_id)
+        if role.value not in set(roles):
+            return _list_item(user, roles)
+        # Only an active holder can be the last active Admin; a deactivated one never is.
+        if (
+            role.value in ROLES_KEEP_ONE_ACTIVE
+            and user["is_active"]
+            and await repo.count_active_holders(s, role.value, excluding=user_id) == 0
+        ):
+            log.info("role_revoke_refused", user_id=str(user_id), error_code="last_admin")
+            return RoleRefused("last_admin")
+        classes = 0
+        for blocker in _REVOKE_BLOCKERS.get(role.value, ()):
+            classes += max(0, await blocker(s, user_id))
+        if classes > 0:
+            log.info("role_revoke_refused", user_id=str(user_id), error_code="role_revoke_blocked")
+            return RoleRefused("role_revoke_blocked", classes)
+        await repo.remove_role(s, user_id, role.value)
+        await audit.record(s, actor, ROLE_REVOKED, {"user_id": user_id}, {"role": role.value}, now)
+        await events.emit(s, "user", str(user_id))
+        roles = await repo.roles_of(s, user_id)
+    log.info("role_revoked", user_id=str(user_id), action=ROLE_REVOKED)
+    return _list_item(user, roles)
 
 
 # The first Admin (AD-17, Story 3.8).

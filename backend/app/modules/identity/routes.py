@@ -2,15 +2,20 @@
 (Story 3.6) and accepting an Invitation (Story 3.8). `/api/admin/*`: the Admin's actions on
 accounts, from the Invitation (Story 3.7)."""
 
+import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import JSONResponse
 
 from app.modules.identity import service
 from app.modules.identity.schemas import (
+    SEARCH_MAX_LENGTH,
+    USER_PAGE_DEFAULT,
+    USER_PAGE_MAX,
     AcceptExistingIn,
     AcceptInvitationIn,
+    AccountRole,
     InvitationCheckOut,
     InvitationIn,
     InvitationOut,
@@ -20,7 +25,10 @@ from app.modules.identity.schemas import (
     PasswordResetIn,
     ResetEmailOut,
     ResetTokenIn,
+    RoleIn,
     SessionOut,
+    UserListItem,
+    UserListOut,
     UserOut,
 )
 from app.platform import auth, authz, ratelimit
@@ -254,3 +262,72 @@ async def send_invitation(
             422, "invalid_request", "The e-mail address is not valid.", {"email": "invalid_email"}
         )
     return JSONResponse(sent.model_dump(mode="json"), status_code=201)
+
+
+ROLE_REFUSALS = {
+    "not_found": (404, "No such User."),
+    "last_admin": (409, "The product would be left without an active Admin."),
+    "role_revoke_blocked": (409, "The User owns Classes; add another Lecturer or archive them."),
+}
+
+
+def _role_answer(outcome: UserListItem | service.RoleRefused) -> Response:
+    if isinstance(outcome, service.RoleRefused):
+        status, message = ROLE_REFUSALS[outcome.code]
+        fields = {"classes": outcome.classes} if outcome.code == "role_revoke_blocked" else None
+        return error_response(status, outcome.code, message, fields)
+    return JSONResponse(outcome.model_dump(mode="json"))
+
+
+@admin_router.get(
+    "/users",
+    response_model=UserListOut,
+    responses=documented(401, 403, 422),
+    operation_id="listUsers",
+)
+async def list_users(
+    _: Annotated[UserOut, Depends(authz.require("users.list"))],
+    q: Annotated[str, Query(max_length=SEARCH_MAX_LENGTH)] = "",
+    cursor: Annotated[str | None, Query(max_length=64)] = None,
+    limit: Annotated[int, Query(ge=1, le=USER_PAGE_MAX)] = USER_PAGE_DEFAULT,
+) -> Response:
+    """Users with their account roles and status, by name, searched by part of the e-mail or
+    the name (FR-2, FR-3). The search text is never logged (AD-14)."""
+    try:
+        page = await service.list_users(q, cursor, limit)
+    except service.InvalidCursor:
+        return error_response(
+            422, "invalid_request", "The cursor is not valid.", {"cursor": "invalid_cursor"}
+        )
+    return JSONResponse(page.model_dump(mode="json"))
+
+
+@admin_router.post(
+    "/users/{user_id}/roles",
+    response_model=UserListItem,
+    responses=documented(401, 403, 404, 422),
+    operation_id="grantRole",
+)
+async def grant_role(
+    user_id: uuid.UUID,
+    body: RoleIn,
+    user: Annotated[UserOut, Depends(authz.require("users.manage"))],
+) -> Response:
+    """Give a User the Lecturer or Admin role; it holds from their next request (FR-2)."""
+    return _role_answer(await service.grant_role(user.id, user_id, body.role, now=auth.utcnow()))
+
+
+@admin_router.delete(
+    "/users/{user_id}/roles/{role}",
+    response_model=UserListItem,
+    responses=documented(401, 403, 404, 409, 422),
+    operation_id="revokeRole",
+)
+async def revoke_role(
+    user_id: uuid.UUID,
+    role: AccountRole,
+    user: Annotated[UserOut, Depends(authz.require("users.manage"))],
+) -> Response:
+    """Take the Lecturer or Admin role from a User; it ends at their next request (FR-2). Refused
+    with `last_admin` or `role_revoke_blocked` (`fields.classes`)."""
+    return _role_answer(await service.revoke_role(user.id, user_id, role, now=auth.utcnow()))

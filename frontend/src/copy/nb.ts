@@ -263,6 +263,31 @@ export const nb = {
         // [ASSUMPTION] Story 3.7.
         failed: "Invitasjonen ble ikke sendt. Prøv igjen.",
       },
+      /** The User list with its role buttons (Story 3.9, UX-DR57). «Ingen treff.» and the
+       * blocked-revoke sentence are EXPERIENCE.md's and the epic's own; the rest is
+       * [ASSUMPTION] Story 3.9. */
+      list: {
+        title: "Brukere",
+        search: "Søk etter navn eller e-post",
+        columns: { name: "Navn", email: "E-post", roles: "Roller", status: "Status", actions: "Endre rolle" },
+        roles: { lecturer: "Faglærer", admin: "Admin" },
+        noRole: "Ingen rolle",
+        active: "Aktiv",
+        deactivated: "Deaktivert",
+        noMatches: "Ingen treff.",
+        more: "Vis flere",
+        moreFailed: "Flere brukere kunne ikke lastes. Prøv igjen.",
+        grant: (name: string, role: string) => `Gi ${name} rollen ${role}`,
+        revoke: (name: string, role: string) => `Fjern rollen ${role} fra ${name}`,
+        granted: (name: string, role: string) => `${name} har nå rollen ${role}.`,
+        revoked: (name: string, role: string) => `${name} har ikke lenger rollen ${role}.`,
+        blocked: (name: string, classes: number) =>
+          classes === 1
+            ? `${name} eier 1 Klasse. Legg til en annen Faglærer eller arkiver Klassen først.`
+            : `${name} eier ${classes} Klasser. Legg til en annen Faglærer eller arkiver Klassene først.`,
+        lastAdmin: (name: string) => `${name} er den eneste aktive Admin. Gi en annen bruker rollen Admin først.`,
+        failed: "Rollen ble ikke endret. Prøv igjen.",
+      },
     },
   },
 

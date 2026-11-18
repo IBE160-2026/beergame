@@ -117,6 +117,35 @@ class SessionOut(BaseModel):
     user: UserOut
 
 
+class UserListItem(BaseModel):
+    """One User on «Brukere og roller» (Story 3.9)."""
+
+    id: uuid.UUID
+    name: str
+    email: str
+    roles: list[AccountRole]
+    is_active: bool
+
+
+class UserListOut(BaseModel):
+    """A page of Users in the list envelope (AD-19 conventions): `next_cursor` is null on the
+    last page."""
+
+    items: list[UserListItem]
+    next_cursor: str | None
+
+
+SEARCH_MAX_LENGTH = 200
+USER_PAGE_DEFAULT = 50
+USER_PAGE_MAX = 100
+
+
+class RoleIn(BaseModel):
+    """The account role an Admin grants (Story 3.9)."""
+
+    role: AccountRole
+
+
 def normalise_email(email: str) -> str:
     return email.strip().lower()
 

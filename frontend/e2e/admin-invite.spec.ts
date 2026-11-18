@@ -61,12 +61,12 @@ async function expectAccessible(page: Page, phone: boolean) {
   expect(small).toEqual([]);
 }
 
-/** One primary button, and the form in one column: the field, the role choice and the button
+/** One primary button (the User list below has only secondary ones), and the form in one column: the field, the role choice and the button
  * share their left edge and stack downwards. */
 async function expectOneColumnWithOnePrimary(page: Page) {
-  await expect(page.locator("main button")).toHaveCount(1);
+  await expect(page.locator("main form button")).toHaveCount(1);
   const boxes = await Promise.all(
-    [page.getByLabel(invite.email), page.getByRole("group", { name: invite.role }), page.locator("main button")].map(
+    [page.getByLabel(invite.email, { exact: true }), page.getByRole("group", { name: invite.role }), page.locator("main form button")].map(
       async (locator) => (await locator.boundingBox())!,
     ),
   );
@@ -106,7 +106,7 @@ for (const vp of VIEWPORTS) {
       await expectAccessible(page, vp.phone);
 
       // A bad address: the invalid state with its reason, and nothing sent.
-      const email = page.getByLabel(invite.email);
+      const email = page.getByLabel(invite.email, { exact: true });
       await email.fill("kari");
       await page.getByRole("button", { name: invite.submit }).click();
       await expect(email).toHaveAttribute("aria-invalid", "true");
@@ -138,7 +138,7 @@ test.describe("mail", () => {
     await page.goto("/admin/brukere");
     const address = freshAddress("mail");
     const before = await latestMail(page, address);
-    await page.getByLabel(invite.email).fill(address);
+    await page.getByLabel(invite.email, { exact: true }).fill(address);
     await page.getByRole("button", { name: invite.submit }).click();
     await expect(page.getByText(invite.sent(address, invite.roles.lecturer, 14))).toBeFocused();
 
@@ -156,7 +156,7 @@ test.describe("failure", () => {
     await page.goto("/admin/brukere");
     await page.route("**/api/admin/invitations", (route) => route.fulfill({ status: 500, body: "" }));
     const address = freshAddress("failure");
-    const email = page.getByLabel(invite.email);
+    const email = page.getByLabel(invite.email, { exact: true });
     await email.fill(address);
     await page.getByRole("button", { name: invite.submit }).click();
     await expect(page.getByText(invite.failed)).toBeVisible();
@@ -177,7 +177,7 @@ test.describe("result line", () => {
         json: { id: "x", email: body.email, role: body.role, expires_at: "2026-12-02T12:00:00Z", valid_days: 14 },
       });
     });
-    const email = page.getByLabel(invite.email);
+    const email = page.getByLabel(invite.email, { exact: true });
     const sent = page.getByText(/Invitasjonen er sendt/);
 
     await email.fill("kari@example.com");
@@ -199,7 +199,7 @@ test.describe("not an Admin", () => {
     await loginByApi(page, "lecturer");
     await page.goto("/admin/brukere");
     await expect(page.getByRole("heading", { level: 1, name: nb.access.denied })).toBeVisible();
-    await expect(page.getByLabel(invite.email)).toHaveCount(0);
+    await expect(page.getByLabel(invite.email, { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: invite.submit })).toHaveCount(0);
   });
 });

@@ -6,6 +6,7 @@ import { ADMIN_USERS_PATH, HOME_PATH } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 
 import { InviteForm } from "./invite-form";
+import { UserList } from "./user-list";
 
 const copy = nb.admin.users;
 
@@ -14,8 +15,9 @@ const CRUMBS = [
   { label: copy.title, href: ADMIN_USERS_PATH },
 ] as const;
 
-/** «Brukere og roller» in the Admin-område (Story 3.7; the User list follows in Story 3.9). Only
- * an Admin sees it; anyone else gets the permission-denied page and no form. */
+/** «Brukere og roller» in the Admin-område: the invite form (Story 3.7), then the User list with
+ * its role buttons (Story 3.9). Only an Admin sees it; anyone else gets the permission-denied page
+ * and no form. */
 export function UsersPage() {
   return (
     <GuardedPage page="adminArea">
@@ -27,6 +29,12 @@ export function UsersPage() {
             </h2>
             <p className="mt-2 mb-5 max-w-md text-body-phone text-ink-secondary lg:text-body">{copy.invite.lead}</p>
             <InviteForm />
+          </section>
+          <section aria-labelledby="users-title" className="mt-12">
+            <h2 id="users-title" className="mb-4 text-headline text-ink">
+              {copy.list.title}
+            </h2>
+            <UserList selfId={user.id} />
           </section>
         </PageShell>
       )}

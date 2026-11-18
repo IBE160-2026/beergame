@@ -15,6 +15,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "games.switch_to_rule_based": frozenset({"game"}),
         # A notice to a User (Story 3.5, AD-9); a notice addressed by reference emits nothing.
         "notify.enqueue": frozenset({"user"}),
+        # A role the Admin grants or revokes (Story 3.9): the User's open pages reload it.
+        "identity.grant_role": frozenset({"user"}),
+        "identity.revoke_role": frozenset({"user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add
