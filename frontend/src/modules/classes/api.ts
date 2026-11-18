@@ -58,3 +58,48 @@ export function useCreateClass() {
     },
   });
 }
+
+// The staged Roster upload of a Class (Story 4.2, FR-7).
+
+export type RosterUpload = components["schemas"]["RosterUploadOut"];
+export type RosterStaging = components["schemas"]["RosterStagingOut"];
+
+export const rosterUploadKey = (classId: string) => ["classes", "roster-upload", classId] as const;
+
+/** The Class's staged upload; `upload` is null when there is none or it has expired. */
+export function useRosterUpload(classId: string) {
+  return useQuery({
+    queryKey: rosterUploadKey(classId),
+    queryFn: () =>
+      request(() => api.GET("/api/classes/{class_id}/roster-upload", { params: { path: { class_id: classId } } })),
+    retry: false,
+  });
+}
+
+/** Send the file as the raw body; its name travels percent-encoded in `X-File-Name`. The file is
+ * read into memory by the api and never stored. */
+export function uploadRoster(classId: string, file: File) {
+  return request(() =>
+    api.POST("/api/classes/{class_id}/roster-upload", {
+      params: { path: { class_id: classId }, header: { "X-File-Name": encodeURIComponent(file.name) } },
+      body: file as unknown as string,
+      bodySerializer: (body: unknown) => body as BodyInit,
+      headers: { "Content-Type": "application/octet-stream" },
+    }),
+  );
+}
+
+export function chooseRosterColumn(classId: string, column: number) {
+  return request(() =>
+    api.PUT("/api/classes/{class_id}/roster-upload/column", {
+      params: { path: { class_id: classId } },
+      body: { column },
+    }),
+  );
+}
+
+export function deleteRosterUpload(classId: string) {
+  return request(() =>
+    api.DELETE("/api/classes/{class_id}/roster-upload", { params: { path: { class_id: classId } } }),
+  );
+}

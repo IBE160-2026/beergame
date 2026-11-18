@@ -15,6 +15,7 @@ from sqlalchemy import (
     text,
     true,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.modules.identity.schemas import AccountRole
 from app.platform.db import metadata
@@ -142,3 +143,45 @@ access_requests = Table(
 """One row per request for lecturer access from the Landing (Story 3.13, FR-1). `open` until the
 Admin invites from it (`invited`) or dismisses it (`dismissed`); at most one is open per address,
 and a repeat updates that row. Times come from the api's clock."""
+
+roster_uploads = Table(
+    "roster_uploads",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    # `classes.classes` by name only: `identity` imports no `classes` code. One per Class.
+    Column(
+        "class_id", Uuid, ForeignKey("classes.id", ondelete="CASCADE"), nullable=False, unique=True
+    ),
+    Column("uploaded_by", Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("file_name", Text, nullable=False),
+    # The header row's cells, one per column ("" for an empty one); all "" with no header row.
+    Column("headers", JSONB, nullable=False),
+    Column("has_header", Boolean, nullable=False),
+    Column("column_count", Integer, nullable=False),
+    Column("row_count", Integer, nullable=False),
+    # 0-based index of the e-mail column; NULL when no column looked like one.
+    Column("chosen_column", Integer, nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False, index=True),
+    CheckConstraint(
+        "chosen_column IS NULL OR (chosen_column >= 0 AND chosen_column < column_count)",
+        name="ck_roster_uploads_chosen_column",
+    ),
+)
+"""A staged Roster upload (Story 4.2, FR-7, AD-14): the cell values of the file a Lecturer
+uploaded for a Class, never the file itself. A new upload for the Class replaces it; it is purged
+once `expires_at` has passed (`service.purge_expired_roster_uploads`). Times come from the api's
+clock."""
+
+roster_upload_rows = Table(
+    "roster_upload_rows",
+    metadata,
+    Column(
+        "upload_id", Uuid, ForeignKey("roster_uploads.id", ondelete="CASCADE"), primary_key=True
+    ),
+    # The row's number in the file (1-based, counting the header and empty rows).
+    Column("row_number", Integer, primary_key=True),
+    # The row's cells as strings, one per column up to its last non-empty one.
+    Column("cells", JSONB, nullable=False),
+)
+"""The data rows of a staged Roster upload, without the header row."""

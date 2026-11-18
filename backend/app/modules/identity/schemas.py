@@ -314,3 +314,54 @@ class AccessRequestListOut(BaseModel):
 
     items: list[AccessRequestOut]
     next_cursor: str | None
+
+
+# Staged Roster uploads (Story 4.2, FR-7, AD-14).
+
+ROSTER_PREVIEW_ROWS = 5
+"""How many data rows the page shows under «Forhåndsvisning av fila»."""
+
+
+class RosterColumn(BaseModel):
+    index: int
+    """0-based."""
+    letter: str
+    """As a spreadsheet names it: A, B, …, AA."""
+    header: str
+    """The header cell; "" when the file has no header row or the cell is empty."""
+
+
+class RosterPreviewRow(BaseModel):
+    row_number: int
+    """The row's number in the file."""
+    cells: list[str]
+
+
+class RosterUploadOut(BaseModel):
+    """A staged Roster upload as the Class page shows it."""
+
+    file_name: str
+    row_count: int
+    """Data rows read, without the header row and empty rows."""
+    has_header: bool
+    columns: list[RosterColumn]
+    suggested_column: int | None
+    """The column with the most cells that look like addresses; None when none does."""
+    suggested_count: int
+    """How many rows look like addresses in the suggested column (0 with none)."""
+    chosen_column: int | None
+    chosen_count: int
+    """How many rows look like addresses in the chosen column, evaluated from the staged cells."""
+    preview: list[RosterPreviewRow]
+
+
+class RosterStagingOut(BaseModel):
+    upload: RosterUploadOut | None
+
+
+class RosterColumnIn(BaseModel):
+    column: int = Field(ge=0, le=10_000)
+
+
+class InvalidRosterColumn(Exception):
+    """The chosen column is not one of the staged upload's (`column_unknown`)."""

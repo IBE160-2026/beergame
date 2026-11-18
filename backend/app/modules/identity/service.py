@@ -18,23 +18,34 @@ import structlog
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.identity import repo
+from app.modules.identity import repo, roster_file
 from app.modules.identity.schemas import (
+    ROSTER_PREVIEW_ROWS,
     AccessRequestListOut,
     AccessRequestOut,
     AccountRole,
     InstitutionListOut,
     InstitutionOut,
+    InvalidRosterColumn,
     InvitationListItem,
     InvitationListOut,
     InvitationOut,
     InvitationStatus,
+    RosterColumn,
+    RosterPreviewRow,
+    RosterUploadOut,
     UserListItem,
     UserListOut,
     UserOut,
     email_is_valid,
     institution_name,
     normalise_email,
+)
+from app.modules.identity.schemas import (
+    RosterColumnIn as RosterColumnIn,  # re-exported for `classes.routes`
+)
+from app.modules.identity.schemas import (
+    RosterStagingOut as RosterStagingOut,  # re-exported for `classes.routes`
 )
 from app.platform import audit, auth, email, events, notify, ratelimit
 from app.platform.config import get_settings
@@ -1288,3 +1299,161 @@ async def _grant_bootstrap_admin(
     )
     log.info("bootstrap_admin_checked", user_id=str(user_id), role_added=granted)
     return granted
+
+
+# Staged Roster uploads (Story 4.2, FR-7, AD-14). `classes.service` checks that the User may
+# manage the Class and calls these; the file is parsed in memory and only its cells are staged.
+# Logs carry ids and counts only, never a file name, a cell or an address.
+
+
+RosterUnreadable = roster_file.RosterUnreadable
+"""Raised by `stage_roster_upload` for a file that cannot be used."""
+
+
+async def purge_expired_roster_uploads(now: datetime) -> int:
+    """Delete every staged upload past its `expires_at`. Idempotent; runs on every upload and
+    every staging read, and can be called from `ops.sweep` unchanged."""
+    async with get_sessionmaker().begin() as s:
+        purged = await repo.purge_expired_roster_uploads(s, now)
+    if purged:
+        log.info("roster_uploads_purged", count=purged)
+    return purged
+
+
+async def stage_roster_upload(
+    class_id: uuid.UUID, uploader: uuid.UUID, file_name: str, data: bytes, *, now: datetime
+) -> RosterUploadOut:
+    """Parse the file and stage its rows for the Class, replacing any earlier staged upload in
+    the same transaction. Raises `roster_file.RosterUnreadable`; nothing is staged then, and an
+    earlier staged upload stays."""
+    await purge_expired_roster_uploads(now)
+    settings = get_settings()
+    # Parsing is CPU work: off the event loop, so other requests are not held up.
+    parsed = await asyncio.to_thread(
+        roster_file.parse, file_name, data, max_rows=settings.roster_max_rows
+    )
+    counts = await asyncio.to_thread(
+        roster_file.address_counts, [cells for _, cells in parsed.rows], parsed.column_count
+    )
+    suggested = roster_file.suggested_column(counts)
+    upload_id = uuid.uuid7()
+    async with get_sessionmaker().begin() as s:
+        # Two uploads for one Class at once: the second waits, then replaces the first.
+        await repo.lock_roster_staging(s, class_id)
+        await repo.delete_roster_upload(s, class_id)
+        await repo.insert_roster_upload(
+            s,
+            upload_id=upload_id,
+            class_id=class_id,
+            uploaded_by=uploader,
+            file_name=file_name,
+            headers=parsed.headers,
+            has_header=parsed.has_header,
+            rows=parsed.rows,
+            chosen_column=suggested,
+            now=now,
+            expires_at=now + timedelta(hours=settings.roster_staging_ttl_hours),
+        )
+    log.info(
+        "roster_upload_staged",
+        class_id=str(class_id),
+        upload_id=str(upload_id),
+        user_id=str(uploader),
+        rows=len(parsed.rows),
+        columns=parsed.column_count,
+    )
+    preview = [
+        RosterPreviewRow(row_number=n, cells=cells)
+        for n, cells in parsed.rows[:ROSTER_PREVIEW_ROWS]
+    ]
+    return _roster_upload_out(
+        file_name=file_name,
+        headers=parsed.headers,
+        has_header=parsed.has_header,
+        row_count=len(parsed.rows),
+        counts=counts,
+        chosen=suggested,
+        preview=preview,
+    )
+
+
+def _roster_upload_out(
+    *,
+    file_name: str,
+    headers: list[str],
+    has_header: bool,
+    row_count: int,
+    counts: list[int],
+    chosen: int | None,
+    preview: list[RosterPreviewRow],
+) -> RosterUploadOut:
+    suggested = roster_file.suggested_column(counts)
+    return RosterUploadOut(
+        file_name=file_name,
+        row_count=row_count,
+        has_header=has_header,
+        columns=[
+            RosterColumn(index=i, letter=roster_file.column_letter(i), header=h)
+            for i, h in enumerate(headers)
+        ],
+        suggested_column=suggested,
+        suggested_count=counts[suggested] if suggested is not None else 0,
+        chosen_column=chosen,
+        chosen_count=counts[chosen] if chosen is not None else 0,
+        preview=preview,
+    )
+
+
+async def _staged_out(s: AsyncSession, row: RowMapping) -> RosterUploadOut:
+    """The staged upload, evaluated again from its staged cells."""
+    cells = await repo.roster_rows(s, row["id"])
+    counts = roster_file.address_counts(cells, row["column_count"])
+    preview = [
+        RosterPreviewRow(row_number=p["row_number"], cells=p["cells"])
+        for p in await repo.roster_preview(s, row["id"], ROSTER_PREVIEW_ROWS)
+    ]
+    return _roster_upload_out(
+        file_name=row["file_name"],
+        headers=row["headers"],
+        has_header=row["has_header"],
+        row_count=row["row_count"],
+        counts=counts,
+        chosen=row["chosen_column"],
+        preview=preview,
+    )
+
+
+async def roster_upload(class_id: uuid.UUID, *, now: datetime) -> RosterUploadOut | None:
+    """The Class's staged upload, or None when it has none or it has expired."""
+    await purge_expired_roster_uploads(now)
+    async with get_sessionmaker().begin() as s:
+        row = await repo.roster_upload_for_class(s, class_id, now)
+        return await _staged_out(s, row) if row else None
+
+
+async def choose_roster_column(
+    class_id: uuid.UUID, column: int, *, now: datetime
+) -> RosterUploadOut | None:
+    """Store the chosen e-mail column and evaluate the staged rows against it, with no new
+    upload. None when the Class has no staged upload; raises `InvalidRosterColumn` for a column
+    the upload does not have."""
+    await purge_expired_roster_uploads(now)
+    async with get_sessionmaker().begin() as s:
+        row = await repo.roster_upload_for_class(s, class_id, now, lock=True)
+        if row is None:
+            return None
+        if column >= row["column_count"]:
+            raise InvalidRosterColumn
+        await repo.set_roster_column(s, row["id"], column)
+        out = await _staged_out(s, {**row, "chosen_column": column})
+    log.info("roster_column_chosen", class_id=str(class_id), upload_id=str(row["id"]))
+    return out
+
+
+async def delete_roster_upload(class_id: uuid.UUID) -> bool:
+    """Delete the Class's staged upload («Bytt fil»). Whether there was one."""
+    async with get_sessionmaker().begin() as s:
+        deleted = await repo.delete_roster_upload(s, class_id)
+    if deleted:
+        log.info("roster_upload_deleted", class_id=str(class_id))
+    return deleted

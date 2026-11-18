@@ -567,6 +567,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/classes/{class_id}/roster-upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Roster Upload
+         * @description The Class's staged upload, evaluated against its chosen column; `upload` is null when
+         *     there is none or it has expired.
+         */
+        get: operations["getRosterUpload"];
+        put?: never;
+        /**
+         * Upload Roster
+         * @description Read a Roster file (.xlsx or .csv) in memory and stage its rows for the Class, replacing
+         *     any earlier staged upload. A file that cannot be used answers 422 `roster_unreadable` and
+         *     stages nothing (the earlier staged upload stays).
+         */
+        post: operations["uploadRoster"];
+        /**
+         * Delete Roster Upload
+         * @description «Bytt fil»: delete the Class's staged upload. 204 whether or not there was one.
+         */
+        delete: operations["deleteRosterUpload"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/{class_id}/roster-upload/column": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Choose Roster Column
+         * @description Choose the e-mail column; the staged rows are evaluated against it at once, from the staged
+         *     cells. 404 `not_found` when nothing is staged (or it expired); 422 `invalid_request` with
+         *     `fields.column = column_unknown` for a column the file does not have.
+         */
+        put: operations["chooseRosterColumn"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -1006,6 +1059,55 @@ export interface components {
          */
         RoleIn: {
             role: components["schemas"]["AccountRole"];
+        };
+        /** RosterColumn */
+        RosterColumn: {
+            /** Header */
+            header: string;
+            /** Index */
+            index: number;
+            /** Letter */
+            letter: string;
+        };
+        /** RosterColumnIn */
+        RosterColumnIn: {
+            /** Column */
+            column: number;
+        };
+        /** RosterPreviewRow */
+        RosterPreviewRow: {
+            /** Cells */
+            cells: string[];
+            /** Row Number */
+            row_number: number;
+        };
+        /** RosterStagingOut */
+        RosterStagingOut: {
+            upload: components["schemas"]["RosterUploadOut"] | null;
+        };
+        /**
+         * RosterUploadOut
+         * @description A staged Roster upload as the Class page shows it.
+         */
+        RosterUploadOut: {
+            /** Chosen Column */
+            chosen_column: number | null;
+            /** Chosen Count */
+            chosen_count: number;
+            /** Columns */
+            columns: components["schemas"]["RosterColumn"][];
+            /** File Name */
+            file_name: string;
+            /** Has Header */
+            has_header: boolean;
+            /** Preview */
+            preview: components["schemas"]["RosterPreviewRow"][];
+            /** Row Count */
+            row_count: number;
+            /** Suggested Column */
+            suggested_column: number | null;
+            /** Suggested Count */
+            suggested_count: number;
         };
         /** SessionOut */
         SessionOut: {
@@ -2605,6 +2707,220 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getRosterUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RosterStagingOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    uploadRoster: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The file's name, percent-encoded; .xlsx or .csv. */
+                "X-File-Name": string;
+            };
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RosterUploadOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    deleteRosterUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chooseRosterColumn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RosterColumnIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RosterUploadOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

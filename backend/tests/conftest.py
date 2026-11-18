@@ -128,7 +128,7 @@ def ai_db(test_database) -> str:
 
 IDENTITY_TABLES = (
     "users, user_roles, rate_limit_counters, invitations, audit_events, institutions, "
-    "access_requests, classes, class_staff"
+    "access_requests, classes, class_staff, roster_uploads, roster_upload_rows"
 )
 
 

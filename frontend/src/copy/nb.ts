@@ -18,6 +18,14 @@
  *
  * Strings marked [ASSUMPTION] are drafts until the founder's copy review (Issue #31).
  */
+
+const COUNT_WORDS = ["null", "én", "to", "tre", "fire", "fem", "seks", "sju", "åtte", "ni", "ti", "elleve", "tolv"];
+
+/** A small count as a word in running text («unntatt fire»); 13 and up as a number. */
+function countWord(count: number): string {
+  return COUNT_WORDS[count] ?? String(count);
+}
+
 export const nb = {
   product: {
     name: "ØL-spillet",
@@ -321,6 +329,51 @@ export const nb = {
       /** The line under the Class's name: «IBE160 · Demohøgskolen». */
       facts: (courseCode: string | null, institution: string | null) =>
         [courseCode, institution].filter(Boolean).join(" · "),
+    },
+    /** The Roster upload on the Class page (Story 4.2, FR-7, UX-DR47). «Velg fil», «Lim inn
+     * adresser i stedet», «250 rader lest», «Bytt fil», «E-postkolonne», the reason and the
+     * unreadable line are EXPERIENCE.md's and DESIGN.md's own; the rest is [ASSUMPTION] Story 4.2. */
+    roster: {
+      title: "Klasseliste",
+      lead: "Klasselisten kommer fra Canvas-eksporten din. Ingenting sendes før du trykker send.",
+      fileLabel: "Canvas-eksport",
+      chooseFile: "Velg fil",
+      accepts: "Excel (.xlsx) eller CSV (.csv), slik Canvas eksporterer den.",
+      pasteInstead: "Lim inn adresser i stedet",
+      fileInstead: "Velg fil i stedet",
+      pasteLabel: "Adresser",
+      pasteHint: "Én adresse per linje, eller skilt med komma eller semikolon.",
+      reading: "Leser fila …",
+      rowsRead: (rows: number) => `${rows} ${rows === 1 ? "rad" : "rader"} lest`,
+      changeFile: "Bytt fil",
+      unreadable: "Filen kunne ikke leses. Bruk .xlsx eller .csv, eller lim inn adressene.",
+      uploadFailed: "Fila ble ikke lastet opp. Prøv igjen.",
+      changeFailed: "Fila ble ikke fjernet. Prøv igjen.",
+      columnFailed: "Kolonnen ble ikke byttet. Prøv igjen.",
+      emailColumn: "E-postkolonne",
+      chooseColumn: "Velg kolonne",
+      /** A column in the selector: «Kolonne C, E-post», or «Kolonne C» with no header. */
+      column: (letter: string, header: string) => (header ? `Kolonne ${letter}, ${header}` : `Kolonne ${letter}`),
+      /** Why the preselected column was chosen: «Valgt fordi alle rader unntatt fire ser ut som
+       * adresser.» */
+      suggested: (matching: number, rows: number) =>
+        matching === rows
+          ? "Valgt fordi alle rader ser ut som adresser."
+          : matching * 2 >= rows
+            ? `Valgt fordi alle rader unntatt ${countWord(rows - matching)} ser ut som adresser.`
+            : `Valgt fordi ${matching} av ${rows} rader ser ut som adresser.`,
+      /** A column the Lecturer chose themself, evaluated again by the api. */
+      chosen: (matching: number, rows: number) =>
+        matching === 0
+          ? "Ingen rader i denne kolonnen ser ut som adresser."
+          : `${matching} av ${rows} rader ser ut som adresser.`,
+      noEmailColumn:
+        "Ingen kolonne i fila ser ut som e-postadresser. Velg kolonnen selv, eller lim inn adressene i stedet.",
+      preview: "Forhåndsvisning av fila",
+      previewRow: "Rad",
+      previewNote: (shown: number, rows: number) => `De første ${shown} av ${rows} radene.`,
+      /** The chosen column's header cell in the preview carries this after its name. */
+      previewChosen: "(e-post)",
     },
   },
 

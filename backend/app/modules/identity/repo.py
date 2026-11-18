@@ -12,6 +12,8 @@ from app.modules.identity.models import (
     institutions,
     invitations,
     password_resets,
+    roster_upload_rows,
+    roster_uploads,
     user_roles,
     users,
 )
@@ -635,3 +637,104 @@ async def close_access_request(
         .where(access_requests.c.id == request_id)
         .values(status=status, closed_at=now, closed_by=actor, invitation_id=invitation_id)
     )
+
+
+# Staged Roster uploads (Story 4.2).
+
+
+async def purge_expired_roster_uploads(session: AsyncSession, now: datetime) -> int:
+    """Delete every staged upload whose `expires_at` has passed; the rows go with it (CASCADE)."""
+    result = await session.execute(delete(roster_uploads).where(roster_uploads.c.expires_at <= now))
+    return result.rowcount or 0
+
+
+async def lock_roster_staging(session: AsyncSession, class_id: uuid.UUID) -> None:
+    """Hold the Class's staging lock until the caller's transaction ends."""
+    await session.execute(
+        select(func.pg_advisory_xact_lock(func.hashtextextended(f"roster:{class_id}", 0)))
+    )
+
+
+async def delete_roster_upload(session: AsyncSession, class_id: uuid.UUID) -> bool:
+    result = await session.execute(
+        delete(roster_uploads).where(roster_uploads.c.class_id == class_id)
+    )
+    return bool(result.rowcount)
+
+
+async def insert_roster_upload(
+    session: AsyncSession,
+    *,
+    upload_id: uuid.UUID,
+    class_id: uuid.UUID,
+    uploaded_by: uuid.UUID,
+    file_name: str,
+    headers: list[str],
+    has_header: bool,
+    rows: list[tuple[int, list[str]]],
+    chosen_column: int | None,
+    now: datetime,
+    expires_at: datetime,
+) -> None:
+    await session.execute(
+        insert(roster_uploads).values(
+            id=upload_id,
+            class_id=class_id,
+            uploaded_by=uploaded_by,
+            file_name=file_name,
+            headers=headers,
+            has_header=has_header,
+            column_count=len(headers),
+            row_count=len(rows),
+            chosen_column=chosen_column,
+            created_at=now,
+            expires_at=expires_at,
+        )
+    )
+    batch = 1000
+    for start in range(0, len(rows), batch):
+        await session.execute(
+            insert(roster_upload_rows),
+            [
+                {"upload_id": upload_id, "row_number": number, "cells": cells}
+                for number, cells in rows[start : start + batch]
+            ],
+        )
+
+
+async def roster_upload_for_class(
+    session: AsyncSession, class_id: uuid.UUID, now: datetime, *, lock: bool = False
+) -> RowMapping | None:
+    """The Class's staged upload, unless it has expired."""
+    query = select(roster_uploads).where(
+        roster_uploads.c.class_id == class_id, roster_uploads.c.expires_at > now
+    )
+    if lock:
+        query = query.with_for_update()
+    result = await session.execute(query)
+    return result.mappings().one_or_none()
+
+
+async def set_roster_column(session: AsyncSession, upload_id: uuid.UUID, column: int) -> None:
+    await session.execute(
+        update(roster_uploads).where(roster_uploads.c.id == upload_id).values(chosen_column=column)
+    )
+
+
+async def roster_rows(session: AsyncSession, upload_id: uuid.UUID) -> list[list[str]]:
+    result = await session.execute(
+        select(roster_upload_rows.c.cells).where(roster_upload_rows.c.upload_id == upload_id)
+    )
+    return list(result.scalars())
+
+
+async def roster_preview(
+    session: AsyncSession, upload_id: uuid.UUID, limit: int
+) -> list[RowMapping]:
+    result = await session.execute(
+        select(roster_upload_rows.c.row_number, roster_upload_rows.c.cells)
+        .where(roster_upload_rows.c.upload_id == upload_id)
+        .order_by(roster_upload_rows.c.row_number)
+        .limit(limit)
+    )
+    return list(result.mappings())

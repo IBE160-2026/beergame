@@ -46,6 +46,8 @@ ACCESS_REQUEST_TABLES = {"access_requests"}
 """The table of revision 0022 (Story 3.13)."""
 CLASS_TABLES = {"classes", "class_staff"}
 """The tables of revision 0023 (Story 4.1)."""
+ROSTER_TABLES = {"roster_uploads", "roster_upload_rows"}
+"""The tables of revision 0024 (Story 4.2)."""
 HEAD_TABLES = (
     AI_HEAD_TABLES
     | JOB_TABLES
@@ -58,8 +60,9 @@ HEAD_TABLES = (
     | INSTITUTION_TABLES
     | ACCESS_REQUEST_TABLES
     | CLASS_TABLES
+    | ROSTER_TABLES
 )
-HEAD = "0023"  # 0023 adds `classes` and `class_staff` (Story 4.1)
+HEAD = "0024"  # 0024 adds the staged Roster uploads (Story 4.2)
 
 
 def reset_schema(url: str) -> None:
@@ -272,6 +275,7 @@ def test_downgrade_to_0012_removes_the_simulation_batches(migrations_database):
         - INSTITUTION_TABLES
         - ACCESS_REQUEST_TABLES
         - CLASS_TABLES
+        - ROSTER_TABLES
     )
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         columns = conn.execute(
@@ -302,6 +306,7 @@ def test_downgrade_to_0013_removes_the_effort_measurements_and_pins(migrations_d
         - INSTITUTION_TABLES
         - ACCESS_REQUEST_TABLES
         - CLASS_TABLES
+        - ROSTER_TABLES
     )
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         functions = conn.execute(
@@ -326,6 +331,7 @@ def test_downgrade_to_0014_removes_the_identity_and_rate_limit_tables(migrations
         - INSTITUTION_TABLES
         - ACCESS_REQUEST_TABLES
         - CLASS_TABLES
+        - ROSTER_TABLES
     )
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
@@ -344,6 +350,7 @@ def test_downgrade_to_0015_removes_the_notice_and_delivery_tables(migrations_dat
         - INSTITUTION_TABLES
         - ACCESS_REQUEST_TABLES
         - CLASS_TABLES
+        - ROSTER_TABLES
     )
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
@@ -361,6 +368,7 @@ def test_downgrade_to_0016_removes_the_reset_table_and_the_stale_reason(migratio
         - INSTITUTION_TABLES
         - ACCESS_REQUEST_TABLES
         - CLASS_TABLES
+        - ROSTER_TABLES
     )
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         check = conn.execute(
@@ -384,6 +392,7 @@ def test_downgrade_to_0017_removes_the_invitation_and_audit_tables(migrations_da
         - INSTITUTION_TABLES
         - ACCESS_REQUEST_TABLES
         - CLASS_TABLES
+        - ROSTER_TABLES
     )
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         functions = conn.execute(
@@ -416,7 +425,7 @@ def test_downgrade_to_0020_removes_the_institutions(migrations_database):
     command.downgrade(cfg, "0020")
     assert (
         tables(migrations_database)
-        == HEAD_TABLES - INSTITUTION_TABLES - ACCESS_REQUEST_TABLES - CLASS_TABLES
+        == HEAD_TABLES - INSTITUTION_TABLES - ACCESS_REQUEST_TABLES - CLASS_TABLES - ROSTER_TABLES
     )
     assert current_version(migrations_database) == "0020"
     command.upgrade(cfg, "head")
@@ -428,7 +437,10 @@ def test_downgrade_to_0021_removes_the_access_requests(migrations_database):
     cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0021")
-    assert tables(migrations_database) == HEAD_TABLES - ACCESS_REQUEST_TABLES - CLASS_TABLES
+    assert (
+        tables(migrations_database)
+        == HEAD_TABLES - ACCESS_REQUEST_TABLES - CLASS_TABLES - ROSTER_TABLES
+    )
     assert current_version(migrations_database) == "0021"
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
@@ -439,8 +451,19 @@ def test_downgrade_to_0022_removes_the_classes(migrations_database):
     cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0022")
-    assert tables(migrations_database) == HEAD_TABLES - CLASS_TABLES
+    assert tables(migrations_database) == HEAD_TABLES - CLASS_TABLES - ROSTER_TABLES
     assert current_version(migrations_database) == "0022"
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_downgrade_to_0023_removes_the_roster_uploads(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0023")
+    assert tables(migrations_database) == HEAD_TABLES - ROSTER_TABLES
+    assert current_version(migrations_database) == "0023"
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 

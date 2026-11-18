@@ -9,10 +9,11 @@ import { classPath, HOME_PATH } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 
 import { classKey, useClass } from "./api";
+import { RosterUpload } from "./roster-upload";
 
 /**
- * A Class's own page (Story 4.1): its name as the heading, then the course code and Institution.
- * Later stories add the Roster, Invitations and staff. A Class the Lecturer is not staff of, one
+ * A Class's own page (Story 4.1): its name as the heading, then the course code and Institution,
+ * and for its owner the Roster upload (Story 4.2). Later stories add Invitations and staff. A Class the Lecturer is not staff of, one
  * that does not exist and an address that names no Class all show the permission-denied page
  * (FR-5): the api answers them alike.
  */
@@ -60,6 +61,19 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
       onRetry={retry}
     >
       {facts ? <p className="mt-2 text-body-phone text-ink-secondary lg:text-body">{facts}</p> : null}
+      {/* The Roster upload is the owner's (the api's `classes.manage` policy); Story 4.9 adds the
+          staff who only read the Roster. */}
+      {item?.staff_role === "owner" ? (
+        <section aria-labelledby="roster-title" className="mt-10">
+          <h2 id="roster-title" className="text-headline text-ink">
+            {nb.classes.roster.title}
+          </h2>
+          <p className="mt-1 max-w-2xl text-body-phone text-ink-secondary lg:text-body">{nb.classes.roster.lead}</p>
+          <div className="mt-6">
+            <RosterUpload classId={item.id} />
+          </div>
+        </section>
+      ) : null}
     </PageShell>
   );
 }

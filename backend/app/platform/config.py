@@ -100,6 +100,13 @@ class Settings(BaseSettings):
     # api mails each one an Admin Invitation at startup; a listed User gains Admin at first login.
     bootstrap_admin_emails: str = ""
 
+    # Roster upload (Story 4.2, FR-7, NFR-3). PLACEHOLDERS that cover a Class of at least 400
+    # Students with room to spare: the largest file the api reads, the most data rows it stages,
+    # and how long a staged upload is kept before it is purged.
+    roster_max_file_mb: int = Field(5, ge=1, le=50)
+    roster_max_rows: int = Field(5000, ge=1)
+    roster_staging_ttl_hours: int = Field(24, ge=1)
+
     # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
     # to the `[email:mock]` sender; the compose file never passes a key.
     email_from: str = LOCAL_EMAIL_FROM

@@ -930,6 +930,158 @@
         "title": "RoleIn",
         "type": "object"
       },
+      "RosterColumn": {
+        "properties": {
+          "header": {
+            "title": "Header",
+            "type": "string"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "letter": {
+            "title": "Letter",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "letter",
+          "header"
+        ],
+        "title": "RosterColumn",
+        "type": "object"
+      },
+      "RosterColumnIn": {
+        "properties": {
+          "column": {
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Column",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "column"
+        ],
+        "title": "RosterColumnIn",
+        "type": "object"
+      },
+      "RosterPreviewRow": {
+        "properties": {
+          "cells": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "row_number": {
+            "title": "Row Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "row_number",
+          "cells"
+        ],
+        "title": "RosterPreviewRow",
+        "type": "object"
+      },
+      "RosterStagingOut": {
+        "properties": {
+          "upload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RosterUploadOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "upload"
+        ],
+        "title": "RosterStagingOut",
+        "type": "object"
+      },
+      "RosterUploadOut": {
+        "description": "A staged Roster upload as the Class page shows it.",
+        "properties": {
+          "chosen_column": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chosen Column"
+          },
+          "chosen_count": {
+            "title": "Chosen Count",
+            "type": "integer"
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/RosterColumn"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "has_header": {
+            "title": "Has Header",
+            "type": "boolean"
+          },
+          "preview": {
+            "items": {
+              "$ref": "#/components/schemas/RosterPreviewRow"
+            },
+            "title": "Preview",
+            "type": "array"
+          },
+          "row_count": {
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "suggested_column": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Column"
+          },
+          "suggested_count": {
+            "title": "Suggested Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file_name",
+          "row_count",
+          "has_header",
+          "columns",
+          "suggested_column",
+          "suggested_count",
+          "chosen_column",
+          "chosen_count",
+          "preview"
+        ],
+        "title": "RosterUploadOut",
+        "type": "object"
+      },
       "SessionOut": {
         "properties": {
           "user": {
@@ -3130,6 +3282,287 @@
           }
         },
         "summary": "Get Class",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/roster-upload": {
+      "delete": {
+        "description": "«Bytt fil»: delete the Class's staged upload. 204 whether or not there was one.",
+        "operationId": "deleteRosterUpload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Roster Upload",
+        "tags": [
+          "classes"
+        ]
+      },
+      "get": {
+        "description": "The Class's staged upload, evaluated against its chosen column; `upload` is null when\nthere is none or it has expired.",
+        "operationId": "getRosterUpload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosterStagingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Roster Upload",
+        "tags": [
+          "classes"
+        ]
+      },
+      "post": {
+        "description": "Read a Roster file (.xlsx or .csv) in memory and stage its rows for the Class, replacing\nany earlier staged upload. A file that cannot be used answers 422 `roster_unreadable` and\nstages nothing (the earlier staged upload stays).",
+        "operationId": "uploadRoster",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The file's name, percent-encoded; .xlsx or .csv.",
+            "in": "header",
+            "name": "X-File-Name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosterUploadOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Upload Roster",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/roster-upload/column": {
+      "put": {
+        "description": "Choose the e-mail column; the staged rows are evaluated against it at once, from the staged\ncells. 404 `not_found` when nothing is staged (or it expired); 422 `invalid_request` with\n`fields.column = column_unknown` for a column the file does not have.",
+        "operationId": "chooseRosterColumn",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RosterColumnIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosterUploadOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Choose Roster Column",
         "tags": [
           "classes"
         ]

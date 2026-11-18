@@ -1,0 +1,14 @@
+﻿Student,ID,SIS User ID,SIS Login ID,Section,Oppgave 1 (101),Oppgave 2 (102),Current Score,Final Score
+    Points Possible,,,,,10.00,10.00,(read only),(read only)
+"Lund, Sara",5001,240117,sara.lund@stud.example.no,IBE160 H26,8,9,85.0,85.0
+"Berg, Ida",5002,240118,ida.berg@stud.example.no,IBE160 H26,8,9,85.0,85.0
+"Dahl, Mikkel",5003,240119,mikkel.dahl@stud.example.no,IBE160 H26,8,9,85.0,85.0
+"Hagen, Jonas",5004,240120,jonas.hagen@stud.example.no,IBE160 H26,8,9,85.0,85.0
+"Eide, Noah",5005,240121,noah.eide@stud.example.no,IBE160 H26,8,9,85.0,85.0
+"Solberg, Emma",5006,240122,emma.solberg@stud.example.no,IBE160 H26,8,9,85.0,85.0
+"Lien, Jakob",5007,240123,jakob.lien@stud.example.no,IBE160 H26,8,9,85.0,85.0
+"Moe, Thea",5008,240124,thea.moe@stud.example.no,IBE160 H26,8,9,85.0,85.0
+"Vik, Lars",5009,240125,lars.vik@stud.example.no,IBE160 H26,8,9,85.0,85.0
+"Bakke, Nora",5010,240126,nora.bakke@stud.example.no,IBE160 H26,8,9,85.0,85.0
+"Næss, Ørjan",5011,240127,orjan.naess@stud.example.no,IBE160 H26,8,9,85.0,85.0
+"Strøm, Åse",5012,240128,ase.strom@stud.example.no,IBE160 H26,8,9,85.0,85.0

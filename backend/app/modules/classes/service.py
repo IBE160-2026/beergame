@@ -123,6 +123,56 @@ async def get_class(user: authz.Principal, class_id: uuid.UUID) -> ClassOut | No
     )
 
 
+async def may_manage(user: authz.Principal, class_id: uuid.UUID) -> bool:
+    """Whether `user` may manage the Class (its owner). A Class outside the User's scope and one
+    that does not exist both answer False."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.class_for(s, user, class_id)
+    return row is not None and authz.can(user, "classes.manage", _StaffOf(row["staff_role"]))
+
+
+# The staged Roster upload of a Class (Story 4.2, FR-7). The cells live in `identity`
+# (AD-14); this module checks the User may manage the Class and hands over. Each answers None when
+# the User may not, which the route turns into 403 `forbidden`.
+
+
+@dataclass(frozen=True)
+class Staging:
+    upload: identity.RosterUploadOut | None
+
+
+async def upload_roster(
+    user: authz.Principal, class_id: uuid.UUID, file_name: str, data: bytes, *, now: datetime
+) -> identity.RosterUploadOut | None:
+    """Stage the file's rows for the Class. Raises `identity.RosterUnreadable`."""
+    if not await may_manage(user, class_id):
+        return None
+    return await identity.stage_roster_upload(class_id, user.id, file_name, data, now=now)
+
+
+async def roster_staging(
+    user: authz.Principal, class_id: uuid.UUID, *, now: datetime
+) -> Staging | None:
+    if not await may_manage(user, class_id):
+        return None
+    return Staging(await identity.roster_upload(class_id, now=now))
+
+
+async def choose_roster_column(
+    user: authz.Principal, class_id: uuid.UUID, column: int, *, now: datetime
+) -> Staging | None:
+    """Raises `identity.InvalidRosterColumn`; `Staging(None)` when nothing is staged."""
+    if not await may_manage(user, class_id):
+        return None
+    return Staging(await identity.choose_roster_column(class_id, column, now=now))
+
+
+async def discard_roster_upload(user: authz.Principal, class_id: uuid.UUID) -> bool | None:
+    if not await may_manage(user, class_id):
+        return None
+    return await identity.delete_roster_upload(class_id)
+
+
 async def owned_active_classes(session: AsyncSession, user_id: uuid.UUID) -> int:
     """The revoke blocker of the Lecturer role (FR-2, Story 3.9's registry): how many Classes
     that are not archived the User owns, read in the revoke's own transaction."""
