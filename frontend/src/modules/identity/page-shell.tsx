@@ -3,24 +3,53 @@
 import { type ReactNode, useEffect } from "react";
 
 import { AppHeader } from "@/components/app-header";
+import { ConnectionLine } from "@/components/connection-notice";
 import { Link } from "@/components/link";
+import { LoadingNote, Skeleton } from "@/components/skeleton";
 import { nb } from "@/copy/nb";
+import type { PagePhase } from "@/lib/page-state";
 
 import type { SessionUser } from "./api";
 import { SessionHeader } from "./session-header";
 
-/** One page: the header, then the h1 and what follows it, in the layout «Logg inn» uses. */
-export function PageShell({ user, title, children }: { user?: SessionUser; title?: string; children?: ReactNode }) {
+/**
+ * One page: the header, then the Tilkoblingslinje at the top of the content, then the h1 and
+ * what follows it, in the layout «Logg inn» uses. While the page loads it shows the Skjelett;
+ * a page that failed shows only the line «Siden kunne ikke lastes.» with «Prøv igjen» (Story 3.4).
+ */
+export function PageShell({
+  user,
+  title,
+  phase = "ready",
+  onRetry,
+  updatedAt,
+  children,
+}: {
+  user?: SessionUser;
+  title?: string;
+  phase?: PagePhase;
+  onRetry?: () => void;
+  updatedAt?: number;
+  children?: ReactNode;
+}) {
+  const ready = phase === "ready";
   // The tab title follows the h1, so a refused page is not titled with the page it refuses.
   useEffect(() => {
-    if (title) document.title = `${title} – ${nb.product.name}`;
-  }, [title]);
+    if (title && ready) document.title = `${title} – ${nb.product.name}`;
+  }, [title, ready]);
   return (
     <div className="min-h-dvh">
       {user ? <SessionHeader user={user} /> : <AppHeader />}
       <main className="px-gutter-phone pt-10 pb-16 lg:px-margin-laptop lg:pt-16">
-        {title ? <h1 className="text-title-phone text-ink lg:text-title-page">{title}</h1> : null}
-        {children}
+        <ConnectionLine pageError={phase === "failed"} onRetry={onRetry} updatedAt={updatedAt} />
+        {phase === "loading" || phase === "slow" ? (
+          <>
+            <Skeleton />
+            <LoadingNote visible={phase === "slow"} />
+          </>
+        ) : null}
+        {ready && title ? <h1 className="text-title-phone text-ink lg:text-title-page">{title}</h1> : null}
+        {ready ? children : null}
       </main>
     </div>
   );

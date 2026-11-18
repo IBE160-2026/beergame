@@ -8,6 +8,7 @@ import { Link } from "@/components/link";
 import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
+import { NEXT_PARAM, safeReturnPath } from "@/lib/return-path";
 
 import { useLogin } from "./api";
 import { HOME_PATH, homeOf } from "./homes";
@@ -19,7 +20,8 @@ const copy = nb.auth.login;
 /**
  * The «Logg inn» form. It validates on the client first (Story 3.1), then logs in through the API
  * (Story 3.2). A refused login shows one line that never says which field was wrong; the input is
- * kept. After a login the User goes to their own home (Story 3.3).
+ * kept. After a login the User goes to `?neste=`, the validated page they came from (Story 3.4), or
+ * else to their own home (Story 3.3).
  */
 export function LoginForm() {
   const router = useRouter();
@@ -55,7 +57,10 @@ export function LoginForm() {
     login.mutate(
       { email, password },
       {
-        onSuccess: (user) => router.push(HOME_PATH[homeOf(user)]),
+        onSuccess: (user) => {
+          const next = safeReturnPath(new URLSearchParams(window.location.search).get(NEXT_PARAM));
+          router.push(next ?? HOME_PATH[homeOf(user)]);
+        },
         onError: (error) => {
           const code = error instanceof ApiRequestError ? error.code : "unknown_error";
           setServerError(loginErrorMessage(code));

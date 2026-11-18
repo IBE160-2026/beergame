@@ -93,7 +93,8 @@ async def test_a_cookie_stops_working_when_the_user_is_deactivated(admin):
             await s.execute(update(users).where(users.c.id == admin).values(is_active=False))
         response = await c.get("/api/auth/me")
     assert response.status_code == 401
-    assert response.json()["error"]["code"] == "not_authenticated"
+    # Story 3.4: a cookie was sent, so the web app tells the User they were logged out.
+    assert response.json()["error"]["code"] == "session_expired"
 
 
 def _with_cookie(token: str) -> dict[str, str]:
@@ -107,7 +108,12 @@ async def test_a_cookie_of_a_user_who_is_gone_or_tampered_is_refused(admin):
         assert (await c.get("/api/auth/me", headers=_with_cookie(token))).status_code == 200
         tampered = await c.get("/api/auth/me", headers=_with_cookie(token[:-3] + "abc"))
         assert tampered.status_code == 401
-        assert (await c.get("/api/auth/me", headers=_with_cookie(gone))).status_code == 401
+        assert tampered.json()["error"]["code"] == "session_expired"
+        # The dead cookie is cleared, so the message is not repeated on every later visit.
+        assert "Max-Age=0" in tampered.headers["set-cookie"]
+        missing = await c.get("/api/auth/me", headers=_with_cookie(gone))
+        assert missing.status_code == 401
+        assert missing.json()["error"]["code"] == "session_expired"
 
 
 async def test_an_expired_cookie_is_refused(admin, frozen):
@@ -115,7 +121,9 @@ async def test_an_expired_cookie_is_refused(admin, frozen):
     async with client() as c:
         assert (await c.get("/api/auth/me", headers=_with_cookie(token))).status_code == 200
         frozen["now"] += timedelta(hours=get_settings().session_max_age_hours)
-        assert (await c.get("/api/auth/me", headers=_with_cookie(token))).status_code == 401
+        expired = await c.get("/api/auth/me", headers=_with_cookie(token))
+        assert expired.status_code == 401
+        assert expired.json()["error"]["code"] == "session_expired"
 
 
 async def test_logout_clears_the_cookie(admin):
@@ -125,7 +133,10 @@ async def test_logout_clears_the_cookie(admin):
         response = await c.post("/api/auth/logout", headers=CSRF)
         assert response.status_code == 204
         assert "Max-Age=0" in response.headers["set-cookie"]
-        assert (await c.get("/api/auth/me")).status_code == 401
+        after = await c.get("/api/auth/me")
+        assert after.status_code == 401
+        # No cookie is left, so this is a plain «not logged in», not an ended session.
+        assert after.json()["error"]["code"] == "not_authenticated"
 
 
 async def test_a_body_that_fails_validation_answers_in_the_envelope_without_its_values(

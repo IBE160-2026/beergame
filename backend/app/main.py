@@ -10,7 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from app.modules.identity import routes as identity_routes
 from app.modules.identity import seed as identity_seed
 from app.modules.identity import service as identity_service
-from app.platform import authz, db
+from app.platform import auth, authz, db
 from app.platform.auth import CsrfMiddleware
 from app.platform.config import get_settings
 from app.platform.errors import error_response
@@ -43,7 +43,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await db.dispose()
 
 
-async def _not_authenticated(_: Request, __: authz.NotAuthenticated):
+async def _not_authenticated(_: Request, exc: authz.NotAuthenticated):
+    if isinstance(exc, authz.SessionExpired):
+        response = error_response(401, "session_expired", "The session has ended. Log in again.")
+        # The dead cookie goes, so «Du er logget ut.» shows once and not on every later visit.
+        auth.clear_session_cookie(response)
+        return response
     return error_response(401, "not_authenticated", "No valid session.")
 
 

@@ -14,7 +14,7 @@ from app.main import create_app
 from app.modules.identity import service
 from app.modules.identity.models import user_roles, users
 from app.modules.identity.schemas import AccountRole
-from app.platform import authz
+from app.platform import auth, authz
 from app.platform.db import get_sessionmaker
 from tests.identity.helpers import login
 
@@ -154,7 +154,13 @@ async def test_a_deactivated_user_is_refused_on_every_request(identity_db):
         assert (await c.get(f"/api/probe/items/{uuid.UUID(int=1)}")).status_code == 200
         async with get_sessionmaker().begin() as s:
             await s.execute(update(users).where(users.c.id == user_id).values(is_active=False))
+        cookie = c.cookies.get(auth.COOKIE_NAME)
         for path in (f"/api/probe/items/{uuid.UUID(int=1)}", "/api/auth/me"):
+            # The refusal clears the cookie, so each request sends it afresh.
+            c.cookies.set(auth.COOKIE_NAME, cookie)
             response = await c.get(path)
             assert response.status_code == 401
-            assert response.json()["error"]["code"] == "not_authenticated"
+            assert response.json()["error"]["code"] == "session_expired"
+        # Once cleared, nothing is sent: a plain «not logged in».
+        c.cookies.clear()
+        assert (await c.get("/api/auth/me")).json()["error"]["code"] == "not_authenticated"

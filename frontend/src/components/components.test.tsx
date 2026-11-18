@@ -2,9 +2,14 @@ import type { MouseEvent } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+import { nb } from "@/copy/nb";
+
+import { ActionError } from "./action-error";
 import { AppHeader } from "./app-header";
 import { Breadcrumb } from "./breadcrumb";
 import { Button, guardUnavailable } from "./button";
+import { ConnectionNotice } from "./connection-notice";
+import { LoadingNote, Skeleton } from "./skeleton";
 import { TextField } from "./text-field";
 
 describe("Button", () => {
@@ -102,5 +107,49 @@ describe("TextField", () => {
     expect(html).toContain('aria-describedby="email-error"');
     expect(html).toMatch(/<p id="email-error" class="[^"]*text-restordre[^"]*">Mangler @<\/p>/);
     expect(html).toContain("aria-invalid:border-restordre");
+  });
+});
+
+describe("Skeleton", () => {
+  it("draws the coming layout with no numbers, no text and nothing that moves", () => {
+    const html = renderToStaticMarkup(<Skeleton rows={3} columns={4} />);
+    expect(html).toContain('aria-hidden="true"');
+    expect(html.replace(/<[^>]+>/g, "")).toBe("");
+    expect(html.match(/border-b border-hairline/g)).toHaveLength(3);
+    expect(html.match(/border-l border-axis/g)).toHaveLength(12);
+    expect(html).not.toMatch(/animate|transition|spin|pulse/);
+  });
+
+  it("says «Laster …» only when told to, in a status region that is always there", () => {
+    expect(renderToStaticMarkup(<LoadingNote visible={false} />)).toMatch(/^<p role="status"[^>]*><\/p>$/);
+    expect(renderToStaticMarkup(<LoadingNote visible />)).toContain(">Laster …</p>");
+  });
+});
+
+describe("ConnectionNotice", () => {
+  it("keeps an empty polite status region when there is nothing to say", () => {
+    expect(renderToStaticMarkup(<ConnectionNotice />)).toBe('<div role="status" data-connection-notice=""></div>');
+  });
+
+  it("shows one line between two rules, in the flow, with no fill", () => {
+    const html = renderToStaticMarkup(<ConnectionNotice message={nb.system.offline} updatedAt={Date.UTC(2026, 10, 18, 20, 14)} />);
+    expect(html).toContain("border-y border-ink-muted");
+    expect(html).not.toMatch(/fixed|absolute|sticky|bg-/);
+    expect(html).toContain(nb.system.offline);
+    expect(html).toContain('<span class="text-ink-secondary">Sist oppdatert 21:14</span>');
+  });
+
+  it("puts «Prøv igjen» at its right as a button", () => {
+    const html = renderToStaticMarkup(<ConnectionNotice message={nb.system.pageError} onRetry={() => {}} />);
+    expect(html).toMatch(/<button type="button"[^>]*>Prøv igjen<\/button>/);
+  });
+});
+
+describe("ActionError", () => {
+  it("is an alert beside the action, and nothing when there is no error", () => {
+    expect(renderToStaticMarkup(<ActionError />)).toBe("");
+    expect(renderToStaticMarkup(<ActionError message={nb.system.actionFailed} />)).toMatch(
+      /^<p role="alert" class="[^"]*text-restordre[^"]*">Det ble ikke lagret. Prøv igjen.<\/p>$/,
+    );
   });
 });

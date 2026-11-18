@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 
+import { ActionError } from "@/components/action-error";
 import { Button } from "@/components/button";
 import { nb } from "@/copy/nb";
 
@@ -10,19 +10,15 @@ import { useLogout } from "./api";
 
 const copy = nb.auth.session;
 
-/** «Logg ut»: clears the session cookie, empties the query cache and returns to «Logg inn». */
+/** «Logg ut»: clears the session cookie, empties the query cache and returns to «Logg inn». A
+ * failure shows inline beside the button; the button stays active and keeps focus (Story 3.4). */
 export function LogoutButton() {
   const router = useRouter();
   const logout = useLogout();
-  const [failed, setFailed] = useState(false);
 
   function onClick() {
     if (logout.isPending) return;
-    setFailed(false);
-    logout.mutate(undefined, {
-      onSuccess: () => router.push("/logg-inn"),
-      onError: () => setFailed(true),
-    });
+    logout.mutate(undefined, { onSuccess: () => router.push("/logg-inn") });
   }
 
   return (
@@ -30,11 +26,7 @@ export function LogoutButton() {
       <Button variant="secondary" unavailable={logout.isPending} onClick={onClick}>
         {copy.logout}
       </Button>
-      {failed ? (
-        <p role="alert" className="text-body-phone text-restordre">
-          {copy.logoutFailed}
-        </p>
-      ) : null}
+      <ActionError message={logout.errorMessage} />
     </div>
   );
 }

@@ -173,4 +173,17 @@ export const nb = {
     denied: "Du har ikke tilgang til denne siden.",
     notFound: "Fant ikke siden.",
   },
+
+  /** Loading, offline, page and action errors (Story 3.4). All are EXPERIENCE.md's own
+   * (State Patterns → All); `sessionExpired` is under `auth.login`. */
+  system: {
+    loading: "Laster …",
+    offline: "Frakoblet. Det du har skrevet, er tatt vare på på denne enheten.",
+    reconnected: "Tilkoblet igjen.",
+    pageError: "Siden kunne ikke lastes.",
+    retry: "Prøv igjen",
+    /** «Sist oppdatert 21:14»: the time live values were last read. */
+    lastUpdated: (clock: string) => `Sist oppdatert ${clock}`,
+    actionFailed: "Det ble ikke lagret. Prøv igjen.",
+  },
 } as const;

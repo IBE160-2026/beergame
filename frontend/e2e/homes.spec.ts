@@ -116,9 +116,11 @@ test("each User refused a page gets a link to their own home", async ({ browser 
   );
 });
 
-test("a visitor who is not logged in goes from a home to «Logg inn»", async ({ page }) => {
+test("a visitor who is not logged in goes from a home to «Logg inn», with the way back", async ({ page }) => {
   await page.goto("/admin");
-  await expect(page).toHaveURL(/\/logg-inn$/);
+  await expect(page).toHaveURL(/\/logg-inn\?neste=%2Fadmin$/);
+  // A first visit is not an ended session.
+  await expect(page.getByText(nb.auth.login.sessionExpired)).toHaveCount(0);
   await expect(page.getByRole("heading", { level: 1, name: nb.auth.login.title })).toBeVisible();
 });
 

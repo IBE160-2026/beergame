@@ -34,4 +34,16 @@
     outline: 2px solid var(--color-ink);
     outline-offset: 2px;
   }
+
+  /* Reduced motion: no transition or animation anywhere, so every state change is instant
+     (UX-DR76, Story 3.4). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition: none !important;
+      animation: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }

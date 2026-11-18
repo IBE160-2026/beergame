@@ -48,6 +48,11 @@ export class ApiRequestError extends Error {
   }
 }
 
+/** The session cookie was sent but the session has ended (401 `session_expired`, Story 3.4). */
+export function isSessionExpired(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.code === "session_expired";
+}
+
 /** The error code of a failed openapi-fetch result; `unknown_error` when the body has none. */
 export function toApiError(status: number, body: unknown): ApiRequestError {
   const code =

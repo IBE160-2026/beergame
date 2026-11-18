@@ -82,9 +82,9 @@ for (const vp of VIEWPORTS) {
       await expectAccessible(page);
 
       // Back in the same tab, without a reload: nothing of the old session is left in the cache,
-      // and the home sends the visitor back to «Logg inn».
+      // and the home sends the visitor back to «Logg inn», with the way back to it.
       await page.goBack();
-      await expect(page).toHaveURL(/\/logg-inn$/);
+      await expect(page).toHaveURL(new RegExp(`/logg-inn\\?neste=${encodeURIComponent(user.home)}$`));
       await expect(page.getByText(user.name)).toHaveCount(0);
       await expect(page.getByRole("button", { name: nb.auth.session.logout })).toHaveCount(0);
     });
