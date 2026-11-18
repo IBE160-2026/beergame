@@ -40,6 +40,23 @@ def test_games_has_no_llm_or_provider_import():
             assert name == "app.modules.players.service", f"{path.name}:{line} imports {name}"
 
 
+AI_PUBLIC = ("app.ai.config", "app.ai.budget")
+AI_TABLES = ("ai_model_configs", "ai_budgets")
+
+
+def test_only_app_ai_touches_the_model_config_and_budget_tables():
+    """Story 2.2 (AD-6): other packages use `ai.config` and `ai.budget` only, and never name
+    the tables; `app/ai` imports nothing from `app.modules`."""
+    outside = [path for path in sorted(APP.rglob("*.py")) if (APP / "ai") not in path.parents]
+    for path in outside:
+        assert not any(table in path.read_text(encoding="utf-8") for table in AI_TABLES), path.name
+    for path, line, name in imports(APP):  # every file, top-level modules included
+        if (APP / "ai") not in path.parents and name.startswith("app.ai"):
+            assert name.startswith(AI_PUBLIC), f"{path.name}:{line} imports {name}"
+    for path, line, name in imports(APP / "ai"):
+        assert not name.startswith("app.modules"), f"{path.name}:{line} imports {name}"
+
+
 def test_the_check_sees_imports_inside_functions():
     names = {name for _, _, name in imports(APP / "modules" / "games")}
     assert "app.modules.players.service" in names

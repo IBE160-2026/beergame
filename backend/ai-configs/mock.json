@@ -1,0 +1,23 @@
+{
+  "name": "mock",
+  "provider": "mock",
+  "endpoint": "mock://local",
+  "region": "local",
+  "model_version": "mock-1",
+  "quantisation": "none",
+  "prices": {
+    "input_usd_per_mtok": "0.10",
+    "output_usd_per_mtok": "0.40"
+  },
+  "rate_limit_rpm": 600,
+  "prompts": {},
+  "effort_levels": [
+    {
+      "name": "standard",
+      "provider_params": {},
+      "attempt_timeout_s": 4,
+      "order_time_budget_s": 8,
+      "placeholder": true
+    }
+  ]
+}

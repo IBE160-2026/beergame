@@ -97,6 +97,18 @@ def games_db(test_database) -> str:
     return test_database
 
 
+AI_TABLES = "ai_budgets, ai_model_configs"
+
+
+@pytest.fixture
+def ai_db(test_database) -> str:
+    """The test database at the latest revision with empty model config and budget tables
+    (TRUNCATE fires no row trigger, so referenced configs go too)."""
+    with psycopg.connect(libpq_dsn(test_database), autocommit=True) as conn:
+        conn.execute(f"TRUNCATE {AI_TABLES}")
+    return test_database
+
+
 @pytest.fixture(scope="session")
 def unreachable_database() -> Iterator[str]:
     """A database URL whose server hangs up on every connection, so the app cannot reach a

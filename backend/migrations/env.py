@@ -8,6 +8,7 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
+import app.ai.models  # noqa: F401  (registers the model config and budget tables)
 import app.modules.games.models  # noqa: F401  (registers the games tables on the metadata)
 from app.platform.config import get_settings
 from app.platform.db import metadata

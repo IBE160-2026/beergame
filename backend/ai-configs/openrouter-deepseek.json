@@ -1,0 +1,24 @@
+{
+  "name": "openrouter-deepseek",
+  "provider": "openai_compatible",
+  "endpoint": "https://eu.openrouter.ai/api/v1",
+  "region": "eu",
+  "model_version": "deepseek/deepseek-v4.1-flash-1017",
+  "quantisation": "unknown",
+  "credential_env": "OPENROUTER_API_KEY",
+  "prices": {
+    "input_usd_per_mtok": "0.10",
+    "output_usd_per_mtok": "0.40"
+  },
+  "rate_limit_rpm": 60,
+  "prompts": {},
+  "effort_levels": [
+    {
+      "name": "standard",
+      "provider_params": {"reasoning": {"effort": "low"}},
+      "attempt_timeout_s": 4,
+      "order_time_budget_s": 8,
+      "placeholder": true
+    }
+  ]
+}

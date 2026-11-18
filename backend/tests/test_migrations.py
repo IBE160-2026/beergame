@@ -10,7 +10,7 @@ from alembic.config import Config
 from tests.conftest import libpq_dsn
 
 API_ROOT = Path(__file__).resolve().parents[1]
-HEAD_TABLES = {
+GAMES_HEAD_TABLES = {
     "alembic_version",
     "games",
     "seats",
@@ -20,6 +20,8 @@ HEAD_TABLES = {
     "seat_weeks",
     "game_checks",
 }
+"""The tables at revision 0005, the last games revision."""
+HEAD_TABLES = GAMES_HEAD_TABLES | {"ai_model_configs", "ai_budgets"}
 
 
 def reset_schema(url: str) -> None:
@@ -53,7 +55,7 @@ def test_upgrade_head_from_empty_creates_the_games_tables(migrations_database):
     reset_schema(migrations_database)
     command.upgrade(config(migrations_database), "head")
     assert tables(migrations_database) == HEAD_TABLES
-    assert current_version(migrations_database) == "0005"
+    assert current_version(migrations_database) == "0006"
 
 
 def test_the_revisions_match_the_module_tables(migrations_database):
@@ -91,7 +93,7 @@ def test_downgrade_to_0002_removes_the_week_tables(migrations_database):
         ).fetchall()
     assert functions == []
     command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == "0005"
+    assert current_version(migrations_database) == "0006"
 
 
 def test_downgrade_to_0003_restores_the_week_tables_of_story_1_8(migrations_database):
@@ -99,7 +101,7 @@ def test_downgrade_to_0003_restores_the_week_tables_of_story_1_8(migrations_data
     cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0003")
-    assert tables(migrations_database) == HEAD_TABLES - {"seat_weeks", "game_checks"}
+    assert tables(migrations_database) == GAMES_HEAD_TABLES - {"seat_weeks", "game_checks"}
     assert current_version(migrations_database) == "0003"
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         functions = {
@@ -122,7 +124,7 @@ def test_downgrade_to_0003_restores_the_week_tables_of_story_1_8(migrations_data
     assert primary_key == ("PRIMARY KEY (game_id, week)",)
     assert "finished" not in columns
     command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == "0005"
+    assert current_version(migrations_database) == "0006"
 
 
 def test_downgrade_to_0004_removes_the_check_table(migrations_database):
@@ -130,15 +132,17 @@ def test_downgrade_to_0004_removes_the_check_table(migrations_database):
     cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0004")
-    assert tables(migrations_database) == HEAD_TABLES - {"game_checks"}
+    assert tables(migrations_database) == GAMES_HEAD_TABLES - {"game_checks"}
     assert current_version(migrations_database) == "0004"
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        # The way down passes 0006, which drops the AI tables and their trigger function.
         functions = conn.execute(
-            "SELECT 1 FROM pg_proc WHERE proname = 'game_checks_append_only'"
+            "SELECT 1 FROM pg_proc WHERE proname IN "
+            "('game_checks_append_only', 'ai_model_configs_immutable')"
         ).fetchall()
     assert functions == []
     command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == "0005"
+    assert current_version(migrations_database) == "0006"
 
 
 def test_alembic_cli_uses_database_url_from_environment(migrations_database):
@@ -173,9 +177,18 @@ CHECKS = {
 def test_the_check_constraints_list_exactly_the_enum_values(migrations_database):
     """`alembic check` does not compare CHECK contents, so compare them with the enums here."""
     import re
+    from typing import get_args
 
+    from app.ai import budget as ai_budget
+    from app.ai import config as ai_config
     from app.modules.games import schemas
 
+    ai_checks = {
+        "ck_ai_budgets_scope_kind": set(get_args(ai_budget.ScopeKind)),
+        "ck_ai_model_configs_provider": set(
+            get_args(ai_config.ModelConfigSpec.model_fields["provider"].annotation)
+        ),
+    }
     reset_schema(migrations_database)
     command.upgrade(config(migrations_database), "head")
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
@@ -183,10 +196,12 @@ def test_the_check_constraints_list_exactly_the_enum_values(migrations_database)
             conn.execute(
                 "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint "
                 "WHERE conname = ANY(%s)",
-                (list(CHECKS),),
+                ([*CHECKS, *ai_checks],),
             ).fetchall()
         )
-    assert set(rows) == set(CHECKS)
+    assert set(rows) == set(CHECKS) | set(ai_checks)
     for name, enum in CHECKS.items():
         listed = set(re.findall(r"'([a-z_]+)'", rows[name]))
         assert listed == {member.value for member in getattr(schemas, enum)}, name
+    for name, values in ai_checks.items():
+        assert set(re.findall(r"'([a-z_]+)'", rows[name])) == values, name

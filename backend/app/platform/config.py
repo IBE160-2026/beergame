@@ -5,6 +5,7 @@ With APP_ENV=production the process refuses to start when a required
 secret is missing or still has its built-in local default.
 """
 
+from decimal import Decimal
 from functools import lru_cache
 from typing import Literal
 
@@ -40,6 +41,12 @@ class Settings(BaseSettings):
     feature_lecturer_test_game: bool = True
     feature_game_data_export: bool = True
     feature_capacity: bool = True
+
+    # AI budgets in USD (FR-69, AD-6). PLACEHOLDERS until the prototype sets them (issue #8):
+    # the default cost limit of a new Class session, and the reserve kept for the Debrief and
+    # the AI assessment when a budget is created without one.
+    ai_default_session_budget_usd: Decimal = Field(Decimal("15.00"), ge=0, decimal_places=8)
+    ai_budget_reserve_usd: Decimal = Field(Decimal("1.00"), ge=0, decimal_places=8)
 
     @field_validator("log_level", mode="before")
     @classmethod
