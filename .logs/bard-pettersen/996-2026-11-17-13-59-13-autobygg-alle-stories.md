@@ -294,3 +294,24 @@ Bygge Story 2.2 på `epic-2`.
 
 ### Åpne punkter
 - Issue #51: beslutninger om konfigformat, hemmeligheter, plassholderpriser og budsjett, og det utsatte funnet om validering av gamle rader.
+
+## Story 2.3: Validert LLM-kall gjennom gatewayen (2026-11-18)
+
+### Oppgave
+Bygge Story 2.3 på `epic-2`. Før storyen: rette CI, som feilet etter fartsjobben.
+
+### Plan
+- CI-feilen: xdist-arbeiderne arvet en omskrevet `DATABASE_URL` og koblet til en testdatabase som ikke finnes i en tom CI-database. Original-URL-en holdes nå i `OLSPILLET_BASE_DATABASE_URL`, og databaser opprettes fra `postgres`. Prøvd lokalt mot en ikke-eksisterende basedatabase.
+- `bmad-build-auto` i én underagent.
+
+### Resultat
+- CI-rettingen: commit på `epic-2`. CI grønn igjen, 1 min 18 s per kjøring (mot rundt 5 min før).
+- Spec: `.docs/implementation-artifacts/spec-2-3-validated-llm-call-through-gateway.md`. Commit `529c0b6`.
+- `app.ai.gateway.run(...)`, tabellen `llm_call` (migrering 0007), vasking av personopplysninger med tilbakeoversetting, deterministisk mock-leverandør, hash-lås på promptfiler (`prompts check|lock`) og en importsjekk som holder leverandør-SDK-er inne i `app/ai`.
+- Hele pakken: 1251 grønne på 63 s, full grenddekning av motoren, ruff ren.
+- Gjennomgang: 51 funn, 17 rettet, 1 utsatt.
+- Migrering 0007 ble endret etter at de delte testdatabasene var migrert, så jeg slettet `olspillet_test*` etterpå, og de bygges på nytt.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #52: beslutninger om gatewayen, det utsatte funnet om avbrutte kall og anbefalt oppfølgende gjennomgang.
