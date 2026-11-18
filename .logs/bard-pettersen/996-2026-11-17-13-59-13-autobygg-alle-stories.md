@@ -593,3 +593,22 @@ Bygge Story 3.3 på `epic-3` og kontrollere den visuelt. Løse Issue #68 (produk
 
 ### Åpne punkter
 - Issue #70: beslutninger, og stilen på toppfeltet til vurdering.
+
+## Story 3.4: Lasting, feil og frakoblet (2026-11-18)
+
+### Oppgave
+Bygge Story 3.4 på `epic-3` og kontrollere den visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, og så visuell kontroll i en egen underagent. Byggeagenten brukte over en time på steg 1 og fikk en statusforespørsel. Malen for byggeagenter sier nå at steg 1 skal ta rundt 10 minutter.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-4-see-loading-failure-offline-states.md`. Commit `c563eb4`, visuell retting `8a99c63`.
+- Plassholder ved lasting («Laster …» etter 1 s, feil etter 10 s), tilkoblingslinje (frakoblet, feil, «Tilkoblet igjen.»), felles hjelper for handlinger (aldri sendt på nytt av seg selv), utløpt økt med retur til samme side, og redusert bevegelse.
+- Backend: 1629 grønne på 61 s. Frontend: typecheck, Vitest (239), tekstsjekk og bygg grønne. Playwright: 53 grønne.
+- Gjennomgang: 33 funn, 2 middels og 9 lave rettet.
+- Visuell kontroll: 18 skjermbilder, én retting (feillinja for «Logg ut» brøt toppfeltet på 390 px), to punkter til vurdering.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #71: beslutninger, visuelle avvik og anbefalt oppfølgende gjennomgang.
