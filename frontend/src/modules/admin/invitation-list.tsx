@@ -104,7 +104,7 @@ export function InvitationList() {
                       <td className="py-3 @max-[60em]:block @max-[60em]:pt-2 @max-[60em]:pb-0">
                         {canResend(invitation) ? (
                           <Button
-                            className="text-left @max-[60em]:w-full @min-[60em]:px-3"
+                            className="@max-[60em]:w-full @min-[60em]:px-3 @min-[60em]:text-left"
                             unavailable={resend.isPending}
                             onClick={() => press(invitation)}
                           >

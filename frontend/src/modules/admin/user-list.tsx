@@ -154,7 +154,8 @@ export function UserList({ selfId }: { selfId: string }) {
                       </span>
                     </Cell>
                     <td className="py-3 @max-[60em]:block @max-[60em]:pt-2 @max-[60em]:pb-0">
-                      <div className="flex flex-wrap gap-2">
+                      {/* Capped, so the buttons stack instead of squeezing the name and e-mail. */}
+                      <div className="flex flex-wrap gap-2 @min-[60em]:max-w-[30em]">
                         {ROLES.map((role) => (
                           <Button
                             key={role}
@@ -166,7 +167,7 @@ export function UserList({ selfId }: { selfId: string }) {
                           </Button>
                         ))}
                         <Button
-                          className="text-left @max-[60em]:w-full @min-[60em]:max-w-[22em] @min-[60em]:px-3"
+                          className="@max-[60em]:w-full @min-[60em]:max-w-[22em] @min-[60em]:px-3 @min-[60em]:text-left"
                           unavailable={busy}
                           onClick={() => pressStatus(user)}
                         >
