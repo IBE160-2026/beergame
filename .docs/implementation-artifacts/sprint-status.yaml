@@ -79,7 +79,7 @@ development_status:
   3-10-deactivate-and-reactivate-users-and-resend-invitations: done
   3-11-create-institutions: done
   3-12-read-the-audit-log: done
-  3-13-read-the-landing-page-and-ask-for-lecturer-access: backlog
+  3-13-read-the-landing-page-and-ask-for-lecturer-access: in-progress
   3-14-prepare-a-strict-production-configuration-in-the-repo: backlog
   3-15-reach-the-product-in-production: backlog
   epic-3-retrospective: optional
