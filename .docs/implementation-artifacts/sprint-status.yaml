@@ -53,7 +53,7 @@ development_status:
   epic-2: in-progress
   2-1-give-every-non-student-seat-its-order-from-one-order-source: done
   2-2-register-a-model-config-and-an-evaluation-budget-from-the-co: done
-  2-3-make-a-validated-llm-call-through-the-gateway-and-log-every: backlog
+  2-3-make-a-validated-llm-call-through-the-gateway-and-log-every: in-progress
   2-4-ask-an-llm-player-for-an-order-from-the-seat-state-alone: backlog
   2-5-place-llm-orders-as-jobs-with-the-rule-based-order-as-fallba: backlog
   2-6-keep-every-llm-order-inside-its-time-budget: backlog
