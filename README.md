@@ -19,6 +19,8 @@ cd backend && uv sync && uv run alembic upgrade head && uv run uvicorn app.main:
 cd frontend && npm ci && npm run dev
 ```
 
+LLM players' Orders are background jobs. Compose starts `worker-ai` (`python -m app.worker --queues ai-orders`) and `worker-batch` (`--queues llm-batch`) from the backend image; without Docker, run `cd backend && uv run python -m app.worker --queues ai-orders` in a third terminal. No key is needed: the AI mock answers locally.
+
 Checks, as CI runs them:
 
 ```sh

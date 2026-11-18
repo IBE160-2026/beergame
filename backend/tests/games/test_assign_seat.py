@@ -91,7 +91,7 @@ async def test_a_second_assign_answers_seat_occupied(games_db):
     )
 
 
-@pytest.mark.parametrize("kind", ["llm", "student", "robot"])
+@pytest.mark.parametrize("kind", ["student", "robot"])
 async def test_other_occupant_kinds_are_refused(games_db, kind):
     game_id = await new_game()
     await assert_refused(
@@ -100,6 +100,34 @@ async def test_other_occupant_kinds_are_refused(games_db, kind):
         "occupant_kind_not_allowed",
         422,
         commands.assign_seat(game_id, "retailer", kind),
+    )
+
+
+async def test_an_llm_player_needs_a_game_with_a_model_config(games_db):
+    game_id = await new_game()
+    await assert_refused(
+        games_db,
+        game_id,
+        "model_config_required",
+        422,
+        commands.assign_seat(game_id, "retailer", "llm"),
+    )
+
+
+async def test_an_llm_player_takes_a_seat_of_a_game_with_a_model_config(games_db, ai_db):
+    from tests.ai.helpers import stored_config
+
+    game_id = await commands.create(
+        "simulation", GameSettings(), seed=1, model_config_id=await stored_config()
+    )
+    await commands.assign_seat(game_id, "retailer", "llm")
+    assert [row[:5] for row in occupancy(games_db)] == [("retailer", 1, "llm", None, "initial")]
+    await assert_refused(
+        games_db,
+        game_id,
+        "policy_id_not_allowed",
+        422,
+        commands.assign_seat(game_id, "wholesaler", "llm", "constant-4"),
     )
 
 

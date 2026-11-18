@@ -5,7 +5,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.engine import (
     CostLine,
@@ -66,17 +66,23 @@ class DecidedBy(StrEnum):
 
 
 class Fallback(StrEnum):
-    """Why an Order is not the occupant's own decision; Epic 2 adds the fallback reasons."""
+    """Why an Order is not the occupant's own decision (FR-32, AD-15): `none`, or the typed
+    failure of the LLM call whose Week got the Rule-based reference Order instead. Kept apart
+    from `decided_by`, which then says `rule_based`."""
 
     NONE = "none"
+    TIMEOUT = "timeout"
+    INVALID_OUTPUT = "invalid_output"
+    BUDGET_EXHAUSTED = "budget_exhausted"
+    PROVIDER_ERROR = "provider_error"
 
 
 _FROZEN = ConfigDict(frozen=True, extra="forbid")
 
 
 class SessionRuntime(BaseModel):
-    """The runtime part of a Game's snapshot (AD-4). Later epics add fields here (Effort level,
-    Inactivity limit, model config, prompt and content versions)."""
+    """The runtime part of a Game's snapshot (AD-4). Later epics add fields here (Inactivity
+    limit, prompt and content versions)."""
 
     model_config = _FROZEN
 
@@ -85,6 +91,17 @@ class SessionRuntime(BaseModel):
     rule_based_params: str
     """Id of the Rule-based parameter set every Rule-based player of the Game uses."""
     rule_based_params_version: int
+    model_config_id: str | None = None
+    """The model config every LLM player of the Game uses (AD-22, FR-78); None: no LLM player
+    may hold a Seat."""
+    effort_level: str | None = None
+    """The config's Effort level the Game froze, set together with `model_config_id`."""
+
+    @model_validator(mode="after")
+    def _config_and_level(self) -> SessionRuntime:
+        if (self.model_config_id is None) != (self.effort_level is None):
+            raise ValueError("model_config_id and effort_level are set together")
+        return self
 
 
 class SeatOverview(BaseModel):
@@ -218,6 +235,9 @@ class DecisionLogRow(BaseModel):
     opened_at: datetime
     ordered_at: datetime
     rule_based_reference_order: int
+    llm_call_ids: tuple[str, ...] = ()
+    """The LLM call rows behind the Order: every attempt of an LLM Order or of the failed call
+    behind a fallback Order (FR-67)."""
     state_seen: SeatState
 
 

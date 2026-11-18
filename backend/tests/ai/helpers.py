@@ -24,3 +24,18 @@ def mock_config(**changes: object) -> dict:
 def query(url: str, sql: str, params: tuple = ()) -> list[tuple]:
     with psycopg.connect(libpq_dsn(url)) as conn:
         return conn.execute(sql, params).fetchall()
+
+
+async def stored_config(*, limit: str = "10", **changes: object) -> str:
+    """Store the mock config with the `player_order` prompt and an evaluation budget of `limit`
+    USD (no reserve); returns its id. For the tests of LLM players (Story 2.5)."""
+    from decimal import Decimal
+
+    from app.ai import budget, config
+
+    data = mock_config(prompts={"player_order": 1}, **changes)
+    row = await config.add(config.parse(data))
+    await budget.set_budget(
+        budget.BudgetScope.evaluation(row.id), limit=Decimal(limit), reserve=Decimal(0)
+    )
+    return str(row.id)

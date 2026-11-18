@@ -17,8 +17,9 @@ from sqlalchemy import (
     Uuid,
     false,
     func,
+    text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 
 from app.modules.games.schemas import (
     DecidedBy,
@@ -132,6 +133,9 @@ seat_weeks = Table(
     Column("opened_at", DateTime(timezone=True), nullable=False),
     Column("ordered_at", DateTime(timezone=True), nullable=False),
     Column("rule_based_reference_order", Integer, nullable=False),
+    # The LLM call rows behind the Order (FR-67): its attempts, or the failed ones behind a
+    # fallback Order.
+    Column("llm_call_ids", ARRAY(Uuid), nullable=False, server_default=text("'{}'")),
     CheckConstraint("week >= 1", name="ck_seat_weeks_week"),
     CheckConstraint('"order" >= 0', name="ck_seat_weeks_order"),
     CheckConstraint("rule_based_reference_order >= 0", name="ck_seat_weeks_reference_order"),

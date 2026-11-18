@@ -94,7 +94,11 @@ def migrations_database() -> str:
     return MIGRATIONS_DATABASE_URL
 
 
-GAMES_TABLES = "games, seats, seat_occupancy, game_weeks, seat_turns, seat_weeks, game_checks"
+GAMES_TABLES = (
+    "games, seats, seat_occupancy, game_weeks, seat_turns, seat_weeks, game_checks, "
+    "procrastinate_jobs"
+)
+"""The games tables and the job queue, whose jobs name Games (Story 2.5)."""
 
 
 @pytest.fixture

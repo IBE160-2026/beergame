@@ -504,7 +504,7 @@ def test_create_takes_one_occupant_per_role_and_a_seed(capsys, games_db):
 @pytest.mark.parametrize(
     ("argv", "message"),
     [
-        (["--seats", "llm"], "unknown Seat spec 'llm'"),
+        (["--seats", "robot"], "unknown Seat spec 'robot'"),
         (["--seats", "scripted:nope"], "unknown Seat spec 'scripted:nope'"),
         (["--seats", "scripted:"], "unknown Seat spec"),
         (["--seats", "rule_based,rule_based"], "--seats needs one occupant or 4, not 2"),
@@ -1213,7 +1213,8 @@ def test_run_with_a_seeded_demand_pattern_gives_each_game_its_own_seed(capsys, g
         ({"games": 1, "seats": "rule_based"}, "seed"),
         ({"seed": 1, "games": 1, "seats": {"retailer": "rule_based"}}, "one spec for each Role"),
         ({"seed": 1, "games": 1, "seats": "scripted:constant-5"}, "seats: unknown Seat spec"),
-        ({"seed": 1, "games": 1, "seats": "llm"}, "seats: unknown Seat spec"),
+        ({"seed": 1, "games": 1, "seats": "robot"}, "seats: unknown Seat spec"),
+        ({"seed": 1, "games": 1, "seats": "llm"}, "model_config: llm Seats need a model config"),
         ({"seed": 1, "games": 1, "seats": "rule_based,rule_based"}, "seats: "),
         ({"seed": 999_999_999, "games": 2, "seats": "rule_based"}, "must not exceed"),
         ({"seed": 1, "games": 1, "seats": "rule_based", "settings": {"weeks": "x"}}, "weeks"),

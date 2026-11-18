@@ -3,7 +3,8 @@
 Used with no provider key in `local`, `test` and `ci`, never in `production`. It answers with
 the caller's mock answer (for a player Order, the stored Rule-based reference Order) as JSON,
 or else with a fixed answer built from the output schema, so the same inputs always give the
-same output. Tests script misbehaviour with `script(...)`: each step is used by one attempt.
+same output. Tests script misbehaviour with `script(...)`: each step is used by one attempt;
+`outage()` makes every attempt fail until it ends.
 """
 
 import asyncio
@@ -26,6 +27,8 @@ ERROR = "error"
 """Step: the provider fails (HTTP 500)."""
 
 _steps: deque[str] = deque()
+_down = False
+"""Set by `outage()`: every attempt fails as a provider error."""
 
 last_model_settings: dict[str, Any] | None = None
 """The model settings (seed, temperature) the last mock attempt received, for tests."""
@@ -41,6 +44,18 @@ def script(*steps: str) -> Iterator[None]:
         yield
     finally:
         _steps.clear()
+
+
+@contextmanager
+def outage() -> Iterator[None]:
+    """Make the provider fail (HTTP 500) on every attempt while the block runs: the provider
+    is down, for as long as a whole Game takes."""
+    global _down
+    before, _down = _down, True
+    try:
+        yield
+    finally:
+        _down = before
 
 
 def _resolve(schema: dict[str, Any], node: dict[str, Any]) -> dict[str, Any]:
@@ -99,7 +114,7 @@ def model(mock_answer: Any, output_schema: type[BaseModel], model_name: str) -> 
     async def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         global last_model_settings
         last_model_settings = dict(info.model_settings or {})
-        step = _steps.popleft() if _steps else None
+        step = ERROR if _down else _steps.popleft() if _steps else None
         if step == TIMEOUT:
             await asyncio.Event().wait()  # never set: only the gateway's timeout ends it
         if step == ERROR:

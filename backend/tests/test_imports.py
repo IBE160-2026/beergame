@@ -25,27 +25,44 @@ def imports(package: Path) -> list[tuple[Path, int, str]]:
     return found
 
 
+GATEWAY_USERS = ("llm", "jobs")
+"""`players/llm.py` builds the request and `players/jobs.py` (the `ai-orders` job) makes the
+call; no other file of `players` may import the gateway."""
+AI_NON_LLM = ("app.ai.config", "app.ai.budget")
+"""What `games` may use of `app/ai`: model configs and budgets, which load no LLM library."""
+
+
 def test_players_imports_only_the_games_service_and_commands():
-    """`players` may reach the LLM only through the gateway (Story 2.4, AD-6), and only from
-    `players/llm.py`: the order source that `games` imports loads no provider library."""
+    """`players` may reach the LLM only through the gateway (Stories 2.4, 2.5, AD-6), and only
+    from `players/llm.py` and `players/jobs.py`: the order source that `games` imports loads no
+    provider library."""
     allowed = ("app.modules.games.service", "app.modules.games.commands")
     for path, line, name in imports(APP / "modules" / "players"):
         if name.startswith("app.modules.") and not name.startswith("app.modules.players"):
             assert name in allowed, f"{path.name}:{line} imports {name}"
-        if path.stem == "llm" and name == "app.ai.gateway":
+        if path.stem in GATEWAY_USERS and name == "app.ai.gateway":
             continue
         assert not name.startswith(LLM_IMPORTS), f"{path.name}:{line} imports {name}"
-        # `players.llm` loads pydantic-ai; the order source that `games` imports never does.
-        assert not name.startswith("app.modules.players.llm"), f"{path.name}:{line} imports {name}"
+        # `players.llm` and `players.jobs` load pydantic-ai; only the job may import them.
+        if path.stem != "jobs":
+            for loaded in ("app.modules.players.llm", "app.modules.players.jobs"):
+                assert not name.startswith(loaded), f"{path.name}:{line} imports {name}"
 
 
 def test_games_has_no_llm_or_provider_import():
     for path, line, name in imports(APP / "modules" / "games"):
+        if name.startswith(AI_NON_LLM):
+            continue
         assert not name.startswith(LLM_IMPORTS), f"{path.name}:{line} imports {name}"
         if name.startswith("app.modules.") and not name.startswith("app.modules.games"):
             # The order source, called when a Week opens; nothing else of another module.
             assert name == "app.modules.players.service", f"{path.name}:{line} imports {name}"
-            assert not name.startswith("app.modules.players.llm")
+
+
+def test_the_platform_imports_no_module_and_no_llm_library():
+    """`app/platform` (jobs included) names task modules by string only (Story 2.5)."""
+    for path, line, name in imports(APP / "platform"):
+        assert not name.startswith(("app.modules", *LLM_IMPORTS)), f"{path.name}:{line} {name}"
 
 
 AI_PUBLIC = ("app.ai.config", "app.ai.budget", "app.ai.gateway")

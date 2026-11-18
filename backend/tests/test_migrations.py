@@ -21,7 +21,17 @@ GAMES_HEAD_TABLES = {
     "game_checks",
 }
 """The tables at revision 0005, the last games revision."""
-HEAD_TABLES = GAMES_HEAD_TABLES | {"ai_model_configs", "ai_budgets", "llm_call"}
+AI_HEAD_TABLES = GAMES_HEAD_TABLES | {"ai_model_configs", "ai_budgets", "llm_call"}
+"""The tables at revision 0007."""
+JOB_TABLES = {
+    "procrastinate_jobs",
+    "procrastinate_events",
+    "procrastinate_periodic_defers",
+    "procrastinate_workers",
+}
+"""procrastinate's tables, from the SQL it ships (revision 0008, Story 2.5)."""
+HEAD_TABLES = AI_HEAD_TABLES | JOB_TABLES
+HEAD = "0008"
 
 
 def reset_schema(url: str) -> None:
@@ -55,7 +65,7 @@ def test_upgrade_head_from_empty_creates_the_games_tables(migrations_database):
     reset_schema(migrations_database)
     command.upgrade(config(migrations_database), "head")
     assert tables(migrations_database) == HEAD_TABLES
-    assert current_version(migrations_database) == "0007"
+    assert current_version(migrations_database) == HEAD
 
 
 def test_the_revisions_match_the_module_tables(migrations_database):
@@ -93,7 +103,7 @@ def test_downgrade_to_0002_removes_the_week_tables(migrations_database):
         ).fetchall()
     assert functions == []
     command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == "0007"
+    assert current_version(migrations_database) == HEAD
 
 
 def test_downgrade_to_0003_restores_the_week_tables_of_story_1_8(migrations_database):
@@ -124,7 +134,7 @@ def test_downgrade_to_0003_restores_the_week_tables_of_story_1_8(migrations_data
     assert primary_key == ("PRIMARY KEY (game_id, week)",)
     assert "finished" not in columns
     command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == "0007"
+    assert current_version(migrations_database) == HEAD
 
 
 def test_downgrade_to_0004_removes_the_check_table(migrations_database):
@@ -142,7 +152,44 @@ def test_downgrade_to_0004_removes_the_check_table(migrations_database):
         ).fetchall()
     assert functions == []
     command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == "0007"
+    assert current_version(migrations_database) == HEAD
+
+
+def test_downgrade_to_0007_removes_the_job_schema_and_the_llm_columns(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0007")
+    assert tables(migrations_database) == AI_HEAD_TABLES
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        leftovers = conn.execute(
+            "SELECT proname FROM pg_proc WHERE proname LIKE 'procrastinate%%' UNION ALL "
+            "SELECT typname FROM pg_type WHERE typname LIKE 'procrastinate%%'"
+        ).fetchall()
+        columns = {
+            row[0]
+            for row in conn.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'seat_weeks'"
+            ).fetchall()
+        }
+        (fallback,) = conn.execute(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+            "WHERE conname = 'ck_seat_weeks_fallback'"
+        ).fetchone()
+    assert leftovers == []
+    assert "llm_call_ids" not in columns
+    assert "provider_error" not in fallback
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_the_procrastinate_schema_of_0008_is_the_one_the_installed_version_ships():
+    """Revision 0008 keeps procrastinate 3.11.0's `schema.sql`. When procrastinate is upgraded
+    this fails: add a revision with the upgrade's migration SQL and the new schema file."""
+    from procrastinate.schema import SchemaManager
+
+    kept = API_ROOT / "migrations" / "sql" / "procrastinate-3.11.0-schema.sql"
+    assert kept.read_text(encoding="utf-8") == SchemaManager.get_schema()
 
 
 def test_alembic_cli_uses_database_url_from_environment(migrations_database):

@@ -1,8 +1,57 @@
-"""Worker entry point (`python -m app.worker`). The job platform comes in Epic 2."""
+"""Worker entry point (`python -m app.worker --queues ai-orders`, AD-9, AD-24).
+
+`worker-ai` runs `--queues ai-orders` and `worker-batch` `--queues llm-batch`, both from the
+backend image. A worker needs no provider key: with none set, the AI mock answers in `local`,
+`test` and `ci` (AD-17). Queues are given comma-separated or with `--queues` repeated.
+"""
+
+import argparse
+import asyncio
+import sys
+from collections.abc import Sequence
+
+from app.platform import jobs
+from app.platform.config import get_settings
+from app.platform.logging import configure_logging
 
 
-def main() -> int:
-    print("app.worker: no job platform yet (added in Epic 2); exiting.")
+def queues(values: Sequence[str]) -> list[str]:
+    """The queues named in `--queues` values, in order and without repeats."""
+    found: list[str] = []
+    for value in values:
+        for name in (part.strip() for part in value.split(",")):
+            if name and name not in found:
+                found.append(name)
+    return found
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="python -m app.worker", description=__doc__)
+    parser.add_argument(
+        "--queues",
+        action="append",
+        required=True,
+        help=f"queue(s) to run, comma-separated or repeated: {', '.join(jobs.QUEUES)}",
+    )
+    parser.add_argument("--concurrency", type=int, default=1, help="jobs run at once (1)")
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    names = queues(args.queues)
+    unknown = [name for name in names if name not in jobs.QUEUES]
+    if not names:
+        parser.error(f"no queue given; use {', '.join(jobs.QUEUES)}")
+    if unknown:
+        parser.error(f"unknown queue(s) {', '.join(unknown)}; use {', '.join(jobs.QUEUES)}")
+    if args.concurrency < 1:
+        parser.error("--concurrency must be at least 1")
+    configure_logging(get_settings().log_level)
+    # psycopg's async mode cannot run on Windows' default Proactor loop.
+    factory = asyncio.SelectorEventLoop if sys.platform == "win32" else asyncio.new_event_loop
+    asyncio.run(jobs.run_worker(names, concurrency=args.concurrency), loop_factory=factory)
     return 0
 
 

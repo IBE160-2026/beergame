@@ -2,6 +2,7 @@
 
 import uuid
 
+from app.ai import budget as ai_budget
 from app.engine import GameSettings
 from app.modules.games import repo
 from app.modules.games.checks import (
@@ -13,6 +14,7 @@ from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, polic
 from app.modules.games.schemas import (
     DecidedBy,
     DecisionLogRow,
+    Fallback,
     GameCheck,
     GameOverview,
     GameSummary,
@@ -27,13 +29,14 @@ from app.modules.games.schemas import (
     TurnOverview,
 )
 from app.modules.games.summaries import game_summary
-from app.modules.games.turns import OpenGame, pending_turn
+from app.modules.games.turns import OpenGame, llm_turn, pending_turn
 from app.modules.games.views import ViewError, decision_log, open_turn, seat_state
 from app.platform.db import get_sessionmaker
 
 __all__ = [
     "DecidedBy",
     "DecisionLogRow",
+    "Fallback",
     "GameCheck",
     "GameOverview",
     "GamePolicy",
@@ -50,10 +53,12 @@ __all__ = [
     "SessionRuntime",
     "TurnOverview",
     "ViewError",
+    "budget_scope",
     "decision_log",
     "finished_game_ids",
     "game_summary",
     "get_game",
+    "llm_turn",
     "open_turn",
     "pending_turn",
     "policy",
@@ -93,3 +98,19 @@ async def get_game(game_id: str) -> GameOverview | None:
             for seat in seats
         ),
     )
+
+
+async def budget_scope(game_id: str) -> ai_budget.BudgetScope | None:
+    """The one answer to which budget a Game's LLM calls are charged to (AD-6, AD-22), with the
+    Effort level the Game froze. A simulation Game charges its model config's evaluation budget;
+    a later Game purpose adds its own answer here. None for a Game with no model config, or no
+    such Game."""
+    game = await get_game(game_id)
+    if game is None or game.session_runtime.model_config_id is None:
+        return None
+    runtime = game.session_runtime
+    if game.purpose is Purpose.SIMULATION:
+        return ai_budget.BudgetScope.evaluation(
+            runtime.model_config_id, effort_level=runtime.effort_level
+        )
+    return None

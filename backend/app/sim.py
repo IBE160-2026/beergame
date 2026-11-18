@@ -12,9 +12,12 @@ Subcommands:
                    seed is drawn from OS entropy when none is given, and the same seed
                    prints the same series. Exit 1 when the pattern or seed breaks a rule.
   create           store a simulation Game through `games.commands`, give every Seat its
-                   occupant (`--seats rule_based`, `scripted:<id>`, or one per Role,
+                   occupant (`--seats rule_based`, `scripted:<id>`, `llm`, or one per Role,
                    comma-separated) and print the Game id, seed and Seats read back from the
-                   database. Exit 1 when a command refuses (its code is printed).
+                   database. `llm` Seats need `--config ID` (a model config with an evaluation
+                   budget) and use its first Effort level unless `--effort-level` names one;
+                   both are frozen into the Game. Exit 1 when a command refuses (its code is
+                   printed).
   start            start a stored Game through `games.commands.start` (free Seats get a
                    Rule-based player, Week 1 opens and every Week is played by the order
                    source) and print its lifecycle, the Week it opened and its Seats.
@@ -24,9 +27,11 @@ Subcommands:
                    Orders: `players.ensure_order` places the Guided Order in a Guided Week
                    (`guided`), else the turn's stored Rule-based reference Order (`rule_based`)
                    or the Seat's scripted policy (`scripted`), and `games.commands` advances the
-                   Game, so it has finished when `start` returns. A Game left with a complete
-                   open Week is moved on with `games.commands.advance`. Prints the lifecycle and
-                   the number of Weeks played, then runs the finished-game check
+                   Game, so it has finished when `start` returns. An `llm` Seat's Orders come
+                   from `ai-orders` jobs, which the runner works off in this process (the real
+                   job, gateway and fallback path) until none is left. A Game left with a
+                   complete open Week is moved on with `games.commands.advance`. Prints the
+                   lifecycle and the number of Weeks played, then runs the finished-game check
                    (`games.service.verify_finished`) and prints its result; exit 1 when the
                    check finds a violation or the Game still waits for an Order.
   check            run (or read back) the finished-game check of a Game: `check ok`, or
@@ -41,8 +46,9 @@ Subcommands:
   log             print the Decision log: one row per Week and Seat with what the Seat saw,
                    its Order, the Week's cost, who decided and the Rule-based reference Order.
   run              play a batch of simulation Games from a JSON batch file (`seed`, `games`,
-                   `seats`, optional `settings`, `demand`, `rule_based_params`; Game i uses
-                   demand seed `seed + i`): each Game is created and started through
+                   `seats`, optional `settings`, `demand`, `rule_based_params`, and for `llm`
+                   Seats `model_config` and `effort_level`; Game i uses demand seed
+                   `seed + i`): each Game is created and started through
                    `games.commands`, waited for and checked as `play` does. Prints per Game
                    and for the batch the Total cost per Role and for the chain, the Weeks
                    played, the Orders per `decided_by` and the check result, all read back
@@ -131,6 +137,7 @@ type OrderPolicy = Callable[
 """Orders for the last opened Week of `states`, given the Order maps of the earlier Weeks."""
 
 RULE_BASED = "rule_based"
+LLM = "llm"
 DEFAULT_RULE_BASED_PARAMS = rule_based.DEFAULT_SET_ID
 
 SETTINGS: dict[str, Callable[[], GameSettings]] = {"classic": GameSettings}
@@ -375,16 +382,17 @@ type Occupant = tuple[str, str | None]
 
 
 def _seats_spec(text: str) -> list[Occupant]:
-    """`rule_based` or `scripted:<id>`, once for every Seat or once per Role, comma-separated."""
+    """`rule_based`, `llm` or `scripted:<id>`, once for every Seat or once per Role,
+    comma-separated."""
     occupants: list[Occupant] = []
     for part in (piece.strip() for piece in text.split(",")):
-        if part == RULE_BASED:
-            occupants.append((RULE_BASED, None))
+        if part in (RULE_BASED, LLM):
+            occupants.append((part, None))
         elif part.startswith("scripted:") and part.removeprefix("scripted:") in REGISTRY:
             occupants.append(("scripted", part.removeprefix("scripted:")))
         else:
             raise argparse.ArgumentTypeError(
-                f"unknown Seat spec {part!r}: use rule_based or scripted:<id> with id in "
+                f"unknown Seat spec {part!r}: use rule_based, llm or scripted:<id> with id in "
                 f"{', '.join(sorted(REGISTRY))}"
             )
     return occupants
@@ -410,12 +418,22 @@ def _report(exc: Exception) -> None:
 
 
 async def _create_game(
-    settings: GameSettings, occupants: Sequence[Occupant], seed: int | None, params: str
+    settings: GameSettings,
+    occupants: Sequence[Occupant],
+    seed: int | None,
+    params: str,
+    model_config: str | None = None,
+    effort_level: str | None = None,
 ) -> int:
     game_id: str | None = None
     try:
         game_id = await game_commands.create(
-            "simulation", settings, seed=seed, rule_based_params=params
+            "simulation",
+            settings,
+            seed=seed,
+            rule_based_params=params,
+            model_config_id=model_config,
+            effort_level=effort_level,
         )
         for role, (kind, policy_id) in zip(settings.roles, occupants, strict=True):
             await game_commands.assign_seat(game_id, role, kind, policy_id)
@@ -444,7 +462,11 @@ def _create(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         seats = seats * len(settings.roles)
     elif len(seats) != len(settings.roles):
         parser.error(f"--seats needs one occupant or {len(settings.roles)}, not {len(seats)}")
-    return _run(_create_game(settings, seats, args.seed, args.rule_based_params))
+    return _run(
+        _create_game(
+            settings, seats, args.seed, args.rule_based_params, args.config, args.effort_level
+        )
+    )
 
 
 async def _start_game(game_id: str) -> int:
@@ -489,9 +511,21 @@ def _show(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     return _run(_show_seat(args.game_id, args.seat))
 
 
+async def _work_off_llm_orders(game: game_service.GameOverview) -> None:
+    """Run the waiting `ai-orders` jobs in this process until none is left, when an `llm`
+    occupant holds a Seat: each job places its Order and the Week it completes opens the next
+    Week's jobs. It works off the whole queue, so jobs of other Games waiting in the same
+    database run here too (a `worker-ai` running beside it shares them)."""
+    if any(seat.occupant_kind == game_service.OccupantKind.LLM for seat in game.seats):
+        from app.platform import jobs
+
+        await jobs.run_until_idle([jobs.AI_ORDERS])
+
+
 async def _wait_finished(game_id: str) -> game_service.GameOverview:
     """Wait for a started Game to finish. The order source in `games` places every Order of a
-    Game without Students, so it has finished by the time `start` returns; a Game left with a
+    Game without Students or LLM players, so it has finished by the time `start` returns; the
+    Orders of `llm` Seats come from `ai-orders` jobs, worked off here. A Game left with a
     complete open Week (a stop between two advances) is moved on with `advance`. Raises
     `game_not_finished` when the Game still waits for an Order no order source places."""
     game = await game_service.get_game(game_id)
@@ -499,9 +533,13 @@ async def _wait_finished(game_id: str) -> game_service.GameOverview:
         raise game_commands.CommandError("game_not_found", f"no Game {game_id!r}", 404)
     if game.lifecycle == game_service.Lifecycle.NOT_STARTED:
         raise game_commands.CommandError("game_not_started", "the Game has not started", 409)
-    if game.lifecycle != game_service.Lifecycle.FINISHED:
+    while game is not None and game.lifecycle != game_service.Lifecycle.FINISHED:
+        version = game.version
+        await _work_off_llm_orders(game)
         await game_commands.advance(game_id)
         game = await game_service.get_game(game_id)
+        if game is None or game.version == version:
+            break  # nothing moved: the Game waits for an Order no order source places
     if game is None or game.lifecycle != game_service.Lifecycle.FINISHED:
         raise game_commands.CommandError(
             "game_not_finished", "the Game waits for an Order no order source places", 409
@@ -801,11 +839,15 @@ class BatchFile(BaseModel):
     """Demand seed of the first Game; Game i (from 0) uses `seed + i`."""
     games: Annotated[int, Field(strict=True, ge=1, le=MAX_BATCH_GAMES)]
     seats: str | dict[str, str]
-    """One Seat spec for every Role, or one per Role: `rule_based` or `scripted:<id>`."""
+    """One Seat spec for every Role, or one per Role: `rule_based`, `llm` or `scripted:<id>`."""
     settings: dict[str, Any] = {}
     """GameSettings overrides; missing keys keep the Classic values."""
     demand: DemandPattern | None = None
     rule_based_params: str = DEFAULT_RULE_BASED_PARAMS
+    model_config_id: str | None = Field(None, alias="model_config")
+    """The model config of the `llm` Seats (its evaluation budget pays their calls)."""
+    effort_level: str | None = None
+    """One of that config's Effort levels; default its first."""
 
 
 class Batch(BaseModel):
@@ -820,6 +862,8 @@ class Batch(BaseModel):
     occupants: tuple[Occupant, ...]
     """One occupant per Role, in chain order."""
     rule_based_params: str
+    model_config_id: str | None = None
+    effort_level: str | None = None
 
 
 class BatchError(ValueError):
@@ -867,6 +911,8 @@ def load_batch(path: str) -> Batch:
         except (argparse.ArgumentTypeError, ValueError) as exc:
             raise BatchError(f"seats: {exc}") from None
         occupants.append(occupant)
+    if spec.model_config_id is None and any(kind == LLM for kind, _ in occupants):
+        raise BatchError("model_config: llm Seats need a model config")
     return Batch(
         seed=spec.seed,
         games=spec.games,
@@ -874,6 +920,8 @@ def load_batch(path: str) -> Batch:
         demand=spec.demand,
         occupants=tuple(occupants),
         rule_based_params=spec.rule_based_params,
+        model_config_id=spec.model_config_id,
+        effort_level=spec.effort_level,
     )
 
 
@@ -886,6 +934,8 @@ async def _play_one(batch: Batch, index: int, stored: list[str]) -> str:
         batch.demand,
         seed=batch.seed + index,
         rule_based_params=batch.rule_based_params,
+        model_config_id=batch.model_config_id,
+        effort_level=batch.effort_level,
     )
     stored.append(game_id)
     for role, (kind, policy_id) in zip(batch.settings.roles, batch.occupants, strict=True):
@@ -1090,9 +1140,13 @@ def build_parser() -> argparse.ArgumentParser:
         type=_seats_spec,
         default=[(RULE_BASED, None)],
         metavar="SPEC",
-        help="rule_based (default) or scripted:<id>, once or once per Role, comma-separated",
+        help="rule_based (default), llm or scripted:<id>, once or once per Role, comma-separated",
     )
     create.add_argument("--seed", type=int, help="demand seed (default: draw a new one)")
+    create.add_argument("--config", metavar="ID", help="model config of the llm Seats")
+    create.add_argument(
+        "--effort-level", metavar="NAME", help="Effort level of --config (default: its first)"
+    )
     create.add_argument(
         "--rule-based-params",
         default=DEFAULT_RULE_BASED_PARAMS,

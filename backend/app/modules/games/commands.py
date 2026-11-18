@@ -18,6 +18,7 @@ import structlog
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai import config as ai_config
 from app.engine import (
     RULES_VERSION,
     DemandPattern,
@@ -68,8 +69,8 @@ __all__ = [
 
 log = structlog.get_logger(__name__)
 
-ASSIGNABLE = frozenset({OccupantKind.RULE_BASED, OccupantKind.SCRIPTED})
-"""Occupant kinds `assign_seat` takes; `llm` (Epic 2) and `student` (Epic 5) come later."""
+ASSIGNABLE = frozenset({OccupantKind.RULE_BASED, OccupantKind.SCRIPTED, OccupantKind.LLM})
+"""Occupant kinds `assign_seat` takes; `student` comes with Epic 5."""
 
 
 class CommandError(Exception):
@@ -157,22 +158,33 @@ async def create(
     seed: int | None = None,
     *,
     rule_based_params: str = rule_based.DEFAULT_SET_ID,
+    model_config_id: str | None = None,
+    effort_level: str | None = None,
 ) -> str:
     """Store a `not_started` Game with one free Seat per Role and its frozen snapshot (AD-4).
 
     `demand_pattern` and `seed` replace the ones in `settings`; with no seed anywhere a new one
-    is drawn. Returns the Game id.
+    is drawn. `model_config_id` and one of that config's Effort levels (default: its first) are
+    frozen into the `SessionRuntime` for the Game's LLM players (AD-22, FR-78), and the config
+    is marked referenced, so it can never change. Returns the Game id.
     """
     _policy(purpose)
     effective = _effective_settings(settings, demand_pattern, seed)
     params = _rule_based_params(rule_based_params)
-    runtime = SessionRuntime(
-        ai_mode="rule_based",
-        rule_based_params=params.id,
-        rule_based_params_version=params.version,
-    )
+    if effort_level is not None and model_config_id is None:
+        raise CommandError("model_config_required", "an Effort level needs a model config", 422)
     game_id = uuid.uuid7()
     async with get_sessionmaker().begin() as session:
+        level = None
+        if model_config_id is not None:
+            model_config_id, level = await _model_config(session, model_config_id, effort_level)
+        runtime = SessionRuntime(
+            ai_mode="rule_based" if model_config_id is None else "llm",
+            rule_based_params=params.id,
+            rule_based_params_version=params.version,
+            model_config_id=model_config_id,
+            effort_level=level,
+        )
         await repo.insert_game(
             session,
             {
@@ -192,6 +204,26 @@ async def create(
     log.info("game_created", game_id=str(game_id))
     await _settle(str(game_id))
     return str(game_id)
+
+
+async def _model_config(
+    session: AsyncSession, config_id: str, effort_level: str | None
+) -> tuple[str, str]:
+    """The stored config's id and the Effort level to freeze; marks the config referenced in
+    the caller's transaction."""
+    found = await ai_config.get(config_id, session=session)
+    if found is None:
+        raise CommandError("config_not_found", f"no model config {config_id!r}", 422)
+    if effort_level is None:
+        effort_level = found.spec.effort_levels[0].name
+    elif found.effort_level(effort_level) is None:
+        raise CommandError(
+            "effort_level_unknown",
+            f"model config {found.id} has no Effort level {effort_level!r}",
+            422,
+        )
+    await ai_config.mark_referenced(found.id, session=session)
+    return str(found.id), effort_level
 
 
 def _occupant(
@@ -215,7 +247,7 @@ def _occupant(
     elif policy_id is not None:
         raise CommandError(
             "policy_id_not_allowed",
-            "a Rule-based occupant uses the Game's parameter set, not a policy id",
+            "only a scripted occupant takes a policy id",
             422,
         )
     return occupant, policy_id
@@ -224,7 +256,9 @@ def _occupant(
 async def assign_seat(
     game_id: str, role: Role | str, occupant_kind: OccupantKind | str, policy_id: str | None = None
 ) -> str:
-    """Give the free Seat of `role` its first occupant (`from_week` 1, reason `initial`).
+    """Give the free Seat of `role` its first occupant (`from_week` 1, reason `initial`):
+    `rule_based`, `scripted` (with a policy id) or `llm`, which needs a Game whose
+    `SessionRuntime` holds a model config (`model_config_required`).
 
     Returns the occupancy row id. An occupied Seat answers `seat_occupied`.
     """
@@ -234,6 +268,13 @@ async def assign_seat(
         if game is None:
             raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
         occupant, policy_id = _occupant(str(occupant_kind), policy_id, _policy(game["purpose"]))
+        runtime = SessionRuntime.model_validate(game["session_runtime"])
+        if occupant is OccupantKind.LLM and runtime.model_config_id is None:
+            raise CommandError(
+                "model_config_required",
+                "an LLM player needs a Game created with a model config",
+                422,
+            )
         if game["lifecycle"] != Lifecycle.NOT_STARTED:
             raise CommandError(
                 "game_already_started", "Seats get their first occupant before the start", 409
@@ -411,6 +452,59 @@ def _check_order(settings: GameSettings, order: object) -> int:
     return order
 
 
+def _fallback(value: object) -> Fallback:
+    try:
+        return Fallback(value)
+    except ValueError:
+        raise CommandError("fallback_invalid", f"{value!r} is not a fallback type", 422) from None
+
+
+def _call_ids(values: object) -> tuple[uuid.UUID, ...]:
+    if isinstance(values, str | bytes) or not isinstance(values, Sequence):
+        raise CommandError("llm_call_ids_invalid", "llm_call_ids is a list of ids", 422)
+    try:
+        return tuple(uuid.UUID(str(value)) for value in values)
+    except ValueError:
+        raise CommandError("llm_call_ids_invalid", "llm_call_ids is a list of ids", 422) from None
+
+
+def _check_llm(
+    decider: DecidedBy,
+    fallback: Fallback,
+    call_ids: Sequence[uuid.UUID],
+    order: int,
+    occupancy: Mapping[str, object],
+    turn: Mapping[str, object],
+) -> None:
+    """An LLM Order and a fallback Order come only from an `llm` occupant; a fallback Order is
+    the turn's Rule-based reference Order, decided by `rule_based` (FR-32, AD-15), and an LLM
+    player's Rule-based Order is always such a marked fallback; call ids belong to one of those
+    two, and an LLM Order carries at least one."""
+    llm_seat = occupancy["occupant_kind"] == OccupantKind.LLM
+    if decider is DecidedBy.LLM and not llm_seat:
+        raise CommandError("decided_by_invalid", "only an LLM player decides by llm", 422)
+    if decider is DecidedBy.LLM and not call_ids:
+        raise CommandError("llm_call_ids_invalid", "an LLM Order carries its call ids", 422)
+    if llm_seat and decider is DecidedBy.RULE_BASED and fallback is Fallback.NONE:
+        raise CommandError(
+            "fallback_invalid", "a Rule-based Order of an LLM player is a marked fallback", 422
+        )
+    if fallback is not Fallback.NONE and (
+        not llm_seat
+        or decider is not DecidedBy.RULE_BASED
+        or order != turn["rule_based_reference_order"]
+    ):
+        raise CommandError(
+            "fallback_invalid",
+            "a fallback Order is the Rule-based reference Order of an LLM player's turn",
+            422,
+        )
+    if call_ids and decider is not DecidedBy.LLM and fallback is Fallback.NONE:
+        raise CommandError(
+            "llm_call_ids_invalid", "only an LLM or a fallback Order carries call ids", 422
+        )
+
+
 def _seat_row(seat_rows: Sequence[Mapping[str, object]], seat: object) -> Mapping[str, object]:
     row = next((r for r in seat_rows if str(seat) in {r["role"], str(r["id"])}), None)
     if row is None:
@@ -453,6 +547,8 @@ async def _place(
     *,
     advance_week: bool,
     open_game: OpenGame | None = None,
+    fallback: Fallback | str = Fallback.NONE,
+    llm_call_ids: Sequence[uuid.UUID | str] = (),
 ) -> OrderPlaced:
     """`place_order`'s checks and writes in `session`; with `advance_week` it also runs the Week
     this Order completes. `open_game` is the running command's Game, whose history it reuses."""
@@ -466,6 +562,8 @@ async def _place(
     if game["lifecycle"] == Lifecycle.FINISHED:
         raise CommandError("game_finished", "the Game has finished", 409)
     decider = _decided_by(decided_by)
+    marked = _fallback(fallback)
+    call_ids = _call_ids(llm_call_ids)
     settings, params = _snapshot(game)
     value = _check_order(settings, order)
     if open_game is not None:
@@ -490,6 +588,7 @@ async def _place(
     occupancy = await repo.occupancy_in_force(session, row["id"], week)
     if turn is None or occupancy is None:  # `start` and every advance write both
         raise CommandError("week_not_open", f"the Seat has no turn in Week {week}", 409)
+    _check_llm(decider, marked, call_ids, value, occupancy, turn)
     ordered_at = await repo.set_ordered_at(session, turn["id"])
     seat_week_id = uuid.uuid7()
     state_seen = build_seat_state(settings, states, orders, row["role"])
@@ -503,12 +602,13 @@ async def _place(
             "state_seen": state_seen.model_dump(mode="json"),
             "order": value,
             "decided_by": decider.value,
-            "fallback": Fallback.NONE.value,
+            "fallback": marked.value,
             "occupant_kind": occupancy["occupant_kind"],
             "reason": occupancy["reason"],
             "opened_at": turn["opened_at"],
             "ordered_at": ordered_at,
             "rule_based_reference_order": turn["rule_based_reference_order"],
+            "llm_call_ids": list(call_ids),
         },
     )
     lifecycle, open_week = Lifecycle(game["lifecycle"]), week
@@ -528,6 +628,8 @@ async def place_order(
     decided_by: DecidedBy | str,
     *,
     within: OpenGame | None = None,
+    fallback: Fallback | str = Fallback.NONE,
+    llm_call_ids: Sequence[uuid.UUID | str] = (),
 ) -> OrderPlaced:
     """Place the Order of `seat` (a Role or a Seat id) for the open `week` and write its
     Decision log row with the state the Seat saw (AD-15, FR-67).
@@ -537,7 +639,11 @@ async def place_order(
     Week (AD-2, FR-26, FR-28). The version rises once either way.
 
     `within` is the running command's transaction, for the order source (`players`): the Order
-    joins its lock, version increment and event, and never advances or finishes the Game."""
+    joins its lock, version increment and event, and never advances or finishes the Game.
+
+    `fallback` and `llm_call_ids` are stored on the row as given (FR-32, FR-67): an LLM Order
+    carries the ids of its attempts; a fallback Order (`decided_by = rule_based`, the turn's
+    reference Order, an `llm` occupant) carries its failure type and the failed attempts."""
     if within is not None:
         if within.game_id != _game_uuid(game_id):
             raise ValueError("place_order within another Game's transaction")
@@ -550,10 +656,22 @@ async def place_order(
             decided_by,
             advance_week=False,
             open_game=within,
+            fallback=fallback,
+            llm_call_ids=llm_call_ids,
         )
     game_uuid = _game_uuid(game_id)
     async with get_sessionmaker().begin() as session:
-        placed = await _place(session, game_uuid, seat, week, order, decided_by, advance_week=True)
+        placed = await _place(
+            session,
+            game_uuid,
+            seat,
+            week,
+            order,
+            decided_by,
+            advance_week=True,
+            fallback=fallback,
+            llm_call_ids=llm_call_ids,
+        )
         await _commit_change(session, game_uuid)
     await _settle(game_id)
     return placed

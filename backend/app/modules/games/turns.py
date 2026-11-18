@@ -17,8 +17,9 @@ from app.modules.games import repo, rules
 from app.modules.games.policy import policy
 from app.modules.games.schemas import Lifecycle, PendingTurn
 from app.modules.games.views import build_seat_state, stored_play
+from app.platform.db import get_sessionmaker
 
-__all__ = ["OpenGame", "pending_turn", "play_of"]
+__all__ = ["OpenGame", "llm_turn", "pending_turn", "play_of"]
 
 Play = tuple[Sequence[WeekState], Sequence[Mapping[str, int]]]
 
@@ -81,3 +82,16 @@ async def pending_turn(game: OpenGame, seat_id: str) -> PendingTurn | None:
         ordered=turn["ordered_at"] is not None,
         seat_state=build_seat_state(settings, opened, orders, seat["role"]),
     )
+
+
+async def llm_turn(game_id: str, seat_id: str, week: int) -> PendingTurn | None:
+    """The Seat's turn as an `ai-orders` job sees it, read in a session of its own: the turn of
+    `pending_turn` when `week` is still the open Week of the running Game, else None."""
+    game_uuid = _uuid(game_id)
+    if game_uuid is None:
+        return None
+    async with get_sessionmaker()() as session:
+        turn = await pending_turn(OpenGame(session=session, game_id=game_uuid), seat_id)
+    if turn is None or turn.week != week:
+        return None
+    return turn

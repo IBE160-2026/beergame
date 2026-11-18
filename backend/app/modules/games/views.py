@@ -153,6 +153,7 @@ async def decision_log(game_id: str) -> tuple[DecisionLogRow, ...]:
             opened_at=row["opened_at"],
             ordered_at=row["ordered_at"],
             rule_based_reference_order=row["rule_based_reference_order"],
+            llm_call_ids=tuple(str(call_id) for call_id in row["llm_call_ids"]),
             state_seen=SeatState.model_validate(row["state_seen"]),
         )
         for row in rows
