@@ -668,3 +668,23 @@ Bygge Story 3.7 på `epic-3` og kontrollere den visuelt.
 
 ### Åpne punkter
 - Issue #74: beslutninger og visuelle avvik.
+
+## Story 3.8: Opprette konto fra en invitasjon (2026-11-18)
+
+### Oppgave
+Bygge Story 3.8 på `epic-3`, rette Issue #74 og kontrollere siden visuelt. Brukeren ba om å stoppe etter Epic 4, for å kjøre compact.
+
+### Plan
+`bmad-build-auto` i én underagent. Agenten ble avbrutt før gjennomgangen var ferdig, og fullførte etter å ha blitt sendt tilbake. Deretter visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-8-create-account-from-invitation.md`. Commit `405e8d0` (story), `9b9b247` (rettinger fra gjennomgangen) og `5a411c6` (visuell retting). Migrering 0019.
+- Fire offentlige ruter for invitasjoner (sjekk, aksept, aksept med innlogging, fornyelse), grenser for forespørsler, første Admin fra `BOOTSTRAP_ADMIN_EMAILS` i produksjon, og siden `/invitasjon` med tre tilstander.
+- Backend: 1763 grønne på 63–68 s. Frontend: typecheck, Vitest (261), tekstsjekk, fargesjekk og bygg grønne. Playwright: 74 grønne.
+- Gjennomgang: 42 lave funn, de reelle rettet. En ustabil test for parallell aksept er rettet.
+- Visuell kontroll: 24 skjermbilder, én retting, og to punkter til vurdering.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #75: beslutninger, passordlengde og lange adresser.
+- Issue #74 er løst.
