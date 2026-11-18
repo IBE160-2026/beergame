@@ -391,3 +391,21 @@ Bygge Story 2.7 på `epic-2` mot OpenRouter med `deepseek/deepseek-v4.1-flash-10
 
 ### Åpne punkter
 - Issue #56: kjør prøven med nøkkelen, bekreft at Nebius kjører modellen i EU, og to utsatte funn.
+
+## Story 2.8: Budsjettreservasjon per kall og bytte ved kostnadsgrensen (2026-11-18)
+
+### Oppgave
+Bygge Story 2.8 på `epic-2`.
+
+### Plan
+`bmad-build-auto` i én underagent, uten ekte nøkler.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-8-reserve-budget-per-call-switch-at-cost-limit.md`. Commit `7ed4021`.
+- Gatewayen reserverer verste kostnad før hvert forsøk med én betinget `UPDATE`, og gjør opp i samme transaksjon som `llm_call`-raden. LLM-spillere kan bruke budsjettet opp til `limit − reserve`. Ved grensen legger jobben inn regelbasert ordre (`budget_exhausted`), og alle LLM-plasser på budsjettet byttes til regelbaserte (`cost_limit`). Migrering 0011 og `python -m app.ai.cli cost --scope`.
+- Hele pakken: 1387 grønne på 57 s, full grenddekning, golden-resultater uendret. To eldre tidstester feilet én gang og bestod så fem ganger.
+- Gjennomgang: 34 funn, 3 middels og 4 lave rettet, 1 utsatt.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #57: beslutninger om reservasjon og kostnadsgrense, og mulig ustabile tidstester.
