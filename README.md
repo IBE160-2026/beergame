@@ -74,6 +74,10 @@ Zero config: in `local`, `test` and `ci`, when no model config is stored, the ap
 
 Every LLM attempt first reserves its worst-case cost (request size and the Effort level's `max_output_tokens` at the config's prices) on the scope's budget row; LLM players may spend only `limit − reserve`. When a player's reservation does not fit, every LLM Seat of every running Game on that budget switches to a Rule-based player for good. `uv run python -m app.ai.cli cost --scope <ID>` prints the budget row and the AI cost per Game and per day.
 
+### How the AI players decide (Story 2.13)
+
+`uv run python -m app.sim describe` prints the Norwegian description of the Rule-based player and of the LLM player, each after a `description <kind> v<N>` line; it uses no database. The texts live in `backend/app/modules/players/descriptions/v<N>/` and are read with `players.service.describe(kind)`. A shipped text is never edited (a test pins its hash): a change is a new version folder. Tests tie the texts to the code: the Rule-based text may name only the inputs the rule reads, and must say its parameters are unverified while the placeholder set is the default. The LLM text's claims about what the model sees are checked against the Story 2.4 prompt checks. Its fallback cases are checked against the gateway's failure kinds, and its Play guard sentences against the guard's parameter set; the switch behaviour itself is tested in Stories 2.5, 2.8 and 2.10.
+
 `openrouter-deepseek.json` goes through OpenRouter's global router (`openrouter.ai`) to one upstream endpoint run by an EU company (Nebius, zero retention, no fallback); the router itself is not EU-only. `ai-configs/openrouter-deepseek-eu.json` uses OpenRouter's EU in-region endpoint (`eu.openrouter.ai`, Business plan), which keeps prompts in the EU. The region, upstream provider, routing switches, prices and rate limit are config data.
 
 Checks, as CI runs them:

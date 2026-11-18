@@ -119,9 +119,14 @@ Subcommands:
                    calls are logged and charged to the config's evaluation budget. Last line
                    `endpoint ok` or `endpoint failed: <reasons>`; exit 0 / 1, 2 when the config
                    would not reach a real endpoint (mock in use, key missing, unknown config).
+  describe         print the Norwegian description of each AI player type (Story 2.13, FR-33):
+                   for `rule_based`, then `llm`, a line `description <kind> v<N>` and the text
+                   from `players.service.describe`. Uses no database. This is how a Lecturer
+                   reads them until Epic 5 shows them next to the AI mode choice.
 
-Run as a program in `local`, `test` or `ci`, every subcommand but `trace`, `settings` and
-`demand` first seeds the zero-config default model config when none is stored (AD-17).
+Run as a program in `local`, `test` or `ci`, every subcommand but `trace`, `settings`,
+`demand` and `describe` first seeds the zero-config default model config when none is stored
+(AD-17).
 
 The runner computes no game quantities: every printed number is an engine field, the Order it
 was given, a number read back from the database, or (the `run` batch totals) a sum of those.
@@ -130,6 +135,7 @@ was given, a number read back from the database, or (the `run` batch totals) a s
 import argparse
 import asyncio
 import csv
+import io
 import json
 import random
 import re
@@ -1560,10 +1566,28 @@ def build_parser() -> argparse.ArgumentParser:
         "--burst", type=int, default=5, help="calls sent at once (default 5)"
     )
     check_endpoint.set_defaults(handler=_endpoint_command, command_parser=check_endpoint)
+    describe = commands.add_parser(
+        "describe", help="print the Norwegian description of each AI player type"
+    )
+    describe.set_defaults(handler=_describe, command_parser=describe)
     return parser
 
 
-OFFLINE_COMMANDS = frozenset({"trace", "settings", "demand"})
+def _describe(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    """Both AI player descriptions, each after a `description <kind> v<N>` line (FR-33)."""
+    from app.modules.players import service as players_service
+
+    if isinstance(sys.stdout, io.TextIOWrapper):  # a Windows console is not UTF-8
+        sys.stdout.reconfigure(encoding="utf-8")
+    for kind in players_service.DESCRIBED_KINDS:
+        description = players_service.describe(kind)
+        print(f"description {description.kind.value} v{description.version}")
+        print(description.text.rstrip("\n"))
+        print()
+    return 0
+
+
+OFFLINE_COMMANDS = frozenset({"trace", "settings", "demand", "describe"})
 """Subcommands that use no database: no zero-config seed before them."""
 
 

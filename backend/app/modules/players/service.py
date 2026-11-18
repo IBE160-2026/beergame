@@ -10,6 +10,10 @@ through `games.service` and `games.commands`.
 This module loads no LLM library: it defers the job by its task name.
 """
 
+import re
+from dataclasses import dataclass
+from pathlib import Path
+
 import structlog
 
 from app.engine.scripted import REGISTRY
@@ -17,7 +21,15 @@ from app.modules.games import commands as games_commands
 from app.modules.games import service as games_service
 from app.platform import jobs
 
-__all__ = ["PLACE_LLM_ORDER", "apply_cost_limit", "ensure_order", "llm_order_key"]
+__all__ = [
+    "DESCRIBED_KINDS",
+    "PLACE_LLM_ORDER",
+    "Description",
+    "apply_cost_limit",
+    "describe",
+    "ensure_order",
+    "llm_order_key",
+]
 
 PLACE_LLM_ORDER = "players.place_llm_order"
 """The `ai-orders` task that places an LLM player's Order (`players.jobs`)."""
@@ -117,3 +129,53 @@ async def apply_cost_limit(game_id: str) -> int:
             switched += 1
     log.info("cost_limit_applied", game_id=game_id, scope_id=str(scope.id), seats_switched=switched)
     return switched
+
+
+DESCRIPTIONS_DIR = Path(__file__).parent / "descriptions"
+"""Plain-language Norwegian descriptions of the AI player types, at `v<N>/<kind>.md` (FR-33)."""
+
+DESCRIBED_KINDS = (games_service.OccupantKind.RULE_BASED, games_service.OccupantKind.LLM)
+"""The AI player types a Lecturer chooses between, in the order they are shown."""
+
+
+@dataclass(frozen=True)
+class Description:
+    """One AI player type's description and the version of the text."""
+
+    kind: games_service.OccupantKind
+    version: int
+    text: str
+
+
+def _versions(kind: str) -> list[int]:
+    if not DESCRIPTIONS_DIR.is_dir():
+        return []
+    return sorted(
+        int(match.group(1))
+        for folder in DESCRIPTIONS_DIR.iterdir()
+        if (match := re.fullmatch(r"v([1-9][0-9]*)", folder.name))
+        and (folder / f"{kind}.md").is_file()
+    )
+
+
+def describe(kind: str, version: int | None = None) -> Description:
+    """The Norwegian bokmål description of how an AI player type decides (FR-33, FR-72).
+
+    `kind` is `rule_based` or `llm` (an `OccupantKind` or its value); `version` defaults to the
+    newest one with a file for the kind. Raises `ValueError` for any other kind or a version
+    with no file. Texts are never changed once shipped: a new text is a new version."""
+    try:
+        occupant = games_service.OccupantKind(kind)
+    except ValueError:
+        raise ValueError(f"no description for occupant kind {kind!r}") from None
+    if occupant not in DESCRIBED_KINDS:
+        raise ValueError(f"no description for occupant kind {kind!r}")
+    versions = _versions(occupant.value)
+    if not versions:
+        raise ValueError(f"no description file for {occupant.value}")
+    chosen = versions[-1] if version is None else version
+    if type(chosen) is not int or chosen not in versions:
+        raise ValueError(f"no description version {version!r} for {occupant.value}")
+    path = DESCRIPTIONS_DIR / f"v{chosen}" / f"{occupant.value}.md"
+    text = path.read_text(encoding="utf-8").replace("\r\n", "\n")
+    return Description(kind=occupant, version=chosen, text=text)
