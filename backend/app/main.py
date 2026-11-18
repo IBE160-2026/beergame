@@ -8,6 +8,8 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 
 from app.modules.admin import routes as admin_routes
+from app.modules.classes import routes as classes_routes
+from app.modules.classes import seed as classes_seed
 from app.modules.identity import routes as identity_routes
 from app.modules.identity import seed as identity_seed
 from app.modules.identity import service as identity_service
@@ -41,6 +43,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
     await seed.ensure_zero_config_logged()  # AD-17: a default model config with zero keys
     await identity_seed.ensure_demo_users_logged()  # AD-17: local demo Admin and Lecturer
+    await classes_seed.ensure_demo_class_logged()  # AD-17: the demo Lecturer's Class (Story 4.1)
     if settings.app_env == "production":
         # AD-17: the first Admin's Invitation, for each listed address with no account yet.
         await identity_service.ensure_bootstrap_invitations(auth.utcnow())
@@ -84,6 +87,7 @@ def create_app() -> FastAPI:
     app.include_router(identity_routes.router)
     app.include_router(identity_routes.admin_router)
     app.include_router(admin_routes.router)
+    app.include_router(classes_routes.router)
     if get_settings().app_env != "production":
         app.include_router(messaging_routes.router)  # the dev mailbox (Story 3.6), local only
     authz.register_principal_loader(identity_service.load_user)

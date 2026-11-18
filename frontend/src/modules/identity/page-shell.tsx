@@ -57,7 +57,7 @@ export function PageShell({
             <Breadcrumb items={crumbs} />
           </div>
         ) : null}
-        {ready && title ? <h1 className="text-title-phone text-ink lg:text-title-page">{title}</h1> : null}
+        {ready && title ? <h1 className="text-title-phone text-ink [overflow-wrap:anywhere] lg:text-title-page">{title}</h1> : null}
         {ready ? children : null}
       </main>
     </div>

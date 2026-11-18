@@ -501,6 +501,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Classes
+         * @description The Classes the User is staff of, by name: «Klassene dine» on the Lærerhjem.
+         */
+        get: operations["listClasses"];
+        put?: never;
+        /**
+         * Create Class
+         * @description Create a Class with the User as its owner (FR-6). A refused field answers 422
+         *     `invalid_request` with every refused field in `fields`, and nothing is stored.
+         */
+        post: operations["createClass"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/institutions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Institutions
+         * @description The Institutions a new Class may belong to, by name.
+         */
+        get: operations["listClassInstitutions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/{class_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Class
+         * @description One Class. A Class the User is not staff of, one that does not exist and an id that is not
+         *     one all answer the same 403 `forbidden` (FR-5).
+         */
+        get: operations["getClass"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -663,6 +729,76 @@ export interface components {
             /** Label */
             label: string | null;
         };
+        /**
+         * ClassIn
+         * @description A new Class (Story 4.1). The service checks the fields and answers every refused one in
+         *     `fields`: `name`, `institution_id` (`institution_missing`, `institution_unknown`) and
+         *     `course_code`.
+         */
+        ClassIn: {
+            /** Course Code */
+            course_code?: string | null;
+            /** Institution Id */
+            institution_id?: string | null;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+        };
+        /**
+         * ClassListItem
+         * @description One Class on the Lærerhjem: «Klassene dine».
+         */
+        ClassListItem: {
+            /** Course Code */
+            course_code: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * ClassListOut
+         * @description The Classes the User is staff of, by name. No paging: a Lecturer has a handful.
+         */
+        ClassListOut: {
+            /** Items */
+            items: components["schemas"]["ClassListItem"][];
+        };
+        /**
+         * ClassOut
+         * @description One Class with its Institution's name and the User's staff role in it.
+         */
+        ClassOut: {
+            /** Archived */
+            archived: boolean;
+            /** Course Code */
+            course_code: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Institution Id
+             * Format: uuid
+             */
+            institution_id: string;
+            /** Institution Name */
+            institution_name: string | null;
+            /** Name */
+            name: string;
+            staff_role: components["schemas"]["StaffRole"];
+        };
         /** ErrorBody */
         ErrorBody: {
             /** Code */
@@ -682,6 +818,24 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** InstitutionChoice */
+        InstitutionChoice: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * InstitutionChoicesOut
+         * @description The Institutions a new Class may belong to, by name («Lag Klasse»).
+         */
+        InstitutionChoicesOut: {
+            /** Items */
+            items: components["schemas"]["InstitutionChoice"][];
         };
         /**
          * InstitutionIn
@@ -857,6 +1011,12 @@ export interface components {
         SessionOut: {
             user: components["schemas"]["UserOut"];
         };
+        /**
+         * StaffRole
+         * @description A User's role in one Class (`class_staff.role`). Co-owners (4.9) are owners too.
+         * @enum {string}
+         */
+        StaffRole: "owner";
         /**
          * UserListItem
          * @description One User on «Brukere og roller» (Story 3.9).
@@ -2269,6 +2429,182 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listClasses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    createClass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClassIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listClassInstitutions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionChoicesOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getClass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

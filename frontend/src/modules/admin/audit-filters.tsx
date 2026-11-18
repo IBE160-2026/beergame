@@ -1,7 +1,6 @@
 "use client";
 
-import type { SelectHTMLAttributes } from "react";
-
+import { SelectField } from "@/components/select-field";
 import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
 
@@ -9,29 +8,6 @@ import { type AuditFilters, useAuditActors } from "./api";
 import { rangeError } from "./audit";
 
 const copy = nb.admin.audit;
-
-/** A labelled native select, styled as the Tekstfelt (DESIGN.md → Components → Controls). */
-function SelectField({
-  id,
-  label,
-  children,
-  ...props
-}: SelectHTMLAttributes<HTMLSelectElement> & { id: string; label: string }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-field-gap">
-      <label htmlFor={id} className="text-label text-ink">
-        {label}
-      </label>
-      <select
-        {...props}
-        id={id}
-        className="min-h-control-height-phone w-full min-w-0 rounded-sm border border-ink-muted bg-paper px-3 py-2 text-button font-normal text-ink hover:border-ink"
-      >
-        {children}
-      </select>
-    </div>
-  );
-}
 
 /**
  * The filters of «Revisjonslogg» (Story 3.12): «Utført av», «Handling», «Fra og med» and

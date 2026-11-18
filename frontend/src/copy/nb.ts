@@ -283,6 +283,47 @@ export const nb = {
     home: "Hjem",
   },
 
+  /** The Lecturer's Classes (Epic 4). «Klassene dine», «Ny Klasse», «Lag Klasse», «Navn» and
+   * «Emnekode» are EXPERIENCE.md's and the mockups' own; the rest is [ASSUMPTION] Story 4.1. */
+  classes: {
+    home: {
+      title: "Klassene dine",
+      empty: "Du har ingen Klasser ennå. En Klasse samler studentene dine og spillene deres.",
+      newClass: "Ny Klasse",
+      /** A Class on the list: «class-of-1994, IBE160». */
+      label: (name: string, courseCode: string | null) => (courseCode ? `${name}, ${courseCode}` : name),
+      waiting: "Venter",
+      deadline: "Neste frist",
+      nothingWaiting: "Ingenting venter ennå.",
+      noDeadline: "Ingen frist ennå.",
+    },
+    create: {
+      title: "Lag Klasse",
+      lead: "Du blir eier av Klassen. Studentene legger du til etterpå.",
+      name: "Navn",
+      institution: "Institusjon",
+      choose: "Velg Institusjon",
+      noInstitutions: "Ingen Institusjoner ennå. Be en Admin opprette en.",
+      courseCode: "Emnekode (valgfri)",
+      submit: "Lag Klasse",
+      failed: "Klassen ble ikke laget. Prøv igjen.",
+    },
+    errors: {
+      name_empty: "Skriv navnet på Klassen.",
+      name_too_long: "Navnet kan ha høyst 200 tegn.",
+      name_invalid: "Navnet kan ikke inneholde kontrolltegn.",
+      institution_missing: "Velg en Institusjon.",
+      institution_unknown: "Institusjonen finnes ikke lenger. Velg en annen.",
+      course_code_too_long: "Emnekoden kan ha høyst 50 tegn.",
+      course_code_invalid: "Emnekoden kan ikke inneholde kontrolltegn.",
+    },
+    page: {
+      /** The line under the Class's name: «IBE160 · Demohøgskolen». */
+      facts: (courseCode: string | null, institution: string | null) =>
+        [courseCode, institution].filter(Boolean).join(" · "),
+    },
+  },
+
   /** The Admin-område and its pages (FR-1–FR-3). «Brukere og roller» is EXPERIENCE.md's own. */
   admin: {
     /** The pages the Admin-område links to; later stories add theirs. */

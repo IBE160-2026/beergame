@@ -1069,6 +1069,22 @@ async def list_institutions() -> list[InstitutionOut]:
     return [_institution_out(row) for row in rows]
 
 
+DEMO_INSTITUTION = "Demohøgskolen"
+"""The Institution of the local demo Class (AD-17, Story 4.1)."""
+
+
+async def ensure_demo_institution(session: AsyncSession, now: datetime) -> uuid.UUID:
+    """For the local demo seed only (`classes.seed`, `APP_ENV=local`): the id of the Institution
+    «Demohøgskolen», created in the caller's transaction when no Institution has the name. No
+    audit row: the system seeds it, no Admin acts."""
+    await repo.lock_institution_names(session)  # as a create by an Admin takes it
+    found = await repo.institution_id_by_name(session, DEMO_INSTITUTION)
+    if found is not None:
+        return found
+    row = await repo.insert_institution(session, uuid.uuid7(), DEMO_INSTITUTION, now)
+    return row["id"]
+
+
 async def get_institution(institution_id: uuid.UUID) -> InstitutionOut | None:
     """One Institution, or None when there is none with that id."""
     async with get_sessionmaker().begin() as s:

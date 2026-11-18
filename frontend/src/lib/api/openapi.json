@@ -325,6 +325,157 @@
         "title": "AuditTarget",
         "type": "object"
       },
+      "ClassIn": {
+        "description": "A new Class (Story 4.1). The service checks the fields and answers every refused one in\n`fields`: `name`, `institution_id` (`institution_missing`, `institution_unknown`) and\n`course_code`.",
+        "properties": {
+          "course_code": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "institution_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Id"
+          },
+          "name": {
+            "default": "",
+            "maxLength": 800,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "title": "ClassIn",
+        "type": "object"
+      },
+      "ClassListItem": {
+        "description": "One Class on the Lærerhjem: «Klassene dine».",
+        "properties": {
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "course_code"
+        ],
+        "title": "ClassListItem",
+        "type": "object"
+      },
+      "ClassListOut": {
+        "description": "The Classes the User is staff of, by name. No paging: a Lecturer has a handful.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClassListItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ClassListOut",
+        "type": "object"
+      },
+      "ClassOut": {
+        "description": "One Class with its Institution's name and the User's staff role in it.",
+        "properties": {
+          "archived": {
+            "title": "Archived",
+            "type": "boolean"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "institution_id": {
+            "format": "uuid",
+            "title": "Institution Id",
+            "type": "string"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "staff_role": {
+            "$ref": "#/components/schemas/StaffRole"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "course_code",
+          "institution_id",
+          "institution_name",
+          "staff_role",
+          "created_at",
+          "archived"
+        ],
+        "title": "ClassOut",
+        "type": "object"
+      },
       "ErrorBody": {
         "properties": {
           "code": {
@@ -371,6 +522,42 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "InstitutionChoice": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "InstitutionChoice",
+        "type": "object"
+      },
+      "InstitutionChoicesOut": {
+        "description": "The Institutions a new Class may belong to, by name («Lag Klasse»).",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/InstitutionChoice"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "InstitutionChoicesOut",
         "type": "object"
       },
       "InstitutionIn": {
@@ -754,6 +941,14 @@
         ],
         "title": "SessionOut",
         "type": "object"
+      },
+      "StaffRole": {
+        "description": "A User's role in one Class (`class_staff.role`). Co-owners (4.9) are owners too.",
+        "enum": [
+          "owner"
+        ],
+        "title": "StaffRole",
+        "type": "string"
       },
       "UserListItem": {
         "description": "One User on «Brukere og roller» (Story 3.9).",
@@ -2730,6 +2925,213 @@
         "summary": "Confirm Password Reset",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/classes": {
+      "get": {
+        "description": "The Classes the User is staff of, by name: «Klassene dine» on the Lærerhjem.",
+        "operationId": "listClasses",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Classes",
+        "tags": [
+          "classes"
+        ]
+      },
+      "post": {
+        "description": "Create a Class with the User as its owner (FR-6). A refused field answers 422\n`invalid_request` with every refused field in `fields`, and nothing is stored.",
+        "operationId": "createClass",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Create Class",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/institutions": {
+      "get": {
+        "description": "The Institutions a new Class may belong to, by name.",
+        "operationId": "listClassInstitutions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionChoicesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Institutions",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}": {
+      "get": {
+        "description": "One Class. A Class the User is not staff of, one that does not exist and an id that is not\none all answer the same 403 `forbidden` (FR-5).",
+        "operationId": "getClass",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Class",
+        "tags": [
+          "classes"
         ]
       }
     },

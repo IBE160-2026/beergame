@@ -467,6 +467,16 @@ async def institution_name_taken(
     return result.scalar_one_or_none() is not None
 
 
+async def institution_id_by_name(session: AsyncSession, name: str) -> uuid.UUID | None:
+    """The id of the Institution named `name`, compared as `institution_name_taken` does."""
+    result = await session.execute(
+        select(institutions.c.id)
+        .where(func.lower(institutions.c.name) == func.lower(literal(name)))
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
 async def insert_institution(
     session: AsyncSession, institution_id: uuid.UUID, name: str, now: datetime
 ) -> RowMapping:

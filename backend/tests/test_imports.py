@@ -156,3 +156,15 @@ def test_no_code_uses_the_provider_fallback_model():
 def test_the_check_sees_pydantic_ai_in_app_ai():
     names = {name for _, _, name in imports(APP / "ai")}
     assert any(name.startswith("pydantic_ai") for name in names)
+
+
+def test_classes_reaches_identity_only_through_its_service_and_identity_never_imports_classes():
+    """AD-14 (Story 4.1): Roster addresses and Users live in `identity`, which `classes` reaches
+    only through `identity.service`; `identity` learns of Classes only through its registries."""
+    for path, line, name in imports(APP / "modules" / "classes"):
+        if name.startswith("app.modules.") and not name.startswith("app.modules.classes"):
+            assert name == "app.modules.identity.service", f"{path.name}:{line} imports {name}"
+    for path, line, name in imports(APP / "modules" / "identity"):
+        assert not name.startswith("app.modules.classes"), f"{path.name}:{line} imports {name}"
+    for path, line, name in imports(APP / "platform"):
+        assert not name.startswith("app.modules"), f"{path.name}:{line} imports {name}"

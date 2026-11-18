@@ -48,11 +48,22 @@ for (const vp of VIEWPORTS) {
         await expect(page.getByRole("heading", { level: 1, name: TITLE[role] })).toBeVisible();
         await expectSession(page, role);
         // No global navigation bar (UX-DR77), and no link to a home that is not theirs. The
-        // Admin-område lists its own pages (Stories 3.7, 3.11, 3.12).
+        // Admin-område lists its own pages (Stories 3.7, 3.11, 3.12); the Lærerhjem the demo
+        // Lecturer's seeded Class and «Ny Klasse» (Story 4.1).
         await expect(page.locator("nav")).toHaveCount(0);
-        const links =
-          role === "admin" ? [nb.admin.sections.users, nb.admin.sections.institutions, nb.admin.sections.audit] : [];
-        await expect(page.getByRole("main").getByRole("link")).toHaveText(links);
+        const mainLinks = page.getByRole("main").getByRole("link");
+        if (role === "lecturer") {
+          // Every link on the Lærerhjem is a Class or «Ny Klasse»; the seeded Class is among them.
+          await expect(mainLinks.filter({ hasText: nb.classes.home.label("class-of-1994", "IBE160") }).first()).toBeVisible();
+          await expect(mainLinks.last()).toHaveText(nb.classes.home.newClass);
+          await expect(page.getByRole("main").getByRole("region", { name: nb.classes.home.title }).getByRole("link")).toHaveCount(
+            await mainLinks.count(),
+          );
+        } else {
+          const links =
+            role === "admin" ? [nb.admin.sections.users, nb.admin.sections.institutions, nb.admin.sections.audit] : [];
+          await expect(mainLinks).toHaveText(links);
+        }
         await expectAccessible(page);
       });
     }

@@ -28,6 +28,12 @@ export const ADMIN_INSTITUTIONS_PATH = "/admin/institusjoner";
 /** «Revisjonslogg» in the Admin-område (Story 3.12). */
 export const ADMIN_AUDIT_PATH = "/admin/revisjonslogg";
 
+/** «Lag Klasse» (Story 4.1). */
+export const NEW_CLASS_PATH = "/klasser/ny";
+
+/** A Class's own page (Story 4.1). */
+export const classPath = (id: string) => `/klasser/${encodeURIComponent(id)}`;
+
 /** The link that leads to each home («Til Lærerhjem» …). */
 export const HOME_LINK: Record<Home, string> = {
   adminArea: nb.navigation.toAdminArea,

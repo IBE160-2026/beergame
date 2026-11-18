@@ -15,10 +15,15 @@ modules ask `can(user, action, resource)`, they never compare roles themselves.
 - A policy runs before the route handler, so a refusal is the same 403 `forbidden` whether or not
   the item exists: the answer never reveals what is there.
 - The account roles are `admin` and `lecturer`. A Student or an Assistent is not an account role:
-  Class membership makes them (Epic 4). Class-scoped helpers such as `classes_visible_to(user)`
-  and the Class-scoped actions (a Student's own answers, an Assistent's Classes) are added here by
-  the epic that creates the tables they join; until then no account role reads Student answers or
-  AI assessments, the Admin role included.
+  Class membership makes them (Epic 4). Class-scoped helpers are added here by the epic that
+  creates the tables they join; until a Class-scoped grant exists no account role reads Student
+  answers or AI assessments, the Admin role included.
+- Classes (Story 4.1, AD-12): `classes_visible_to(user)` is the scope every `classes` repository
+  query on Class rows joins through: the ids of the Classes the User is staff of. A Class action
+  (`classes.read`, `classes.manage`) also takes the resource, which carries the User's
+  `staff_role` in that Class: `can(user, "classes.manage", resource)` holds only for a staff role
+  the action allows. A Class outside the scope is never loaded, so it is refused the same as one
+  that does not exist (FR-5).
 
 This module imports no `app.modules` code.
 """
@@ -28,6 +33,7 @@ from collections.abc import Awaitable, Callable, Collection
 from typing import Any, Protocol
 
 from fastapi import Request
+from sqlalchemy import Select, column, select, table
 
 from app.platform import auth
 
@@ -66,8 +72,12 @@ POLICIES: dict[str, frozenset[str]] = {
     "users.manage": frozenset({ADMIN}),
     "institutions.manage": frozenset({ADMIN}),
     "audit.read": frozenset({ADMIN}),
-    # The Lærerhjem; Class-scoped actions come with Epic 4.
+    # The Lærerhjem and the Classes on it (Story 4.1). The Class actions are also held to the
+    # User's staff role in the Class (`CLASS_STAFF_ROLES`).
     "lecturer_home.view": frozenset({LECTURER}),
+    "classes.create": frozenset({LECTURER}),
+    "classes.read": frozenset({LECTURER}),
+    "classes.manage": frozenset({LECTURER}),
     # The own session.
     "session.read": frozenset({ANY_USER}),
     # FR-5: no account role grants these. Epic 4+ adds the Class-scoped grants.
@@ -77,10 +87,44 @@ POLICIES: dict[str, frozenset[str]] = {
 """Action → the account roles that may do it. Closed: an unknown action is a KeyError."""
 
 
+OWNER = "owner"
+"""The staff role of the Lecturer who created a Class (Story 4.1); co-owners share it (4.9)."""
+
+CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
+    "classes.read": frozenset({OWNER}),
+    "classes.manage": frozenset({OWNER}),
+}
+"""Class action → the staff roles in the Class that may do it. Later stories add theirs."""
+
+
+class ClassResource(Protocol):
+    """A Class as `can` sees it: the asking User's staff role in it."""
+
+    staff_role: str
+
+
 def can(user: Principal, action: str, resource: Any = None) -> bool:
-    """Whether `user` may do `action` (on `resource`, for the Class-scoped checks to come)."""
+    """Whether `user` may do `action`. A Class action on a `resource` also needs a staff role in
+    that Class the action allows; with no resource only the account roles are checked (the
+    route's policy, before any Class is loaded)."""
     allowed = POLICIES[action]
-    return ANY_USER in allowed or not allowed.isdisjoint(user.roles)
+    if not (ANY_USER in allowed or not allowed.isdisjoint(user.roles)):
+        return False
+    if resource is not None and action in CLASS_STAFF_ROLES:
+        return getattr(resource, "staff_role", None) in CLASS_STAFF_ROLES[action]
+    return True
+
+
+_class_staff = table("class_staff", column("class_id"), column("user_id"), column("role"))
+"""`classes.class_staff` by name only: `platform` imports no module code."""
+
+
+def classes_visible_to(user: Principal | uuid.UUID) -> Select:
+    """The ids of the Classes `user` (a principal or a User id) is staff of, as a subquery for
+    `WHERE classes.id IN (...)`. Every `classes` repository query on Class rows joins through it
+    (AD-12)."""
+    user_id = user if isinstance(user, uuid.UUID) else user.id
+    return select(_class_staff.c.class_id).where(_class_staff.c.user_id == user_id)
 
 
 PrincipalLoader = Callable[[uuid.UUID, int], Awaitable[Principal | None]]
