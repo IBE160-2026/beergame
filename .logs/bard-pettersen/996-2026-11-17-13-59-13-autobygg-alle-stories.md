@@ -447,3 +447,21 @@ Bygge Story 2.10 på `epic-2`.
 ### Åpne punkter
 - Issue #59: plassholdere for spillvakten, og at vakten kan bytte ut en spiller som spiller nær optimalt.
 - Issue #20: kalibrering av spillvakten.
+
+## Story 2.11: Måle modell og effort-nivå på simulerte batcher (2026-11-18)
+
+### Oppgave
+Bygge Story 2.11 på `epic-2`. Storyen skal måle den valgte modellen på ekte kall.
+
+### Plan
+`bmad-build-auto` i én underagent, uten nøkkel: alt bygges og testes mot mocken, og kommandoer og kostnadsanslag for den ekte målingen skrives ned.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-11-measure-model-effort-level-on-sim-batches.md`. Commit `ac74190`.
+- `sim run` lagrer hver batch (migrering 0013: `simulation_batches`, `games.batch_id`, `seat_weeks.effort_level`), og `sim report <id>` skriver alle tallene storyen ber om. Ny CI-sjekk `backend/scripts/sim-llm-smoke.sh` med ekte `worker-ai` og mock.
+- Hele pakken: 1484 grønne på 61 s, full grenddekning, golden-resultater uendret. Fire nye tester tar 1,2–5,2 s i full kjøring.
+- Gjennomgang: 31 funn, 11 rettet.
+- Status: `review`. Den ekte målingen venter på grunnleggeren.
+
+### Åpne punkter
+- Issue #60: kjør målingen med nøkkelen, kostnadsanslag og beslutninger.
