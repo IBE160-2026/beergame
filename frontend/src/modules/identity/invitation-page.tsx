@@ -98,29 +98,32 @@ function InvitationInvalid({ token }: { token: string }) {
     if (action.isSuccess) doneRef.current?.focus();
   }, [action.isSuccess]);
 
+  // The result line replaces the state it answers, as every result line does (EXPERIENCE.md),
+  // so two ruled lines never stack.
+  if (action.isSuccess) {
+    return (
+      <div className="mt-6">
+        <p ref={doneRef} tabIndex={-1} className="border-y border-ink-muted py-2 text-body-phone text-ink lg:text-body">
+          {copy.requested}
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="mt-6 flex flex-col gap-4">
       <p className="border-y border-ink-muted py-2 text-body-phone text-ink lg:text-body">{copy.invalid}</p>
-      {action.isSuccess ? (
-        <p ref={doneRef} tabIndex={-1} className="text-body-phone text-ink lg:text-body">
-          {copy.requested}
-        </p>
-      ) : (
-        <>
-          <ActionError message={action.errorMessage} />
-          <Button
-            type="button"
-            variant="secondary"
-            unavailable={action.isPending}
-            onClick={() => {
-              if (!action.isPending) action.mutate({ token });
-            }}
-            className="self-start"
-          >
-            {copy.requestNew}
-          </Button>
-        </>
-      )}
+      <ActionError message={action.errorMessage} />
+      <Button
+        type="button"
+        variant="secondary"
+        unavailable={action.isPending}
+        onClick={() => {
+          if (!action.isPending) action.mutate({ token });
+        }}
+        className="self-start"
+      >
+        {copy.requestNew}
+      </Button>
     </div>
   );
 }
