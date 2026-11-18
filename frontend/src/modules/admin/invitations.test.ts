@@ -5,6 +5,7 @@ import { ApiRequestError } from "@/lib/api/client";
 import type { ListedInvitation } from "./api";
 import {
   canResend,
+  dateText,
   formatDate,
   resendLabel,
   resendRefusalLine,
@@ -20,6 +21,8 @@ const invitation = (patch: Partial<ListedInvitation> = {}): ListedInvitation => 
   role: "lecturer",
   status: "open",
   expires_at: "2026-12-02T11:01:00Z",
+  accepted_at: null,
+  account_deactivated: false,
   renewal_requested: false,
   ...patch,
 });
@@ -42,6 +45,18 @@ describe("the Invitation list's words", () => {
     expect(canResend(invitation())).toBe(true);
     expect(canResend(invitation({ status: "expired" }))).toBe(true);
     expect(canResend(invitation({ status: "accepted" }))).toBe(false);
+  });
+
+  it("offers no resend to the address of a deactivated account, which the api refuses", () => {
+    expect(canResend(invitation({ status: "expired", account_deactivated: true }))).toBe(false);
+    expect(canResend(invitation({ account_deactivated: true }))).toBe(false);
+  });
+
+  it("states when an accepted Invitation was accepted instead of its expiry", () => {
+    expect(dateText(invitation())).toBe("2. des. 2026");
+    expect(dateText(invitation({ status: "accepted", accepted_at: "2026-11-20T09:00:00Z" }))).toBe(
+      "Akseptert 20. nov. 2026",
+    );
   });
 
   it("labels the resend with the address and states the result with the real days", () => {

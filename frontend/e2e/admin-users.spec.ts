@@ -194,6 +194,38 @@ test.describe("paging", () => {
     await expect(usersSection(page).getByRole("button", { name: list.more })).toHaveCount(0);
     expect(cursors).toContain("neste");
   });
+
+  test("a failed «Vis flere» keeps the rows shown, says so under them, and can be pressed again", async ({ page }) => {
+    const row = (n: number) => ({
+      id: `00000000-0000-7000-8000-00000000000${n}`,
+      name: `Side ${n}`,
+      email: `side${n}@example.com`,
+      roles: [],
+      is_active: true,
+    });
+    let failNext = true;
+    await page.route("**/api/admin/users?*", (route) => {
+      const cursor = new URL(route.request().url()).searchParams.get("cursor");
+      if (!cursor) return route.fulfill({ json: { items: [row(1)], next_cursor: "neste" } });
+      if (failNext) {
+        failNext = false;
+        return route.fulfill({ status: 500, body: "" });
+      }
+      return route.fulfill({ json: { items: [row(2)], next_cursor: null } });
+    });
+    await openUsers(page);
+    const first = usersSection(page).getByRole("cell", { name: "Side 1", exact: true });
+    await expect(first).toBeVisible();
+    const more = usersSection(page).getByRole("button", { name: list.more });
+    await more.click();
+    await expect(usersSection(page).getByRole("alert")).toHaveText(list.moreFailed);
+    await expect(first).toBeVisible();
+    await expect(page.getByText(nb.system.pageError)).toHaveCount(0);
+    await more.click();
+    await expect(usersSection(page).getByRole("cell", { name: "Side 2", exact: true })).toBeVisible();
+    await expect(first).toBeVisible();
+    await expect(usersSection(page).getByRole("alert")).toHaveCount(0);
+  });
 });
 
 test.describe("refusals", () => {

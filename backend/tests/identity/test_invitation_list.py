@@ -103,6 +103,8 @@ async def test_the_list_shows_the_newest_invitation_per_address_and_role(admin, 
                 "role": "admin",
                 "status": "open",
                 "expires_at": expires.isoformat().replace("+00:00", "Z"),
+                "accepted_at": None,
+                "account_deactivated": False,
                 "renewal_requested": False,
             },
             {
@@ -111,6 +113,8 @@ async def test_the_list_shows_the_newest_invitation_per_address_and_role(admin, 
                 "role": "lecturer",
                 "status": "open",
                 "expires_at": expires.isoformat().replace("+00:00", "Z"),
+                "accepted_at": None,
+                "account_deactivated": False,
                 "renewal_requested": True,
             },
             {
@@ -119,6 +123,8 @@ async def test_the_list_shows_the_newest_invitation_per_address_and_role(admin, 
                 "role": "admin",
                 "status": "accepted",
                 "expires_at": expires.isoformat().replace("+00:00", "Z"),
+                "accepted_at": clock["now"].isoformat().replace("+00:00", "Z"),
+                "account_deactivated": False,
                 "renewal_requested": False,
             },
             {
@@ -127,10 +133,27 @@ async def test_the_list_shows_the_newest_invitation_per_address_and_role(admin, 
                 "role": "lecturer",
                 "status": "expired",
                 "expires_at": (expires - timedelta(days=15)).isoformat().replace("+00:00", "Z"),
+                "accepted_at": None,
+                "account_deactivated": False,
                 "renewal_requested": False,
             },
         ],
         "next_cursor": None,
+    }
+
+
+async def test_the_list_marks_an_address_whose_account_is_deactivated(admin, clock):
+    async with client() as c:
+        await as_admin(c)
+        await invite(c, "aktiv@example.com")
+        await invite(c, "borte@example.com")
+        await service.create_user(
+            email="borte@example.com", name="Borte", password="et-passord", is_active=False
+        )
+        page = await listed(c)
+    assert {i["email"]: i["account_deactivated"] for i in page["items"]} == {
+        "aktiv@example.com": False,
+        "borte@example.com": True,
     }
 
 
@@ -210,9 +233,6 @@ async def test_resending_an_open_invitation_voids_it(admin, clock):
 
 
 async def test_a_resend_is_refused_for_accepted_replaced_unknown_and_deactivated(admin, clock):
-    await service.create_user(
-        email="borte@example.com", name="Borte", password="et-passord", is_active=False
-    )
     async with client() as c:
         await as_admin(c)
         taken = await invite(c, "tatt@example.com")
@@ -220,6 +240,10 @@ async def test_a_resend_is_refused_for_accepted_replaced_unknown_and_deactivated
         replaced = await invite(c, "to@example.com")
         await invite(c, "to@example.com")
         gone = await invite(c, "borte@example.com", "admin")
+        # The account appears after the Invitation, deactivated (the form refuses it after).
+        await service.create_user(
+            email="borte@example.com", name="Borte", password="et-passord", is_active=False
+        )
         audit_before = rows("SELECT count(*) FROM audit_events")
         answers = {
             "accepted": await resend(c, taken),

@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
 
 import pytest
+from sqlalchemy import text
 
 from app.modules.messaging import delivery, service
 from app.platform import email, jobs, notify
@@ -104,6 +105,19 @@ async def test_a_notice_by_reference_is_addressed_through_the_owning_resolver(
 async def test_a_failing_resolver_counts_as_a_failed_try(mail_db, monkeypatch):
     async def broken(session, ref, now):
         raise RuntimeError("ny@example.no is unknown")
+
+    kinds = dict(delivery.KINDS) | {
+        "test_by_ref": delivery.Delivery(delivery.IMMEDIATE, "test_immediate", broken)
+    }
+    monkeypatch.setattr(delivery, "KINDS", MappingProxyType(kinds))
+    await enqueue(None, "test_by_ref", ref=uuid.uuid7())
+    await drain()
+    assert mails() == [] and deliveries() == [("immediate", 1, False, None, 1)]
+
+
+async def test_a_resolver_whose_sql_fails_still_counts_as_a_failed_try(mail_db, monkeypatch):
+    async def broken(session, ref, now):
+        await session.execute(text("SELECT 1 / 0"))  # aborts the statement in the database
 
     kinds = dict(delivery.KINDS) | {
         "test_by_ref": delivery.Delivery(delivery.IMMEDIATE, "test_immediate", broken)

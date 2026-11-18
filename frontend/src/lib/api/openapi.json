@@ -505,6 +505,22 @@
       "InvitationListItem": {
         "description": "The newest Invitation to one address and role, on «Brukere og roller» (Story 3.10).",
         "properties": {
+          "accepted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "account_deactivated": {
+            "title": "Account Deactivated",
+            "type": "boolean"
+          },
           "email": {
             "title": "Email",
             "type": "string"
@@ -536,6 +552,8 @@
           "role",
           "status",
           "expires_at",
+          "accepted_at",
+          "account_deactivated",
           "renewal_requested"
         ],
         "title": "InvitationListItem",
@@ -1557,7 +1575,7 @@
         ]
       },
       "post": {
-        "description": "Invite an address to the Lecturer or Admin role (FR-1). Sending again to the same address\nand role voids the earlier link. With `access_request_id` of an open request for lecturer\naccess, the request is closed as invited (Story 3.13).",
+        "description": "Invite an address to the Lecturer or Admin role (FR-1). Sending again to the same address\nand role voids the earlier link. With `access_request_id` of an open request for lecturer\naccess, the request is closed as invited (Story 3.13). The address of a deactivated User is\nrefused with 409 `account_deactivated` (Story 3.10).",
         "operationId": "sendInvitation",
         "requestBody": {
           "content": {
@@ -1599,6 +1617,16 @@
               }
             },
             "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {

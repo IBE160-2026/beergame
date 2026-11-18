@@ -304,6 +304,17 @@ class InvalidEmail(ValueError):
     """The address is not one an Invitation can go to."""
 
 
+class AddressDeactivated(Exception):
+    """The address belongs to a deactivated User: its link would never work (Story 3.10)."""
+
+
+async def _address_deactivated(s: AsyncSession, address: str) -> bool:
+    """Inside a transaction holding the address's `lock_invitation_address`, which
+    `deactivate_user` also takes: whether the address belongs to a deactivated User."""
+    user = await repo.user_by_email(s, address)
+    return user is not None and not user["is_active"]
+
+
 def _days_left(expires_at: datetime, now: datetime) -> int:
     return max(1, math.ceil((expires_at - now) / timedelta(days=1)))
 
@@ -327,8 +338,9 @@ async def send_invitation(
 ) -> InvitationOut:
     """Invite `address` to `role`. In one transaction: void the open Invitation to the same address
     and role, store the new one (its token only as a hash), enqueue its `invitation` notice and
-    write the audit row. Raises `InvalidEmail` for a malformed address, before anything is
-    stored. The caller's policy has already checked that `actor` may manage Users.
+    write the audit row. Raises `InvalidEmail` for a malformed address, and `AddressDeactivated`
+    for the address of a deactivated User, before anything is stored. The caller's policy has
+    already checked that `actor` may manage Users.
 
     With `access_request_id` naming an open request for lecturer access (Story 3.13), and a
     Lecturer Invitation to that request's own address, the request is closed as invited in the
@@ -340,6 +352,9 @@ async def send_invitation(
     role = AccountRole(role)
     async with get_sessionmaker().begin() as s:
         await repo.lock_invitation_address(s, address, role.value)
+        if await _address_deactivated(s, address):
+            log.info("invitation_refused", error_code="account_deactivated")
+            raise AddressDeactivated
         request = (
             await repo.lock_open_access_request(s, access_request_id)
             if access_request_id is not None
@@ -831,7 +846,11 @@ async def deactivate_user(
         await repo.bump_session_version(s, user_id)
         await repo.void_open_password_resets(s, user_id, now)
         # Their open Invitations too: the list then shows them as expired, and none works again
-        # after a reactivation.
+        # after a reactivation. The address locks first, as a send or resend holds them: one
+        # that read the User as active finishes before the void, and one after it sees the
+        # deactivation, so no open Invitation to a deactivated address is left.
+        for role in sorted(r.value for r in AccountRole):
+            await repo.lock_invitation_address(s, user["email"], role)
         await repo.void_open_invitations_to(s, user["email"], now)
         await audit.record(s, actor, USER_DEACTIVATED, {"user_id": user_id}, {}, now)
         await events.emit(s, "user", str(user_id))
@@ -901,6 +920,8 @@ async def list_invitations(cursor: str | None, limit: int, *, now: datetime) -> 
                 role=AccountRole(row["role"]),
                 status=_invitation_status(row, now),
                 expires_at=_link_end(row),
+                accepted_at=row["accepted_at"],
+                account_deactivated=row["account_deactivated"],
                 renewal_requested=row["renewal_requested"],
             )
             for row in page
@@ -929,10 +950,8 @@ async def resend_invitation(
             refusal = "invitation_accepted"
         elif await repo.newest_invitation_id(s, address, role.value) != invitation_id:
             refusal = "invitation_superseded"
-        else:
-            user = await repo.user_by_email(s, address)
-            if user is not None and not user["is_active"]:
-                refusal = "account_deactivated"
+        elif await _address_deactivated(s, address):
+            refusal = "account_deactivated"
         if refusal is not None:
             log.info(
                 "invitation_resend_refused", invitation_id=str(invitation_id), error_code=refusal

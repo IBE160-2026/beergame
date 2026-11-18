@@ -26,7 +26,8 @@ export type InvitationPage = components["schemas"]["InvitationListOut"];
 export const invitationsKey = ["admin", "invitations"] as const;
 
 /** Send an Invitation to an account role (Story 3.7). Any failure reads «Invitasjonen ble ikke
- * sendt. Prøv igjen.»; the form checks the address before it sends. The Invitation list reads
+ * sendt. Prøv igjen.», except the address of a deactivated User, which the form words beside the
+ * field; the form checks the address before it sends. The Invitation list reads
  * again, so the new one stands in it. */
 export function useSendInvitation() {
   const queryClient = useQueryClient();

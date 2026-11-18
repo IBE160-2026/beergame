@@ -7,6 +7,7 @@ import { Button } from "@/components/button";
 import { SegmentedChoice } from "@/components/segmented-choice";
 import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
+import { errorCode } from "@/lib/api/mutation";
 import { validateEmail } from "@/modules/identity/validate-login";
 
 import { type AccessRequest, type AccountRole, type SentInvitation, useSendInvitation } from "./api";
@@ -25,6 +26,12 @@ export function inviteEmailError(value: string): string | undefined {
   const error = validateEmail(value);
   if (!error) return undefined;
   return error === "emailEmpty" ? copy.errors.emailEmpty : nb.auth.login.errors[error];
+}
+
+/** The reason beside the e-mail field for a refused send, or undefined when the refusal is not
+ * about the address (the general line then says it). */
+export function inviteRefusalForField(error: unknown): string | undefined {
+  return errorCode(error) === "account_deactivated" ? copy.errors.accountDeactivated : undefined;
 }
 
 /** A press of «Inviter … som Faglærer» on a request for lecturer access; `n` counts presses. */
@@ -100,9 +107,19 @@ export function InviteForm({ prefill }: { prefill?: InvitePrefill }) {
           setFrom(undefined);
           setSent(invitation);
         },
+        onError: (failure) => {
+          const field = inviteRefusalForField(failure);
+          if (field) {
+            setError(field);
+            setFocusRequest((n) => n + 1);
+          }
+        },
       },
     );
   }
+
+  // A refusal about the address stands beside the field, not as the general line.
+  const general = action.isError && !inviteRefusalForField(action.error) ? action.errorMessage : undefined;
 
   return (
     <form method="post" noValidate onSubmit={onSubmit} className="flex max-w-md flex-col gap-5">
@@ -143,7 +160,7 @@ export function InviteForm({ prefill }: { prefill?: InvitePrefill }) {
           setRole(next);
         }}
       />
-      <ActionError message={action.errorMessage} />
+      <ActionError message={general} />
       <Button type="submit" variant="primary" unavailable={action.isPending} className="mt-1 w-full">
         {copy.submit}
       </Button>

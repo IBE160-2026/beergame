@@ -23,12 +23,23 @@ export function statusText(invitation: ListedInvitation): string {
   return copy.status[invitation.status];
 }
 
-/** Only an Invitation not yet accepted can be sent again. */
+/** Only an Invitation not yet accepted, to an address whose account is not deactivated, can be
+ * sent again: the api refuses the others. */
 export function canResend(invitation: ListedInvitation): boolean {
-  return invitation.status !== "accepted";
+  return invitation.status !== "accepted" && !invitation.account_deactivated;
 }
 
-/** «Send ny invitasjon til kari@example.com» */
+/** The date cell: «Akseptert 20. nov. 2026» for an accepted Invitation, whose expiry no longer
+ * means anything; else the day its link stops or stopped working. */
+export function dateText(invitation: ListedInvitation): string {
+  if (invitation.status === "accepted" && invitation.accepted_at) {
+    return copy.acceptedOn(formatDate(invitation.accepted_at));
+  }
+  return formatDate(invitation.expires_at);
+}
+
+/** «Send ny invitasjon til kari@example.com»: the button's accessible name. Its visible text is
+ * the shorter `resendShort`, so every button in the column has one width. */
 export function resendLabel(invitation: ListedInvitation): string {
   return copy.resend(invitation.email);
 }

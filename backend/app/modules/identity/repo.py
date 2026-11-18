@@ -380,7 +380,8 @@ async def list_invitations(
 ) -> list[RowMapping] | None:
     """The newest Invitation of each address and role, newest first, after the Invitation `after`
     when given (an unknown `after` gives None). Each row has `renewal_requested`: whether any
-    Invitation of its address and role holds a renewal request."""
+    Invitation of its address and role holds a renewal request, and `account_deactivated`:
+    whether its address belongs to a deactivated User."""
     if after is not None:
         found = await session.execute(select(invitations.c.id).where(invitations.c.id == after))
         if found.scalar_one_or_none() is None:
@@ -401,7 +402,14 @@ async def list_invitations(
         )
         .exists()
     )
-    query = select(newest, requested.label("renewal_requested"))
+    deactivated = (
+        select(users.c.id)
+        .where(users.c.email == newest.c.email, users.c.is_active.is_(False))
+        .exists()
+    )
+    query = select(
+        newest, requested.label("renewal_requested"), deactivated.label("account_deactivated")
+    )
     if after is not None:
         query = query.where(newest.c.id < after)
     result = await session.execute(query.order_by(newest.c.id.desc()).limit(limit))

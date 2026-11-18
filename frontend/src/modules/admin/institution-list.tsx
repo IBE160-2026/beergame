@@ -20,9 +20,11 @@ const copy = nb.admin.institutions;
  * «Alle Institusjoner» (Story 3.11, FR-3): name and creation date, newest first, one page of the
  * list envelope at a time. Each row has one button that opens an inline rename form in its place;
  * a saved name closes it, focus returns to the row's button and the row says what changed. Below
- * laptop width every row is one block with each field labelled, as the User list.
+ * laptop width every row is one block with each field labelled, as the User list. The row line
+ * goes when a create starts in the form (`otherStarted` counts those starts; `onStart` tells the
+ * page that a rename starts).
  */
-export function InstitutionList() {
+export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () => void; otherStarted?: number } = {}) {
   const institutions = useInstitutions();
   const pageState = usePageState(institutions, institutionsKey);
   const moreFailed = institutions.isFetchNextPageError;
@@ -35,6 +37,9 @@ export function InstitutionList() {
   useEffect(() => {
     if (focusRow) document.getElementById(`rename-${focusRow.id}`)?.focus();
   }, [focusRow]);
+  useEffect(() => {
+    if (otherStarted) setLine(undefined);
+  }, [otherStarted]);
 
   function close(id: string, renamed?: { from: string; to: Institution }) {
     setEditing(undefined);
@@ -98,6 +103,7 @@ export function InstitutionList() {
                           className="[overflow-wrap:anywhere] @max-[60em]:w-full @min-[60em]:px-3 @min-[60em]:text-left"
                           onClick={() => {
                             setLine(undefined);
+                            onStart?.();
                             setEditing(institution.id);
                           }}
                         >

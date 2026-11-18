@@ -292,7 +292,7 @@ admin_router = APIRouter(prefix="/api/admin", tags=["admin"])
     "/invitations",
     status_code=201,
     response_model=InvitationOut,
-    responses=documented(401, 403, 422),
+    responses=documented(401, 403, 409, 422),
     operation_id="sendInvitation",
 )
 async def send_invitation(
@@ -301,7 +301,8 @@ async def send_invitation(
 ) -> Response:
     """Invite an address to the Lecturer or Admin role (FR-1). Sending again to the same address
     and role voids the earlier link. With `access_request_id` of an open request for lecturer
-    access, the request is closed as invited (Story 3.13)."""
+    access, the request is closed as invited (Story 3.13). The address of a deactivated User is
+    refused with 409 `account_deactivated` (Story 3.10)."""
     try:
         sent = await service.send_invitation(
             user.id,
@@ -313,6 +314,13 @@ async def send_invitation(
     except service.InvalidEmail:
         return error_response(
             422, "invalid_request", "The e-mail address is not valid.", {"email": "invalid_email"}
+        )
+    except service.AddressDeactivated:
+        return error_response(
+            409,
+            "account_deactivated",
+            "The address belongs to a deactivated account.",
+            {"email": "account_deactivated"},
         )
     return JSONResponse(sent.model_dump(mode="json"), status_code=201)
 

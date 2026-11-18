@@ -257,7 +257,11 @@ async def send(delivery_id: uuid.UUID, now: datetime | None = None) -> str:
             return "skipped"
         first = carried[0]
         try:
-            mail = await _compose(session, row, carried, table, now)
+            # In a savepoint: a resolver whose SQL fails aborts only the savepoint, so the failed
+            # try can still be counted below (else the job's transaction rolls back with
+            # `attempts` at 0, and the sweep defers the delivery again forever).
+            async with session.begin_nested():
+                mail = await _compose(session, row, carried, table, now)
         except Exception as exc:
             return await _failed(session, row, exc, len(carried))
         if isinstance(mail, str):

@@ -412,6 +412,8 @@ export const nb = {
         errors: {
           // [ASSUMPTION] Story 3.7: the empty field; the other reasons are those of «Logg inn».
           emailEmpty: "Skriv e-postadressen.",
+          // [ASSUMPTION] Epic 3 review: the address of a deactivated User.
+          accountDeactivated: "Kontoen med denne adressen er deaktivert. Aktiver den før du inviterer.",
         },
         // [ASSUMPTION] Story 3.7.
         failed: "Invitasjonen ble ikke sendt. Prøv igjen.",
@@ -476,6 +478,12 @@ export const nb = {
         status: { open: "Åpen", accepted: "Akseptert", expired: "Utløpt" },
         renewalRequested: "Mottakeren har bedt om en ny invitasjon.",
         resend: (email: string) => `Send ny invitasjon til ${email}`,
+        // [ASSUMPTION] Epic 3 review: the button's visible text; its name above keeps the address.
+        resendShort: "Send ny invitasjon",
+        // [ASSUMPTION] Epic 3 review: an accepted Invitation states when, in place of an expiry.
+        acceptedOn: (date: string) => `Akseptert ${date}`,
+        // [ASSUMPTION] Epic 3 review: why a row to a deactivated account has no resend.
+        accountDeactivated: "Kontoen er deaktivert.",
         resent: (email: string, days: number) =>
           `Ny invitasjon sendt til ${email}. Den er gyldig i ${days === 1 ? "én dag" : `${days} dager`}.`,
         failed: "Invitasjonen ble ikke sendt på nytt. Prøv igjen.",

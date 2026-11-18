@@ -138,6 +138,49 @@ async def test_a_malformed_address_is_refused_and_nothing_is_sent(admin, clock, 
     assert rows("SELECT count(*) FROM audit_events") == [(0,)]
 
 
+async def test_the_address_of_a_deactivated_user_is_refused_and_nothing_is_sent(admin, clock):
+    await service.create_user(email=INVITED, name="Borte", password="et-passord", is_active=False)
+    async with client() as c:
+        await as_admin(c)
+        response = await invite(c, INVITED.upper())
+    assert response.status_code == 409
+    error = response.json()["error"]
+    assert error["code"] == "account_deactivated"
+    assert error["fields"] == {"email": "account_deactivated"}
+    assert rows("SELECT count(*) FROM invitations") == [(0,)]
+    assert rows("SELECT count(*) FROM notices") == [(0,)]
+    assert rows("SELECT count(*) FROM audit_events") == [(0,)]
+
+
+async def test_a_send_and_a_deactivation_at_once_leave_no_open_invitation(
+    admin, clock, monkeypatch
+):
+    """The send is held after it has read the User as active, just before it stores the new
+    Invitation, while the deactivation runs. Without the address lock in `deactivate_user` the
+    deactivation voids nothing and the send then stores an open Invitation to a deactivated
+    address; with it the deactivation waits and voids it."""
+    user_id = await service.create_user(email=INVITED, name="Bård", password="et-passord")
+    read, release = asyncio.Event(), asyncio.Event()
+    real = service.repo.void_open_invitations
+
+    async def held(session, **kwargs):
+        read.set()
+        await release.wait()
+        return await real(session, **kwargs)
+
+    monkeypatch.setattr(service.repo, "void_open_invitations", held)
+    send = asyncio.create_task(
+        service.send_invitation(admin, INVITED, AccountRole.lecturer, now=clock["now"])
+    )
+    await asyncio.wait_for(read.wait(), timeout=10)
+    deactivation = asyncio.create_task(service.deactivate_user(admin, user_id, now=clock["now"]))
+    await asyncio.sleep(0.3)
+    release.set()
+    await asyncio.gather(send, deactivation)
+    assert rows("SELECT is_active FROM users WHERE id = %s", user_id) == [(False,)]
+    assert open_invitations() == []
+
+
 async def test_an_unknown_role_is_refused(admin, clock):
     async with client() as c:
         await as_admin(c)

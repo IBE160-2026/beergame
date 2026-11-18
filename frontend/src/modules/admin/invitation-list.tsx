@@ -11,7 +11,7 @@ import { usePageState } from "@/lib/page-state";
 import { invitationsKey, type ListedInvitation, useInvitations, useResendInvitation } from "./api";
 import {
   canResend,
-  formatDate,
+  dateText,
   resendLabel,
   resendRefusalLine,
   resentLine,
@@ -25,9 +25,10 @@ const copy = nb.admin.users.invitations;
 
 /**
  * «Invitasjoner» on «Brukere og roller» (Story 3.10, FR-1, FR-3): the newest Invitation to each
- * address and role, newest first, with its role, status and expiry, and whether the recipient
- * asked for a new one. An open or expired Invitation has one button that sends it again, at once
- * and with no dialog; an accepted one has none. Below laptop width every row is one block with
+ * address and role, newest first, with its role, status and expiry (or, once accepted, the day it
+ * was), and whether the recipient asked for a new one. An open or expired Invitation has one
+ * button that sends it again, at once and with no dialog; an accepted one has none, and nor has
+ * one to the address of a deactivated User, which says so instead. Below laptop width every row is one block with
  * each field labelled, as the User list.
  */
 export function InvitationList() {
@@ -99,17 +100,26 @@ export function InvitationList() {
                         ) : null}
                       </Cell>
                       <Cell label={copy.columns.expires}>
-                        <span className="@min-[60em]:whitespace-nowrap">{formatDate(invitation.expires_at)}</span>
+                        <span
+                          className={`@min-[60em]:whitespace-nowrap ${invitation.status === "accepted" ? "text-ink-secondary" : ""}`}
+                        >
+                          {dateText(invitation)}
+                        </span>
                       </Cell>
-                      <td className="py-3 @max-[60em]:block @max-[60em]:pt-2 @max-[60em]:pb-0">
+                      {/* One width for the column: the visible text is the same on every button
+                          (the address is in its name), and it never wraps on a laptop. */}
+                      <td className="py-3 @max-[60em]:block @max-[60em]:pt-2 @max-[60em]:pb-0 @min-[60em]:w-[13em]">
                         {canResend(invitation) ? (
                           <Button
-                            className="@max-[60em]:w-full @min-[60em]:px-3 @min-[60em]:text-left"
+                            aria-label={resendLabel(invitation)}
+                            className="@max-[60em]:w-full @min-[60em]:w-full @min-[60em]:px-3 @min-[60em]:whitespace-nowrap"
                             unavailable={resend.isPending}
                             onClick={() => press(invitation)}
                           >
-                            {resendLabel(invitation)}
+                            {copy.resendShort}
                           </Button>
+                        ) : invitation.account_deactivated && invitation.status !== "accepted" ? (
+                          <span className="text-ink-secondary">{copy.accountDeactivated}</span>
                         ) : null}
                         <RowMessage line={line?.key === key ? line : undefined} />
                       </td>

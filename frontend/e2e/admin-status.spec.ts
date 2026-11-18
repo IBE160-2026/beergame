@@ -181,7 +181,19 @@ test.describe("Invitation states", () => {
                   role: "admin",
                   status: "expired",
                   expires_at: "2026-11-02T11:00:00Z",
+                  accepted_at: null,
+                  account_deactivated: false,
                   renewal_requested: true,
+                },
+                {
+                  id: "00000000-0000-7000-8000-000000000002",
+                  email: "deaktivert@example.com",
+                  role: "lecturer",
+                  status: "expired",
+                  expires_at: "2026-11-03T11:00:00Z",
+                  accepted_at: null,
+                  account_deactivated: true,
+                  renewal_requested: false,
                 },
               ],
               next_cursor: null,
@@ -191,17 +203,75 @@ test.describe("Invitation states", () => {
     );
     await openUsers(page);
     const section = invitationsSection(page);
-    await expect(section.getByText(invitations.status.expired, { exact: true })).toBeVisible();
+    const expired = section.getByRole("row").filter({ hasText: "utlopt@example.com" });
+    await expect(expired.getByText(invitations.status.expired, { exact: true })).toBeVisible();
     await expect(section.getByText(invitations.renewalRequested)).toBeVisible();
     await expect(section.getByText("2. nov. 2026")).toBeVisible();
     await expect(section.getByRole("button", { name: invitations.resend("utlopt@example.com") })).toBeVisible();
+    // The address of a deactivated User: the api would refuse a resend, so the row offers none.
+    const deactivated = section.getByRole("row").filter({ hasText: "deaktivert@example.com" });
+    await expect(deactivated.getByText(invitations.accountDeactivated)).toBeVisible();
+    await expect(deactivated.getByRole("button")).toHaveCount(0);
 
-    // The real list: the fresh account's Invitation is accepted and has no resend button.
+    // The real list: the fresh account's Invitation is accepted, has no resend button, and states
+    // when it was accepted instead of an expiry.
     await page.unroute("**/api/admin/invitations");
     await page.reload();
     const row = invitationsSection(page).getByRole("row").filter({ hasText: fresh.address });
     await expect(row.getByText(invitations.status.accepted, { exact: true })).toBeVisible();
+    await expect(row.getByText(/^Akseptert \d{1,2}\. \S+ \d{4}$/)).toBeVisible();
     await expect(row.getByRole("button")).toHaveCount(0);
+  });
+
+  test("the resend buttons have one width and never wrap at 1280 px", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const item = (n: number, email: string) => ({
+      id: `00000000-0000-7000-8000-00000000001${n}`,
+      email,
+      role: "lecturer",
+      status: n === 1 ? "open" : "expired",
+      expires_at: "2026-12-02T11:00:00Z",
+      accepted_at: null,
+      account_deactivated: false,
+      renewal_requested: n === 2,
+    });
+    const emails = ["kari.nordmann@example.com", "ola@example.com", "ingrid.lie-johannessen.lang.adresse@example.com"];
+    await page.route("**/api/admin/invitations", (route) =>
+      route.request().method() === "GET"
+        ? route.fulfill({ json: { items: emails.map((e, i) => item(i + 1, e)), next_cursor: null } })
+        : route.continue(),
+    );
+    await openUsers(page);
+    const buttons = invitationsSection(page).getByRole("button", { name: /^Send ny invitasjon til / });
+    await expect(buttons).toHaveCount(3);
+    const boxes = await buttons.evaluateAll((els) =>
+      els.map((el) => {
+        const box = el.getBoundingClientRect();
+        // One line of text keeps the button at its minimum height; a wrapped label grows it.
+        return { width: Math.round(box.width), wraps: box.height > parseFloat(getComputedStyle(el).minHeight) + 1 };
+      }),
+    );
+    expect(new Set(boxes.map((b) => b.width)).size).toBe(1);
+    expect(boxes.map((b) => b.wraps)).toEqual([false, false, false]);
+  });
+
+  test("the invite form refuses the address of a deactivated User beside the field", async ({ page, browser }) => {
+    const fresh = await freshLecturer(page, browser);
+    await fresh.context.close();
+    const admin = await adminApi(browser);
+    const found = await admin.request.get(`/api/admin/users?q=${encodeURIComponent(fresh.address)}`);
+    const [user] = (await found.json()).items;
+    expect((await admin.request.post(`/api/admin/users/${user.id}/deactivate`, { headers: CSRF })).status()).toBe(200);
+    await admin.close();
+
+    await openUsers(page);
+    const field = page.getByLabel(nb.admin.users.invite.email, { exact: true });
+    await field.fill(fresh.address);
+    await page.getByRole("button", { name: nb.admin.users.invite.submit }).click();
+    await expect(field).toHaveAttribute("aria-invalid", "true");
+    await expect(field).toBeFocused();
+    await expect(page.getByText(nb.admin.users.invite.errors.accountDeactivated)).toBeVisible();
+    await expect(page.getByText(nb.admin.users.invite.failed)).toHaveCount(0);
   });
 
   test("an Invitation sent from the form appears in the list at once", async ({ page }) => {

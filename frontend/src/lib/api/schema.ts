@@ -152,7 +152,8 @@ export interface paths {
          * Send Invitation
          * @description Invite an address to the Lecturer or Admin role (FR-1). Sending again to the same address
          *     and role voids the earlier link. With `access_request_id` of an open request for lecturer
-         *     access, the request is closed as invited (Story 3.13).
+         *     access, the request is closed as invited (Story 3.13). The address of a deactivated User is
+         *     refused with 409 `account_deactivated` (Story 3.10).
          */
         post: operations["sendInvitation"];
         delete?: never;
@@ -749,6 +750,10 @@ export interface components {
          * @description The newest Invitation to one address and role, on «Brukere og roller» (Story 3.10).
          */
         InvitationListItem: {
+            /** Accepted At */
+            accepted_at: string | null;
+            /** Account Deactivated */
+            account_deactivated: boolean;
             /** Email */
             email: string;
             /**
@@ -1380,6 +1385,15 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

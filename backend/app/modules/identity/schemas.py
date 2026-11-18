@@ -168,6 +168,10 @@ class InvitationListItem(BaseModel):
     status: InvitationStatus
     expires_at: datetime
     """When the link stops working, or stopped: its expiry, or when it was voided if earlier."""
+    accepted_at: datetime | None
+    """When the Invitation was accepted; null while it is not."""
+    account_deactivated: bool
+    """Whether the address belongs to a deactivated User: such an Invitation is not sent again."""
     renewal_requested: bool
     """Whether the recipient asked for a new Invitation from a link that no longer works
     (Story 3.8) since the last one was sent."""

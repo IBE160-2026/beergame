@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { nb } from "@/copy/nb";
+import { ApiRequestError } from "@/lib/api/client";
 
-import { inviteEmailError, sentLine } from "./invite-form";
+import { inviteEmailError, inviteRefusalForField, sentLine } from "./invite-form";
 
 const copy = nb.admin.users.invite;
 
@@ -17,6 +18,16 @@ describe("inviteEmailError", () => {
 
   it("takes an address the server takes", () => {
     expect(inviteEmailError("  Ny.Faglaerer@Example.com ")).toBeUndefined();
+  });
+});
+
+describe("inviteRefusalForField", () => {
+  it("puts a deactivated address beside the field and leaves other refusals to the general line", () => {
+    expect(inviteRefusalForField(new ApiRequestError(409, "account_deactivated"))).toBe(
+      copy.errors.accountDeactivated,
+    );
+    expect(inviteRefusalForField(new ApiRequestError(500, "unknown_error"))).toBeUndefined();
+    expect(inviteRefusalForField(new Error("x"))).toBeUndefined();
   });
 });
 

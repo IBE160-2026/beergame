@@ -149,6 +149,30 @@ test.describe("states", () => {
     await expect(field).toBeFocused();
   });
 
+  test("a new action ends the result line of the other part of the page", async ({ page }) => {
+    await loginByApi(page, "admin");
+    await page.goto("/admin/institusjoner");
+    const name = `Gamma ${tag()}`;
+    await nameField(page).fill(name);
+    await createButton(page).click();
+    const created = page.getByRole("status").filter({ hasText: copy.create.created(name) });
+    await expect(created).toBeVisible();
+    // A rename starts: the create line goes.
+    await page.getByRole("button", { name: copy.rename.open(name) }).click();
+    await expect(created).toHaveCount(0);
+    const renamed = `${name} Bø`;
+    await page.getByLabel(copy.rename.field(name)).fill(renamed);
+    await page.getByRole("button", { name: copy.rename.save }).click();
+    const renamedLine = page.getByRole("status").filter({ hasText: copy.rename.renamed(name, renamed) });
+    await expect(renamedLine).toBeVisible();
+    // A create starts: the row's line goes.
+    const next = `Delta ${tag()}`;
+    await nameField(page).fill(next);
+    await createButton(page).click();
+    await expect(page.getByRole("status").filter({ hasText: copy.create.created(next) })).toBeVisible();
+    await expect(renamedLine).toHaveCount(0);
+  });
+
   test("«Vis flere Institusjoner» appends the next page by its cursor", async ({ page }) => {
     const row = (n: number) => ({
       id: `00000000-0000-7000-8000-00000000000${n}`,
