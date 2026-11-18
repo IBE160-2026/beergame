@@ -30,8 +30,8 @@ JOB_TABLES = {
     "procrastinate_workers",
 }
 """procrastinate's tables, from the SQL it ships (revision 0008, Story 2.5)."""
-HEAD_TABLES = AI_HEAD_TABLES | JOB_TABLES
-HEAD = "0012"
+HEAD_TABLES = AI_HEAD_TABLES | JOB_TABLES | {"simulation_batches"}
+HEAD = "0013"
 
 
 def reset_schema(url: str) -> None:
@@ -224,6 +224,26 @@ def test_downgrade_to_0011_removes_the_near_optimal_reference(migrations_databas
         ).fetchone()
     assert columns == [] and checks == []
     assert "near_optimal" not in trigger and "ai_deadline_at" in trigger  # 0009's function
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_downgrade_to_0012_removes_the_simulation_batches(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0012")
+    assert tables(migrations_database) == HEAD_TABLES - {"simulation_batches"}
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        columns = conn.execute(
+            "SELECT table_name, column_name FROM information_schema.columns "
+            "WHERE column_name IN ('batch_id', 'effort_level') AND table_name IN "
+            "('games', 'seat_weeks')"
+        ).fetchall()
+        functions = conn.execute(
+            "SELECT 1 FROM pg_proc WHERE proname = 'simulation_batches_append_only'"
+        ).fetchall()
+    assert columns == [] and functions == []
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 

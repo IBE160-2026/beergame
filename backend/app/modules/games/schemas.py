@@ -3,7 +3,7 @@
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -260,6 +260,9 @@ class DecisionLogRow(BaseModel):
     llm_call_ids: tuple[str, ...] = ()
     """The LLM call rows behind the Order: every attempt of an LLM Order or of the failed call
     behind a fallback Order (FR-67)."""
+    effort_level: str | None = None
+    """The Effort level the Game froze, on rows an `llm` occupant ordered (FR-78); None on every
+    other row and on rows written before Story 2.11."""
     state_seen: SeatState
 
 
@@ -276,6 +279,23 @@ class OccupancyRow(BaseModel):
     occupant_kind: OccupantKind
     policy_id: str | None
     reason: OccupancyReason
+
+
+class SimulationBatch(BaseModel):
+    """One `simulation_batches` row with its Games (Story 2.11, AD-22)."""
+
+    model_config = _FROZEN
+
+    id: str
+    batch_file: dict[str, Any]
+    """The batch file as it was played (`model_config` filled in)."""
+    pass_lines: dict[str, Any]
+    """The pass lines from the batch file; empty when it has none."""
+    mock: bool
+    """The batch's LLM Seats were answered by the mock provider."""
+    started_at: datetime
+    game_ids: tuple[str, ...]
+    """The batch's Games in the order they were created."""
 
 
 class GameCheck(BaseModel):

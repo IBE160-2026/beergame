@@ -37,6 +37,22 @@ def _in(column: str, values: type[StrEnum]) -> str:
     return f"{column} IN ({', '.join(repr(value.value) for value in values)})"
 
 
+simulation_batches = Table(
+    "simulation_batches",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    # The batch file as `python -m app.sim run` played it (its `model_config` filled in).
+    Column("batch_file", JSONB, nullable=False),
+    # The pass lines from the batch file (`{}` when it has none); never a code default (C-3).
+    Column("pass_lines", JSONB, nullable=False),
+    # The batch's LLM Seats were answered by the mock provider (AD-17).
+    Column("mock", Boolean, nullable=False),
+    Column("started_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+"""One row per simulation batch (Story 2.11, AD-22), written once by
+`games.service.create_batch`. A trigger refuses UPDATE and DELETE, so its pass lines never
+change after its first Game starts."""
+
 games = Table(
     "games",
     metadata,
@@ -50,6 +66,14 @@ games = Table(
     Column("rules_version", Integer, nullable=False),
     Column("session_runtime", JSONB, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    # The simulation batch the Game was played in (Story 2.11); None for every other Game.
+    Column(
+        "batch_id",
+        Uuid,
+        ForeignKey("simulation_batches.id"),
+        nullable=True,
+        index=True,
+    ),
     CheckConstraint(_in("purpose", Purpose), name="ck_games_purpose"),
     CheckConstraint(_in("lifecycle", Lifecycle), name="ck_games_lifecycle"),
     CheckConstraint("version >= 0", name="ck_games_version"),
@@ -160,6 +184,8 @@ seat_weeks = Table(
     # The turn's near-optimal reference and its algorithm version, copied (Story 2.9).
     Column("near_optimal_reference_order", Integer, nullable=True),
     Column("near_optimal_algorithm_version", Text, nullable=True),
+    # The Effort level the Game froze, on rows an `llm` occupant ordered (Story 2.11, FR-78).
+    Column("effort_level", Text, nullable=True),
     CheckConstraint("week >= 1", name="ck_seat_weeks_week"),
     CheckConstraint('"order" >= 0', name="ck_seat_weeks_order"),
     CheckConstraint("rule_based_reference_order >= 0", name="ck_seat_weeks_reference_order"),

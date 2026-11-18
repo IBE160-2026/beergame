@@ -1,0 +1,11 @@
+{
+  "seed": 7,
+  "games": 2,
+  "seats": "llm",
+  "settings": {"weeks": 8},
+  "pass_lines": {
+    "cost_per_game_usd": 0.10,
+    "time_per_order_p95_s": 8,
+    "switched_share": 0.25
+  }
+}

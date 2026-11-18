@@ -15,6 +15,7 @@ from app.modules.games.models import (
     seat_turns,
     seat_weeks,
     seats,
+    simulation_batches,
 )
 
 
@@ -389,5 +390,24 @@ async def complete_running_games(session: AsyncSession) -> list[uuid.UUID]:
         .group_by(open_weeks.c.game_id)
         .having(func.bool_and(seat_turns.c.ordered_at.is_not(None)))
         .order_by(open_weeks.c.game_id)
+    )
+    return list(result.scalars())
+
+
+async def insert_batch(session: AsyncSession, values: dict[str, Any]) -> None:
+    await session.execute(simulation_batches.insert().values(**values))
+
+
+async def get_batch(session: AsyncSession, batch_id: uuid.UUID) -> RowMapping | None:
+    result = await session.execute(
+        select(simulation_batches).where(simulation_batches.c.id == batch_id)
+    )
+    return result.mappings().one_or_none()
+
+
+async def batch_game_ids(session: AsyncSession, batch_id: uuid.UUID) -> list[uuid.UUID]:
+    """The id of every Game of the batch, in the order they were created (ids are UUIDv7)."""
+    result = await session.execute(
+        select(games.c.id).where(games.c.batch_id == batch_id).order_by(games.c.id)
     )
     return list(result.scalars())

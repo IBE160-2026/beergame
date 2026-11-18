@@ -54,6 +54,14 @@ Subcommands:
                    and for the batch the Total cost per Role and for the chain, the Weeks
                    played, the Orders per `decided_by` and the check result, all read back
                    from the database.
+                   Story 2.11: the batch is stored first (`simulation_batches`: the batch file
+                   as played, its `pass_lines` with `cost_per_game_usd`, `time_per_order_p95_s`
+                   and `switched_share`, none with a default, whether the mock answers and the
+                   start time; it never changes) and `batch_id <id>` is printed before the first
+                   Game; every Game carries the batch id. `--config ID` fills the file's
+                   `model_config` when it names none (exit 2 when it names another).
+                   `--worker` leaves the `ai-orders` jobs to a separate `worker-ai` process and
+                   waits; a Game that has not moved for `WORKER_STALL_S` stops the run.
                    `--export DIR` writes the Decision log to `DIR/decision-log.csv` (replacing
                    one already there). Exit 0 when every check passed; 1 on a failed check or a
                    refused command (also settings that break the engine rules or an unknown
@@ -62,6 +70,16 @@ Subcommands:
                    batch file's shape, or when its model config's key variable is not set
                    outside `local`, `test` and `ci` (in those three the mock answers, and a
                    note says so).
+  report           print a stored batch's report (`app.sim_report`, Story 2.11): first a
+                   warning when the mock answered (or `provider real` / `provider none`), then
+                   per Game and for the batch the AI cost, tokens, latency per attempt and time
+                   per Order (median, p95), retries per Order, fallback share by type, Play
+                   guard switches as a share of `llm` Seats, the Share of LLM Orders and the
+                   chain cost; for the batch also the cost per Game and the coefficient of
+                   variation of chain Total cost; whether the cost limit cut the batch short (and
+                   in which Game and Week); pass or miss against each pass line. Every figure is
+                   read from the Decision log and the LLM call rows. Exit 1 when the batch is
+                   unknown or one of its Games has not finished.
   prompt           print the exact LLM request for one Seat's open Week without calling a model
                    (`ai.gateway.preview`): the `player_order` prompt version and its source
                    (`config` or `newest file`), the prompt built
@@ -105,6 +123,7 @@ import random
 import re
 import secrets
 import sys
+import time
 import uuid
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from decimal import Decimal
@@ -539,23 +558,38 @@ async def _work_off_llm_orders(game: game_service.GameOverview) -> None:
         await jobs.run_until_idle([jobs.AI_ORDERS])
 
 
-async def _wait_finished(game_id: str) -> game_service.GameOverview:
+WORKER_POLL_S = 0.2
+"""`run --worker`: how often the runner looks at a Game that a `worker-ai` plays."""
+WORKER_STALL_S = 120.0
+"""`run --worker`: a Game whose version has not moved for this long waits for an Order no
+worker places (no `worker-ai` running, or one stuck)."""
+
+
+async def _wait_finished(game_id: str, *, worker: bool = False) -> game_service.GameOverview:
     """Wait for a started Game to finish. The order source in `games` places every Order of a
     Game without Students or LLM players, so it has finished by the time `start` returns; the
-    Orders of `llm` Seats come from `ai-orders` jobs, worked off here. A Game left with a
-    complete open Week (a stop between two advances) is moved on with `advance`. Raises
-    `game_not_finished` when the Game still waits for an Order no order source places."""
+    Orders of `llm` Seats come from `ai-orders` jobs, worked off here, or with `worker` by a
+    separate `worker-ai` process while the runner waits. A Game left with a complete open Week
+    (a stop between two advances) is moved on with `advance`. Raises `game_not_finished` when
+    the Game still waits for an Order no order source places (with `worker`: when its version
+    has not moved for `WORKER_STALL_S`)."""
     game = await game_service.get_game(game_id)
     if game is None:
         raise game_commands.CommandError("game_not_found", f"no Game {game_id!r}", 404)
     if game.lifecycle == game_service.Lifecycle.NOT_STARTED:
         raise game_commands.CommandError("game_not_started", "the Game has not started", 409)
+    moved_at = time.monotonic()
     while game is not None and game.lifecycle != game_service.Lifecycle.FINISHED:
         version = game.version
-        await _work_off_llm_orders(game)
+        if worker:
+            await asyncio.sleep(WORKER_POLL_S)
+        else:
+            await _work_off_llm_orders(game)
         await game_commands.advance(game_id)
         game = await game_service.get_game(game_id)
-        if game is None or game.version == version:
+        if game is not None and game.version != version:
+            moved_at = time.monotonic()
+        elif not worker or time.monotonic() - moved_at >= WORKER_STALL_S:
             break  # nothing moved: the Game waits for an Order no order source places
     if game is None or game.lifecycle != game_service.Lifecycle.FINISHED:
         raise game_commands.CommandError(
@@ -920,6 +954,23 @@ def _endpoint_command(args: argparse.Namespace, parser: argparse.ArgumentParser)
 
 MAX_BATCH_GAMES = 100
 
+_Line = Annotated[Decimal, Field(ge=0, allow_inf_nan=False)]
+_ShareLine = Annotated[Decimal, Field(ge=0, le=1, allow_inf_nan=False)]
+
+
+class PassLines(BaseModel):
+    """The pass lines of a batch (Story 2.11, PRD §10.1), written down before it runs; each is
+    optional and none has a default in code (C-3)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    cost_per_game_usd: _Line | None = None
+    """The batch's mean AI cost per Game must be at most this (SM-6: 0.10)."""
+    time_per_order_p95_s: _Line | None = None
+    """The batch's p95 time per LLM Order, retries included, in seconds (NFR-2)."""
+    switched_share: _ShareLine | None = None
+    """The share of `llm` Seats the Play guard switched (FR-79)."""
+
 
 class BatchFile(BaseModel):
     """A batch file for `run`: what to play, how often and who sits in each Seat."""
@@ -939,6 +990,7 @@ class BatchFile(BaseModel):
     """The model config of the `llm` Seats (its evaluation budget pays their calls)."""
     effort_level: str | None = None
     """One of that config's Effort levels; default its first."""
+    pass_lines: PassLines | None = None
 
 
 class Batch(BaseModel):
@@ -955,6 +1007,10 @@ class Batch(BaseModel):
     rule_based_params: str
     model_config_id: str | None = None
     effort_level: str | None = None
+    stored: dict[str, Any] = {}
+    """The batch file's JSON as it is played (`model_config` filled in), stored with the batch."""
+    pass_lines: dict[str, Any] = {}
+    """The pass lines as the file gives them (JSON numbers), stored with the batch."""
 
 
 class BatchError(ValueError):
@@ -967,8 +1023,9 @@ def _errors(exc: ValidationError) -> str:
     )
 
 
-def load_batch(path: str) -> Batch:
-    """Read and check a batch file; raises `BatchError` with what is wrong."""
+def load_batch(path: str, config: str | None = None) -> Batch:
+    """Read and check a batch file; raises `BatchError` with what is wrong. `config` fills the
+    file's `model_config` when it names none, and must match it when it does."""
     try:
         text = Path(path).read_text(encoding="utf-8-sig")
     except OSError as exc:
@@ -977,8 +1034,14 @@ def load_batch(path: str) -> Batch:
         raise BatchError(f"{path} is not UTF-8 text") from None
     try:
         data = json.loads(text, parse_float=Decimal)
+        stored = json.loads(text)
     except ValueError as exc:
         raise BatchError(f"{path} is not JSON: {exc}") from None
+    if config is not None and isinstance(data, dict):
+        named = data.get("model_config")
+        if named is not None and named != config:
+            raise BatchError(f"model_config: the file names {named!r}, --config {config!r}")
+        data["model_config"] = stored["model_config"] = config
     try:
         spec = BatchFile.model_validate(data)
         settings = GameSettings.model_validate(spec.settings)
@@ -1013,10 +1076,14 @@ def load_batch(path: str) -> Batch:
         rule_based_params=spec.rule_based_params,
         model_config_id=spec.model_config_id,
         effort_level=spec.effort_level,
+        stored=stored,
+        pass_lines=stored.get("pass_lines") or {},
     )
 
 
-async def _play_one(batch: Batch, index: int, stored: list[str]) -> str:
+async def _play_one(
+    batch: Batch, index: int, stored: list[str], batch_id: str | None = None, *, worker: bool
+) -> str:
     """Create, start, play and check Game `index` of the batch; returns its id. The id is
     appended to `stored` as soon as the Game is stored."""
     game_id = await game_commands.create(
@@ -1027,12 +1094,13 @@ async def _play_one(batch: Batch, index: int, stored: list[str]) -> str:
         rule_based_params=batch.rule_based_params,
         model_config_id=batch.model_config_id,
         effort_level=batch.effort_level,
+        batch_id=batch_id,
     )
     stored.append(game_id)
     for role, (kind, policy_id) in zip(batch.settings.roles, batch.occupants, strict=True):
         await game_commands.assign_seat(game_id, role, kind, policy_id)
     await game_commands.start(game_id)
-    await _wait_finished(game_id)
+    await _wait_finished(game_id, worker=worker)
     await game_service.verify_finished(game_id)
     return game_id
 
@@ -1135,39 +1203,45 @@ def summary_lines(summaries: Sequence[game_service.GameSummary]) -> list[str]:
     return lines
 
 
-async def _key_check(batch: Batch) -> int | None:
+async def _key_check(batch: Batch) -> tuple[int | None, bool]:
     """Story 2.7 (AD-17): the batch's `llm` Seats must reach a model. Exit 2 naming the reason
     (a key variable that is not set outside `local`, `test` and `ci`); in those three a note
-    says when the mock answers. None: go on."""
+    says when the mock answers. Returns the exit code to stop with (None: go on) and whether the
+    mock answers the batch's `llm` Seats (Story 2.11 stores it with the batch). An unknown config
+    exits 1 here, before the batch is stored."""
     if batch.model_config_id is None or not any(kind == LLM for kind, _ in batch.occupants):
-        return None
+        return None, False
     from app.ai import endpoint
 
     found = await endpoint.availability(batch.model_config_id)
     if found is None:
-        return None  # `create` refuses an unknown config with its own code
+        print(f"error config_not_found: no model config {batch.model_config_id}", file=sys.stderr)
+        return 1, False
     if found.kind == "refused":
         if found.missing_key is not None:
             print(f"error key_missing: {found.missing_key} is not set", file=sys.stderr)
         else:
             print(f"error model_unavailable: {found.reason}", file=sys.stderr)
-        return 2
+        return 2, False
     if found.kind == "mock":
         print(
             f"note: mock provider in use for config {batch.model_config_id} ({found.reason})",
             file=sys.stderr,
         )
-    return None
+        return None, True
+    return None, False
 
 
-async def _run_batch(batch: Batch, export: Path | None) -> int:
+async def _run_batch(batch: Batch, export: Path | None, *, worker: bool = False) -> int:
     game_ids: list[str] = []
     try:
-        refused = await _key_check(batch)
+        refused, mock = await _key_check(batch)
         if refused is not None:
             return refused
+        batch_id = await game_service.create_batch(batch.stored, batch.pass_lines, mock=mock)
+        print(f"batch_id {batch_id}", flush=True)
         for index in range(batch.games):
-            await _play_one(batch, index, game_ids)
+            await _play_one(batch, index, game_ids, batch_id, worker=worker)
         summaries = [await game_service.game_summary(game_id) for game_id in game_ids]
         logs = [await game_service.decision_log(game_id) for game_id in game_ids] if export else []
     except (game_commands.CommandError, game_service.ViewError, DBAPIError) as exc:
@@ -1194,7 +1268,7 @@ async def _run_batch(batch: Batch, export: Path | None) -> int:
 
 def _run_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     try:
-        batch = load_batch(args.batch)
+        batch = load_batch(args.batch, args.config)
     except BatchError as exc:
         print(f"error invalid_batch: {exc}", file=sys.stderr)
         return 2
@@ -1206,7 +1280,51 @@ def _run_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> i
         except OSError as exc:
             print(f"error invalid_export: {exc.strerror or exc}", file=sys.stderr)
             return 2
-    return _run(_run_batch(batch, export))
+    return _run(_run_batch(batch, export, worker=args.worker))
+
+
+async def _report_batch(batch_id: str) -> int:
+    """Read a batch and its Games back and print its report (`app.sim_report`)."""
+    from app import sim_report
+    from app.ai import calls
+
+    try:
+        batch = await game_service.get_batch(batch_id)
+        attempts = await calls.game_attempts(batch.game_ids)
+        games = []
+        for game_id in batch.game_ids:
+            game = await game_service.get_game(game_id)
+            if game is None:
+                raise game_service.ViewError("game_not_found", f"no Game {game_id!r}", 404)
+            games.append(
+                sim_report.GameInput(
+                    summary=await game_service.game_summary(game_id),
+                    log=await game_service.decision_log(game_id),
+                    occupancy=await game_service.occupancy_history(game_id),
+                    attempts=[attempt for attempt in attempts if attempt.game == game_id],
+                    effort_level=game.session_runtime.effort_level,
+                )
+            )
+    except (game_service.ViewError, DBAPIError) as exc:
+        _report(exc)
+        return 1
+    finally:
+        await db.dispose()
+    figures = sim_report.measure(
+        batch.id,
+        batch.started_at,
+        mock=batch.mock,
+        model_config_id=batch.batch_file.get("model_config"),
+        pass_lines=batch.pass_lines,
+        games=games,
+    )
+    for line in sim_report.report_lines(figures):
+        print(line)
+    return 0
+
+
+def _report_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    return _run(_report_batch(args.batch_id))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1303,7 +1421,22 @@ def build_parser() -> argparse.ArgumentParser:
     batch.add_argument(
         "--export", metavar="DIR", help=f"write the Decision log as DIR/{EXPORT_FILE}"
     )
+    batch.add_argument(
+        "--config",
+        metavar="ID",
+        help="model config of the llm Seats when the batch file names none",
+    )
+    batch.add_argument(
+        "--worker",
+        action="store_true",
+        help="leave the ai-orders jobs to a running worker-ai instead of running them here",
+    )
     batch.set_defaults(handler=_run_command, command_parser=batch)
+    report = commands.add_parser(
+        "report", help="print what a stored batch cost and how its LLM players behaved"
+    )
+    report.add_argument("batch_id")
+    report.set_defaults(handler=_report_command, command_parser=report)
     prompt = commands.add_parser(
         "prompt", help="print the LLM prompt and schema for one Seat's open Week (no call)"
     )

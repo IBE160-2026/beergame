@@ -31,6 +31,33 @@ uv run python -m app.ai.cli budget set --evaluation <ID> --limit 1 --reserve 0
 uv run python -m app.sim endpoint --config <ID>     # model id, 3 Orders, a burst of 5, latency, cost
 ```
 
+### Measuring a model and Effort level (Story 2.11)
+
+`python -m app.sim run <batch>` stores the batch (its file, pass lines and whether the mock answered) and prints `batch_id <id>`; `python -m app.sim report <id>` prints per Game and for the batch the AI cost, tokens, latency per attempt, time per Order (median, p95), retries, fallback share by type, Play guard switches, the Share of LLM Orders, the variation of chain Total cost, whether the cost limit cut the batch short, and pass or miss against the batch file's pass lines. A batch the mock answered says so on its first line. CI runs `backend/scripts/sim-llm-smoke.sh` (mock config, `worker-ai`, report).
+
+The real measurement (OpenRouter, `deepseek/deepseek-v4.1-flash-1017`, issue #9) needs the key in your environment and is run by hand. With the compose `postgres` running and migrated:
+
+```sh
+cd backend
+export OPENROUTER_API_KEY=...   # never commit or paste it into a config file
+uv run python -m app.ai.cli config add ai-configs/openrouter-deepseek.json      # prints: config <ID>
+uv run python -m app.ai.cli budget set --evaluation <ID> --limit 1 --reserve 0  # hard cap: USD 1
+uv run python -m app.sim run batches/measure-openrouter-small.json --config <ID>  # prints: batch_id <B>
+uv run python -m app.sim report <B>
+```
+
+`measure-openrouter-small.json` plays 2 Classic Games (it has no `settings`, so 36 Weeks with 4 Guided) with 4 LLM Seats: 256 LLM Orders, about 10 to 15 minutes at the config's 60 requests per minute. Its pass lines are USD 0.10 per Game (C-3), 8 s p95 per Order (NFR-2, placeholder) and at most 25 % of LLM Seats switched (placeholder, issue #20). Change `games` for a larger batch. Estimate at the config's placeholder prices (USD 0.12 / 0.48 per million input / output tokens), with about 1,000 input and 150 to 800 output tokens per attempt (the request is 2.5 to 3.8 kB of JSON on Classic), no retries:
+
+| Games | LLM Orders | Expected cost (USD) | Reserved worst case (USD) |
+|------:|-----------:|--------------------:|--------------------------:|
+| 1 | 128 | 0.03 – 0.06 | 0.31 |
+| 2 (default) | 256 | 0.06 – 0.12 | 0.63 |
+| 5 | 640 | 0.15 – 0.30 | 1.57 |
+| 10 | 1,280 | 0.30 – 0.60 | 3.14 |
+| 20 | 2,560 | 0.60 – 1.20 | 6.28 |
+
+The worst case is what the gateway reserves per attempt (request size plus the Effort level's 4,096 `max_output_tokens`); retries add up to 5 more attempts per Order. Set the budget limit at or above the expected cost (`--limit 1` covers the default batch; raise it for 10 Games or more): when it runs out, the rest of the batch is played by Rule-based players and the report marks the batch as cut short and misses every pass line.
+
 Every LLM attempt first reserves its worst-case cost (request size and the Effort level's `max_output_tokens` at the config's prices) on the scope's budget row; LLM players may spend only `limit − reserve`. When a player's reservation does not fit, every LLM Seat of every running Game on that budget switches to a Rule-based player for good. `uv run python -m app.ai.cli cost --scope <ID>` prints the budget row and the AI cost per Game and per day.
 
 `openrouter-deepseek.json` goes through OpenRouter's global router (`openrouter.ai`) to one upstream endpoint run by an EU company (Nebius, zero retention, no fallback); the router itself is not EU-only. `ai-configs/openrouter-deepseek-eu.json` uses OpenRouter's EU in-region endpoint (`eu.openrouter.ai`, Business plan), which keeps prompts in the EU. The region, upstream provider, routing switches, prices and rate limit are config data.

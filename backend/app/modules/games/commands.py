@@ -200,6 +200,7 @@ async def create(
     model_config_id: str | None = None,
     effort_level: str | None = None,
     play_guard_params: str = DEFAULT_PLAY_GUARD_SET,
+    batch_id: str | None = None,
 ) -> str:
     """Store a `not_started` Game with one free Seat per Role and its frozen snapshot (AD-4).
 
@@ -207,7 +208,8 @@ async def create(
     is drawn. `model_config_id` and one of that config's Effort levels (default: its first) are
     frozen into the `SessionRuntime` for the Game's LLM players (AD-22, FR-78), and the config
     is marked referenced, so it can never change. The Play guard parameter set
-    `play_guard_params` is frozen too (FR-79). Returns the Game id.
+    `play_guard_params` is frozen too (FR-79). `batch_id` puts the Game in a stored simulation
+    batch (Story 2.11); an unknown one is refused (`batch_not_found`). Returns the Game id.
     """
     _policy(purpose)
     effective = _effective_settings(settings, demand_pattern, seed)
@@ -215,8 +217,11 @@ async def create(
     guard = _play_guard_params(play_guard_params)
     if effort_level is not None and model_config_id is None:
         raise CommandError("model_config_required", "an Effort level needs a model config", 422)
+    batch_uuid = _batch_uuid(batch_id)
     game_id = uuid.uuid7()
     async with get_sessionmaker().begin() as session:
+        if batch_uuid is not None and await repo.get_batch(session, batch_uuid) is None:
+            raise CommandError("batch_not_found", f"no simulation batch {batch_id!r}", 422)
         level = None
         if model_config_id is not None:
             model_config_id, level = await _model_config(session, model_config_id, effort_level)
@@ -241,6 +246,7 @@ async def create(
                 "demand_seed": effective.demand_seed,
                 "rules_version": RULES_VERSION,
                 "session_runtime": runtime.model_dump(mode="json"),
+                "batch_id": batch_uuid,
             },
         )
         await repo.insert_seats(session, game_id, [role.value for role in effective.roles])
@@ -248,6 +254,15 @@ async def create(
     log.info("game_created", game_id=str(game_id))
     await _settle(str(game_id))
     return str(game_id)
+
+
+def _batch_uuid(batch_id: str | None) -> uuid.UUID | None:
+    if batch_id is None:
+        return None
+    try:
+        return uuid.UUID(str(batch_id))
+    except ValueError:
+        raise CommandError("batch_not_found", f"no simulation batch {batch_id!r}", 422) from None
 
 
 async def _model_config(
@@ -739,6 +754,12 @@ async def _place(
             "near_optimal_reference_order": turn["near_optimal_reference_order"],
             "near_optimal_algorithm_version": turn["near_optimal_algorithm_version"],
             "llm_call_ids": list(call_ids),
+            # The Effort level the Game froze, on every Order of an LLM player (FR-78).
+            "effort_level": (
+                SessionRuntime.model_validate(game["session_runtime"]).effort_level
+                if llm_occupant
+                else None
+            ),
         },
     )
     if decider is DecidedBy.LLM:

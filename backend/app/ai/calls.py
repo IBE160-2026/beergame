@@ -1,10 +1,12 @@
 """Reading `llm_call` rows (FR-67, FR-69): what one call's attempts cost and took, for reports
-such as `python -m app.sim endpoint`, and a scope's cost per Game and day for
-`python -m app.ai.cli cost`. Only `app/ai` reads the table (AD-6)."""
+such as `python -m app.sim endpoint`, a scope's cost per Game and day for
+`python -m app.ai.cli cost`, and the player attempts of a simulation batch's Games for
+`python -m app.sim report` (Story 2.11). Only `app/ai` reads the table (AD-6)."""
 
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -94,3 +96,59 @@ async def get(ids: Sequence[uuid.UUID]) -> list[Attempt]:
             )
         ).all()
     return [Attempt(*row) for row in rows]
+
+
+PLAYER_PURPOSE = "player_order"
+"""The purpose of an LLM player's Order (`players.llm.PURPOSE`); named here, since `app/ai`
+imports nothing from `modules` (AD-6)."""
+
+
+@dataclass(frozen=True)
+class GameAttempt:
+    """One player attempt of a Game, as a simulation batch report reads it (Story 2.11)."""
+
+    id: uuid.UUID
+    game: str
+    """The Game id in the row's caller reference."""
+    attempt: int
+    outcome: str
+    effort_level: str
+    started_at: datetime
+    latency_ms: int
+    input_tokens: int
+    output_tokens: int
+    reasoning_tokens: int
+    cost_usd: Decimal
+
+
+async def game_attempts(game_ids: Sequence[str]) -> list[GameAttempt]:
+    """Every `player_order` attempt whose caller reference names one of `game_ids`, of every
+    outcome, oldest first (FR-67, FR-78)."""
+    if not game_ids:
+        return []
+    game = llm_calls.c.caller_ref["game"].astext
+    columns = [
+        llm_calls.c.id,
+        game.label("game"),
+        llm_calls.c.attempt,
+        llm_calls.c.outcome,
+        llm_calls.c.effort_level,
+        llm_calls.c.started_at,
+        llm_calls.c.latency_ms,
+        llm_calls.c.input_tokens,
+        llm_calls.c.output_tokens,
+        llm_calls.c.reasoning_tokens,
+        llm_calls.c.cost_usd,
+    ]
+    async with transaction(None) as session:
+        rows = (
+            await session.execute(
+                select(*columns)
+                .where(
+                    llm_calls.c.purpose == PLAYER_PURPOSE,
+                    game.in_([str(game_id) for game_id in game_ids]),
+                )
+                .order_by(llm_calls.c.started_at, llm_calls.c.id)
+            )
+        ).all()
+    return [GameAttempt(*row) for row in rows]

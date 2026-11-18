@@ -7,6 +7,7 @@ from datetime import datetime
 from app.ai import budget as ai_budget
 from app.engine import GameSettings
 from app.modules.games import repo
+from app.modules.games.batches import create_batch, get_batch
 from app.modules.games.checks import (
     finished_game_ids,
     rules_versions_without_package,
@@ -30,6 +31,7 @@ from app.modules.games.schemas import (
     SeatOverview,
     SeatState,
     SessionRuntime,
+    SimulationBatch,
     TurnOverview,
 )
 from app.modules.games.summaries import game_summary
@@ -64,15 +66,18 @@ __all__ = [
     "SeatOverview",
     "SeatState",
     "SessionRuntime",
+    "SimulationBatch",
     "TurnOverview",
     "ViewError",
     "budget_scope",
     "complete_running_games",
+    "create_batch",
     "games_charged_to",
     "scope_of",
     "decision_log",
     "finished_game_ids",
     "game_summary",
+    "get_batch",
     "get_game",
     "llm_turn",
     "occupancy_history",

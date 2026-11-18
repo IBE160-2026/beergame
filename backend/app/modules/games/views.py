@@ -172,6 +172,7 @@ async def decision_log(game_id: str) -> tuple[DecisionLogRow, ...]:
             near_optimal_reference_order=row["near_optimal_reference_order"],
             near_optimal_algorithm_version=row["near_optimal_algorithm_version"],
             llm_call_ids=tuple(str(call_id) for call_id in row["llm_call_ids"]),
+            effort_level=row["effort_level"],
             state_seen=SeatState.model_validate(row["state_seen"]),
         )
         for row in rows

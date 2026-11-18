@@ -42,6 +42,8 @@ jobs:
       - run: uv run alembic upgrade head
       - name: Simulation smoke run
         run: uv run python -m app.sim run batches/classic-smoke.json
+      - name: Simulation LLM smoke run (mock provider, worker-ai, report)
+        run: bash scripts/sim-llm-smoke.sh
 
   frontend:
     runs-on: ubuntu-latest
