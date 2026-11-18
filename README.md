@@ -19,7 +19,7 @@ cd backend && uv sync && uv run alembic upgrade head && uv run uvicorn app.main:
 cd frontend && npm ci && npm run dev
 ```
 
-LLM players' Orders are background jobs. Compose starts `worker-ai` (`python -m app.worker --queues ai-orders`) and `worker-batch` (`--queues llm-batch`) from the backend image; without Docker, run `cd backend && uv run python -m app.worker --queues ai-orders` in a third terminal. No key is needed: the AI mock answers locally.
+LLM players' Orders are background jobs. Compose starts `worker-ai` (`python -m app.worker --queues ai-orders`) and `worker-batch` (`--queues llm-batch`) from the backend image; without Docker, run `cd backend && uv run python -m app.worker --queues ai-orders` in a third terminal. `worker-ai` also runs a rescue loop every 5 seconds: an LLM player still without an Order past its Effort level's time budget gets the Rule-based reference Order, marked `timeout`, and a complete Week left open is advanced. No key is needed: the AI mock answers locally.
 
 Checks, as CI runs them:
 

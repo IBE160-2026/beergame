@@ -49,7 +49,7 @@ from app.platform.config import get_settings
 pydantic_ai.BANNER_ENABLED = False  # never print to a CLI's stdout
 
 FailureKind = Literal["timeout", "invalid_output", "budget_exhausted", "provider_error"]
-Outcome = Literal["ok", "invalid_output", "timeout", "provider_error"]
+Outcome = Literal["ok", "invalid_output", "timeout", "provider_error", "cancelled"]
 Scalar = str | int | float | Decimal | bool
 
 MOCK_ENVS = ("local", "test", "ci")
@@ -60,6 +60,15 @@ NO_RETRIES = {"tools": 0, "output": 0}
 
 ERROR_LIMIT = 500
 """Characters of an error message kept on a row."""
+
+
+class _Cancelled(BaseException):
+    """The caller cancelled the call during an attempt; carries that attempt to be logged."""
+
+    def __init__(self, attempt: _Attempt, original: asyncio.CancelledError) -> None:
+        self.attempt = attempt
+        self.original = original
+        super().__init__("cancelled")
 
 
 class GatewayError(Exception):
@@ -340,6 +349,7 @@ async def _attempt(
     output: BaseModel | None = None
     outcome: Outcome = "ok"
     error: str | None = None
+    cancelled: asyncio.CancelledError | None = None
     with capture_run_messages() as messages:
         try:
             agent = Agent(model, output_type=NativeOutput(output_schema), retries=NO_RETRIES)
@@ -354,12 +364,16 @@ async def _attempt(
             outcome, error = "invalid_output", str(exc)
         except Exception as exc:  # every other provider failure becomes a typed failure
             outcome, error = "provider_error", f"{type(exc).__name__}: {exc}"
+        except asyncio.CancelledError as exc:
+            # Stopped from outside (a job killed mid-call, Issue #52): the attempt still gets
+            # its row, then the same cancellation goes on (`run`).
+            outcome, error, cancelled = "cancelled", "the caller cancelled the attempt", exc
     latency_ms = round((time.perf_counter() - clock) * 1000)
     response = next((m for m in reversed(messages) if isinstance(m, ModelResponse)), None)
     input_tokens, output_tokens, reasoning_tokens, text = _usage(response)
     if text is not None:
         text = scrub(text, call.terms).text
-    return _Attempt(
+    attempt = _Attempt(
         outcome,
         output,
         None if error is None else scrub(error, call.terms).text[:ERROR_LIMIT],
@@ -370,6 +384,9 @@ async def _attempt(
         latency_ms,
         started_at,
     )
+    if cancelled is not None:
+        raise _Cancelled(attempt, cancelled)
+    return attempt
 
 
 def cost(spec: config.ModelConfigSpec, input_tokens: int, output_tokens: int) -> Decimal:
@@ -429,8 +446,13 @@ async def run[T: BaseModel](
     output_schema: type[T],
     deadline: datetime | None,
 ) -> Result[T] | Failure:
-    """Make one validated LLM call. `deadline` (timezone-aware) bounds all attempts; `None`
-    leaves only the attempt limit and the per-attempt timeout (Epic 8's playout)."""
+    """Make one validated LLM call. `deadline` (timezone-aware) bounds all attempts: each
+    attempt's timeout is cut to the time left, a retry starts only when its whole per-attempt
+    timeout fits before the deadline, and a passed deadline gives `timeout`. `None` leaves only
+    the attempt limit and the per-attempt timeout (Epic 8's playout).
+
+    Cancelling the call (a job stopped mid-call) logs the attempt in flight with outcome
+    `cancelled` and then raises `CancelledError`."""
     if deadline is not None and deadline.tzinfo is None:
         raise GatewayError("inputs_invalid", "the deadline must be timezone-aware")
     call = await _prepare(purpose, budget_scope, inputs, output_schema)
@@ -447,12 +469,23 @@ async def run[T: BaseModel](
             left = (deadline - datetime.now(UTC)).total_seconds()
             if left <= 0:
                 return Failure("timeout", tuple(ids), "the deadline passed")
+            if number > 1 and left < timeout:
+                # A retry starts only when it can finish inside the deadline (NFR-2); the first
+                # attempt takes the time that is left.
+                return Failure("timeout", tuple(ids), "no time left for another attempt")
             timeout = min(timeout, left)
         if number > 1 and _exhausted(await budget.get(call.scope), call.purpose):
             # Each attempt's cost is charged as it ends, so a call stops once it is spent.
             return Failure("budget_exhausted", tuple(ids), "the budget was spent during the call")
-        last = await _attempt(call, model, output_schema, timeout)
-        ids.append(await _log(call, number, last))
+        try:
+            last = await _attempt(call, model, output_schema, timeout)
+        except _Cancelled as cancelled:
+            try:
+                # Shielded: a second cancel (shutdown) does not roll the row back.
+                await asyncio.shield(_log(call, number, cancelled.attempt))
+            finally:
+                raise cancelled.original
+        ids.append(await asyncio.shield(_log(call, number, last)))
         if last.output is not None:
             return Result(last.output, tuple(ids), call.offset_maps)  # type: ignore[arg-type]
     assert last is not None and last.outcome != "ok"

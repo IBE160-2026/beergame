@@ -185,6 +185,53 @@ async def test_the_deadline_bounds_every_attempt(ai_db, template):
     assert caught.value.code == "inputs_invalid"
 
 
+async def test_a_retry_starts_only_when_its_whole_timeout_fits_before_the_deadline(ai_db, template):
+    """Story 2.6: after a timed-out attempt, the next one starts only if it can finish inside
+    the deadline; otherwise the call ends as `timeout`."""
+    scope = await scope_for(effort_levels=[level(attempt_timeout_s=0.3)])
+    # After the first 0.3 s attempt about 0.15 s are left: less than a whole attempt.
+    tight = datetime.now(UTC) + timedelta(seconds=0.45)
+    with mock.script(mock.TIMEOUT):
+        result = await call(scope, inputs(mock_answer={"order": 2}), deadline=tight)
+    [only] = rows(ai_db)
+    assert result == Failure("timeout", (only["id"],), "no time left for another attempt")
+    assert only["outcome"] == "timeout"
+
+    quick = await scope_for(effort_levels=[level(attempt_timeout_s=0.05)])
+    roomy = datetime.now(UTC) + timedelta(seconds=2)
+    with mock.script(mock.TIMEOUT):
+        result = await call(quick, inputs(mock_answer={"order": 2}), deadline=roomy)
+    assert result.output == Order(order=2)
+    assert [r["outcome"] for r in rows(ai_db)[1:]] == ["timeout", "ok"]
+
+
+async def test_without_a_deadline_the_attempt_limit_and_timeout_still_apply(ai_db, template):
+    scope = await scope_for(effort_levels=[level(attempt_timeout_s=0.02)])
+    with mock.script(*[mock.TIMEOUT] * 6):
+        result = await call(scope, deadline=None)
+    assert isinstance(result, Failure) and result.kind == "timeout"
+    assert [r["outcome"] for r in rows(ai_db)] == ["timeout"] * 6
+
+
+async def test_a_cancelled_call_logs_the_attempt_in_flight(ai_db, template):
+    """Issue #52: a job stopped mid-call still leaves the attempt's row, then the
+    cancellation goes on."""
+    import asyncio
+
+    scope = await scope_for()
+    with mock.script(mock.TIMEOUT):
+        task = asyncio.create_task(call(scope))
+        await asyncio.sleep(0.05)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    [row] = rows(ai_db)
+    assert (row["outcome"], row["attempt"]) == ("cancelled", 1)
+    assert row["error"] == "the caller cancelled the attempt"
+    assert row["caller_ref"] == {"game": str(GAME), "seat": str(SEAT), "week": 3}
+    assert row["latency_ms"] >= 30
+
+
 async def test_production_never_uses_the_mock(ai_db, template, monkeypatch):
     scope = await scope_for()
     monkeypatch.setenv("APP_ENV", "production")
@@ -321,7 +368,8 @@ async def test_caller_and_config_mistakes_raise_before_any_attempt(ai_db, templa
 def test_the_outcomes_match_the_table_check():
     assert set(get_args(gateway.Outcome)) == set(models.OUTCOMES)
     failures = set(get_args(gateway.FailureKind))
-    assert failures - {"budget_exhausted"} == set(models.OUTCOMES) - {"ok"}
+    # `cancelled` (Story 2.6) never reaches a caller: the cancellation goes on.
+    assert failures - {"budget_exhausted"} == set(models.OUTCOMES) - {"ok", "cancelled"}
 
 
 async def test_preview_resolves_a_scope_as_run_does_and_uses_the_newest_file_without_one(

@@ -10,13 +10,21 @@ and places the Order through `games.commands.place_order`:
   failure type, with the ids of the failed attempts. The occupancy stays `llm`, so the model is
   asked again next Week.
 
-The job never retries itself and never stalls the Game: a call the gateway refuses to prepare
-(`GatewayError`, a config mistake) also places the fallback Order, as `provider_error`. A job
-delivered twice, or one that finds the Seat has ordered, the Week moved on or the Game
-finished, ends without error (`order_exists`, `week_not_open`, `game_finished`).
+The call is bounded by the turn's `ai_deadline_at` (Story 2.6). The job never asks the model
+twice and never stalls the Game: a call the gateway refuses to prepare (`GatewayError`, a
+config mistake) also places the fallback Order, as `provider_error`; a database error while
+writing the Order is tried again a few times, and the `worker-ai` rescue loop
+(`players.rescue`) places the fallback Order when the deadline passes without one. A job
+delivered twice, a late answer after the rescue loop placed the fallback, or one that finds the
+Week moved on or the Game finished, ends without error (`order_exists`, `week_not_open`,
+`game_finished`).
 """
 
+import asyncio
+from datetime import UTC, datetime
+
 import structlog
+from sqlalchemy.exc import InterfaceError, OperationalError
 
 from app.ai import gateway
 from app.modules.games import commands as games_commands
@@ -29,8 +37,21 @@ __all__ = ["place_llm_order"]
 
 log = structlog.get_logger(__name__)
 
+RETRY_DELAYS_S = (0.2, 1.0)
+"""Seconds to wait before each further try of writing the Order after a database error."""
+
 ENDED = frozenset({"order_exists", "week_not_open", "game_finished"})
 """Refusals that mean the Order is no longer this job's to place."""
+
+
+def _deadline(turn: games_service.PendingTurn) -> datetime | None:
+    """The turn's deadline on this process's clock. `ai_deadline_at` is on the database clock,
+    which may differ from this one (a container's clock drifts), so the time left on that clock
+    is added to this one's now."""
+    if turn.ai_deadline_at is None:
+        return None
+    left = turn.ai_deadline_at - (turn.read_at or turn.ai_deadline_at)
+    return datetime.now(UTC) + left
 
 
 async def _decide(
@@ -49,7 +70,7 @@ async def _decide(
             scope,
             llm.request_inputs(turn.game_id, turn.seat_id, turn.week, state, reference),
             llm.order_schema(state.min_order, state.max_order),
-            deadline=None,  # the per-Order time budget comes with Story 2.6
+            deadline=_deadline(turn),
         )
     except gateway.GatewayError as exc:
         log.error(
@@ -86,9 +107,7 @@ async def place_llm_order(game_id: str, seat_id: str, week: int) -> None:
         return
     order, decided_by, fallback, ids = await _decide(turn)
     try:
-        await games_commands.place_order(
-            game_id, seat_id, week, order, decided_by, fallback=fallback, llm_call_ids=ids
-        )
+        await _place(turn, order, decided_by, fallback, ids)
     except games_commands.CommandError as exc:
         if exc.code in ENDED:
             log.info("llm_order_ended", game_id=game_id, seat_id=seat_id, week=week, code=exc.code)
@@ -101,18 +120,43 @@ async def place_llm_order(game_id: str, seat_id: str, week: int) -> None:
         await _place_fallback(turn, games_service.Fallback.INVALID_OUTPUT, ids)
 
 
+async def _place(
+    turn: games_service.PendingTurn,
+    order: int,
+    decided_by: games_service.DecidedBy,
+    fallback: games_service.Fallback,
+    ids: tuple[str, ...],
+) -> None:
+    """`place_order`, tried again after a transient database error (Issue #54): the Order is
+    written, or after `len(RETRY_DELAYS_S) + 1` tries the error is raised and the rescue loop
+    places the fallback Order at the deadline. The model is never asked again."""
+    for delay in (*RETRY_DELAYS_S, None):
+        try:
+            await games_commands.place_order(
+                turn.game_id,
+                turn.seat_id,
+                turn.week,
+                order,
+                decided_by,
+                fallback=fallback,
+                llm_call_ids=ids,
+            )
+            return
+        except OperationalError, InterfaceError:  # transient: the connection or server
+            if delay is None:
+                raise
+            log.warning(
+                "llm_order_write_failed", game_id=turn.game_id, seat_id=turn.seat_id, retry_s=delay
+            )
+            await asyncio.sleep(delay)
+
+
 async def _place_fallback(
     turn: games_service.PendingTurn, fallback: games_service.Fallback, ids: tuple[str, ...]
 ) -> None:
     try:
-        await games_commands.place_order(
-            turn.game_id,
-            turn.seat_id,
-            turn.week,
-            turn.rule_based_reference_order,
-            games_service.DecidedBy.RULE_BASED,
-            fallback=fallback,
-            llm_call_ids=ids,
+        await _place(
+            turn, turn.rule_based_reference_order, games_service.DecidedBy.RULE_BASED, fallback, ids
         )
     except games_commands.CommandError as exc:
         if exc.code not in ENDED:

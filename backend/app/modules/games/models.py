@@ -9,6 +9,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     SmallInteger,
     Table,
@@ -107,13 +108,21 @@ seat_turns = Table(
     Column("opened_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("ordered_at", DateTime(timezone=True), nullable=True),
     Column("rule_based_reference_order", Integer, nullable=False),
+    # When an LLM player's Order is due (AD-5, AD-20): set by `games.rules.turn_times`, NULL for
+    # every other turn; the `worker-ai` rescue loop places the fallback Order after it.
+    Column("ai_deadline_at", DateTime(timezone=True), nullable=True),
     CheckConstraint("week >= 1", name="ck_seat_turns_week"),
     CheckConstraint("rule_based_reference_order >= 0", name="ck_seat_turns_reference_order"),
     UniqueConstraint("game_id", "week", "seat_id", name="uq_seat_turns_game_week_seat"),
+    Index(
+        "ix_seat_turns_ai_deadline",
+        "ai_deadline_at",
+        postgresql_where=text("ordered_at IS NULL AND ai_deadline_at IS NOT NULL"),
+    ),
 )
 """One row per Seat per opened Week (AD-20). A trigger refuses DELETE and any UPDATE of the
-Week, the Seat, `opened_at`, an `ordered_at` already set, or the Rule-based reference Order,
-which is computed once when the Week opens (AD-5)."""
+Week, the Seat, `opened_at`, an `ordered_at` already set, an `ai_deadline_at` already set, or
+the Rule-based reference Order, which is computed once when the Week opens (AD-5)."""
 
 seat_weeks = Table(
     "seat_weeks",
@@ -136,6 +145,8 @@ seat_weeks = Table(
     # The LLM call rows behind the Order (FR-67): its attempts, or the failed ones behind a
     # fallback Order.
     Column("llm_call_ids", ARRAY(Uuid), nullable=False, server_default=text("'{}'")),
+    # The turn's AI deadline, copied like its other times (AD-15, AD-20).
+    Column("ai_deadline_at", DateTime(timezone=True), nullable=True),
     CheckConstraint("week >= 1", name="ck_seat_weeks_week"),
     CheckConstraint('"order" >= 0', name="ck_seat_weeks_order"),
     CheckConstraint("rule_based_reference_order >= 0", name="ck_seat_weeks_reference_order"),

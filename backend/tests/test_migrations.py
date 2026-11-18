@@ -31,7 +31,7 @@ JOB_TABLES = {
 }
 """procrastinate's tables, from the SQL it ships (revision 0008, Story 2.5)."""
 HEAD_TABLES = AI_HEAD_TABLES | JOB_TABLES
-HEAD = "0008"
+HEAD = "0009"
 
 
 def reset_schema(url: str) -> None:
@@ -179,6 +179,29 @@ def test_downgrade_to_0007_removes_the_job_schema_and_the_llm_columns(migrations
     assert leftovers == []
     assert "llm_call_ids" not in columns
     assert "provider_error" not in fallback
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_downgrade_to_0008_removes_the_ai_deadlines(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0008")
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        columns = conn.execute(
+            "SELECT table_name FROM information_schema.columns WHERE column_name = 'ai_deadline_at'"
+        ).fetchall()
+        (outcome,) = conn.execute(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+            "WHERE conname = 'ck_llm_call_outcome'"
+        ).fetchone()
+        (trigger,) = conn.execute(
+            "SELECT prosrc FROM pg_proc WHERE proname = 'seat_turns_keep_opening'"
+        ).fetchone()
+    assert columns == []
+    assert "cancelled" not in outcome
+    assert "ai_deadline_at" not in trigger
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 

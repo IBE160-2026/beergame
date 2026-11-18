@@ -202,6 +202,11 @@ class PendingTurn(BaseModel):
     """Stored on the turn when the Week opened; never recomputed."""
     ordered: bool
     """The Seat already has an Order for `week`."""
+    ai_deadline_at: datetime | None = None
+    """When the LLM player's Order is due (`games.rules.turn_times`); None: no deadline."""
+    read_at: datetime | None = None
+    """The database clock when the turn was read (`llm_turn`): the clock `ai_deadline_at` is
+    on, so `ai_deadline_at - read_at` is the time left on any other clock."""
     seat_state: SeatState
 
 
@@ -234,6 +239,8 @@ class DecisionLogRow(BaseModel):
     reason: OccupancyReason
     opened_at: datetime
     ordered_at: datetime
+    ai_deadline_at: datetime | None = None
+    """When an LLM player's Order was due (AD-20); None for every other Order."""
     rule_based_reference_order: int
     llm_call_ids: tuple[str, ...] = ()
     """The LLM call rows behind the Order: every attempt of an LLM Order or of the failed call

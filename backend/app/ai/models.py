@@ -80,8 +80,8 @@ budgets = Table(
     UniqueConstraint("scope_kind", "scope_id", name="uq_ai_budgets_scope"),
 )
 
-OUTCOMES = ("ok", "invalid_output", "timeout", "provider_error")
-"""How one attempt ended (FR-67)."""
+OUTCOMES = ("ok", "invalid_output", "timeout", "provider_error", "cancelled")
+"""How one attempt ended (FR-67); `cancelled`: the caller stopped the call during the attempt."""
 
 llm_calls = Table(
     "llm_call",

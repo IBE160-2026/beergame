@@ -1,6 +1,8 @@
 """What other modules may use from `games`. Writes go through `games.commands` only."""
 
 import uuid
+from dataclasses import dataclass
+from datetime import datetime
 
 from app.ai import budget as ai_budget
 from app.engine import GameSettings
@@ -45,6 +47,7 @@ __all__ = [
     "OccupantKind",
     "OpenGame",
     "OrderPlaced",
+    "OverdueTurn",
     "PendingTurn",
     "Purpose",
     "PurposeNotSupportedError",
@@ -54,12 +57,14 @@ __all__ = [
     "TurnOverview",
     "ViewError",
     "budget_scope",
+    "complete_running_games",
     "decision_log",
     "finished_game_ids",
     "game_summary",
     "get_game",
     "llm_turn",
     "open_turn",
+    "overdue_llm_turns",
     "pending_turn",
     "policy",
     "rules_versions_without_package",
@@ -114,3 +119,26 @@ async def budget_scope(game_id: str) -> ai_budget.BudgetScope | None:
             runtime.model_config_id, effort_level=runtime.effort_level
         )
     return None
+
+
+@dataclass(frozen=True)
+class OverdueTurn:
+    game_id: str
+    seat_id: str
+    week: int
+
+
+async def overdue_llm_turns(now: datetime | None = None) -> list[OverdueTurn]:
+    """Every turn in a running Game's open Week that waits for an Order past its
+    `ai_deadline_at` (AD-5): at or before `now`, by default the database clock, which also
+    stamped `opened_at`. Oldest deadline first."""
+    async with get_sessionmaker()() as session:
+        rows = await repo.overdue_llm_turns(session, now)
+    return [OverdueTurn(str(row["game_id"]), str(row["seat_id"]), row["week"]) for row in rows]
+
+
+async def complete_running_games() -> list[str]:
+    """The id of every running Game whose open Week is complete but not yet advanced: a
+    process stopped between an Order and the advance (NFR-4)."""
+    async with get_sessionmaker()() as session:
+        return [str(game_id) for game_id in await repo.complete_running_games(session)]

@@ -26,7 +26,13 @@ def test_main_runs_a_worker_on_the_named_queues(monkeypatch):
     async def run_worker(queues, *, concurrency):
         seen.update(queues=queues, concurrency=concurrency)
 
+    async def loop(interval_s=5.0, stop=None):
+        await stop.wait()
+
+    from app.modules.players import rescue
+
     monkeypatch.setattr(jobs, "run_worker", run_worker)
+    monkeypatch.setattr(rescue, "run", loop)
     assert worker.main(["--queues", "ai-orders,llm-batch", "--concurrency", "3"]) == 0
     assert seen == {"queues": ["ai-orders", "llm-batch"], "concurrency": 3}
 
@@ -57,3 +63,31 @@ async def test_run_until_idle_returns_when_no_job_waits(games_db):
 def test_conninfo_is_the_database_url_for_libpq():
     url = "postgresql+psycopg://u:p@db:5432/x"
     assert jobs.conninfo(url) == "postgresql://u:p@db:5432/x"
+
+
+async def test_an_ai_orders_worker_runs_the_rescue_loop_until_the_worker_stops(monkeypatch):
+    """Story 2.6: `worker-ai` runs the rescue loop beside the worker; it stops with the
+    worker. A worker without `ai-orders` runs no loop."""
+    import asyncio
+
+    from app.modules.players import rescue
+
+    seen = []
+
+    async def run_worker(queues, *, concurrency):
+        seen.append(("worker", list(queues)))
+        await asyncio.sleep(0)
+
+    async def loop(interval_s=rescue.RESCUE_INTERVAL_S, stop=None):
+        seen.append(("loop", interval_s))
+        await stop.wait()
+        seen.append(("loop stopped", stop.is_set()))
+
+    monkeypatch.setattr(jobs, "run_worker", run_worker)
+    monkeypatch.setattr(rescue, "run", loop)
+    await asyncio.wait_for(worker.serve(["ai-orders"], concurrency=1), timeout=1)
+    # The loop task starts when the worker first yields.
+    assert seen == [("worker", ["ai-orders"]), ("loop", 5.0), ("loop stopped", True)]
+    seen.clear()
+    await worker.serve(["llm-batch"], concurrency=1)
+    assert seen == [("worker", ["llm-batch"])]

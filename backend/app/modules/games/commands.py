@@ -12,10 +12,12 @@ complete moves on one Week per transaction and none is left complete but open (A
 
 import secrets
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
+from datetime import datetime
 
 import structlog
 from pydantic import ValidationError
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import config as ai_config
@@ -351,25 +353,67 @@ async def _ensure_order(game: OpenGame, seat_id: uuid.UUID) -> None:
     await players.ensure_order(game, str(seat_id))
 
 
+async def _ai_order_budget(
+    session: AsyncSession, game: Mapping[str, object], occupants: Iterable[str | None]
+) -> float | None:
+    """The per-Order time budget of the Effort level the Game froze, when an `llm` occupant
+    needs it; None otherwise. The config is immutable once referenced, so it is read here."""
+    if OccupantKind.LLM.value not in occupants:
+        return None
+    runtime = SessionRuntime.model_validate(game["session_runtime"])
+    if runtime.model_config_id is None or runtime.effort_level is None:
+        return None
+    found = await ai_config.get(runtime.model_config_id, session=session)
+    level = None if found is None else found.effort_level(runtime.effort_level)
+    if level is None:  # the gateway refuses the call; the job places the fallback Order
+        log.warning("effort_level_missing", game_id=str(game["id"]))
+        return None
+    return level.order_time_budget_s
+
+
 async def _open_week(
     session: AsyncSession,
-    game_id: uuid.UUID,
+    game: Mapping[str, object],
     settings: GameSettings,
     params: rule_based.RuleBasedParams,
     states: Sequence[WeekState],
     orders: Sequence[Mapping[str, int]],
-    seat_ids: Mapping[str, uuid.UUID],
+    seats: Sequence[Mapping[str, object]],
 ) -> None:
     """Store the newest of `states` and one turn per Seat with its Rule-based reference Order,
-    computed here once from that Seat's own view (AD-5, AD-20, FR-67). Then every Seat, in
-    chain order, goes to `players.ensure_order`, which places the Orders of its non-student
-    occupants in this transaction. The Game must already be `running`.
+    computed here once from that Seat's own view, and its due times from `rules.turn_times`
+    (AD-5, AD-20, FR-67). Then every Seat, in chain order, goes to `players.ensure_order`,
+    which places the Orders of its non-student occupants in this transaction. The Game must
+    already be `running`.
 
+    `seats` are the Game's Seats with their latest occupant (`repo.seats_with_occupant`; a free
+    Seat has just been given a Rule-based player), which is the one in force in the new Week.
     `states` and `orders` are the Game's history as stored once this Week is written, so the
     order source gets them with the open Game instead of reading them again for every Seat."""
+    game_id = game["id"]
     state = states[-1]
     stored = state.model_dump(mode="json")
     await repo.insert_week(session, game_id, state.week, stored)
+    week = rules.TurnGame(
+        guided_week=rules.guided_week(_policy(game["purpose"]), settings, state.week)
+    )
+    occupant = {
+        seat["role"]: OccupantKind(seat["occupant_kind"] or OccupantKind.RULE_BASED)
+        for seat in seats
+    }
+    budget = None if week.guided_week else await _ai_order_budget(session, game, occupant.values())
+    inputs = rules.TurnInputs(ai_order_budget_s=budget)
+    # The transaction's clock is read only when a deadline is computed from it; otherwise the
+    # turns take it from the database as they are written (the same `now()`).
+    opened_at = None if budget is None else await repo.now(session)
+
+    def deadline(role: Role) -> datetime | None:
+        if opened_at is None:
+            return None
+        seat = rules.TurnSeat(occupant[role.value], opened_at)
+        return rules.turn_times(week, seat, inputs).ai_deadline_at
+
+    seat_ids = {seat["role"]: seat["id"] for seat in seats}
     await repo.insert_turns(
         session,
         [
@@ -378,6 +422,8 @@ async def _open_week(
                 "game_id": game_id,
                 "seat_id": seat_ids[role.value],
                 "week": state.week,
+                "opened_at": func.now() if opened_at is None else opened_at,
+                "ai_deadline_at": deadline(role),
                 "rule_based_reference_order": rule_based.order(
                     settings, seat_view(settings, states, orders, role), params
                 ),
@@ -423,9 +469,8 @@ async def start(game_id: str) -> int:
             if seat["occupant_kind"] is None:
                 await _append_initial(session, seat["id"], OccupantKind.RULE_BASED, None)
         state = initial_state(settings, game["rules_version"])
-        seat_ids = {seat["role"]: seat["id"] for seat in seat_rows}
         await repo.set_lifecycle(session, game_uuid, Lifecycle.RUNNING.value)
-        await _open_week(session, game_uuid, settings, params, [state], [], seat_ids)
+        await _open_week(session, game, settings, params, [state], [], seat_rows)
         await _commit_change(session, game_uuid)
     log.info("game_started", game_id=game_id)
     await _settle(game_id)
@@ -530,9 +575,9 @@ async def _step(
     if following.finished:
         await finish(session, game_uuid, following)
         return Lifecycle.FINISHED, None
-    seat_ids = {r["role"]: r["id"] for r in await repo.seats_with_occupant(session, game_uuid)}
+    seat_rows = await repo.seats_with_occupant(session, game_uuid)
     await _open_week(
-        session, game_uuid, settings, params, [*states, following], [*orders, week_orders], seat_ids
+        session, game, settings, params, [*states, following], [*orders, week_orders], seat_rows
     )
     return Lifecycle.RUNNING, following.week
 
@@ -589,6 +634,7 @@ async def _place(
     if turn is None or occupancy is None:  # `start` and every advance write both
         raise CommandError("week_not_open", f"the Seat has no turn in Week {week}", 409)
     _check_llm(decider, marked, call_ids, value, occupancy, turn)
+    llm_occupant = occupancy["occupant_kind"] == OccupantKind.LLM
     ordered_at = await repo.set_ordered_at(session, turn["id"])
     seat_week_id = uuid.uuid7()
     state_seen = build_seat_state(settings, states, orders, row["role"])
@@ -607,6 +653,8 @@ async def _place(
             "reason": occupancy["reason"],
             "opened_at": turn["opened_at"],
             "ordered_at": ordered_at,
+            # Only an LLM player's Order was due at the AI deadline.
+            "ai_deadline_at": turn["ai_deadline_at"] if llm_occupant else None,
             "rule_based_reference_order": turn["rule_based_reference_order"],
             "llm_call_ids": list(call_ids),
         },

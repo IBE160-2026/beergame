@@ -1,8 +1,10 @@
 """Worker entry point (`python -m app.worker --queues ai-orders`, AD-9, AD-24).
 
 `worker-ai` runs `--queues ai-orders` and `worker-batch` `--queues llm-batch`, both from the
-backend image. A worker needs no provider key: with none set, the AI mock answers in `local`,
-`test` and `ci` (AD-17). Queues are given comma-separated or with `--queues` repeated.
+backend image. A worker with `ai-orders` also runs the rescue loop every 5 seconds (Story 2.6),
+which places the fallback Order of an LLM player past its deadline. A worker needs no provider
+key: with none set, the AI mock answers in `local`, `test` and `ci` (AD-17). Queues are given
+comma-separated or with `--queues` repeated.
 """
 
 import argparse
@@ -37,6 +39,23 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+async def serve(names: Sequence[str], *, concurrency: int) -> None:
+    """Run the worker on `names`; with `ai-orders` among them, also the rescue loop
+    (`players.rescue`, AD-5), which stops when the worker stops."""
+    if jobs.AI_ORDERS not in names:
+        await jobs.run_worker(names, concurrency=concurrency)
+        return
+    from app.modules.players import rescue
+
+    stop = asyncio.Event()
+    loop = asyncio.create_task(rescue.run(stop=stop))
+    try:
+        await jobs.run_worker(names, concurrency=concurrency)
+    finally:
+        stop.set()
+        await loop
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -51,7 +70,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     configure_logging(get_settings().log_level)
     # psycopg's async mode cannot run on Windows' default Proactor loop.
     factory = asyncio.SelectorEventLoop if sys.platform == "win32" else asyncio.new_event_loop
-    asyncio.run(jobs.run_worker(names, concurrency=args.concurrency), loop_factory=factory)
+    asyncio.run(serve(names, concurrency=args.concurrency), loop_factory=factory)
     return 0
 
 
