@@ -25,7 +25,7 @@ export function UsersPage() {
             <h2 id="invite-title" className="text-headline text-ink">
               {copy.invite.title}
             </h2>
-            <p className="mt-2 mb-5 max-w-xl text-body-phone text-ink-secondary lg:text-body">{copy.invite.lead}</p>
+            <p className="mt-2 mb-5 max-w-md text-body-phone text-ink-secondary lg:text-body">{copy.invite.lead}</p>
             <InviteForm />
           </section>
         </PageShell>
