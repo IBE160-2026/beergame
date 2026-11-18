@@ -137,7 +137,7 @@ export function RosterUpload({ classId }: { classId: string }) {
 
   if (pasting) {
     return (
-      <div className="flex flex-col gap-field-gap">
+      <div className="flex max-w-md flex-col gap-field-gap">
         <label htmlFor="roster-paste" className="text-label text-ink">
           {copy.pasteLabel}
         </label>
@@ -274,8 +274,26 @@ export function RosterUpload({ classId }: { classId: string }) {
 }
 
 /** «Forhåndsvisning av fila»: the first rows as the api staged them, the chosen column marked in
- * its header text and tinted. Wide files scroll inside the table's own region, never the page. */
+ * its header text and tinted. Wide files scroll inside the table's own region, never the page, with
+ * «Rad» kept in view (DESIGN.md: sticky labels), and the region brings the chosen column into view,
+ * so at 320 px the column the selector names is the one on screen. */
 function Preview({ staged, chosen }: { staged: Staged; chosen: number | null }) {
+  const region = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const box = region.current;
+    if (!box || chosen === null) return;
+    const cell = box.querySelector<HTMLElement>(`th[data-column="${chosen}"]`);
+    if (!cell) return;
+    const label = box.querySelector<HTMLElement>("th[data-row-label]");
+    const covered = label ? label.getBoundingClientRect().width : 0;
+    const view = box.getBoundingClientRect();
+    const rect = cell.getBoundingClientRect();
+    // A column out of view is brought in with its left edge next to «Rad»; the columns after it
+    // run off the right edge, which shows that the region scrolls.
+    if (rect.left < view.left + covered || rect.right > view.right) {
+      box.scrollLeft += rect.left - view.left - covered;
+    }
+  }, [chosen, staged]);
   return (
     <section aria-labelledby="roster-preview-title" className="min-w-0 max-w-full shrink grow basis-sm">
       <h3 id="roster-preview-title" className="text-step-title text-ink">
@@ -285,6 +303,7 @@ function Preview({ staged, chosen }: { staged: Staged; chosen: number | null }) 
         {copy.previewNote(staged.preview.length, staged.row_count)}
       </p>
       <div
+        ref={region}
         role="region"
         aria-labelledby="roster-preview-title"
         tabIndex={0}
@@ -293,13 +312,14 @@ function Preview({ staged, chosen }: { staged: Staged; chosen: number | null }) 
         <table className="w-full border-collapse text-left text-body-phone text-ink lg:text-body">
           <thead>
             <tr className="border-b border-axis">
-              <th scope="col" className="py-2 pr-4 text-label text-ink">
+              <th scope="col" data-row-label className="sticky left-0 bg-paper py-2 pr-4 text-label text-ink">
                 {copy.previewRow}
               </th>
               {staged.columns.map((c) => (
                 <th
                   key={c.index}
                   scope="col"
+                  data-column={c.index}
                   className={cn("whitespace-nowrap px-3 py-2 text-label text-ink", c.index === chosen && "bg-future-tint")}
                 >
                   <span className="text-ink-secondary">{c.letter}</span> {c.header}
@@ -311,7 +331,7 @@ function Preview({ staged, chosen }: { staged: Staged; chosen: number | null }) 
           <tbody>
             {staged.preview.map((row) => (
               <tr key={row.row_number} className="border-b border-hairline">
-                <td className="py-2 pr-4 tabular-nums text-ink-secondary">{row.row_number}</td>
+                <td className="sticky left-0 bg-paper py-2 pr-4 tabular-nums text-ink-secondary">{row.row_number}</td>
                 {staged.columns.map((c) => (
                   <td
                     key={c.index}
