@@ -555,3 +555,22 @@ Bygge Story 3.1 på `epic-3`, den første storyen med en skjerm, og kontrollere 
 ### Åpne punkter
 - Issue #67: beslutninger og utsatte funn.
 - Issue #66: visuelle avvik til vurdering.
+
+## Story 3.2: Logge inn og ut med e-post og passord (2026-11-18)
+
+### Oppgave
+Bygge Story 3.2 på `epic-3` og kontrollere den visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, med testbrukere per rolle til senere tester. Deretter visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-2-log-in-and-log-out-email-password.md`. Commit `1d6ad4a`. Migrering 0015.
+- Backend: 1599 grønne på 67 s. Frontend: typecheck, Vitest (197), tekstsjekk og bygg grønne. Playwright: 15 grønne.
+- Gjennomgang: 41 funn, 13 rettet (blant annet et kappløp som slapp parallelle gjetninger forbi grensen), 2 utsatt til Story 3.14.
+- Visuell kontroll: 10 skjermbilder i `.docs/implementation-artifacts/screenshots/3.2/`, alle stemmer, ingen rettinger.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #69: beslutninger om økt, grenser, tekst og testinnlogging.
+- Issue #68: produktnavnet flytter seg mellom sidene.
