@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { AppHeader } from "@/components/app-header";
 import { nb } from "@/copy/nb";
 import { LoginForm } from "@/modules/identity/login-form";
 
@@ -12,9 +13,7 @@ export const metadata: Metadata = {
 export default function LoggInnPage() {
   return (
     <div className="min-h-dvh">
-      <header className="px-gutter-phone pt-6 lg:px-margin-laptop">
-        <p className="text-label text-ink">{nb.product.name}</p>
-      </header>
+      <AppHeader />
       <main className="px-gutter-phone pt-10 pb-16 lg:px-margin-laptop lg:pt-16">
         <div className="max-w-sm">
           <h1 className="text-title-phone text-ink lg:text-title-page">{copy.title}</h1>

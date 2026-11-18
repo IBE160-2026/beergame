@@ -1,9 +1,11 @@
 """The local demo accounts (AD-17, Story 3.2).
 
-With `APP_ENV=local` and an empty `users` table, the api adds one demo Admin and one demo
-Lecturer at start. Nothing is seeded in any other environment. The sign-in details are in the
-README; Playwright tests and visual checks log in with them (`frontend/e2e/support/auth.ts`).
-They use the RFC 2606 domain `example.com`, which never receives mail.
+With `APP_ENV=local`, the api adds at start each demo User whose e-mail is not taken yet: an
+Admin, a Lecturer, a User with both roles, and a User with no account role (who lands on Hjem,
+Story 3.3). Existing Users are never changed. Nothing is seeded in any other environment. The
+sign-in details are in the README; Playwright tests and visual checks log in with them
+(`frontend/e2e/support/auth.ts`). They use the RFC 2606 domain `example.com`, which never
+receives mail.
 """
 
 from dataclasses import dataclass
@@ -32,6 +34,12 @@ class DemoUser:
 DEMO_USERS = (
     DemoUser("admin@example.com", "Demo Admin", (AccountRole.admin,)),
     DemoUser("faglaerer@example.com", "Demo Faglærer", (AccountRole.lecturer,)),
+    DemoUser(
+        "admin-faglaerer@example.com",
+        "Demo Admin og Faglærer",
+        (AccountRole.admin, AccountRole.lecturer),
+    ),
+    DemoUser("student@example.com", "Demo Student", ()),
 )
 
 SEED_LOCK = 0x3_02_1D
@@ -39,14 +47,15 @@ SEED_LOCK = 0x3_02_1D
 
 
 async def ensure_demo_users() -> int:
-    """Add the demo Users when `APP_ENV=local` and no User exists; returns how many were added."""
+    """Add the missing demo Users when `APP_ENV=local`; returns how many were added."""
     if get_settings().app_env != "local":
         return 0
+    added = 0
     async with get_sessionmaker().begin() as s:
         await s.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": SEED_LOCK})
-        if await repo.any_user(s):
-            return 0
         for demo in DEMO_USERS:
+            if await repo.user_by_email(s, demo.email) is not None:
+                continue
             await service.create_user(
                 email=demo.email,
                 name=demo.name,
@@ -54,8 +63,10 @@ async def ensure_demo_users() -> int:
                 roles=demo.roles,
                 session=s,
             )
-    log.info("demo_users_seeded")
-    return len(DEMO_USERS)
+            added += 1
+    if added:
+        log.info("demo_users_seeded")
+    return added
 
 
 async def ensure_demo_users_logged() -> None:

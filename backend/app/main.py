@@ -4,13 +4,13 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import APIRouter, FastAPI, Request
+from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 
 from app.modules.identity import routes as identity_routes
 from app.modules.identity import seed as identity_seed
-from app.modules.identity.service import NotAuthenticated
-from app.platform import db
+from app.modules.identity import service as identity_service
+from app.platform import authz, db
 from app.platform.auth import CsrfMiddleware
 from app.platform.config import get_settings
 from app.platform.errors import error_response
@@ -21,7 +21,7 @@ log = structlog.get_logger("app.main")
 router = APIRouter(prefix="/api")
 
 
-@router.get("/health")
+@router.get("/health", dependencies=[Depends(authz.public)])
 async def health():
     try:
         await db.ping()
@@ -43,8 +43,13 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await db.dispose()
 
 
-async def _not_authenticated(_: Request, __: NotAuthenticated):
+async def _not_authenticated(_: Request, __: authz.NotAuthenticated):
     return error_response(401, "not_authenticated", "No valid session.")
+
+
+async def _forbidden(_: Request, __: authz.Forbidden):
+    # The same answer for every refusal, so it never reveals whether an item exists (FR-5).
+    return error_response(403, "forbidden", "Your roles do not allow this.")
 
 
 async def _invalid_request(_: Request, exc: RequestValidationError):
@@ -67,7 +72,9 @@ def create_app() -> FastAPI:
     )
     app.include_router(router)
     app.include_router(identity_routes.router)
-    app.add_exception_handler(NotAuthenticated, _not_authenticated)
+    authz.register_principal_loader(identity_service.load_user)
+    app.add_exception_handler(authz.NotAuthenticated, _not_authenticated)
+    app.add_exception_handler(authz.Forbidden, _forbidden)
     app.add_exception_handler(RequestValidationError, _invalid_request)
     app.add_middleware(CsrfMiddleware)
     app.add_middleware(RequestLogMiddleware)  # outermost: refused requests are logged too

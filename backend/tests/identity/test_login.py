@@ -234,6 +234,22 @@ async def test_parallel_wrong_guesses_cannot_pass_the_account_limit(admin, froze
     assert codes.count("rate_limited") == 6
 
 
+async def test_parallel_right_logins_to_one_account_from_one_address_all_succeed(admin, frozen):
+    """Story 3.3 found a deadlock: the success transaction took the account row before the IP
+    row, against the order of the count. Many tabs or tests log in as one User at once. (More
+    parallel attempts than the account limit are refused by design: each is counted first.)"""
+    limit = get_settings().login_rate_limit_per_account
+    outcomes = await asyncio.gather(
+        *(
+            service.authenticate(
+                "kari.admin@example.com", PASSWORD, ip="10.0.0.1", now=frozen["now"]
+            )
+            for _ in range(limit)
+        )
+    )
+    assert [type(outcome).__name__ for outcome in outcomes] == ["LoginOk"] * limit
+
+
 async def test_a_deactivated_users_right_password_does_not_reset_the_count(admin, frozen):
     limit = get_settings().login_rate_limit_per_account
     async with get_sessionmaker().begin() as s:

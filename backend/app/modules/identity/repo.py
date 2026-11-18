@@ -25,10 +25,6 @@ async def roles_of(session: AsyncSession, user_id: uuid.UUID) -> list[str]:
     return list(result.scalars())
 
 
-async def any_user(session: AsyncSession) -> bool:
-    return (await session.execute(select(users.c.id).limit(1))).first() is not None
-
-
 async def insert_user(
     session: AsyncSession,
     *,

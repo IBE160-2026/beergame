@@ -1,5 +1,5 @@
-import { SignedIn } from "@/modules/identity/signed-in";
+import { GoHome } from "@/modules/identity/go-home";
 
-export default function Home() {
-  return <SignedIn />;
+export default function Root() {
+  return <GoHome />;
 }

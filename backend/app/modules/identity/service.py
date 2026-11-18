@@ -2,8 +2,8 @@
 
 `authenticate` checks the rate limits, the password and the account state and returns one
 outcome; it never says whether an account exists, except that a deactivated account is named
-once its right password is given (FR-3). `current_user` is the FastAPI dependency that loads the
-User and their roles from the database on every request.
+once its right password is given (FR-3). `load_user` is the loader `platform/authz` calls on every
+request (registered in `create_app()`), so a role change or a deactivation takes effect at once.
 """
 
 import asyncio
@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 import structlog
-from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity import repo
@@ -25,10 +24,6 @@ log = structlog.get_logger(__name__)
 
 LOGIN_IP = "login_ip"
 LOGIN_ACCOUNT = "login_account"
-
-
-class NotAuthenticated(Exception):
-    """No valid session: no cookie, a bad token, or a User who is gone or deactivated."""
 
 
 @dataclass(frozen=True)
@@ -82,9 +77,11 @@ async def authenticate(
     ok = row is not None and matches
 
     if ok and row["is_active"]:
+        # The same lock order as the count above (IP, then account): parallel logins to one
+        # account from one address would otherwise deadlock.
         async with get_sessionmaker().begin() as s:
-            await ratelimit.reset(s, LOGIN_ACCOUNT, account_key)
             await ratelimit.give_back(s, LOGIN_IP, ip_key, window=window, now=now)
+            await ratelimit.reset(s, LOGIN_ACCOUNT, account_key)
 
     if not ok:
         log.info("login_refused", error_code="invalid_credentials")
@@ -103,16 +100,6 @@ async def load_user(user_id: uuid.UUID) -> UserOut | None:
         if row is None or not row["is_active"]:
             return None
         return _user_out(row, await repo.roles_of(s, user_id))
-
-
-async def current_user(request: Request) -> UserOut:
-    """FastAPI dependency: the User of the session cookie, read from the database on every
-    request, so a deactivation or a role change takes effect at the next request."""
-    user_id = auth.read_token(request.cookies.get(auth.COOKIE_NAME))
-    user = await load_user(user_id) if user_id else None
-    if user is None:
-        raise NotAuthenticated
-    return user
 
 
 async def create_user(

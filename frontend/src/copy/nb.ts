@@ -142,10 +142,35 @@ export const nb = {
       failed: "Innloggingen gikk ikke. Prøv igjen.",
     },
     session: {
-      // [ASSUMPTION] Story 3.2: the signed-in placeholder until Story 3.3 builds the homes.
-      signedIn: "Du er logget inn.",
+      // [ASSUMPTION] Story 3.2.
       logout: "Logg ut",
       logoutFailed: "Utloggingen gikk ikke. Prøv igjen.",
     },
+  },
+
+  /** The three homes (Story 3.3, UX-DR77). Their h1 is the page name. */
+  homes: {
+    adminArea: "Admin-område",
+    lecturerHome: "Lærerhjem",
+    home: "Hjem",
+  },
+
+  /** Links between pages (Story 3.3). Each names where it goes. */
+  navigation: {
+    // «Til Hjem» and «Til Lærerhjem» are EXPERIENCE.md's own (State Patterns → permission denied).
+    toHome: "Til Hjem",
+    toLecturerHome: "Til Lærerhjem",
+    // [ASSUMPTION] the Admin's home, and the Lærerhjem → Admin-område link (FR-2).
+    toAdminArea: "Til Admin-område",
+    // [ASSUMPTION] the not-found page's link for a visitor who is not logged in.
+    toLogin: "Til innlogging",
+    // [ASSUMPTION] the accessible name of the staff breadcrumb.
+    breadcrumb: "Du er her",
+  },
+
+  /** EXPERIENCE.md → State Patterns (UX-DR59). */
+  access: {
+    denied: "Du har ikke tilgang til denne siden.",
+    notFound: "Fant ikke siden.",
   },
 } as const;

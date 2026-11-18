@@ -4,7 +4,8 @@
   over 72 bytes. The cost is `BCRYPT_ROUNDS`.
 - The session is an HS256 JWT in an `httpOnly; Secure; SameSite=Lax` cookie. Its claims are
   `user_id`, `iat` and `exp`: no name, e-mail or role. Who the User is and which roles they hold
-  is loaded from the database on every request (`identity.service.current_user`).
+  is loaded from the database on every request (`authz.current_principal`, which calls the
+  loader `identity` registers).
 - Every mutating `/api` request must carry `X-Requested-With: olspillet`; only `/api/webhooks/*`
   is exempt (it verifies the sender's signature instead).
 

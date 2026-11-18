@@ -10,19 +10,24 @@ import { nb } from "../../src/copy/nb";
 export const DEMO_PASSWORD = "olspillet-demo";
 
 export const DEMO_USERS = {
-  admin: { email: "admin@example.com", name: "Demo Admin" },
-  lecturer: { email: "faglaerer@example.com", name: "Demo Faglærer" },
+  admin: { email: "admin@example.com", name: "Demo Admin", home: "/admin" },
+  lecturer: { email: "faglaerer@example.com", name: "Demo Faglærer", home: "/laererhjem" },
+  // Story 3.3: both staff roles (lands on the Lærerhjem), and a User with no account role (Hjem).
+  adminLecturer: { email: "admin-faglaerer@example.com", name: "Demo Admin og Faglærer", home: "/laererhjem" },
+  student: { email: "student@example.com", name: "Demo Student", home: "/hjem" },
 } as const;
 
 export type DemoRole = keyof typeof DEMO_USERS;
 
-/** Log in as the demo User of `role` through the «Logg inn» page; waits until the User is in. */
+/** Log in as the demo User of `role` through the «Logg inn» page; waits until the User is on
+ * their home. */
 export async function loginAs(page: Page, role: DemoRole) {
   const user = DEMO_USERS[role];
   await page.goto("/logg-inn");
   await page.getByLabel(nb.auth.login.email).fill(user.email);
   await page.getByLabel(nb.auth.login.password).fill(DEMO_PASSWORD);
   await page.getByRole("button", { name: nb.auth.login.submit }).click();
+  await expect(page).toHaveURL(new RegExp(`${user.home}$`));
   await expect(page.getByRole("button", { name: nb.auth.session.logout })).toBeVisible();
   return user;
 }

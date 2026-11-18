@@ -62,13 +62,13 @@ for (const vp of VIEWPORTS) {
       expect(await sessionCookie(page)).toBeUndefined();
       await expectAccessible(page);
 
-      // Right password: the session cookie is set and the User is in.
+      // Right password: the session cookie is set and the User is on their own home.
       await page.keyboard.press("Tab");
       await page.keyboard.press("ControlOrMeta+A");
       await page.keyboard.type(DEMO_PASSWORD);
       await page.keyboard.press("Enter");
-      await expect(page).toHaveURL(/\/$/);
-      await expect(page.getByRole("heading", { level: 1, name: user.name })).toBeVisible();
+      await expect(page).toHaveURL(new RegExp(`${user.home}$`));
+      await expect(page.getByRole("banner").getByText(user.name)).toBeVisible();
       const cookie = await sessionCookie(page);
       expect(cookie).toMatchObject({ httpOnly: true, secure: true, sameSite: "Lax", path: "/" });
       await expectAccessible(page);
@@ -81,10 +81,11 @@ for (const vp of VIEWPORTS) {
       expect(await sessionCookie(page)).toBeUndefined();
       await expectAccessible(page);
 
-      // Back in the same tab, without a reload: nothing of the old session is left in the cache.
+      // Back in the same tab, without a reload: nothing of the old session is left in the cache,
+      // and the home sends the visitor back to «Logg inn».
       await page.goBack();
-      await expect(page).toHaveURL(/\/$/);
-      await expect(page.getByRole("heading", { level: 1, name: user.name })).toHaveCount(0);
+      await expect(page).toHaveURL(/\/logg-inn$/);
+      await expect(page.getByText(user.name)).toHaveCount(0);
       await expect(page.getByRole("button", { name: nb.auth.session.logout })).toHaveCount(0);
     });
 
@@ -124,5 +125,6 @@ test("the API refuses a mutation without the CSRF header", async ({ request }) =
 test("the API login helper gives the browser a session", async ({ page }) => {
   const user = await loginByApi(page, "lecturer");
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1, name: user.name })).toBeVisible();
+  await expect(page).toHaveURL(/\/laererhjem$/);
+  await expect(page.getByRole("banner").getByText(user.name)).toBeVisible();
 });

@@ -2,6 +2,8 @@ import type { MouseEvent } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+import { AppHeader } from "./app-header";
+import { Breadcrumb } from "./breadcrumb";
 import { Button, guardUnavailable } from "./button";
 import { TextField } from "./text-field";
 
@@ -47,6 +49,42 @@ describe("Button", () => {
 
   it("gives the secondary button an ink-muted idle border", () => {
     expect(renderToStaticMarkup(<Button>Avbryt</Button>)).toContain("border-ink-muted");
+  });
+});
+
+describe("AppHeader", () => {
+  it("puts the product name in a box as tall as a button, with or without the session", () => {
+    for (const html of [
+      renderToStaticMarkup(<AppHeader />),
+      renderToStaticMarkup(<AppHeader>Logg ut</AppHeader>),
+    ]) {
+      expect(html).toMatch(/<p class="[^"]*min-h-control-height-phone[^"]*">ØL-spillet<\/p>/);
+      expect(html).not.toContain("<nav");
+    }
+  });
+});
+
+describe("Breadcrumb", () => {
+  it("shows nothing for the home itself", () => {
+    expect(renderToStaticMarkup(<Breadcrumb items={[{ label: "Lærerhjem", href: "/laererhjem" }]} />)).toBe("");
+  });
+
+  it("links every crumb but the current page, which is marked aria-current", () => {
+    const html = renderToStaticMarkup(
+      <Breadcrumb
+        items={[
+          { label: "Lærerhjem", href: "/laererhjem" },
+          { label: "IBE160", href: "/klasser/1" },
+          { label: "Oversikt", href: "/klasser/1/oversikt" },
+        ]}
+      />,
+    );
+    expect(html).toContain('<nav aria-label="Du er her">');
+    expect(html).toContain('href="/laererhjem"');
+    expect(html).toContain('href="/klasser/1"');
+    expect(html).not.toContain('href="/klasser/1/oversikt"');
+    expect(html).toMatch(/<span aria-current="page"[^>]*>Oversikt<\/span>/);
+    expect(html.indexOf("Lærerhjem")).toBeLessThan(html.indexOf("IBE160"));
   });
 });
 

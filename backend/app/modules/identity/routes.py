@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.modules.identity import service
 from app.modules.identity.schemas import LoginIn, SessionOut, UserOut
-from app.platform import auth, ratelimit
+from app.platform import auth, authz, ratelimit
 from app.platform.errors import documented, error_response
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -24,6 +24,7 @@ REFUSALS = {
     response_model=SessionOut,
     responses=documented(401, 403, 422, 429),
     operation_id="login",
+    dependencies=[Depends(authz.public)],
 )
 async def login(body: LoginIn, request: Request) -> Response:
     outcome = await service.authenticate(
@@ -38,7 +39,13 @@ async def login(body: LoginIn, request: Request) -> Response:
     return response
 
 
-@router.post("/logout", status_code=204, responses=documented(403), operation_id="logout")
+@router.post(
+    "/logout",
+    status_code=204,
+    responses=documented(403),
+    operation_id="logout",
+    dependencies=[Depends(authz.public)],  # needs no session: it only clears the cookie
+)
 async def logout() -> Response:
     response = Response(status_code=204)
     auth.clear_session_cookie(response)
@@ -46,5 +53,7 @@ async def logout() -> Response:
 
 
 @router.get("/me", response_model=SessionOut, responses=documented(401), operation_id="me")
-async def me(user: Annotated[UserOut, Depends(service.current_user)]) -> SessionOut:
+async def me(
+    user: Annotated[UserOut, Depends(authz.require("session.read"))],
+) -> SessionOut:
     return SessionOut(user=user)

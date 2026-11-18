@@ -82,16 +82,20 @@ Every LLM attempt first reserves its worst-case cost (request size and the Effor
 
 ### Logging in locally (Story 3.2)
 
-With `APP_ENV=local` (the compose default) and an empty `users` table, the backend seeds two demo accounts at start. Nothing is seeded in any other environment.
+With `APP_ENV=local` (the compose default), the backend seeds four demo accounts at start, each only if its e-mail is not taken yet. Nothing is seeded in any other environment.
 
-| Role | E-post | Passord |
-|------|--------|---------|
-| Admin | `admin@example.com` | `olspillet-demo` |
-| Faglærer (Lecturer) | `faglaerer@example.com` | `olspillet-demo` |
+| Role | E-post | Passord | Lands on |
+|------|--------|---------|----------|
+| Admin | `admin@example.com` | `olspillet-demo` | Admin-område (`/admin`) |
+| Faglærer (Lecturer) | `faglaerer@example.com` | `olspillet-demo` | Lærerhjem (`/laererhjem`) |
+| Admin and Faglærer | `admin-faglaerer@example.com` | `olspillet-demo` | Lærerhjem, with a link to the Admin-område |
+| No account role (Student) | `student@example.com` | `olspillet-demo` | Hjem (`/hjem`) |
 
-Log in at <http://127.0.0.1:8080/logg-inn>. A database that already holds Users is not seeded again. To start over, empty the tables with `docker compose exec postgres psql -U olspillet -c "TRUNCATE users CASCADE"`, then restart `backend`.
+Log in at <http://127.0.0.1:8080/logg-inn>. An existing User is never changed by the seed, and a deleted demo account comes back at the next start. To start over, empty the tables with `docker compose exec postgres psql -U olspillet -c "TRUNCATE users CASCADE"`, then restart `backend`.
 
-Playwright tests and visual checks use the same test login: `frontend/e2e/support/auth.ts` exports `DEMO_USERS`, `DEMO_PASSWORD`, `loginAs(page, role)` (through the «Logg inn» page) and `loginByApi(page, role)` (through the API only, which is faster). `role` is `admin` or `lecturer`.
+Playwright tests and visual checks use the same test login: `frontend/e2e/support/auth.ts` exports `DEMO_USERS`, `DEMO_PASSWORD`, `loginAs(page, role)` (through the «Logg inn» page) and `loginByApi(page, role)` (through the API only, which is faster). `role` is `admin`, `lecturer`, `adminLecturer` or `student`.
+
+Authorization (Story 3.3): every API route declares a policy from `backend/app/platform/authz.py`, `Depends(authz.require("<action>"))` or `Depends(authz.public)`. `tests/test_authz_rules.py` fails on a route without one, on a public route that is not on its short list, and on a comparison with an account role inside `backend/app/modules/` (ask `authz.can(user, action)` instead). A refusal is 403 `forbidden`, the same whether or not the item exists.
 
 Session and login:
 
