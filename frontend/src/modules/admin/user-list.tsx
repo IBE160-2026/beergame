@@ -115,14 +115,17 @@ export function UserList({ selfId }: { selfId: string }) {
               </thead>
               <tbody className="@max-[60em]:block @max-[60em]:border-t @max-[60em]:border-axis">
                 {items.map((user) => (
-                  <tr key={user.id} className="border-b border-hairline align-top @max-[60em]:block @max-[60em]:py-3">
+                  <tr key={user.id} className="border-b border-hairline align-baseline @max-[60em]:block @max-[60em]:py-3">
                     <Cell label={copy.columns.name}>
                       <span className="font-semibold">{user.name}</span>
                     </Cell>
                     <Cell label={copy.columns.email}>
                       <span className="[overflow-wrap:anywhere]">{user.email}</span>
                     </Cell>
-                    <Cell label={copy.columns.roles}>{rolesText(user)}</Cell>
+                    <Cell label={copy.columns.roles}>
+                      {/* «Faglærer, Admin» stays on one line in the table; the e-mail column gives way. */}
+                      <span className="@min-[60em]:whitespace-nowrap">{rolesText(user)}</span>
+                    </Cell>
                     <Cell label={copy.columns.status}>
                       <span className={user.is_active ? undefined : "text-ink-secondary"}>
                         {user.is_active ? copy.active : copy.deactivated}
