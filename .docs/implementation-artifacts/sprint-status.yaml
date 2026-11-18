@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-18-2026 19:49
+last_updated: 11-18-2026 20:24
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -77,7 +77,7 @@ development_status:
   3-8-create-an-account-from-an-invitation: done
   3-9-find-users-and-grant-or-revoke-roles: done
   3-10-deactivate-and-reactivate-users-and-resend-invitations: done
-  3-11-create-institutions: in-progress
+  3-11-create-institutions: done
   3-12-read-the-audit-log: backlog
   3-13-read-the-landing-page-and-ask-for-lecturer-access: backlog
   3-14-prepare-a-strict-production-configuration-in-the-repo: backlog
