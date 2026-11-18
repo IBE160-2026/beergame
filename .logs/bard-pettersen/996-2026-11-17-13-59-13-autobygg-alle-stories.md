@@ -649,3 +649,22 @@ Bygge Story 3.6 på `epic-3` og kontrollere den visuelt. Rette en kjent feil på
 
 ### Åpne punkter
 - Issue #73: beslutninger, sikkerhetsrisikoen (andre økter logges ikke ut) og visuelle avvik.
+
+## Story 3.7: Invitere faglærer eller Admin på e-post (2026-11-18)
+
+### Oppgave
+Bygge Story 3.7 på `epic-3` og kontrollere den visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, og visuell kontroll i en egen underagent. Byggeagenten skulle ha én ende-til-ende-test for e-post og teste resten på API-nivå.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-7-invite-lecturer-or-admin-by-email.md`. Commit `89f19e5`, visuell retting `d0dc5ce`. Migrering 0018.
+- Tabellen `invitations` (bare hashen lagres), `POST /api/admin/invitations` for Admin, ny `platform/audit` med `audit_events`, e-posten «Invitasjon til ØL-spillet» og siden `/admin/brukere`.
+- Backend: 1734 grønne på 72 s. Frontend: Vitest 255, typecheck, tekstsjekk, fargesjekk og bygg grønne. Playwright: 67 grønne. Bare én ny test venter på ekte e-post.
+- Gjennomgang: 38 funn, ingen høye eller middels, 5 lave rettet.
+- Visuell kontroll: 14 skjermbilder og e-postteksten. Én retting. Den utdaterte resultatlinja rettes i Story 3.8.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #74: beslutninger og visuelle avvik.
