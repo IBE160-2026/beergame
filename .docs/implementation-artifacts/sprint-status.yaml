@@ -80,7 +80,7 @@ development_status:
   3-11-create-institutions: done
   3-12-read-the-audit-log: done
   3-13-read-the-landing-page-and-ask-for-lecturer-access: done
-  3-14-prepare-a-strict-production-configuration-in-the-repo: backlog
+  3-14-prepare-a-strict-production-configuration-in-the-repo: in-progress
   3-15-reach-the-product-in-production: backlog
   epic-3-retrospective: optional
 
