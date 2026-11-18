@@ -35,6 +35,13 @@ services:
       # the limits themselves.
       PASSWORD_RESET_RATE_LIMIT_PER_ACCOUNT: ${PASSWORD_RESET_RATE_LIMIT_PER_ACCOUNT:-1000}
       PASSWORD_RESET_RATE_LIMIT_PER_IP: ${PASSWORD_RESET_RATE_LIMIT_PER_IP:-10000}
+      # Invitation accept and renewal limits (Story 3.8) far above the app's defaults (50 accepts
+      # and 20 renewals per IP, 10 and 3 per link, an hour), for the same reason; the api tests
+      # check these limits too.
+      INVITATION_ACCEPT_RATE_LIMIT_PER_IP: ${INVITATION_ACCEPT_RATE_LIMIT_PER_IP:-10000}
+      INVITATION_ACCEPT_RATE_LIMIT_PER_INVITATION: ${INVITATION_ACCEPT_RATE_LIMIT_PER_INVITATION:-1000}
+      INVITATION_RENEWAL_RATE_LIMIT_PER_IP: ${INVITATION_RENEWAL_RATE_LIMIT_PER_IP:-10000}
+      INVITATION_RENEWAL_RATE_LIMIT_PER_INVITATION: ${INVITATION_RENEWAL_RATE_LIMIT_PER_INVITATION:-1000}
       # Mail (Story 3.5). No RESEND_API_KEY is passed, so every mail is the `[email:mock]` log
       # line locally, whatever the shell or .env holds (AD-17).
       EMAIL_FROM: ${EMAIL_FROM:-ØL-spillet <noreply@olspillet.local>}
