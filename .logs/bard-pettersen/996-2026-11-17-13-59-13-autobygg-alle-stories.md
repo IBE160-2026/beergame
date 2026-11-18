@@ -688,3 +688,22 @@ Bygge Story 3.8 på `epic-3`, rette Issue #74 og kontrollere siden visuelt. Bruk
 ### Åpne punkter
 - Issue #75: beslutninger, passordlengde og lange adresser.
 - Issue #74 er løst.
+
+## Story 3.9: Finne brukere og gi eller fjerne roller (2026-11-18)
+
+### Oppgave
+Bygge Story 3.9 på `epic-3`, heve de lokale invitasjonsgrensene og kontrollere siden visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent. Agenten måtte gi fra seg kontrollen før gjennomgangen var ferdig, og fullførte etter at den ble sendt tilbake. Deretter visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-9-find-users-grant-revoke-roles.md`. Commit `ad3624b` (lokale grenser), `efafe22` (story) og `5e09d6f` (visuelle rettinger).
+- `GET /api/admin/users` med søk og peker, og tildeling og tilbaketrekking av roller med revisjonsrad og hendelse. `409 last_admin` under lås og et register for blokkeringer (`409 role_revoke_blocked`). Søk og brukertabell på `/admin/brukere`, med blokker med etiketter under rundt 60em.
+- Backend: 1794 grønne på 69 s. Frontend: typecheck, Vitest (267), tekstsjekk, fargesjekk og bygg grønne. Playwright: 83 grønne.
+- Gjennomgang: 44 funn (4 middels), alle de middels rettet.
+- Visuell kontroll: 30 skjermbilder, to rettinger, to punkter til vurdering.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #76: beslutninger, låsen Story 3.10 må bruke, og visuelle avvik.
