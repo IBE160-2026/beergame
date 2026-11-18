@@ -4,7 +4,8 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from pydantic_core import PydanticCustomError
 
 
 class AccountRole(StrEnum):
@@ -57,6 +58,49 @@ class InvitationOut(BaseModel):
     expires_at: datetime
     valid_days: int
     """Whole days the Invitation is valid, as the result line and the mail state it."""
+
+
+NAME_MAX_LENGTH = 200
+
+
+class InvitationTokenIn(BaseModel):
+    """The token of an Invitation link, from the fragment of `/invitasjon#<token>` (Story 3.8)."""
+
+    token: str = Field(max_length=128)
+
+
+class InvitationCheckOut(BaseModel):
+    """What «Du er invitert» shows for a usable link."""
+
+    email: str
+    role: AccountRole
+    valid_days: int
+    """Whole days left, rounded up."""
+    has_account: bool
+    """Whether the address already has an account: the page then asks for its password."""
+
+
+class AcceptInvitationIn(BaseModel):
+    """A new account from an Invitation."""
+
+    token: str = Field(max_length=128)
+    name: str = Field(max_length=NAME_MAX_LENGTH)
+    password: str = Field(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
+
+    @field_validator("name")
+    @classmethod
+    def _name(cls, value: str) -> str:
+        value = " ".join(value.split())
+        if not value or any(not ch.isprintable() for ch in value):
+            raise PydanticCustomError("name_empty", "A name is required.")
+        return value
+
+
+class AcceptExistingIn(BaseModel):
+    """An Invitation taken by the account its address already has: the account's password."""
+
+    token: str = Field(max_length=128)
+    password: str = Field(max_length=PASSWORD_MAX_LENGTH)
 
 
 class UserOut(BaseModel):

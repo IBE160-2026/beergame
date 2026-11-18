@@ -93,12 +93,23 @@ export function InviteForm() {
         label={copy.email}
         error={error}
         onChange={() => {
+          // The result line speaks of the last send; it goes as soon as the form changes.
+          setSent(undefined);
           // After the first press a reason updates as it is typed, never on blur: a reason
           // vanishing on blur would move the button away from a press already under way.
           if (submitted) setError(inviteEmailError(emailRef.current?.value ?? ""));
         }}
       />
-      <SegmentedChoice name="role" legend={copy.role} options={ROLES} value={role} onChange={setRole} />
+      <SegmentedChoice
+        name="role"
+        legend={copy.role}
+        options={ROLES}
+        value={role}
+        onChange={(next) => {
+          setSent(undefined);
+          setRole(next);
+        }}
+      />
       <ActionError message={action.errorMessage} />
       <Button type="submit" variant="primary" unavailable={action.isPending} className="mt-1 w-full">
         {copy.submit}

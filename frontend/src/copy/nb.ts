@@ -179,6 +179,48 @@ export const nb = {
       // [ASSUMPTION] Story 3.6.
       failed: "Passordet ble ikke lagret. Prøv igjen.",
     },
+    /** «Du er invitert» (Story 3.8, UX-DR61). `title`, `submit` and the validity sentence are
+     * EXPERIENCE.md's own; the epic leaves the expired-link copy to this story. */
+    invitation: {
+      pageTitle: "Du er invitert",
+      title: "Du er invitert",
+      // [ASSUMPTION] Story 3.8: the lead names the role the account gets.
+      lead: (role: string) => `Du er invitert som ${role} i ØL-spillet. Kontoen får rollen så snart den er laget.`,
+      roles: { lecturer: "Faglærer", admin: "Admin" },
+      name: "Navn",
+      // [ASSUMPTION] Story 3.8: the address comes from the Invitation and cannot be changed.
+      email: "E-post, fra Invitasjonen",
+      password: "Velg passord",
+      // [ASSUMPTION] Story 3.8: the same rule as «Nytt passord».
+      passwordRule: "Minst 8 tegn.",
+      submit: "Opprett konto og gå videre",
+      validity: (days: number) => `Invitasjonen er gyldig i ${days === 1 ? "én dag" : `${days} dager`}.`,
+      errors: {
+        // [ASSUMPTION] Story 3.8.
+        nameEmpty: "Skriv navnet ditt.",
+        nameLong: "Navnet kan ha høyst 200 tegn.",
+        passwordEmpty: "Skriv et passord.",
+        passwordShort: "Passordet må ha minst 8 tegn.",
+      },
+      // [ASSUMPTION] Story 3.8.
+      failed: "Kontoen ble ikke opprettet. Prøv igjen.",
+      rateLimited: "For mange forsøk. Prøv igjen om en time.",
+      /** The address already has an account: logging in adds the role. [ASSUMPTION] Story 3.8. */
+      existing: {
+        lead: (role: string) => `Adressen har allerede en konto. Logg inn, så får kontoen rollen ${role}.`,
+        email: "E-post",
+        password: "Passord",
+        submit: "Logg inn og legg til rollen",
+        failed: "Rollen ble ikke lagt til. Prøv igjen.",
+      },
+      /** An expired or used link. `invalid` is the wording of «Nytt passord»; the rest is
+       * [ASSUMPTION] Story 3.8. `requested` is the same for every link, so it never says whether
+       * the link or an account exists. */
+      invalid: "Lenken er utløpt eller brukt.",
+      requestNew: "Be om ny Invitasjon",
+      requested: "Hvis lenken kom fra en Invitasjon, ser Admin nå at du ber om en ny. Den kommer på e-post.",
+      requestFailed: "Forespørselen ble ikke sendt. Prøv igjen.",
+    },
     session: {
       // [ASSUMPTION] Story 3.2.
       logout: "Logg ut",

@@ -69,6 +69,43 @@ export async function checkPasswordReset(token: string): Promise<string> {
   return (await request(() => api.POST("/api/auth/password-reset/check", { body: { token } }))).email;
 }
 
+export type CheckedInvitation = components["schemas"]["InvitationCheckOut"];
+
+/** What «Du er invitert» shows for a usable link, or `invitation_link_invalid` (Story 3.8). */
+export async function checkInvitation(token: string): Promise<CheckedInvitation> {
+  return request(() => api.POST("/api/auth/invitation/check", { body: { token } }));
+}
+
+/** Accept an Invitation: a new account, or the role added to the address's account. Either way
+ * the User is logged in, and the session cache holds them. */
+export function useAcceptInvitation(existing: boolean) {
+  const queryClient = useQueryClient();
+  const copy = nb.auth.invitation;
+  return useAction<SessionUser, { token: string; name: string; password: string }>({
+    mutationFn: async ({ token, name, password }) =>
+      existing
+        ? (await request(() => api.POST("/api/auth/invitation/accept-login", { body: { token, password } }))).user
+        : (await request(() => api.POST("/api/auth/invitation/accept", { body: { token, name, password } }))).user,
+    messages: {
+      rate_limited: copy.rateLimited,
+      invalid_credentials: nb.auth.login.invalidCredentials,
+    },
+    fallback: existing ? copy.existing.failed : copy.failed,
+    onSuccess: (user) => queryClient.setQueryData(meKey, user),
+  });
+}
+
+/** Ask for a new Invitation from a link that no longer works; the answer is the same for any link. */
+export function useRequestInvitationRenewal() {
+  return useAction<void, { token: string }>({
+    mutationFn: async (body) => {
+      await request(() => api.POST("/api/auth/invitation/renewal", { body }));
+    },
+    messages: { rate_limited: nb.auth.invitation.rateLimited },
+    fallback: nb.auth.invitation.requestFailed,
+  });
+}
+
 /** Set a new password through a reset link; resolves to the account's e-mail. */
 export function useConfirmPasswordReset() {
   return useAction<string, { token: string; password: string }>({

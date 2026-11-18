@@ -68,6 +68,16 @@ class Settings(BaseSettings):
     # Invitations to the Lecturer or Admin role (Story 3.7). PLACEHOLDER: the 14 days of the UX
     # spine («Invitasjonen er gyldig i 14 dager.»).
     role_invitation_valid_days: int = Field(14, ge=1)
+    # Accepting an Invitation and asking for a new one (Story 3.8). PLACEHOLDERS: attempts per
+    # window, per client address and per Invitation link.
+    invitation_accept_rate_limit_per_ip: int = Field(50, ge=1)
+    invitation_accept_rate_limit_per_invitation: int = Field(10, ge=1)
+    invitation_renewal_rate_limit_per_ip: int = Field(20, ge=1)
+    invitation_renewal_rate_limit_per_invitation: int = Field(3, ge=1)
+    invitation_rate_limit_window_minutes: int = Field(60, ge=1)
+    # The first Admin (AD-17, Story 3.8): comma-separated addresses. With APP_ENV=production the
+    # api mails each one an Admin Invitation at startup; a listed User gains Admin at first login.
+    bootstrap_admin_emails: str = ""
 
     # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
     # to the `[email:mock]` sender; the compose file never passes a key.

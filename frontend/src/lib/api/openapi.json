@@ -1,6 +1,55 @@
 {
   "components": {
     "schemas": {
+      "AcceptExistingIn": {
+        "description": "An Invitation taken by the account its address already has: the account's password.",
+        "properties": {
+          "password": {
+            "maxLength": 1024,
+            "title": "Password",
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 128,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "password"
+        ],
+        "title": "AcceptExistingIn",
+        "type": "object"
+      },
+      "AcceptInvitationIn": {
+        "description": "A new account from an Invitation.",
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "title": "Name",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 1024,
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 128,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "name",
+          "password"
+        ],
+        "title": "AcceptInvitationIn",
+        "type": "object"
+      },
       "AccountRole": {
         "enum": [
           "admin",
@@ -44,8 +93,36 @@
         "title": "ErrorEnvelope",
         "type": "object"
       },
+      "InvitationCheckOut": {
+        "description": "What «Du er invitert» shows for a usable link.",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "has_account": {
+            "title": "Has Account",
+            "type": "boolean"
+          },
+          "role": {
+            "$ref": "#/components/schemas/AccountRole"
+          },
+          "valid_days": {
+            "title": "Valid Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "email",
+          "role",
+          "valid_days",
+          "has_account"
+        ],
+        "title": "InvitationCheckOut",
+        "type": "object"
+      },
       "InvitationIn": {
-        "description": "An Invitation to an account role (Story 3.7). The address is checked by `email_is_valid`\nin the route, so a bad one answers `fields.email = \"invalid_email\"`.",
+        "description": "An Invitation to an account role (Story 3.7).",
         "properties": {
           "email": {
             "maxLength": 320,
@@ -95,6 +172,21 @@
           "valid_days"
         ],
         "title": "InvitationOut",
+        "type": "object"
+      },
+      "InvitationTokenIn": {
+        "description": "The token of an Invitation link, from the fragment of `/invitasjon#<token>` (Story 3.8).",
+        "properties": {
+          "token": {
+            "maxLength": 128,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "InvitationTokenIn",
         "type": "object"
       },
       "LoginIn": {
@@ -291,6 +383,252 @@
         "summary": "Send Invitation",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/api/auth/invitation/accept": {
+      "post": {
+        "description": "Create the account an Invitation offers, with its role, and log in (FR-1, FR-4).",
+        "operationId": "acceptInvitation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptInvitationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Accept Invitation",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/invitation/accept-login": {
+      "post": {
+        "description": "Add an Invitation's role to the account its address already has, and log in.",
+        "operationId": "acceptInvitationWithLogin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptExistingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Accept Invitation With Login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/invitation/check": {
+      "post": {
+        "description": "Whether an Invitation link still works, and what «Du er invitert» shows for it.",
+        "operationId": "checkInvitation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationTokenIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationCheckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Check Invitation",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/invitation/renewal": {
+      "post": {
+        "description": "Ask for a new Invitation from a link that no longer works. The answer is the same `202`\nfor any link (UX-DR61).",
+        "operationId": "requestInvitationRenewal",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationTokenIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Request Invitation Renewal",
+        "tags": [
+          "auth"
         ]
       }
     },

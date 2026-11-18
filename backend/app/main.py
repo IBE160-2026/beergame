@@ -40,6 +40,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
     await seed.ensure_zero_config_logged()  # AD-17: a default model config with zero keys
     await identity_seed.ensure_demo_users_logged()  # AD-17: local demo Admin and Lecturer
+    if settings.app_env == "production":
+        # AD-17: the first Admin's Invitation, for each listed address with no account yet.
+        await identity_service.ensure_bootstrap_invitations(auth.utcnow())
     yield
     await db.dispose()
 

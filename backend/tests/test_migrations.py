@@ -50,7 +50,7 @@ HEAD_TABLES = (
     | RESET_TABLES
     | INVITATION_TABLES
 )
-HEAD = "0018"
+HEAD = "0019"  # 0019 adds `invitations.renewal_requested_at` (Story 3.8), no table
 
 
 def reset_schema(url: str) -> None:

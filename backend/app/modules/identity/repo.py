@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import RowMapping, select, text, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity.models import invitations, password_resets, user_roles, users
@@ -167,6 +168,71 @@ async def insert_invitation(
 async def invitation_by_id(session: AsyncSession, invitation_id: uuid.UUID) -> RowMapping | None:
     result = await session.execute(select(invitations).where(invitations.c.id == invitation_id))
     return result.mappings().one_or_none()
+
+
+async def invitation_by_hash(session: AsyncSession, token_hash: str) -> RowMapping | None:
+    result = await session.execute(
+        select(invitations).where(invitations.c.token_hash == token_hash)
+    )
+    return result.mappings().one_or_none()
+
+
+async def lock_invitation(session: AsyncSession, invitation_id: uuid.UUID) -> RowMapping | None:
+    """The Invitation, locked until the transaction ends: one acceptance at a time."""
+    result = await session.execute(
+        select(invitations).where(invitations.c.id == invitation_id).with_for_update()
+    )
+    return result.mappings().one_or_none()
+
+
+async def lock_user_address(session: AsyncSession, email: str) -> None:
+    """Serialise account creation for one address until the transaction ends."""
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"), {"key": f"user:{email}"}
+    )
+
+
+async def mark_invitation_accepted(
+    session: AsyncSession, invitation_id: uuid.UUID, now: datetime
+) -> None:
+    await session.execute(
+        update(invitations).where(invitations.c.id == invitation_id).values(accepted_at=now)
+    )
+
+
+async def set_renewal_requested(
+    session: AsyncSession, invitation_id: uuid.UUID, now: datetime
+) -> None:
+    await session.execute(
+        update(invitations)
+        .where(invitations.c.id == invitation_id)
+        .values(renewal_requested_at=now)
+    )
+
+
+async def open_invitation(session: AsyncSession, email: str, role: str) -> RowMapping | None:
+    """The Invitation to `email` for `role` that is neither accepted nor voided (it may be
+    expired), or None."""
+    result = await session.execute(
+        select(invitations).where(
+            invitations.c.email == email,
+            invitations.c.role == role,
+            invitations.c.accepted_at.is_(None),
+            invitations.c.voided_at.is_(None),
+        )
+    )
+    return result.mappings().one_or_none()
+
+
+async def grant_role(session: AsyncSession, user_id: uuid.UUID, role: str) -> bool:
+    """Give the User `role`; False when they already hold it."""
+    result = await session.execute(
+        insert(user_roles)
+        .values(user_id=user_id, role=role)
+        .on_conflict_do_nothing()
+        .returning(user_roles.c.role)
+    )
+    return result.scalar_one_or_none() is not None
 
 
 async def invitation_ids_for_email(session: AsyncSession, email: str) -> list[uuid.UUID]:

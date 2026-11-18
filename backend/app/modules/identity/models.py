@@ -75,6 +75,8 @@ invitations = Table(
     Column("expires_at", DateTime(timezone=True), nullable=False),
     Column("accepted_at", DateTime(timezone=True), nullable=True),
     Column("voided_at", DateTime(timezone=True), nullable=True),
+    # When the holder of the expired or voided link asked for a new one (Story 3.8).
+    Column("renewal_requested_at", DateTime(timezone=True), nullable=True),
     # The Admin who sent it; NULL when the system did (the bootstrap Invitation, Story 3.8).
     Column("invited_by", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
     CheckConstraint("email = lower(btrim(email))", name="ck_invitations_email_normalised"),

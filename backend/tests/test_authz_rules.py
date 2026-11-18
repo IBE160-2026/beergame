@@ -24,8 +24,13 @@ PUBLIC_ROUTES = {
     ("POST", "/api/auth/password-reset/confirm"),
     # The dev mailbox (Story 3.6), mounted only outside production (`test_dev_mailbox.py`).
     ("GET", "/api/dev/mailbox/latest"),
-    # Later stories add theirs here, and only these kinds: Invitation acceptance (3.8), the
-    # lecturer-access request (3.13) and webhooks (signature-checked).
+    # Invitation acceptance (Story 3.8): the invitee has no session yet.
+    ("POST", "/api/auth/invitation/check"),
+    ("POST", "/api/auth/invitation/accept"),
+    ("POST", "/api/auth/invitation/accept-login"),
+    ("POST", "/api/auth/invitation/renewal"),
+    # Later stories add theirs here, and only these kinds: the lecturer-access request (3.13)
+    # and webhooks (signature-checked).
 }
 
 

@@ -165,6 +165,35 @@ test.describe("failure", () => {
   });
 });
 
+test.describe("result line", () => {
+  test("the result line goes as soon as the role or the address changes (Issue #74)", async ({ page }) => {
+    await loginByApi(page, "admin");
+    await page.goto("/admin/brukere");
+    // The answer of a send, without storing an Invitation: this test is about the form only.
+    await page.route("**/api/admin/invitations", async (route) => {
+      const body = route.request().postDataJSON() as { email: string; role: string };
+      await route.fulfill({
+        status: 201,
+        json: { id: "x", email: body.email, role: body.role, expires_at: "2026-12-02T12:00:00Z", valid_days: 14 },
+      });
+    });
+    const email = page.getByLabel(invite.email);
+    const sent = page.getByText(/Invitasjonen er sendt/);
+
+    await email.fill("kari@example.com");
+    await page.getByRole("button", { name: invite.submit }).click();
+    await expect(sent).toBeFocused();
+    await page.getByRole("radio", { name: invite.roles.admin }).check();
+    await expect(sent).toHaveCount(0);
+
+    await email.fill("ola@example.com");
+    await page.getByRole("button", { name: invite.submit }).click();
+    await expect(sent).toBeFocused();
+    await email.pressSequentially("n");
+    await expect(sent).toHaveCount(0);
+  });
+});
+
 test.describe("not an Admin", () => {
   test("a Lecturer gets the permission-denied page and no form", async ({ page }) => {
     await loginByApi(page, "lecturer");
