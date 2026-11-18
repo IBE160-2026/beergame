@@ -80,14 +80,56 @@ Every LLM attempt first reserves its worst-case cost (request size and the Effor
 
 `openrouter-deepseek.json` goes through OpenRouter's global router (`openrouter.ai`) to one upstream endpoint run by an EU company (Nebius, zero retention, no fallback); the router itself is not EU-only. `ai-configs/openrouter-deepseek-eu.json` uses OpenRouter's EU in-region endpoint (`eu.openrouter.ai`, Business plan), which keeps prompts in the EU. The region, upstream provider, routing switches, prices and rate limit are config data.
 
+### Logging in locally (Story 3.2)
+
+With `APP_ENV=local` (the compose default), the backend seeds four demo accounts at start, each only if its e-mail is not taken yet. Nothing is seeded in any other environment.
+
+| Role | E-post | Passord | Lands on |
+|------|--------|---------|----------|
+| Admin | `admin@example.com` | `olspillet-demo` | Admin-område (`/admin`) |
+| Faglærer (Lecturer) | `faglaerer@example.com` | `olspillet-demo` | Lærerhjem (`/laererhjem`) |
+| Admin and Faglærer | `admin-faglaerer@example.com` | `olspillet-demo` | Lærerhjem, with a link to the Admin-område |
+| No account role (Student) | `student@example.com` | `olspillet-demo` | Hjem (`/hjem`) |
+
+Log in at <http://127.0.0.1:8080/logg-inn>. An existing User is never changed by the seed, and a deleted demo account comes back at the next start. To start over, empty the tables with `docker compose exec postgres psql -U olspillet -c "TRUNCATE users CASCADE"`, then restart `backend`.
+
+Playwright tests and visual checks use the same test login: `frontend/e2e/support/auth.ts` exports `DEMO_USERS`, `DEMO_PASSWORD`, `loginAs(page, role)` (through the «Logg inn» page) and `loginByApi(page, role)` (through the API only, which is faster). `role` is `admin`, `lecturer`, `adminLecturer` or `student`.
+
+Authorization (Story 3.3): every API route declares a policy from `backend/app/platform/authz.py`, `Depends(authz.require("<action>"))` or `Depends(authz.public)`. `tests/test_authz_rules.py` fails on a route without one, on a public route that is not on its short list, and on a comparison with an account role inside `backend/app/modules/` (ask `authz.can(user, action)` instead). A refusal is 403 `forbidden`, the same whether or not the item exists.
+
+Session and login:
+
+- The session is an HS256 JWT in the `olspillet_session` cookie (`HttpOnly; Secure; SameSite=Lax`). Chromium and Firefox keep a `Secure` cookie on `http://127.0.0.1` and `http://localhost`; Safari may not, so log in locally with Chromium or Firefox. `JWT_SECRET` has a local default and must be set to a long random value outside local (the production guard comes with Story 3.14). `SESSION_MAX_AGE_HOURS` defaults to 168. Logout deletes the cookie; a copied token stays valid until it expires unless the User is deactivated.
+- Every mutating `/api` request needs the header `X-Requested-With: olspillet`. The generated client sends it.
+- Failed logins are rate-limited in Postgres. The limits are placeholders until the pilot: `LOGIN_RATE_LIMIT_PER_IP` (300), `LOGIN_RATE_LIMIT_PER_ACCOUNT` (5) and `LOGIN_RATE_LIMIT_WINDOW_MINUTES` (15). A successful login resets the account's count.
+- `BCRYPT_ROUNDS` (12) sets the hashing cost. The tests use 4.
+
+The typed API client in `frontend/src/lib/api/` is generated from the backend's OpenAPI schema. After you change a route or schema, regenerate it:
+
+```sh
+cd backend && uv run python -m app.openapi ../frontend/src/lib/api/openapi.json
+cd frontend && npm run api:generate
+```
+
+CI regenerates both files and fails on any difference.
+
 Checks, as CI runs them:
 
 ```sh
 cd backend && uv sync --locked && uv run ruff check . && uv run ruff format --check . && uv run pytest
-cd frontend && npm ci && npm run typecheck && npm run build
+cd frontend && npm ci && npm run typecheck && npm test && npm run check:copy && npm run build
+docker compose up -d --build --wait proxy && (cd frontend && npx playwright test)
 ```
 
 `uv run pytest` needs the compose `postgres` (or `DATABASE_URL`) and uses a separate `<db>_test` database.
+
+Frontend checks:
+
+- `npm test` runs Vitest. It covers the theme tokens against `DESIGN.md`, the text-on-tint contrast pairs, the components, the copy check and the colour lint.
+- `npm run check:copy` runs the voice rules over `src/copy/nb.ts`, the print route and the Jinja2 templates.
+- `npm run build` runs the colour lint first. It fails on a literal colour outside `src/theme/`.
+- `npx playwright test` runs the browser tests, with axe, against the stack at `http://127.0.0.1:8080`. Use 127.0.0.1, not `localhost`. Set `E2E_BASE_URL` to point them at another address. Install the browser once with `npx playwright install chromium`.
+- The theme is generated from `src/theme/tokens.json`, which is a copy of the `DESIGN.md` front matter. After a token change, run `npm run theme`.
 
 ## Fast tests
 

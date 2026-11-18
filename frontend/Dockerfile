@@ -1,14 +1,14 @@
 # Multi-stage Next.js standalone build (SETUP-GUIDE §4).
 FROM node:24 AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
 FROM node:24 AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY frontend/ .
 RUN npm run build
 
 FROM node:24-slim AS run

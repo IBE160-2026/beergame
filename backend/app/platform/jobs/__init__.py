@@ -8,8 +8,10 @@ can see it earlier. Job arguments are ids and
 whole numbers only. Tasks are never retried by procrastinate: a task that must not stall a Game
 handles its own failures.
 
-Queues: `ai-orders` (`worker-ai`, the LLM players' Orders) and `llm-batch` (`worker-batch`);
-later epics add theirs and the sweeper. Alembic owns the procrastinate schema (revision 0008).
+Queues: `ai-orders` (`worker-ai`, the LLM players' Orders), `llm-batch` and `mail`
+(`worker-batch`, Story 3.5), and `sweep`, which only the `--sweeper` worker runs: it holds the
+per-minute `ops.sweep` (AD-9). Later epics add theirs. Alembic owns the procrastinate schema
+(revision 0008).
 """
 
 import importlib
@@ -25,7 +27,9 @@ from app.platform.config import get_settings
 __all__ = [
     "AI_ORDERS",
     "LLM_BATCH",
+    "MAIL",
     "QUEUES",
+    "SWEEP",
     "TASK_MODULES",
     "app",
     "conninfo",
@@ -38,9 +42,11 @@ log = structlog.get_logger(__name__)
 
 AI_ORDERS = "ai-orders"
 LLM_BATCH = "llm-batch"
-QUEUES = (AI_ORDERS, LLM_BATCH)
+MAIL = "mail"
+SWEEP = "sweep"
+QUEUES = (AI_ORDERS, LLM_BATCH, MAIL, SWEEP)
 
-TASK_MODULES = ("app.modules.players.jobs",)
+TASK_MODULES = ("app.modules.players.jobs", "app.modules.messaging.jobs", "app.modules.ops.jobs")
 """The modules that register tasks on `app`; a worker imports them before it runs."""
 
 app = procrastinate.App(connector=procrastinate.PsycopgConnector())
@@ -114,17 +120,19 @@ async def run_worker(
     if unknown:
         raise ValueError(f"unknown queue(s): {', '.join(unknown)}")
     load_tasks()
-    # A worker app of its own (same tasks), whose pool lives as long as this worker.
-    worker_app = app.with_connector(_connector(database_url, max(2, concurrency + 1)))
-    async with worker_app.open_async():
-        await worker_app.run_worker_async(
-            queues=list(queues),
-            wait=wait,
-            concurrency=concurrency,
-            listen_notify=wait,
-            install_signal_handlers=install_signal_handlers,
-            delete_jobs="successful",
-        )
+    # The app gets a pool that lives as long as this worker. It is the app itself, not a copy
+    # (`with_connector`): the periodic deferrer of `ops.sweep` defers through the task's own app,
+    # which must be the open one (Story 3.5).
+    with app.replace_connector(_connector(database_url, max(2, concurrency + 1))) as worker_app:
+        async with worker_app.open_async():
+            await worker_app.run_worker_async(
+                queues=list(queues),
+                wait=wait,
+                concurrency=concurrency,
+                listen_notify=wait,
+                install_signal_handlers=install_signal_handlers,
+                delete_jobs="successful",
+            )
 
 
 async def run_until_idle(queues: Iterable[str], *, database_url: str | None = None) -> None:

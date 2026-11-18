@@ -1,4 +1,5 @@
-# One image for api and (later) the workers, always from the same commit (AD-24).
+# One image for backend, worker-ai and worker-batch, always from the same commit (AD-24).
+# Built from the repo root (`docker build -f backend/Dockerfile .`), as compose and Railway do.
 FROM ghcr.io/astral-sh/uv:0.13.7 AS uv
 
 FROM python:3.14-slim
@@ -13,12 +14,12 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /app
 
-COPY pyproject.toml uv.lock .python-version ./
+COPY backend/pyproject.toml backend/uv.lock backend/.python-version ./
 RUN uv sync --locked --no-dev --no-install-project
 
-COPY alembic.ini docker-entrypoint.sh ./
-COPY migrations ./migrations
-COPY app ./app
+COPY backend/alembic.ini backend/docker-entrypoint.sh ./
+COPY backend/migrations ./migrations
+COPY backend/app ./app
 RUN uv sync --locked --no-dev && chmod +x docker-entrypoint.sh
 
 RUN useradd --system --uid 10001 app

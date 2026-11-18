@@ -2,6 +2,13 @@
 {
 	admin off
 	auto_https off
+	servers {
+		# The client address for the api's rate limits (Story 3.14). Railway's edge overwrites
+		# X-Real-IP with the caller's address; it is believed only from these hops (Railway
+		# publishes no edge range; its own Caddy guide trusts these). Any other peer is the client.
+		trusted_proxies static private_ranges 100.0.0.0/8
+		client_ip_headers X-Real-IP
+	}
 }
 
 :{$PORT:8080} {
@@ -11,6 +18,9 @@
 	handle @api {
 		reverse_proxy {$API_UPSTREAM:backend:8000} {
 			flush_interval -1 # SSE: no buffering (AD-8)
+			# The api sees exactly one address: the one resolved above.
+			header_up X-Forwarded-For {client_ip}
+			header_up -X-Real-IP
 		}
 	}
 

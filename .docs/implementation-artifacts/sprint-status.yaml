@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-18-2026 05:45
+last_updated: 11-18-2026 21:59
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -50,7 +50,7 @@ development_status:
   1-12-cap-what-a-seat-can-ship-per-week-cut-list-feature_capacity: done
   epic-1-retrospective: optional
 
-  epic-2: in-progress
+  epic-2: done
   2-1-give-every-non-student-seat-its-order-from-one-order-source: done
   2-2-register-a-model-config-and-an-evaluation-budget-from-the-co: done
   2-3-make-a-validated-llm-call-through-the-gateway-and-log-every: done
@@ -66,21 +66,21 @@ development_status:
   2-13-describe-each-ai-player-type-in-plain-norwegian: done
   epic-2-retrospective: optional
 
-  epic-3: backlog
-  3-1-see-logg-inn-in-the-product-s-design: backlog
-  3-2-log-in-and-log-out-with-e-mail-and-password: backlog
-  3-3-land-on-your-own-home-and-be-held-to-your-role: backlog
-  3-4-see-what-is-happening-when-a-page-loads-fails-or-goes-offlin: backlog
-  3-5-send-every-mail-through-one-pipeline: backlog
-  3-6-reset-a-forgotten-password-by-e-mail: backlog
-  3-7-invite-a-lecturer-or-admin-by-e-mail: backlog
-  3-8-create-an-account-from-an-invitation: backlog
-  3-9-find-users-and-grant-or-revoke-roles: backlog
-  3-10-deactivate-and-reactivate-users-and-resend-invitations: backlog
-  3-11-create-institutions: backlog
-  3-12-read-the-audit-log: backlog
-  3-13-read-the-landing-page-and-ask-for-lecturer-access: backlog
-  3-14-prepare-a-strict-production-configuration-in-the-repo: backlog
+  epic-3: in-progress
+  3-1-see-logg-inn-in-the-product-s-design: done
+  3-2-log-in-and-log-out-with-e-mail-and-password: done
+  3-3-land-on-your-own-home-and-be-held-to-your-role: done
+  3-4-see-what-is-happening-when-a-page-loads-fails-or-goes-offlin: done
+  3-5-send-every-mail-through-one-pipeline: done
+  3-6-reset-a-forgotten-password-by-e-mail: done
+  3-7-invite-a-lecturer-or-admin-by-e-mail: done
+  3-8-create-an-account-from-an-invitation: done
+  3-9-find-users-and-grant-or-revoke-roles: done
+  3-10-deactivate-and-reactivate-users-and-resend-invitations: done
+  3-11-create-institutions: done
+  3-12-read-the-audit-log: done
+  3-13-read-the-landing-page-and-ask-for-lecturer-access: done
+  3-14-prepare-a-strict-production-configuration-in-the-repo: done
   3-15-reach-the-product-in-production: backlog
   epic-3-retrospective: optional
 

@@ -25,7 +25,7 @@ from sqlalchemy.engine import make_url
 
 from app.ai import adapters, ratelimit
 from app.platform import db
-from app.platform.config import LOCAL_DATABASE_URL, get_settings
+from app.platform.config import LOCAL_DATABASE_URL, Settings, get_settings
 
 if sys.platform == "win32":
     # psycopg's async mode cannot run on the default Proactor loop.
@@ -47,6 +47,9 @@ TEST_DATABASE_URL = _base_url.set(database=f"{_base_url.database}_test{_suffix}"
 )
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ.setdefault("APP_ENV", "test")
+os.environ.setdefault("BCRYPT_ROUNDS", "4")  # bcrypt's minimum cost: hashing stays cheap
+# No test sends real mail: without a key every mail goes to the `[email:mock]` sender (Story 3.5).
+os.environ.pop("RESEND_API_KEY", None)
 
 
 def libpq_dsn(url: str) -> str:
@@ -123,6 +126,38 @@ def ai_db(test_database) -> str:
     return test_database
 
 
+IDENTITY_TABLES = (
+    "users, user_roles, rate_limit_counters, invitations, audit_events, institutions, "
+    "access_requests"
+)
+
+
+@pytest.fixture
+def identity_db(test_database) -> str:
+    """The test database at the latest revision with no Users and no rate-limit counts."""
+    with psycopg.connect(libpq_dsn(test_database), autocommit=True) as conn:
+        conn.execute(f"TRUNCATE {IDENTITY_TABLES} CASCADE")
+    return test_database
+
+
+MAIL_TABLES = (
+    "notices, mail_deliveries, procrastinate_jobs, users, user_roles, invitations, audit_events"
+)
+
+
+@pytest.fixture
+def mail_db(test_database) -> Iterator[str]:
+    """The test database with no Users, notices, deliveries or jobs, and an empty mock outbox
+    (Story 3.5)."""
+    from app.platform.email import senders
+
+    with psycopg.connect(libpq_dsn(test_database), autocommit=True) as conn:
+        conn.execute(f"TRUNCATE {MAIL_TABLES} CASCADE")
+    senders.MOCK.sent.clear()
+    yield test_database
+    senders.MOCK.sent.clear()
+
+
 @pytest.fixture(scope="session")
 def unreachable_database() -> Iterator[str]:
     """A database URL whose server hangs up on every connection, so the app cannot reach a
@@ -156,6 +191,16 @@ async def _fresh_settings():
     yield
     await db.dispose()  # close pooled connections before the engine is dropped
     reset_caches()
+
+
+def enter_production(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`APP_ENV=production` from here on, for tests of production behaviour (no AI mock, no dev
+    mailbox, the bootstrap Admin, no demo seed). They run on the local test database, which has
+    no TLS, so the startup guard is set aside; `test_config.py` and `test_production_startup.py`
+    test the guard itself (Story 3.14)."""
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setattr(Settings, "production_problems", lambda self: [])
+    get_settings.cache_clear()
 
 
 def _refuse(request: httpx2.Request) -> httpx2.Response:

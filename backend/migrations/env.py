@@ -10,6 +10,11 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 import app.ai.models  # noqa: F401  (registers the model config and budget tables)
 import app.modules.games.models  # noqa: F401  (registers the games tables on the metadata)
+import app.modules.identity.models  # noqa: F401  (users, user_roles)
+import app.modules.messaging.models  # noqa: F401  (mail_deliveries)
+import app.platform.audit  # noqa: F401  (audit_events)
+import app.platform.notify  # noqa: F401  (notices)
+import app.platform.ratelimit  # noqa: F401  (rate_limit_counters)
 from app.platform.config import get_settings
 from app.platform.db import metadata
 from app.platform.logging import configure_logging

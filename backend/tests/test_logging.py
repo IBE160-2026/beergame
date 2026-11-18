@@ -35,6 +35,18 @@ async def test_one_json_line_per_request_with_request_id(log_stream, test_databa
     assert entry["status"] == response.status_code
 
 
+async def test_a_request_the_csrf_guard_refuses_is_logged_with_its_request_id(log_stream):
+    """The request log wraps the CSRF guard (Story 3.2), so a refused mutation is logged too."""
+    app = create_app()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
+        response = await c.post("/api/auth/logout")
+    assert response.status_code == 403
+    request_lines = [line for line in lines(log_stream) if line["event"] == "request"]
+    assert len(request_lines) == 1
+    assert request_lines[0]["status"] == 403
+    assert request_lines[0]["request_id"] == response.headers["x-request-id"]
+
+
 def test_allowlist_drops_unlisted_keys(log_stream):
     structlog.get_logger("t").info(
         "something", email="kari@example.no", name="Kari", text="free text", game_id="g1"

@@ -1,0 +1,29 @@
+# The one build context of every image is the repo root (compose and Railway), so this file
+# keeps everything out that no image needs, and every secret out of every image.
+.git
+.github
+.docs
+.logs
+.claude
+_bmad
+docs
+railway
+scripts
+.local-storage
+**/.env
+**/.env.*
+**/node_modules
+**/.next
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+**/.coverage
+**/*.tsbuildinfo
+**/test-results
+**/playwright-report
+**/blob-report
+backend/tests
+frontend/e2e
+frontend/next-env.d.ts

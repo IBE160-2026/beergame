@@ -1,0 +1,71 @@
+"""The sweep's due actions (AD-9). Timers are data; this is the only thing that acts on them.
+
+Each `DueAction` has a `find(now)` that reads what is due and an `act(item, now)` that the owning
+module runs in one transaction per item, with ids only. A failing item is logged and the sweep
+goes on; every action is idempotent, so the next minute's sweep repairs what this one missed.
+Later epics append their due actions to `DUE_ACTIONS` (locks, Takeover, playout, reminders,
+retention, …); there is no other cron.
+"""
+
+from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+
+import structlog
+
+from app.modules.messaging import service as messaging
+from app.platform import ratelimit
+from app.platform.config import get_settings
+from app.platform.db import get_sessionmaker
+
+__all__ = ["DUE_ACTIONS", "DueAction", "run"]
+
+log = structlog.get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class DueAction:
+    name: str
+    find: Callable[[datetime], Awaitable[Sequence[object]]]
+    act: Callable[[object, datetime], Awaitable[object]]
+
+
+RATE_LIMIT_KEEP = timedelta(days=1)
+"""Rate-limit windows older than this (and older than the login window) are purged."""
+
+
+async def _stale_rate_limit_windows(now: datetime) -> Sequence[datetime]:
+    window = timedelta(minutes=get_settings().login_rate_limit_window_minutes)
+    return [now - max(RATE_LIMIT_KEEP, 2 * window)]
+
+
+async def _purge_rate_limit_windows(cutoff: object, now: datetime) -> int:
+    assert isinstance(cutoff, datetime)
+    async with get_sessionmaker().begin() as session:
+        return await ratelimit.purge_before(session, cutoff)
+
+
+DUE_ACTIONS: tuple[DueAction, ...] = (
+    # The first due action (Story 3.5): claim due notices into mails and defer their `mail` jobs.
+    DueAction("messaging.mail", messaging.due_items, messaging.claim),  # type: ignore[arg-type]
+    DueAction("ratelimit.purge", _stale_rate_limit_windows, _purge_rate_limit_windows),
+)
+
+
+async def run(now: datetime) -> dict[str, int]:
+    """One sweep at `now`; returns the number of items each action acted on."""
+    done: dict[str, int] = {}
+    for action in DUE_ACTIONS:
+        done[action.name] = 0
+        try:
+            items = await action.find(now)
+        except Exception as exc:  # the type only: an exception's text may hold personal data
+            log.error("sweep_find_failed", action=action.name, exc_type=type(exc).__name__)
+            continue
+        for item in items:
+            try:
+                await action.act(item, now)
+                done[action.name] += 1
+            except Exception as exc:
+                log.error("sweep_item_failed", action=action.name, exc_type=type(exc).__name__)
+    return done

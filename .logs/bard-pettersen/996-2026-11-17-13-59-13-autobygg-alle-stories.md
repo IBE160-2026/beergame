@@ -533,3 +533,293 @@ Lese rettingene som kom etter gjennomgangen i Story 1.2, 1.7, 2.3–2.8 og 2.11�
 
 ### Åpne punkter
 - Issue #64: tre tvilsomme funn.
+
+## Story 3.1: «Logg inn» i produktets design (2026-11-18)
+
+### Oppgave
+Bygge Story 3.1 på `epic-3`, den første storyen med en skjerm, og kontrollere den visuelt.
+
+### Plan
+- `bmad-build-auto` i én underagent.
+- Visuell kontroll i en egen underagent: compose, Playwright, skjermbilder i 390 og 1280 px, sammenlignet med mockup, DESIGN.md og EXPERIENCE.md.
+- Rette en ustabil tidstest (Issue #63).
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-1-see-logg-inn-in-product-design.md`. Commit `11423a7`.
+- Tokens fra DESIGN.md, selvhostet Source Sans 3, felles knapp, lenke og tekstfelt, all tekst i `nb.ts`, tekst- og fargesjekk i bygget. `/logg-inn` sjekker feltene i nettleseren. Vitest og Playwright med axe, og ny e2e-jobb i CI.
+- Frontend: typecheck, Vitest (181), tekstsjekk, bygg og Playwright (7) grønne.
+- Tidstesten `test_the_turns_read_time_is_when_the_read_ended` tåler nå treg Docker-klokke (commit `90072cd`).
+- Visuell kontroll: 11 skjermbilder i `.docs/implementation-artifacts/screenshots/3.1/`, ingen klare avvik, fire punkter til vurdering. Passordet havner ikke i URL-en.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #67: beslutninger og utsatte funn.
+- Issue #66: visuelle avvik til vurdering.
+
+## Story 3.2: Logge inn og ut med e-post og passord (2026-11-18)
+
+### Oppgave
+Bygge Story 3.2 på `epic-3` og kontrollere den visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, med testbrukere per rolle til senere tester. Deretter visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-2-log-in-and-log-out-email-password.md`. Commit `1d6ad4a`. Migrering 0015.
+- Backend: 1599 grønne på 67 s. Frontend: typecheck, Vitest (197), tekstsjekk og bygg grønne. Playwright: 15 grønne.
+- Gjennomgang: 41 funn, 13 rettet (blant annet et kappløp som slapp parallelle gjetninger forbi grensen), 2 utsatt til Story 3.14.
+- Visuell kontroll: 10 skjermbilder i `.docs/implementation-artifacts/screenshots/3.2/`, alle stemmer, ingen rettinger.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #69: beslutninger om økt, grenser, tekst og testinnlogging.
+- Issue #68: produktnavnet flytter seg mellom sidene.
+
+## Story 3.3: Egen hjemside og rollestyring (2026-11-18)
+
+### Oppgave
+Bygge Story 3.3 på `epic-3` og kontrollere den visuelt. Løse Issue #68 (produktnavnet flytter seg).
+
+### Plan
+`bmad-build-auto` i én underagent, og visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-3-land-on-own-home-held-to-role.md`. Commit `76f7c76`.
+- `platform/authz` med `can(user, action, resource)`, en policy på hver API-rute, roller lest fra databasen ved hver forespørsel, og 403 `forbidden` uansett om tingen finnes. Hjemsidene `/admin`, `/laererhjem` og `/hjem` har felles toppfelt. Det finnes også en side for manglende tilgang, en side for ukjent adresse og en brødsmulesti.
+- Retting fra 3.2: deadlock ved parallelle innlogginger.
+- Backend: 1629 grønne på 69 s. Frontend: typecheck, Vitest (206), tekstsjekk og bygg grønne. Playwright: 35 grønne.
+- Visuell kontroll: 20 skjermbilder i `.docs/implementation-artifacts/screenshots/3.3/`, alle stemmer. Issue #68 er løst.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #70: beslutninger, og stilen på toppfeltet til vurdering.
+
+## Story 3.4: Lasting, feil og frakoblet (2026-11-18)
+
+### Oppgave
+Bygge Story 3.4 på `epic-3` og kontrollere den visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, og så visuell kontroll i en egen underagent. Byggeagenten brukte over en time på steg 1 og fikk en statusforespørsel. Malen for byggeagenter sier nå at steg 1 skal ta rundt 10 minutter.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-4-see-loading-failure-offline-states.md`. Commit `c563eb4`, visuell retting `8a99c63`.
+- Plassholder ved lasting («Laster …» etter 1 s, feil etter 10 s), tilkoblingslinje (frakoblet, feil, «Tilkoblet igjen.»), felles hjelper for handlinger (aldri sendt på nytt av seg selv), utløpt økt med retur til samme side, og redusert bevegelse.
+- Backend: 1629 grønne på 61 s. Frontend: typecheck, Vitest (239), tekstsjekk og bygg grønne. Playwright: 53 grønne.
+- Gjennomgang: 33 funn, 2 middels og 9 lave rettet.
+- Visuell kontroll: 18 skjermbilder, én retting (feillinja for «Logg ut» brøt toppfeltet på 390 px), to punkter til vurdering.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #71: beslutninger, visuelle avvik og anbefalt oppfølgende gjennomgang.
+
+## Story 3.5: All e-post gjennom én kanal (2026-11-18)
+
+### Oppgave
+Bygge Story 3.5 på `epic-3`.
+
+### Plan
+`bmad-build-auto` i én underagent. Bare mock-e-post, og leverandøren bak en adapter (Issue #29). Ingen endring under `frontend/`, så ingen visuell kontroll.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-5-send-every-mail-through-one-pipeline.md`. Commit `d0294bb`. Migrering 0016.
+- `platform/notify` (tabellen `notices`, `enqueue`), `platform/email` (Jinja2-maler, `Sender`-adapter, Resend eller `[email:mock]`), `modules/messaging` (leveranser, kø, nye forsøk, regler for samlemeldinger, `send-test`) og `modules/ops` (`ops.sweep` i `worker-batch --sweeper`).
+- Backend: 1688 grønne på 63 s, ingen ny test over 1 s. I compose kom en umiddelbar e-post som én `[email:mock]`-linje på rundt 1 s, og en samlemelding ved neste sveip.
+- Gjennomgang: 34 funn, 3 reelle feil rettet.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #72: beslutninger om e-postkanalen, og at Story 3.6 trenger malvariabler.
+
+## Story 3.6: Tilbakestille glemt passord på e-post (2026-11-18)
+
+### Oppgave
+Bygge Story 3.6 på `epic-3` og kontrollere den visuelt. Rette en kjent feil på `/logg-inn`: knappen flytter seg når en feilmelding forsvinner.
+
+### Plan
+`bmad-build-auto` i én underagent, deretter visuell kontroll i en egen underagent som også retter feilen på `/logg-inn`.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-6-reset-forgotten-password-by-email.md`. Commit `a5ef6de`, visuelle rettinger `7b9a5d3`. Migrering 0017.
+- Tre offentlige endepunkter for tilbakestilling, malvariabler i e-post til brukere, sidene `/glemt-passord` og `/nytt-passord`, og et lokalt testendepunkt for postkassen.
+- Backend: 1706 grønne på 72 s. Frontend: typecheck, Vitest (250), tekstsjekk og bygg grønne. Playwright: 59 grønne. Tre nye flyttester tar 4–10 s hver, fordi de sender ekte mock-e-post gjennom arbeideren.
+- Gjennomgang: 49 funn. Rettet blant annet at bcrypt kjørte før token-sjekken, og at to lenker for samme bruker kunne bekreftes samtidig.
+- Visuell kontroll: 18 skjermbilder, to rettinger, tre punkter til vurdering.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #73: beslutninger, sikkerhetsrisikoen (andre økter logges ikke ut) og visuelle avvik.
+
+## Story 3.7: Invitere faglærer eller Admin på e-post (2026-11-18)
+
+### Oppgave
+Bygge Story 3.7 på `epic-3` og kontrollere den visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, og visuell kontroll i en egen underagent. Byggeagenten skulle ha én ende-til-ende-test for e-post og teste resten på API-nivå.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-7-invite-lecturer-or-admin-by-email.md`. Commit `89f19e5`, visuell retting `d0dc5ce`. Migrering 0018.
+- Tabellen `invitations` (bare hashen lagres), `POST /api/admin/invitations` for Admin, ny `platform/audit` med `audit_events`, e-posten «Invitasjon til ØL-spillet» og siden `/admin/brukere`.
+- Backend: 1734 grønne på 72 s. Frontend: Vitest 255, typecheck, tekstsjekk, fargesjekk og bygg grønne. Playwright: 67 grønne. Bare én ny test venter på ekte e-post.
+- Gjennomgang: 38 funn, ingen høye eller middels, 5 lave rettet.
+- Visuell kontroll: 14 skjermbilder og e-postteksten. Én retting. Den utdaterte resultatlinja rettes i Story 3.8.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #74: beslutninger og visuelle avvik.
+
+## Story 3.8: Opprette konto fra en invitasjon (2026-11-18)
+
+### Oppgave
+Bygge Story 3.8 på `epic-3`, rette Issue #74 og kontrollere siden visuelt. Brukeren ba om å stoppe etter Epic 4, for å kjøre compact.
+
+### Plan
+`bmad-build-auto` i én underagent. Agenten ble avbrutt før gjennomgangen var ferdig, og fullførte etter å ha blitt sendt tilbake. Deretter visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-8-create-account-from-invitation.md`. Commit `405e8d0` (story), `9b9b247` (rettinger fra gjennomgangen) og `5a411c6` (visuell retting). Migrering 0019.
+- Fire offentlige ruter for invitasjoner (sjekk, aksept, aksept med innlogging, fornyelse), grenser for forespørsler, første Admin fra `BOOTSTRAP_ADMIN_EMAILS` i produksjon, og siden `/invitasjon` med tre tilstander.
+- Backend: 1763 grønne på 63–68 s. Frontend: typecheck, Vitest (261), tekstsjekk, fargesjekk og bygg grønne. Playwright: 74 grønne.
+- Gjennomgang: 42 lave funn, de reelle rettet. En ustabil test for parallell aksept er rettet.
+- Visuell kontroll: 24 skjermbilder, én retting, og to punkter til vurdering.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #75: beslutninger, passordlengde og lange adresser.
+- Issue #74 er løst.
+
+## Story 3.9: Finne brukere og gi eller fjerne roller (2026-11-18)
+
+### Oppgave
+Bygge Story 3.9 på `epic-3`, heve de lokale invitasjonsgrensene og kontrollere siden visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent. Agenten måtte gi fra seg kontrollen før gjennomgangen var ferdig, og fullførte etter at den ble sendt tilbake. Deretter visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-9-find-users-grant-revoke-roles.md`. Commit `ad3624b` (lokale grenser), `efafe22` (story) og `5e09d6f` (visuelle rettinger).
+- `GET /api/admin/users` med søk og peker, og tildeling og tilbaketrekking av roller med revisjonsrad og hendelse. `409 last_admin` under lås og et register for blokkeringer (`409 role_revoke_blocked`). Søk og brukertabell på `/admin/brukere`, med blokker med etiketter under rundt 60em.
+- Backend: 1794 grønne på 69 s. Frontend: typecheck, Vitest (267), tekstsjekk, fargesjekk og bygg grønne. Playwright: 83 grønne.
+- Gjennomgang: 44 funn (4 middels), alle de middels rettet.
+- Visuell kontroll: 30 skjermbilder, to rettinger, to punkter til vurdering.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #76: beslutninger, låsen Story 3.10 må bruke, og visuelle avvik.
+
+## Story 3.10: Deaktivere og reaktivere brukere og sende invitasjoner på nytt (2026-11-18)
+
+### Oppgave
+Bygge Story 3.10 på `epic-3`: dekke regelen om siste Admin ved deaktivering, vurdere Issue #73, og kontrollere sidene visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, med låsen og Issue #73 i oppdraget. Etterpå en visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-10-deactivate-reactivate-users-resend-invitations.md`. Commit `7ecc156`, visuelle rettinger `c329108`. Migrering 0020.
+- Deaktivering og reaktivering, invitasjonsliste med status og «Send på nytt». Låsen for siste Admin, og øktversjon per bruker.
+- Issue #73 er løst: en tilbakestilling avslutter alle andre økter.
+- Backend: 1815 grønne på 68 s. Frontend: typecheck, Vitest (277), tekstsjekk og bygg grønne. Playwright: 89/89 før rettingene etter gjennomgangen. Etterpå feilet én av to `system-states`-tester av og til.
+- Gjennomgang: 28 funn (4 middels), 3 middels og 9 lave rettet, 1 utsatt.
+- Visuell kontroll: 26 skjermbilder og to rettinger. Fire punkter går til den samlede gjennomgangen.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #77: beslutninger, visuelle avvik og ustabile e2e-tester.
+- Issue #73 er lukket.
+
+## Story 3.11: Opprette institusjoner (2026-11-18)
+
+### Oppgave
+Bygge Story 3.11 på `epic-3` og kontrollere den visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, og så visuell kontroll i en egen underagent med en forfalsket, realistisk liste.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-11-create-institutions.md`. Commit `8b7650e`, visuell retting `75733f7`. Migrering 0021.
+- Tabellen `institutions` og tre Admin-ruter (liste, opprett, gi nytt navn) med revisjonsrad. `service.list_institutions()` og `get_institution(id)`. Siden `/admin/institusjoner`.
+- Backend: 1837 grønne på 71 s. Frontend: typecheck, Vitest (288), sjekkene og bygget er grønne. Playwright: 95 av 96. Ustabile tester: offline-testen i `system-states.spec.ts` og `test_rescue.py`.
+- Gjennomgang: 33 funn. Ett middels rettet («İzmir» ga 500).
+- Visuell kontroll: 24 skjermbilder, én retting, to punkter til vurdering.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #78: beslutninger om institusjoner og visuelle avvik.
+
+## Story 3.12: Lese revisjonsloggen (2026-11-18)
+
+### Oppgave
+Bygge Story 3.12 på `epic-3` og kontrollere den visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent. Deretter visuell kontroll i en egen underagent, med en forfalsket logg som dekker alle handlingene.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-12-read-audit-log.md`. Commit `85dc7f0`, visuell retting `69f85b4`.
+- Filtrert lesing i `platform/audit`, ny `modules/admin` med `GET /api/admin/audit` og `/actors` (bare Admin), og siden `/admin/revisjonslogg` med fire filtre.
+- En API-test sjekker at hver Admin-handling i Epic 3 gir nøyaktig én rad.
+- Backend: 1859 grønne på 71 s. Frontend: typecheck, Vitest (295), sjekker og bygg grønne. Playwright: 102 av 104. De to feilene var den kjente ustabile `system-states`-testen.
+- Gjennomgang: 33 lave funn, 6 rettet.
+- Visuell kontroll: 26 skjermbilder, én retting og to punkter til vurdering.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #79: beslutninger om revisjonsloggen, datoformat og visuelle avvik.
+
+## Story 3.13: Forsiden og forespørsel om faglærertilgang (2026-11-18)
+
+### Oppgave
+Bygge Story 3.13 på `epic-3` og kontrollere forsiden visuelt mot mockupen.
+
+### Plan
+`bmad-build-auto` i én underagent, med beskjed om at designet skal være datasentrisk og uten metaforer. Deretter en visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-13-read-landing-ask-lecturer-access.md`. Commit `7bca194`, visuelle rettinger `aa5e8fa`. Migrering 0022.
+- `/` er forsiden, med én plass med demodata som uketabell. Skjemaet `/laerertilgang` lagrer i `access_requests`. «Brukere og roller» lister åpne forespørsler med «Inviter» og «Avvis».
+- Backend: 1881 grønne på 71 s. Frontend: typecheck, Vitest (319), sjekker og bygg grønne. Playwright: 116 av 118 (den kjente ustabile `system-states`-testen).
+- Gjennomgang: 45 funn, én middels rettet, én utsatt (oppbevaring av forespørsler).
+- Visuell kontroll: 23 skjermbilder, fire rettinger på forsiden, fire punkter til vurdering.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #80: beslutninger, oppbevaring og nå-linja i uketabellen.
+
+## Story 3.14: Streng produksjonskonfigurasjon i repoet (2026-11-18)
+
+### Oppgave
+Bygge Story 3.14 på `epic-3` uten skykonto, og ta med det som ble utsatt fra Story 3.2 (`JWT_SECRET` og klient-IP).
+
+### Plan
+`bmad-build-auto` i én underagent, som bare lager filer i repoet. Ingen skjermendring, så ingen visuell kontroll.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-14-strict-production-configuration.md`. Commit `4de78da`.
+- Produksjonsvakter for hemmeligheter, flagg og grenser, klient-IP gjennom Caddy med `TRUSTED_PROXY_CIDRS`, `railway.toml` per tjeneste, bygg fra rotmappa, tilkoblingsbudsjett og `scripts/smoke`.
+- Backend: 1962 grønne på 65 s. `scripts/smoke` og Playwright `logg-inn` og `landing` (19/19) er grønne mot den gjenoppbygde stacken.
+- Status: `done`. Det som krever konto, står under «For Story 3.15» i specen.
+
+### Åpne punkter
+- Issue #81: beslutninger, og punktene til Story 3.15 (blant annet at `railway.toml` er merket utgått fra 2026-12-01).
+
+## Avslutning av Epic 3 (2026-11-18)
+
+### Oppgave
+Gjøre klar for PR fra `epic-3`: rette CI, gjøre en samlet oppfølgende gjennomgang, rette UX-avvikene som ble utsatt, og gjøre de ustabile testene stabile. Story 3.15 står i `backlog`, som kjøreboka sier.
+
+### Plan
+- Rette CI selv. Fargeparet `ink` på `net-zero` manglet i tabellen etter den visuelle rettingen i Story 3.13.
+- Én underagent for oppfølgende gjennomgang (3.1, 3.4, 3.5, 3.9, 3.10) og fem UX-rettinger.
+- Én underagent for ustabile tester (`system-states.spec.ts` og `test_rescue.py`).
+- Den visuelle kontrollen kjører nå hele Vitest-pakken (under 2 s).
+
+### Resultat
+- CI-retting: `ink` på `net-zero` er tillatt (DESIGN.md, matrisetrinn).
+- Commit `6ea5c17`: e-post sendt på nytt for alltid når en resolver feilet, og kappløp ved deaktivering samtidig med invitasjon. Begge er rettet med tester. UX-rettinger i invitasjonslista, på «Institusjoner» og i invitasjonsskjemaet. Ny test for «Vis flere».
+- Commit `ab504fd`: tilbakestillingstestene brukte demobrukerne og logget ut andre arbeidere. Demoinnlogginger ble stoppet av grensen. Tidtakerne startet først etter hydrering. `online`-hendelsen kom for tidlig. Den lokale postkassen valgte etter `sent_at` mens klokka hoppet. `test_rescue` hadde en fast frist på 2 s. Playwright 122/122 to ganger, system-states 180/180 to ganger, og `test_rescue` 40/40 under last.
+- Backend: 1967 grønne.
+
+### Åpne punkter
+- Issue #82: tre tvilsomme funn (blant annet motsatt låserekkefølge som kan gi 500).

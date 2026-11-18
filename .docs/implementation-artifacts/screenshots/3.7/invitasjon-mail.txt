@@ -1,0 +1,42 @@
+Subject: Invitasjon til ØL-spillet
+Sent: 2026-11-18T10:24:56.224338Z
+
+--- text ---
+ØL-spillet
+
+Hei,
+
+Du er invitert til ØL-spillet som Faglærer. Opprett kontoen din her:
+
+http://127.0.0.1:8080/invitasjon#3cHyvuZRhuFkRW5UhuRCyhGNGW78EzIgT_Ws8sDTbQ8
+
+Invitasjonen er gyldig i 14 dager og kan brukes én gang. Venter du ikke denne invitasjonen, kan du se bort fra e-posten.
+
+Hilsen ØL-spillet
+http://127.0.0.1:8080/
+
+Denne e-posten er sendt automatisk. Svar på den blir ikke lest.
+
+
+--- html ---
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invitasjon til ØL-spillet</title>
+</head>
+<body style="margin:0;padding:0;background:#FFFFFF;color:#0F2A47;font-family:'Source Sans 3','Source Sans Pro',Arial,sans-serif;font-size:16px;line-height:1.5;">
+<div style="max-width:560px;margin:0 auto;padding:24px 16px;">
+<p style="margin:0 0 16px;font-size:20px;font-weight:700;">ØL-spillet</p>
+<p style="margin:0 0 16px;">Hei,</p>
+<div style="border-top:1px solid #E1E6EC;padding:16px 0 0;margin:0 0 16px;">
+<p style="margin:0 0 16px;">Du er invitert til ØL-spillet som Faglærer.</p>
+<p style="margin:0 0 16px;"><a href="http://127.0.0.1:8080/invitasjon#3cHyvuZRhuFkRW5UhuRCyhGNGW78EzIgT_Ws8sDTbQ8" style="color:#2B6CA3;font-weight:600;">Opprett konto</a></p>
+<p style="margin:0;color:#44586F;">Invitasjonen er gyldig i 14 dager og kan brukes én gang. Venter du ikke denne invitasjonen, kan du se bort fra e-posten.</p>
+</div>
+<p style="margin:24px 0 0;border-top:1px solid #E1E6EC;padding-top:16px;color:#44586F;">Hilsen <a href="http://127.0.0.1:8080/" style="color:#2B6CA3;font-weight:600;">ØL-spillet</a><br>Denne e-posten er sendt automatisk. Svar på den blir ikke lest.</p>
+</div>
+</body>
+</html>
+
