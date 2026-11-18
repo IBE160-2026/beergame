@@ -38,3 +38,8 @@ next-env.d.ts
 
 # Arbeidsfiler fra planleggingen av epics
 .docs/planning-artifacts/epics/*/.working/
+
+# Playwright output
+test-results/
+playwright-report/
+blob-report/

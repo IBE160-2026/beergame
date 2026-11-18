@@ -84,10 +84,19 @@ Checks, as CI runs them:
 
 ```sh
 cd backend && uv sync --locked && uv run ruff check . && uv run ruff format --check . && uv run pytest
-cd frontend && npm ci && npm run typecheck && npm run build
+cd frontend && npm ci && npm run typecheck && npm test && npm run check:copy && npm run build
+docker compose up -d --build --wait proxy && (cd frontend && npx playwright test)
 ```
 
 `uv run pytest` needs the compose `postgres` (or `DATABASE_URL`) and uses a separate `<db>_test` database.
+
+Frontend checks:
+
+- `npm test` runs Vitest. It covers the theme tokens against `DESIGN.md`, the text-on-tint contrast pairs, the components, the copy check and the colour lint.
+- `npm run check:copy` runs the voice rules over `src/copy/nb.ts`, the print route and the Jinja2 templates.
+- `npm run build` runs the colour lint first. It fails on a literal colour outside `src/theme/`.
+- `npx playwright test` runs the browser tests, with axe, against the stack at `http://127.0.0.1:8080`. Use 127.0.0.1, not `localhost`. Set `E2E_BASE_URL` to point them at another address. Install the browser once with `npx playwright install chromium`.
+- The theme is generated from `src/theme/tokens.json`, which is a copy of the `DESIGN.md` front matter. After a token change, run `npm run theme`.
 
 ## Fast tests
 

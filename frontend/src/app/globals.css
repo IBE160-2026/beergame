@@ -1,1 +1,37 @@
 @import "tailwindcss";
+@import "../theme/theme.css";
+
+/* Light theme only, on `paper` (DESIGN.md → Colors). No literal colours here: tokens only. */
+@layer base {
+  html {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    /* Lining tabular figures are the app-wide default (DESIGN.md → Typography). */
+    font-variant-numeric: lining-nums tabular-nums;
+    /* No all caps and no letter-spacing (UX-DR4). */
+    text-transform: none;
+    letter-spacing: normal;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    font-size: var(--text-body-phone);
+    line-height: var(--text-body-phone--line-height);
+  }
+
+  @media (min-width: 64rem) {
+    body {
+      font-size: var(--text-body);
+      line-height: var(--text-body--line-height);
+    }
+  }
+
+  /* Fokusring: 2 px `ink` ring with a 2 px gap that shows the `paper` background. */
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+}
