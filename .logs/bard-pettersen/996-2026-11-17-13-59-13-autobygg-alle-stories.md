@@ -428,3 +428,22 @@ Bygge Story 2.9 på `epic-2`.
 
 ### Åpne punkter
 - Issue #58: plassholderalgoritmen må erstattes, og hvordan verdiene lagres.
+
+## Story 2.10: Spillvakten bytter en LLM-plass som driver ut (2026-11-18)
+
+### Oppgave
+Bygge Story 2.10 på `epic-2`.
+
+### Plan
+`bmad-build-auto` i én underagent, med navngitte plassholdere for de åpne valgene i Issue #20. Agenten brukte lang tid på å lese inn bakgrunnen og fikk en statusforespørsel underveis. Den sto ikke fast.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-2-10-play-guard-switch-drifting-llm-seat.md`. Commit `b6f1fbd`.
+- `place_order` kjører spillvakten (`backend/app/analysis/play_guard.py`) på hver LLM-ordre. Går plassen ut av båndet, legges det til en rad (`rule_based`, `guard_switch`) fra neste uke, og plassen er regelbasert resten av spillet. Ingen migrering.
+- Hele pakken: 1449 grønne på 60 s, full dekning av motor og analyse, golden-resultater uendret. Seks nye tester tar 1,3–2,7 s.
+- Gjennomgang: 26 funn, 1 middels og 4 lave rettet.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #59: plassholdere for spillvakten, og at vakten kan bytte ut en spiller som spiller nær optimalt.
+- Issue #20: kalibrering av spillvakten.
