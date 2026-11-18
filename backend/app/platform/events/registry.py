@@ -13,6 +13,8 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "games.finish": frozenset({"game"}),
         "games.advance": frozenset({"game"}),
         "games.switch_to_rule_based": frozenset({"game"}),
+        # A notice to a User (Story 3.5, AD-9); a notice addressed by reference emits nothing.
+        "notify.enqueue": frozenset({"user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

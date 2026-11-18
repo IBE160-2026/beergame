@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity import repo
 from app.modules.identity.schemas import AccountRole, UserOut, normalise_email
-from app.platform import auth, ratelimit
+from app.platform import auth, email, ratelimit
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
@@ -129,3 +129,12 @@ async def create_user(
         async with get_sessionmaker().begin() as s:
             await repo.insert_user(s, **values)
     return user_id
+
+
+async def mail_recipient(session: AsyncSession, user_id: uuid.UUID) -> email.Recipient | None:
+    """Where a mail to `user_id` goes, for `messaging` at send time (AD-9, AD-14): the address
+    and name, or None when the User is gone or deactivated. Never stored or logged."""
+    row = await repo.user_by_id(session, user_id)
+    if row is None or not row["is_active"]:
+        return None
+    return email.Recipient(email=row["email"], name=row["name"])

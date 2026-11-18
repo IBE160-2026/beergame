@@ -39,6 +39,13 @@ ALLOWED_FIELDS: frozenset[str] = frozenset(
         "job_id",
         "check_id",
         "violation_count",
+        # The mail pipeline (Story 3.5): ids, kinds and counts only, never an address.
+        "delivery_id",
+        "notice_id",
+        "kind",
+        "notice_count",
+        "provider_ref",
+        "action",
     }
 )
 

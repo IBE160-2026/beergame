@@ -1,0 +1,92 @@
+"""The one table of delivery per notice kind (AD-9).
+
+`immediate` kinds leave at once, at any hour: Invitations, password resets, Messages a person
+sends, Takeover notices. Every other kind is `digest`: at most one mail per User per calendar day
+in Europe/Oslo, never between 22:00 and 07:00 there (founder decision 2026-11-12).
+
+A kind addressed to a User resolves the address through `identity.service.mail_recipient`. A kind
+addressed by reference (the notice's `user_id` is None, its `ref` the record holding the address)
+names the owning module's `service.py` resolver here. A digest kind is always addressed to a User.
+
+Stories add their kinds to `KINDS` (3.6 `password_reset`, 3.7 `invitation`, …). The two dummy
+kinds exist only outside production, for the `send-test` command and the tests.
+"""
+
+import uuid
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
+from datetime import datetime, time, timedelta
+from types import MappingProxyType
+from typing import Literal
+from zoneinfo import ZoneInfo
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.platform.config import Settings, get_settings
+from app.platform.email import Recipient
+
+IMMEDIATE = "immediate"
+DIGEST = "digest"
+Mode = Literal["immediate", "digest"]
+
+OSLO = ZoneInfo("Europe/Oslo")
+QUIET_FROM = time(22, 0)
+"""No digest mail is claimed from 22:00 …"""
+QUIET_UNTIL = time(7, 0)
+"""… until 07:00, Europe/Oslo."""
+
+RefResolver = Callable[[AsyncSession, uuid.UUID], Awaitable[Recipient | None]]
+
+
+@dataclass(frozen=True)
+class Delivery:
+    mode: Mode
+    template: str
+    """The name of the kind's templates in `platform/email/templates/kinds/`."""
+    resolve_ref: RefResolver | None = None
+    """For a kind addressed by reference: the owning module's resolver of the notice's `ref`."""
+
+    def __post_init__(self) -> None:
+        if self.mode not in (IMMEDIATE, DIGEST):
+            raise ValueError(f"unknown delivery mode {self.mode!r}")
+        if self.mode == DIGEST and self.resolve_ref is not None:
+            raise ValueError("a digest kind is addressed to a User, not by reference")
+
+
+KINDS: Mapping[str, Delivery] = MappingProxyType({})
+"""The product's kinds. Stories 3.6 and 3.7 add the first ones."""
+
+TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
+    {
+        "test_immediate": Delivery(IMMEDIATE, "test_immediate"),
+        "test_digest": Delivery(DIGEST, "test_digest"),
+    }
+)
+"""The dummy kinds of Story 3.5, outside production only."""
+
+
+def table(settings: Settings | None = None) -> Mapping[str, Delivery]:
+    """Every kind this process delivers."""
+    settings = settings or get_settings()
+    kinds = dict(KINDS)
+    if settings.app_env != "production":
+        kinds |= TEST_KINDS
+    return MappingProxyType(kinds)
+
+
+def kinds_of(mode: Mode, settings: Settings | None = None) -> tuple[str, ...]:
+    return tuple(kind for kind, entry in table(settings).items() if entry.mode == mode)
+
+
+def digest_allowed(now: datetime) -> bool:
+    """Whether a digest may be claimed at `now`: 07:00 to 22:00 Europe/Oslo."""
+    local = now.astimezone(OSLO).time()
+    return QUIET_UNTIL <= local < QUIET_FROM
+
+
+def oslo_day(now: datetime) -> tuple[datetime, datetime]:
+    """The start and end of the Europe/Oslo calendar day that holds `now`."""
+    day = now.astimezone(OSLO).date()
+    start = datetime.combine(day, time(0), OSLO)
+    end = datetime.combine(day + timedelta(days=1), time(0), OSLO)
+    return start, end

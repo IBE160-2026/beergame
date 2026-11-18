@@ -1,0 +1,13 @@
+{# The text part of every mail: the heading «ØL-spillet», then one part per notice. #}
+ØL-spillet
+
+Hei{% if name %} {{ name }}{% endif %},
+
+{% for part in parts %}
+{{ part }}
+
+{% endfor %}
+Hilsen ØL-spillet
+{{ url("/") }}
+
+Denne e-posten er sendt automatisk. Svar på den blir ikke lest.

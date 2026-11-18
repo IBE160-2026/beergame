@@ -34,10 +34,17 @@ MEASUREMENT_TABLES = {"effort_measurements", "ai_default_pins"}
 """The tables of revision 0014 (Story 2.12)."""
 IDENTITY_TABLES = {"users", "user_roles", "rate_limit_counters"}
 """The tables of revision 0015 (Story 3.2)."""
+MAIL_TABLES = {"notices", "mail_deliveries"}
+"""The tables of revision 0016 (Story 3.5)."""
 HEAD_TABLES = (
-    AI_HEAD_TABLES | JOB_TABLES | {"simulation_batches"} | MEASUREMENT_TABLES | IDENTITY_TABLES
+    AI_HEAD_TABLES
+    | JOB_TABLES
+    | {"simulation_batches"}
+    | MEASUREMENT_TABLES
+    | IDENTITY_TABLES
+    | MAIL_TABLES
 )
-HEAD = "0015"
+HEAD = "0016"
 
 
 def reset_schema(url: str) -> None:
@@ -240,7 +247,7 @@ def test_downgrade_to_0012_removes_the_simulation_batches(migrations_database):
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0012")
     assert tables(migrations_database) == (
-        HEAD_TABLES - {"simulation_batches"} - MEASUREMENT_TABLES - IDENTITY_TABLES
+        HEAD_TABLES - {"simulation_batches"} - MEASUREMENT_TABLES - IDENTITY_TABLES - MAIL_TABLES
     )
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         columns = conn.execute(
@@ -261,7 +268,10 @@ def test_downgrade_to_0013_removes_the_effort_measurements_and_pins(migrations_d
     cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0013")
-    assert tables(migrations_database) == HEAD_TABLES - MEASUREMENT_TABLES - IDENTITY_TABLES
+    assert (
+        tables(migrations_database)
+        == HEAD_TABLES - MEASUREMENT_TABLES - IDENTITY_TABLES - MAIL_TABLES
+    )
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         functions = conn.execute(
             "SELECT 1 FROM pg_proc WHERE proname = 'effort_measurements_append_only'"
@@ -276,7 +286,17 @@ def test_downgrade_to_0014_removes_the_identity_and_rate_limit_tables(migrations
     cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0014")
-    assert tables(migrations_database) == HEAD_TABLES - IDENTITY_TABLES
+    assert tables(migrations_database) == HEAD_TABLES - IDENTITY_TABLES - MAIL_TABLES
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_downgrade_to_0015_removes_the_notice_and_delivery_tables(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0015")
+    assert tables(migrations_database) == HEAD_TABLES - MAIL_TABLES
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 
@@ -328,12 +348,15 @@ def test_the_check_constraints_list_exactly_the_enum_values(migrations_database)
     from app.ai import models as ai_models
     from app.modules.games import schemas
     from app.modules.identity.schemas import AccountRole
+    from app.modules.messaging import models as mail_models
 
     ai_checks = {
         "ck_ai_budgets_scope_kind": set(get_args(ai_budget.ScopeKind)),
         "ck_llm_call_outcome": set(ai_models.OUTCOMES),
         "ck_llm_call_scope_kind": set(get_args(ai_budget.ScopeKind)),
         "ck_user_roles_role": {role.value for role in AccountRole},
+        "ck_mail_deliveries_mode": set(mail_models.MODES),
+        "ck_mail_deliveries_skipped_reason": set(mail_models.SKIP_REASONS),
     }
     reset_schema(migrations_database)
     command.upgrade(config(migrations_database), "head")

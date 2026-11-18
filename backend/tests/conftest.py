@@ -48,6 +48,8 @@ TEST_DATABASE_URL = _base_url.set(database=f"{_base_url.database}_test{_suffix}"
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("BCRYPT_ROUNDS", "4")  # bcrypt's minimum cost: hashing stays cheap
+# No test sends real mail: without a key every mail goes to the `[email:mock]` sender (Story 3.5).
+os.environ.pop("RESEND_API_KEY", None)
 
 
 def libpq_dsn(url: str) -> str:
@@ -133,6 +135,22 @@ def identity_db(test_database) -> str:
     with psycopg.connect(libpq_dsn(test_database), autocommit=True) as conn:
         conn.execute(f"TRUNCATE {IDENTITY_TABLES} CASCADE")
     return test_database
+
+
+MAIL_TABLES = "notices, mail_deliveries, procrastinate_jobs, users, user_roles"
+
+
+@pytest.fixture
+def mail_db(test_database) -> Iterator[str]:
+    """The test database with no Users, notices, deliveries or jobs, and an empty mock outbox
+    (Story 3.5)."""
+    from app.platform.email import senders
+
+    with psycopg.connect(libpq_dsn(test_database), autocommit=True) as conn:
+        conn.execute(f"TRUNCATE {MAIL_TABLES} CASCADE")
+    senders.MOCK.sent.clear()
+    yield test_database
+    senders.MOCK.sent.clear()
 
 
 @pytest.fixture(scope="session")

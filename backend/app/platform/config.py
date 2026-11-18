@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     login_rate_limit_per_account: int = Field(5, ge=1)
     login_rate_limit_window_minutes: int = Field(15, ge=1)
 
+    # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
+    # to the `[email:mock]` sender; the compose file never passes a key.
+    email_from: str = "ØL-spillet <noreply@olspillet.local>"
+    public_base_url: str = "http://127.0.0.1:8080"
+    resend_api_key: str = ""
+
     @field_validator("log_level", mode="before")
     @classmethod
     def _lower_level(cls, v: object) -> object:

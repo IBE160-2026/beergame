@@ -1,10 +1,11 @@
 """Worker entry point (`python -m app.worker --queues ai-orders`, AD-9, AD-24).
 
-`worker-ai` runs `--queues ai-orders` and `worker-batch` `--queues llm-batch`, both from the
-backend image. A worker with `ai-orders` also runs the rescue loop every 5 seconds (Story 2.6),
-which places the fallback Order of an LLM player past its deadline. A worker needs no provider
-key: with none set, the AI mock answers in `local`, `test` and `ci` (AD-17). Queues are given
-comma-separated or with `--queues` repeated.
+`worker-ai` runs `--queues ai-orders` and `worker-batch` `--queues llm-batch,mail --sweeper`,
+both from the backend image. `--sweeper` makes the worker defer the per-minute `ops.sweep` and
+run its `sweep` queue (Story 3.5); exactly one process runs with it. A worker with `ai-orders`
+also runs the rescue loop every 5 seconds (Story 2.6), which places the fallback Order of an LLM
+player past its deadline. A worker needs no provider key: with none set, the AI mock answers in
+`local`, `test` and `ci` (AD-17). Queues are given comma-separated or with `--queues` repeated.
 """
 
 import argparse
@@ -36,6 +37,11 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"queue(s) to run, comma-separated or repeated: {', '.join(jobs.QUEUES)}",
     )
     parser.add_argument("--concurrency", type=int, default=1, help="jobs run at once (1)")
+    parser.add_argument(
+        "--sweeper",
+        action="store_true",
+        help="also defer and run the per-minute ops.sweep (one process only)",
+    )
     return parser
 
 
@@ -60,14 +66,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     names = queues(args.queues)
-    unknown = [name for name in names if name not in jobs.QUEUES]
     if not names:
         parser.error(f"no queue given; use {', '.join(jobs.QUEUES)}")
+    if args.sweeper and jobs.SWEEP not in names:
+        names.append(jobs.SWEEP)
+    unknown = [name for name in names if name not in jobs.QUEUES]
     if unknown:
         parser.error(f"unknown queue(s) {', '.join(unknown)}; use {', '.join(jobs.QUEUES)}")
     if args.concurrency < 1:
         parser.error("--concurrency must be at least 1")
     configure_logging(get_settings().log_level)
+    if args.sweeper:
+        from app.modules.ops import jobs as ops_jobs
+
+        ops_jobs.schedule()
     # psycopg's async mode cannot run on Windows' default Proactor loop.
     factory = asyncio.SelectorEventLoop if sys.platform == "win32" else asyncio.new_event_loop
     asyncio.run(_start(names, concurrency=args.concurrency), loop_factory=factory)
