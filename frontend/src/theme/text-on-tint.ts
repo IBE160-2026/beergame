@@ -12,6 +12,8 @@ export const TEXT_ON_TINT: Readonly<Partial<Record<ColourToken, readonly ColourT
   paper: ON_PAPER,
   "future-tint": ON_PAPER,
   "lager-fill": ["ink", "ink-secondary"],
+  // The zero bin of the Netto lager scale (DESIGN.md → Matrix steps) prints its 0 in ink.
+  "net-zero": ["ink"],
   "restordre-fill": ["ink", "ink-secondary"],
   "net-neg-1": ["ink"],
   "net-pos-1": ["ink"],
