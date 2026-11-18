@@ -653,7 +653,7 @@ def test_show_prints_the_seat_state_and_the_open_turn(capsys, games_db):
     out = capsys.readouterr().out
     assert code == 0
     out = out[out.index("{") :]  # structlog lines precede the report under pytest
-    body, opened, reference = out.rstrip("\n").rsplit("\n", 2)
+    body, opened, reference, near = out.rstrip("\n").rsplit("\n", 3)
     state = SeatState.model_validate_json(body)
     assert (state.role, state.week, state.inventory, state.incoming_order) == (
         "retailer",
@@ -661,14 +661,17 @@ def test_show_prints_the_seat_state_and_the_open_turn(capsys, games_db):
         12,
         4,
     )
-    ((opened_at, order),) = query(
+    ((opened_at, order, near_order),) = query(
         games_db,
-        "SELECT t.opened_at, t.rule_based_reference_order FROM seat_turns t "
+        "SELECT t.opened_at, t.rule_based_reference_order, t.near_optimal_reference_order "
+        "FROM seat_turns t "
         "JOIN seats s ON s.id = t.seat_id WHERE t.game_id = %s AND s.role = 'retailer'",
         (game_id,),
     )
     assert opened == f"opened_at {opened_at.isoformat()}"
     assert reference == f"reference_order {order}"
+    assert near == f"near_optimal_reference_order {near_order} placeholder-0"
+    assert near_order == 8  # Classic step: 12 + (4 + 4 + 4 + 8) - 24 (Story 2.9)
 
 
 @pytest.mark.parametrize(

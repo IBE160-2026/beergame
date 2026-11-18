@@ -128,6 +128,8 @@ async def open_turn(game_id: str, seat: str, week: int | None = None) -> TurnOve
         opened_at=turn["opened_at"],
         ordered_at=turn["ordered_at"],
         rule_based_reference_order=turn["rule_based_reference_order"],
+        near_optimal_reference_order=turn["near_optimal_reference_order"],
+        near_optimal_algorithm_version=turn["near_optimal_algorithm_version"],
     )
 
 
@@ -154,6 +156,8 @@ async def decision_log(game_id: str) -> tuple[DecisionLogRow, ...]:
             ordered_at=row["ordered_at"],
             ai_deadline_at=row["ai_deadline_at"],
             rule_based_reference_order=row["rule_based_reference_order"],
+            near_optimal_reference_order=row["near_optimal_reference_order"],
+            near_optimal_algorithm_version=row["near_optimal_algorithm_version"],
             llm_call_ids=tuple(str(call_id) for call_id in row["llm_call_ids"]),
             state_seen=SeatState.model_validate(row["state_seen"]),
         )

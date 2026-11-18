@@ -31,7 +31,7 @@ JOB_TABLES = {
 }
 """procrastinate's tables, from the SQL it ships (revision 0008, Story 2.5)."""
 HEAD_TABLES = AI_HEAD_TABLES | JOB_TABLES
-HEAD = "0011"
+HEAD = "0012"
 
 
 def reset_schema(url: str) -> None:
@@ -202,6 +202,28 @@ def test_downgrade_to_0008_removes_the_ai_deadlines(migrations_database):
     assert columns == []
     assert "cancelled" not in outcome
     assert "ai_deadline_at" not in trigger
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_downgrade_to_0011_removes_the_near_optimal_reference(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0011")
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        columns = conn.execute(
+            "SELECT table_name FROM information_schema.columns "
+            "WHERE column_name LIKE 'near_optimal_%'"
+        ).fetchall()
+        checks = conn.execute(
+            "SELECT conname FROM pg_constraint WHERE conname LIKE '%near_optimal%'"
+        ).fetchall()
+        (trigger,) = conn.execute(
+            "SELECT prosrc FROM pg_proc WHERE proname = 'seat_turns_keep_opening'"
+        ).fetchone()
+    assert columns == [] and checks == []
+    assert "near_optimal" not in trigger and "ai_deadline_at" in trigger  # 0009's function
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 

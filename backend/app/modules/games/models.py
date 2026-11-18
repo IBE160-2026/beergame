@@ -111,8 +111,17 @@ seat_turns = Table(
     # When an LLM player's Order is due (AD-5, AD-20): set by `games.rules.turn_times`, NULL for
     # every other turn; the `worker-ai` rescue loop places the fallback Order after it.
     Column("ai_deadline_at", DateTime(timezone=True), nullable=True),
+    # The near-optimal reference Order and the algorithm version that computed it (Story 2.9,
+    # FR-67, FR-79); NULL only on turns opened before revision 0012.
+    Column("near_optimal_reference_order", Integer, nullable=True),
+    Column("near_optimal_algorithm_version", Text, nullable=True),
     CheckConstraint("week >= 1", name="ck_seat_turns_week"),
     CheckConstraint("rule_based_reference_order >= 0", name="ck_seat_turns_reference_order"),
+    CheckConstraint("near_optimal_reference_order >= 0", name="ck_seat_turns_near_optimal_order"),
+    CheckConstraint(
+        "(near_optimal_reference_order IS NULL) = (near_optimal_algorithm_version IS NULL)",
+        name="ck_seat_turns_near_optimal_pair",
+    ),
     UniqueConstraint("game_id", "week", "seat_id", name="uq_seat_turns_game_week_seat"),
     Index(
         "ix_seat_turns_ai_deadline",
@@ -121,8 +130,9 @@ seat_turns = Table(
     ),
 )
 """One row per Seat per opened Week (AD-20). A trigger refuses DELETE and any UPDATE of the
-Week, the Seat, `opened_at`, an `ordered_at` already set, an `ai_deadline_at` already set, or
-the Rule-based reference Order, which is computed once when the Week opens (AD-5)."""
+Week, the Seat, `opened_at`, an `ordered_at` already set, an `ai_deadline_at` already set, the
+Rule-based reference Order, or a near-optimal reference already set: both references are
+computed once when the Week opens (AD-5)."""
 
 seat_weeks = Table(
     "seat_weeks",
@@ -147,9 +157,17 @@ seat_weeks = Table(
     Column("llm_call_ids", ARRAY(Uuid), nullable=False, server_default=text("'{}'")),
     # The turn's AI deadline, copied like its other times (AD-15, AD-20).
     Column("ai_deadline_at", DateTime(timezone=True), nullable=True),
+    # The turn's near-optimal reference and its algorithm version, copied (Story 2.9).
+    Column("near_optimal_reference_order", Integer, nullable=True),
+    Column("near_optimal_algorithm_version", Text, nullable=True),
     CheckConstraint("week >= 1", name="ck_seat_weeks_week"),
     CheckConstraint('"order" >= 0', name="ck_seat_weeks_order"),
     CheckConstraint("rule_based_reference_order >= 0", name="ck_seat_weeks_reference_order"),
+    CheckConstraint("near_optimal_reference_order >= 0", name="ck_seat_weeks_near_optimal_order"),
+    CheckConstraint(
+        "(near_optimal_reference_order IS NULL) = (near_optimal_algorithm_version IS NULL)",
+        name="ck_seat_weeks_near_optimal_pair",
+    ),
     CheckConstraint(_in("decided_by", DecidedBy), name="ck_seat_weeks_decided_by"),
     CheckConstraint(_in("fallback", Fallback), name="ck_seat_weeks_fallback"),
     CheckConstraint(_in("occupant_kind", OccupantKind), name="ck_seat_weeks_occupant_kind"),

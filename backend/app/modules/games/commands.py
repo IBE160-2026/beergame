@@ -32,6 +32,7 @@ from app.engine import (
     demand_series,
     guided_order,
     initial_state,
+    near_optimal,
     rule_based,
     seat_view,
     validate,
@@ -402,11 +403,12 @@ async def _open_week(
     orders: Sequence[Mapping[str, int]],
     seats: Sequence[Mapping[str, object]],
 ) -> None:
-    """Store the newest of `states` and one turn per Seat with its Rule-based reference Order,
-    computed here once from that Seat's own view, and its due times from `rules.turn_times`
-    (AD-5, AD-20, FR-67). Then every Seat, in chain order, goes to `players.ensure_order`,
-    which places the Orders of its non-student occupants in this transaction. The Game must
-    already be `running`.
+    """Store the newest of `states` and one turn per Seat with its two reference Orders,
+    computed here once: the Rule-based one from that Seat's own view, the near-optimal one from
+    the whole chain state and the Game's demand series (with its algorithm version); and its due
+    times from `rules.turn_times` (AD-5, AD-20, FR-67, FR-79). Then every Seat, in chain
+    order, goes to `players.ensure_order`, which places the Orders of its non-student occupants
+    in this transaction. The Game must already be `running`.
 
     `seats` are the Game's Seats with their latest occupant (`repo.seats_with_occupant`; a free
     Seat has just been given a Rule-based player), which is the one in force in the new Week.
@@ -436,6 +438,7 @@ async def _open_week(
         return rules.turn_times(week, seat, inputs).ai_deadline_at
 
     seat_ids = {seat["role"]: seat["id"] for seat in seats}
+    demand = tuple(game["demand_series"])  # equal to the settings' series (`_snapshot`)
     await repo.insert_turns(
         session,
         [
@@ -449,6 +452,10 @@ async def _open_week(
                 "rule_based_reference_order": rule_based.order(
                     settings, seat_view(settings, states, orders, role), params
                 ),
+                "near_optimal_reference_order": near_optimal.order(
+                    settings, state, demand, state.week, role
+                ),
+                "near_optimal_algorithm_version": near_optimal.ALGORITHM_VERSION,
             }
             for role in settings.roles
         ],
@@ -688,6 +695,9 @@ async def _place(
             # Only an LLM player's Order was due at the AI deadline.
             "ai_deadline_at": turn["ai_deadline_at"] if llm_occupant else None,
             "rule_based_reference_order": turn["rule_based_reference_order"],
+            # Copied from the turn, never recomputed (AD-5, AD-15).
+            "near_optimal_reference_order": turn["near_optimal_reference_order"],
+            "near_optimal_algorithm_version": turn["near_optimal_algorithm_version"],
             "llm_call_ids": list(call_ids),
         },
     )

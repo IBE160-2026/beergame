@@ -180,6 +180,11 @@ class TurnOverview(BaseModel):
     opened_at: datetime
     ordered_at: datetime | None
     rule_based_reference_order: int
+    near_optimal_reference_order: int | None = None
+    """Computed from the whole chain when the Week opened (FR-79); None only on turns opened
+    before Story 2.9."""
+    near_optimal_algorithm_version: str | None = None
+    """The algorithm that computed it (`engine.near_optimal.ALGORITHM_VERSION`)."""
 
 
 class PendingTurn(BaseModel):
@@ -242,6 +247,10 @@ class DecisionLogRow(BaseModel):
     ai_deadline_at: datetime | None = None
     """When an LLM player's Order was due (AD-20); None for every other Order."""
     rule_based_reference_order: int
+    near_optimal_reference_order: int | None = None
+    """Copied from the turn (FR-67, FR-79); None only on rows written before Story 2.9."""
+    near_optimal_algorithm_version: str | None = None
+    """The algorithm that computed it, copied from the turn."""
     llm_call_ids: tuple[str, ...] = ()
     """The LLM call rows behind the Order: every attempt of an LLM Order or of the failed call
     behind a fallback Order (FR-67)."""

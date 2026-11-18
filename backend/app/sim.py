@@ -22,7 +22,8 @@ Subcommands:
                    Rule-based player, Week 1 opens and every Week is played by the order
                    source) and print its lifecycle, the Week it opened and its Seats.
   show             print what one Seat sees in the open Week (`SeatState` as JSON), then the
-                   open turn's `opened_at` and Rule-based reference Order.
+                   open turn's `opened_at`, its Rule-based reference Order and its
+                   near-optimal reference Order with the algorithm version.
   play             wait for a started Game to finish and check it. The runner chooses no
                    Orders: `players.ensure_order` places the Guided Order in a Guided Week
                    (`guided`), else the turn's stored Rule-based reference Order (`rule_based`)
@@ -516,6 +517,10 @@ async def _show_seat(game_id: str, seat: str) -> int:
     print(state.model_dump_json(indent=2))
     print(f"opened_at {turn.opened_at.isoformat()}")
     print(f"reference_order {turn.rule_based_reference_order}")
+    print(
+        f"near_optimal_reference_order {turn.near_optimal_reference_order} "
+        f"{turn.near_optimal_algorithm_version}"
+    )
     return 0
 
 

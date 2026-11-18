@@ -16,6 +16,7 @@ from app.ai import budget, config, gateway, mock
 from app.ai.gateway import Failure, Result
 from app.engine import GameSettings, WeekState, advance, initial_state, rule_based
 from app.engine.settings import DemandStep
+from app.modules.games.schemas import SeatState
 from app.modules.games.views import build_seat_state
 from app.modules.players import llm
 from app.sim import load_rule_based_params, rule_based_policy
@@ -274,6 +275,52 @@ async def test_six_bad_answers_end_in_invalid_output(ai_db):
         )
     assert isinstance(result, Failure) and result.kind == "invalid_output"
     assert len(result.llm_call_ids) == 6
+
+
+def test_the_seat_state_has_no_near_optimal_field():
+    """Story 2.9 (AD-3): the near-optimal reference uses the whole chain and demand series; the
+    `SeatState` and the function that builds it take neither."""
+    fields = set(SeatState.model_fields)
+    assert not {name for name in fields if "near" in name or "reference" in name}
+    assert list(inspect.signature(build_seat_state).parameters) == [
+        "settings",
+        "states",
+        "orders",
+        "role",
+    ]
+
+
+async def test_the_near_optimal_reference_never_reaches_state_seen_or_the_prompt(
+    games_db, ai_db, monkeypatch
+):
+    """Story 2.9 (AD-3, FR-31): with the near-optimal reference patched to a sentinel, the
+    sentinel is stored on the turns and Decision log rows of an LLM Game but appears in no
+    `state_seen`, no `SeatState` and no request sent to the model."""
+    from app.engine import near_optimal
+    from app.platform import jobs
+    from tests.games.helpers import query as games_query
+    from tests.players.test_llm_jobs import llm_game
+
+    monkeypatch.setattr(near_optimal, "order", lambda *args: 987)
+    monkeypatch.setattr(near_optimal, "ALGORITHM_VERSION", "canary-9")
+    game_id = await llm_game(("wholesaler",))
+    await jobs.run_until_idle([jobs.AI_ORDERS])
+    stored = games_query(
+        games_db,
+        "SELECT w.near_optimal_reference_order, w.near_optimal_algorithm_version, w.state_seen, "
+        "w.decided_by FROM seat_weeks w WHERE w.game_id = %s",
+        (game_id,),
+    )
+    assert {(row[0], row[1]) for row in stored} == {(987, "canary-9")}
+    assert "llm" in {row[3] for row in stored}
+    for _, _, seen, _ in stored:
+        text = json.dumps(seen)
+        assert "987" not in text and "canary" not in text and "near" not in text
+    requests = games_query(games_db, "SELECT request FROM llm_call")
+    assert requests
+    for (request,) in requests:
+        text = json.dumps(request)
+        assert "987" not in text and "canary" not in text
 
 
 def test_no_personal_data_in_the_structured_inputs():
