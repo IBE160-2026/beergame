@@ -842,3 +842,22 @@ Bygge Story 4.1 på `epic-4` (første story i Epic 4) og kontrollere den visuelt
 
 ### Åpne punkter
 - Issue #84: beslutninger, restrisiko og visuelle punkter.
+
+## Story 4.2: Laste opp klasseliste og velge e-postkolonne (2026-11-19)
+
+### Oppgave
+Bygge Story 4.2 på `epic-4` og kontrollere den visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent. Personopplysninger skal ikke i loggen. Deretter visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-2-upload-roster-file-pick-email-column.md`. Commit `e20518f`, visuelle rettinger `68f0eb9`. Migrering 0024.
+- Opplasting av .xlsx og .csv på klassesiden, lest i minnet. Bare cellene lagres, og de utløper. Forhåndsvisning, valg av e-postkolonne med grunn, og ny kontroll når kolonnen endres. Ny avhengighet: `openpyxl==3.1.5`.
+- Backend: 2042 grønne på rundt 70 s (`test_rescue.py` feilet én gang under en Docker-ombygging). Frontend: typecheck, Vitest (341), sjekker og bygg er grønne. Playwright: 135 grønne.
+- Gjennomgang: 37 funn, 6 middels og 13 lave rettet.
+- Visuell kontroll: 22 skjermbilder og to rettinger. To klare avvik rettes i Story 4.3.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #85: beslutninger, sjekk mot ekte Canvas-eksporter, og visuelle avvik.
