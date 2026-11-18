@@ -823,3 +823,22 @@ Gjøre klar for PR fra `epic-3`: rette CI, gjøre en samlet oppfølgende gjennom
 
 ### Åpne punkter
 - Issue #82: tre tvilsomme funn (blant annet motsatt låserekkefølge som kan gi 500).
+
+## Story 4.1: Lage klasse fra Lærerhjemmet (2026-11-18)
+
+### Oppgave
+Bygge Story 4.1 på `epic-4` (første story i Epic 4) og kontrollere den visuelt. Epic 3 er merget (PR #83). Brukeren vil at kjøringen stopper etter Epic 4, så compact kan kjøres.
+
+### Plan
+`bmad-build-auto` i én underagent, med sperren fra Story 3.9 koblet på. Deretter visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-1-create-class-from-laererhjem.md`. Commit `e3d48f7`. Migrering 0023.
+- Modulen `classes` (`classes`, `class_staff`), `/api/classes`, policyer og `classes_visible_to(user)`. Sperren mot å fjerne faglærerrollen er koblet på (409 med riktig antall). Lærerhjemmet viser tom og fylt tilstand, og «Lag Klasse», klassesiden og en demoklasse er på plass.
+- Backend: 1992 grønne. Frontend: typecheck, Vitest (335), sjekker og bygg grønne. Playwright: 130 grønne.
+- Gjennomgang: 37 funn, 3 middels grupper og 4 lave rettet.
+- Visuell kontroll: 14 skjermbilder, alle stemmer, to punkter til vurdering.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #84: beslutninger, restrisiko og visuelle punkter.
