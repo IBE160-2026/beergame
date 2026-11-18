@@ -728,3 +728,22 @@ Bygge Story 3.10 på `epic-3`: dekke regelen om siste Admin ved deaktivering, vu
 ### Åpne punkter
 - Issue #77: beslutninger, visuelle avvik og ustabile e2e-tester.
 - Issue #73 er lukket.
+
+## Story 3.11: Opprette institusjoner (2026-11-18)
+
+### Oppgave
+Bygge Story 3.11 på `epic-3` og kontrollere den visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, og så visuell kontroll i en egen underagent med en forfalsket, realistisk liste.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-11-create-institutions.md`. Commit `8b7650e`, visuell retting `75733f7`. Migrering 0021.
+- Tabellen `institutions` og tre Admin-ruter (liste, opprett, gi nytt navn) med revisjonsrad. `service.list_institutions()` og `get_institution(id)`. Siden `/admin/institusjoner`.
+- Backend: 1837 grønne på 71 s. Frontend: typecheck, Vitest (288), sjekkene og bygget er grønne. Playwright: 95 av 96. Ustabile tester: offline-testen i `system-states.spec.ts` og `test_rescue.py`.
+- Gjennomgang: 33 funn. Ett middels rettet («İzmir» ga 500).
+- Visuell kontroll: 24 skjermbilder, én retting, to punkter til vurdering.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #78: beslutninger om institusjoner og visuelle avvik.
