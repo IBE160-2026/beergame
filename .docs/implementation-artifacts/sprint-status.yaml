@@ -73,7 +73,7 @@ development_status:
   3-4-see-what-is-happening-when-a-page-loads-fails-or-goes-offlin: done
   3-5-send-every-mail-through-one-pipeline: done
   3-6-reset-a-forgotten-password-by-e-mail: done
-  3-7-invite-a-lecturer-or-admin-by-e-mail: backlog
+  3-7-invite-a-lecturer-or-admin-by-e-mail: in-progress
   3-8-create-an-account-from-an-invitation: backlog
   3-9-find-users-and-grant-or-revoke-roles: backlog
   3-10-deactivate-and-reactivate-users-and-resend-invitations: backlog
