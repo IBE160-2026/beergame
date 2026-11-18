@@ -55,7 +55,7 @@ development_status:
   2-2-register-a-model-config-and-an-evaluation-budget-from-the-co: done
   2-3-make-a-validated-llm-call-through-the-gateway-and-log-every: done
   2-4-ask-an-llm-player-for-an-order-from-the-seat-state-alone: done
-  2-5-place-llm-orders-as-jobs-with-the-rule-based-order-as-fallba: backlog
+  2-5-place-llm-orders-as-jobs-with-the-rule-based-order-as-fallba: in-progress
   2-6-keep-every-llm-order-inside-its-time-budget: backlog
   2-7-call-a-real-eu-endpoint-within-its-rate-limit: backlog
   2-8-reserve-budget-per-call-and-switch-to-rule-based-players-at: backlog
