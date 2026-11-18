@@ -7,6 +7,9 @@ in Europe/Oslo, never between 22:00 and 07:00 there (founder decision 2026-11-12
 A kind addressed to a User resolves the address through `identity.service.mail_recipient`. A kind
 addressed by reference (the notice's `user_id` is None, its `ref` the record holding the address)
 names the owning module's `service.py` resolver here. A digest kind is always addressed to a User.
+A kind whose mail carries its own variables (a link with a token) names the owning module's context
+resolver; it returns None when the notice no longer needs a mail (the link is used or expired), and
+the mail is then skipped as `stale`.
 
 Stories add their kinds to `KINDS` (3.6 `password_reset`, 3.7 `invitation`, …). The two dummy
 kinds exist only outside production, for the `send-test` command and the tests.
@@ -22,6 +25,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.identity import service as identity
 from app.platform.config import Settings, get_settings
 from app.platform.email import Recipient
 
@@ -36,6 +40,11 @@ QUIET_UNTIL = time(7, 0)
 """… until 07:00, Europe/Oslo."""
 
 RefResolver = Callable[[AsyncSession, uuid.UUID], Awaitable[Recipient | None]]
+ContextResolver = Callable[
+    [AsyncSession, uuid.UUID, uuid.UUID | None, datetime],
+    Awaitable[Mapping[str, object] | None],
+]
+"""`(session, user_id, ref, now)` → the kind's template variables, or None for no mail."""
 
 
 @dataclass(frozen=True)
@@ -45,16 +54,26 @@ class Delivery:
     """The name of the kind's templates in `platform/email/templates/kinds/`."""
     resolve_ref: RefResolver | None = None
     """For a kind addressed by reference: the owning module's resolver of the notice's `ref`."""
+    context: ContextResolver | None = None
+    """For a User-addressed kind with its own variables: the owning module's resolver."""
 
     def __post_init__(self) -> None:
         if self.mode not in (IMMEDIATE, DIGEST):
             raise ValueError(f"unknown delivery mode {self.mode!r}")
         if self.mode == DIGEST and self.resolve_ref is not None:
             raise ValueError("a digest kind is addressed to a User, not by reference")
+        if self.resolve_ref is not None and self.context is not None:
+            raise ValueError("a kind by reference gets its variables from its ref resolver")
 
 
-KINDS: Mapping[str, Delivery] = MappingProxyType({})
-"""The product's kinds. Stories 3.6 and 3.7 add the first ones."""
+KINDS: Mapping[str, Delivery] = MappingProxyType(
+    {
+        identity.PASSWORD_RESET: Delivery(
+            IMMEDIATE, "password_reset", context=identity.password_reset_mail_context
+        ),
+    }
+)
+"""The product's kinds. Story 3.6 adds `password_reset`; Story 3.7 adds `invitation`."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

@@ -30,6 +30,11 @@ services:
       # bcrypt's minimum cost locally, so the Playwright login tests stay fast. The app's own
       # default (12) applies everywhere this is not set, production included.
       BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-4}
+      # Password-reset limits (Story 3.6) far above the app's defaults (5 per address, 50 per IP
+      # an hour), so repeated Playwright runs on one stack never hit them. The api tests check
+      # the limits themselves.
+      PASSWORD_RESET_RATE_LIMIT_PER_ACCOUNT: ${PASSWORD_RESET_RATE_LIMIT_PER_ACCOUNT:-1000}
+      PASSWORD_RESET_RATE_LIMIT_PER_IP: ${PASSWORD_RESET_RATE_LIMIT_PER_IP:-10000}
       # Mail (Story 3.5). No RESEND_API_KEY is passed, so every mail is the `[email:mock]` log
       # line locally, whatever the shell or .env holds (AD-17).
       EMAIL_FROM: ${EMAIL_FROM:-ØL-spillet <noreply@olspillet.local>}

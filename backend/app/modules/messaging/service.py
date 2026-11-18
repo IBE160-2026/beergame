@@ -33,6 +33,7 @@ __all__ = [
     "claim",
     "claim_notice",
     "due_items",
+    "latest_sent_mail",
     "send",
 ]
 
@@ -202,6 +203,37 @@ async def _failed(session: AsyncSession, row, exc: Exception, notice_count: int)
     return "failed"
 
 
+async def _sections(
+    session: AsyncSession, row, carried: list[notify.Notice], table, now: datetime
+) -> list[email.Section]:
+    """One part per carried notice, with the variables its kind's owner gives at `now`. A notice
+    whose owner says no mail is needed any more (a used or expired link) is left out."""
+    sections = []
+    for notice in carried:
+        entry = table[notice.kind]
+        context: object = {}
+        if entry.context is not None:
+            context = await entry.context(session, row["user_id"], notice.ref, now)
+            if context is None:
+                continue
+        sections.append(email.Section(entry.template, context))
+    return sections
+
+
+async def _compose(
+    session: AsyncSession, row, carried: list[notify.Notice], table, now: datetime
+) -> email.Mail | str:
+    """The mail for a delivery, or the reason it has none (`no_recipient`, `stale`)."""
+    first = carried[0]
+    recipient = await _recipient(session, row, first, table[first.kind])
+    if recipient is None:
+        return "no_recipient"
+    sections = await _sections(session, row, carried, table, now)
+    if not sections:
+        return "stale"
+    return email.render(recipient, sections, digest=row["mode"] == delivery.DIGEST)
+
+
 async def send(delivery_id: uuid.UUID, now: datetime | None = None) -> str:
     """The `mail` job. Returns what happened: `sent`, `skipped`, `failed`, `held` (a digest in
     the quiet hours), or `none` when the delivery is gone, held by another job, or already sent
@@ -225,19 +257,14 @@ async def send(delivery_id: uuid.UUID, now: datetime | None = None) -> str:
             return "skipped"
         first = carried[0]
         try:
-            recipient = await _recipient(session, row, first, table[first.kind])
+            mail = await _compose(session, row, carried, table, now)
         except Exception as exc:
             return await _failed(session, row, exc, len(carried))
-        if recipient is None:
-            await repo.mark_skipped(session, delivery_id, "no_recipient")
-            log.info("mail_skipped", delivery_id=str(delivery_id), error_code="no_recipient")
+        if isinstance(mail, str):
+            await repo.mark_skipped(session, delivery_id, mail)
+            log.info("mail_skipped", delivery_id=str(delivery_id), error_code=mail)
             return "skipped"
         try:
-            mail = email.render(
-                recipient,
-                [email.Section(table[n.kind].template) for n in carried],
-                digest=row["mode"] == delivery.DIGEST,
-            )
             provider_id = await email.get_sender().send(mail, idempotency_key=str(delivery_id))
         except Exception as exc:
             return await _failed(session, row, exc, len(carried))
@@ -250,3 +277,21 @@ async def send(delivery_id: uuid.UUID, now: datetime | None = None) -> str:
         provider_ref=provider_id,
     )
     return "sent"
+
+
+async def latest_sent_mail(address: str) -> tuple[email.Mail, datetime] | None:
+    """The newest mail sent to the User with this e-mail, rendered again on its send time, with
+    that time; None when there is none, or when its content is gone (a reset link used since).
+    For the local dev mailbox only (`routes.py`): it lets the Playwright tests read a link from
+    the `[email:mock]` mail, which logs ids only."""
+    table = delivery.table()
+    async with get_sessionmaker().begin() as session:
+        user_id = await identity.user_id_for_email(session, address)
+        row = None if user_id is None else await repo.latest_sent_for_user(session, user_id)
+        if row is None:
+            return None
+        carried = [n for n in await notify.get(session, row["notice_ids"]) if n.kind in table]
+        if not carried:
+            return None
+        mail = await _compose(session, row, carried, table, row["sent_at"])
+    return None if isinstance(mail, str) else (mail, row["sent_at"])

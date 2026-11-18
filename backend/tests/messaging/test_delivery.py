@@ -123,6 +123,17 @@ def test_a_digest_kind_cannot_be_addressed_by_reference():
         delivery.Delivery("weekly", "x")  # type: ignore[arg-type]
 
 
+def test_a_kind_by_reference_takes_no_context_resolver():
+    async def resolve(session, ref):
+        return None
+
+    async def context(session, user_id, ref, now):
+        return {}
+
+    with pytest.raises(ValueError, match="by reference"):
+        delivery.Delivery(delivery.IMMEDIATE, "x", resolve, context=context)
+
+
 async def test_a_deactivated_user_gets_no_mail(mail_db):
     user_id = await user(is_active=False)
     await enqueue(user_id, "test_immediate")

@@ -97,15 +97,17 @@ def test_only_app_ai_touches_the_model_config_and_budget_tables():
 def test_only_ops_imports_messaging_and_nothing_imports_ops():
     """Story 3.5 (AD-9): modules tell people through `platform/notify`, never by importing
     `messaging`; only the sweep (`ops`) calls `messaging.service`, and only the worker entry
-    point imports `ops`."""
+    point imports `ops`. The app factory mounts the local dev mailbox, `messaging.routes`
+    (Story 3.6)."""
     for path, line, name in imports(APP):
         inside = {
             folder: (APP / "modules" / folder) in path.parents for folder in ("messaging", "ops")
         }
         if name.startswith("app.modules.messaging") and not inside["messaging"]:
-            assert inside["ops"] and name.startswith("app.modules.messaging.service"), (
-                f"{path.name}:{line} imports {name}"
-            )
+            mounts_routes = path == APP / "main.py" and name == "app.modules.messaging.routes"
+            assert mounts_routes or (
+                inside["ops"] and name.startswith("app.modules.messaging.service")
+            ), f"{path.name}:{line} imports {name}"
         if name.startswith("app.modules.ops") and not inside["ops"]:
             assert path == APP / "worker.py", f"{path.name}:{line} imports {name}"
 

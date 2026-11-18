@@ -141,6 +141,44 @@ export const nb = {
       rateLimited: "For mange forsøk. Vent noen minutter og prøv igjen.",
       failed: "Innloggingen gikk ikke. Prøv igjen.",
     },
+    /** «Glemt passord» (Story 3.6, UX-DR61). `sent` is EXPERIENCE.md's own and never says
+     * whether the address has an account. */
+    forgot: {
+      pageTitle: "Glemt passord",
+      title: "Glemt passord",
+      // [ASSUMPTION] Story 3.6.
+      lead: "Skriv e-postadressen til kontoen din. Du får en lenke der du velger et nytt passord.",
+      email: "E-post",
+      // [ASSUMPTION] Story 3.6.
+      submit: "Send lenke",
+      sent: "Hvis adressen har en konto, har vi sendt en lenke. Lenken virker i én time.",
+      // [ASSUMPTION] Story 3.6: the reset limits count per hour.
+      rateLimited: "For mange forespørsler. Prøv igjen om en time.",
+      // [ASSUMPTION] Story 3.6.
+      failed: "Lenken ble ikke sendt. Prøv igjen.",
+    },
+    /** «Nytt passord» (Story 3.6, UX-DR61). `invalid`, `sendNew` and `done` are EXPERIENCE.md's
+     * own. */
+    reset: {
+      pageTitle: "Nytt passord",
+      title: "Nytt passord",
+      // [ASSUMPTION] Story 3.6: the account the link belongs to.
+      lead: (email: string) => `Velg et nytt passord for ${email}.`,
+      password: "Nytt passord",
+      // [ASSUMPTION] Story 3.6: the shortest password is 8 characters.
+      passwordRule: "Minst 8 tegn.",
+      errors: {
+        passwordEmpty: "Skriv et nytt passord.",
+        passwordShort: "Passordet må ha minst 8 tegn.",
+      },
+      // [ASSUMPTION] Story 3.6.
+      submit: "Lagre passord",
+      invalid: "Lenken er utløpt eller brukt.",
+      sendNew: "Send ny lenke",
+      done: "Passordet er endret.",
+      // [ASSUMPTION] Story 3.6.
+      failed: "Passordet ble ikke lagret. Prøv igjen.",
+    },
     session: {
       // [ASSUMPTION] Story 3.2.
       logout: "Logg ut",

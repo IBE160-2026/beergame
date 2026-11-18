@@ -14,6 +14,7 @@ This module imports no `app.modules` code: loading the User is the `identity` mo
 
 import base64
 import hashlib
+import hmac
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -63,6 +64,23 @@ def dummy_hash() -> str:
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+def link_token(purpose: str, record_id: uuid.UUID) -> str:
+    """The secret token of a mailed link (password reset, Story 3.6): HMAC-SHA256 of the record's
+    id under a key derived from `JWT_SECRET` (so the session key itself signs nothing else),
+    base64url without padding. The owner stores only `token_hash`, and the mail job rebuilds the
+    link at send time, so the token is never in a row, job or log line."""
+    secret = get_settings().jwt_secret.encode("utf-8")
+    key = hmac.new(secret, b"olspillet link tokens", hashlib.sha256).digest()
+    message = f"{purpose}:{record_id}".encode()
+    digest = hmac.new(key, message, hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
+def token_hash(token: str) -> str:
+    """What the owner stores and looks a link token up by: SHA-256 hex of the token."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def issue_token(user_id: uuid.UUID, now: datetime | None = None) -> str:

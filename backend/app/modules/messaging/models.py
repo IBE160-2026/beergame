@@ -17,7 +17,7 @@ from sqlalchemy import (
 from app.platform.db import metadata
 
 MODES = ("immediate", "digest")
-SKIP_REASONS = ("no_recipient", "unknown_kind", "send_failed")
+SKIP_REASONS = ("no_recipient", "unknown_kind", "send_failed", "stale")
 
 mail_deliveries = Table(
     "mail_deliveries",

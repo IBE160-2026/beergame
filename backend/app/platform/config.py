@@ -59,6 +59,12 @@ class Settings(BaseSettings):
     login_rate_limit_per_ip: int = Field(300, ge=1)
     login_rate_limit_per_account: int = Field(5, ge=1)
     login_rate_limit_window_minutes: int = Field(15, ge=1)
+    # Password reset (Story 3.6). PLACEHOLDERS: the link validity is the one hour the UX spine
+    # assumes; the limits count requests per window, for every address, known or not.
+    password_reset_valid_minutes: int = Field(60, ge=1)
+    password_reset_rate_limit_per_ip: int = Field(50, ge=1)
+    password_reset_rate_limit_per_account: int = Field(5, ge=1)
+    password_reset_rate_limit_window_minutes: int = Field(60, ge=1)
 
     # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
     # to the `[email:mock]` sender; the compose file never passes a key.

@@ -116,3 +116,14 @@ async def unsent_claimed_before(session: AsyncSession, cutoff: datetime) -> list
         .order_by(mail_deliveries.c.id)
     )
     return list(result.mappings())
+
+
+async def latest_sent_for_user(session: AsyncSession, user_id: uuid.UUID) -> RowMapping | None:
+    """The User's most recently sent delivery."""
+    result = await session.execute(
+        select(mail_deliveries)
+        .where(mail_deliveries.c.user_id == user_id, mail_deliveries.c.sent_at.is_not(None))
+        .order_by(mail_deliveries.c.sent_at.desc(), mail_deliveries.c.id.desc())
+        .limit(1)
+    )
+    return result.mappings().one_or_none()

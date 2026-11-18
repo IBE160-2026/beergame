@@ -1,4 +1,5 @@
-"""`/api/auth/*`: login, logout and the current session (Story 3.2)."""
+"""`/api/auth/*`: login, logout and the current session (Story 3.2), and the password reset
+(Story 3.6)."""
 
 from typing import Annotated
 
@@ -6,7 +7,15 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
 
 from app.modules.identity import service
-from app.modules.identity.schemas import LoginIn, SessionOut, UserOut
+from app.modules.identity.schemas import (
+    LoginIn,
+    NewPasswordIn,
+    PasswordResetIn,
+    ResetEmailOut,
+    ResetTokenIn,
+    SessionOut,
+    UserOut,
+)
 from app.platform import auth, authz, ratelimit
 from app.platform.errors import documented, error_response
 
@@ -57,3 +66,59 @@ async def me(
     user: Annotated[UserOut, Depends(authz.require("session.read"))],
 ) -> SessionOut:
     return SessionOut(user=user)
+
+
+RESET_LINK_INVALID = (410, "reset_link_invalid", "The link is expired, used or unknown.")
+
+
+@router.post(
+    "/password-reset",
+    status_code=202,
+    responses=documented(422, 429),
+    operation_id="requestPasswordReset",
+    dependencies=[Depends(authz.public)],
+)
+async def request_password_reset(body: PasswordResetIn, request: Request) -> Response:
+    """Mail a reset link if the address has an active account. The answer is the same `202`
+    whether or not it has one (UX-DR61)."""
+    retry_after = await service.request_password_reset(
+        body.email, ip=ratelimit.client_ip(request), now=auth.utcnow()
+    )
+    if retry_after is not None:
+        return error_response(
+            429,
+            "rate_limited",
+            "Too many reset requests; wait until the window ends.",
+            headers={"Retry-After": str(retry_after)},
+        )
+    return Response(status_code=202)
+
+
+@router.post(
+    "/password-reset/check",
+    response_model=ResetEmailOut,
+    responses=documented(410, 422),
+    operation_id="checkPasswordReset",
+    dependencies=[Depends(authz.public)],
+)
+async def check_password_reset(body: ResetTokenIn) -> Response:
+    """Whether a reset link still works, and the address it belongs to."""
+    address = await service.check_password_reset(body.token, now=auth.utcnow())
+    if address is None:
+        return error_response(*RESET_LINK_INVALID)
+    return JSONResponse(ResetEmailOut(email=address).model_dump(mode="json"))
+
+
+@router.post(
+    "/password-reset/confirm",
+    response_model=ResetEmailOut,
+    responses=documented(410, 422),
+    operation_id="confirmPasswordReset",
+    dependencies=[Depends(authz.public)],
+)
+async def confirm_password_reset(body: NewPasswordIn) -> Response:
+    """Set a new password through a reset link; the link then stops working."""
+    address = await service.confirm_password_reset(body.token, body.password, now=auth.utcnow())
+    if address is None:
+        return error_response(*RESET_LINK_INVALID)
+    return JSONResponse(ResetEmailOut(email=address).model_dump(mode="json"))

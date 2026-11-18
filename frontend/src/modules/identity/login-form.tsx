@@ -21,9 +21,10 @@ const copy = nb.auth.login;
  * The «Logg inn» form. It validates on the client first (Story 3.1), then logs in through the API
  * (Story 3.2). A refused login shows one line that never says which field was wrong; the input is
  * kept. After a login the User goes to `?neste=`, the validated page they came from (Story 3.4), or
- * else to their own home (Story 3.3).
+ * else to their own home (Story 3.3). `defaultEmail` prefills the e-mail («Nytt passord», Story
+ * 3.6).
  */
-export function LoginForm() {
+export function LoginForm({ defaultEmail }: { defaultEmail?: string } = {}) {
   const router = useRouter();
   const login = useLogin();
   const [errors, setErrors] = useState<LoginErrors>({});
@@ -90,6 +91,7 @@ export function LoginForm() {
         inputMode="email"
         autoComplete="email"
         spellCheck={false}
+        defaultValue={defaultEmail}
         label={copy.email}
         error={errors.email ? copy.errors[errors.email] : undefined}
         onBlur={onEmailBlur}

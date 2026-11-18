@@ -51,3 +51,29 @@ export function useLogout() {
     },
   });
 }
+
+/** Ask for a reset link (Story 3.6). The answer is the same whether or not the address has an
+ * account. */
+export function useRequestPasswordReset() {
+  return useAction<void, { email: string }>({
+    mutationFn: async (body) => {
+      await request(() => api.POST("/api/auth/password-reset", { body }));
+    },
+    messages: { rate_limited: nb.auth.forgot.rateLimited },
+    fallback: nb.auth.forgot.failed,
+  });
+}
+
+/** Whether a reset link still works: its account's e-mail, or `reset_link_invalid`. */
+export async function checkPasswordReset(token: string): Promise<string> {
+  return (await request(() => api.POST("/api/auth/password-reset/check", { body: { token } }))).email;
+}
+
+/** Set a new password through a reset link; resolves to the account's e-mail. */
+export function useConfirmPasswordReset() {
+  return useAction<string, { token: string; password: string }>({
+    mutationFn: async (body) =>
+      (await request(() => api.POST("/api/auth/password-reset/confirm", { body }))).email,
+    fallback: nb.auth.reset.failed,
+  });
+}

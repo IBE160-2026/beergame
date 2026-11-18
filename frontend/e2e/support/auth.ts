@@ -43,3 +43,30 @@ export async function loginByApi(page: Page, role: DemoRole) {
   expect(response.status()).toBe(200);
   return user;
 }
+
+export type DevMail = { subject: string; text: string; html: string; sent_at: string };
+
+/** The newest mail sent to `email`, from the local dev mailbox (Story 3.6), or null. Locally every
+ * mail is the `[email:mock]` sender, which logs ids only; this route renders the mail again. */
+export async function latestMail(page: Page, email: string): Promise<DevMail | null> {
+  const response = await page.request.get("/api/dev/mailbox/latest", { params: { to: email } });
+  if (response.status() === 404) return null;
+  expect(response.status()).toBe(200);
+  return (await response.json()) as DevMail;
+}
+
+/** Wait for a mail to `email` newer than `before` (the newest mail before the action, or null)
+ * and return it. Compares only the worker's own send times, never with this machine's clock. */
+export async function nextMail(page: Page, email: string, before: DevMail | null): Promise<DevMail> {
+  let mail: DevMail | null = null;
+  await expect
+    .poll(
+      async () => {
+        mail = await latestMail(page, email);
+        return mail !== null && mail.sent_at !== before?.sent_at;
+      },
+      { timeout: 15_000, intervals: [200, 300, 500] },
+    )
+    .toBe(true);
+  return mail!;
+}

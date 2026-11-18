@@ -10,6 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from app.modules.identity import routes as identity_routes
 from app.modules.identity import seed as identity_seed
 from app.modules.identity import service as identity_service
+from app.modules.messaging import routes as messaging_routes
 from app.platform import auth, authz, db
 from app.platform.auth import CsrfMiddleware
 from app.platform.config import get_settings
@@ -77,6 +78,8 @@ def create_app() -> FastAPI:
     )
     app.include_router(router)
     app.include_router(identity_routes.router)
+    if get_settings().app_env != "production":
+        app.include_router(messaging_routes.router)  # the dev mailbox (Story 3.6), local only
     authz.register_principal_loader(identity_service.load_user)
     app.add_exception_handler(authz.NotAuthenticated, _not_authenticated)
     app.add_exception_handler(authz.Forbidden, _forbidden)

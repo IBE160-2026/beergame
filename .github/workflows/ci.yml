@@ -111,8 +111,10 @@ jobs:
           node-version: "24"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+      # worker-batch sends the mails (Story 3.6: the reset test reads its link from the
+      # local dev mailbox).
       - name: Start the stack
-        run: docker compose up -d --build --wait proxy
+        run: docker compose up -d --build --wait proxy worker-batch
       - run: npm ci
         working-directory: frontend
       - run: npx playwright install --with-deps chromium

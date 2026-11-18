@@ -36,6 +36,8 @@ IDENTITY_TABLES = {"users", "user_roles", "rate_limit_counters"}
 """The tables of revision 0015 (Story 3.2)."""
 MAIL_TABLES = {"notices", "mail_deliveries"}
 """The tables of revision 0016 (Story 3.5)."""
+RESET_TABLES = {"password_resets"}
+"""The table of revision 0017 (Story 3.6)."""
 HEAD_TABLES = (
     AI_HEAD_TABLES
     | JOB_TABLES
@@ -43,8 +45,9 @@ HEAD_TABLES = (
     | MEASUREMENT_TABLES
     | IDENTITY_TABLES
     | MAIL_TABLES
+    | RESET_TABLES
 )
-HEAD = "0016"
+HEAD = "0017"
 
 
 def reset_schema(url: str) -> None:
@@ -247,7 +250,12 @@ def test_downgrade_to_0012_removes_the_simulation_batches(migrations_database):
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0012")
     assert tables(migrations_database) == (
-        HEAD_TABLES - {"simulation_batches"} - MEASUREMENT_TABLES - IDENTITY_TABLES - MAIL_TABLES
+        HEAD_TABLES
+        - {"simulation_batches"}
+        - MEASUREMENT_TABLES
+        - IDENTITY_TABLES
+        - MAIL_TABLES
+        - RESET_TABLES
     )
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         columns = conn.execute(
@@ -270,7 +278,7 @@ def test_downgrade_to_0013_removes_the_effort_measurements_and_pins(migrations_d
     command.downgrade(cfg, "0013")
     assert (
         tables(migrations_database)
-        == HEAD_TABLES - MEASUREMENT_TABLES - IDENTITY_TABLES - MAIL_TABLES
+        == HEAD_TABLES - MEASUREMENT_TABLES - IDENTITY_TABLES - MAIL_TABLES - RESET_TABLES
     )
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         functions = conn.execute(
@@ -286,7 +294,7 @@ def test_downgrade_to_0014_removes_the_identity_and_rate_limit_tables(migrations
     cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0014")
-    assert tables(migrations_database) == HEAD_TABLES - IDENTITY_TABLES - MAIL_TABLES
+    assert tables(migrations_database) == HEAD_TABLES - IDENTITY_TABLES - MAIL_TABLES - RESET_TABLES
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 
@@ -296,7 +304,23 @@ def test_downgrade_to_0015_removes_the_notice_and_delivery_tables(migrations_dat
     cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0015")
-    assert tables(migrations_database) == HEAD_TABLES - MAIL_TABLES
+    assert tables(migrations_database) == HEAD_TABLES - MAIL_TABLES - RESET_TABLES
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_downgrade_to_0016_removes_the_reset_table_and_the_stale_reason(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0016")
+    assert tables(migrations_database) == HEAD_TABLES - RESET_TABLES
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        check = conn.execute(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+            "WHERE conname = 'ck_mail_deliveries_skipped_reason'"
+        ).fetchone()[0]
+    assert "stale" not in check
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 

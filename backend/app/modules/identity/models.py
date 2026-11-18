@@ -44,3 +44,18 @@ user_roles = Table(
 )
 """The account roles a User holds (FR-1, FR-2). Students are not an account role: Class
 membership makes a Student (Epic 4)."""
+
+password_resets = Table(
+    "password_resets",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True),
+    # SHA-256 of the link token; the token itself is never stored (AD-11, `auth.link_token`).
+    Column("token_hash", Text, nullable=False, unique=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Column("used_at", DateTime(timezone=True), nullable=True),
+    Column("voided_at", DateTime(timezone=True), nullable=True),
+)
+"""One row per password-reset link (Story 3.6, FR-4). A link works once, until `expires_at`;
+using one voids the User's other open links. Times come from the api's clock."""
