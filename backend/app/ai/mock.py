@@ -25,6 +25,9 @@ INVALID = "invalid"
 """Step: the answer is not JSON."""
 ERROR = "error"
 """Step: the provider fails (HTTP 500)."""
+RATE_LIMITED = "rate_limited"
+"""Step: the provider answers HTTP 429 with `Retry-After: 1` (the gateway backs off and asks
+again without using up an attempt)."""
 
 _steps: deque[str] = deque()
 _down = False
@@ -36,8 +39,9 @@ last_model_settings: dict[str, Any] | None = None
 
 @contextmanager
 def script(*steps: str) -> Iterator[None]:
-    """Make the next attempts follow `steps` in order (`TIMEOUT`, `INVALID`, `ERROR`, or any
-    other text, sent as the raw answer); after the last step the mock answers normally."""
+    """Make the next attempts follow `steps` in order (`TIMEOUT`, `INVALID`, `ERROR`,
+    `RATE_LIMITED`, or any other text, sent as the raw answer); after the last step the mock
+    answers normally."""
     _steps.clear()
     _steps.extend(steps)
     try:
@@ -119,6 +123,10 @@ def model(mock_answer: Any, output_schema: type[BaseModel], model_name: str) -> 
             await asyncio.Event().wait()  # never set: only the gateway's timeout ends it
         if step == ERROR:
             raise ModelHTTPError(500, model_name, body={"error": "mock provider error"})
+        if step == RATE_LIMITED:
+            raise ModelHTTPError(
+                429, model_name, body={"error": "mock rate limit"}, headers={"retry-after": "1"}
+            )
         if step == INVALID:
             return ModelResponse(parts=[TextPart("not json")])
         return ModelResponse(parts=[TextPart(answer if step is None else step)])

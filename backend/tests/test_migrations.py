@@ -31,7 +31,7 @@ JOB_TABLES = {
 }
 """procrastinate's tables, from the SQL it ships (revision 0008, Story 2.5)."""
 HEAD_TABLES = AI_HEAD_TABLES | JOB_TABLES
-HEAD = "0009"
+HEAD = "0010"
 
 
 def reset_schema(url: str) -> None:
@@ -250,15 +250,11 @@ def test_the_check_constraints_list_exactly_the_enum_values(migrations_database)
     from typing import get_args
 
     from app.ai import budget as ai_budget
-    from app.ai import config as ai_config
     from app.ai import models as ai_models
     from app.modules.games import schemas
 
     ai_checks = {
         "ck_ai_budgets_scope_kind": set(get_args(ai_budget.ScopeKind)),
-        "ck_ai_model_configs_provider": set(
-            get_args(ai_config.ModelConfigSpec.model_fields["provider"].annotation)
-        ),
         "ck_llm_call_outcome": set(ai_models.OUTCOMES),
         "ck_llm_call_scope_kind": set(get_args(ai_budget.ScopeKind)),
     }

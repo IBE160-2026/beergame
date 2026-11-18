@@ -43,14 +43,13 @@ model_configs = Table(
     Column("rate_limit_rpm", Integer, nullable=False),
     Column("prompts", JSONB, nullable=False),
     Column("effort_levels", JSONB, nullable=False),
+    # Router preferences (Story 2.7); NULL for an endpoint that is not a router.
+    Column("routing", JSONB(none_as_null=True), nullable=True),
     Column("derived_from", Uuid, ForeignKey("ai_model_configs.id"), nullable=True),
     # Set once by the first Class session or simulation run that pins the row; from then on
     # a trigger refuses every UPDATE and DELETE of it.
     Column("referenced_at", DateTime(timezone=True), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
-    CheckConstraint(
-        "provider IN ('mock', 'openai_compatible')", name="ck_ai_model_configs_provider"
-    ),
     CheckConstraint("rate_limit_rpm > 0", name="ck_ai_model_configs_rate_limit"),
     CheckConstraint(
         "input_usd_per_mtok >= 0 AND output_usd_per_mtok >= 0", name="ck_ai_model_configs_prices"
@@ -113,6 +112,9 @@ llm_calls = Table(
     # The scrubbed request and response (AD-6, C-1).
     Column("request", JSONB, nullable=False),
     Column("response", Text, nullable=True),
+    # What the response reports: the model id and, behind a router, the upstream provider.
+    Column("served_model", Text, nullable=True),
+    Column("served_by", Text, nullable=True),
     Column("started_at", DateTime(timezone=True), nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     CheckConstraint(

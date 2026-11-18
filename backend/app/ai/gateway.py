@@ -4,8 +4,9 @@ One call resolves the scope's model config and the purpose's prompt version from
 free text, renders the prompt, and makes up to the purpose's number of attempts inside the
 deadline. Each attempt is timed and written as its own `llm_call` row with the caller
 reference, tokens, cost and outcome, in its own transaction, and its cost is added to the
-budget. pydantic-ai validates the answer against the output schema with its own output
-retries set to 0: the retry loop is this module's.
+budget. A real endpoint's requests wait on its rate limiter, and an HTTP 429 is back-off inside
+the deadline, not an attempt (Story 2.7). pydantic-ai validates the answer against the output
+schema with its own output retries set to 0: the retry loop is this module's.
 
 The caller gets a validated `Result` or a typed `Failure`; no provider exception reaches it.
 `GatewayError` is raised only for a mistake of the caller or the config, before any attempt.
@@ -14,7 +15,6 @@ calling a model, for `python -m app.sim prompt` and the recognition probe.
 """
 
 import asyncio
-import os
 import string
 import time
 import uuid
@@ -25,9 +25,11 @@ from decimal import Decimal
 from typing import Any, Literal
 
 import pydantic_ai
+import structlog
 from pydantic import BaseModel
 from pydantic_ai import (
     Agent,
+    ModelHTTPError,
     ModelRequestTimeout,
     ModelResponse,
     ModelTimeoutError,
@@ -39,7 +41,7 @@ from pydantic_ai import (
 from pydantic_ai.exceptions import ContentFilterError, IncompleteToolCall
 from pydantic_ai.models import Model
 
-from app.ai import budget, config, mock, prompt_files, purposes
+from app.ai import adapters, budget, config, mock, prompt_files, purposes, ratelimit
 from app.ai.db import transaction
 from app.ai.models import llm_calls
 from app.ai.scrub import OffsetMap, scrub
@@ -52,8 +54,20 @@ FailureKind = Literal["timeout", "invalid_output", "budget_exhausted", "provider
 Outcome = Literal["ok", "invalid_output", "timeout", "provider_error", "cancelled"]
 Scalar = str | int | float | Decimal | bool
 
-MOCK_ENVS = ("local", "test", "ci")
+log = structlog.get_logger(__name__)
+
+MOCK_ENVS = adapters.MOCK_ENVS
 """The environments where the mock answers when no provider key is set (AD-17)."""
+
+BACK_OFF_MIN_S = 0.25
+"""The shortest back-off after a 429, also when Retry-After says 0."""
+
+BACK_OFF_MAX_S = 30.0
+"""The longest back-off after a 429 (1, 2, 4 ... seconds without `Retry-After`; a longer
+`Retry-After` is cut to this)."""
+
+RATE_LIMITED_MAX = 10
+"""Consecutive 429s after which a call without a deadline gives up (`provider_error`)."""
 
 NO_RETRIES = {"tools": 0, "output": 0}
 """pydantic-ai's own retries (its `output_retries`) stay at 0: this module retries (AD-6)."""
@@ -132,6 +146,13 @@ class _Attempt:
     reasoning_tokens: int
     latency_ms: int
     started_at: datetime
+    served_model: str | None = None
+    served_by: str | None = None
+    rate_limited: bool = False
+    """The endpoint answered 429: not an attempt, nothing is logged (Story 2.7)."""
+    retry_after_s: float | None = None
+    final: bool = False
+    """An HTTP error asking again cannot fix (401, 400, 404 ...): the call stops after it."""
 
 
 def _caller(caller: Mapping[str, object]) -> dict[str, str | int]:
@@ -153,19 +174,6 @@ def _caller(caller: Mapping[str, object]) -> dict[str, str | int]:
         else:
             raise GatewayError("inputs_invalid", f"caller reference {name!r} is not an id")
     return stored
-
-
-def _settings(level: config.EffortLevel) -> dict[str, Any]:
-    """Seed and temperature from the Effort level, where it sets them."""
-    params = level.provider_params
-    settings: dict[str, Any] = {}
-    seed = params.get("seed")
-    if isinstance(seed, int) and not isinstance(seed, bool):
-        settings["seed"] = seed
-    temperature = params.get("temperature")
-    if isinstance(temperature, int | float) and not isinstance(temperature, bool):
-        settings["temperature"] = float(temperature)
-    return settings
 
 
 def _exhausted(state: budget.Budget | None, purpose: purposes.Purpose) -> bool:
@@ -268,7 +276,7 @@ async def _prepare(
         return Failure("budget_exhausted", (), f"budget {scope.kind} {scope.id} is spent")
     terms = pii.terms(scope)
     prompt, offset_maps = _render(purpose, version, template, inputs, terms)
-    settings = _settings(level)
+    settings = adapters.model_settings(model_config.spec, level)
     return _Call(
         purpose=purpose,
         scope=scope,
@@ -312,25 +320,23 @@ async def preview(
         terms: list[str] = []
         settings: dict[str, Any] = {}
     else:
-        _, level, version = await _resolve(budget_scope, checked)
+        model_config, level, version = await _resolve(budget_scope, checked)
         terms = pii.terms(budget_scope)
-        settings = _settings(level)
+        settings = adapters.model_settings(model_config.spec, level)
     prompt, _ = _render(checked, version, _template(checked, version), inputs, terms)
     return Preview(version, _request(prompt, output_schema, settings))
 
 
-def _model(call: _Call, inputs: Inputs, output_schema: type[BaseModel]) -> Model | str:
-    """The model for the attempts, or why none may be used (a `provider_error`)."""
+def _model(call: _Call, inputs: Inputs, output_schema: type[BaseModel]) -> tuple[Model, bool] | str:
+    """The model for the attempts and whether it is a real endpoint (paced by the rate
+    limiter), or why no model may be used (a `provider_error`)."""
     spec = call.config.spec
-    app_env = get_settings().app_env
-    key_set = bool(spec.credential_env and os.environ.get(spec.credential_env))
-    if app_env in MOCK_ENVS and (spec.provider == "mock" or not key_set):
-        return mock.model(inputs.mock_answer, output_schema, spec.model_version)
-    if spec.provider == "mock":
-        return f"the mock provider is never used with APP_ENV={app_env}"
-    if not key_set:
-        return f"the key variable {spec.credential_env} is not set"
-    return f"no adapter for provider {spec.provider} yet"  # Story 2.7 adds openai_compatible
+    found = adapters.availability(spec, get_settings().app_env)
+    if found.kind == "mock":
+        return mock.model(inputs.mock_answer, output_schema, spec.model_version), False
+    if found.kind == "refused":
+        return found.reason or "no model may answer"
+    return adapters.build_model(spec), True
 
 
 def _usage(response: ModelResponse | None) -> tuple[int, int, int, str | None]:
@@ -339,6 +345,14 @@ def _usage(response: ModelResponse | None) -> tuple[int, int, int, str | None]:
     text = "".join(part.content for part in response.parts if isinstance(part, TextPart))
     usage = response.usage
     return usage.input_tokens, usage.output_tokens, usage.output_reasoning_tokens, text
+
+
+def _served(response: ModelResponse | None) -> tuple[str | None, str | None]:
+    """The model id the response reports and, behind a router, the upstream provider."""
+    if response is None:
+        return None, None
+    upstream = (response.provider_details or {}).get(adapters.UPSTREAM)
+    return response.model_name or None, upstream if isinstance(upstream, str) else None
 
 
 async def _attempt(
@@ -350,6 +364,9 @@ async def _attempt(
     outcome: Outcome = "ok"
     error: str | None = None
     cancelled: asyncio.CancelledError | None = None
+    rate_limited = False
+    retry_after_s: float | None = None
+    stop = False
     with capture_run_messages() as messages:
         try:
             agent = Agent(model, output_type=NativeOutput(output_schema), retries=NO_RETRIES)
@@ -360,6 +377,11 @@ async def _attempt(
             outcome, error = "timeout", f"no answer within {seconds:.3f} s"
         except ContentFilterError, IncompleteToolCall:
             outcome, error = "provider_error", "the provider refused or cut off the answer"
+        except ModelHTTPError as exc:
+            outcome, error = "provider_error", f"{type(exc).__name__}: {exc}"
+            if adapters.rate_limited(exc):
+                rate_limited, retry_after_s = True, adapters.retry_after(exc)
+            stop = adapters.final(exc)
         except UnexpectedModelBehavior as exc:
             outcome, error = "invalid_output", str(exc)
         except Exception as exc:  # every other provider failure becomes a typed failure
@@ -371,6 +393,7 @@ async def _attempt(
     latency_ms = round((time.perf_counter() - clock) * 1000)
     response = next((m for m in reversed(messages) if isinstance(m, ModelResponse)), None)
     input_tokens, output_tokens, reasoning_tokens, text = _usage(response)
+    served_model, served_by = _served(response)
     if text is not None:
         text = scrub(text, call.terms).text
     attempt = _Attempt(
@@ -383,6 +406,11 @@ async def _attempt(
         reasoning_tokens,
         latency_ms,
         started_at,
+        served_model,
+        served_by,
+        rate_limited,
+        retry_after_s,
+        stop,
     )
     if cancelled is not None:
         raise _Cancelled(attempt, cancelled)
@@ -427,6 +455,8 @@ async def _log(call: _Call, number: int, attempt: _Attempt) -> uuid.UUID:
                 error=attempt.error,
                 request=call.request,
                 response=attempt.response,
+                served_model=attempt.served_model,
+                served_by=attempt.served_by,
                 started_at=attempt.started_at,
             )
         )
@@ -451,6 +481,12 @@ async def run[T: BaseModel](
     timeout fits before the deadline, and a passed deadline gives `timeout`. `None` leaves only
     the attempt limit and the per-attempt timeout (Epic 8's playout).
 
+    A real endpoint's request waits for its rate limiter's slot first; a wait past the deadline
+    gives `timeout` at once. An HTTP 429 gets no row and uses up no attempt: the endpoint pauses
+    for its `Retry-After` (else 1, 2, 4 ... s) and the same attempt is made again while the
+    deadline allows (`timeout` when it does not; `provider_error` after `RATE_LIMITED_MAX` in a
+    row without a deadline).
+
     Cancelling the call (a job stopped mid-call) logs the attempt in flight with outcome
     `cancelled` and then raises `CancelledError`."""
     if deadline is not None and deadline.tzinfo is None:
@@ -458,25 +494,40 @@ async def run[T: BaseModel](
     call = await _prepare(purpose, budget_scope, inputs, output_schema)
     if isinstance(call, Failure):
         return call
-    model = _model(call, inputs, output_schema)
-    if isinstance(model, str):
-        return Failure("provider_error", (await _log(call, 1, _no_model(model)),), model)
+    found = _model(call, inputs, output_schema)
+    if isinstance(found, str):
+        return Failure("provider_error", (await _log(call, 1, _no_model(found)),), found)
+    model, paced = found
+    spec = call.config.spec
+    key = adapters.endpoint_key(spec)
+    clock = ratelimit.clock
     ids: list[uuid.UUID] = []
     last: _Attempt | None = None
-    for number in range(1, call.purpose.attempt_limit + 1):
+    number = 1
+    limited = 0  # consecutive 429 answers since the last attempt that counted
+    while number <= call.purpose.attempt_limit:
         timeout = call.level.attempt_timeout_s
+        left: float | None = None
         if deadline is not None:
-            left = (deadline - datetime.now(UTC)).total_seconds()
+            left = (deadline - clock.now()).total_seconds()
             if left <= 0:
                 return Failure("timeout", tuple(ids), "the deadline passed")
             if number > 1 and left < timeout:
                 # A retry starts only when it can finish inside the deadline (NFR-2); the first
                 # attempt takes the time that is left.
                 return Failure("timeout", tuple(ids), "no time left for another attempt")
-            timeout = min(timeout, left)
-        if number > 1 and _exhausted(await budget.get(call.scope), call.purpose):
+        if number > 1 and limited == 0 and _exhausted(await budget.get(call.scope), call.purpose):
             # Each attempt's cost is charged as it ends, so a call stops once it is spent.
             return Failure("budget_exhausted", tuple(ids), "the budget was spent during the call")
+        if paced:
+            # The longest wait that still lets this attempt start under the rules above.
+            allowed = None if left is None else left - (timeout if number > 1 else 0)
+            if not await ratelimit.limiter.acquire(key, spec.rate_limit_rpm, allowed):
+                return Failure("timeout", tuple(ids), "no request slot before the deadline")
+        if deadline is not None:
+            timeout = min(timeout, (deadline - clock.now()).total_seconds())
+            if timeout <= 0:
+                return Failure("timeout", tuple(ids), "the deadline passed")
         try:
             last = await _attempt(call, model, output_schema, timeout)
         except _Cancelled as cancelled:
@@ -485,8 +536,31 @@ async def run[T: BaseModel](
                 await asyncio.shield(_log(call, number, cancelled.attempt))
             finally:
                 raise cancelled.original
+        if last.rate_limited:
+            # Back-off inside the deadline, not an attempt: no row, the number is not used up.
+            limited += 1
+            wait = last.retry_after_s
+            if wait is None:
+                wait = 2.0 ** (limited - 1)
+            wait = min(max(wait, BACK_OFF_MIN_S), BACK_OFF_MAX_S)
+            log.warning("llm_rate_limited", endpoint=spec.endpoint, wait_s=wait, attempt=number)
+            if deadline is None and limited >= RATE_LIMITED_MAX:
+                return Failure("provider_error", tuple(ids), f"rate limited {limited} times")
+            if deadline is not None:
+                left = (deadline - clock.now()).total_seconds()
+                if wait >= left - (call.level.attempt_timeout_s if number > 1 else 0):
+                    return Failure("timeout", tuple(ids), "rate limited until the deadline")
+            if paced:
+                ratelimit.limiter.back_off(key, spec.rate_limit_rpm, wait)
+            else:
+                await clock.sleep(wait)
+            continue
+        limited = 0
         ids.append(await asyncio.shield(_log(call, number, last)))
         if last.output is not None:
             return Result(last.output, tuple(ids), call.offset_maps)  # type: ignore[arg-type]
+        if last.final:
+            break
+        number += 1
     assert last is not None and last.outcome != "ok"
     return Failure(last.outcome, tuple(ids), last.error or last.outcome)

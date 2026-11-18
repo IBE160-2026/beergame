@@ -311,3 +311,22 @@ async def test_place_order_refuses_llm_marks_that_do_not_fit_the_seat(games_db, 
             )
         assert (refused.value.code, refused.value.status) == (code, 422), (role, by, fallback)
     assert [row[1] for row in rows(games_db, game_id)] == ["distributor", "factory"]
+
+
+async def test_a_burst_of_429s_delays_the_orders_but_places_no_fallback(games_db, ai_db):
+    """Story 2.7: HTTP 429 is back-off inside the deadline, not a failed attempt (AD-6, NFR-3).
+    The waits run on the tests' skipping clock (`tests/conftest.py`), never for real."""
+    from app.ai import ratelimit
+
+    game_id = await llm_game()
+    with mock.script(*[mock.RATE_LIMITED] * 6):
+        await jobs.run_until_idle([jobs.AI_ORDERS])
+        assert ratelimit.clock.sleeps == [1.0] * 6  # each 429 asked for `Retry-After: 1`
+    assert (await service.get_game(game_id)).lifecycle == "finished"
+    played = [row for row in rows(games_db, game_id) if row[0] >= FIRST]
+    assert len(played) == 8
+    # Every Order is the model's, with one logged attempt: a 429 leaves no row.
+    assert {(by, fallback, len(ids)) for _, _, _, by, fallback, ids, _ in played} == {
+        ("llm", "none", 1)
+    }
+    assert calls(games_db) == 8

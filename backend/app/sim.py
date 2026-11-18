@@ -58,7 +58,9 @@ Subcommands:
                    refused command (also settings that break the engine rules or an unknown
                    parameter set, which `create` refuses; the ids of the Games already stored
                    are printed); 2 when the batch file cannot be read or does not have the
-                   batch file's shape.
+                   batch file's shape, or when its model config's key variable is not set
+                   outside `local`, `test` and `ci` (in those three the mock answers, and a
+                   note says so).
   prompt           print the exact LLM request for one Seat's open Week without calling a model
                    (`ai.gateway.preview`): the `player_order` prompt version and its source
                    (`config` or `newest file`), the prompt built
@@ -79,6 +81,16 @@ Subcommands:
                    `python -m app.ai.cli config edit ID --prompt recognition_probe=v1`. Exit 1
                    when there is nothing to sample, the call cannot be prepared, or no sample
                    got an answer.
+  endpoint         check a real endpoint by hand (Story 2.7; needs the config's key variable
+                   set): whether `GET {endpoint}/models` lists the config's model, `--orders`
+                   Orders one after another through the gateway (outcome, served model and
+                   upstream provider, latency, tokens, cost), then a `--burst` of calls at
+                   once (valid answers, HTTP 429s, longest rate-limiter wait), and totals. The
+                   requests are built from stored Seat states; with no finished Game one short
+                   all-Rule-based Game (Classic, 8 Weeks) is played first and stays stored. The
+                   calls are logged and charged to the config's evaluation budget. Last line
+                   `endpoint ok` or `endpoint failed: <reasons>`; exit 0 / 1, 2 when the config
+                   would not reach a real endpoint (mock in use, key missing, unknown config).
 
 The runner computes no game quantities: every printed number is an engine field, the Order it
 was given, a number read back from the database, or (the `run` batch totals) a sum of those.
@@ -827,6 +839,80 @@ def _probe_command(args: argparse.Namespace, parser: argparse.ArgumentParser) ->
     return _run(_probe(args.config, args.game or (), args.sample, args.seed))
 
 
+PROBE_GAME_WEEKS = 8
+"""The length of the Game `endpoint` plays when no finished Game is stored: the Classic
+settings cut to 8 Weeks (4 Guided, 4 played), enough Seat states for a few requests."""
+
+
+async def _rule_based_game() -> None:
+    """Play one short all-Rule-based Game, so the endpoint probe has Seat states."""
+    settings = GameSettings(weeks=PROBE_GAME_WEEKS)
+    game_id = await game_commands.create(
+        "simulation", settings, seed=0, rule_based_params=DEFAULT_RULE_BASED_PARAMS
+    )
+    for role in settings.roles:
+        await game_commands.assign_seat(game_id, role, RULE_BASED, None)
+    await game_commands.start(game_id)
+    await _wait_finished(game_id)
+
+
+async def _endpoint(config_id: str, orders: int, burst: int) -> int:
+    from app.ai import endpoint, gateway
+    from app.modules.players import llm
+
+    try:
+        _scope(config_id)  # checks the id's form
+        found = await endpoint.availability(config_id)
+        if found is None:
+            print(f"error config_not_found: no model config {config_id}", file=sys.stderr)
+            return 2
+        if found.kind != "real":
+            print(
+                f"error endpoint_unavailable: {found.kind}: {found.reason}; the probe needs "
+                "the config's key variable set",
+                file=sys.stderr,
+            )
+            return 2
+        picked = await _probe_states((), orders, 0)
+        if not picked:
+            print("note: no finished Game; playing one Rule-based Game first", file=sys.stderr)
+            await _rule_based_game()
+            picked = await _probe_states((), orders, 0)
+        requests = [
+            (
+                llm.request_inputs(
+                    game_id, row.seat_id, row.week, row.state_seen, row.rule_based_reference_order
+                ),
+                llm.order_schema(row.state_seen.min_order, row.state_seen.max_order),
+            )
+            for game_id, row in picked
+        ]
+        ok, lines = await endpoint.probe(config_id, requests, burst)
+    except (
+        game_commands.CommandError,
+        game_service.ViewError,
+        DBAPIError,
+        gateway.GatewayError,
+        ConfigIdError,
+    ) as exc:
+        if not _report_ai(exc):
+            _report(exc)
+        return 2 if isinstance(exc, ConfigIdError) else 1
+    finally:
+        await db.dispose()
+    for line in lines:
+        print(line)
+    return 0 if ok else 1
+
+
+def _endpoint_command(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    if args.orders < 1:
+        parser.error("--orders must be at least 1")
+    if args.burst < 0:
+        parser.error("--burst must be at least 0")
+    return _run(_endpoint(args.config, args.orders, args.burst))
+
+
 MAX_BATCH_GAMES = 100
 
 
@@ -1044,9 +1130,37 @@ def summary_lines(summaries: Sequence[game_service.GameSummary]) -> list[str]:
     return lines
 
 
+async def _key_check(batch: Batch) -> int | None:
+    """Story 2.7 (AD-17): the batch's `llm` Seats must reach a model. Exit 2 naming the reason
+    (a key variable that is not set outside `local`, `test` and `ci`); in those three a note
+    says when the mock answers. None: go on."""
+    if batch.model_config_id is None or not any(kind == LLM for kind, _ in batch.occupants):
+        return None
+    from app.ai import endpoint
+
+    found = await endpoint.availability(batch.model_config_id)
+    if found is None:
+        return None  # `create` refuses an unknown config with its own code
+    if found.kind == "refused":
+        if found.missing_key is not None:
+            print(f"error key_missing: {found.missing_key} is not set", file=sys.stderr)
+        else:
+            print(f"error model_unavailable: {found.reason}", file=sys.stderr)
+        return 2
+    if found.kind == "mock":
+        print(
+            f"note: mock provider in use for config {batch.model_config_id} ({found.reason})",
+            file=sys.stderr,
+        )
+    return None
+
+
 async def _run_batch(batch: Batch, export: Path | None) -> int:
     game_ids: list[str] = []
     try:
+        refused = await _key_check(batch)
+        if refused is not None:
+            return refused
         for index in range(batch.games):
             await _play_one(batch, index, game_ids)
         summaries = [await game_service.game_summary(game_id) for game_id in game_ids]
@@ -1207,6 +1321,17 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"sample from this Game (repeatable; default the {PROBE_GAMES} newest finished)",
     )
     probe.set_defaults(handler=_probe_command, command_parser=probe)
+    check_endpoint = commands.add_parser(
+        "endpoint", help="check a real endpoint: model id, valid Orders, rate limit, cost"
+    )
+    check_endpoint.add_argument("--config", required=True, metavar="ID", help="model config id")
+    check_endpoint.add_argument(
+        "--orders", type=int, default=3, help="Orders sent one after another (default 3)"
+    )
+    check_endpoint.add_argument(
+        "--burst", type=int, default=5, help="calls sent at once (default 5)"
+    )
+    check_endpoint.set_defaults(handler=_endpoint_command, command_parser=check_endpoint)
     return parser
 
 

@@ -18,7 +18,9 @@ def errors(data: object) -> list[tuple[str, str]]:
     return [(e.code, e.field) for e in caught.value.errors]
 
 
-@pytest.mark.parametrize("name", ["mock.json", "openrouter-deepseek.json"])
+@pytest.mark.parametrize(
+    "name", ["mock.json", "openrouter-deepseek.json", "openrouter-deepseek-eu.json"]
+)
 def test_the_shipped_configs_are_valid_and_marked_placeholder(name):
     spec = config.parse(json.loads((CONFIGS / name).read_text(encoding="utf-8")))
     assert spec.effort_levels and all(level.placeholder for level in spec.effort_levels)
@@ -30,7 +32,13 @@ def test_the_openrouter_config_names_the_variable_not_the_key():
     spec = config.parse(json.loads((CONFIGS / "openrouter-deepseek.json").read_text("utf-8")))
     assert spec.credential_env == "OPENROUTER_API_KEY"
     assert spec.model_version == "deepseek/deepseek-v4.1-flash-1017"
-    assert spec.endpoint.startswith("https://eu.")
+    assert spec.endpoint == "https://openrouter.ai/api/v1"
+    eu = config.parse(json.loads((CONFIGS / "openrouter-deepseek-eu.json").read_text("utf-8")))
+    assert (eu.endpoint, eu.region) == ("https://eu.openrouter.ai/api/v1", "eu")
+    # Region and upstream provider are config data (Story 2.7): one ZDR endpoint, no fallback.
+    for routed in (spec, eu):
+        assert routed.routing is not None and routed.routing.router == "openrouter"
+        assert routed.routing.order == ["nebius/fp8"] and routed.quantisation == "fp8"
 
 
 @pytest.mark.parametrize(
@@ -89,7 +97,7 @@ def test_an_effort_level_needs_both_time_values(missing):
             {"effort_levels": [MOCK["effort_levels"][0]] * 2},
             [("duplicate_name", "effort_levels.1.name")],
         ),
-        ({"provider": "router"}, [("literal_error", "provider")]),
+        ({"provider": "router"}, [("provider_unknown", "provider")]),
         ({"rate_limit_rpm": 0}, [("greater_than", "rate_limit_rpm")]),
         ({"rate_limit_rpm": 10**12}, [("less_than_equal", "rate_limit_rpm")]),
         (

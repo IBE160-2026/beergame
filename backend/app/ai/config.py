@@ -68,11 +68,49 @@ class EffortLevel(_Spec):
     placeholder: bool = True
 
 
+RESERVED_PARAMS = frozenset(
+    {
+        "provider",
+        "models",
+        "route",
+        "model",
+        "messages",
+        "response_format",
+        "stream",
+        "n",
+        "tools",
+        "tool_choice",
+    }
+)
+"""Request fields an Effort level may not set: router preferences come from `routing` only, a
+model list or route would let the router fall back to another model (FR-68), and the others
+would override the pinned model, the prompt or the output schema."""
+
+
+class Routing(_Spec):
+    """Router preferences (Story 2.7). The adapter always adds the switches that turn router
+    fallback off and ask for zero retention and no data collection (`adapters.ROUTERS`); a
+    config may state them only with those values."""
+
+    router: str = Field(min_length=1)
+    """A key of `adapters.ROUTERS`."""
+    order: list[Annotated[str, Field(min_length=1)]] | None = None
+    only: list[Annotated[str, Field(min_length=1)]] | None = None
+    ignore: list[Annotated[str, Field(min_length=1)]] | None = None
+    quantizations: list[Annotated[str, Field(min_length=1)]] | None = None
+    require_parameters: bool | None = None
+    sort: Literal["price", "throughput", "latency"] | None = None
+    allow_fallbacks: Literal[False] | None = None
+    data_collection: Literal["deny"] | None = None
+    zdr: Literal[True] | None = None
+
+
 class ModelConfigSpec(_Spec):
     """The content of a model config file and of a row."""
 
     name: str = Field(min_length=1)
-    provider: Literal["mock", "openai_compatible"]
+    provider: str = Field(min_length=1)
+    """`mock` or a key of `adapters.ADAPTERS`."""
     endpoint: str = Field(min_length=1)
     region: str = Field(min_length=1)
     model_version: str = Field(min_length=1)
@@ -82,6 +120,7 @@ class ModelConfigSpec(_Spec):
     rate_limit_rpm: StrictInt = Field(gt=0, le=1_000_000)
     prompts: dict[Purpose, Version]
     effort_levels: list[EffortLevel] = Field(min_length=1)
+    routing: Routing | None = None
 
 
 @dataclass(frozen=True)
@@ -175,21 +214,52 @@ def _credentials(value: object, path: str) -> list[FieldError]:
 
 def _rules(spec: ModelConfigSpec) -> list[FieldError]:
     errors: list[FieldError] = []
-    if spec.provider == "openai_compatible":
+    from app.ai.adapters import ADAPTERS, ROUTERS, router_without_routing  # imports this module
+
+    if spec.provider != "mock" and spec.provider not in ADAPTERS:
+        errors.append(
+            FieldError("provider_unknown", "provider", f"mock or one of: {', '.join(ADAPTERS)}")
+        )
+    elif spec.provider != "mock":
         if not spec.endpoint.startswith("https://"):
             errors.append(FieldError("endpoint_not_https", "endpoint", "must start https://"))
+        router = router_without_routing(spec)
+        if router is not None:
+            errors.append(
+                FieldError(
+                    "routing_missing",
+                    "routing",
+                    f"the endpoint is a {router} router: routing turns its fallback off",
+                )
+            )
+
+        if spec.routing is not None and spec.routing.router not in ROUTERS:
+            errors.append(
+                FieldError(
+                    "router_unknown",
+                    "routing.router",
+                    f"one of: {', '.join(sorted(ROUTERS))}",
+                )
+            )
         if spec.credential_env is None:
             errors.append(
                 FieldError(
                     "missing",
                     "credential_env",
-                    "openai_compatible needs the name of the variable holding the key",
+                    f"{spec.provider} needs the name of the variable holding the key",
                 )
             )
-    elif spec.credential_env is not None:
-        errors.append(
-            FieldError("credential_env_unused", "credential_env", "the mock provider has no key")
-        )
+    else:
+        if spec.credential_env is not None:
+            errors.append(
+                FieldError(
+                    "credential_env_unused", "credential_env", "the mock provider has no key"
+                )
+            )
+        if spec.routing is not None:
+            errors.append(
+                FieldError("routing_unused", "routing", "the mock provider has no router")
+            )
     seen: set[str] = set()
     for index, level in enumerate(spec.effort_levels):
         if level.name in seen:
@@ -199,6 +269,14 @@ def _rules(spec: ModelConfigSpec) -> list[FieldError]:
                 )
             )
         seen.add(level.name)
+        for param in sorted(RESERVED_PARAMS & set(level.provider_params)):
+            errors.append(
+                FieldError(
+                    "param_reserved",
+                    f"effort_levels.{index}.provider_params.{param}",
+                    "router preferences belong in routing; a model list or route is never sent",
+                )
+            )
         if level.attempt_timeout_s > level.order_time_budget_s:
             errors.append(
                 FieldError(
@@ -277,6 +355,7 @@ def _row(row: Any) -> ModelConfig:
             "rate_limit_rpm": row.rate_limit_rpm,
             "prompts": row.prompts,
             "effort_levels": row.effort_levels,
+            "routing": row.routing,
         }
     )
     return ModelConfig(row.id, spec, row.derived_from, row.referenced_at, row.created_at)
@@ -297,6 +376,7 @@ def _values(spec: ModelConfigSpec) -> dict[str, object]:
         "rate_limit_rpm": spec.rate_limit_rpm,
         "prompts": data["prompts"],
         "effort_levels": data["effort_levels"],
+        "routing": None if spec.routing is None else spec.routing.model_dump(exclude_none=True),
     }
 
 

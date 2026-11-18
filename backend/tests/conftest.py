@@ -16,12 +16,14 @@ import warnings
 from collections.abc import Iterator
 from pathlib import Path
 
+import httpx2
 import psycopg
 import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy.engine import make_url
 
+from app.ai import adapters, ratelimit
 from app.platform import db
 from app.platform.config import LOCAL_DATABASE_URL, get_settings
 
@@ -154,3 +156,21 @@ async def _fresh_settings():
     yield
     await db.dispose()  # close pooled connections before the engine is dropped
     reset_caches()
+
+
+def _refuse(request: httpx2.Request) -> httpx2.Response:
+    raise httpx2.ConnectError(f"tests never call a real endpoint ({request.url.host})")
+
+
+REFUSE = httpx2.MockTransport(_refuse)
+"""The adapter transport of every test: a test that wants answers injects its own."""
+
+
+@pytest.fixture(autouse=True)
+def _no_real_endpoint() -> Iterator[None]:
+    """No test reaches a real provider (Story 2.7). Each starts with a fresh limiter and a
+    skipping clock, so rate-limit waits and 429 back-off never sleep for real."""
+    ratelimit.limiter.reset()
+    with adapters.use_transport(REFUSE), ratelimit.use_clock(ratelimit.SkippingClock()):
+        yield
+    ratelimit.limiter.reset()

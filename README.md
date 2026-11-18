@@ -21,6 +21,18 @@ cd frontend && npm ci && npm run dev
 
 LLM players' Orders are background jobs. Compose starts `worker-ai` (`python -m app.worker --queues ai-orders`) and `worker-batch` (`--queues llm-batch`) from the backend image; without Docker, run `cd backend && uv run python -m app.worker --queues ai-orders` in a third terminal. `worker-ai` also runs a rescue loop every 5 seconds: an LLM player still without an Order past its Effort level's time budget gets the Rule-based reference Order, marked `timeout`, and a complete Week left open is advanced. No key is needed: the AI mock answers locally.
 
+Checking the real LLM endpoint (OpenRouter) by hand needs the key in your environment; tests and CI never call it. With the compose `postgres` running:
+
+```sh
+cd backend
+export OPENROUTER_API_KEY=...   # never commit or paste it into a config file
+uv run python -m app.ai.cli config add ai-configs/openrouter-deepseek.json      # prints: config <ID>
+uv run python -m app.ai.cli budget set --evaluation <ID> --limit 1 --reserve 0
+uv run python -m app.sim endpoint --config <ID>     # model id, 3 Orders, a burst of 5, latency, cost
+```
+
+`openrouter-deepseek.json` goes through OpenRouter's global router (`openrouter.ai`) to one upstream endpoint run by an EU company (Nebius, zero retention, no fallback); the router itself is not EU-only. `ai-configs/openrouter-deepseek-eu.json` uses OpenRouter's EU in-region endpoint (`eu.openrouter.ai`, Business plan), which keeps prompts in the EU. The region, upstream provider, routing switches, prices and rate limit are config data.
+
 Checks, as CI runs them:
 
 ```sh

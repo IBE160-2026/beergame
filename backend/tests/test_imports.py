@@ -65,7 +65,7 @@ def test_the_platform_imports_no_module_and_no_llm_library():
         assert not name.startswith(("app.modules", *LLM_IMPORTS)), f"{path.name}:{line} {name}"
 
 
-AI_PUBLIC = ("app.ai.config", "app.ai.budget", "app.ai.gateway")
+AI_PUBLIC = ("app.ai.config", "app.ai.budget", "app.ai.gateway", "app.ai.endpoint")
 AI_TABLES = re.compile(r"\b(ai_model_configs|ai_budgets|llm_call)\b")
 """Whole words, so `llm_call_ids` (on the gateway's results) is not a table name."""
 

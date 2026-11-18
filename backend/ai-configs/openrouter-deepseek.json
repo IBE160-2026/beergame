@@ -1,24 +1,38 @@
 {
   "name": "openrouter-deepseek",
   "provider": "openai_compatible",
-  "endpoint": "https://eu.openrouter.ai/api/v1",
-  "region": "eu",
+  "endpoint": "https://openrouter.ai/api/v1",
+  "region": "eu-provider",
   "model_version": "deepseek/deepseek-v4.1-flash-1017",
-  "quantisation": "unknown",
+  "quantisation": "fp8",
   "credential_env": "OPENROUTER_API_KEY",
   "prices": {
-    "input_usd_per_mtok": "0.10",
-    "output_usd_per_mtok": "0.40"
+    "input_usd_per_mtok": "0.12",
+    "output_usd_per_mtok": "0.48"
   },
   "rate_limit_rpm": 60,
-  "prompts": {"player_order": 1, "recognition_probe": 1},
+  "prompts": {
+    "player_order": 1,
+    "recognition_probe": 1
+  },
   "effort_levels": [
     {
       "name": "standard",
-      "provider_params": {"reasoning": {"effort": "low"}},
+      "provider_params": {
+        "reasoning": {
+          "effort": "low"
+        }
+      },
       "attempt_timeout_s": 4,
       "order_time_budget_s": 8,
       "placeholder": true
     }
-  ]
+  ],
+  "routing": {
+    "router": "openrouter",
+    "order": [
+      "nebius/fp8"
+    ],
+    "require_parameters": true
+  }
 }

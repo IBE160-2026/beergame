@@ -48,7 +48,7 @@ def test_config_add_list_show_and_edit(ai_db, capsys, tmp_path, prompts):
     assert code == 0
     assert lines == [
         f"config {first} name=openrouter-deepseek model=deepseek/deepseek-v4.1-flash-1017 "
-        "endpoint=https://eu.openrouter.ai/api/v1 region=eu referenced=yes",
+        "endpoint=https://openrouter.ai/api/v1 region=eu-provider referenced=yes",
         f"config {second} name=mock model=mock-1 endpoint=mock://local region=local referenced=no",
     ]
 

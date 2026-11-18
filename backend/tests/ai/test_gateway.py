@@ -221,7 +221,7 @@ async def test_a_cancelled_call_logs_the_attempt_in_flight(ai_db, template):
     scope = await scope_for()
     with mock.script(mock.TIMEOUT):
         task = asyncio.create_task(call(scope))
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.1)  # the call first reads the config and budget
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
@@ -259,11 +259,12 @@ async def test_a_real_provider_without_a_key_gets_the_mock_outside_production(
     monkeypatch.delenv("OLSPILLET_TEST_KEY", raising=False)
     result = await call(scope, inputs(mock_answer={"order": 5}))
     assert result.output == Order(order=5)
-    # With a key set, the call needs the adapter that Story 2.7 adds; no mock stands in.
+    # With a key set, the adapter calls the endpoint and no mock stands in (the tests' transport
+    # refuses every request, so this is a provider error).
     monkeypatch.setenv("OLSPILLET_TEST_KEY", "not-a-real-key")
     result = await call(scope, inputs(mock_answer={"order": 5}))
     assert isinstance(result, Failure) and result.kind == "provider_error"
-    assert "no adapter" in result.detail
+    assert "Connection" in result.detail
     # In production a missing key is a provider error too, never the mock.
     monkeypatch.delenv("OLSPILLET_TEST_KEY")
     monkeypatch.setenv("APP_ENV", "production")
