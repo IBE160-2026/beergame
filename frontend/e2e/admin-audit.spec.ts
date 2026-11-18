@@ -69,7 +69,14 @@ for (const vp of VIEWPORTS) {
       await expect(page.getByRole("heading", { level: 1, name: copy.title })).toBeVisible();
 
       await actorFilter(page).selectOption({ label: DEMO_USERS.admin.name });
+      // The rows of the actor filter alone stay until the answer to both filters is in: wait for
+      // that answer, so the list read below is the filtered one.
+      const filtered = page.waitForResponse((r) => {
+        const url = new URL(r.url());
+        return url.pathname === "/api/admin/audit" && url.searchParams.get("action") === "institution.created";
+      });
       await actionFilter(page).selectOption("institution.created");
+      expect((await filtered).status()).toBe(200);
       const row = page.locator("tbody tr").filter({ hasText: name });
       await expect(row).toBeVisible();
       await expect(row).toContainText(DEMO_USERS.admin.name);
@@ -77,8 +84,7 @@ for (const vp of VIEWPORTS) {
       await expect(row).toContainText(`${copy.fields.name}: ${name}`);
       await expect(row).toContainText(/\d{1,2}\. [a-zæøå]+\.? \d{4} kl\. \d{2}:\d{2}/);
       // Only that action is listed.
-      const actions = await page.locator("tbody tr").allInnerTexts();
-      expect(actions.every((text) => text.includes(copy.actions["institution.created"]))).toBe(true);
+      await expect(page.locator("tbody tr").filter({ hasNotText: copy.actions["institution.created"] })).toHaveCount(0);
       await expectAccessible(page, vp.phone);
       await expect(page.locator("main button.bg-ink")).toHaveCount(0);
     });

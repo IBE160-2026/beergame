@@ -136,7 +136,9 @@ async def test_a_killed_job_gets_the_fallback_within_the_budget_plus_one_interva
     real_once = rescue.rescue_once
 
     async def timed_once(now=None):
-        began, start = db_now(games_db), time.monotonic()
+        # The monotonic start first: the gap measured below must not hold this test's own query.
+        start = time.monotonic()
+        began = db_now(games_db)
         done = await real_once(now)
         passes.append((began, start, time.monotonic(), done.placed))
         return done
@@ -362,15 +364,27 @@ async def test_the_loop_survives_a_failed_pass(games_db, ai_db, monkeypatch):
         return await real(LATER)
 
     monkeypatch.setattr(rescue.games_service, "overdue_llm_turns", flaky)
+    # The pass that places the Order signals it: the test waits for that event, not for a span
+    # of real time a busy machine could overrun.
+    placed = asyncio.Event()
+    real_once = rescue.rescue_once
+
+    async def watched_once(now=None):
+        done = await real_once(now)
+        if done.placed:
+            placed.set()
+        return done
+
+    monkeypatch.setattr(rescue, "rescue_once", watched_once)
     stop = asyncio.Event()
     loop = asyncio.create_task(rescue.run(interval_s=0.01, stop=stop))
     try:
-        async with asyncio.timeout(2):
-            while logged(games_db, game_id, "retailer", FIRST) is None:  # noqa: ASYNC110
-                await asyncio.sleep(0.01)  # polls the database, which signals no event
+        async with asyncio.timeout(60):  # only a guard against a hang
+            await placed.wait()
     finally:
         stop.set()
         await loop
+    assert failures == []  # the first pass failed, and the loop went on to the next
     assert logged(games_db, game_id, "retailer", FIRST)[:2] == ("rule_based", "timeout")
 
 

@@ -3,6 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import tokens from "../src/theme/tokens.json";
+import { untilHydrated } from "./support/auth";
 
 const copy = nb.auth.login;
 
@@ -45,6 +46,7 @@ for (const vp of VIEWPORTS) {
 
     test("passes axe, reflows, and keeps text and tap targets large enough", async ({ page }) => {
       await page.goto("/logg-inn");
+      await untilHydrated(page);
       await expect(page.getByRole("heading", { level: 1, name: copy.title })).toBeVisible();
 
       expect(await axeViolations(page)).toEqual([]);
@@ -154,6 +156,7 @@ test("uses the theme, the self-hosted font and paper as the only background", as
 test("is operable by keyboard alone, with a visible focus ring", async ({ page }) => {
   const sent = apiRequests(page);
   await page.goto("/logg-inn");
+  await untilHydrated(page);
 
   const order: string[] = [];
   for (let i = 0; i < 4; i++) {
@@ -185,6 +188,7 @@ test("is operable by keyboard alone, with a visible focus ring", async ({ page }
 test("shows the reason beside a malformed e-mail, sends nothing until valid, then sends the login", async ({ page }) => {
   const sent = apiRequests(page);
   await page.goto("/logg-inn");
+  await untilHydrated(page);
   const email = page.getByLabel(copy.email);
   const password = page.getByLabel(copy.password);
   const submit = page.getByRole("button", { name: copy.submit });
@@ -229,6 +233,7 @@ test("shows the reason beside a malformed e-mail, sends nothing until valid, the
 
 test("a press right after an error is fixed reaches the button", async ({ page }) => {
   await page.goto("/logg-inn");
+  await untilHydrated(page);
   const email = page.getByLabel(copy.email);
   const submit = page.getByRole("button", { name: copy.submit });
 

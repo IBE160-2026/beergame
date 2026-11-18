@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { DEMO_PASSWORD, DEMO_USERS, type DemoRole, loginByApi } from "./support/auth";
+import { DEMO_PASSWORD, DEMO_USERS, type DemoRole, loginByApi, untilHydrated } from "./support/auth";
 
 const copy = nb.auth.login;
 const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
@@ -49,6 +49,7 @@ for (const vp of VIEWPORTS) {
     test("wrong password, right password and «Logg ut», by keyboard alone", async ({ page }) => {
       const user = DEMO_USERS[vp.role];
       await page.goto("/logg-inn");
+      await untilHydrated(page);
 
       // Wrong password: one line that names neither field, the input is kept.
       await tabTo(page, "email");
@@ -103,6 +104,7 @@ for (const vp of VIEWPORTS) {
       expect(status).toBe(429);
 
       await page.goto("/logg-inn");
+      await untilHydrated(page);
       await tabTo(page, "email");
       await page.keyboard.type(email);
       await page.keyboard.press("Tab");

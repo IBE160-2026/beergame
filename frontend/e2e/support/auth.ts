@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../../src/copy/nb";
 
@@ -19,11 +19,35 @@ export const DEMO_USERS = {
 
 export type DemoRole = keyof typeof DEMO_USERS;
 
+/** Wait until React has hydrated the first element matching `selector`, which the server
+ * rendered. A press before that reaches the bare HTML: a form then posts to the page itself and
+ * the page reloads, as it should, but a test that means to drive the app has lost its press.
+ * React marks every element it hydrates with its props; polled from here, so a page clock the
+ * test installed does not stop the wait. */
+export async function untilHydrated(page: Page, selector = "main form") {
+  await expect
+    .poll(() =>
+      page
+        .locator(selector)
+        .first()
+        .evaluate((el) => Object.keys(el).some((key) => key.startsWith("__reactProps$"))),
+    )
+    .toBe(true);
+}
+
+/** The answer to the next `method` request to the api path `path`. Start it before the press that
+ * sends the request, and await it after: a step that hashes a password can take longer than an
+ * assertion's 5 s on a busy machine, and an assertion should look only once the answer is in. */
+export function answerTo(page: Page, path: string, method = "POST") {
+  return page.waitForResponse((r) => new URL(r.url()).pathname === path && r.request().method() === method);
+}
+
 /** Log in as the demo User of `role` through the «Logg inn» page; waits until the User is on
  * their home. */
 export async function loginAs(page: Page, role: DemoRole) {
   const user = DEMO_USERS[role];
   await page.goto("/logg-inn");
+  await untilHydrated(page);
   await page.getByLabel(nb.auth.login.email).fill(user.email);
   await page.getByLabel(nb.auth.login.password).fill(DEMO_PASSWORD);
   await page.getByRole("button", { name: nb.auth.login.submit }).click();
@@ -32,16 +56,33 @@ export async function loginAs(page: Page, role: DemoRole) {
   return user;
 }
 
-/** Log in as `role` through the API only: faster when a test does not look at «Logg inn». The
- * cookie lands in the page's browser context. */
+/** The environment variable through which `global-setup.ts` hands the demo sessions over. */
+export const SESSIONS_ENV = "E2E_DEMO_SESSIONS";
+
+type SessionCookie = Awaited<ReturnType<BrowserContext["storageState"]>>["cookies"][number];
+
+/** The session cookie of the demo User of `role`, from the one login `global-setup.ts` made. */
+export function demoSession(role: DemoRole): SessionCookie {
+  const sessions = JSON.parse(process.env[SESSIONS_ENV] ?? "{}") as Partial<Record<DemoRole, SessionCookie>>;
+  const cookie = sessions[role];
+  if (!cookie) throw new Error(`no demo session for ${role}: is the global setup configured?`);
+  return cookie;
+}
+
+/** Log in as `role` without «Logg inn»: the page's browser context takes the demo User's session
+ * cookie. Parallel workers share that one session instead of each logging in (see
+ * `global-setup.ts`). */
 export async function loginByApi(page: Page, role: DemoRole) {
-  const user = DEMO_USERS[role];
-  const response = await page.request.post("/api/auth/login", {
-    data: { email: user.email, password: DEMO_PASSWORD },
-    headers: { "X-Requested-With": "olspillet" },
+  await page.context().addCookies([demoSession(role)]);
+  return DEMO_USERS[role];
+}
+
+/** A browser context of its own, logged in as the demo User of `role`, for a second actor. */
+export function demoContext(browser: Browser, role: DemoRole): Promise<BrowserContext> {
+  return browser.newContext({
+    baseURL: test.info().project.use.baseURL,
+    storageState: { cookies: [demoSession(role)], origins: [] },
   });
-  expect(response.status()).toBe(200);
-  return user;
 }
 
 export type DevMail = { subject: string; text: string; html: string; sent_at: string };

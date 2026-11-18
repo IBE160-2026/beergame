@@ -1,7 +1,7 @@
 """The local dev mailbox (Story 3.6): the newest mail to a User, rendered again, so Playwright
 can follow a link from the `[email:mock]` mail. It does not exist in production."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi.routing import APIRoute, iter_route_contexts
 
@@ -32,6 +32,24 @@ async def test_it_returns_the_newest_mail_sent_to_the_address(identity_db, mail_
     body = found.json()
     assert (body["subject"], body["text"], body["html"]) == (sent.subject, sent.text, sent.html)
     assert datetime.fromisoformat(body["sent_at"]) == NOW
+
+
+async def test_the_newest_mail_wins_when_the_clock_steps_back(identity_db, mail_db, monkeypatch):
+    """The second mail is stamped a minute before the first, as a clock that steps back would:
+    it is still the newest."""
+    monkeypatch.setattr(auth, "utcnow", lambda: NOW)
+    await identity.create_user(email="kari@example.com", name="Kari", password="et passord")
+    async with client() as c:
+        await c.post("/api/auth/password-reset", json={"email": "kari@example.com"}, headers=CSRF)
+        await drain(NOW + timedelta(minutes=1))
+        await c.post("/api/auth/password-reset", json={"email": "kari@example.com"}, headers=CSRF)
+        await drain(NOW)
+        found = await c.get("/api/dev/mailbox/latest", params={"to": "kari@example.com"})
+    first, second = mails()
+    assert first.text != second.text  # two links
+    assert found.status_code == 200
+    assert found.json()["text"] == second.text
+    assert datetime.fromisoformat(found.json()["sent_at"]) == NOW
 
 
 def test_it_is_not_routed_in_production(monkeypatch):

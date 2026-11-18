@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { DEMO_PASSWORD, DEMO_USERS, latestMail, loginByApi, nextMail } from "./support/auth";
+import { DEMO_USERS, demoContext, latestMail, loginByApi, nextMail } from "./support/auth";
 
 /** The User list and the role buttons on «Brukere og roller» (Story 3.9, FR-2, FR-3, UX-DR57,
  * UX-DR75, NFR-6), on the local stack with the mail worker. Each test that changes a role makes
@@ -48,13 +48,8 @@ async function freshAdmin(page: Page, browser: Browser): Promise<Fresh> {
   const address = `roller-${tag}@example.com`;
   const first = `Rolf${tag}`;
   const baseURL = test.info().project.use.baseURL;
-  const adminContext = await browser.newContext({ baseURL });
+  const adminContext = await demoContext(browser, "admin");
   const admin = adminContext.request;
-  const login = await admin.post("/api/auth/login", {
-    data: { email: DEMO_USERS.admin.email, password: DEMO_PASSWORD },
-    headers: CSRF,
-  });
-  expect(login.status()).toBe(200);
   const before = await latestMail(page, address);
   const sent = await admin.post("/api/admin/invitations", { data: { email: address, role: "admin" }, headers: CSRF });
   expect(sent.status()).toBe(201);

@@ -4,6 +4,8 @@ import { defineConfig, devices } from "@playwright/test";
 // a local WSL relay listens on ::1.
 export default defineConfig({
   testDir: "e2e",
+  // One login per demo User for the whole run, shared by the workers (see the file).
+  globalSetup: "./e2e/support/global-setup.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 0,

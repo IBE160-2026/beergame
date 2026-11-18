@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { DEMO_PASSWORD, DEMO_USERS, latestMail, loginByApi, nextMail } from "./support/auth";
+import { DEMO_USERS, demoContext, latestMail, loginByApi, nextMail } from "./support/auth";
 
 /** Deactivating and reactivating a User, and the Invitation list with its resend, on «Brukere og
  * roller» (Story 3.10, FR-1, FR-3, UX-DR57, UX-DR61, NFR-6), on the local stack with the mail
@@ -38,14 +38,8 @@ const usersSection = (page: Page) => page.getByRole("region", { name: list.title
 const invitationsSection = (page: Page) => page.getByRole("region", { name: invitations.title, exact: true });
 
 /** The demo Admin's api, in a browser context of its own. */
-async function adminApi(browser: Browser): Promise<BrowserContext> {
-  const context = await browser.newContext({ baseURL: test.info().project.use.baseURL });
-  const login = await context.request.post("/api/auth/login", {
-    data: { email: DEMO_USERS.admin.email, password: DEMO_PASSWORD },
-    headers: CSRF,
-  });
-  expect(login.status()).toBe(200);
-  return context;
+function adminApi(browser: Browser): Promise<BrowserContext> {
+  return demoContext(browser, "admin");
 }
 
 /** Send a Lecturer Invitation to a fresh address and return the address and its mailed token. */

@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { type APIRequestContext, type Browser, expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { DEMO_PASSWORD, DEMO_USERS, latestMail, nextMail } from "./support/auth";
+import { answerTo, demoContext, latestMail, nextMail } from "./support/auth";
 
 /** «Du er invitert» (Story 3.8, FR-1, FR-4, UX-DR61, UX-DR75, NFR-6), on the local stack with the
  * mail worker. Each test invites its own fresh address, so runs never meet and no demo User
@@ -36,13 +36,7 @@ async function expectAccessible(page: Page, phone: boolean) {
 /** The Admin's own api session, in a browser context apart from the page's, which plays the
  * invitee. */
 async function adminApi(browser: Browser): Promise<APIRequestContext> {
-  const request = (await browser.newContext({ baseURL: test.info().project.use.baseURL })).request;
-  const response = await request.post("/api/auth/login", {
-    data: { email: DEMO_USERS.admin.email, password: DEMO_PASSWORD },
-    headers: CSRF,
-  });
-  expect(response.status()).toBe(200);
-  return request;
+  return (await demoContext(browser, "admin")).request;
 }
 
 /** Send an Invitation as the Admin and return the path of the link its mail carries. */
@@ -93,7 +87,9 @@ for (const vp of VIEWPORTS) {
       await name.fill("Ny Faglærer");
       await expect(name).not.toHaveAttribute("aria-invalid", "true");
       await password.fill(PASSWORD);
+      const created = answerTo(page, "/api/auth/invitation/accept");
       await page.getByRole("button", { name: copy.submit }).click();
+      expect((await created).status()).toBe(200);
       await expect(page).toHaveURL(/\/laererhjem$/);
       await expect(page.getByRole("button", { name: nb.auth.session.logout })).toBeVisible();
 
@@ -107,10 +103,14 @@ for (const vp of VIEWPORTS) {
       await expect(page.locator("main button")).toHaveCount(1);
       await expectAccessible(page, vp.phone);
       await page.getByLabel(copy.existing.password).fill("feil-passord");
+      const refused = answerTo(page, "/api/auth/invitation/accept-login");
       await page.getByRole("button", { name: copy.existing.submit }).click();
+      expect((await refused).status()).toBe(401);
       await expect(page.getByText(nb.auth.login.invalidCredentials)).toBeVisible();
       await page.getByLabel(copy.existing.password).fill(PASSWORD);
+      const added = answerTo(page, "/api/auth/invitation/accept-login");
       await page.getByRole("button", { name: copy.existing.submit }).click();
+      expect((await added).status()).toBe(200);
       // Admin and Lecturer land on the Lærerhjem, with the link to the Admin-område.
       await expect(page).toHaveURL(/\/laererhjem$/);
       await expect(page.getByRole("link", { name: nb.navigation.toAdminArea })).toBeVisible();
@@ -135,7 +135,9 @@ test.describe("Admin Invitation", () => {
     await page.goto(link);
     await page.getByLabel(copy.name).fill("Ny Admin");
     await page.getByLabel(copy.password).fill(PASSWORD);
+    const created = answerTo(page, "/api/auth/invitation/accept");
     await page.getByRole("button", { name: copy.submit }).click();
+    expect((await created).status()).toBe(200);
     await expect(page).toHaveURL(/\/admin$/);
   });
 });
@@ -163,7 +165,9 @@ test.describe("account made meanwhile", () => {
 
     await page.getByLabel(copy.name).fill("Ny Faglærer");
     await page.getByLabel(copy.password).fill(PASSWORD);
+    const refused = answerTo(page, "/api/auth/invitation/accept");
     await page.getByRole("button", { name: copy.submit }).click();
+    expect((await refused).status()).toBe(409);
     await expect(page.getByText(copy.existing.lead(copy.roles.lecturer))).toBeVisible();
     await expect(page.getByRole("button", { name: copy.existing.submit })).toBeVisible();
   });

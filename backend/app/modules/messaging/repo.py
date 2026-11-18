@@ -122,8 +122,10 @@ async def unsent_claimed_before(session: AsyncSession, cutoff: datetime) -> list
 async def latest_sent_for(
     session: AsyncSession, user_id: uuid.UUID | None, refs: Sequence[uuid.UUID]
 ) -> RowMapping | None:
-    """The most recently sent delivery to the User `user_id`, or for a notice addressed by
-    reference to one of `refs` (an address's Invitations)."""
+    """The newest sent delivery to the User `user_id`, or for a notice addressed by reference to
+    one of `refs` (an address's Invitations). Newest by id, a UUIDv7 the worker draws in the
+    order it claims, not by `sent_at`: a clock that steps back (the local Postgres VM's,
+    Issue #63) would stamp a later mail earlier and leave an older one as the newest."""
     conditions = []
     if user_id is not None:
         conditions.append(mail_deliveries.c.user_id == user_id)
@@ -142,7 +144,7 @@ async def latest_sent_for(
     result = await session.execute(
         select(mail_deliveries)
         .where(mail_deliveries.c.sent_at.is_not(None), or_(*conditions))
-        .order_by(mail_deliveries.c.sent_at.desc(), mail_deliveries.c.id.desc())
+        .order_by(mail_deliveries.c.id.desc())
         .limit(1)
     )
     return result.mappings().one_or_none()

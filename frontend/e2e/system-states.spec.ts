@@ -1,12 +1,14 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, type Route, test } from "@playwright/test";
+import { type BrowserContext, expect, type Page, type Route, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { DEMO_PASSWORD, DEMO_USERS, loginByApi } from "./support/auth";
+import { DEMO_PASSWORD, DEMO_USERS, loginByApi, untilHydrated } from "./support/auth";
 
 /**
  * Story 3.4: loading, offline, page error, action error and an ended session. Slow and offline
  * states come from Playwright routing, `setOffline` and the page clock; nothing waits in real time.
+ * Each step waits for the state it needs: hydration, the request a page sends, a network that
+ * is really down or back.
  */
 
 const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
@@ -35,6 +37,48 @@ async function expectAccessible(page: Page) {
 const line = (page: Page) => page.locator("main [data-connection-notice]");
 const logout = (page: Page) => page.getByRole("banner").getByRole("button", { name: nb.auth.session.logout });
 
+type Held = Window & { __holdOnline?: boolean };
+
+/** Whether a request from the page reaches the server now. Not an api path, so no count below
+ * sees it. */
+const reaches = (page: Page) =>
+  page.evaluate(() =>
+    fetch("/favicon.ico", { cache: "no-store" }).then(
+      () => true,
+      () => false,
+    ),
+  );
+
+/** Take the browser offline, and return once its requests really fail: Chromium applies the
+ * emulated network a moment after `setOffline` returns. */
+async function goOffline(page: Page, context: BrowserContext) {
+  await context.setOffline(true);
+  await expect.poll(() => reaches(page)).toBe(false);
+}
+
+/** Bring the browser back online, and let the page hear `online` only once its requests really
+ * get through. Chromium fires `online` before the emulated network is back, so the refetch the
+ * event starts could still fail as offline. The browser's own event is held back (see
+ * `beforeEach`), and the same event is sent again when a request reaches the server. */
+async function goOnline(page: Page, context: BrowserContext) {
+  await page.evaluate(() => ((window as Held).__holdOnline = true));
+  await context.setOffline(false);
+  await expect.poll(() => reaches(page)).toBe(true);
+  await page.evaluate(() => {
+    (window as Held).__holdOnline = false;
+    window.dispatchEvent(new Event("online"));
+  });
+}
+
+// Before any script of the page: a listener on the target runs in the order it was added, so
+// only one added first can hold `online` back from the page's own listeners.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as Held;
+    window.addEventListener("online", (e) => w.__holdOnline && e.stopImmediatePropagation());
+  });
+});
+
 /** Counts the requests to `url` the page sends from now on. */
 function countRequests(page: Page, url: string, method = "GET") {
   const sent = { n: 0 };
@@ -55,11 +99,19 @@ for (const vp of VIEWPORTS) {
       await loginByApi(page, "admin");
       // `/me` hangs while `hold` is set; a request that hung keeps hanging.
       let hold = true;
-      await page.route(ME, (route: Route) => (hold ? undefined : route.continue()));
+      let asked!: () => void;
+      const meAsked = new Promise<void>((resolve) => (asked = resolve));
+      await page.route(ME, (route: Route) => {
+        asked();
+        return hold ? undefined : route.continue();
+      });
       await page.goto("/admin");
 
       const skeleton = page.locator("main [data-skeleton]");
       await expect(skeleton).toBeVisible();
+      // The server renders the Skjelett; the page's clock starts when it hydrates, in the same
+      // task that sends `/me`. Moving the clock before that would move it past a timer not yet set.
+      await meAsked;
       await expect(page.getByText(sys.loading)).toHaveCount(0);
       await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
       await page.clock.runFor(999);
@@ -107,13 +159,13 @@ for (const vp of VIEWPORTS) {
       await expect(page.getByRole("heading", { level: 1, name: nb.homes.adminArea })).toBeVisible();
       await logout(page).focus();
 
-      await context.setOffline(true);
+      await goOffline(page, context);
       await expect(line(page)).toHaveText(`${sys.offline} ${sys.lastUpdated("21:14")}`);
       await expect(line(page)).toHaveAttribute("role", "status");
       await expectAccessible(page);
 
       const refetch = page.waitForRequest((r) => new URL(r.url()).pathname === "/api/auth/me");
-      await context.setOffline(false);
+      await goOnline(page, context);
       await expect(line(page)).toHaveText(sys.reconnected);
       await refetch;
       await expect(logout(page)).toBeFocused();
@@ -129,12 +181,12 @@ for (const vp of VIEWPORTS) {
       const email = page.getByLabel(nb.auth.login.email);
       await email.fill("kari@example.com");
 
-      await context.setOffline(true);
+      await goOffline(page, context);
       await expect(line(page)).toHaveText(sys.offline);
       await expect(email).toHaveValue("kari@example.com");
       await expectAccessible(page);
 
-      await context.setOffline(false);
+      await goOnline(page, context);
       await expect(line(page)).toHaveText(sys.reconnected);
       await expect(email).toHaveValue("kari@example.com");
       expect(sent.n).toBe(0);
@@ -168,6 +220,7 @@ for (const vp of VIEWPORTS) {
       await expect(note).not.toHaveAttribute("role");
       await expectAccessible(page);
 
+      await untilHydrated(page);
       await page.getByLabel(nb.auth.login.email).fill(DEMO_USERS.admin.email);
       await page.getByLabel(nb.auth.login.password).fill(DEMO_PASSWORD);
       await page.getByRole("button", { name: nb.auth.login.submit }).click();
@@ -183,13 +236,13 @@ test("an action pressed offline fails at once and is not sent when the connectio
   await expect(page.getByRole("heading", { level: 1, name: nb.homes.adminArea })).toBeVisible();
   const sent = countRequests(page, "/api/auth/logout", "POST");
 
-  await context.setOffline(true);
+  await goOffline(page, context);
   await logout(page).click();
   await expect(page.getByRole("banner").getByRole("alert")).toHaveText(nb.auth.session.logoutFailed);
   // The offline press itself counts as a (failed) request; from here on nothing may be sent.
   sent.n = 0;
   const refetch = page.waitForRequest((r) => new URL(r.url()).pathname === "/api/auth/me");
-  await context.setOffline(false);
+  await goOnline(page, context);
   await refetch;
   await expect(line(page)).toHaveText(sys.reconnected);
   expect(sent.n).toBe(0);
@@ -204,14 +257,15 @@ test("a session that ends while a page is open sends the next request to «Logg 
   await context.addCookies([{ ...cookie, value: "utgatt" }]);
 
   // Coming back online refetches `/me`, which finds the session ended.
-  await context.setOffline(true);
-  await context.setOffline(false);
+  await goOffline(page, context);
+  await goOnline(page, context);
   await expect(page).toHaveURL(/\/logg-inn\?neste=%2Flaererhjem%3Ffane%3D1&utlopt=1$/);
   await expect(page.getByText(nb.auth.login.sessionExpired)).toBeFocused();
 });
 
 test("a return address off the site is ignored after login", async ({ page }) => {
   await page.goto("/logg-inn?neste=%2F%2Fevil.example%2Fadmin");
+  await untilHydrated(page);
   await page.getByLabel(nb.auth.login.email).fill(DEMO_USERS.lecturer.email);
   await page.getByLabel(nb.auth.login.password).fill(DEMO_PASSWORD);
   await page.getByRole("button", { name: nb.auth.login.submit }).click();
@@ -227,16 +281,16 @@ test("with reduced motion no state change is animated", async ({ page, context }
       .evaluate((el) => getComputedStyle(el).transitionDuration);
   await page.goto("/logg-inn");
   await page.addStyleTag({ content: style });
-  await context.setOffline(true);
+  await goOffline(page, context);
   await expect(line(page)).toHaveText(sys.offline);
   expect(await duration()).toBe("0.2s");
-  await context.setOffline(false);
+  await goOnline(page, context);
 
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await context.setOffline(true);
+  await goOffline(page, context);
   await expect(line(page)).toHaveText(sys.offline);
   expect(await duration()).toBe("0s");
-  await context.setOffline(false);
+  await goOnline(page, context);
   await expect(line(page)).toHaveText(sys.reconnected);
 });
 
@@ -259,6 +313,7 @@ test("the not-found page shows the page error when the session cannot be read, a
 test("a visitor who is not logged in comes back to the same address, query included", async ({ page }) => {
   await page.goto("/laererhjem?fane=1");
   await expect(page).toHaveURL(/\/logg-inn\?neste=%2Flaererhjem%3Ffane%3D1$/);
+  await untilHydrated(page);
   await page.getByLabel(nb.auth.login.email).fill(DEMO_USERS.lecturer.email);
   await page.getByLabel(nb.auth.login.password).fill(DEMO_PASSWORD);
   await page.getByRole("button", { name: nb.auth.login.submit }).click();
