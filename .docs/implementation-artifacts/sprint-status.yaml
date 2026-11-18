@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-18-2026 06:52
+last_updated: 11-18-2026 07:20
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -67,7 +67,7 @@ development_status:
   epic-2-retrospective: optional
 
   epic-3: in-progress
-  3-1-see-logg-inn-in-the-product-s-design: in-progress
+  3-1-see-logg-inn-in-the-product-s-design: done
   3-2-log-in-and-log-out-with-e-mail-and-password: backlog
   3-3-land-on-your-own-home-and-be-held-to-your-role: backlog
   3-4-see-what-is-happening-when-a-page-loads-fails-or-goes-offlin: backlog
