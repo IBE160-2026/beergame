@@ -75,7 +75,7 @@ development_status:
   3-6-reset-a-forgotten-password-by-e-mail: done
   3-7-invite-a-lecturer-or-admin-by-e-mail: done
   3-8-create-an-account-from-an-invitation: done
-  3-9-find-users-and-grant-or-revoke-roles: backlog
+  3-9-find-users-and-grant-or-revoke-roles: in-progress
   3-10-deactivate-and-reactivate-users-and-resend-invitations: backlog
   3-11-create-institutions: backlog
   3-12-read-the-audit-log: backlog
