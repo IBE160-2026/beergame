@@ -707,3 +707,24 @@ Bygge Story 3.9 på `epic-3`, heve de lokale invitasjonsgrensene og kontrollere 
 
 ### Åpne punkter
 - Issue #76: beslutninger, låsen Story 3.10 må bruke, og visuelle avvik.
+
+## Story 3.10: Deaktivere og reaktivere brukere og sende invitasjoner på nytt (2026-11-18)
+
+### Oppgave
+Bygge Story 3.10 på `epic-3`: dekke regelen om siste Admin ved deaktivering, vurdere Issue #73, og kontrollere sidene visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, med låsen og Issue #73 i oppdraget. Etterpå en visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-3-10-deactivate-reactivate-users-resend-invitations.md`. Commit `7ecc156`, visuelle rettinger `c329108`. Migrering 0020.
+- Deaktivering og reaktivering, invitasjonsliste med status og «Send på nytt». Låsen for siste Admin, og øktversjon per bruker.
+- Issue #73 er løst: en tilbakestilling avslutter alle andre økter.
+- Backend: 1815 grønne på 68 s. Frontend: typecheck, Vitest (277), tekstsjekk og bygg grønne. Playwright: 89/89 før rettingene etter gjennomgangen. Etterpå feilet én av to `system-states`-tester av og til.
+- Gjennomgang: 28 funn (4 middels), 3 middels og 9 lave rettet, 1 utsatt.
+- Visuell kontroll: 26 skjermbilder og to rettinger. Fire punkter går til den samlede gjennomgangen.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #77: beslutninger, visuelle avvik og ustabile e2e-tester.
+- Issue #73 er lukket.
