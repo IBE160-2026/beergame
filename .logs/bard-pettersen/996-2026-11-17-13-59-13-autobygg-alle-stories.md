@@ -502,3 +502,19 @@ Bygge Story 2.13 på `epic-2`, den siste i Epic 2.
 
 ### Åpne punkter
 - Issue #62: beslutninger om tekstene og versjonering.
+
+## Deterministiske tidstester (2026-11-18)
+
+### Oppgave
+Seks tidsavhengige tester feilet av og til under last (sett i Story 2.8 og 2.13).
+
+### Plan
+Én underagent finner årsakene og gjør testene deterministiske uten å svekke påstandene.
+
+### Resultat
+- Commit `ccd2f5b`, bare tester. Stoppede klokker i stedet for ekte frister, hendelser i stedet for faste `sleep`, og et sjenerøst standard tidsbudsjett der fristen ikke er det som testes.
+- Verifisert: fire filer 20 ganger med `-n 16`, fire av dem med full CPU-last, og hele pakken tre ganger (1547 grønne).
+- Årsak: klokka i den lokale Docker-Postgres er ustabil.
+
+### Åpne punkter
+- Issue #63: ustabil klokke i lokal Docker-Postgres.
