@@ -803,3 +803,23 @@ Bygge Story 3.14 på `epic-3` uten skykonto, og ta med det som ble utsatt fra St
 
 ### Åpne punkter
 - Issue #81: beslutninger, og punktene til Story 3.15 (blant annet at `railway.toml` er merket utgått fra 2026-12-01).
+
+## Avslutning av Epic 3 (2026-11-18)
+
+### Oppgave
+Gjøre klar for PR fra `epic-3`: rette CI, gjøre en samlet oppfølgende gjennomgang, rette UX-avvikene som ble utsatt, og gjøre de ustabile testene stabile. Story 3.15 står i `backlog`, som kjøreboka sier.
+
+### Plan
+- Rette CI selv. Fargeparet `ink` på `net-zero` manglet i tabellen etter den visuelle rettingen i Story 3.13.
+- Én underagent for oppfølgende gjennomgang (3.1, 3.4, 3.5, 3.9, 3.10) og fem UX-rettinger.
+- Én underagent for ustabile tester (`system-states.spec.ts` og `test_rescue.py`).
+- Den visuelle kontrollen kjører nå hele Vitest-pakken (under 2 s).
+
+### Resultat
+- CI-retting: `ink` på `net-zero` er tillatt (DESIGN.md, matrisetrinn).
+- Commit `6ea5c17`: e-post sendt på nytt for alltid når en resolver feilet, og kappløp ved deaktivering samtidig med invitasjon. Begge er rettet med tester. UX-rettinger i invitasjonslista, på «Institusjoner» og i invitasjonsskjemaet. Ny test for «Vis flere».
+- Commit `ab504fd`: tilbakestillingstestene brukte demobrukerne og logget ut andre arbeidere. Demoinnlogginger ble stoppet av grensen. Tidtakerne startet først etter hydrering. `online`-hendelsen kom for tidlig. Den lokale postkassen valgte etter `sent_at` mens klokka hoppet. `test_rescue` hadde en fast frist på 2 s. Playwright 122/122 to ganger, system-states 180/180 to ganger, og `test_rescue` 40/40 under last.
+- Backend: 1967 grønne.
+
+### Åpne punkter
+- Issue #82: tre tvilsomme funn (blant annet motsatt låserekkefølge som kan gi 500).
