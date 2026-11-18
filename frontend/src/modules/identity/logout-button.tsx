@@ -22,11 +22,16 @@ export function LogoutButton() {
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
+    // The error line hangs under the button in the space above the content, so it does not widen
+    // the header and push the name and «Logg ut» onto a new row at phone width.
+    <div className="relative">
       <Button variant="secondary" unavailable={logout.isPending} onClick={onClick}>
         {copy.logout}
       </Button>
-      <ActionError message={logout.errorMessage} />
+      <ActionError
+        message={logout.errorMessage}
+        className="absolute top-full right-0 mt-1 w-max max-w-[calc(100vw-2*var(--spacing-gutter-phone))] text-right"
+      />
     </div>
   );
 }
