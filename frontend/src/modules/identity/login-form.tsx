@@ -71,11 +71,12 @@ export function LoginForm({ defaultEmail }: { defaultEmail?: string } = {}) {
     );
   }
 
-  // After the first press, a field is checked again when it is left, so a fixed error clears.
-  function onEmailBlur() {
+  // After the first press a field is checked again as it is typed, so a fixed error clears. Not on
+  // blur: a reason vanishing on blur would move the button away from a press already under way.
+  function onEmailChange() {
     if (submitted) setErrors((prev) => ({ ...prev, email: validateEmail(emailRef.current?.value ?? "") }));
   }
-  function onPasswordBlur() {
+  function onPasswordChange() {
     if (submitted)
       setErrors((prev) => ({ ...prev, password: validatePassword(passwordRef.current?.value ?? "") }));
   }
@@ -94,7 +95,7 @@ export function LoginForm({ defaultEmail }: { defaultEmail?: string } = {}) {
         defaultValue={defaultEmail}
         label={copy.email}
         error={errors.email ? copy.errors[errors.email] : undefined}
-        onBlur={onEmailBlur}
+        onChange={onEmailChange}
       />
       <TextField
         ref={passwordRef}
@@ -104,7 +105,7 @@ export function LoginForm({ defaultEmail }: { defaultEmail?: string } = {}) {
         autoComplete="current-password"
         label={copy.password}
         error={errors.password ? copy.errors[errors.password] : undefined}
-        onBlur={onPasswordBlur}
+        onChange={onPasswordChange}
       />
       {serverError ? (
         <p role="alert" className="text-body-phone text-restordre">

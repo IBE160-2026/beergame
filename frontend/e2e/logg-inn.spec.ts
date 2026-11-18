@@ -205,7 +205,7 @@ test("shows the reason beside a malformed e-mail, sends nothing until valid, the
     expect(border).toBe(rgb("restordre"));
   }
 
-  // The password error clears when it is fixed and the field is left.
+  // The password error clears as it is fixed.
   await password.fill("");
   await submit.click();
   await expect(password).toHaveAccessibleDescription(copy.errors.passwordEmpty);
@@ -214,7 +214,7 @@ test("shows the reason beside a malformed e-mail, sends nothing until valid, the
   await expect(password).not.toHaveAttribute("aria-invalid");
   await expect(page.getByText(copy.errors.passwordEmpty)).toHaveCount(0);
 
-  // Up to here nothing was sent. Fixed and left: the reason clears. Valid input is sent to the
+  // Up to here nothing was sent. Fixed: the reason clears. Valid input is sent to the
   // login API (Story 3.2); a unique address, so repeated runs never reach the account limit.
   expect(sent).toEqual([]);
   await email.fill(`ola.${Date.now()}@uib.no`);
@@ -225,4 +225,26 @@ test("shows the reason beside a malformed e-mail, sends nothing until valid, the
   await request;
   await expect(page.getByText(copy.errors.emailNoDomain)).toHaveCount(0);
   await expect(page).toHaveURL(/\/logg-inn$/);
+});
+
+test("a press right after an error is fixed reaches the button", async ({ page }) => {
+  await page.goto("/logg-inn");
+  const email = page.getByLabel(copy.email);
+  const submit = page.getByRole("button", { name: copy.submit });
+
+  // The password reason sits right above the button. It is fixed, and the button is pressed
+  // straight from the field: the reason must not vanish on blur and move the button away.
+  await email.fill(`ola.${Date.now()}@uib.no`);
+  await submit.click();
+  const password = page.getByLabel(copy.password);
+  await expect(password).toHaveAccessibleDescription(copy.errors.passwordEmpty);
+  await password.fill("hemmelig");
+  const box = await submit.boundingBox();
+
+  const request = page.waitForRequest((r) => r.url().endsWith("/api/auth/login") && r.method() === "POST", {
+    timeout: 3_000,
+  });
+  await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await request;
+  await expect(page.getByText(copy.errors.passwordEmpty)).toHaveCount(0);
 });

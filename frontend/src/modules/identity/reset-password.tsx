@@ -100,7 +100,7 @@ function ResetDone({ email }: { email: string }) {
       <p ref={ref} tabIndex={-1} className="border-y border-ink-muted py-2 text-body-phone text-ink lg:text-body">
         {copy.done}
       </p>
-      <h2 className="mt-8 text-title-phone text-ink">{nb.auth.login.title}</h2>
+      <h2 className="mt-8 text-headline text-ink">{nb.auth.login.title}</h2>
       <LoginForm defaultEmail={email} />
     </div>
   );
