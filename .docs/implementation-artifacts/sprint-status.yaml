@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-19-2026 01:12
+last_updated: 11-19-2026 01:55
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -88,7 +88,7 @@ development_status:
   4-1-create-a-class-from-the-lærerhjem: done
   4-2-upload-a-roster-file-and-pick-the-e-mail-column: done
   4-3-see-invalid-rows-and-paste-addresses-instead: done
-  4-4-send-invitations-to-the-roster-with-a-validity-period: in-progress
+  4-4-send-invitations-to-the-roster-with-a-validity-period: done
   4-5-register-as-a-student-through-the-invitation: backlog
   4-6-see-bounced-invitations-and-the-counts: backlog
   4-7-follow-registration-status-and-send-reminders: backlog
