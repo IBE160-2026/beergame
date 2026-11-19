@@ -163,6 +163,25 @@
         "title": "AddressProblem",
         "type": "string"
       },
+      "AiDescriptionsOut": {
+        "description": "The plain-language Norwegian description of each AI player type, from\n`players.service.describe` (FR-33): Markdown with a title line, paragraphs and `- ` lists.",
+        "properties": {
+          "llm": {
+            "title": "Llm",
+            "type": "string"
+          },
+          "rule_based": {
+            "title": "Rule Based",
+            "type": "string"
+          }
+        },
+        "required": [
+          "llm",
+          "rule_based"
+        ],
+        "title": "AiDescriptionsOut",
+        "type": "object"
+      },
       "AiMode": {
         "description": "Who holds the AI Seats of the Class session's games (FR-15).",
         "enum": [
@@ -593,6 +612,9 @@
       "ClassSessionOut": {
         "description": "One Class session as its Class's staff read it.",
         "properties": {
+          "ai_descriptions": {
+            "$ref": "#/components/schemas/AiDescriptionsOut"
+          },
           "ai_mode": {
             "$ref": "#/components/schemas/AiMode"
           },
@@ -631,6 +653,24 @@
           },
           "debrief_mode": {
             "$ref": "#/components/schemas/DebriefMode"
+          },
+          "effort_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort Level"
+          },
+          "effort_levels": {
+            "items": {
+              "$ref": "#/components/schemas/OfferedEffortLevelOut"
+            },
+            "title": "Effort Levels",
+            "type": "array"
           },
           "game_settings": {
             "$ref": "#/components/schemas/GameSettings"
@@ -701,6 +741,10 @@
             "title": "Play Time Warning",
             "type": "boolean"
           },
+          "provider_unavailable": {
+            "title": "Provider Unavailable",
+            "type": "boolean"
+          },
           "saved_at": {
             "anyOf": [
               {
@@ -757,6 +801,10 @@
           "inactivity_limit_hours",
           "obligatory",
           "llm_unavailable",
+          "effort_level",
+          "effort_levels",
+          "ai_descriptions",
+          "provider_unavailable",
           "saved_at",
           "created_at",
           "can_manage",
@@ -775,7 +823,7 @@
       },
       "ClassSessionSaveIn": {
         "additionalProperties": false,
-        "description": "«Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice),\nthe four dates (Story 5.2) and the Game settings (Story 5.3) with the Demand pattern and its\nseed (Story 5.4); without `dates` or `game_settings` they stay as they are. `game_settings`\nis laid over the stored settings, so a field left out keeps its value.",
+        "description": "«Lagre Klasseøkt». The screen sends the AI mode, Effort level and Debrief mode as chosen\n(Story 5.5), the four dates (Story 5.2) and the Game settings (Story 5.3) with the Demand\npattern and its seed (Story 5.4); a field left out (`effort_level`, `debrief_mode`, `dates`,\n`game_settings`) keeps its value. `game_settings` is laid over the stored settings, so a\nsetting left out keeps its value. With Rule-based players no Effort level is in force, and\na sent one is ignored.",
         "properties": {
           "ai_mode": {
             "$ref": "#/components/schemas/AiMode"
@@ -789,6 +837,29 @@
                 "type": "null"
               }
             ]
+          },
+          "debrief_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DebriefMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "effort_level": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort Level"
           },
           "game_settings": {
             "anyOf": [
@@ -872,6 +943,7 @@
         "type": "object"
       },
       "DebriefMode": {
+        "description": "How the Debrief is held (FR-16): the four of a Class game together, or each alone.",
         "enum": [
           "group",
           "personal"
@@ -1990,6 +2062,73 @@
           "at"
         ],
         "title": "NextDeadline",
+        "type": "object"
+      },
+      "OfferedEffortLevelOut": {
+        "description": "An Effort level the Class session may use (Story 5.5, FR-78), as the model config holds it\nand `ai.config.offered_effort_levels` offers it: nothing here is written by `sessions`.",
+        "properties": {
+          "cost_per_game_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Per Game Usd"
+          },
+          "default": {
+            "title": "Default",
+            "type": "boolean"
+          },
+          "effect": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effect"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "time_per_order_median_s": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Per Order Median S"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "effect",
+          "default",
+          "time_per_order_median_s",
+          "cost_per_game_usd"
+        ],
+        "title": "OfferedEffortLevelOut",
         "type": "object"
       },
       "PasswordResetIn": {
@@ -4965,7 +5104,7 @@
         ]
       },
       "put": {
-        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Once the Start date has passed, a changed AI mode answers 409 `session_locked`.\nDates count to the whole minute.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).",
+        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level` and `debrief_mode` (FR-16, FR-78), left out, keep their values. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).",
         "operationId": "saveClassSession",
         "parameters": [
           {

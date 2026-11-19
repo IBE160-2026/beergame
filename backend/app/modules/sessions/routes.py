@@ -9,7 +9,8 @@ Story 5.2 adds the four dates to the save, the Student's read `/api/me/class-ses
 Lærerhjem's read `/api/lecturer-home/class-sessions`. Story 5.3 adds the Game settings to the
 save and the check of a draft, `/api/class-sessions/{id}/settings-check`. Story 5.4 adds the
 Demand pattern and seed to both and the staff's read of the series,
-`/api/class-sessions/{id}/demand-series`."""
+`/api/class-sessions/{id}/demand-series`. Story 5.5 adds the Effort level and Debrief mode to the
+save and the offered levels, AI player descriptions and provider flag to the read."""
 
 import uuid
 from typing import Annotated
@@ -113,8 +114,13 @@ async def save_class_session(
     With `dates` the four dates are replaced (FR-18). `fields` names each date in question:
     422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for
     the earlier one when only it changed, `required` once locked), 409 `deadline_passed`
-    (`passed`). Once the Start date has passed, a changed AI mode answers 409 `session_locked`.
-    Dates count to the whole minute.
+    (`passed`). Dates count to the whole minute.
+
+    `effort_level` and `debrief_mode` (FR-16, FR-78), left out, keep their values. With LLM
+    players a changed Effort level the model config does not offer answers 422
+    `invalid_effort_level` (`{"effort_level": "not_offered"}`); with Rule-based players no level
+    is in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,
+    Effort level or Debrief mode answers 409 `session_locked`, `fields` naming each.
 
     With `game_settings` (the editable settings, laid over the stored ones; `demand` and
     `demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with
@@ -127,6 +133,8 @@ async def save_class_session(
             _id(session_id),
             body.ai_mode,
             now=auth.utcnow(),
+            effort_level=body.effort_level,
+            debrief_mode=body.debrief_mode,
             dates=body.dates,
             game_settings=body.game_settings,
         )
@@ -143,6 +151,10 @@ async def save_class_session(
         )
     except service.InvalidDates as refused:
         return error_response(422, refused.code, "The dates break a rule.", refused.fields)
+    except service.InvalidEffortLevel as refused:
+        return error_response(
+            422, refused.code, "The model config offers no such Effort level.", refused.fields
+        )
     except (service.DeadlinePassed, service.SessionLocked) as refused:
         return error_response(409, refused.code, "This can no longer change.", refused.fields)
     if saved is None:

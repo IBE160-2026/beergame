@@ -17,7 +17,9 @@
       "provider_params": {},
       "attempt_timeout_s": 4,
       "order_time_budget_s": 8,
-      "placeholder": true
+      "placeholder": true,
+      "label": "Standard",
+      "effect": "Testmodell: svarer straks og koster ingenting."
     }
   ]
 }

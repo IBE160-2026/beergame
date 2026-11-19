@@ -101,6 +101,8 @@ async def save(
     now: datetime,
     ai_mode: str,
     model_config_id: uuid.UUID | None,
+    effort_level: str | None,
+    debrief_mode: str,
     dates: dict[str, datetime | None] | None,
     game_settings: dict[str, Any] | None = None,
 ) -> None:
@@ -110,5 +112,12 @@ async def save(
     await session.execute(
         update(class_sessions)
         .where(class_sessions.c.id == session_id)
-        .values(saved_at=now, ai_mode=ai_mode, model_config_id=model_config_id, **values)
+        .values(
+            saved_at=now,
+            ai_mode=ai_mode,
+            model_config_id=model_config_id,
+            effort_level=effort_level,
+            debrief_mode=debrief_mode,
+            **values,
+        )
     )

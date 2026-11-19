@@ -25,7 +25,9 @@
       },
       "attempt_timeout_s": 4,
       "order_time_budget_s": 8,
-      "placeholder": true
+      "placeholder": true,
+      "label": "Standard",
+      "effect": "Plassholder: farten og kostnaden er ikke målt ennå."
     }
   ],
   "routing": {

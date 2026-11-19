@@ -10,6 +10,7 @@ import { Breadcrumb } from "./breadcrumb";
 import { Button, guardUnavailable } from "./button";
 import { ConnectionNotice } from "./connection-notice";
 import { SegmentedChoice } from "./segmented-choice";
+import { ViewToggle } from "./view-toggle";
 import { LoadingNote, Skeleton } from "./skeleton";
 import { TextField } from "./text-field";
 
@@ -184,5 +185,64 @@ describe("SegmentedChoice", () => {
   it("checks exactly the chosen option", () => {
     expect(html.match(/checked=""/g)).toHaveLength(1);
     expect(html).toMatch(/checked="" value="admin"/);
+  });
+
+  it("marks an unavailable option aria-disabled with its reason and never chooses it", () => {
+    const chosen: string[] = [];
+    const element = SegmentedChoice({
+      name: "ai",
+      legend: "KI-modus",
+      options: [
+        { value: "llm", label: "LLM-spillere", unavailable: true, describedBy: "why" },
+        { value: "rule_based", label: "Regelbaserte spillere" },
+      ],
+      value: "rule_based",
+      onChange: (value) => chosen.push(value),
+      describedBy: "scope",
+    });
+    const markup = renderToStaticMarkup(element);
+    expect(markup).toMatch(/^<fieldset[^>]*aria-describedby="scope"/);
+    const llm = markup.match(/<input[^>]*value="llm"[^>]*>/)?.[0] ?? "";
+    expect(llm).toContain('aria-disabled="true"');
+    expect(llm).toContain('aria-describedby="why"');
+    expect(markup).toMatch(/bg-future-tint[^"]*text-ink-muted/);
+    expect(markup.match(/aria-disabled/g)).toHaveLength(1);
+    // The radios' change handlers, in option order: the unavailable one does nothing.
+    const radios = collectRadios(element);
+    radios[0]?.props.onChange();
+    radios[1]?.props.onChange();
+    expect(chosen).toEqual(["rule_based"]);
+  });
+});
+
+/** The radio inputs of a rendered SegmentedChoice tree, in order. */
+function collectRadios(node: unknown): { props: { onChange: () => void } }[] {
+  if (!node || typeof node !== "object") return [];
+  if (Array.isArray(node)) return node.flatMap(collectRadios);
+  const element = node as { type?: unknown; props?: { type?: string; children?: unknown; onChange?: () => void } };
+  if (element.type === "input" && element.props?.type === "radio") {
+    return [element as { props: { onChange: () => void } }];
+  }
+  return collectRadios(element.props?.children);
+}
+
+describe("ViewToggle", () => {
+  it("is two Valgknapper segments named by its legend", () => {
+    const html = renderToStaticMarkup(
+      <ViewToggle
+        name="view"
+        legend="Vis fordelingen"
+        options={[
+          { value: "diagram", label: "Diagram" },
+          { value: "list", label: "Liste" },
+        ]}
+        value="list"
+        onChange={() => {}}
+      />,
+    );
+    expect(html).toMatch(/^<fieldset[^>]*><legend[^>]*>Vis fordelingen<\/legend>/);
+    expect(html.match(/type="radio"/g)).toHaveLength(2);
+    expect(html).toMatch(/checked="" value="list"/);
+    expect(html).toMatch(/min-h-control-height-phone/);
   });
 });

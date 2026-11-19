@@ -66,7 +66,7 @@ PRE_SESSION_TABLES = (
     | ROSTER_TABLES
 )
 HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES
-HEAD = "0033"  # 0033 adds the four dates of a Class session (Story 5.2)
+HEAD = "0034"  # 0034 adds the Effort level of a Class session (Story 5.5)
 
 
 def reset_schema(url: str) -> None:
@@ -630,6 +630,33 @@ def test_downgrade_to_0031_removes_the_class_sessions(migrations_database):
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0031")
     assert tables(migrations_database) == PRE_SESSION_TABLES
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_0034_keeps_the_effort_level_to_llm_players_and_its_downgrade_drops_it(
+    migrations_database,
+):
+    """0034 (Story 5.5): a Class session's Effort level, NULL unless its AI mode is `llm`."""
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        (check,) = conn.execute(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+            "WHERE conname = 'ck_class_sessions_effort_level_llm_only'"
+        ).fetchone()
+    assert "effort_level IS NULL" in check
+    command.downgrade(cfg, "0033")
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        columns = {
+            name
+            for (name,) in conn.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'class_sessions'"
+            ).fetchall()
+        }
+    assert "effort_level" not in columns and "start_at" in columns
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 

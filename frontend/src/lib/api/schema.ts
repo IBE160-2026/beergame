@@ -523,8 +523,13 @@ export interface paths {
          *     With `dates` the four dates are replaced (FR-18). `fields` names each date in question:
          *     422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for
          *     the earlier one when only it changed, `required` once locked), 409 `deadline_passed`
-         *     (`passed`). Once the Start date has passed, a changed AI mode answers 409 `session_locked`.
-         *     Dates count to the whole minute.
+         *     (`passed`). Dates count to the whole minute.
+         *
+         *     `effort_level` and `debrief_mode` (FR-16, FR-78), left out, keep their values. With LLM
+         *     players a changed Effort level the model config does not offer answers 422
+         *     `invalid_effort_level` (`{"effort_level": "not_offered"}`); with Rule-based players no level
+         *     is in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,
+         *     Effort level or Debrief mode answers 409 `session_locked`, `fields` naming each.
          *
          *     With `game_settings` (the editable settings, laid over the stored ones; `demand` and
          *     `demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with
@@ -1217,6 +1222,17 @@ export interface components {
          */
         AddressProblem: "empty" | "whitespace" | "missing_at" | "two_at" | "missing_name" | "missing_domain";
         /**
+         * AiDescriptionsOut
+         * @description The plain-language Norwegian description of each AI player type, from
+         *     `players.service.describe` (FR-33): Markdown with a title line, paragraphs and `- ` lists.
+         */
+        AiDescriptionsOut: {
+            /** Llm */
+            llm: string;
+            /** Rule Based */
+            rule_based: string;
+        };
+        /**
          * AiMode
          * @description Who holds the AI Seats of the Class session's games (FR-15).
          * @enum {string}
@@ -1411,6 +1427,7 @@ export interface components {
          * @description One Class session as its Class's staff read it.
          */
         ClassSessionOut: {
+            ai_descriptions: components["schemas"]["AiDescriptionsOut"];
             ai_mode: components["schemas"]["AiMode"];
             calibrated_settings: components["schemas"]["GameSettings"];
             /** Can Manage */
@@ -1430,6 +1447,10 @@ export interface components {
             /** Debrief Deadline */
             debrief_deadline: string | null;
             debrief_mode: components["schemas"]["DebriefMode"];
+            /** Effort Level */
+            effort_level: string | null;
+            /** Effort Levels */
+            effort_levels: components["schemas"]["OfferedEffortLevelOut"][];
             game_settings: components["schemas"]["GameSettings"];
             /**
              * Id
@@ -1454,6 +1475,8 @@ export interface components {
             play_deadline: string | null;
             /** Play Time Warning */
             play_time_warning: boolean;
+            /** Provider Unavailable */
+            provider_unavailable: boolean;
             /** Saved At */
             saved_at: string | null;
             /** Settings Warnings */
@@ -1465,14 +1488,19 @@ export interface components {
         };
         /**
          * ClassSessionSaveIn
-         * @description «Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice),
-         *     the four dates (Story 5.2) and the Game settings (Story 5.3) with the Demand pattern and its
-         *     seed (Story 5.4); without `dates` or `game_settings` they stay as they are. `game_settings`
-         *     is laid over the stored settings, so a field left out keeps its value.
+         * @description «Lagre Klasseøkt». The screen sends the AI mode, Effort level and Debrief mode as chosen
+         *     (Story 5.5), the four dates (Story 5.2) and the Game settings (Story 5.3) with the Demand
+         *     pattern and its seed (Story 5.4); a field left out (`effort_level`, `debrief_mode`, `dates`,
+         *     `game_settings`) keeps its value. `game_settings` is laid over the stored settings, so a
+         *     setting left out keeps its value. With Rule-based players no Effort level is in force, and
+         *     a sent one is ignored.
          */
         ClassSessionSaveIn: {
             ai_mode: components["schemas"]["AiMode"];
             dates?: components["schemas"]["DatesIn"] | null;
+            debrief_mode?: components["schemas"]["DebriefMode"] | null;
+            /** Effort Level */
+            effort_level?: string | null;
             /** Game Settings */
             game_settings?: {
                 [key: string]: unknown;
@@ -1494,6 +1522,7 @@ export interface components {
         };
         /**
          * DebriefMode
+         * @description How the Debrief is held (FR-16): the four of a Class game together, or each alone.
          * @enum {string}
          */
         DebriefMode: "group" | "personal";
@@ -2017,6 +2046,25 @@ export interface components {
              * @enum {string}
              */
             kind: "start" | "play" | "debrief" | "test";
+        };
+        /**
+         * OfferedEffortLevelOut
+         * @description An Effort level the Class session may use (Story 5.5, FR-78), as the model config holds it
+         *     and `ai.config.offered_effort_levels` offers it: nothing here is written by `sessions`.
+         */
+        OfferedEffortLevelOut: {
+            /** Cost Per Game Usd */
+            cost_per_game_usd: string | null;
+            /** Default */
+            default: boolean;
+            /** Effect */
+            effect: string | null;
+            /** Label */
+            label: string | null;
+            /** Name */
+            name: string;
+            /** Time Per Order Median S */
+            time_per_order_median_s: string | null;
         };
         /** PasswordResetIn */
         PasswordResetIn: {

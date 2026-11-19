@@ -84,3 +84,21 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
 - `GET /api/class-sessions/{id}/demand-series` (`class_sessions.read`): `{demand: [...]}`, the
   series `engine.demand_series` materialises from the stored settings. No Student-facing answer
   carries the series, the seed or the Weeks.
+
+## AI mode, Effort level and Debrief mode (Story 5.5)
+
+- `class_sessions.effort_level` (migration 0034) holds a level name of the session's model
+  config; a CHECK keeps it NULL unless the AI mode is `llm`. Creation stores the default level
+  (the first of `ai.config.offered_effort_levels`). A row with LLM players stored before 0034
+  reads the default.
+- «Lagre Klasseøkt» takes `effort_level` and `debrief_mode` (`group`, `personal`); left out, they
+  keep their values. With `rule_based` the level becomes NULL and a sent one is ignored. With
+  `llm` the level is the sent one, else the one in force, else the default; a changed level the
+  config does not offer is 422 `invalid_effort_level` (`{"effort_level": "not_offered"}`). Once
+  locked, a changed AI mode, Effort level or Debrief mode is 409 `session_locked` with each named.
+- The read adds `effort_level`, `effort_levels` (offered by the session's config, or by the active
+  default while it has none: `name`, the config's `label` and `effect` line, `default`, and the
+  newest counting measurement's median seconds per Order and cost per game), `ai_descriptions`
+  (`players.service.describe` of `llm` and `rule_based`) and `provider_unavailable` (LLM players
+  on a config that offers no level here: in production, a provider key that is not set).
+- No level name, label or effect line and no description is written here or in the web app.

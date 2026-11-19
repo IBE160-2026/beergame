@@ -870,6 +870,28 @@ export const nb = {
       // [ASSUMPTION] FR-15: no model config is pinned as the default.
       llmUnavailable:
         "LLM-spillere kan ikke velges før en Admin har valgt en standardmodell. Til da får Klasseøkten regelbaserte spillere.",
+      // Story 5.5 (EXPERIENCE.md → KI-modus setup).
+      aiScope: "Gjelder alle KI-spillere i Klassespill og Replay.",
+      // [ASSUMPTION] the disclosures with each AI player type's description (FR-33).
+      aboutLlm: "Slik bestiller LLM-spillerne",
+      aboutRuleBased: "Slik bestiller de regelbaserte spillerne",
+      effortLevel: "Innsatsnivå",
+      // [ASSUMPTION] a level whose config has no effect line and no measurement with figures.
+      effectUnknown: "Virkningen på fart og kostnad er ikke målt ennå.",
+      // [ASSUMPTION] the measured effect of a level: median time per Order, cost per game.
+      effectMeasured: (seconds: string, cost: string) => `Ca. ${seconds} s per ordre, ${cost} USD per spill.`,
+      effectSeconds: (seconds: string) => `Ca. ${seconds} s per ordre.`,
+      effectCost: (cost: string) => `${cost} USD per spill.`,
+      // [ASSUMPTION] AD-17: LLM players chosen, but the provider of the session's model has no key.
+      providerUnavailable:
+        "Klasseøkten kan ikke starte med LLM-spillere før KI-leverandøren er satt opp. Be en Admin ordne det før startdatoen, eller velg regelbaserte spillere.",
+      // Mockup 03 for Gruppedebrief; [ASSUMPTION] for Personlig debrief.
+      groupHelp: "De fire i spillet går gjennom det sammen.",
+      personalHelp: "Hver student går gjennom det alene.",
+      // [ASSUMPTION] the choices once locked or for an Assistant: the level in force.
+      effortValue: (label: string) => `Innsatsnivå: ${label}`,
+      // [ASSUMPTION] the save of a level the model config no longer offers (`invalid_effort_level`).
+      effortRefused: "Innsatsnivået kan ikke velges lenger. Last siden på nytt og velg et annet.",
     },
     save: "Lagre Klasseøkt",
     saving: "Lagrer …",

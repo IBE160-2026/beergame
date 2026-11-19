@@ -79,6 +79,13 @@ class EffortLevel(_Spec):
     `max_tokens`; with the prices it bounds the cost each attempt reserves (Story 2.8). The
     default is a placeholder until the prototype (issue #8)."""
     placeholder: bool = True
+    label: str | None = Field(None, min_length=1, max_length=40)
+    """The level's name as the Klasseøkt shows it, in Norwegian bokmål (Story 5.5). None: the
+    screen shows `name`."""
+    effect: str | None = Field(None, min_length=1, max_length=200)
+    """One line on the level's effect on speed and cost, in Norwegian bokmål, shown beside the
+    level on the Klasseøkt (FR-78, Story 5.5). A placeholder until the prototype (issues #8, #9);
+    None for configs stored before the field existed."""
 
 
 RESERVED_PARAMS = frozenset(

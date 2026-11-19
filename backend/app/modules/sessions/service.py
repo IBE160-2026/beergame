@@ -1,5 +1,5 @@
-"""Class sessions (Stories 5.1 to 5.4, FR-11, FR-12, FR-13, FR-15, FR-18, AD-4, AD-6). Other
-modules import only this file.
+"""Class sessions (Stories 5.1 to 5.5, FR-11, FR-12, FR-13, FR-15, FR-16, FR-18, FR-78, AD-4,
+AD-6, AD-17). Other modules import only this file.
 
 A Lecturer who owns or co-owns a Class creates a Class session from the Klasse page. It is filled
 in with the engine's Classic `GameSettings` (this module holds no second copy of a value), a
@@ -21,6 +21,12 @@ over the stored settings and judge it with the engine's `validate` and `warnings
 this module and the web app hold no rule. `demand_series_of` gives the staff the series the
 engine materialises from the stored pattern and seed.
 
+AI mode, Effort level and Debrief mode (Story 5.5) are saved with «Lagre Klasseøkt» too. The
+Effort levels, their default and their effect lines are the model config's
+(`ai.config.offered_effort_levels`), and the AI player descriptions are
+`players.service.describe`'s: this module names no level and writes no description. With
+Rule-based players no Effort level is in force (NULL).
+
 Every mutation passes one guard, `_writable`, which asks `classes.service.is_writable` inside the
 mutation's transaction and raises `classes.service.ClassArchived` (409 `class_archived`) for an
 archived Class. Who may do what is `platform/authz`'s: `class_sessions.read`,
@@ -32,6 +38,7 @@ import secrets
 import uuid
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 import structlog
@@ -50,9 +57,11 @@ from app.engine.settings import (
     warnings,
 )
 from app.modules.classes import service as classes
+from app.modules.players import service as players
 from app.modules.sessions import repo
 from app.modules.sessions.models import DATE_NAMES
 from app.modules.sessions.schemas import (
+    AiDescriptionsOut,
     AiMode,
     ClassSessionListItem,
     ClassSessionListOut,
@@ -68,6 +77,7 @@ from app.modules.sessions.schemas import (
     LlmUnavailable,
     NextDate,
     NextDeadline,
+    OfferedEffortLevelOut,
     SessionRef,
     SettingProblem,
     SettingsCheckOut,
@@ -115,6 +125,13 @@ class DeadlinePassed(_FieldsError):
     """A date that has passed was moved (409 `deadline_passed`); `fields` names each one."""
 
     code = "deadline_passed"
+
+
+class InvalidEffortLevel(_FieldsError):
+    """The Effort level is not one the model config offers here (422 `invalid_effort_level`,
+    `{"effort_level": "not_offered"}`)."""
+
+    code = "invalid_effort_level"
 
 
 class InvalidDates(_FieldsError):
@@ -392,6 +409,7 @@ async def create_session(
     async with get_sessionmaker().begin() as s:
         await _writable(s, class_id)
         default = await config.active_default(session=s)
+        offered = await config.offered_effort_levels(default.id, session=s) if default else []
         await repo.insert_session(
             s,
             id=session_id,
@@ -402,6 +420,8 @@ async def create_session(
             inactivity_limit_hours=DEFAULT_INACTIVITY_LIMIT_HOURS,
             obligatory=DEFAULT_OBLIGATORY,
             model_config_id=default.id if default else None,
+            # The config's default level; `active_default` only returns a config that offers one.
+            effort_level=offered[0].name if offered else None,
             created_by=user.id,
             created_at=now,
         )
@@ -417,6 +437,50 @@ async def create_session(
     return await get_session(user, session_id)
 
 
+def _in_force(row: Mapping[str, Any], offered: list[config.OfferedLevel]) -> str | None:
+    """The Effort level in force for an LLM row: the stored one, or the config's default for a
+    row stored before the level was (or None when the config offers nothing here)."""
+    if row["effort_level"] is not None:
+        return row["effort_level"]
+    return offered[0].name if offered else None
+
+
+def _decimal(value: Decimal | None) -> str | None:
+    """A measured figure as a decimal string without the column's trailing zeros."""
+    return None if value is None else format(value.normalize(), "f")
+
+
+async def _levels_out(
+    config_id: uuid.UUID | None, offered: list[config.OfferedLevel]
+) -> list[OfferedEffortLevelOut]:
+    """The offered levels with the config's label and effect line and the measured figures."""
+    if config_id is None or not offered:
+        return []
+    found = await config.get(config_id)
+    out = []
+    for level in offered:
+        spec = found.effort_level(level.name) if found else None
+        out.append(
+            OfferedEffortLevelOut(
+                name=level.name,
+                label=spec.label if spec else None,
+                effect=spec.effect if spec else None,
+                default=level.default,
+                time_per_order_median_s=_decimal(level.measurement.time_per_order_median_s),
+                cost_per_game_usd=_decimal(level.measurement.cost_per_game_usd),
+            )
+        )
+    return out
+
+
+def ai_descriptions() -> AiDescriptionsOut:
+    """The description of each AI player type, as `players.service.describe` gives it (FR-33)."""
+    return AiDescriptionsOut(
+        llm=players.describe(AiMode.llm.value).text,
+        rule_based=players.describe(AiMode.rule_based.value).text,
+    )
+
+
 async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSessionOut | None:
     """The Class session, or None when the User may not read its Class (or it does not exist)."""
     async with get_sessionmaker().begin() as s:
@@ -428,8 +492,15 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
     if found is None:
         return None
     unavailable = None
-    if row["model_config_id"] is None and await config.active_default() is None:
-        unavailable = NO_DEFAULT_MODEL
+    config_id = row["model_config_id"]
+    if config_id is None:
+        default = await config.active_default()
+        if default is None:
+            unavailable = NO_DEFAULT_MODEL
+        else:
+            config_id = default.id
+    offered = await config.offered_effort_levels(config_id) if config_id is not None else []
+    llm = row["ai_mode"] == AiMode.llm.value
     settings = GameSettings.model_validate(row["game_settings"])
     now = auth.utcnow()
     return ClassSessionOut(
@@ -444,6 +515,10 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         inactivity_limit_hours=row["inactivity_limit_hours"],
         obligatory=row["obligatory"],
         llm_unavailable=unavailable,
+        effort_level=_in_force(row, offered) if llm else None,
+        effort_levels=await _levels_out(config_id, offered),
+        ai_descriptions=ai_descriptions(),
+        provider_unavailable=llm and row["model_config_id"] is not None and not offered,
         saved_at=row["saved_at"],
         created_at=row["created_at"],
         can_manage=authz.can(user, "class_sessions.manage", found) and not found.archived,
@@ -484,17 +559,22 @@ async def save_session(
     ai_mode: AiMode,
     *,
     now: datetime,
+    effort_level: str | None = None,
+    debrief_mode: DebriefMode | None = None,
     dates: DatesIn | None = None,
     game_settings: Mapping[str, Any] | None = None,
 ) -> ClassSessionOut | None:
     """«Lagre Klasseøkt»: saves the Class session as it stands and emits `session:<id>`. LLM
     players on a Class session with no model config take the active default and its budget row
-    in the same transaction, or raise `LlmUnavailableError` and change nothing. With
-    `game_settings` the draft is judged by `judge_settings` and stored, or `InvalidSettings` is
-    raised. With `dates` the four dates are replaced under the rules of `judge_dates`; a change
-    emits `user:<id>` once per registered Student of the Class. Once locked, a changed AI mode or
-    changed Game settings raise `SessionLocked`. None when the User may not manage the Class;
-    raises `ClassArchived`."""
+    in the same transaction, or raise `LlmUnavailableError` and change nothing. With LLM players
+    the Effort level is `effort_level`, else the one in force, else the config's default; a
+    changed level the config does not offer raises `InvalidEffortLevel`. With Rule-based players
+    no level is in force. `debrief_mode` None keeps the stored one. With `game_settings` the
+    draft is judged by `judge_settings` and stored, or `InvalidSettings` is raised. With `dates`
+    the four dates are replaced under the rules of `judge_dates`; a change emits `user:<id>`
+    once per registered Student of the Class. Once locked, a changed AI mode, Effort level,
+    Debrief mode or Game settings raise `SessionLocked`. None when the User may not manage the
+    Class; raises `ClassArchived`."""
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, session_id)
     if row is None or await _class_for(user, row["class_id"], "class_sessions.manage") is None:
@@ -508,13 +588,56 @@ async def save_session(
         locked = is_locked(row, now=now)
         changed: dict[str, datetime | None] = {}
         new_settings: GameSettings | None = None
+        debrief = debrief_mode.value if debrief_mode is not None else row["debrief_mode"]
+        config_id = row["model_config_id"]
+        offered = (
+            await config.offered_effort_levels(config_id, session=s)
+            if config_id is not None and ai_mode is AiMode.llm
+            else []
+        )
+        in_force = _in_force(row, offered) if row["ai_mode"] == AiMode.llm.value else None
+        level: str | None = None
         try:
-            if locked and ai_mode.value != row["ai_mode"]:
-                raise SessionLocked({"ai_mode": "locked"})
+            if locked:
+                refused = {
+                    name: "locked"
+                    for name, differs in (
+                        ("ai_mode", ai_mode.value != row["ai_mode"]),
+                        (
+                            "effort_level",
+                            ai_mode is AiMode.llm
+                            and effort_level is not None
+                            and effort_level != in_force,
+                        ),
+                        ("debrief_mode", debrief != row["debrief_mode"]),
+                    )
+                    if differs
+                }
+                if refused:
+                    raise SessionLocked(refused)
             if game_settings is not None:
                 new_settings = _settings_to_store(row, game_settings, locked=locked)
             if dates is not None:
                 changed = judge_dates(row, dates, now=now, locked=locked)
+            if ai_mode is AiMode.llm:
+                if config_id is None:
+                    default = await config.active_default(session=s)
+                    if default is None:
+                        log.info(
+                            "class_session_refused",
+                            class_session_id=str(session_id),
+                            error_code="llm_unavailable",
+                        )
+                        raise LlmUnavailableError
+                    config_id = default.id
+                    offered = await config.offered_effort_levels(config_id, session=s)
+                    in_force = None
+                    await budget.set_budget(budget.BudgetScope.class_session(session_id), session=s)
+                if in_force is None:
+                    in_force = offered[0].name if offered else None
+                level = effort_level if effort_level is not None else in_force
+                if level != in_force and level not in {o.name for o in offered}:
+                    raise InvalidEffortLevel({"effort_level": "not_offered"})
         except InvalidSettings as refused:
             log.info(
                 "class_session_refused",
@@ -531,24 +654,14 @@ async def save_session(
                 fields=sorted(refused.fields),
             )
             raise
-        config_id = row["model_config_id"]
-        if ai_mode is AiMode.llm and config_id is None:
-            default = await config.active_default(session=s)
-            if default is None:
-                log.info(
-                    "class_session_refused",
-                    class_session_id=str(session_id),
-                    error_code="llm_unavailable",
-                )
-                raise LlmUnavailableError
-            config_id = default.id
-            await budget.set_budget(budget.BudgetScope.class_session(session_id), session=s)
         await repo.save(
             s,
             session_id,
             now=now,
             ai_mode=ai_mode.value,
             model_config_id=config_id,
+            effort_level=level,
+            debrief_mode=debrief,
             dates=changed,
             game_settings=new_settings.model_dump(mode="json") if new_settings else None,
         )

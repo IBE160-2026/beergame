@@ -37,6 +37,8 @@ class_sessions = Table(
     Column("obligatory", Boolean, nullable=False),
     # The `ai` model config the Class session uses; no foreign key into `ai` tables (AD-6).
     Column("model_config_id", Uuid, nullable=True),
+    # The Effort level in force (Story 5.5): a level name of that config; NULL for Rule-based.
+    Column("effort_level", Text, nullable=True),
     Column("created_by", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
     # Set by «Lagre Klasseøkt»; NULL while the Class session was created and never saved.
@@ -52,6 +54,10 @@ class_sessions = Table(
     CheckConstraint(
         "ai_mode <> 'llm' OR model_config_id IS NOT NULL",
         name="ck_class_sessions_llm_has_config",
+    ),
+    CheckConstraint(
+        "ai_mode = 'llm' OR effort_level IS NULL",
+        name="ck_class_sessions_effort_level_llm_only",
     ),
     CheckConstraint(
         " AND ".join(

@@ -1,11 +1,11 @@
-"""API shapes of `modules/sessions` (Stories 5.1 to 5.4)."""
+"""API shapes of `modules/sessions` (Stories 5.1 to 5.5)."""
 
 import uuid
 from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from app.engine import GameSettings
 
@@ -18,6 +18,8 @@ class AiMode(StrEnum):
 
 
 class DebriefMode(StrEnum):
+    """How the Debrief is held (FR-16): the four of a Class game together, or each alone."""
+
     group = "group"
     personal = "personal"
 
@@ -79,6 +81,31 @@ class DemandSeriesOut(BaseModel):
     demand: list[int]
 
 
+class OfferedEffortLevelOut(BaseModel):
+    """An Effort level the Class session may use (Story 5.5, FR-78), as the model config holds it
+    and `ai.config.offered_effort_levels` offers it: nothing here is written by `sessions`."""
+
+    name: str
+    label: str | None
+    """The config's Norwegian name for the level; None: show `name`."""
+    effect: str | None
+    """The config's one line on the effect on speed and cost; None for a config stored before."""
+    default: bool
+    time_per_order_median_s: str | None
+    """The newest counting measurement's median seconds per Order, a decimal string; None when
+    it has no figures (the seeded mock)."""
+    cost_per_game_usd: str | None
+    """The same measurement's cost per game in USD, a decimal string, or None."""
+
+
+class AiDescriptionsOut(BaseModel):
+    """The plain-language Norwegian description of each AI player type, from
+    `players.service.describe` (FR-33): Markdown with a title line, paragraphs and `- ` lists."""
+
+    llm: str
+    rule_based: str
+
+
 class ClassSessionOut(BaseModel):
     """One Class session as its Class's staff read it."""
 
@@ -98,6 +125,17 @@ class ClassSessionOut(BaseModel):
     obligatory: bool
     llm_unavailable: LlmUnavailable | None
     """Set while LLM players cannot be chosen; the screen says why (FR-15, AD-17)."""
+    effort_level: str | None
+    """The Effort level in force (Story 5.5): a name among the config's levels; None for
+    Rule-based players."""
+    effort_levels: list[OfferedEffortLevelOut]
+    """The levels offered by the session's model config, or by the active default while it has
+    none, in the config's order; empty when there is no config to offer from."""
+    ai_descriptions: AiDescriptionsOut
+    provider_unavailable: bool
+    """LLM players are chosen but the session's model config offers no level here: in
+    production, its provider has no key. The Class session cannot open until it is set up
+    (AD-17); the screen says so before the Start date."""
     saved_at: datetime | None
     """When «Lagre Klasseøkt» last saved it; None while it was never saved."""
     created_at: datetime
@@ -149,14 +187,18 @@ class DatesIn(BaseModel):
 
 
 class ClassSessionSaveIn(BaseModel):
-    """«Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice),
-    the four dates (Story 5.2) and the Game settings (Story 5.3) with the Demand pattern and its
-    seed (Story 5.4); without `dates` or `game_settings` they stay as they are. `game_settings`
-    is laid over the stored settings, so a field left out keeps its value."""
+    """«Lagre Klasseøkt». The screen sends the AI mode, Effort level and Debrief mode as chosen
+    (Story 5.5), the four dates (Story 5.2) and the Game settings (Story 5.3) with the Demand
+    pattern and its seed (Story 5.4); a field left out (`effort_level`, `debrief_mode`, `dates`,
+    `game_settings`) keeps its value. `game_settings` is laid over the stored settings, so a
+    setting left out keeps its value. With Rule-based players no Effort level is in force, and
+    a sent one is ignored."""
 
     model_config = ConfigDict(extra="forbid")
 
     ai_mode: AiMode
+    effort_level: str | None = Field(None, min_length=1, max_length=64)
+    debrief_mode: DebriefMode | None = None
     dates: DatesIn | None = None
     game_settings: dict[str, Any] | None = None
 
