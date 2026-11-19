@@ -79,6 +79,8 @@ class ClassListItem(BaseModel):
     course_code: str | None
     roster_count: int
     """Addresses on the Class's Roster (Story 4.4, UX-DR56)."""
+    archived: bool
+    """Archived (Story 4.10): the Lærerhjem lists it under its own heading."""
 
 
 class ClassListOut(BaseModel):
@@ -98,9 +100,11 @@ class ClassOut(BaseModel):
     staff_role: StaffRole
     can_manage: bool
     """Whether the User may change the Class: its Roster, Invitations and staff (an owner, Story
-    4.9). The web app shows those actions only then; the api refuses them otherwise."""
+    4.9). The web app shows those actions only then; the api refuses them otherwise. An archived
+    Class takes no change at all, whatever this says (Story 4.10)."""
     created_at: datetime
     archived: bool
+    """Archived (Story 4.10): read-only, kept until the retention period ends."""
     roster_count: int
     """Addresses on the Class's Roster (Story 4.4)."""
 

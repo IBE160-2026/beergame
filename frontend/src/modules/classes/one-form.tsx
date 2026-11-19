@@ -3,8 +3,9 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 /** The areas of the Class page that open forms in place: the invalid rows of an upload and the
- * «Legg til adresse» / «Registrer manuelt» Lenker under «Klasseliste», and the status list. */
-export type FormArea = "invalid-rows" | "entries" | "status";
+ * «Legg til adresse» / «Registrer manuelt» Lenker under «Klasseliste», the status list, and
+ * «Arkiver Klassen» (Story 4.10). */
+export type FormArea = "invalid-rows" | "entries" | "status" | "archive";
 
 type Claim = { area: FormArea; n: number } | null;
 

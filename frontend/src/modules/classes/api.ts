@@ -70,6 +70,11 @@ export function useCreateClass() {
   });
 }
 
+/** «Arkiver Klassen» (Story 4.10): the Class becomes read-only. Answers the archived Class. */
+export function archiveClass(classId: string) {
+  return request(() => api.POST("/api/classes/{class_id}/archive", { params: { path: { class_id: classId } } }));
+}
+
 // The staged Roster upload of a Class (Story 4.2, FR-7).
 
 export type RosterUpload = components["schemas"]["RosterUploadOut"];

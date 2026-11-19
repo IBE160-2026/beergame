@@ -184,6 +184,33 @@ only `classes.service`.
 - Local seed: `assistent@example.com` («Demo Assistent», password `olspillet-demo`, no account
   role) is Assistant lecturer of «class-of-1994».
 
+## Archiving (Story 4.10, decided)
+
+- `POST /api/classes/{id}/archive` (owners only): one transaction holding the Class row's lock
+  sets `archived_at`, voids every open Invitation of the Class (Student and Assistant; one already
+  expired stays, so it still counts as expired), deletes the staged upload
+  (`identity.close_class`), writes the audit row `class.archived` ({class_id}, {voided_invitations})
+  and emits `user:<id>` to every staff member. There is no way back.
+- Read-only: every mutation goes through `manageable` and, inside its own transaction, `_hold`;
+  both end in the one check `_refuse_archived`, which raises `ClassArchived`, answered by `main.py`
+  as 409 `class_archived`. After FastAPI's own body validation (a malformed body answers 422
+  first, as on every route), the order is 403 (may not manage, so the archive is never revealed),
+  then 409, then the route's own 404/422. `_hold` reads the Class row under a share lock (the
+  staff commands under the row lock), so an archive never commits in the middle of a change. The
+  staging routes (upload, paste, column, discard) are checked before they run only; a staging
+  written in that window is never sent and expires.
+- Still open on an archived Class: the reads of its staff (the Class, the list, registrations,
+  Invitation counts; the owners also `GET …/roster-upload`, answering `null`, and `GET …/staff`).
+  The session role `assistant` stays while the User is Assistant of an archived Class.
+- Students: an archived Class leaves `/api/classes/enrolled`, and `/enrolled/{id}` answers 403.
+  Its links are unusable (`ClassLabel.archived`), so «Du er invitert» shows the expired-link state
+  and asking for a new Invitation marks nothing. A manual-registration set-password link still
+  works: it belongs to the account, not to the Class.
+- `is_writable(class_id, session=None)`: for later epics (Epic 5's Class sessions); with the
+  caller's session it holds the share lock.
+- The Lecturer-revoke blocker counts active Classes the User owns or co-owns; archived ones never
+  block.
+
 ## Open point for the founder: real Canvas exports
 
 The upload is tested only on synthetic fixtures with invented names and addresses, in the column

@@ -1140,6 +1140,25 @@ async def void_assistant_invitations(
     return sorted(result.scalars())
 
 
+async def void_class_invitations(
+    session: AsyncSession, class_id: uuid.UUID, now: datetime
+) -> list[uuid.UUID]:
+    """Void every open Invitation of the Class, of any kind (an archived Class, Story 4.10); returns
+    their ids. One that has expired already is left as it is, so it still counts as expired."""
+    result = await session.execute(
+        update(invitations)
+        .where(
+            invitations.c.class_id == class_id,
+            invitations.c.accepted_at.is_(None),
+            invitations.c.voided_at.is_(None),
+            invitations.c.expires_at > now,
+        )
+        .values(voided_at=now)
+        .returning(invitations.c.id)
+    )
+    return sorted(result.scalars())
+
+
 async def insert_assistant_invitation(
     session: AsyncSession,
     *,

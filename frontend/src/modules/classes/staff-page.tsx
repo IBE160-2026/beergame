@@ -91,7 +91,7 @@ function StaffView({ classId, user, updatedAt }: { classId: string; user: Sessio
         if (failed) void found.refetch();
       }}
     >
-      {ready ? <StaffLists classId={classId} data={staff.data} self={user.id} /> : null}
+      {ready ? <StaffLists classId={classId} data={staff.data} self={user.id} readOnly={item.archived} /> : null}
     </PageShell>
   );
 }
@@ -111,8 +111,23 @@ function invalidateStaff(queryClient: QueryClient, classId: string) {
 const rowKey = (person: StaffLecturer | StaffAssistant) =>
   ("invitation_id" in person && person.invitation_id) || person.user_id || person.email;
 
-function StaffLists({ classId, data, self }: { classId: string; data: ClassStaff; self: string }) {
+/** `readOnly`: an archived Class (Story 4.10) lists its staff with no form and no «Fjern». */
+function StaffLists({
+  classId,
+  data,
+  self,
+  readOnly,
+}: {
+  classId: string;
+  data: ClassStaff;
+  self: string;
+  readOnly: boolean;
+}) {
   const [open, setOpen] = useState<Open | null>(null);
+  // Archived while a form was open (Story 4.10): the form closes with the actions.
+  useEffect(() => {
+    if (readOnly) setOpen(null);
+  }, [readOnly]);
   const [result, setResult] = useState<string | null>(null);
   const opener = useRef<HTMLButtonElement | null>(null);
   const resultLine = useRef<HTMLParagraphElement>(null);
@@ -139,7 +154,8 @@ function StaffLists({ classId, data, self }: { classId: string; data: ClassStaff
   const isOpen = (person: StaffLecturer | StaffAssistant) =>
     open?.kind === "remove" && rowKey(open.person) === rowKey(person);
 
-  const removeButton = (person: StaffLecturer | StaffAssistant, lecturer: boolean) => (
+  const removeButton = (person: StaffLecturer | StaffAssistant, lecturer: boolean) =>
+    readOnly ? null : (
     <button
       type="button"
       className={LINK_BUTTON}
@@ -167,6 +183,11 @@ function StaffLists({ classId, data, self }: { classId: string; data: ClassStaff
 
   return (
     <div className="mt-8 flex max-w-4xl flex-col gap-10">
+      {readOnly ? (
+        <p className="max-w-2xl border-l-2 border-axis pl-3 text-body-phone text-ink lg:text-body">
+          {nb.classes.archive.notice}
+        </p>
+      ) : null}
       {result ? <EntryResult text={result} ref={resultLine} /> : null}
       <section aria-labelledby="lecturers-title">
         <h2 id="lecturers-title" className="text-headline text-ink">
@@ -181,6 +202,7 @@ function StaffLists({ classId, data, self }: { classId: string; data: ClassStaff
             </li>
           ))}
         </ul>
+        {readOnly ? null : (
         <div className="mt-4 flex flex-col items-start gap-4">
           <button
             type="button"
@@ -203,6 +225,7 @@ function StaffLists({ classId, data, self }: { classId: string; data: ClassStaff
             />
           ) : null}
         </div>
+        )}
       </section>
       <section aria-labelledby="assistants-title">
         <h2 id="assistants-title" className="text-headline text-ink">
@@ -225,6 +248,7 @@ function StaffLists({ classId, data, self }: { classId: string; data: ClassStaff
             ))}
           </ul>
         )}
+        {readOnly ? null : (
         <div className="mt-4 flex flex-col items-start gap-4">
           <button
             type="button"
@@ -247,6 +271,7 @@ function StaffLists({ classId, data, self }: { classId: string; data: ClassStaff
             />
           ) : null}
         </div>
+        )}
       </section>
     </div>
   );

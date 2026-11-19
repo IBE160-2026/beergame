@@ -7,7 +7,7 @@ outside the User's scope is never read, so it cannot be told apart from one that
 import uuid
 from datetime import datetime
 
-from sqlalchemy import RowMapping, delete, func, insert, select
+from sqlalchemy import RowMapping, delete, func, insert, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -91,18 +91,21 @@ async def any_class_of(session: AsyncSession, user_id: uuid.UUID) -> bool:
 
 
 async def class_label(session: AsyncSession, class_id: uuid.UUID) -> RowMapping | None:
-    """The Class's name and course code, for its Student Invitations' mail and «Du er invitert»
-    (no User's scope: the Invitation names the Class by id)."""
+    """The Class's name, course code and archive time, for its Invitations' mail and «Du er
+    invitert» (no User's scope: the Invitation names the Class by id)."""
     result = await session.execute(
-        select(classes.c.name, classes.c.course_code).where(classes.c.id == class_id)
+        select(classes.c.name, classes.c.course_code, classes.c.archived_at).where(
+            classes.c.id == class_id
+        )
     )
     return result.mappings().one_or_none()
 
 
 def _enrolled(user: authz.Principal | uuid.UUID):
-    """The Classes the User is a Student in, through the Student scope (Story 4.5, AD-12)."""
+    """The Classes the User is a Student in, through the Student scope (Story 4.5, AD-12). An
+    archived Class is left out: nothing in it is open to a Student (Story 4.10)."""
     return select(classes.c.id, classes.c.name, classes.c.course_code).where(
-        classes.c.id.in_(authz.classes_enrolled_by(user))
+        classes.c.id.in_(authz.classes_enrolled_by(user)), classes.c.archived_at.is_(None)
     )
 
 
@@ -138,13 +141,28 @@ async def demo_class_of(session: AsyncSession, owner: uuid.UUID, name: str) -> u
 # Class (or, for the acceptance handler and the session role, for a User's own rows).
 
 
-async def lock_class(session: AsyncSession, class_id: uuid.UUID) -> bool:
-    """Lock the Class row until the transaction ends, so staff changes to one Class run in turn
-    (two removals cannot both pass the last-owner check). False when the Class is gone."""
-    result = await session.execute(
-        select(classes.c.id).where(classes.c.id == class_id).with_for_update()
-    )
-    return result.scalar_one_or_none() is not None
+class Gone:
+    """The Class row does not exist."""
+
+
+GONE = Gone()
+
+
+async def class_state(
+    session: AsyncSession, class_id: uuid.UUID, *, exclusive: bool
+) -> datetime | None | Gone:
+    """Lock the Class row until the transaction ends and read its `archived_at` (None while
+    active), or `GONE`. `exclusive` takes the row lock (staff changes and the archive run in turn,
+    so two removals cannot both pass the last-owner check); otherwise a share lock, which keeps an
+    archive from committing while a Roster change is under way (Story 4.10)."""
+    query = select(classes.c.archived_at).where(classes.c.id == class_id)
+    query = query.with_for_update() if exclusive else query.with_for_update(read=True)
+    row = (await session.execute(query)).first()
+    return GONE if row is None else row[0]
+
+
+async def set_archived(session: AsyncSession, class_id: uuid.UUID, now: datetime) -> None:
+    await session.execute(update(classes).where(classes.c.id == class_id).values(archived_at=now))
 
 
 async def staff_of(session: AsyncSession, class_id: uuid.UUID) -> list[RowMapping]:

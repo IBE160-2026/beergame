@@ -10,6 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from app.modules.admin import routes as admin_routes
 from app.modules.classes import routes as classes_routes
 from app.modules.classes import seed as classes_seed
+from app.modules.classes import service as classes_service
 from app.modules.identity import routes as identity_routes
 from app.modules.identity import seed as identity_seed
 from app.modules.identity import service as identity_service
@@ -76,6 +77,11 @@ async def _invalid_request(_: Request, exc: RequestValidationError):
     return error_response(422, "invalid_request", "The request is not valid.", fields)
 
 
+async def _class_archived(_: Request, __: Exception):
+    # Story 4.10: the one answer to any change of an archived Class, for its Faglærere.
+    return classes_routes.class_archived_response()
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="ØL-spillet API",
@@ -101,6 +107,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(authz.NotAuthenticated, _not_authenticated)
     app.add_exception_handler(authz.Forbidden, _forbidden)
     app.add_exception_handler(RequestValidationError, _invalid_request)
+    app.add_exception_handler(classes_service.ClassArchived, _class_archived)
     app.add_middleware(CsrfMiddleware)
     app.add_middleware(RequestLogMiddleware)  # outermost: refused requests are logged too
     return app

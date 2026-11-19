@@ -591,8 +591,8 @@ async def _usable_invitation(
 ) -> tuple[RowMapping, RowMapping | None, ClassLabel | None] | None:
     """The open Invitation, the User its address has (or None) and, for a Class Invitation
     (Student or Assistant), its Class; or None when the link is not usable: not open, of a kind not
-    taken here, its address belongs to a deactivated User, its Class is gone, or (Student) its
-    Roster entry was removed."""
+    taken here, its address belongs to a deactivated User, its Class is gone or archived (Story
+    4.10), or (Student) its Roster entry was removed."""
     if not _invitation_open(row, now) or row["kind"] not in _accepted_kinds():
         return None
     user = await repo.user_by_email(session, row["email"])
@@ -605,7 +605,7 @@ async def _usable_invitation(
             return None
     if row["kind"] in CLASS_KINDS:
         label = await _class_label(session, row["class_id"])
-        if label is None:
+        if label is None or label.archived:
             return None
     return row, user, label
 
@@ -825,7 +825,12 @@ async def request_invitation_renewal(token: str, *, ip: str, now: datetime) -> i
         )
         if not limited:
             row = await repo.invitation_by_hash(s, hashed)
-            if row is not None and row["accepted_at"] is None and not _invitation_open(row, now):
+            if (
+                row is not None
+                and row["accepted_at"] is None
+                and not _invitation_open(row, now)
+                and not await _class_archived(s, row)
+            ):
                 await repo.set_renewal_requested(s, row["id"], now)
                 log.info("invitation_renewal_requested", invitation_id=str(row["id"]))
     if limited:
@@ -1729,6 +1734,8 @@ class ClassLabel:
 
     name: str
     course_code: str | None
+    archived: bool = False
+    """An archived Class takes no one in: its links are unusable (Story 4.10)."""
 
 
 ClassLabelResolver = Callable[[AsyncSession, uuid.UUID], Awaitable[ClassLabel | None]]
@@ -1749,6 +1756,15 @@ async def _class_label(session: AsyncSession, class_id: uuid.UUID | None) -> Cla
     if not _class_label_resolver:
         raise RuntimeError("no Class-label resolver is registered (import classes.service)")
     return await _class_label_resolver[0](session, class_id)
+
+
+async def _class_archived(session: AsyncSession, invitation: RowMapping) -> bool:
+    """Whether a Class Invitation's Class is archived (Story 4.10): a new Invitation is never
+    asked for there, as no one can send one."""
+    if invitation["kind"] not in CLASS_KINDS:
+        return False
+    label = await _class_label(session, invitation["class_id"])
+    return label is None or label.archived
 
 
 async def _class_name(session: AsyncSession, class_id: uuid.UUID | None) -> str | None:
@@ -2311,6 +2327,16 @@ async def void_assistant_invitations(
     return await repo.void_assistant_invitations(
         s, class_id, now, email=email, invitation_id=invitation_id
     )
+
+
+async def close_class(s: AsyncSession, class_id: uuid.UUID, now: datetime) -> int:
+    """In the archive's transaction (Story 4.10): void every open Invitation of the Class, Student
+    and Assistant alike, so no one joins it and no queued mail carries a live link, and delete its
+    staged upload under the staging lock. Returns how many Invitations were voided."""
+    voided = await repo.void_class_invitations(s, class_id, now)
+    await repo.lock_roster_staging(s, class_id)
+    await repo.delete_roster_upload(s, class_id)
+    return len(voided)
 
 
 async def people(s: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, Person]:

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 import { usePageState } from "@/lib/page-state";
@@ -10,6 +12,7 @@ import { classPath, classStaffPath, HOME_PATH } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 
 import { classKey, useClass } from "./api";
+import { ArchiveClass } from "./archive-class";
 import { InvitationSummary } from "./invitation-summary";
 import { OneFormAtATime } from "./one-form";
 import { RegistrationStatus } from "./registration-status";
@@ -49,10 +52,22 @@ const CLASS_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
 function ClassView({ classId, user, updatedAt }: { classId: string; user: SessionUser; updatedAt: number }) {
   const found = useClass(classId);
   const { phase, retry } = usePageState(found, classKey(classId));
+  // When the Class turns archived while the page is open («Arkiver Klassen» here, or a refusal
+  // `class_archived` after another Faglærer archived it), the forms go and focus moves to the
+  // notice that says why.
+  const notice = useRef<HTMLParagraphElement>(null);
+  const archivedNow = found.data?.archived;
+  const wasArchived = useRef(archivedNow);
+  useEffect(() => {
+    if (archivedNow && wasArchived.current === false) notice.current?.focus();
+    wasArchived.current = archivedNow;
+  }, [archivedNow]);
   if (found.error instanceof ApiRequestError && found.error.code === "forbidden") {
     return <AccessDenied user={user} updatedAt={updatedAt} />;
   }
   const item = found.data;
+  // Changes are for the Class's Faglærere, and only while it is active (Story 4.10).
+  const writable = Boolean(item?.can_manage && !item.archived);
   const crumbs = item
     ? ([
         { label: nb.homes.lecturerHome, href: HOME_PATH.lecturerHome },
@@ -71,6 +86,16 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
     >
       <OneFormAtATime>
         {facts ? <p className="mt-2 text-body-phone text-ink-secondary lg:text-body">{facts}</p> : null}
+        {/* An archived Class is read-only for everyone (Story 4.10). */}
+        {item?.archived ? (
+          <p
+            ref={notice}
+            tabIndex={-1}
+            className="mt-4 max-w-2xl border-l-2 border-axis pl-3 text-body-phone text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink lg:text-body"
+          >
+            {nb.classes.archive.notice}
+          </p>
+        ) : null}
         {item?.can_manage ? (
           <p className="mt-4">
             <Link href={classStaffPath(item.id)} standalone>
@@ -78,8 +103,9 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
             </Link>
           </p>
         ) : null}
-        {/* The Roster upload is the Faglærere's (the api's `classes.manage` policy). */}
-        {item?.can_manage ? (
+        {/* The Roster upload is the Faglærere's (the api's `classes.manage` policy), while the
+            Class is active. */}
+        {item && writable ? (
           <section aria-labelledby="roster-title" className="mt-10">
             <h2 id="roster-title" className="text-headline text-ink">
               {nb.classes.roster.title}
@@ -97,15 +123,18 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
             </div>
           </section>
         ) : null}
-        {/* An Assistant lecturer reads the Roster and changes nothing (Story 4.9). */}
-        {item && !item.can_manage ? (
+        {/* An Assistant lecturer reads the Roster and changes nothing (Story 4.9); so does
+            everyone on an archived Class (Story 4.10). */}
+        {item && !writable ? (
           <section aria-labelledby="roster-title" className="mt-10">
             <h2 id="roster-title" className="text-headline text-ink">
               {nb.classes.roster.title}
             </h2>
-            <p className="mt-1 max-w-2xl text-body-phone text-ink-secondary lg:text-body">
-              {nb.classes.page.assistantLead}
-            </p>
+            {item.can_manage ? null : (
+              <p className="mt-1 max-w-2xl text-body-phone text-ink-secondary lg:text-body">
+                {nb.classes.page.assistantLead}
+              </p>
+            )}
             <p className="mt-2 text-body-phone text-ink lg:text-body">
               {item.roster_count > 0 ? nb.classes.roster.onRosterCount(item.roster_count) : nb.classes.home.rosterCount(0)}
             </p>
@@ -114,7 +143,9 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
         {/* What became of the Invitations (Story 4.6), once a mail has gone out. */}
         {item && item.roster_count > 0 ? <InvitationSummary classId={item.id} /> : null}
         {/* Where each address stands, and reminders (Story 4.7), once the Roster has addresses. */}
-        {item && item.roster_count > 0 ? <RegistrationStatus classId={item.id} readOnly={!item.can_manage} /> : null}
+        {item && item.roster_count > 0 ? <RegistrationStatus classId={item.id} readOnly={!writable} /> : null}
+        {/* «Arkiver Klassen», last on the page, for its Faglærere (Story 4.10). */}
+        {item && writable ? <ArchiveClass classId={item.id} /> : null}
       </OneFormAtATime>
     </PageShell>
   );

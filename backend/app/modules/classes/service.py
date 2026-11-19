@@ -127,6 +127,7 @@ async def list_classes(user: authz.Principal) -> ClassListOut:
                 name=row["name"],
                 course_code=row["course_code"],
                 roster_count=counts.get(row["id"], 0),
+                archived=row["archived_at"] is not None,
             )
             for row in readable
         ]
@@ -171,6 +172,85 @@ async def may_manage(user: authz.Principal, class_id: uuid.UUID) -> bool:
     return row is not None and authz.can(user, "classes.manage", _StaffOf(row["staff_role"]))
 
 
+# Archived Classes are read-only (Story 4.10, FR-6). Every change to a Class passes the one check
+# below: first whether the User may manage the Class (403 otherwise, so an archived Class is never
+# revealed to anyone else), then whether it is archived (`ClassArchived`, 409 `class_archived`).
+# Inside a change's own transaction the Class row is held under a lock and checked again, so an
+# archive never commits in the middle of a Roster or staff change.
+
+
+class ClassArchived(Exception):
+    """The Class is archived: it takes no change (`class_archived`)."""
+
+
+def _refuse_archived(class_id: uuid.UUID, archived_at: datetime | None) -> None:
+    """The one check every mutation of a Class goes through."""
+    if archived_at is not None:
+        log.info("class_change_refused", class_id=str(class_id), error_code="class_archived")
+        raise ClassArchived
+
+
+async def manageable(user: authz.Principal, class_id: uuid.UUID) -> bool:
+    """Whether `user` may change the Class now: False when they may not manage it (or it does not
+    exist); raises `ClassArchived` when they may but it is archived."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.class_for(s, user, class_id)
+    if row is None or not authz.can(user, "classes.manage", _StaffOf(row["staff_role"])):
+        return False
+    _refuse_archived(class_id, row["archived_at"])
+    return True
+
+
+async def _hold(s: AsyncSession, class_id: uuid.UUID, *, exclusive: bool = False) -> bool:
+    """In a change's transaction: lock the Class row and check it again. False when it is gone;
+    raises `ClassArchived` when it was archived meanwhile."""
+    state = await repo.class_state(s, class_id, exclusive=exclusive)
+    if state is repo.GONE:
+        return False
+    _refuse_archived(class_id, state)
+    return True
+
+
+async def is_writable(class_id: uuid.UUID, session: AsyncSession | None = None) -> bool:
+    """Whether the Class takes changes: it exists and is not archived. Later epics ask this before
+    changing what belongs to a Class (Epic 5's Class sessions). With the caller's `session` the row
+    is read under a share lock, so an archive cannot commit until that transaction ends."""
+    if session is not None:
+        state = await repo.class_state(session, class_id, exclusive=False)
+        return state is None
+    async with get_sessionmaker().begin() as s:
+        state = await repo.class_state(s, class_id, exclusive=False)
+    return state is None
+
+
+CLASS_ARCHIVED = "class.archived"
+
+
+async def archive_class(
+    user: authz.Principal, class_id: uuid.UUID, *, now: datetime
+) -> ClassOut | None:
+    """«Arkiver Klassen» (Story 4.10, FR-6, AD-8, AD-15): in one transaction holding the Class
+    row's lock, `archived_at` is set, every open Invitation of the Class is voided and its staged
+    upload deleted (`identity.close_class`), one audit row is written (ids and a count only) and
+    every staff member's open pages are told (`user:<id>`). None when the User may not manage the
+    Class; raises `ClassArchived` when it is archived already."""
+    if not await manageable(user, class_id):
+        return None
+    async with get_sessionmaker().begin() as s:
+        if not await _hold(s, class_id, exclusive=True):
+            return None
+        await repo.set_archived(s, class_id, now)
+        voided = await identity.close_class(s, class_id, now)
+        staff_rows = await repo.staff_of(s, class_id)
+        await audit.record(
+            s, user.id, CLASS_ARCHIVED, {"class_id": class_id}, {"voided_invitations": voided}, now
+        )
+        for row in sorted(staff_rows, key=lambda r: r["user_id"]):
+            await events.emit(s, "user", str(row["user_id"]))
+    log.info("class_archived", class_id=str(class_id), voided_invitations=voided)
+    return await get_class(user, class_id)
+
+
 # The staged Roster upload of a Class (Story 4.2, FR-7). The cells live in `identity`
 # (AD-14); this module checks the User may manage the Class and hands over. Each answers None when
 # the User may not, which the route turns into 403 `forbidden`.
@@ -185,7 +265,7 @@ async def upload_roster(
     user: authz.Principal, class_id: uuid.UUID, file_name: str, data: bytes, *, now: datetime
 ) -> identity.RosterUploadOut | None:
     """Stage the file's rows for the Class. Raises `identity.RosterUnreadable`."""
-    if not await may_manage(user, class_id):
+    if not await manageable(user, class_id):
         return None
     return await identity.stage_roster_upload(class_id, user.id, file_name, data, now=now)
 
@@ -194,7 +274,7 @@ async def paste_roster(
     user: authz.Principal, class_id: uuid.UUID, text: str, *, now: datetime
 ) -> identity.RosterUploadOut | None:
     """Stage pasted addresses for the Class (Story 4.3). Raises `identity.RosterPasteTooLong`."""
-    if not await may_manage(user, class_id):
+    if not await manageable(user, class_id):
         return None
     return await identity.stage_roster_paste(class_id, user.id, text, now=now)
 
@@ -202,6 +282,7 @@ async def paste_roster(
 async def roster_staging(
     user: authz.Principal, class_id: uuid.UUID, *, now: datetime
 ) -> Staging | None:
+    """A read: an archived Class answers too, with nothing staged (the archive deleted it)."""
     if not await may_manage(user, class_id):
         return None
     return Staging(await identity.roster_upload(class_id, now=now))
@@ -211,13 +292,13 @@ async def choose_roster_column(
     user: authz.Principal, class_id: uuid.UUID, column: int, *, now: datetime
 ) -> Staging | None:
     """Raises `identity.InvalidRosterColumn`; `Staging(None)` when nothing is staged."""
-    if not await may_manage(user, class_id):
+    if not await manageable(user, class_id):
         return None
     return Staging(await identity.choose_roster_column(class_id, column, now=now))
 
 
 async def discard_roster_upload(user: authz.Principal, class_id: uuid.UUID) -> bool | None:
-    if not await may_manage(user, class_id):
+    if not await manageable(user, class_id):
         return None
     return await identity.delete_roster_upload(class_id)
 
@@ -240,11 +321,13 @@ async def send_invitations(
     commit and `worker-batch` sends the mails. None when the User may not manage the Class;
     `Staging(None)` when the staging `upload_id` is gone (sent already, replaced or expired).
     Raises `NothingToSend`."""
-    if not await may_manage(user, class_id):
+    if not await manageable(user, class_id):
         return None
     await identity.purge_expired_roster_uploads(now)
     try:
         async with get_sessionmaker().begin() as s:
+            if not await _hold(s, class_id):
+                return None
             sent = await identity.send_roster_invitations(
                 s, class_id, user.id, upload_id, valid_days, now=now
             )
@@ -389,7 +472,7 @@ async def send_reminders(
     old links, in one transaction; the mails leave from `worker-batch`. An address whose newest
     Invitation bounced hard is left out and named in the answer. None when the User may not
     manage the Class. Raises `NoReminderTarget`."""
-    if not await may_manage(user, class_id):
+    if not await manageable(user, class_id):
         return None
     items = await _statuses(class_id, now)
     if entry_id is not None:
@@ -402,6 +485,8 @@ async def send_reminders(
     targets = [i.id for i in waiting if i.remindable]
     left_out = sorted(i.email for i in waiting if not i.remindable)
     async with get_sessionmaker().begin() as s:
+        if not await _hold(s, class_id):
+            return None
         sent = await identity.send_entry_reminders(
             s, class_id, user.id, targets, valid_days, now=now
         )
@@ -448,10 +533,12 @@ async def add_roster_entry(
 ) -> RegistrationOut | None:
     """«Legg til adresse» (FR-7): one address on the Roster, not yet invited, or a removed one
     put back. None when the User may not manage the Class. Raises `InvalidRosterAddress`."""
-    if not await may_manage(user, class_id):
+    if not await manageable(user, class_id):
         return None
     try:
         async with get_sessionmaker().begin() as s:
+            if not await _hold(s, class_id):
+                return None
             entry_id = await identity.add_roster_entry(s, class_id, body.email, now=now)
     except identity.RosterRefused as refused:
         log.info("roster_entry_refused", class_id=str(class_id), error_code=refused.reason)
@@ -470,11 +557,13 @@ async def register_manually(
 ) -> RegistrationOut | None:
     """«Registrer manuelt» (FR-9): the Student is in the Class at once and gets a mail to set a
     password. None when the User may not manage the Class. Raises `InvalidRosterAddress`."""
-    if not await may_manage(user, class_id):
+    if not await manageable(user, class_id):
         return None
     row = (body.upload_row.upload_id, body.upload_row.row_number) if body.upload_row else None
     try:
         async with get_sessionmaker().begin() as s:
+            if not await _hold(s, class_id):
+                return None
             entry_id = await identity.register_manually(
                 s,
                 class_id,
@@ -501,9 +590,11 @@ async def remove_roster_entry(
 ) -> bool | None:
     """Take an address off the Roster (FR-7). None when the User may not manage the Class; False
     when the entry is not on its Roster."""
-    if not await may_manage(user, class_id):
+    if not await manageable(user, class_id):
         return None
     async with get_sessionmaker().begin() as s:
+        if not await _hold(s, class_id):
+            return None
         return await identity.remove_roster_entry(s, class_id, entry_id, now=now)
 
 
@@ -518,7 +609,9 @@ async def label_of_class(session: AsyncSession, class_id: uuid.UUID) -> identity
     """How a Student Invitation names its Class, in its mail and on «Du er invitert»
     (`identity`'s resolver)."""
     row = await repo.class_label(session, class_id)
-    return None if row is None else identity.ClassLabel(row["name"], row["course_code"])
+    if row is None:
+        return None
+    return identity.ClassLabel(row["name"], row["course_code"], row["archived_at"] is not None)
 
 
 # The Classes a Student is in (Story 4.5, FR-5, FR-7, AD-12): read through the Student scope only.
@@ -571,7 +664,7 @@ def _sort_key(name: str | None, email: str) -> tuple[str, str]:
 async def staff(user: authz.Principal, class_id: uuid.UUID, *, now: datetime) -> StaffOut | None:
     """«Faglærere og assistenter»: the owners, and the Assistants with their status: active, or
     an Invitation not accepted (invited with its last valid day, or expired). None when the User
-    may not manage the Class."""
+    may not manage the Class. A read: an archived Class's staff is listed too."""
     if not await may_manage(user, class_id):
         return None
     async with get_sessionmaker().begin() as s:
@@ -623,11 +716,11 @@ async def add_lecturer(
     (an Assistant of it is promoted). None when the User may not manage the Class. Raises
     `StaffRefused`: an address problem, `not_lecturer` (no account, a deactivated one or no
     Lecturer role: one reason, so nothing about the account is revealed) or `already_staff`."""
-    if not await may_manage(user, class_id):
+    if not await manageable(user, class_id):
         return None
     address = _checked(body.email)
     async with get_sessionmaker().begin() as s:
-        if not await repo.lock_class(s, class_id):
+        if not await _hold(s, class_id, exclusive=True):
             return None
         found = await identity.active_user_for_email(s, address)
         if found is None or not authz.can(found, "classes.manage"):
@@ -658,11 +751,11 @@ async def invite_assistant(
     """«Inviter Assistent»: an Invitation of kind `assistant` for this Class only, mailed from
     `worker-batch` (an open one to the same address is voided). None when the User may not manage
     the Class. Raises `StaffRefused`: an address problem or `already_staff`."""
-    if not await may_manage(user, class_id):
+    if not await manageable(user, class_id):
         return None
     address = _checked(body.email)
     async with get_sessionmaker().begin() as s:
-        if not await repo.lock_class(s, class_id):
+        if not await _hold(s, class_id, exclusive=True):
             return None
         members = await identity.people(s, [r["user_id"] for r in await repo.staff_of(s, class_id)])
         if any(person.email == address for person in members.values()):
@@ -692,10 +785,10 @@ async def remove_staff(
     """Take a Faglærer or an Assistant off the Class: their access ends from their next request.
     None when the User may not manage the Class; False when `member` is not staff of it. Raises
     `StaffRefused("last_owner")` for the Class's last owner: a Class always keeps a Lecturer."""
-    if not await may_manage(user, class_id):
+    if not await manageable(user, class_id):
         return None
     async with get_sessionmaker().begin() as s:
-        if not await repo.lock_class(s, class_id):
+        if not await _hold(s, class_id, exclusive=True):
             return None
         rows = await repo.staff_of(s, class_id)
         role = next((StaffRole(r["role"]) for r in rows if r["user_id"] == member), None)
@@ -727,10 +820,10 @@ async def withdraw_assistant_invitation(
 ) -> bool | None:
     """Void an Assistant Invitation of the Class that is not accepted: its link stops working.
     None when the User may not manage the Class; False when there is no such open Invitation."""
-    if not await may_manage(user, class_id):
+    if not await manageable(user, class_id):
         return None
     async with get_sessionmaker().begin() as s:
-        if not await repo.lock_class(s, class_id):
+        if not await _hold(s, class_id, exclusive=True):
             return None
         voided = await identity.void_assistant_invitations(
             s, class_id, now, invitation_id=invitation_id
@@ -755,7 +848,9 @@ async def join_as_assistant(
     """The acceptance handler of an `assistant` Invitation, inside `identity`'s acceptance
     transaction: the User joins this Class's staff as Assistant lecturer (one already owner stays
     owner), with an audit row and `user:<id>`."""
-    await repo.lock_class(session, place.class_id)
+    # The Class row's lock, as every staff change takes. An archived Class never gets here: the
+    # archive voids its Invitations, and «Du er invitert» refuses its links (Story 4.10).
+    await repo.class_state(session, place.class_id, exclusive=True)
     joined = await repo.put_staff(
         session, place.class_id, place.user_id, StaffRole.assistant, now, replace=False
     )

@@ -8,7 +8,8 @@ import { usePageState } from "@/lib/page-state";
 import { useMe } from "@/modules/identity/api";
 import { canCreateClass, classPath, NEW_CLASS_PATH } from "@/modules/identity/homes";
 
-import { classesKey, useClasses } from "./api";
+import { type ClassListItem, classesKey, useClasses } from "./api";
+import { splitArchived } from "./classes";
 
 const copy = nb.classes.home;
 
@@ -60,35 +61,37 @@ export function LecturerHome() {
     );
   }
 
+  const { active, archived } = splitArchived(items);
   return (
     <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,28rem)_minmax(0,20rem)] lg:gap-16">
-      <section aria-labelledby="classes-title">
-        <h2 id="classes-title" className="text-headline text-ink">
-          {copy.title}
-        </h2>
-        <ul className="mt-4 flex flex-col border-t border-hairline">
-          {items.map((item) => (
-            <li
-              key={item.id}
-              className="flex flex-wrap items-baseline justify-between gap-x-4 border-b border-hairline"
-            >
-              <Link href={classPath(item.id)} standalone className="min-w-0 py-2 [overflow-wrap:anywhere]">
-                {copy.label(item.name, item.course_code)}
+      <div className="flex flex-col gap-10">
+        <section aria-labelledby="classes-title">
+          <h2 id="classes-title" className="text-headline text-ink">
+            {copy.title}
+          </h2>
+          {active.length > 0 ? (
+            <ClassList items={active} />
+          ) : (
+            <p className="mt-4 text-body-phone text-ink-secondary lg:text-body">{nb.classes.archive.noActive}</p>
+          )}
+          {creates ? (
+            <p className="mt-4">
+              <Link href={NEW_CLASS_PATH} standalone>
+                {copy.newClass}
               </Link>
-              <span className="pb-2 text-body-phone tabular-nums text-ink-secondary sm:pb-0 lg:text-body">
-                {copy.rosterCount(item.roster_count)}
-              </span>
-            </li>
-          ))}
-        </ul>
-        {creates ? (
-          <p className="mt-4">
-            <Link href={NEW_CLASS_PATH} standalone>
-              {copy.newClass}
-            </Link>
-          </p>
+            </p>
+          ) : null}
+        </section>
+        {/* Archived Classes under their own heading, each marked in text (Story 4.10, UX-DR56). */}
+        {archived.length > 0 ? (
+          <section aria-labelledby="archived-title">
+            <h2 id="archived-title" className="text-headline text-ink">
+              {nb.classes.archive.homeTitle}
+            </h2>
+            <ClassList items={archived} />
+          </section>
         ) : null}
-      </section>
+      </div>
       <dl className="flex flex-col gap-4 self-start border-t border-hairline pt-4">
         <div>
           <dt className="text-label text-ink">{copy.waiting}</dt>
@@ -100,5 +103,25 @@ export function LecturerHome() {
         </div>
       </dl>
     </div>
+  );
+}
+
+/** Each Class as a Lenke with its Roster count beside it; an archived one says so in text. */
+function ClassList({ items }: { items: ClassListItem[] }) {
+  return (
+    <ul className="mt-4 flex flex-col border-t border-hairline">
+      {items.map((item) => (
+        <li key={item.id} className="flex flex-wrap items-baseline justify-between gap-x-4 border-b border-hairline">
+          <Link href={classPath(item.id)} standalone className="min-w-0 py-2 [overflow-wrap:anywhere]">
+            {copy.label(item.name, item.course_code)}
+          </Link>
+          <span className="pb-2 text-body-phone tabular-nums text-ink-secondary sm:pb-0 lg:text-body">
+            {item.archived
+              ? `${nb.classes.archive.marker} · ${copy.rosterCount(item.roster_count)}`
+              : copy.rosterCount(item.roster_count)}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }

@@ -395,6 +395,10 @@
       "ClassListItem": {
         "description": "One Class on the Lærerhjem: «Klassene dine».",
         "properties": {
+          "archived": {
+            "title": "Archived",
+            "type": "boolean"
+          },
           "course_code": {
             "anyOf": [
               {
@@ -424,7 +428,8 @@
           "id",
           "name",
           "course_code",
-          "roster_count"
+          "roster_count",
+          "archived"
         ],
         "title": "ClassListItem",
         "type": "object"
@@ -4133,6 +4138,79 @@
           }
         },
         "summary": "Get Class",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/archive": {
+      "post": {
+        "description": "«Arkiver Klassen»: the Class becomes read-only and is kept until the retention period ends.\nIts open Invitations stop working and its staged upload is deleted. 409 `class_archived` when\nit is archived already.",
+        "operationId": "archiveClass",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Class",
         "tags": [
           "classes"
         ]

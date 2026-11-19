@@ -13,6 +13,12 @@ export type ClassReason = keyof typeof errors;
 export type ClassValues = { name: string; institution_id: string; course_code: string };
 export type FieldErrors = Partial<Record<ClassField, string>>;
 
+/** «Klassene dine» (Story 4.10, UX-DR56): the active Classes, then the archived ones under their
+ * own heading, each group in the api's order (by name). */
+export function splitArchived<T extends { archived: boolean }>(items: readonly T[]): { active: T[]; archived: T[] } {
+  return { active: items.filter((i) => !i.archived), archived: items.filter((i) => i.archived) };
+}
+
 /** The value as the api stores it: trimmed, inner whitespace collapsed. Python's `str.split` also
  * splits on U+001C–U+001F and U+0085, so those count as whitespace here too. */
 export function clean(value: string): string {

@@ -150,6 +150,36 @@ def _class_id(class_id: str) -> uuid.UUID:
         raise authz.Forbidden from None
 
 
+# Archiving (Story 4.10, FR-6). An archived Class is read-only: every route that changes a Class
+# answers 409 `class_archived` to its Faglærere (`service.ClassArchived`, mapped in `main.py`),
+# and 403 `forbidden` to everyone else, as before.
+
+CLASS_ARCHIVED = "class_archived"
+
+
+def class_archived_response() -> Response:
+    return error_response(409, CLASS_ARCHIVED, "The Class is archived and takes no change.")
+
+
+@router.post(
+    "/{class_id}/archive",
+    response_model=ClassOut,
+    responses=documented(401, 403, 409),
+    operation_id="archiveClass",
+)
+async def archive_class(
+    class_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("classes.manage"))],
+) -> Response:
+    """«Arkiver Klassen»: the Class becomes read-only and is kept until the retention period ends.
+    Its open Invitations stop working and its staged upload is deleted. 409 `class_archived` when
+    it is archived already."""
+    archived = await service.archive_class(user, _class_id(class_id), now=auth.utcnow())
+    if archived is None:
+        raise authz.Forbidden
+    return JSONResponse(archived.model_dump(mode="json"))
+
+
 # The staged Roster upload of a Class (Story 4.2, FR-7). The file travels as the raw request body
 # with its name, percent-encoded, in `X-File-Name`; it is read into memory up to
 # `ROSTER_MAX_FILE_MB` and never stored. Every refusal of the file is one code,
@@ -224,7 +254,7 @@ async def upload_roster(
     stages nothing (the earlier staged upload stays)."""
     parsed_id = _class_id(class_id)
     # The Class first: a User who may not manage it is refused before the body is read.
-    if not await service.may_manage(user, parsed_id):
+    if not await service.manageable(user, parsed_id):
         raise authz.Forbidden
     limit = get_settings().roster_max_file_mb * 1024 * 1024
     data = await _capped_body(request, limit)
@@ -517,7 +547,7 @@ async def remove_roster_entry(
     except ValueError:
         entry = None
     if entry is None:
-        if not await service.may_manage(user, parsed):
+        if not await service.manageable(user, parsed):
             raise authz.Forbidden
         return error_response(404, "not_found", "The address is not on the Roster.")
     removed = await service.remove_roster_entry(user, parsed, entry, now=auth.utcnow())
@@ -629,7 +659,7 @@ async def withdraw_assistant_invitation(
     parsed = _class_id(class_id)
     found = _uuid(invitation_id)
     if found is None:
-        if not await service.may_manage(user, parsed):
+        if not await service.manageable(user, parsed):
             raise authz.Forbidden
         return error_response(404, "not_found", "No such Invitation.")
     done = await service.withdraw_assistant_invitation(user, parsed, found, now=auth.utcnow())
@@ -657,7 +687,7 @@ async def remove_staff(
     parsed = _class_id(class_id)
     member = _uuid(user_id)
     if member is None:
-        if not await service.may_manage(user, parsed):
+        if not await service.manageable(user, parsed):
             raise authz.Forbidden
         return error_response(404, "not_found", "Not staff of the Class.")
     try:

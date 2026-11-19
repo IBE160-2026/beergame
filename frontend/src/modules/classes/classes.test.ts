@@ -3,10 +3,34 @@ import { describe, expect, it } from "vitest";
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 
-import { classErrors, classReasons, clean, firstInvalid, refusalFields } from "./classes";
+import { actionErrorMessage } from "@/lib/api/mutation";
+
+import { classErrors, classReasons, clean, firstInvalid, refusalFields, splitArchived } from "./classes";
 
 const errors = nb.classes.errors;
 const ok = { name: "class-of-1994", institution_id: "inst", course_code: "" };
+
+describe("archived Classes (Story 4.10)", () => {
+  it("lists the active Classes first and the archived ones apart, each in the api's order", () => {
+    const items = [
+      { id: "a", archived: true },
+      { id: "b", archived: false },
+      { id: "c", archived: true },
+      { id: "d", archived: false },
+    ];
+    expect(splitArchived(items)).toEqual({
+      active: [items[1], items[3]],
+      archived: [items[0], items[2]],
+    });
+  });
+
+  it("words `class_archived` the same for every action, unless the action words it itself", () => {
+    const refused = new ApiRequestError(409, "class_archived");
+    expect(actionErrorMessage(refused, {}, "Feil.")).toBe(nb.classes.archive.refused);
+    expect(actionErrorMessage(refused, { class_archived: "Egen." }, "Feil.")).toBe("Egen.");
+    expect(actionErrorMessage(new ApiRequestError(409, "other"), {}, "Feil.")).toBe("Feil.");
+  });
+});
 
 describe("the Class rules", () => {
   it("trims and collapses whitespace as the api stores it", () => {

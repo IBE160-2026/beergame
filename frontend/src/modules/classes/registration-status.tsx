@@ -84,6 +84,12 @@ function StatusView({ classId, data, readOnly }: { classId: string; data: Regist
   const [target, setTarget] = useState<Target | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [rowAction, setRowAction] = useState<RowAction | null>(null);
+  // Archived while a reminder or row form was open (Story 4.10): it closes with the actions.
+  useEffect(() => {
+    if (!readOnly) return;
+    setTarget(null);
+    setRowAction(null);
+  }, [readOnly]);
   const [notice, setNotice] = useState<string | null>(null);
   const noticeLine = useRef<HTMLParagraphElement>(null);
   const [focusNotice, setFocusNotice] = useState(false);

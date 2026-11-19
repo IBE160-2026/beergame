@@ -4,6 +4,7 @@ import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@ta
 import { type ReactNode, useEffect, useState } from "react";
 
 import { isSessionExpired } from "@/lib/api/client";
+import { errorCode } from "@/lib/api/mutation";
 import { LOGIN_PATH, loginPath } from "@/lib/return-path";
 
 /**
@@ -19,20 +20,27 @@ function onApiError(error: unknown) {
 
 /** The app shell's one TanStack Query client: all server state lives here (AD-10). */
 export function Providers({ children }: { children: ReactNode }) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        queryCache: new QueryCache({ onError: onApiError }),
-        mutationCache: new MutationCache({ onError: onApiError }),
-        defaultOptions: {
-          // Reconnecting refetches every active query below, stale or not.
-          queries: { staleTime: 30_000, refetchOnWindowFocus: false, refetchOnReconnect: false },
-          // An action pressed offline fails at once and is never queued: nothing is sent on its
-          // own when the connection returns (UX-DR59).
-          mutations: { networkMode: "always", retry: false },
+  const [queryClient] = useState(() => {
+    const client: QueryClient = new QueryClient({
+      queryCache: new QueryCache({ onError: onApiError }),
+      mutationCache: new MutationCache({
+        onError: (error) => {
+          onApiError(error);
+          // The Class was archived while its page was open (Story 4.10): every Class read is read
+          // again, so the page turns read-only.
+          if (errorCode(error) === "class_archived") void client.invalidateQueries({ queryKey: ["classes"] });
         },
       }),
-  );
+      defaultOptions: {
+        // Reconnecting refetches every active query below, stale or not.
+        queries: { staleTime: 30_000, refetchOnWindowFocus: false, refetchOnReconnect: false },
+        // An action pressed offline fails at once and is never queued: nothing is sent on its
+        // own when the connection returns (UX-DR59).
+        mutations: { networkMode: "always", retry: false },
+      },
+    });
+    return client;
+  });
 
   // Back online: the page refreshes its data in place, without moving focus (UX-DR59, NFR-5).
   useEffect(() => {

@@ -370,6 +370,27 @@ export const nb = {
       /** Above the Roster an Assistant lecturer reads (Story 4.9). [ASSUMPTION] */
       assistantLead: "Du er Assistent i Klassen. Du ser Klasselista, men Faglærerne endrer den.",
     },
+    /** Archiving a Class (Story 4.10, FR-6, UX-DR56). [ASSUMPTION] draft copy: EXPERIENCE.md asks
+     * only that the button states the consequence and that archived Classes are marked in text. */
+    archive: {
+      open: "Arkiver Klassen",
+      title: "Arkiver Klassen",
+      /** The consequence, above the button, before it is pressed. */
+      consequence:
+        "Klassen blir skrivebeskyttet: Klasselista, Invitasjonene og Faglærere og assistenter kan ikke endres etterpå. Invitasjoner som ikke er brukt, slutter å virke. Klassen beholdes til oppbevaringstiden er ute, og det kan ikke angres.",
+      submit: "Arkiver nå",
+      cancel: "Avbryt",
+      saving: "Arkiverer …",
+      failed: "Klassen ble ikke arkivert. Prøv igjen.",
+      /** The notice on an archived Class's page. */
+      notice: "Klassen er arkivert. Den kan ikke endres, og den beholdes til oppbevaringstiden er ute.",
+      /** Any action refused because the Class was archived meanwhile (`class_archived`). */
+      refused: "Klassen er arkivert og kan ikke endres.",
+      /** The Lærerhjem: archived Classes under their own heading, each marked in text. */
+      homeTitle: "Arkiverte Klasser",
+      marker: "Arkivert",
+      noActive: "Ingen aktive Klasser.",
+    },
     /** «Faglærere og assistenter» (Story 4.9, FR-10, UX-DR56). The title, «Legg til Faglærer»,
      * «Inviter Assistent» and «Assistenten får tilgang bare til denne Klassen.» are EXPERIENCE.md's
      * own; the rest is [ASSUMPTION] draft copy. */
