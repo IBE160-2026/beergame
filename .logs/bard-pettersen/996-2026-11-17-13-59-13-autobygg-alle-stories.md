@@ -1034,3 +1034,33 @@ Gjøre `epic-4` klar for PR: samlet gjennomgang, rette vranglåser og UX-punkter
 ### Åpne punkter
 - Issue #94: ett tvilsomt funn (et kolonnevalg som er underveis når en ny fil lastes opp).
 - Issue #95: to trege e2e-filer (opptil 28 s).
+
+## Stopp etter Epic 4: status for kjøringen (2026-11-19)
+
+### Oppgave
+Brukeren ba om stopp når Epic 4 var ferdig, for å kjøre compact og fortsette i et nytt kontekstvindu.
+
+### Plan
+Merge Epic 4 når CI er grønn, lage `epic-5` fra den nye `main` med statusen «epic-4: done», og stoppe før Story 5.1.
+
+### Resultat
+- Epic 1–4 er merget til `main` (PR #49, #65, #83, #96) med grønn CI. `epic-1` til `epic-4` står som `done`.
+- `epic-5` er laget fra `main`. Story 5.1 står fortsatt i `backlog`. Neste økt starter der, etter kjøreboka.
+- Story 3.15 står i `backlog` etter kjøreboka, fordi den krever produksjonskontoer.
+
+**Stories i `review`:**
+- Story 2.7: prøve mot OpenRouter med nøkkelen i `.env`. Sikkerhetsfilteret stoppet agentenes bruk av nøkkelen. Issue #56.
+- Story 2.11: ekte måling av modell og effort-nivå. Samme årsak. Issue #60.
+
+**Stories i `blocked`:** ingen.
+
+**For neste økt:**
+- Malene for byggeagenter ligger i scratchpad og kan forsvinne. Det viktige står i kjøreboka: ingen human in the loop, raske tester, mappene `backend/` og `frontend/`, OpenRouter med `deepseek/deepseek-v4.1-flash-1017`, og visuell kontroll per skjermstory.
+- Erfaringer: byggeagenten implementerer selv. Gjennomgangsagenter blir noen ganger avbrutt, og da må byggeagenten sendes tilbake for å lese resultatene fra transkriptene. Compose-bygg kjøres med `timeout 900 … --wait`. Den visuelle kontrollen kjører hele Vitest-pakken. Tester må ikke avhenge av gamle lokale data.
+- Testbrukere (passord `olspillet-demo`): `admin@`, `faglaerer@`, `admin-faglaerer@`, `assistent@`, `student@` og `student2`…`student8@example.com`. Demoklassen er «class-of-1994».
+
+### Åpne punkter
+- Issue #56 og #60: prøve og måling mot OpenRouter (grunnleggeren).
+- Issue #95: to trege e2e-filer, bør tas før Epic 5.
+- Issue #94: ett tvilsomt funn i 4.3.
+- Issue #31: tekstgjennomgang av alle [ASSUMPTION]-tekster.
