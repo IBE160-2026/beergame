@@ -4,7 +4,7 @@ import { ScrollRegion } from "@/components/scroll-region";
 import { nb } from "@/copy/nb";
 
 import type { GameSettings } from "./api";
-import { chainText, roleName, upstreamFirst } from "./sessions";
+import { chainText, customerLines, roleName, upstreamFirst } from "./sessions";
 
 const copy = nb.sessions.chain;
 
@@ -16,7 +16,9 @@ const SLOT_H = 12;
 const PIPE_PAD = 14;
 const PIPE_Y = 44;
 const DOT_Y = 110;
-const END_W = 96;
+const END_W = 104;
+/** About the widest a 13 px glyph of these labels runs, to keep the demand lines inside. */
+const CHAR_W = 7.5;
 const HEIGHT = 120;
 const FONT = 13;
 
@@ -65,8 +67,9 @@ function OrderDots({ x, width, weeks }: { x: number; width: number; weeks: numbe
 
 /**
  * «Kjeden ved start» (Story 5.1, UX-DR48): the four Roles with upstream on the left, the boxes on
- * the pipe (one per Week of delay, each holding the supply-line units), Lager per Role, and the
- * Orders on their way as dots under the pipes. A diagram of this slice in hand-made SVG, not a
+ * the pipe (one per Week of delay, each holding the supply-line units), Lager per Role, the
+ * Orders on their way as dots under the pipes, and the Demand pattern under «Kundene» (mockup 03,
+ * Issue #98). A diagram of this slice in hand-made SVG, not a
  * data chart (AD-18). Every value comes from the API; the same values stand as text under it,
  * and that text labels the figure for screen readers.
  */
@@ -75,6 +78,7 @@ export function ChainDiagram({ settings }: { settings: GameSettings }) {
   const titleId = useId();
   const roles = upstreamFirst(settings);
   const parts: ReactNode[] = [];
+  const [demandLine, demandFrom] = customerLines(settings.demand);
   let x = 0;
   roles.forEach((role, index) => {
     // Into the first (most upstream) Role: production; between Roles: shipping.
@@ -105,9 +109,17 @@ export function ChainDiagram({ settings }: { settings: GameSettings }) {
       <text x={x + 26} y={PIPE_Y + 5} fontSize={FONT} fontWeight="600" fill="var(--color-ink)">
         {copy.customers}
       </text>
+      <text x={x + 26} y={PIPE_Y + 22} fontSize={FONT} fontWeight="600" fill="var(--color-lager)">
+        {demandLine}
+      </text>
+      <text x={x + 26} y={PIPE_Y + 38} fontSize={FONT} fill="var(--color-lager)">
+        {demandFrom}
+      </text>
     </g>,
   );
-  const width = x + END_W;
+  // Wide enough for the longest demand line under «Kundene» («100, så 100 ± 20»).
+  const longest = Math.max(copy.customers.length, demandLine.length, demandFrom.length);
+  const width = x + Math.max(END_W, 26 + Math.ceil(longest * CHAR_W) + 8);
   return (
     <figure className="m-0">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">

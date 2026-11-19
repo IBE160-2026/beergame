@@ -57,8 +57,8 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
 ## Game settings (Story 5.3)
 
 - «Lagre Klasseøkt» takes `game_settings`: the settings with an engine range
-  (`service.EDITABLE_SETTINGS`), laid over the stored settings. Any other key (the seed, the
-  chain, the Demand pattern until Story 5.4, capacity until 5.15) is `not_editable`. The
+  (`service.EDITABLE_SETTINGS`), laid over the stored settings. Any other key (the chain,
+  capacity until 5.15) is `not_editable`. The
   engine alone judges the rest (`GameSettings.model_validate`, then `engine.validate` with
   `FEATURE_CAPACITY`). A refusal is
   422 `invalid_settings` with `fields: {setting: {code, minimum, maximum, decimal_places}}`, the
@@ -73,3 +73,14 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
 - `ClassSessionOut` carries `settings_warnings` (the engine's warnings on the stored settings;
   a setting with an error gets no warning in a check) and `calibrated_settings` (the Classic
   preset, which the screen names as what content and Play guard were calibrated for).
+
+## Demand pattern and seed (Story 5.4)
+
+- `game_settings` takes `demand` (the engine's pattern: `fixed`, `step`, `random`,
+  `step+noise`) and `demand_seed`, judged like the rest. Errors inside the pattern are keyed
+  `demand.<field>` with the `DEMAND_RANGES` bounds (the change Week: 1 to the Weeks); a pattern
+  with no known `kind` or an unknown key is `demand` `invalid`. The seed is the one drawn at
+  creation until the Lecturer sends another (0 to `SEED_MAX`).
+- `GET /api/class-sessions/{id}/demand-series` (`class_sessions.read`): `{demand: [...]}`, the
+  series `engine.demand_series` materialises from the stored settings. No Student-facing answer
+  carries the series, the seed or the Weeks.

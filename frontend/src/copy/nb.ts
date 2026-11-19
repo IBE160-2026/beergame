@@ -712,6 +712,8 @@ export const nb = {
       backorderCost: "Restordrekost",
       weeks: "Antall uker",
       demand: "Etterspørsel",
+      // [ASSUMPTION] Story 5.4: the seed of a pattern that draws, under «Etterspørsel».
+      seed: "Frø",
       guidedWeeks: "Veiledede uker",
       inactivityLimit: "Inaktivitetsgrense",
       // [ASSUMPTION] Story 5.3: the two settings the list did not show before.
@@ -740,7 +742,12 @@ export const nb = {
         guidedLeaveWeeks: (min: string, max: string) =>
           `Det må være uker igjen å spille etter veiledningen. Velg fra ${min} til ${max}.`,
         inventoryAndBacklog: "Et ledd kan ikke starte med både lager og restordre. Sett ett av dem til 0.",
-        demandChangeOutside: "Etterspørselen endres etter siste uke. Velg flere uker i Antall uker.",
+        demandChangeOutside: (min: string, max: string) =>
+          `Etterspørselen må endres i en uke fra ${min} til ${max}. Velg en tidligere uke eller flere uker i Antall uker.`,
+        // [ASSUMPTION] Story 5.4: the Demand pattern's own rules.
+        fixedLength: (count: string) => `Skriv ett helt tall per uke, ${count} tall i alt.`,
+        seedRequired: "Skriv et frø, et helt tall.",
+        pattern: "Velg et mønster og fyll ut feltene.",
         notEditable: "Denne innstillingen kan ikke endres her.",
         other: "Verdien er ikke tillatt.",
       },
@@ -755,6 +762,38 @@ export const nb = {
         weeks: (arrival: string, weeks: string) =>
           `Advarsel: Endringen i etterspørselen når Detaljisten tidligst i Uke ${arrival}, etter siste uke (${weeks}).`,
         other: "Advarsel: Uvanlig verdi.",
+      },
+      /** The Demand pattern and its seed (Story 5.4, FR-13). [ASSUMPTION] draft copy. */
+      demand: {
+        legend: "Etterspørsel",
+        pattern: "Mønster",
+        kinds: {
+          fixed: "Fast serie",
+          step: "Trinn",
+          random: "Tilfeldig",
+          "step+noise": "Trinn med tilfeldig variasjon",
+        },
+        values: "Etterspørsel per uke",
+        valuesHint: "Ett helt tall per uke fra Uke 1, skilt med mellomrom eller komma og mellomrom.",
+        start: "Startnivå",
+        newLevel: "Nytt nivå",
+        changeWeek: "Endres fra uke",
+        mean: "Snitt",
+        spread: "Spredning",
+        spreadHint: "Hver uke trekkes et helt tall opp til så mye over eller under, aldri under 0.",
+        seed: "Frø",
+        seedHint:
+          "Samme frø gir samme etterspørsel i alle Klassespill. Serveren trakk et frø da Klasseøkten ble laget; du kan beholde det eller skrive et annet helt tall.",
+      },
+      /** The series Week by Week, for the Lecturer (Story 5.4). [ASSUMPTION] */
+      series: {
+        show: "Vis etterspørselen uke for uke",
+        hide: "Skjul etterspørselen uke for uke",
+        caption: "Etterspørselen uke for uke",
+        week: "Uke",
+        demand: "Etterspørsel",
+        loading: "Henter etterspørselen …",
+        failed: "Etterspørselen kunne ikke hentes. Prøv igjen.",
       },
       /** Shown once a setting differs from Classic (FR-12), from the values the api returned. */
       calibrated: (v: {
@@ -777,8 +816,11 @@ export const nb = {
       cost: (rate: string) => `${rate} per enhet per uke`,
       /** The step pattern: «4, så 8 fra Uke 5». */
       step: (start: number, next: number, week: number) => `${start}, så ${next} fra Uke ${week}`,
-      // [ASSUMPTION] the other Demand patterns until Story 5.4 words them.
-      otherDemand: "Eget mønster",
+      // [ASSUMPTION] Story 5.4: the other Demand patterns in words.
+      stepNoise: (start: number, next: number, week: number, spread: number) =>
+        `${start}, så ${next} fra Uke ${week}, ± ${spread} tilfeldig`,
+      random: (mean: number, spread: number) => `Tilfeldig, ${mean} ± ${spread}`,
+      fixed: (weeks: number) => `Fast serie over ${weeks} ${weeks === 1 ? "uke" : "uker"}`,
       guidedWeeks: (count: number) => (count === 0 ? "Ingen" : count === 1 ? "1" : `1–${count}`),
       inactivityLimit: (hours: number) => `${hours} t, så KI overtar`,
     },
@@ -786,6 +828,15 @@ export const nb = {
       title: "Kjeden ved start",
       caption: "Varer mot høyre, ordre mot venstre",
       customers: "Kundene",
+      /** The demand in two short lines under «Kundene», as mockup 03 («4, så 8» / «fra Uke 5»,
+       * Issue #98). [ASSUMPTION] the lines of the other patterns. */
+      customerLines: {
+        step: (start: number, next: number, week: number) => [`${start}, så ${next}`, `fra Uke ${week}`] as const,
+        stepNoise: (start: number, next: number, week: number, spread: number) =>
+          [`${start}, så ${next} ± ${spread}`, `fra Uke ${week}`] as const,
+        random: (mean: number, spread: number) => [`${mean} ± ${spread}`, "tilfeldig"] as const,
+        fixed: (weeks: number) => ["Fast serie", `${weeks} ${weeks === 1 ? "uke" : "uker"}`] as const,
+      },
       inventory: (units: number) => `Lager ${units}`,
       delay: (weeks: number) => `${weeks} ${weeks === 1 ? "uke" : "uker"}`,
       /** The diagram's text: the same values as sentences, also read by screen readers. */
@@ -796,10 +847,11 @@ export const nb = {
         shipping: number;
         production: number;
         order: number;
+        demand: string;
       }) =>
         `${v.roles} starter med Lager ${v.inventory} hver. Hver boks på røret er ${v.slot} ${v.slot === 1 ? "enhet" : "enheter"}. ` +
         `Frakt mellom leddene tar ${v.shipping} ${v.shipping === 1 ? "uke" : "uker"}, og produksjon inn til Fabrikk tar ${v.production} ${v.production === 1 ? "uke" : "uker"}. ` +
-        `Prikkene er ordre på vei, ${v.order} ${v.order === 1 ? "uke" : "uker"}. Studentene ser ikke kundene under spillet.`,
+        `Prikkene er ordre på vei, ${v.order} ${v.order === 1 ? "uke" : "uker"}. Kundenes etterspørsel: ${v.demand}. Studentene ser ikke kundene under spillet.`,
       /** «Fabrikk, Distributør, Grossist og Detaljist». */
       list: (names: readonly string[]) =>
         names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} og ${names[names.length - 1]}`,

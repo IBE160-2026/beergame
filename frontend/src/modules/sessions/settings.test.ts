@@ -3,7 +3,17 @@ import { describe, expect, it } from "vitest";
 import { GROUP } from "@/lib/number-format";
 
 import type { GameSettings } from "./api";
-import { calibratedText, draftOf, problemsOf, problemText, settingsBody, warningsBySetting } from "./settings";
+import {
+  calibratedText,
+  demandBody,
+  demandProblemKey,
+  draftOf,
+  problemsOf,
+  problemText,
+  settingsBody,
+  warningsBySetting,
+  withKind,
+} from "./settings";
 
 /** Settings as the API sends them; a test fixture, not a copy of the Classic preset. */
 const settings: GameSettings = {
@@ -30,7 +40,7 @@ describe("the settings block (Story 5.3)", () => {
     expect(draft.holding_cost).toBe("0,50");
     expect(draft.backorder_cost).toBe("1,00");
     expect(draft.max_order).toBe("1999");
-    expect(Object.keys(draft)).toHaveLength(11);
+    expect(Object.keys(draft)).toHaveLength(12);
   });
 
   it("sends whole numbers as numbers, costs as decimal strings, other text as typed", () => {
@@ -63,7 +73,10 @@ describe("the settings block (Story 5.3)", () => {
     expect(range("guided_weeks_leave_no_weeks_to_play", "0", "3")).toContain("Velg fra 0 til 3.");
     expect(range("starting_inventory_and_backlog", null, null)).toContain("både lager og restordre");
     expect(range("something_new", null, null)).toBe("Verdien er ikke tillatt.");
-    expect(range("demand_change_week_outside_game", "1", "4")).toContain("Velg flere uker");
+    expect(range("demand_change_week_outside_game", "1", "4")).toContain("fra 1 til 4");
+    expect(range("fixed_series_length", "36", "36")).toBe("Skriv ett helt tall per uke, 36 tall i alt.");
+    expect(range("demand_seed_required", null, null)).toBe("Skriv et frø, et helt tall.");
+    expect(range("out_of_range", "0", "999999999")).toBe(`Må være fra 0 til 999${GROUP}999${GROUP}999.`);
     expect(range("not_editable", null, null)).toBe("Denne innstillingen kan ikke endres her.");
   });
 
@@ -115,5 +128,51 @@ describe("the settings block (Story 5.3)", () => {
   it("names the calibrated settings from the api's values", () => {
     expect(calibratedText(settings)).toContain("Startlager 12, 4 i hvert ledd, forsinkelser 2, 2 og 2 uker");
     expect(calibratedText(settings)).toContain("Lagerkost 0,50, Restordrekost 1,00 og 36 uker");
+  });
+});
+
+describe("the Demand pattern (Story 5.4)", () => {
+  it("fills the pattern's fields and the seed from the api", () => {
+    expect(draftOf(settings).demand).toEqual({
+      kind: "step",
+      values: "",
+      start: "4",
+      new_level: "8",
+      change_week: "5",
+      mean: "",
+      spread: "",
+      seed: "42",
+    });
+    const fixed = draftOf({ ...settings, demand: { kind: "fixed", values: [4, 4, 8] } }).demand;
+    expect(fixed.values).toBe("4 4 8");
+  });
+
+  it("sends the chosen pattern's fields, and the seed only for a pattern that draws", () => {
+    const draft = draftOf(settings);
+    const step = settingsBody(draft);
+    expect(step.demand).toEqual({ kind: "step", start: 4, new_level: 8, change_week: 5 });
+    expect("demand_seed" in step).toBe(false);
+    const random = settingsBody({ ...draft, demand: { ...withKind(draft.demand, "random"), spread: "2" } });
+    // The step's start carries over as the mean; the seed drawn at creation is sent as it stands.
+    expect(random.demand).toEqual({ kind: "random", mean: 4, spread: 2 });
+    expect(random.demand_seed).toBe(42);
+    const noise = settingsBody({ ...draft, demand: { ...withKind(draft.demand, "step+noise"), spread: "x", seed: "7" } });
+    expect(noise.demand).toEqual({ kind: "step+noise", start: 4, new_level: 8, change_week: 5, spread: "x" });
+    expect(noise.demand_seed).toBe(7);
+  });
+
+  it("reads a fixed series separated by spaces, commas or new lines, and sends other text as typed", () => {
+    const base = withKind(draftOf(settings).demand, "fixed");
+    expect(demandBody({ ...base, values: " 4, 4;8\n 12 " })).toEqual({ kind: "fixed", values: [4, 4, 8, 12] });
+    expect(demandBody({ ...base, values: "4 fire" })).toEqual({ kind: "fixed", values: [4, "fire"] });
+    // A decimal comma stays one value, for the api to refuse.
+    expect(demandBody({ ...base, values: "4,5 4, 4," })).toEqual({ kind: "fixed", values: ["4,5", 4, 4] });
+    expect(demandBody({ ...base, values: "" })).toEqual({ kind: "fixed", values: [] });
+  });
+
+  it("finds each field's error under the api's key", () => {
+    expect(demandProblemKey("seed")).toBe("demand_seed");
+    expect(demandProblemKey("spread")).toBe("demand.spread");
+    expect(demandProblemKey("change_week")).toBe("demand.change_week");
   });
 });

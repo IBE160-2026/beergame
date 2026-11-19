@@ -72,6 +72,22 @@ export function checkClassSessionSettings(id: string, gameSettings: SettingsDraf
   );
 }
 
+/** The customer demand Week by Week, as the engine materialises it from the saved Demand pattern
+ * and seed (Story 5.4). Fetched when the Lecturer asks; the key holds the saved pattern, so a
+ * saved change fetches it again. */
+export function useDemandSeries(session: ClassSession, enabled: boolean) {
+  const s = session.game_settings;
+  return useQuery({
+    queryKey: ["class-sessions", "demand-series", session.id, JSON.stringify([s.demand, s.demand_seed, s.weeks])],
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/demand-series", { params: { path: { session_id: session.id } } }),
+      ),
+    enabled,
+    retry: false,
+  });
+}
+
 /** The Lærerhjem's «Venter» and «Neste frist», fetched when the Lærerhjem opens (Story 5.2);
  * refetching on `session:<id>` comes with Story 6.4. */
 export function useLecturerOverview() {

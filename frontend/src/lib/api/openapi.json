@@ -775,7 +775,7 @@
       },
       "ClassSessionSaveIn": {
         "additionalProperties": false,
-        "description": "«Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice),\nthe four dates (Story 5.2) and the Game settings (Story 5.3); without `dates` or\n`game_settings` they stay as they are. `game_settings` is laid over the stored settings, so a\nfield left out keeps its value.",
+        "description": "«Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice),\nthe four dates (Story 5.2) and the Game settings (Story 5.3) with the Demand pattern and its\nseed (Story 5.4); without `dates` or `game_settings` they stay as they are. `game_settings`\nis laid over the stored settings, so a field left out keeps its value.",
         "properties": {
           "ai_mode": {
             "$ref": "#/components/schemas/AiMode"
@@ -930,6 +930,23 @@
           "spread"
         ],
         "title": "DemandRandom",
+        "type": "object"
+      },
+      "DemandSeriesOut": {
+        "description": "The customer demand of Weeks 1 to the last, as the engine materialises it from the stored\nDemand pattern and seed (Story 5.4, FR-13): `demand[w - 1]` is the demand in Week w. For the\nClass's staff only; no Student-facing answer carries it (AD-3).",
+        "properties": {
+          "demand": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Demand",
+            "type": "array"
+          }
+        },
+        "required": [
+          "demand"
+        ],
+        "title": "DemandSeriesOut",
         "type": "object"
       },
       "DemandStep": {
@@ -4948,7 +4965,7 @@
         ]
       },
       "put": {
-        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Once the Start date has passed, a changed AI mode answers 409 `session_locked`.\nDates count to the whole minute.\n\nWith `game_settings` (the editable settings, laid over the stored ones) the engine\njudges the settings (FR-12): 422 `invalid_settings` with `fields` mapping each setting to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).",
+        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Once the Start date has passed, a changed AI mode answers 409 `session_locked`.\nDates count to the whole minute.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).",
         "operationId": "saveClassSession",
         "parameters": [
           {
@@ -5024,6 +5041,69 @@
           }
         },
         "summary": "Save Class Session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/demand-series": {
+      "get": {
+        "description": "The customer demand Week by Week, materialised by the engine from the stored Demand\npattern and seed (FR-13, AD-1). For the Class's staff; the same settings and seed always give\nthe same series.",
+        "operationId": "getClassSessionDemandSeries",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandSeriesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Class Session Demand Series",
         "tags": [
           "sessions"
         ]

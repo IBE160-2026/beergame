@@ -1,4 +1,4 @@
-"""API shapes of `modules/sessions` (Stories 5.1, 5.2 and 5.3)."""
+"""API shapes of `modules/sessions` (Stories 5.1 to 5.4)."""
 
 import uuid
 from datetime import datetime
@@ -69,6 +69,14 @@ class SettingsCheckOut(BaseModel):
 
     errors: dict[str, SettingProblem]
     warnings: list[SettingWarning]
+
+
+class DemandSeriesOut(BaseModel):
+    """The customer demand of Weeks 1 to the last, as the engine materialises it from the stored
+    Demand pattern and seed (Story 5.4, FR-13): `demand[w - 1]` is the demand in Week w. For the
+    Class's staff only; no Student-facing answer carries it (AD-3)."""
+
+    demand: list[int]
 
 
 class ClassSessionOut(BaseModel):
@@ -142,9 +150,9 @@ class DatesIn(BaseModel):
 
 class ClassSessionSaveIn(BaseModel):
     """«Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice),
-    the four dates (Story 5.2) and the Game settings (Story 5.3); without `dates` or
-    `game_settings` they stay as they are. `game_settings` is laid over the stored settings, so a
-    field left out keeps its value."""
+    the four dates (Story 5.2) and the Game settings (Story 5.3) with the Demand pattern and its
+    seed (Story 5.4); without `dates` or `game_settings` they stay as they are. `game_settings`
+    is laid over the stored settings, so a field left out keeps its value."""
 
     model_config = ConfigDict(extra="forbid")
 

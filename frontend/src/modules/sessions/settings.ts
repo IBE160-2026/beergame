@@ -56,12 +56,55 @@ export const EDITABLE = [
 ] as const;
 
 export type SettingName = (typeof EDITABLE)[number]["name"];
-/** The fields as typed, Norwegian style («0,50»). */
-export type SettingsDraft = Record<SettingName, string>;
+
+export type DemandKind = GameSettings["demand"]["kind"];
+/** The Demand patterns in the select's order (Story 5.4, FR-13). */
+export const DEMAND_KINDS: readonly DemandKind[] = ["step", "fixed", "random", "step+noise"];
+
+/** The Demand pattern's fields as typed (Story 5.4). Only the chosen kind's fields are sent; the
+ * series of a fixed pattern is one text of whole numbers. */
+export type DemandDraft = {
+  kind: DemandKind;
+  values: string;
+  start: string;
+  new_level: string;
+  change_week: string;
+  mean: string;
+  spread: string;
+  seed: string;
+};
+
+export type DemandFieldName = Exclude<keyof DemandDraft, "kind">;
+
+/** The fields as typed, Norwegian style («0,50»), with the Demand pattern and its seed. */
+export type SettingsDraft = Record<SettingName, string> & { demand: DemandDraft };
+
+/** The Demand fields each kind shows, in order; `seed` only for the kinds that draw. */
+export const DEMAND_FIELDS: Record<DemandKind, readonly DemandFieldName[]> = {
+  fixed: ["values"],
+  step: ["start", "new_level", "change_week"],
+  random: ["mean", "spread", "seed"],
+  "step+noise": ["start", "new_level", "change_week", "spread", "seed"],
+};
+
+function demandDraftOf(settings: GameSettings): DemandDraft {
+  const d = settings.demand;
+  const text = (value: number | undefined) => (value === undefined ? "" : String(value));
+  return {
+    kind: d.kind,
+    values: d.kind === "fixed" ? d.values.join(" ") : "",
+    start: text("start" in d ? d.start : undefined),
+    new_level: text("new_level" in d ? d.new_level : undefined),
+    change_week: text("change_week" in d ? d.change_week : undefined),
+    mean: text("mean" in d ? d.mean : undefined),
+    spread: text("spread" in d ? d.spread : undefined),
+    seed: settings.demand_seed == null ? "" : String(settings.demand_seed),
+  };
+}
 
 /** The fields of the settings the api returned. */
 export function draftOf(settings: GameSettings): SettingsDraft {
-  const draft = {} as SettingsDraft;
+  const draft = { demand: demandDraftOf(settings) } as SettingsDraft;
   for (const field of EDITABLE) {
     const value = settings[field.name];
     draft[field.name] = field.kind === "cost" ? costText(String(value)) : String(value);
@@ -69,20 +112,53 @@ export function draftOf(settings: GameSettings): SettingsDraft {
   return draft;
 }
 
+/** Another pattern chosen: the level typed so far carries over between a step's start and a random
+ * mean; every other field keeps what it held, and an empty one is for the Lecturer to fill. */
+export function withKind(demand: DemandDraft, kind: DemandKind): DemandDraft {
+  return {
+    ...demand,
+    kind,
+    start: demand.start || demand.mean,
+    mean: demand.mean || demand.start,
+  };
+}
+
+/** A whole number as a number; anything else as typed, so the api names what is wrong. */
+function whole(typed: string): number | string {
+  const parsed = parseNumber(typed);
+  return parsed !== null && /^-?\d+$/.test(parsed) ? Number(parsed) : typed;
+}
+
+/** The body's `demand` for the chosen kind. A fixed series is whole numbers separated by spaces,
+ * semicolons or a comma before a space; «4,5» stays one value, so the api refuses the decimal
+ * rather than reading two Weeks. */
+export function demandBody(demand: DemandDraft): Record<string, unknown> {
+  if (demand.kind === "fixed") {
+    const values = demand.values.split(/[\s;]+|,(?=\s|$)/).filter(Boolean).map(whole);
+    return { kind: "fixed", values };
+  }
+  const body: Record<string, unknown> = { kind: demand.kind };
+  for (const name of DEMAND_FIELDS[demand.kind]) if (name !== "seed") body[name] = whole(demand[name]);
+  return body;
+}
+
 /** The body's `game_settings`: whole numbers as numbers, costs as decimal strings, and anything
- * that does not read as a number as it was typed, so the api names what is wrong. */
-export function settingsBody(draft: SettingsDraft): Record<SettingName, number | string> {
-  const body = {} as Record<SettingName, number | string>;
+ * that does not read as a number as it was typed, so the api names what is wrong. The Demand
+ * pattern goes as `demand`; its seed only for a pattern that draws, so the server's seed stays. */
+export function settingsBody(draft: SettingsDraft): Record<string, unknown> {
+  const body: Record<string, unknown> = {};
   for (const field of EDITABLE) {
     const typed = draft[field.name];
-    const parsed = parseNumber(typed);
-    if (field.kind === "whole") {
-      body[field.name] = parsed !== null && /^-?\d+$/.test(parsed) ? Number(parsed) : typed;
-    } else {
-      body[field.name] = parsed ?? typed;
-    }
+    body[field.name] = field.kind === "whole" ? whole(typed) : (parseNumber(typed) ?? typed);
   }
+  body.demand = demandBody(draft.demand);
+  if (DEMAND_FIELDS[draft.demand.kind].includes("seed")) body.demand_seed = whole(draft.demand.seed);
   return body;
+}
+
+/** The api's key of a problem under a Demand field («demand.start», «demand_seed»). */
+export function demandProblemKey(name: DemandFieldName): string {
+  return name === "seed" ? "demand_seed" : `demand.${name}`;
 }
 
 function isProblem(value: unknown): value is SettingProblem {
@@ -108,7 +184,13 @@ export function problemText(problem: SettingProblem): string {
     case "starting_inventory_and_backlog":
       return e.inventoryAndBacklog;
     case "demand_change_week_outside_game":
-      return e.demandChangeOutside;
+      if (ranged) return e.demandChangeOutside(min, max);
+      break;
+    case "fixed_series_length":
+      if (max !== null) return e.fixedLength(max);
+      break;
+    case "demand_seed_required":
+      return e.seedRequired;
     case "not_editable":
       return e.notEditable;
     case "guided_weeks_not_before_demand_change":

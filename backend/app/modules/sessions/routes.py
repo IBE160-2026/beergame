@@ -7,7 +7,9 @@ answers 409 `class_archived` (`classes.service.ClassArchived`, mapped in `main.p
 
 Story 5.2 adds the four dates to the save, the Student's read `/api/me/class-sessions` and the
 Lærerhjem's read `/api/lecturer-home/class-sessions`. Story 5.3 adds the Game settings to the
-save and the check of a draft, `/api/class-sessions/{id}/settings-check`."""
+save and the check of a draft, `/api/class-sessions/{id}/settings-check`. Story 5.4 adds the
+Demand pattern and seed to both and the staff's read of the series,
+`/api/class-sessions/{id}/demand-series`."""
 
 import uuid
 from typing import Annotated
@@ -20,6 +22,7 @@ from app.modules.sessions.schemas import (
     ClassSessionListOut,
     ClassSessionOut,
     ClassSessionSaveIn,
+    DemandSeriesOut,
     EnrolledSessionListOut,
     LecturerOverviewOut,
     SettingsCheckIn,
@@ -113,8 +116,9 @@ async def save_class_session(
     (`passed`). Once the Start date has passed, a changed AI mode answers 409 `session_locked`.
     Dates count to the whole minute.
 
-    With `game_settings` (the editable settings, laid over the stored ones) the engine
-    judges the settings (FR-12): 422 `invalid_settings` with `fields` mapping each setting to
+    With `game_settings` (the editable settings, laid over the stored ones; `demand` and
+    `demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with
+    `fields` mapping each setting (`demand.<field>` inside the Demand pattern) to
     `{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409
     `session_locked` (`{"game_settings": "locked"}`)."""
     try:
@@ -165,6 +169,25 @@ async def check_class_session_settings(
         )
     except service.SessionLocked as refused:
         return error_response(409, refused.code, "This can no longer change.", refused.fields)
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/class-sessions/{session_id}/demand-series",
+    response_model=DemandSeriesOut,
+    responses=documented(401, 403),
+    operation_id="getClassSessionDemandSeries",
+)
+async def get_class_session_demand_series(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.read"))],
+) -> Response:
+    """The customer demand Week by Week, materialised by the engine from the stored Demand
+    pattern and seed (FR-13, AD-1). For the Class's staff; the same settings and seed always give
+    the same series."""
+    found = await service.demand_series_of(user, _id(session_id))
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))

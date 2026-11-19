@@ -233,15 +233,14 @@ async def test_an_unknown_setting_is_refused(klass):
 @pytest.mark.parametrize(
     "draft",
     [
-        {"demand_seed": 7},
         {"roles": ["retailer", "factory"]},
         {"schema_version": 1},
-        {"demand": {"kind": "fixed", "values": [4] * 36}},
         {"capacity": {"retailer": 6}},
     ],
 )
 async def test_settings_this_screen_does_not_own_are_refused(klass, draft):
-    # The seed is the server's (FR-13); the Demand pattern is Story 5.4's, capacity 5.15's.
+    # The chain is the engine's; capacity is Story 5.15's. The Demand pattern and seed are
+    # editable since Story 5.4 (`test_demand.py`).
     session_id = await new_session(klass)
     before = stored(session_id)
     status, code, fields = refusal(await save(session_id, {**draft, "weeks": 30}))

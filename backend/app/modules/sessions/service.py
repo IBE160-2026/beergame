@@ -1,4 +1,4 @@
-"""Class sessions (Stories 5.1 to 5.3, FR-11, FR-12, FR-13, FR-15, FR-18, AD-4, AD-6). Other
+"""Class sessions (Stories 5.1 to 5.4, FR-11, FR-12, FR-13, FR-15, FR-18, AD-4, AD-6). Other
 modules import only this file.
 
 A Lecturer who owns or co-owns a Class creates a Class session from the Klasse page. It is filled
@@ -15,9 +15,11 @@ never moved (`deadline_passed`), and none cleared once the session is locked. `i
 one lock predicate; `effective_debrief_deadline` and `effective_test_deadline` are the only way
 another module reads a Student's deadline.
 
-The Game settings (Story 5.3) are saved with «Lagre Klasseøkt» too, and a draft can be judged
-without saving (`check_settings`). Both lay the draft over the stored settings and judge it with
-the engine's `validate` and `warnings` only (AD-1): this module and the web app hold no rule.
+The Game settings (Story 5.3), the Demand pattern and its seed (Story 5.4) are saved with «Lagre
+Klasseøkt» too, and a draft can be judged without saving (`check_settings`). Both lay the draft
+over the stored settings and judge it with the engine's `validate` and `warnings` only (AD-1):
+this module and the web app hold no rule. `demand_series_of` gives the staff the series the
+engine materialises from the stored pattern and seed.
 
 Every mutation passes one guard, `_writable`, which asks `classes.service.is_writable` inside the
 mutation's transaction and raises `classes.service.ClassArchived` (409 `class_archived`) for an
@@ -38,8 +40,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget, config
 from app.engine import GameSettings
-from app.engine.demand import new_seed
-from app.engine.settings import RANGES, Range, validate, warnings
+from app.engine.demand import DemandFixed, DemandRandom, DemandStep, DemandStepNoise, new_seed
+from app.engine.settings import (
+    DEMAND_RANGES,
+    RANGES,
+    Range,
+    demand_series,
+    validate,
+    warnings,
+)
 from app.modules.classes import service as classes
 from app.modules.sessions import repo
 from app.modules.sessions.models import DATE_NAMES
@@ -52,6 +61,7 @@ from app.modules.sessions.schemas import (
     DateName,
     DatesIn,
     DebriefMode,
+    DemandSeriesOut,
     EnrolledSessionListOut,
     EnrolledSessionOut,
     LecturerOverviewOut,
@@ -144,12 +154,24 @@ def _bound(value: object) -> str | None:
     return None if value is None else str(value)
 
 
+def range_of(field: str) -> Range | None:
+    """The engine's range of a setting the Klasseøkt edits: `RANGES` for the Game settings,
+    `DEMAND_RANGES` for the seed and the Demand pattern's fields (`demand.start`)."""
+    if field in RANGES:
+        return RANGES[field]
+    if field == "demand_seed":
+        return DEMAND_RANGES["demand_seed"]
+    if field.startswith("demand."):
+        return DEMAND_RANGES.get(field.removeprefix("demand."))
+    return None
+
+
 def _problem(
     code: str, field: str, minimum: object = None, maximum: object = None, *, ranged: bool = False
 ) -> SettingProblem:
-    """One refused setting. `ranged` takes the bounds from `RANGES`, for a value the engine never
-    saw (wrong type or below zero); the engine's own errors bring theirs, or none."""
-    allowed: Range | None = RANGES.get(field)
+    """One refused setting. `ranged` takes the bounds from the engine's ranges, for a value the
+    engine never saw (wrong type or below zero); the engine's own errors bring theirs, or none."""
+    allowed = range_of(field)
     if ranged and allowed is not None:
         minimum, maximum = allowed.minimum, allowed.maximum
     return SettingProblem(
@@ -160,9 +182,48 @@ def _problem(
     )
 
 
-EDITABLE_SETTINGS = frozenset(RANGES)
-"""The Game settings a Lecturer changes through the Klasseøkt (Story 5.3): those the engine
-gives a range. Later stories add theirs (5.4 the Demand pattern and seed, 5.15 capacity)."""
+DEMAND_FIELDS = frozenset(
+    name
+    for model in (DemandFixed, DemandStep, DemandRandom, DemandStepNoise)
+    for name in model.model_fields
+    if name != "kind"
+)
+"""The fields of the engine's Demand patterns, reported as `demand.<name>`."""
+
+
+def _parse_problem(error: Mapping[str, Any], data: Mapping[str, Any], stored: GameSettings):
+    """The setting and problem of one pydantic error on a draft. Inside the Demand pattern the
+    field is `demand.<name>` with its range (the change Week: 1 to the draft's Weeks); a pattern
+    with no known `kind`, an unknown key or not an object is `demand` `invalid`."""
+    loc = error["loc"]
+    field = str(loc[0]) if loc else "game_settings"
+    out_of_range = error["type"] in ("greater_than_equal", "greater_than")
+    if field == "demand":
+        name = str(loc[2]) if len(loc) > 2 else ""
+        if name not in DEMAND_FIELDS or error["type"] == "extra_forbidden":
+            return "demand", _problem("invalid", "demand")
+        weeks = data.get("weeks")
+        allowed = RANGES["weeks"]
+        if not (type(weeks) is int and allowed.minimum <= weeks <= allowed.maximum):
+            weeks = stored.weeks
+        if name == "values" and error["type"] == "too_short":
+            # An empty series: one value per Week, as the engine says of any other length.
+            return "demand.values", _problem("fixed_series_length", "demand.values", weeks, weeks)
+        code = "out_of_range" if out_of_range else "not_a_number"
+        if name == "change_week":
+            last = weeks
+            return "demand.change_week", _problem(code, "demand.change_week", 1, last)
+        return f"demand.{name}", _problem(code, f"demand.{name}", ranged=True)
+    if out_of_range:
+        code = "out_of_range"
+    else:
+        code = "not_a_number" if range_of(field) is not None else "invalid"
+    return field, _problem(code, field, ranged=True)
+
+
+EDITABLE_SETTINGS = frozenset({*RANGES, "demand", "demand_seed"})
+"""The Game settings a Lecturer changes through the Klasseøkt: those the engine gives a range
+(Story 5.3), and the Demand pattern with its seed (Story 5.4). Story 5.15 adds capacity."""
 
 
 def judge_settings(
@@ -174,27 +235,24 @@ def judge_settings(
     with the setting's range, as the engine's own range errors. The other settings of a draft
     that does not parse are still judged, with the unreadable ones at their stored values, so
     one mistyped field hides no error or warning elsewhere. A key outside `EDITABLE_SETTINGS`
-    (the seed the server draws, the chain, the Demand pattern until Story 5.4) is
-    `not_editable` and never laid over."""
+    (the chain, capacity until Story 5.15) is `not_editable` and never laid over."""
     base = stored.model_dump(mode="json")
     problems: dict[str, SettingProblem] = {
         key: _problem("not_editable", key) for key in draft if key not in EDITABLE_SETTINGS
     }
     data = {**base, **{key: value for key, value in draft.items() if key not in problems}}
+    # Top-level settings that do not parse: judged at their stored values, their rules unsaid.
+    unreadable: set[str] = set()
     try:
         settings: GameSettings | None = GameSettings.model_validate(data)
     except ValidationError as exc:
         for error in exc.errors():
-            field = str(error["loc"][0]) if error["loc"] else "game_settings"
-            if field in problems:
-                continue
-            if error["type"] in ("greater_than_equal", "greater_than"):
-                code = "out_of_range"
-            else:
-                code = "not_a_number" if field in RANGES else "invalid"
-            problems[field] = _problem(code, field, ranged=True)
+            if error["loc"]:
+                unreadable.add(str(error["loc"][0]))
+            field, found = _parse_problem(error, data, stored)
+            problems.setdefault(field, found)
         settings = None
-        rest = {key: value for key, value in data.items() if key not in problems}
+        rest = {key: value for key, value in data.items() if key not in unreadable}
         try:
             judged = GameSettings.model_validate({**base, **rest})
         except ValidationError:
@@ -202,7 +260,7 @@ def judge_settings(
     else:
         judged = settings
     for found in validate(judged, capacity_enabled=get_settings().feature_capacity):
-        if found.field not in problems:
+        if found.field not in problems and found.field.split(".")[0] not in unreadable:
             problems[found.field] = _problem(found.code, found.field, found.minimum, found.maximum)
     risky = [
         SettingWarning(code=w.code, field=w.field, values=w.values)
@@ -546,6 +604,17 @@ async def check_settings(
     stored = GameSettings.model_validate(row["game_settings"])
     _, problems, risky = judge_settings(stored, draft)
     return SettingsCheckOut(errors=problems, warnings=risky)
+
+
+async def demand_series_of(user: authz.Principal, session_id: uuid.UUID) -> DemandSeriesOut | None:
+    """The customer demand of every Week of the Class session's games, materialised by the engine
+    from the stored pattern and seed (FR-13, AD-1). For its Class's staff only; None otherwise."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, session_id)
+    if row is None or await _class_for(user, row["class_id"], "class_sessions.read") is None:
+        return None
+    settings = GameSettings.model_validate(row["game_settings"])
+    return DemandSeriesOut(demand=list(demand_series(settings)))
 
 
 def _next_deadline(

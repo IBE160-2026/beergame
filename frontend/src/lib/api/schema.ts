@@ -526,12 +526,35 @@ export interface paths {
          *     (`passed`). Once the Start date has passed, a changed AI mode answers 409 `session_locked`.
          *     Dates count to the whole minute.
          *
-         *     With `game_settings` (the editable settings, laid over the stored ones) the engine
-         *     judges the settings (FR-12): 422 `invalid_settings` with `fields` mapping each setting to
+         *     With `game_settings` (the editable settings, laid over the stored ones; `demand` and
+         *     `demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with
+         *     `fields` mapping each setting (`demand.<field>` inside the Demand pattern) to
          *     `{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409
          *     `session_locked` (`{"game_settings": "locked"}`).
          */
         put: operations["saveClassSession"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/demand-series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Class Session Demand Series
+         * @description The customer demand Week by Week, materialised by the engine from the stored Demand
+         *     pattern and seed (FR-13, AD-1). For the Class's staff; the same settings and seed always give
+         *     the same series.
+         */
+        get: operations["getClassSessionDemandSeries"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -1443,9 +1466,9 @@ export interface components {
         /**
          * ClassSessionSaveIn
          * @description «Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice),
-         *     the four dates (Story 5.2) and the Game settings (Story 5.3); without `dates` or
-         *     `game_settings` they stay as they are. `game_settings` is laid over the stored settings, so a
-         *     field left out keeps its value.
+         *     the four dates (Story 5.2) and the Game settings (Story 5.3) with the Demand pattern and its
+         *     seed (Story 5.4); without `dates` or `game_settings` they stay as they are. `game_settings`
+         *     is laid over the stored settings, so a field left out keeps its value.
          */
         ClassSessionSaveIn: {
             ai_mode: components["schemas"]["AiMode"];
@@ -1501,6 +1524,16 @@ export interface components {
             mean: number;
             /** Spread */
             spread: number;
+        };
+        /**
+         * DemandSeriesOut
+         * @description The customer demand of Weeks 1 to the last, as the engine materialises it from the stored
+         *     Demand pattern and seed (Story 5.4, FR-13): `demand[w - 1]` is the demand in Week w. For the
+         *     Class's staff only; no Student-facing answer carries it (AD-3).
+         */
+        DemandSeriesOut: {
+            /** Demand */
+            demand: number[];
         };
         /**
          * DemandStep
@@ -3950,6 +3983,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getClassSessionDemandSeries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemandSeriesOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

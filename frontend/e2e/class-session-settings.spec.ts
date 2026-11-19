@@ -36,15 +36,16 @@ test("an out-of-range delay is shown on leaving the field and blocks the save", 
   await checked;
   await expect(delay).toHaveAttribute("aria-invalid", "true");
   await expect(delay).toHaveAccessibleDescription(edit.errors.outOfRange("1", "3"));
-  // A rule on a setting with no field here (the demand change after the last Week) stands under
-  // «Etterspørsel».
+  // A Demand-pattern rule another field breaks (the demand change after the last Week) stands
+  // under the change Week's field (Story 5.4).
   const weeks = field(lecturer, copy.settings.weeks);
+  const outside = edit.errors.demandChangeOutside("1", "4");
   await weeks.fill("4");
   await weeks.blur();
-  await expect(lecturer.getByText(edit.errors.demandChangeOutside)).toBeVisible();
+  await expect(field(lecturer, edit.demand.changeWeek)).toHaveAccessibleDescription(outside);
   await weeks.fill("36");
   await weeks.blur();
-  await expect(lecturer.getByText(edit.errors.demandChangeOutside)).toHaveCount(0);
+  await expect(lecturer.getByText(outside)).toHaveCount(0);
 
   await lecturer.getByRole("button", { name: copy.save }).click();
   await expect(lecturer.getByRole("alert").filter({ hasText: edit.refused })).toBeVisible();

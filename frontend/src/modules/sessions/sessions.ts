@@ -30,10 +30,34 @@ export function costText(value: string): string {
   return formatNumber(value, { decimals: 2 });
 }
 
-/** The Demand pattern in words: the step pattern as «4, så 8 fra Uke 5». */
+/** The Demand pattern in words: the step pattern as «4, så 8 fra Uke 5» (Story 5.4 words the rest). */
 export function demandText(demand: GameSettings["demand"]): string {
-  if (demand.kind === "step") return copy.values.step(demand.start, demand.new_level, demand.change_week);
-  return copy.values.otherDemand;
+  const v = copy.values;
+  switch (demand.kind) {
+    case "step":
+      return v.step(demand.start, demand.new_level, demand.change_week);
+    case "step+noise":
+      return v.stepNoise(demand.start, demand.new_level, demand.change_week, demand.spread);
+    case "random":
+      return v.random(demand.mean, demand.spread);
+    case "fixed":
+      return v.fixed(demand.values.length);
+  }
+}
+
+/** The demand in two short lines under «Kundene» in «Kjeden ved start» (mockup 03, Issue #98). */
+export function customerLines(demand: GameSettings["demand"]): readonly [string, string] {
+  const c = copy.chain.customerLines;
+  switch (demand.kind) {
+    case "step":
+      return c.step(demand.start, demand.new_level, demand.change_week);
+    case "step+noise":
+      return c.stepNoise(demand.start, demand.new_level, demand.change_week, demand.spread);
+    case "random":
+      return c.random(demand.mean, demand.spread);
+    case "fixed":
+      return c.fixed(demand.values.length);
+  }
 }
 
 export type SettingRow = { key: string; label: string; value: string };
@@ -54,6 +78,10 @@ export function settingRows(settings: GameSettings, inactivityLimitHours: number
     { key: "backorder_cost", label: s.backorderCost, value: v.cost(costText(settings.backorder_cost)) },
     { key: "weeks", label: s.weeks, value: formatNumber(settings.weeks) },
     { key: "demand", label: s.demand, value: demandText(settings.demand) },
+    // The seed of a pattern that draws: the same seed gives the same series (Story 5.4).
+    ...(settings.demand.kind === "random" || settings.demand.kind === "step+noise"
+      ? [{ key: "demand_seed", label: s.seed, value: String(settings.demand_seed ?? "") }]
+      : []),
     { key: "guided_weeks", label: s.guidedWeeks, value: v.guidedWeeks(settings.guided_weeks) },
     { key: "max_order", label: s.maxOrder, value: formatNumber(settings.max_order) },
     { key: "inactivity_limit_hours", label: s.inactivityLimit, value: v.inactivityLimit(inactivityLimitHours) },
@@ -69,5 +97,6 @@ export function chainText(settings: GameSettings): string {
     shipping: settings.shipping_delay,
     production: settings.production_delay,
     order: settings.order_delay,
+    demand: demandText(settings.demand),
   });
 }

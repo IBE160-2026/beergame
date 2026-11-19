@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { GameSettings } from "./api";
-import { chainText, costText, demandText, settingRows, upstreamFirst } from "./sessions";
+import { chainText, costText, customerLines, demandText, settingRows, upstreamFirst } from "./sessions";
 
 /** A settings object as the API sends it. The values are a test fixture, not a copy of the
  * Classic preset: the web app reads them, it never supplies them. */
@@ -47,13 +47,40 @@ describe("the Klasseøkt (Story 5.1)", () => {
     expect(chainText(settings)).toBe(
       "Fabrikk, Distributør, Grossist og Detaljist starter med Lager 12 hver. Hver boks på røret er 4 enheter. " +
         "Frakt mellom leddene tar 3 uker, og produksjon inn til Fabrikk tar 1 uke. " +
-        "Prikkene er ordre på vei, 2 uker. Studentene ser ikke kundene under spillet.",
+        "Prikkene er ordre på vei, 2 uker. Kundenes etterspørsel: 4, så 8 fra Uke 5. Studentene ser ikke kundene under spillet.",
     );
   });
 
-  it("writes decimals with a comma and names a pattern it does not word yet", () => {
+  it("writes decimals with a comma", () => {
     expect(costText("12.25")).toBe("12,25");
     expect(costText("0.5")).toBe("0,50");
-    expect(demandText({ kind: "fixed", values: [4, 4] })).toBe("Eget mønster");
+  });
+});
+
+describe("the Demand pattern in words (Story 5.4)", () => {
+  const step = { kind: "step", start: 4, new_level: 8, change_week: 5 } as const;
+  const noise = { kind: "step+noise", start: 4, new_level: 8, change_week: 5, spread: 2 } as const;
+  const random = { kind: "random", mean: 8, spread: 2 } as const;
+  const fixed = { kind: "fixed" as const, values: [4, 4, 8] };
+
+  it("words every pattern in the settings list", () => {
+    expect(demandText(step)).toBe("4, så 8 fra Uke 5");
+    expect(demandText(noise)).toBe("4, så 8 fra Uke 5, ± 2 tilfeldig");
+    expect(demandText(random)).toBe("Tilfeldig, 8 ± 2");
+    expect(demandText(fixed)).toBe("Fast serie over 3 uker");
+  });
+
+  it("lists the seed under the pattern only when the pattern draws", () => {
+    const rows = (demand: GameSettings["demand"]) => settingRows({ ...settings, demand }, 24).map((r) => r.label);
+    expect(rows(step)).not.toContain("Frø");
+    expect(settingRows({ ...settings, demand: random }, 24).find((r) => r.key === "demand_seed")?.value).toBe("42");
+    expect(rows(noise)).toContain("Frø");
+  });
+
+  it("puts two short lines under «Kundene», as mockup 03", () => {
+    expect(customerLines(step)).toEqual(["4, så 8", "fra Uke 5"]);
+    expect(customerLines(noise)).toEqual(["4, så 8 ± 2", "fra Uke 5"]);
+    expect(customerLines(random)).toEqual(["8 ± 2", "tilfeldig"]);
+    expect(customerLines(fixed)).toEqual(["Fast serie", "3 uker"]);
   });
 });
