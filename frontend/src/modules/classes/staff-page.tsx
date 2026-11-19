@@ -158,6 +158,7 @@ function StaffLists({ classId, data, self }: { classId: string; data: ClassStaff
           person={open.person}
           lecturer={open.lecturer}
           self={open.person.user_id === self}
+          last={open.lecturer && data.lecturers.length === 1}
           onDone={done}
           onCancel={cancel}
         />
@@ -353,6 +354,7 @@ function RemovePanel({
   person,
   lecturer,
   self,
+  last,
   onDone,
   onCancel,
 }: {
@@ -360,6 +362,9 @@ function RemovePanel({
   person: StaffLecturer | StaffAssistant;
   lecturer: boolean;
   self: boolean;
+  /** The Class's only Faglærer: the refusal stands where the consequence would, with no button
+   * that could only be refused. */
+  last: boolean;
   onDone: (text: string) => void;
   onCancel: () => void;
 }) {
@@ -387,15 +392,17 @@ function RemovePanel({
     },
   });
   const expired = "status" in person && person.status === "expired";
-  const consequence = invitation
-    ? expired
-      ? copy.withdrawExpired(person.email)
-      : copy.withdraw(person.email)
-    : self
-      ? copy.removeSelf
-      : lecturer
-        ? copy.removeLecturer(who)
-        : copy.removeAssistant(who);
+  const consequence = last
+    ? copy.lastOwner
+    : invitation
+      ? expired
+        ? copy.withdrawExpired(person.email)
+        : copy.withdraw(person.email)
+      : self
+        ? copy.removeSelf
+        : lecturer
+          ? copy.removeLecturer(who)
+          : copy.removeAssistant(who);
   const id = `staff-remove-${rowKey(person)}`;
   return (
     <div role="group" aria-labelledby={`${id}-title`} className={PANEL}>
@@ -405,28 +412,34 @@ function RemovePanel({
       <p id={`${id}-consequence`} className="text-body-phone text-ink [overflow-wrap:anywhere]">
         {consequence}
       </p>
-      <Buttons
-        ref={button}
-        type="button"
-        submit={action.isPending ? copy.saving : invitation ? copy.withdrawSubmit : copy.removeSubmit}
-        describedBy={`${id}-consequence`}
-        pending={action.isPending}
-        onSubmit={() => {
-          if (action.isPending) return;
-          action.mutate(undefined, {
-            onError: (failure) => {
-              // Gone already: say so in the result line, and the list shows what the api has now.
-              if (errorCode(failure) === "not_found") {
-                invalidateStaff(queryClient, classId);
-                onDone(copy.gone);
-              }
-            },
-          });
-        }}
-        onCancel={() => {
-          if (!action.isPending) onCancel();
-        }}
-      />
+      {last ? (
+        <button ref={button} type="button" className={LINK_BUTTON} onClick={onCancel}>
+          {copy.cancel}
+        </button>
+      ) : (
+        <Buttons
+          ref={button}
+          type="button"
+          submit={action.isPending ? copy.saving : invitation ? copy.withdrawSubmit : copy.removeSubmit}
+          describedBy={`${id}-consequence`}
+          pending={action.isPending}
+          onSubmit={() => {
+            if (action.isPending) return;
+            action.mutate(undefined, {
+              onError: (failure) => {
+                // Gone already: say so in the result line, and the list shows what the api has now.
+                if (errorCode(failure) === "not_found") {
+                  invalidateStaff(queryClient, classId);
+                  onDone(copy.gone);
+                }
+              },
+            });
+          }}
+          onCancel={() => {
+            if (!action.isPending) onCancel();
+          }}
+        />
+      )}
       <ActionError message={errorCode(action.error) === "not_found" ? undefined : action.errorMessage} />
     </div>
   );

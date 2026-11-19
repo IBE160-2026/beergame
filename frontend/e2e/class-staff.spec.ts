@@ -63,11 +63,12 @@ test("the Faglærer shares the Class with a co-owner and an Assistant, and remov
   await expect(lecturers.getByRole("listitem")).toContainText(copy.active);
   await expect(assistants.getByText(copy.assistantScope)).toBeVisible();
 
-  // The last Faglærer cannot leave: the reason is shown and the Class keeps its owner.
+  // The last Faglærer cannot leave: the reason stands where the consequence would, with no button
+  // that could only be refused, and the Class keeps its owner.
   await lecturers.getByRole("button", { name: new RegExp(`^${copy.remove} `) }).click();
-  await expect(lecturers.getByText(copy.removeSelf)).toBeVisible();
-  await lecturers.getByRole("button", { name: copy.removeSubmit }).click();
   await expect(lecturers.getByText(copy.lastOwner)).toBeVisible();
+  await expect(lecturers.getByRole("button", { name: copy.removeSubmit })).toHaveCount(0);
+  await expect(lecturers.getByRole("button", { name: copy.cancel })).toBeFocused();
   await lecturers.getByRole("button", { name: copy.cancel }).click();
 
   // «Legg til Faglærer»: an address without the role is refused beside the field without account
