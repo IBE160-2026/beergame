@@ -123,6 +123,55 @@ async def test_a_bounce_posted_to_the_webhook_shows_in_the_counts(klass):
     ]
 
 
+def provider_id_of(invitation_id) -> str:
+    [(provider_id,)] = rows(
+        "SELECT d.provider_message_id FROM mail_deliveries d JOIN notices n "
+        "ON n.id = ANY(d.notice_ids) WHERE n.ref = %s",
+        invitation_id,
+    )
+    return provider_id
+
+
+async def remind_and_drain(klass: str) -> None:
+    async with client() as c:
+        await as_user(c)
+        response = await c.post(
+            f"/api/classes/{klass}/reminders", json={"valid_days": 14}, headers=CSRF
+        )
+    assert response.status_code == 201
+    await drain(NOW)
+
+
+@pytest.mark.parametrize("second", ["delivered", "bounced"])
+async def test_a_re_sent_invitation_counts_each_mail_and_lists_by_the_newest(klass, second):
+    """Story 4.6's deferred case, reachable with Story 4.7's reminders: an address whose first
+    Invitation bounced (soft) and was sent again. Both Invitations count as sent; the bounced list
+    follows the newest Invitation only."""
+    from tests.messaging.test_webhook import event, signed
+
+    await sent_class(klass, ["a@x.no"])
+    await bounce("a@x.no", "soft")
+    await remind_and_drain(klass)
+    newest = rows("SELECT id FROM invitations WHERE voided_at IS NULL AND accepted_at IS NULL")[0][
+        0
+    ]
+    if second == "delivered":
+        body = event("email.delivered", provider_id_of(newest))
+        async with client() as c:
+            posted = await c.post("/api/webhooks/resend", content=body, headers=signed(body))
+        assert posted.json() == {"outcome": "stored"}
+    else:
+        await bounce("a@x.no", "hard")
+    found = (await summary(klass)).json()
+    if second == "delivered":
+        assert (found["sent"], found["bounced"], found["bounces"]) == (2, 1, [])
+    else:
+        assert (found["sent"], found["bounced"]) == (2, 2)
+        assert found["bounces"] == [
+            {"email": "a@x.no", "registration": "bounced", "bounce_class": "hard"}
+        ]
+
+
 async def test_expired_is_read_at_request_time_and_leaves_accepted_ones_out(klass, monkeypatch):
     await sent_class(klass)
     accept("c@x.no")
@@ -146,6 +195,13 @@ async def test_a_registered_or_removed_address_is_counted_but_not_listed_as_boun
     execute("UPDATE roster_entries SET removed_at = %s WHERE email = %s", NOW, "b@x.no")
     body = (await summary(klass)).json()
     assert (body["sent"], body["bounced"], body["bounces"]) == (2, 2, [])
+
+
+async def test_a_manually_registered_address_is_not_listed_as_bounced(klass):
+    await sent_class(klass, ["a@x.no"])
+    await bounce("a@x.no", "hard")
+    execute("UPDATE roster_entries SET registration = 'registered_manually'")
+    assert (await summary(klass)).json()["bounces"] == []
 
 
 async def test_counts_are_per_class(klass):

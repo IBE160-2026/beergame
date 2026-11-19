@@ -644,6 +644,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/classes/{class_id}/registrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Registrations
+         * @description «Status etter utsending» (Story 4.7, FR-9): every Roster address with its status, read now
+         *     (registered, registered manually, asked for a new Invitation, bounced with its class, invited
+         *     with its last valid day, unregistered), the totals and how many have not registered. A Class
+         *     the User may not manage, one that does not exist and an id that is not one all answer the
+         *     same 403 `forbidden`.
+         */
+        get: operations["getRegistrations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/{class_id}/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Reminders
+         * @description «Send påminnelse» (Story 4.7, FR-9, NFR-10): a new Invitation valid through the
+         *     `valid_days`-th day after today (Europe/Oslo) to every address that has not registered, or
+         *     with `roster_entry_id` to that one alone; their old links stop working. Addresses whose last
+         *     mail bounced hard are left out and named in `left_out`. 422 `nothing_to_send` when nothing
+         *     would be sent or left out (all registered, or the entry is registered or not on the Roster);
+         *     422 `invalid_request` with `fields.valid_days` for a validity outside 1–60 days.
+         */
+        post: operations["sendReminders"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/classes/{class_id}/roster-paste": {
         parameters: {
             query?: never;
@@ -1229,6 +1278,99 @@ export interface components {
         PasswordResetIn: {
             /** Email */
             email: string;
+        };
+        /**
+         * RegistrationOut
+         * @description One address on the Roster with its status. `id` names the Roster entry for a reminder to
+         *     it alone; `remindable` is whether a reminder would go to it (not registered, not a hard
+         *     bounce).
+         */
+        RegistrationOut: {
+            bounce_class?: components["schemas"]["BounceClass"] | null;
+            /** Email */
+            email: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Valid Day */
+            last_valid_day?: string | null;
+            /** Remindable */
+            remindable: boolean;
+            status: components["schemas"]["RegistrationStatus"];
+        };
+        /**
+         * RegistrationStatus
+         * @description Where a Roster address stands, read at request time; the first that applies wins.
+         *     `registered` / `registered_manually`: a Student in the Class (stored). `renewal_requested`:
+         *     the Student asked for a new Invitation from a link that no longer works. `bounced`: the mail
+         *     of its newest Invitation did not arrive (with `bounce_class`). `invited`: its newest
+         *     Invitation still works (with `last_valid_day`). `unregistered`: its newest Invitation expired
+         *     unaccepted (or it has none).
+         * @enum {string}
+         */
+        RegistrationStatus: "registered" | "registered_manually" | "renewal_requested" | "bounced" | "invited" | "unregistered";
+        /**
+         * RegistrationTotals
+         * @description «Registrert 238», «Manuelt 2», «Uregistrert 10»: every address not removed, once.
+         */
+        RegistrationTotals: {
+            /** Registered */
+            registered: number;
+            /** Registered Manually */
+            registered_manually: number;
+            /** Unregistered */
+            unregistered: number;
+        };
+        /**
+         * RegistrationsOut
+         * @description «Status etter utsending»: the totals, how many addresses have not registered («Send
+         *     påminnelse til N»), and every address by address.
+         */
+        RegistrationsOut: {
+            /** Items */
+            items: components["schemas"]["RegistrationOut"][];
+            /** Reminder Count */
+            reminder_count: number;
+            totals: components["schemas"]["RegistrationTotals"];
+        };
+        /**
+         * ReminderIn
+         * @description «Send påminnelse»: to every address that has not registered, or with `roster_entry_id` to
+         *     that one alone, valid for `valid_days` (1–60, as a Roster send).
+         */
+        ReminderIn: {
+            /** Roster Entry Id */
+            roster_entry_id?: string | null;
+            /**
+             * Valid Days
+             * @default 14
+             */
+            valid_days: number;
+        };
+        /**
+         * ReminderOut
+         * @description What the result line states: how many reminders went out, until when they work, and the
+         *     addresses left out because their last mail bounced hard (to correct or register by hand).
+         */
+        ReminderOut: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Last Valid Day
+             * Format: date
+             */
+            last_valid_day: string;
+            /** Left Out */
+            left_out: string[];
+            /** Sent */
+            sent: number;
+            /** Valid Days */
+            valid_days: number;
         };
         /**
          * ResetEmailOut
@@ -3144,6 +3286,108 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getRegistrations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sendReminders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReminderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -871,3 +871,122 @@ async def class_student_invitations(session: AsyncSession, class_id: uuid.UUID) 
         .order_by(invitations.c.id)
     )
     return list(result.mappings())
+
+
+# Registration status and reminders (Story 4.7).
+
+
+async def class_roster_facts(session: AsyncSession, class_id: uuid.UUID) -> list[RowMapping]:
+    """Every Roster entry of the Class that has not been removed, by address, with its newest
+    Student Invitation (by id, a UUIDv7: the last one made; NULL columns when none) and whether
+    a Student asked for a new one from any of its links that was not accepted."""
+    newest = (
+        select(
+            invitations.c.roster_entry_id,
+            invitations.c.id.label("invitation_id"),
+            invitations.c.expires_at,
+            invitations.c.accepted_at,
+            invitations.c.voided_at,
+        )
+        .where(invitations.c.class_id == class_id, invitations.c.kind == "student")
+        .ext(distinct_on(invitations.c.roster_entry_id))
+        .order_by(invitations.c.roster_entry_id, invitations.c.id.desc())
+        .subquery()
+    )
+    asked = (
+        select(invitations.c.roster_entry_id)
+        .where(
+            invitations.c.class_id == class_id,
+            invitations.c.kind == "student",
+            invitations.c.accepted_at.is_(None),
+            invitations.c.renewal_requested_at.is_not(None),
+        )
+        .distinct()
+        .subquery()
+    )
+    result = await session.execute(
+        select(
+            roster_entries.c.id,
+            roster_entries.c.email,
+            roster_entries.c.registration,
+            newest.c.invitation_id,
+            newest.c.expires_at,
+            newest.c.accepted_at,
+            newest.c.voided_at,
+            asked.c.roster_entry_id.is_not(None).label("renewal_requested"),
+        )
+        .outerjoin(newest, newest.c.roster_entry_id == roster_entries.c.id)
+        .outerjoin(asked, asked.c.roster_entry_id == roster_entries.c.id)
+        .where(roster_entries.c.class_id == class_id, roster_entries.c.removed_at.is_(None))
+        .order_by(roster_entries.c.email)
+    )
+    return list(result.mappings())
+
+
+async def void_open_entry_invitations(
+    session: AsyncSession, class_id: uuid.UUID, entry_ids: list[uuid.UUID], now: datetime
+) -> None:
+    """Void every Student Invitation of these entries that is neither accepted nor voided. The
+    update waits for an acceptance that holds an Invitation's lock, and then leaves it out."""
+    await session.execute(
+        update(invitations)
+        .where(
+            invitations.c.class_id == class_id,
+            invitations.c.roster_entry_id.in_(entry_ids),
+            invitations.c.accepted_at.is_(None),
+            invitations.c.voided_at.is_(None),
+        )
+        .values(voided_at=now)
+    )
+
+
+async def clear_entry_renewals(
+    session: AsyncSession, class_id: uuid.UUID, entry_ids: list[uuid.UUID]
+) -> None:
+    """Answer the requests for a new Invitation of these entries: a new one is on its way."""
+    await session.execute(
+        update(invitations)
+        .where(
+            invitations.c.class_id == class_id,
+            invitations.c.roster_entry_id.in_(entry_ids),
+            invitations.c.renewal_requested_at.is_not(None),
+        )
+        .values(renewal_requested_at=None)
+    )
+
+
+async def remindable_entries(
+    session: AsyncSession, class_id: uuid.UUID, entry_ids: list[uuid.UUID], registration: str
+) -> list[tuple[uuid.UUID, str]]:
+    """The `(id, email)` of those entries of the Class that are still `registration` and not
+    removed, by id: read after the void, so an acceptance that committed meanwhile is seen."""
+    if not entry_ids:
+        return []
+    result = await session.execute(
+        select(roster_entries.c.id, roster_entries.c.email)
+        .where(
+            roster_entries.c.class_id == class_id,
+            roster_entries.c.id.in_(entry_ids),
+            roster_entries.c.registration == registration,
+            roster_entries.c.removed_at.is_(None),
+        )
+        .order_by(roster_entries.c.id)
+    )
+    return [(row.id, row.email) for row in result]
+
+
+async def registered_user_ids(
+    session: AsyncSession, class_id: uuid.UUID, registrations: list[str]
+) -> list[uuid.UUID]:
+    """The Users of the Class's entries that are in `registrations`, not removed, by User id."""
+    result = await session.execute(
+        select(roster_entries.c.user_id)
+        .where(
+            roster_entries.c.class_id == class_id,
+            roster_entries.c.registration.in_(registrations),
+            roster_entries.c.removed_at.is_(None),
+            roster_entries.c.user_id.is_not(None),
+        )
+        .order_by(roster_entries.c.user_id)
+    )
+    return list(result.scalars())

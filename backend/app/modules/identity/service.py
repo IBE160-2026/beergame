@@ -1846,8 +1846,112 @@ async def class_student_invitations(class_id: uuid.UUID, *, now: datetime) -> li
             expired=row["accepted_at"] is None
             and row["voided_at"] is None
             and row["expires_at"] <= now,
-            entry_registered=row["registration"] == RosterRegistration.registered,
+            entry_registered=row["registration"] in REGISTERED,
             entry_removed=row["removed_at"] is not None,
         )
         for row in rows
     ]
+
+
+# Registration status and reminders (Story 4.7, FR-9).
+
+REGISTERED = frozenset({RosterRegistration.registered, RosterRegistration.registered_manually})
+"""The stored registrations that make an address a Student in the Class."""
+
+
+@dataclass(frozen=True)
+class RosterFacts:
+    """A Roster entry that has not been removed, as `classes` reads its status (Story 4.7): its
+    stored registration, its newest Student Invitation (None when it has none) and whether the
+    Student asked for a new one. The address leaves `identity` only for the Lecturer's own page."""
+
+    entry_id: uuid.UUID
+    email: str
+    registration: RosterRegistration
+    invitation_id: uuid.UUID | None
+    expires_at: datetime | None
+    open: bool
+    """The newest Invitation is neither accepted nor voided, and still valid at the time asked."""
+    renewal_requested: bool
+
+
+async def class_roster(class_id: uuid.UUID, *, now: datetime) -> list[RosterFacts]:
+    """Every Roster entry of the Class that has not been removed, by address."""
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.class_roster_facts(s, class_id)
+    return [
+        RosterFacts(
+            entry_id=row["id"],
+            email=row["email"],
+            registration=RosterRegistration(row["registration"]),
+            invitation_id=row["invitation_id"],
+            expires_at=row["expires_at"],
+            open=row["invitation_id"] is not None and _invitation_open(row, now),
+            renewal_requested=row["renewal_requested"],
+        )
+        for row in rows
+    ]
+
+
+async def registered_users(class_id: uuid.UUID) -> list[uuid.UUID]:
+    """The Users who are Students in the Class: registered through an Invitation or by hand,
+    and not removed (FR-9). An address unregistered after its Invitation expired is not one."""
+    async with get_sessionmaker().begin() as s:
+        return await repo.registered_user_ids(s, class_id, [r.value for r in REGISTERED])
+
+
+async def send_entry_reminders(
+    s: AsyncSession,
+    class_id: uuid.UUID,
+    actor: uuid.UUID,
+    entry_ids: list[uuid.UUID],
+    valid_days: int,
+    *,
+    now: datetime,
+) -> RosterSent:
+    """Inside the caller's transaction: send each of these Roster entries that is still invited
+    and on the Roster a new Student Invitation valid for `valid_days` (FR-9). Its open Invitations
+    are voided first, so their links stop working, and its requests for a new one are answered.
+    Entries are read again after the void: one whose Student accepted meanwhile, or that is
+    registered, removed or of another Class, gets nothing. Serialised per Class with the Roster
+    send by the staging lock. Each mail is an `immediate` `invitation` notice with its own
+    `dedupe_key`."""
+    await repo.lock_roster_staging(s, class_id)
+    expires_at = student_invitation_expiry(now, valid_days)
+    if not entry_ids:
+        return RosterSent(sent=0, expires_at=expires_at)
+    await repo.void_open_entry_invitations(s, class_id, entry_ids, now)
+    targets = await repo.remindable_entries(
+        s, class_id, entry_ids, RosterRegistration.invited.value
+    )
+    if not targets:
+        return RosterSent(sent=0, expires_at=expires_at)
+    await repo.clear_entry_renewals(s, class_id, [entry_id for entry_id, _ in targets])
+    invitations = [
+        {
+            "id": uuid.uuid7(),
+            "kind": InvitationKind.student.value,
+            "email": address,
+            "role": None,
+            "class_id": class_id,
+            "roster_entry_id": entry_id,
+            "created_at": now,
+            "expires_at": expires_at,
+            "invited_by": actor,
+        }
+        for entry_id, address in targets
+    ]
+    for invitation in invitations:
+        invitation["token_hash"] = auth.token_hash(auth.link_token(INVITATION, invitation["id"]))
+    await repo.insert_student_invitations(s, invitations)
+    await notify.enqueue_by_ref(
+        s, INVITATION, [(f"{INVITATION}:{i['id']}", i["id"]) for i in invitations]
+    )
+    log.info(
+        "roster_reminders_sent",
+        class_id=str(class_id),
+        user_id=str(actor),
+        sent=len(invitations),
+        valid_days=valid_days,
+    )
+    return RosterSent(sent=len(invitations), expires_at=expires_at)

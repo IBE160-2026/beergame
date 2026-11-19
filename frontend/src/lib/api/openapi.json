@@ -1090,6 +1090,183 @@
         "title": "PasswordResetIn",
         "type": "object"
       },
+      "RegistrationOut": {
+        "description": "One address on the Roster with its status. `id` names the Roster entry for a reminder to\nit alone; `remindable` is whether a reminder would go to it (not registered, not a hard\nbounce).",
+        "properties": {
+          "bounce_class": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BounceClass"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_valid_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Valid Day"
+          },
+          "remindable": {
+            "title": "Remindable",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RegistrationStatus"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "status",
+          "remindable"
+        ],
+        "title": "RegistrationOut",
+        "type": "object"
+      },
+      "RegistrationStatus": {
+        "description": "Where a Roster address stands, read at request time; the first that applies wins.\n`registered` / `registered_manually`: a Student in the Class (stored). `renewal_requested`:\nthe Student asked for a new Invitation from a link that no longer works. `bounced`: the mail\nof its newest Invitation did not arrive (with `bounce_class`). `invited`: its newest\nInvitation still works (with `last_valid_day`). `unregistered`: its newest Invitation expired\nunaccepted (or it has none).",
+        "enum": [
+          "registered",
+          "registered_manually",
+          "renewal_requested",
+          "bounced",
+          "invited",
+          "unregistered"
+        ],
+        "title": "RegistrationStatus",
+        "type": "string"
+      },
+      "RegistrationTotals": {
+        "description": "«Registrert 238», «Manuelt 2», «Uregistrert 10»: every address not removed, once.",
+        "properties": {
+          "registered": {
+            "title": "Registered",
+            "type": "integer"
+          },
+          "registered_manually": {
+            "title": "Registered Manually",
+            "type": "integer"
+          },
+          "unregistered": {
+            "title": "Unregistered",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "registered",
+          "registered_manually",
+          "unregistered"
+        ],
+        "title": "RegistrationTotals",
+        "type": "object"
+      },
+      "RegistrationsOut": {
+        "description": "«Status etter utsending»: the totals, how many addresses have not registered («Send\npåminnelse til N»), and every address by address.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RegistrationOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "reminder_count": {
+            "title": "Reminder Count",
+            "type": "integer"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/RegistrationTotals"
+          }
+        },
+        "required": [
+          "totals",
+          "reminder_count",
+          "items"
+        ],
+        "title": "RegistrationsOut",
+        "type": "object"
+      },
+      "ReminderIn": {
+        "description": "«Send påminnelse»: to every address that has not registered, or with `roster_entry_id` to\nthat one alone, valid for `valid_days` (1–60, as a Roster send).",
+        "properties": {
+          "roster_entry_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roster Entry Id"
+          },
+          "valid_days": {
+            "default": 14,
+            "title": "Valid Days",
+            "type": "integer"
+          }
+        },
+        "title": "ReminderIn",
+        "type": "object"
+      },
+      "ReminderOut": {
+        "description": "What the result line states: how many reminders went out, until when they work, and the\naddresses left out because their last mail bounced hard (to correct or register by hand).",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "last_valid_day": {
+            "format": "date",
+            "title": "Last Valid Day",
+            "type": "string"
+          },
+          "left_out": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Left Out",
+            "type": "array"
+          },
+          "sent": {
+            "title": "Sent",
+            "type": "integer"
+          },
+          "valid_days": {
+            "title": "Valid Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sent",
+          "valid_days",
+          "last_valid_day",
+          "expires_at",
+          "left_out"
+        ],
+        "title": "ReminderOut",
+        "type": "object"
+      },
       "ResetEmailOut": {
         "description": "The address a reset link belongs to, so «Logg inn» can be prefilled.",
         "properties": {
@@ -3864,6 +4041,142 @@
           }
         },
         "summary": "Send Invitations",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/registrations": {
+      "get": {
+        "description": "«Status etter utsending» (Story 4.7, FR-9): every Roster address with its status, read now\n(registered, registered manually, asked for a new Invitation, bounced with its class, invited\nwith its last valid day, unregistered), the totals and how many have not registered. A Class\nthe User may not manage, one that does not exist and an id that is not one all answer the\nsame 403 `forbidden`.",
+        "operationId": "getRegistrations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Registrations",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/reminders": {
+      "post": {
+        "description": "«Send påminnelse» (Story 4.7, FR-9, NFR-10): a new Invitation valid through the\n`valid_days`-th day after today (Europe/Oslo) to every address that has not registered, or\nwith `roster_entry_id` to that one alone; their old links stop working. Addresses whose last\nmail bounced hard are left out and named in `left_out`. 422 `nothing_to_send` when nothing\nwould be sent or left out (all registered, or the entry is registered or not on the Roster);\n422 `invalid_request` with `fields.valid_days` for a validity outside 1–60 days.",
+        "operationId": "sendReminders",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Send Reminders",
         "tags": [
           "classes"
         ]

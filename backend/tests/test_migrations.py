@@ -62,7 +62,7 @@ HEAD_TABLES = (
     | CLASS_TABLES
     | ROSTER_TABLES
 )
-HEAD = "0028"  # 0028 stores what the mail provider reports (Story 4.6)
+HEAD = "0029"  # 0029 lets a Roster entry be registered manually (Story 4.7)
 
 
 def reset_schema(url: str) -> None:
@@ -527,6 +527,34 @@ def test_downgrade_to_0027_removes_the_delivery_event_columns(migrations_databas
     assert not {"delivery_state", "bounce_class", "last_event_id"} & columns()
     command.upgrade(cfg, "head")
     assert {"delivery_state", "bounce_class", "last_event_id"} <= columns()
+    assert current_version(migrations_database) == HEAD
+
+
+def test_0029_allows_manual_registration_and_its_downgrade_keeps_the_entry(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    with psycopg.connect(libpq_dsn(migrations_database), autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO institutions (id, name, created_at, updated_at) VALUES "
+            "('00000000-0000-0000-0000-000000000009', 'I', now(), now())"
+        )
+        conn.execute(
+            "INSERT INTO classes (id, name, institution_id, created_at) VALUES "
+            "('00000000-0000-0000-0000-000000000002', 'K', "
+            "'00000000-0000-0000-0000-000000000009', now())"
+        )
+        conn.execute(
+            "INSERT INTO roster_entries (id, class_id, email, registration, added_at) VALUES "
+            "(gen_random_uuid(), '00000000-0000-0000-0000-000000000002', 'm@x.no', "
+            "'registered_manually', now())"
+        )
+    command.downgrade(cfg, "0028")
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        assert conn.execute("SELECT registration FROM roster_entries").fetchall() == [
+            ("registered",)
+        ]
+    command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 
 

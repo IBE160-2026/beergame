@@ -10,12 +10,14 @@ import { PageShell } from "@/modules/identity/page-shell";
 
 import { classKey, useClass } from "./api";
 import { InvitationSummary } from "./invitation-summary";
+import { RegistrationStatus } from "./registration-status";
 import { RosterUpload } from "./roster-upload";
 
 /**
  * A Class's own page (Story 4.1): its name as the heading, then the course code and Institution,
  * and for its owner the Roster upload (Story 4.2) with how many addresses the Roster holds (Story
- * 4.4), and what became of the Invitations (Story 4.6). Later stories add staff. A Class the
+ * 4.4), what became of the Invitations (Story 4.6) and where each address stands, with reminders
+ * (Story 4.7). Later stories add staff. A Class the
  * Lecturer is not staff of, one that does not exist and an address that names no Class all show
  * the permission-denied page (FR-5): the api answers them alike.
  */
@@ -81,6 +83,8 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
       ) : null}
       {/* What became of the Invitations (Story 4.6), once a mail has gone out. */}
       {item?.staff_role === "owner" && item.roster_count > 0 ? <InvitationSummary classId={item.id} /> : null}
+      {/* Where each address stands, and reminders (Story 4.7), once the Roster has addresses. */}
+      {item?.staff_role === "owner" && item.roster_count > 0 ? <RegistrationStatus classId={item.id} /> : null}
     </PageShell>
   );
 }

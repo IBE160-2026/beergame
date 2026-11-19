@@ -146,11 +146,16 @@ class RosterSendIn(BaseModel):
     @field_validator("valid_days")
     @classmethod
     def _range(cls, value: int) -> int:
-        if not INVITATION_VALID_DAYS_MIN <= value <= INVITATION_VALID_DAYS_MAX:
-            raise PydanticCustomError(
-                "valid_days_out_of_range", "The validity is outside the allowed range."
-            )
-        return value
+        return valid_days_in_range(value)
+
+
+def valid_days_in_range(value: int) -> int:
+    """A validity outside the range is refused as `valid_days_out_of_range`."""
+    if not INVITATION_VALID_DAYS_MIN <= value <= INVITATION_VALID_DAYS_MAX:
+        raise PydanticCustomError(
+            "valid_days_out_of_range", "The validity is outside the allowed range."
+        )
+    return value
 
 
 class RosterSendOut(BaseModel):
@@ -200,3 +205,76 @@ class InvitationSummaryOut(BaseModel):
     accepted: int
     expired: int
     bounces: list[InvitationBounce]
+
+
+# Registration status and reminders (Story 4.7, FR-9, NFR-10, UX-DR47).
+
+
+class RegistrationStatus(StrEnum):
+    """Where a Roster address stands, read at request time; the first that applies wins.
+    `registered` / `registered_manually`: a Student in the Class (stored). `renewal_requested`:
+    the Student asked for a new Invitation from a link that no longer works. `bounced`: the mail
+    of its newest Invitation did not arrive (with `bounce_class`). `invited`: its newest
+    Invitation still works (with `last_valid_day`). `unregistered`: its newest Invitation expired
+    unaccepted (or it has none)."""
+
+    registered = "registered"
+    registered_manually = "registered_manually"
+    renewal_requested = "renewal_requested"
+    bounced = "bounced"
+    invited = "invited"
+    unregistered = "unregistered"
+
+
+class RegistrationOut(BaseModel):
+    """One address on the Roster with its status. `id` names the Roster entry for a reminder to
+    it alone; `remindable` is whether a reminder would go to it (not registered, not a hard
+    bounce)."""
+
+    id: uuid.UUID
+    email: str
+    status: RegistrationStatus
+    last_valid_day: date | None = None
+    bounce_class: BounceClass | None = None
+    remindable: bool
+
+
+class RegistrationTotals(BaseModel):
+    """«Registrert 238», «Manuelt 2», «Uregistrert 10»: every address not removed, once."""
+
+    registered: int
+    registered_manually: int
+    unregistered: int
+
+
+class RegistrationsOut(BaseModel):
+    """«Status etter utsending»: the totals, how many addresses have not registered («Send
+    påminnelse til N»), and every address by address."""
+
+    totals: RegistrationTotals
+    reminder_count: int
+    items: list[RegistrationOut]
+
+
+class ReminderIn(BaseModel):
+    """«Send påminnelse»: to every address that has not registered, or with `roster_entry_id` to
+    that one alone, valid for `valid_days` (1–60, as a Roster send)."""
+
+    roster_entry_id: uuid.UUID | None = None
+    valid_days: int = Field(default=INVITATION_VALID_DAYS_DEFAULT, strict=True)
+
+    @field_validator("valid_days")
+    @classmethod
+    def _range(cls, value: int) -> int:
+        return valid_days_in_range(value)
+
+
+class ReminderOut(BaseModel):
+    """What the result line states: how many reminders went out, until when they work, and the
+    addresses left out because their last mail bounced hard (to correct or register by hand)."""
+
+    sent: int
+    valid_days: int
+    last_valid_day: date
+    expires_at: datetime
+    left_out: list[str]

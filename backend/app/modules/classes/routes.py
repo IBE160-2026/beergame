@@ -18,6 +18,9 @@ from app.modules.classes.schemas import (
     InstitutionChoicesOut,
     InvalidClass,
     InvitationSummaryOut,
+    RegistrationsOut,
+    ReminderIn,
+    ReminderOut,
     RosterSendIn,
     RosterSendOut,
 )
@@ -368,3 +371,57 @@ async def get_invitation_summary(
     if summary is None:
         raise authz.Forbidden
     return JSONResponse(summary.model_dump(mode="json"))
+
+
+@router.get(
+    "/{class_id}/registrations",
+    response_model=RegistrationsOut,
+    responses=documented(401, 403),
+    operation_id="getRegistrations",
+)
+async def get_registrations(
+    class_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("classes.manage"))],
+) -> Response:
+    """«Status etter utsending» (Story 4.7, FR-9): every Roster address with its status, read now
+    (registered, registered manually, asked for a new Invitation, bounced with its class, invited
+    with its last valid day, unregistered), the totals and how many have not registered. A Class
+    the User may not manage, one that does not exist and an id that is not one all answer the
+    same 403 `forbidden`."""
+    found = await service.registrations(user, _class_id(class_id), now=auth.utcnow())
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
+    "/{class_id}/reminders",
+    status_code=201,
+    response_model=ReminderOut,
+    responses=documented(401, 403, 422),
+    operation_id="sendReminders",
+)
+async def send_reminders(
+    class_id: str,
+    body: ReminderIn,
+    user: Annotated[authz.Principal, Depends(authz.require("classes.manage"))],
+) -> Response:
+    """«Send påminnelse» (Story 4.7, FR-9, NFR-10): a new Invitation valid through the
+    `valid_days`-th day after today (Europe/Oslo) to every address that has not registered, or
+    with `roster_entry_id` to that one alone; their old links stop working. Addresses whose last
+    mail bounced hard are left out and named in `left_out`. 422 `nothing_to_send` when nothing
+    would be sent or left out (all registered, or the entry is registered or not on the Roster);
+    422 `invalid_request` with `fields.valid_days` for a validity outside 1–60 days."""
+    try:
+        sent = await service.send_reminders(
+            user,
+            _class_id(class_id),
+            body.valid_days,
+            entry_id=body.roster_entry_id,
+            now=auth.utcnow(),
+        )
+    except service.NoReminderTarget:
+        return error_response(422, "nothing_to_send", "No address gets a reminder.")
+    if sent is None:
+        raise authz.Forbidden
+    return JSONResponse(sent.model_dump(mode="json"), status_code=201)

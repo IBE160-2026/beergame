@@ -23,10 +23,13 @@ class InvitationKind(StrEnum):
 
 
 class RosterRegistration(StrEnum):
-    """Where a Roster address stands (Story 4.4). Stories 4.5–4.8 add their states."""
+    """Where a Roster address stands, as stored (Story 4.4). Bounces, expiry and requests for a
+    new Invitation are read from the Invitations, never stored here (Story 4.7)."""
 
     invited = "invited"
     registered = "registered"
+    # Written by Story 4.8's manual registration; read by Story 4.7's status list.
+    registered_manually = "registered_manually"
 
 
 class LoginIn(BaseModel):

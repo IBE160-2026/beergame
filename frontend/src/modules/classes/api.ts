@@ -160,3 +160,35 @@ export function useInvitationSummary(classId: string) {
     refetchInterval: INVITATION_SUMMARY_REFRESH_MS,
   });
 }
+
+// Registration status and reminders (Story 4.7, FR-9).
+
+export type Registrations = components["schemas"]["RegistrationsOut"];
+export type Registration = components["schemas"]["RegistrationOut"];
+export type RegistrationStatus = components["schemas"]["RegistrationStatus"];
+export type RemindersSent = components["schemas"]["ReminderOut"];
+
+export const registrationsKey = (classId: string) => ["classes", "registrations", classId] as const;
+
+/** Every Roster address with its status, the totals and how many have not registered, read by
+ * the api now. Read again every 15 s while the tab is visible, as the counts are. */
+export function useRegistrations(classId: string) {
+  return useQuery({
+    queryKey: registrationsKey(classId),
+    queryFn: () =>
+      request(() => api.GET("/api/classes/{class_id}/registrations", { params: { path: { class_id: classId } } })),
+    retry: false,
+    refetchInterval: INVITATION_SUMMARY_REFRESH_MS,
+  });
+}
+
+/** «Send påminnelse»: a new Invitation to every address that has not registered, or with
+ * `entryId` to that one alone, valid for `validDays`. */
+export function sendReminders(classId: string, validDays: number, entryId?: string) {
+  return request(() =>
+    api.POST("/api/classes/{class_id}/reminders", {
+      params: { path: { class_id: classId } },
+      body: entryId ? { valid_days: validDays, roster_entry_id: entryId } : { valid_days: validDays },
+    }),
+  );
+}

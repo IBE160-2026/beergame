@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.classes import repo
 from app.modules.classes.schemas import (
+    BounceClass,
     ClassIn,
     ClassListItem,
     ClassListOut,
@@ -27,6 +28,11 @@ from app.modules.classes.schemas import (
     InvalidClass,
     InvitationBounce,
     InvitationSummaryOut,
+    RegistrationOut,
+    RegistrationsOut,
+    RegistrationStatus,
+    RegistrationTotals,
+    ReminderOut,
     RosterSendOut,
     StaffRole,
     class_name,
@@ -275,6 +281,131 @@ async def invitation_summary(
         expired=sum(i.expired for i in found),
         bounces=sorted(bounces, key=lambda b: b.email),
     )
+
+
+def _status(
+    facts: identity.RosterFacts, mail: messaging.InvitationDelivery | None
+) -> RegistrationOut:
+    """One address's status (Story 4.7): the first of registered, registered manually, asked for
+    a new Invitation, bounced, invited, unregistered that applies."""
+    bounce = (
+        mail.bounce_class
+        if mail is not None and mail.state == "bounced" and mail.bounce_class is not None
+        else None
+    )
+    last_day = (
+        identity.last_valid_day(facts.expires_at) if facts.open and facts.expires_at else None
+    )
+    if facts.registration in identity.REGISTERED:
+        status = RegistrationStatus(facts.registration.value)
+    elif facts.renewal_requested:
+        status = RegistrationStatus.renewal_requested
+    elif bounce is not None:
+        status = RegistrationStatus.bounced
+    elif facts.open:
+        status = RegistrationStatus.invited
+    else:
+        status = RegistrationStatus.unregistered
+    registered = facts.registration in identity.REGISTERED
+    return RegistrationOut(
+        id=facts.entry_id,
+        email=facts.email,
+        status=status,
+        last_valid_day=last_day if status is RegistrationStatus.invited else None,
+        bounce_class=BounceClass(bounce) if status is RegistrationStatus.bounced else None,
+        remindable=not registered and bounce != BounceClass.hard,
+    )
+
+
+async def _statuses(class_id: uuid.UUID, now: datetime) -> list[RegistrationOut]:
+    roster = await identity.class_roster(class_id, now=now)
+    mails = await messaging.invitation_deliveries(
+        [f.invitation_id for f in roster if f.invitation_id is not None]
+    )
+    return [
+        _status(f, mails.get(f.invitation_id) if f.invitation_id is not None else None)
+        for f in roster
+    ]
+
+
+async def registrations(
+    user: authz.Principal, class_id: uuid.UUID, *, now: datetime
+) -> RegistrationsOut | None:
+    """«Status etter utsending» (Story 4.7, FR-9, UX-DR47): every Roster address with its status,
+    read now from `identity`'s Roster and Invitations and `messaging`'s delivery state, and the
+    totals. None when the User may not manage the Class."""
+    if not await may_manage(user, class_id):
+        return None
+    items = await _statuses(class_id, now)
+    registered = sum(i.status is RegistrationStatus.registered for i in items)
+    manual = sum(i.status is RegistrationStatus.registered_manually for i in items)
+    unregistered = len(items) - registered - manual
+    return RegistrationsOut(
+        totals=RegistrationTotals(
+            registered=registered, registered_manually=manual, unregistered=unregistered
+        ),
+        reminder_count=unregistered,
+        items=items,
+    )
+
+
+class NoReminderTarget(Exception):
+    """Nothing to remind: every address is registered, or the one named is not on the Roster,
+    registered, or of another Class (`nothing_to_send`)."""
+
+
+async def send_reminders(
+    user: authz.Principal,
+    class_id: uuid.UUID,
+    valid_days: int,
+    *,
+    entry_id: uuid.UUID | None = None,
+    now: datetime,
+) -> ReminderOut | None:
+    """«Send påminnelse til N» (Story 4.7, FR-9, NFR-10): a new Invitation valid for
+    `valid_days` to every address that has not registered, or to `entry_id` alone, voiding the
+    old links, in one transaction; the mails leave from `worker-batch`. An address whose newest
+    Invitation bounced hard is left out and named in the answer. None when the User may not
+    manage the Class. Raises `NoReminderTarget`."""
+    if not await may_manage(user, class_id):
+        return None
+    items = await _statuses(class_id, now)
+    if entry_id is not None:
+        items = [i for i in items if i.id == entry_id]
+    waiting = [
+        i
+        for i in items
+        if i.status not in (RegistrationStatus.registered, RegistrationStatus.registered_manually)
+    ]
+    targets = [i.id for i in waiting if i.remindable]
+    left_out = sorted(i.email for i in waiting if not i.remindable)
+    async with get_sessionmaker().begin() as s:
+        sent = await identity.send_entry_reminders(
+            s, class_id, user.id, targets, valid_days, now=now
+        )
+    if sent.sent == 0 and not left_out:
+        log.info("reminders_refused", class_id=str(class_id), error_code="nothing_to_send")
+        raise NoReminderTarget
+    log.info(
+        "reminders_answered",
+        class_id=str(class_id),
+        sent=sent.sent,
+        left_out=len(left_out),
+    )
+    return ReminderOut(
+        sent=sent.sent,
+        valid_days=valid_days,
+        last_valid_day=identity.last_valid_day(sent.expires_at),
+        expires_at=sent.expires_at,
+        left_out=left_out,
+    )
+
+
+async def registered_students(class_id: uuid.UUID) -> list[uuid.UUID]:
+    """The Users who are Students in the Class (FR-9), for Epic 5's allocation: registered
+    through an Invitation or by hand, and not removed. An address unregistered after its
+    Invitation expired, a bounced or a removed one is never among them."""
+    return await identity.registered_users(class_id)
 
 
 async def label_of_class(session: AsyncSession, class_id: uuid.UUID) -> identity.ClassLabel | None:

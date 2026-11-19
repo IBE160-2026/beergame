@@ -114,6 +114,26 @@ only `classes.service`.
   the newest mail sent to an address and passes it through the same handler. Like the dev mailbox
   it is not mounted in production; production also refuses the local default secret.
 
+### Registration status and reminders (Story 4.7)
+
+- `GET /api/classes/{id}/registrations` (owners) reads every Roster address that is not removed
+  with its status, derived at read time and never stored: `registered`, `registered_manually`
+  (migration 0029 allows the value; Story 4.8 writes it), `renewal_requested` (a Student asked for
+  a new Invitation from a link that no longer works), `bounced` (+`bounce_class`, the newest
+  Invitation's mail), `invited` (+`last_valid_day`), `unregistered` (newest Invitation expired or
+  voided). The first that applies wins. Totals: registered, manual, and the rest as unregistered;
+  `reminder_count` is the unregistered total.
+- `POST /api/classes/{id}/reminders` `{valid_days, roster_entry_id?}` sends a new Invitation to
+  every address that has not registered, or to one. In one transaction under the Roster staging
+  lock, `identity.service.send_entry_reminders` voids the entries' open Invitations, reads the
+  entries again (an acceptance that committed meanwhile gets nothing), clears their renewal
+  requests and enqueues one `invitation` notice per new Invitation. An address whose newest
+  Invitation bounced hard is left out, for all and for one, and named in `left_out`. Nothing to
+  send and nothing left out is 422 `nothing_to_send`.
+- `service.registered_students(class_id)` gives Epic 5 the Users of registered and manually
+  registered entries that are not removed; an address unregistered after expiry is never among
+  them.
+
 ## Open point for the founder: real Canvas exports
 
 The upload is tested only on synthetic fixtures with invented names and addresses, in the column

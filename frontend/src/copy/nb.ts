@@ -371,6 +371,56 @@ export const nb = {
         bounceClass === "hard" ? "Kom ikke fram, permanent feil" : "Kom ikke fram, midlertidig feil",
       failed: "Tallene for Invitasjonene kunne ikke hentes.",
     },
+    /** «Status etter utsending» on the Class page (Story 4.7, FR-9, NFR-10, UX-DR47). The title,
+     * «Registrert», «Manuelt», «Uregistrert» and «Send påminnelse til N» are EXPERIENCE.md's own;
+     * the rest is [ASSUMPTION] draft copy. */
+    registration: {
+      title: "Status etter utsending",
+      /** The totals, in text beside the bar's keys: «Registrert 238». */
+      registered: "Registrert",
+      manual: "Manuelt",
+      unregistered: "Uregistrert",
+      total: (label: string, count: number) => `${label} ${count}`,
+      remindAll: (count: number) => `Send påminnelse til ${count}`,
+      /** The confirm panel the link opens. */
+      confirmTitle: "Send påminnelse",
+      confirmLead: "Alle som ikke har registrert seg, får en ny Invitasjon. Den gamle lenken slutter å virke.",
+      confirmLeft: (count: number) =>
+        `${count} ${count === 1 ? "adresse" : "adresser"} med permanent feil får ingen påminnelse.`,
+      confirm: (count: number) => `Send ${count} ${count === 1 ? "påminnelse" : "påminnelser"}`,
+      cancel: "Avbryt",
+      sending: "Sender …",
+      /** The result line: «4 påminnelser sendt. Gyldige til og med 3. desember.» */
+      sent: (count: number, lastDay: string) =>
+        count === 0
+          ? "Ingen påminnelser sendt."
+          : `${count} ${count === 1 ? "påminnelse sendt. Gyldig" : "påminnelser sendt. Gyldige"} til og med ${lastDay}.`,
+      resent: (address: string, lastDay: string) => `Ny Invitasjon sendt til ${address}. Gyldig til og med ${lastDay}.`,
+      /** The hard-bounced addresses a reminder left out, named so they can be corrected. */
+      leftOut: "Ikke sendt, fordi e-posten ikke kom fram (permanent feil):",
+      sendFailed: "Påminnelsene ble ikke sendt. Prøv igjen.",
+      nothingToSend: "Ingen av adressene trenger en påminnelse nå.",
+      failed: "Statusen for Klasselista kunne ikke hentes.",
+      /** The list under the totals. */
+      listTitle: "Adresser",
+      filter: "Vis",
+      filterAll: "Alle statuser",
+      search: "Søk etter adresse",
+      shown: (shown: number, total: number) => `Viser ${shown} av ${total} adresser.`,
+      noMatch: "Ingen adresser passer til søket.",
+      resend: "Send ny Invitasjon",
+      resendFor: (address: string) => `Send ny Invitasjon til ${address}`,
+      /** Each status in text, never colour alone (FR-9, NFR-10). */
+      status: {
+        registered: "Registrert",
+        registered_manually: "Registrert manuelt",
+        renewal_requested: "Ba om ny Invitasjon",
+        bounced: "Kom ikke fram",
+        invited: "Invitert",
+        unregistered: "Uregistrert, Invitasjonen er utløpt",
+      },
+      invitedUntil: (lastDay: string) => `Invitert, gyldig til og med ${lastDay}`,
+    },
     /** The Roster upload on the Class page (Story 4.2, FR-7, UX-DR47). «Velg fil», «Lim inn
      * adresser i stedet», «250 rader lest», «Bytt fil», «E-postkolonne», the reason and the
      * unreadable line are EXPERIENCE.md's and DESIGN.md's own; the rest is [ASSUMPTION] Story 4.2. */
