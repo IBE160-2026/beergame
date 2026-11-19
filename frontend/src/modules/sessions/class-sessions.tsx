@@ -52,7 +52,7 @@ export function ClassSessions({ classId, canCreate }: { classId: string; canCrea
       {items && items.length > 0 ? (
         <ul className="mt-2 max-w-2xl">
           {items.map((item) => (
-            <li key={item.id} className="flex flex-wrap items-baseline justify-between gap-x-4 border-b border-hairline py-1">
+            <li key={item.id} className="flex flex-col items-start border-b border-hairline pb-2 sm:flex-row sm:items-baseline sm:justify-between sm:gap-x-4 sm:py-1">
               <Link href={classSessionPath(item.id)} standalone>
                 {copy.item(formatTime(item.created_at))}
               </Link>

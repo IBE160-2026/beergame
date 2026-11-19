@@ -7,20 +7,24 @@ import { chainText, roleName, upstreamFirst } from "./sessions";
 
 const copy = nb.sessions.chain;
 
-const ROLE_W = 44;
-const SLOT_W = 16;
-const SLOT_H = 10;
-const PIPE_PAD = 10;
+// The diagram is drawn at its natural width or wider, so one SVG unit is at least one CSS pixel and
+// the 13-unit labels keep DESIGN.md's 13 px floor (Typography → Floors), on a phone too.
+const ROLE_W = 52;
+const SLOT_W = 20;
+const SLOT_H = 12;
+const PIPE_PAD = 14;
 const PIPE_Y = 44;
-const DOT_Y = 104;
-const END_W = 84;
+const DOT_Y = 110;
+const END_W = 96;
+const HEIGHT = 120;
+const FONT = 13;
 
 /** One pipe segment: `slots` boxes on a line ending in an arrow. */
 function Pipe({ x, slots, label }: { x: number; slots: number; label: string }) {
   const width = pipeWidth(slots);
   return (
     <g>
-      <text x={x + width / 2} y={PIPE_Y - 12} textAnchor="middle" fontSize="10" fill="var(--color-ink-secondary)">
+      <text x={x + width / 2} y={PIPE_Y - 12} textAnchor="middle" fontSize={FONT} fill="var(--color-ink-secondary)">
         {label}
       </text>
       <line x1={x} y1={PIPE_Y} x2={x + width - 2} y2={PIPE_Y} stroke="var(--color-lager)" strokeWidth="1.5" />
@@ -83,10 +87,10 @@ export function ChainDiagram({ settings }: { settings: GameSettings }) {
     parts.push(
       <g key={`role-${role}`}>
         <rect x={x} y={PIPE_Y - 18} width={ROLE_W} height={36} fill="var(--color-lager)" />
-        <text x={x + ROLE_W / 2} y={PIPE_Y + 32} textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--color-ink)">
+        <text x={x + ROLE_W / 2} y={PIPE_Y + 34} textAnchor="middle" fontSize={FONT} fontWeight="600" fill="var(--color-ink)">
           {roleName(role)}
         </text>
-        <text x={x + ROLE_W / 2} y={PIPE_Y + 46} textAnchor="middle" fontSize="10" fill="var(--color-ink-secondary)">
+        <text x={x + ROLE_W / 2} y={PIPE_Y + 51} textAnchor="middle" fontSize={FONT} fill="var(--color-ink-secondary)">
           {copy.inventory(settings.starting_inventory)}
         </text>
       </g>,
@@ -97,7 +101,7 @@ export function ChainDiagram({ settings }: { settings: GameSettings }) {
     <g key="customers">
       <line x1={x + 4} y1={PIPE_Y} x2={x + 22} y2={PIPE_Y} stroke="var(--color-lager)" strokeWidth="1.5" />
       <path d={`M ${x + 18} ${PIPE_Y - 4} L ${x + 23} ${PIPE_Y} L ${x + 18} ${PIPE_Y + 4}`} fill="none" stroke="var(--color-lager)" strokeWidth="1.5" />
-      <text x={x + 26} y={PIPE_Y + 4} fontSize="11" fontWeight="600" fill="var(--color-ink)">
+      <text x={x + 26} y={PIPE_Y + 5} fontSize={FONT} fontWeight="600" fill="var(--color-ink)">
         {copy.customers}
       </text>
     </g>,
@@ -117,7 +121,7 @@ export function ChainDiagram({ settings }: { settings: GameSettings }) {
         <svg
           role="img"
           aria-labelledby={textId}
-          viewBox={`0 0 ${width} 116`}
+          viewBox={`0 0 ${width} ${HEIGHT}`}
           style={{ minWidth: `${width}px` }}
           className="block h-auto w-full"
           preserveAspectRatio="xMinYMid meet"
