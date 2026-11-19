@@ -1015,3 +1015,22 @@ Bygge Story 4.10 på `epic-4`, den siste storyen i Epic 4. Avgjøre hva en arkiv
 
 ### Åpne punkter
 - Issue #93: beslutninger, vranglås ved aksept samtidig med arkivering, og visuelle punkter.
+
+## Avslutning av Epic 4 (2026-11-19)
+
+### Oppgave
+Gjøre `epic-4` klar for PR: samlet gjennomgang, rette vranglåser og UX-punkter som var samlet opp, og få e2e-testene stabile også på gamle lokale data. Underveis ble CI gjort raskere med cache for Playwright.
+
+### Plan
+- Én underagent for den samlede gjennomgangen: to vranglåser, B-punktene fra Issue #91–#93, og oppfølging av specene for 4.3–4.6.
+- Én underagent for e2e-testene: de skal ikke avhenge av gamle data, og ustabile tester skal rettes.
+
+### Resultat
+- Commit `7e67cc4`: fast låserekkefølge (klasse → bruker → invitasjon → oppføring på klasselista), med én test per kappløp (Issue #82 punkt 2 og #93). «Send N» teller ikke gjenopprettede studenter. Tekst- og UX-rettinger i 4.8–4.10. Specene for 4.3–4.6 er ok.
+- Commit `bb73550`: `homes.spec.ts` sjekker bare egne data. Testene venter på hydrering, innloggingssvar og fonter før de måler. Den lokale grensen for innlogging per IP er hevet i compose. To trege filer har fått `test.slow()`.
+- Backend: 2278 grønne. Playwright: fire fulle kjøringer, 168/168 hver gang.
+- Issue #82 er lukket.
+
+### Åpne punkter
+- Issue #94: ett tvilsomt funn (et kolonnevalg som er underveis når en ny fil lastes opp).
+- Issue #95: to trege e2e-filer (opptil 28 s).
