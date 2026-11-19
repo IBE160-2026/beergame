@@ -1112,3 +1112,25 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 ### Åpne punkter
 - Issue 100: beslutninger og visuelle vurderinger i 5.2. Et halvveis utfylt datofelt tømmer datoen; det tas i avslutningen av Epic 5.
 - Issue #98: etterspørselen under «Kundene» står igjen, og tas i 5.4.
+
+## Story 5.3: Endre spillinnstillinger med feil og advarsler for verdiområder (2026-11-19)
+
+### Oppgave
+Bygge Story 5.3 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-3-change-game-settings-range-errors-warnings.md`.
+- **Commit 0cc0bcc:** lagring av spillinnstillinger med motorens validering, ruten `settings-check`, redigering av de elleve innstillingene med feil og advarsler, kalibreringslinje og felles tallformat.
+- **Avbrudd:** byggeagenten stoppet midt i gjennomgangen og ble sendt tilbake for å fullføre.
+- **Tester:**
+  - backend: 2347 tester (60 s);
+  - frontend: Vitest 391, typecheck, bygg og Playwright 200/200.
+- **Gjennomgang:** 33 funn, 6 middels. De middels er rettet.
+- **Visuell kontroll:** 14 skjermbilder i `screenshots/5.3/`. Ingen klare avvik; to punkter er samlet til avslutningen av epicet.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 101: beslutninger i Story 5.3.
