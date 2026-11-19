@@ -87,3 +87,10 @@ async def any_class_of(session: AsyncSession, user_id: uuid.UUID) -> bool:
     """Whether the User is staff of any Class, archived or not. For the local seed."""
     result = await session.execute(_visible(user_id).with_only_columns(classes.c.id).limit(1))
     return result.first() is not None
+
+
+async def class_name(session: AsyncSession, class_id: uuid.UUID) -> str | None:
+    """The Class's name, for the mail of its Student Invitations (no User's scope: the mail job
+    names the Class it was given by id)."""
+    result = await session.execute(select(classes.c.name).where(classes.c.id == class_id))
+    return result.scalar_one_or_none()

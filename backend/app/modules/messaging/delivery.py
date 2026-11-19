@@ -28,6 +28,9 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+# Imported for its registration: a Student Invitation's mail names its Class through the resolver
+# `classes.service` registers with `identity` at import (Story 4.4), also in the worker.
+from app.modules.classes import service as classes  # noqa: F401
 from app.modules.identity import service as identity
 from app.platform.config import Settings, get_settings
 from app.platform.email import Recipient

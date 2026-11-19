@@ -14,6 +14,8 @@ from app.modules.classes.schemas import (
     ClassOut,
     InstitutionChoicesOut,
     InvalidClass,
+    RosterSendIn,
+    RosterSendOut,
 )
 from app.modules.identity import service as identity
 from app.platform import auth, authz
@@ -278,3 +280,34 @@ async def delete_roster_upload(
     if await service.discard_roster_upload(user, _class_id(class_id)) is None:
         raise authz.Forbidden
     return Response(status_code=204)
+
+
+@router.post(
+    "/{class_id}/invitations",
+    status_code=201,
+    response_model=RosterSendOut,
+    responses=documented(401, 403, 404, 422),
+    operation_id="sendRosterInvitations",
+)
+async def send_invitations(
+    class_id: str,
+    body: RosterSendIn,
+    user: Annotated[authz.Principal, Depends(authz.require("classes.manage"))],
+) -> Response:
+    """«Send N Invitasjoner» (Story 4.4): write the staged upload's valid addresses to the Roster
+    and send each new address a Student Invitation valid through the `valid_days`-th day after
+    today (Europe/Oslo), in one transaction; the mails leave from `worker-batch`. 404
+    `not_found` when `upload_id` is not the Class's staging (sent already, replaced or expired);
+    422 `nothing_to_send` when no staged row is valid; 422 `invalid_request` with
+    `fields.valid_days` for a validity outside 1–60 days. Nothing changes on a refusal."""
+    try:
+        sent = await service.send_invitations(
+            user, _class_id(class_id), body.upload_id, body.valid_days, now=auth.utcnow()
+        )
+    except service.NothingToSend:
+        return error_response(422, "nothing_to_send", "No staged row gets an Invitation.")
+    if sent is None:
+        raise authz.Forbidden
+    if isinstance(sent, service.Staging):
+        return error_response(404, "not_found", "The staged upload is gone.")
+    return JSONResponse(sent.model_dump(mode="json"), status_code=201)

@@ -14,6 +14,21 @@ class AccountRole(StrEnum):
     lecturer = "lecturer"
 
 
+class InvitationKind(StrEnum):
+    """What an Invitation offers: an account role (Story 3.7) or a place on a Class's Roster as a
+    Student (Story 4.4). Story 4.9 adds `assistant`."""
+
+    role = "role"
+    student = "student"
+
+
+class RosterRegistration(StrEnum):
+    """Where a Roster address stands (Story 4.4). Stories 4.5–4.8 add their states."""
+
+    invited = "invited"
+    registered = "registered"
+
+
 class LoginIn(BaseModel):
     email: str = Field(max_length=320)
     password: str = Field(max_length=1024)
@@ -378,7 +393,8 @@ class RosterInvalidRow(BaseModel):
     """The row's number in the file, or the address's place in the pasted text."""
     value: str
     """The cell in the chosen column, as staged."""
-    reason: AddressProblem | Literal["duplicate"]
+    reason: AddressProblem | Literal["duplicate", "on_roster"]
+    """`on_roster`: the address is already on the Class's Roster (Story 4.4)."""
     first_row: int | None = None
     """For `duplicate`: the row where the address first occurs."""
 
@@ -386,6 +402,8 @@ class RosterInvalidRow(BaseModel):
 class RosterUploadOut(BaseModel):
     """A staged Roster upload as the Class page shows it."""
 
+    id: uuid.UUID
+    """Sent back with «Send N Invitasjoner», so a replaced staging is never sent (Story 4.4)."""
     source: RosterSource
     file_name: str
     """"" for pasted addresses."""
@@ -401,8 +419,8 @@ class RosterUploadOut(BaseModel):
     chosen_count: int
     """How many rows look like addresses in the chosen column, evaluated from the staged cells."""
     valid_count: int
-    """Rows of the chosen column that get an Invitation: valid and not a repeat of an earlier
-    row (0 with no column chosen)."""
+    """Rows of the chosen column that get an Invitation: valid, not a repeat of an earlier row
+    and not already on the Roster (0 with no column chosen)."""
     invalid_rows: list[RosterInvalidRow]
     """Every other row of the chosen column, by row number ([] with no column chosen)."""
     preview: list[RosterPreviewRow]

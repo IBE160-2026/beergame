@@ -10,9 +10,10 @@ import asyncio
 import base64
 import math
 import uuid
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Set
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 import structlog
 from sqlalchemy import RowMapping
@@ -27,6 +28,7 @@ from app.modules.identity.schemas import (
     InstitutionListOut,
     InstitutionOut,
     InvalidRosterColumn,
+    InvitationKind,
     InvitationListItem,
     InvitationListOut,
     InvitationOut,
@@ -35,6 +37,7 @@ from app.modules.identity.schemas import (
     RosterInvalidRow,
     RosterPasteTooLong,
     RosterPreviewRow,
+    RosterRegistration,
     RosterSource,
     RosterUploadOut,
     UserListItem,
@@ -465,15 +468,18 @@ async def invitation_mail_recipient(
     row = await repo.invitation_by_id(session, ref)
     if not _invitation_open(row, now):
         return None
-    return email.Recipient(
-        email=row["email"],
-        name=None,
-        context={
-            "link": f"{INVITATION_LINK_PATH}#{auth.link_token(INVITATION, ref)}",
-            "role": row["role"],
-            "valid_days": _days_left(row["expires_at"], now),
-        },
-    )
+    context: dict[str, object] = {
+        "kind": row["kind"],
+        "link": f"{INVITATION_LINK_PATH}#{auth.link_token(INVITATION, ref)}",
+        "role": row["role"],
+        "valid_days": _days_left(row["expires_at"], now),
+    }
+    if row["kind"] == InvitationKind.student:
+        name = await _class_name(session, row["class_id"])
+        if name is None:
+            return None
+        context |= {"class_name": name, "last_valid_day": last_valid_day(row["expires_at"])}
+    return email.Recipient(email=row["email"], name=None, context=context)
 
 
 async def invitation_ids_for_email(session: AsyncSession, address: str) -> list[uuid.UUID]:
@@ -530,6 +536,9 @@ async def check_invitation(token: str, *, now: datetime) -> InvitationChecked | 
     """What «Du er invitert» shows for a usable link, or None."""
     async with get_sessionmaker().begin() as s:
         row = await repo.invitation_by_hash(s, auth.token_hash(token))
+        # A Student Invitation (Story 4.4) is taken through Student registration (Story 4.5).
+        if row is not None and row["kind"] != InvitationKind.role:
+            row = None
         usable = await _usable_invitation(s, row, now)
     if usable is None:
         return None
@@ -957,7 +966,7 @@ async def resend_invitation(
     address and role replaced, and an address whose account is deactivated."""
     async with get_sessionmaker().begin() as s:
         found = await repo.invitation_by_id(s, invitation_id)
-        if found is None:
+        if found is None or found["kind"] != InvitationKind.role:
             return ResendRefused("not_found")
         address, role = found["email"], AccountRole(found["role"])
         await repo.lock_invitation_address(s, address, role.value)
@@ -1348,6 +1357,7 @@ async def stage_roster_upload(
         # Two uploads for one Class at once: the second waits, then replaces the first.
         await repo.lock_roster_staging(s, class_id)
         await repo.delete_roster_upload(s, class_id)
+        on_roster = await repo.roster_addresses(s, class_id)
         await repo.insert_roster_upload(
             s,
             upload_id=upload_id,
@@ -1371,6 +1381,8 @@ async def stage_roster_upload(
     )
     return await asyncio.to_thread(
         _roster_upload_out,
+        upload_id=upload_id,
+        on_roster=on_roster,
         source=RosterSource.file,
         file_name=file_name,
         headers=parsed.headers,
@@ -1400,6 +1412,7 @@ async def stage_roster_paste(
     async with get_sessionmaker().begin() as s:
         await repo.lock_roster_staging(s, class_id)
         await repo.delete_roster_upload(s, class_id)
+        on_roster = await repo.roster_addresses(s, class_id)
         await repo.insert_roster_upload(
             s,
             upload_id=upload_id,
@@ -1423,6 +1436,8 @@ async def stage_roster_paste(
     )
     return await asyncio.to_thread(
         _roster_upload_out,
+        upload_id=upload_id,
+        on_roster=on_roster,
         source=RosterSource.paste,
         file_name="",
         headers=[""],
@@ -1434,12 +1449,15 @@ async def stage_roster_paste(
 
 
 def evaluate_roster_rows(
-    rows: list[tuple[int, list[str]]], column: int
+    rows: list[tuple[int, list[str]]],
+    column: int,
+    on_roster: Set[str] = frozenset(),
 ) -> tuple[int, list[RosterInvalidRow]]:
     """Judge each row's cell in `column` with `schemas.address_problem` (Story 4.3, FR-7): how
     many rows get an Invitation, and every other row with its reason, in row order. Addresses are
-    compared trimmed and case-insensitively; the first occurrence of an address is valid and each
-    later one is a `duplicate` naming the first row."""
+    compared trimmed and case-insensitively; an address already on the Class's Roster
+    (`on_roster`, normalised) is `on_roster` (Story 4.4); otherwise the first occurrence of an
+    address is valid and each later one is a `duplicate` naming the first row."""
     valid = 0
     invalid: list[RosterInvalidRow] = []
     first_seen: dict[str, int] = {}
@@ -1449,6 +1467,8 @@ def evaluate_roster_rows(
         problem = address_problem(address)
         if problem is not None:
             invalid.append(RosterInvalidRow(row_number=number, value=value, reason=problem))
+        elif address in on_roster:
+            invalid.append(RosterInvalidRow(row_number=number, value=value, reason="on_roster"))
         elif address in first_seen:
             invalid.append(
                 RosterInvalidRow(
@@ -1466,6 +1486,8 @@ def evaluate_roster_rows(
 
 def _roster_upload_out(
     *,
+    upload_id: uuid.UUID,
+    on_roster: Set[str],
     source: RosterSource,
     file_name: str,
     headers: list[str],
@@ -1475,8 +1497,11 @@ def _roster_upload_out(
     chosen: int | None,
 ) -> RosterUploadOut:
     suggested = roster_file.suggested_column(counts)
-    valid, invalid = evaluate_roster_rows(rows, chosen) if chosen is not None else (0, [])
+    valid, invalid = (
+        evaluate_roster_rows(rows, chosen, on_roster) if chosen is not None else (0, [])
+    )
     return RosterUploadOut(
+        id=upload_id,
         source=source,
         file_name=file_name,
         row_count=len(rows),
@@ -1500,12 +1525,15 @@ def _roster_upload_out(
 async def _staged_out(s: AsyncSession, row: RowMapping) -> RosterUploadOut:
     """The staged upload, evaluated again from its staged cells."""
     rows = await repo.roster_rows(s, row["id"])
+    on_roster = await repo.roster_addresses(s, row["class_id"])
     # Evaluating up to `ROSTER_MAX_ROWS` rows is CPU work: off the event loop.
     counts = await asyncio.to_thread(
         roster_file.address_counts, [cells for _, cells in rows], row["column_count"]
     )
     return await asyncio.to_thread(
         _roster_upload_out,
+        upload_id=row["id"],
+        on_roster=on_roster,
         source=RosterSource(row["source"]),
         file_name=row["file_name"],
         headers=row["headers"],
@@ -1550,3 +1578,140 @@ async def delete_roster_upload(class_id: uuid.UUID) -> bool:
     if deleted:
         log.info("roster_upload_deleted", class_id=str(class_id))
     return deleted
+
+
+# The Roster and Student Invitations (Story 4.4, FR-7, FR-8, AD-9, AD-14). `classes.service` runs
+# the send as one command in its own transaction and hands its session here; the addresses never
+# leave this module, and log lines carry ids and counts only.
+
+OSLO = ZoneInfo("Europe/Oslo")
+
+ClassNameResolver = Callable[[AsyncSession, uuid.UUID], Awaitable[str | None]]
+"""`(session, class_id)` → the Class's name, or None when it is gone."""
+
+_class_name_resolver: list[ClassNameResolver] = []
+
+
+def register_class_name(resolver: ClassNameResolver) -> None:
+    """`classes.service` names its Classes here at import, so a Student Invitation's mail can
+    name its Class while `identity` imports no `classes` code (AD-14)."""
+    _class_name_resolver[:] = [resolver]
+
+
+async def _class_name(session: AsyncSession, class_id: uuid.UUID | None) -> str | None:
+    if class_id is None:
+        return None
+    if not _class_name_resolver:
+        raise RuntimeError("no Class-name resolver is registered (import classes.service)")
+    return await _class_name_resolver[0](session, class_id)
+
+
+def student_invitation_expiry(now: datetime, valid_days: int) -> datetime:
+    """When a Student Invitation sent at `now` for `valid_days` stops working: the end of the
+    `valid_days`-th day after today in Europe/Oslo, so «gyldig til og med» names a whole day."""
+    last = now.astimezone(OSLO).date() + timedelta(days=valid_days)
+    return datetime.combine(last + timedelta(days=1), time(0), OSLO).astimezone(UTC)
+
+
+def last_valid_day(expires_at: datetime) -> date:
+    """The last Europe/Oslo day on which a link that stops at `expires_at` works."""
+    return (expires_at - timedelta(microseconds=1)).astimezone(OSLO).date()
+
+
+class RosterStagingGone(Exception):
+    """The staged upload to send is gone, has expired, or was replaced by another one."""
+
+
+class NothingToSend(Exception):
+    """The staged upload has no row that gets an Invitation."""
+
+
+@dataclass(frozen=True)
+class RosterSent:
+    sent: int
+    expires_at: datetime
+
+
+async def send_roster_invitations(
+    s: AsyncSession,
+    class_id: uuid.UUID,
+    actor: uuid.UUID,
+    upload_id: uuid.UUID,
+    valid_days: int,
+    *,
+    now: datetime,
+) -> RosterSent:
+    """Inside the caller's transaction: write the staged upload's valid addresses to the Class's
+    Roster, delete the staging, and create and enqueue one Student Invitation per address that
+    was not on the Roster before (FR-7, FR-8). Raises `RosterStagingGone` when the Class's
+    staging is not `upload_id` (sent already, replaced or expired) and `NothingToSend` when no
+    row is valid; nothing changes then. Idempotent: the staging lock serialises sends, an address
+    already on the Roster is left as it is, and each Invitation's notice has its own
+    `dedupe_key`."""
+    await repo.lock_roster_staging(s, class_id)
+    row = await repo.roster_upload_for_class(s, class_id, now, lock=True)
+    if row is None or row["id"] != upload_id:
+        raise RosterStagingGone
+    column = row["chosen_column"]
+    rows = await repo.roster_rows(s, row["id"])
+    on_roster = await repo.roster_addresses(s, class_id)
+    addresses = (
+        await asyncio.to_thread(_valid_addresses, rows, column, on_roster)
+        if column is not None
+        else []
+    )
+    if not addresses:
+        raise NothingToSend
+    added = await repo.insert_roster_entries(
+        s, class_id, addresses, RosterRegistration.invited.value, now
+    )
+    await repo.delete_roster_upload(s, class_id)
+    expires_at = student_invitation_expiry(now, valid_days)
+    invitations = [
+        {
+            "id": uuid.uuid7(),
+            "kind": InvitationKind.student.value,
+            "email": address,
+            "role": None,
+            "class_id": class_id,
+            "roster_entry_id": entry_id,
+            "created_at": now,
+            "expires_at": expires_at,
+            "invited_by": actor,
+        }
+        for entry_id, address in added
+    ]
+    for invitation in invitations:
+        invitation["token_hash"] = auth.token_hash(auth.link_token(INVITATION, invitation["id"]))
+    await repo.insert_student_invitations(s, invitations)
+    await notify.enqueue_by_ref(
+        s, INVITATION, [(f"{INVITATION}:{i['id']}", i["id"]) for i in invitations]
+    )
+    log.info(
+        "roster_invitations_sent",
+        class_id=str(class_id),
+        upload_id=str(upload_id),
+        user_id=str(actor),
+        sent=len(invitations),
+        valid_days=valid_days,
+    )
+    return RosterSent(sent=len(invitations), expires_at=expires_at)
+
+
+def _valid_addresses(
+    rows: list[tuple[int, list[str]]], column: int, on_roster: Set[str]
+) -> list[str]:
+    """The normalised addresses `evaluate_roster_rows` finds valid, in row order."""
+    _, invalid = evaluate_roster_rows(rows, column, on_roster)
+    skip = {row.row_number for row in invalid}
+    return [
+        normalise_email(cells[column] if column < len(cells) else "")
+        for number, cells in sorted(rows, key=lambda r: r[0])
+        if number not in skip
+    ]
+
+
+async def roster_counts(class_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
+    """How many addresses are on each Class's Roster (UX-DR56); a Class with none is left out."""
+    async with get_sessionmaker().begin() as s:
+        return await repo.roster_counts(s, class_ids)

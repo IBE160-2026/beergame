@@ -12,6 +12,7 @@ from app.modules.identity.models import (
     institutions,
     invitations,
     password_resets,
+    roster_entries,
     roster_upload_rows,
     roster_uploads,
     user_roles,
@@ -385,11 +386,14 @@ async def list_invitations(
     Invitation of its address and role holds a renewal request, and `account_deactivated`:
     whether its address belongs to a deactivated User."""
     if after is not None:
-        found = await session.execute(select(invitations.c.id).where(invitations.c.id == after))
+        found = await session.execute(
+            select(invitations.c.id).where(invitations.c.id == after, invitations.c.kind == "role")
+        )
         if found.scalar_one_or_none() is None:
             return None
     newest = (
         select(invitations)
+        .where(invitations.c.kind == "role")
         .ext(distinct_on(invitations.c.email, invitations.c.role))
         .order_by(invitations.c.email, invitations.c.role, invitations.c.id.desc())
         .subquery()
@@ -731,3 +735,69 @@ async def roster_rows(session: AsyncSession, upload_id: uuid.UUID) -> list[tuple
         .order_by(roster_upload_rows.c.row_number)
     )
     return [(row.row_number, row.cells) for row in result]
+
+
+# The Roster and Student Invitations (Story 4.4).
+
+ROSTER_BATCH = 1000
+"""Rows per INSERT statement when a Roster is written."""
+
+
+async def roster_addresses(session: AsyncSession, class_id: uuid.UUID) -> set[str]:
+    """Every address on the Class's Roster that has not been removed."""
+    result = await session.execute(
+        select(roster_entries.c.email).where(
+            roster_entries.c.class_id == class_id, roster_entries.c.removed_at.is_(None)
+        )
+    )
+    return set(result.scalars())
+
+
+async def insert_roster_entries(
+    session: AsyncSession, class_id: uuid.UUID, emails: list[str], registration: str, now: datetime
+) -> list[tuple[uuid.UUID, str]]:
+    """Add each address to the Roster; an address already on it is left as it is. The
+    `(id, email)` of each new entry."""
+    added: list[tuple[uuid.UUID, str]] = []
+    batch = ROSTER_BATCH
+    for start in range(0, len(emails), batch):
+        result = await session.execute(
+            insert(roster_entries)
+            .values(
+                [
+                    {
+                        "id": uuid.uuid7(),
+                        "class_id": class_id,
+                        "email": email,
+                        "registration": registration,
+                        "added_at": now,
+                    }
+                    for email in emails[start : start + batch]
+                ]
+            )
+            .on_conflict_do_nothing(
+                index_elements=[roster_entries.c.class_id, roster_entries.c.email]
+            )
+            .returning(roster_entries.c.id, roster_entries.c.email)
+        )
+        added.extend((row.id, row.email) for row in result)
+    return added
+
+
+async def insert_student_invitations(session: AsyncSession, values: list[dict]) -> None:
+    """Store Student Invitations, each a dict of `invitations` columns."""
+    batch = ROSTER_BATCH
+    for start in range(0, len(values), batch):
+        await session.execute(insert(invitations), values[start : start + batch])
+
+
+async def roster_counts(session: AsyncSession, class_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
+    """How many addresses each Class has on its Roster (removed ones left out)."""
+    if not class_ids:
+        return {}
+    result = await session.execute(
+        select(roster_entries.c.class_id, func.count())
+        .where(roster_entries.c.class_id.in_(class_ids), roster_entries.c.removed_at.is_(None))
+        .group_by(roster_entries.c.class_id)
+    )
+    return {row[0]: row[1] for row in result}

@@ -13,7 +13,8 @@ const copy = nb.classes.home;
 
 /**
  * The Lærerhjem's content (Story 4.1, UX-DR56). With no Class, one line and «Ny Klasse», the only
- * action. With Classes, «Klassene dine» lists each as a Lenke to the Class («name, course code»),
+ * action. With Classes, «Klassene dine» lists each as a Lenke to the Class («name, course code»)
+ * with its Roster count beside it (Story 4.4),
  * «Ny Klasse» stays under the list, and beside it stand the places for what is waiting and the
  * next deadline, which stay empty until Class sessions exist (Epic 5).
  */
@@ -62,10 +63,16 @@ export function LecturerHome() {
         </h2>
         <ul className="mt-4 flex flex-col border-t border-hairline">
           {items.map((item) => (
-            <li key={item.id} className="border-b border-hairline">
-              <Link href={classPath(item.id)} standalone className="py-2 [overflow-wrap:anywhere]">
+            <li
+              key={item.id}
+              className="flex flex-wrap items-baseline justify-between gap-x-4 border-b border-hairline"
+            >
+              <Link href={classPath(item.id)} standalone className="min-w-0 py-2 [overflow-wrap:anywhere]">
                 {copy.label(item.name, item.course_code)}
               </Link>
+              <span className="pb-2 text-body-phone tabular-nums text-ink-secondary sm:pb-0 lg:text-body">
+                {copy.rosterCount(item.roster_count)}
+              </span>
             </li>
           ))}
         </ul>

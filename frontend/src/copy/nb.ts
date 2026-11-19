@@ -304,6 +304,9 @@ export const nb = {
       deadline: "Neste frist",
       nothingWaiting: "Ingenting venter ennå.",
       noDeadline: "Ingen frist ennå.",
+      /** The Roster count beside each Class (Story 4.4, UX-DR56). [ASSUMPTION] */
+      rosterCount: (count: number) =>
+        count === 0 ? "Ingen på Klasselista" : `${count} ${count === 1 ? "adresse" : "adresser"} på Klasselista`,
     },
     create: {
       title: "Lag Klasse",
@@ -354,19 +357,21 @@ export const nb = {
       chooseColumn: "Velg kolonne",
       /** A column in the selector: «Kolonne C, E-post», or «Kolonne C» with no header. */
       column: (letter: string, header: string) => (header ? `Kolonne ${letter}, ${header}` : `Kolonne ${letter}`),
-      /** Why the preselected column was chosen: «Valgt fordi alle rader unntatt fire ser ut som
-       * adresser.» */
-      suggested: (matching: number, rows: number) =>
-        matching === rows
-          ? "Valgt fordi alle rader ser ut som adresser."
-          : matching * 2 >= rows
-            ? `Valgt fordi alle rader unntatt ${countWord(rows - matching)} ser ut som adresser.`
-            : `Valgt fordi ${matching} av ${rows} rader ser ut som adresser.`,
-      /** A column the Lecturer chose themself, evaluated again by the api. */
-      chosen: (matching: number, rows: number) =>
+      /** Why the preselected column was chosen, «Valgt fordi alle rader unntatt fire er gyldige
+       * adresser.», counting the same rows as «Ugyldige rader: 4 av 250» (Issue #86): repeats and
+       * addresses already on the Klasseliste are not valid either. */
+      suggested: (valid: number, rows: number) =>
+        valid === rows
+          ? "Valgt fordi alle rader er gyldige adresser."
+          : valid * 2 >= rows
+            ? `Valgt fordi alle rader unntatt ${countWord(rows - valid)} er gyldige adresser.`
+            : `Valgt fordi ${valid} av ${rows} rader er gyldige adresser.`,
+      /** A column the Lecturer chose themself, evaluated again by the api; `matching` counts
+       * the cells that look like addresses at all. */
+      chosen: (matching: number, valid: number, rows: number) =>
         matching === 0
           ? "Ingen rader i denne kolonnen ser ut som adresser."
-          : `${matching} av ${rows} rader ser ut som adresser.`,
+          : `${valid} av ${rows} rader er gyldige adresser.`,
       noEmailColumn:
         "Ingen kolonne i fila ser ut som e-postadresser. Velg kolonnen selv, eller lim inn adressene i stedet.",
       preview: "Forhåndsvisning av fila",
@@ -379,7 +384,8 @@ export const nb = {
       // UX spine names, «Registrer manuelt», the note and «Send N Invitasjoner».
       invalidTitle: (invalid: number, rows: number) => `Ugyldige rader: ${invalid} av ${rows}`,
       invalidRow: "Rad",
-      invalidValue: "E-post i fila",
+      /** The value column of the invalid-row list names the chosen column (Issue #86). */
+      invalidValue: (header: string, letter: string) => header || `Kolonne ${letter}`,
       invalidReason: "Hva er galt",
       /** For pasted addresses, which have no file rows: their place in the text. */
       invalidPlace: "Nr.",
@@ -395,6 +401,8 @@ export const nb = {
         missing_domain: "Domene mangler",
       },
       duplicate: (firstRow: number) => `Dublett av rad ${firstRow}`,
+      /** Story 4.4 (FR-7). [ASSUMPTION] */
+      onRoster: "Står allerede på Klasselista",
       registerManually: "Registrer manuelt",
       invalidNote: "Ugyldige rader får ingen e-post før de er rettet.",
       send: (valid: number) => `Send ${valid} ${valid === 1 ? "Invitasjon" : "Invitasjoner"}`,
@@ -405,6 +413,33 @@ export const nb = {
       startOver: "Start på nytt",
       pasteTooLong: "Teksten er for lang for én klasseliste. Lim inn færre adresser.",
       pasteFailed: "Adressene ble ikke lest inn. Prøv igjen.",
+      // Story 4.4 (FR-8). [ASSUMPTION] draft copy except «Send N Invitasjoner».
+      /** Under the lead on the Class page once the Roster has addresses. */
+      onRosterCount: (count: number) => `${count} ${count === 1 ? "adresse står" : "adresser står"} på Klasselista.`,
+      validDays: "Gyldig i antall dager",
+      validDaysHint: (min: number, max: number) => `Mellom ${min} og ${max} dager.`,
+      validDaysError: (min: number, max: number) => `Velg et helt antall dager mellom ${min} og ${max}.`,
+      /** The result line after sending: «246 Invitasjoner sendt. Gyldige til og med 3. desember.» */
+      sent: (count: number, lastDay: string) =>
+        `${count} ${count === 1 ? "Invitasjon sendt. Gyldig" : "Invitasjoner sendt. Gyldige"} til og med ${lastDay}.`,
+      sending: "Sender …",
+      sendFailed: "Invitasjonene ble ikke sendt. Prøv igjen.",
+      sendGone: "Klasselista er endret siden du lastet den. Se over og send igjen.",
+      nothingToSend: "Ingen gyldige adresser å invitere.",
+      months: [
+        "januar",
+        "februar",
+        "mars",
+        "april",
+        "mai",
+        "juni",
+        "juli",
+        "august",
+        "september",
+        "oktober",
+        "november",
+        "desember",
+      ],
     },
   },
 

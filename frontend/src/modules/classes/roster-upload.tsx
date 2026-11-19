@@ -7,21 +7,35 @@ import { ActionError } from "@/components/action-error";
 import { Button } from "@/components/button";
 import { SelectField } from "@/components/select-field";
 import { Skeleton } from "@/components/skeleton";
+import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
-import { useAction } from "@/lib/api/mutation";
+import { errorCode, useAction } from "@/lib/api/mutation";
 import { cn } from "@/lib/utils";
 
 import {
   chooseRosterColumn,
+  classesKey,
+  classKey,
   deleteRosterUpload,
   pasteRoster,
+  type RosterSent,
   type RosterStaging,
   type RosterUpload as Staged,
   rosterUploadKey,
+  sendRosterInvitations,
   uploadRoster,
   useRosterUpload,
 } from "./api";
-import { columnHasNoAddress, columnLabel, columnReason, invalidReason } from "./roster";
+import {
+  columnHasNoAddress,
+  columnLabel,
+  columnReason,
+  dayLabel,
+  invalidReason,
+  invalidValueLabel,
+  parseValidDays,
+  VALID_DAYS,
+} from "./roster";
 
 const copy = nb.classes.roster;
 
@@ -34,7 +48,8 @@ const LINK_BUTTON =
 /**
  * Filopplasting on the Class page (Stories 4.2 and 4.3, FR-7, UX-DR47). Story 4.3 adds the
  * invalid-row list, «Send N Invitasjoner» and sending pasted addresses, which are staged as a
- * one-column list with no column select or preview. Before a file is chosen: an outlined
+ * one-column list with no column select or preview. Story 4.4 makes «Send N Invitasjoner» send,
+ * with a validity in whole days; the result line then stands above an empty box. Before a file is chosen: an outlined
  * box with «Velg fil» and the link «Lim inn adresser i stedet». After the api has read the file:
  * its name, «N rader lest» and «Bytt fil», then «E-postkolonne» with every column by letter and
  * header, the preselected one with its reason, and the first rows of the file. Choosing another
@@ -49,17 +64,24 @@ export function RosterUpload({ classId }: { classId: string }) {
   const columnSelect = useRef<HTMLSelectElement>(null);
   const pasteField = useRef<HTMLTextAreaElement>(null);
   const resultLine = useRef<HTMLParagraphElement>(null);
+  const sentLine = useRef<HTMLParagraphElement>(null);
+  const [sent, setSent] = useState<RosterSent | null>(null);
   const [pasting, setPasting] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [pending, setPending] = useState<number | null>(null);
   const latestColumn = useRef<number | null>(null);
   // Where focus goes once the box has been drawn again: an element that is about to appear
   // cannot take it in the handler that makes it appear.
-  const [focusNext, setFocusNext] = useState<"choose" | "column" | "paste" | "result" | null>(null);
+  const [focusNext, setFocusNext] = useState<"choose" | "column" | "paste" | "result" | "sent" | null>(null);
   useEffect(() => {
     if (!focusNext) return;
-    const target = { choose: chooseButton, column: columnSelect, paste: pasteField, result: resultLine }[focusNext]
-      .current;
+    const target = {
+      choose: chooseButton,
+      column: columnSelect,
+      paste: pasteField,
+      result: resultLine,
+      sent: sentLine,
+    }[focusNext].current;
     if (target) {
       target.focus();
       setFocusNext(null);
@@ -101,6 +123,25 @@ export function RosterUpload({ classId }: { classId: string }) {
       setFocusNext("result");
     },
   });
+  const send = useAction({
+    mutationFn: ({ uploadId, days }: { uploadId: string; days: number }) =>
+      sendRosterInvitations(classId, uploadId, days),
+    messages: {
+      not_found: copy.sendGone,
+      nothing_to_send: copy.nothingToSend,
+      invalid_request: copy.validDaysError(VALID_DAYS.min, VALID_DAYS.max),
+    },
+    fallback: copy.sendFailed,
+    onSuccess: (result) => {
+      latestColumn.current = null;
+      setPending(null);
+      store(null);
+      setSent(result);
+      setFocusNext("sent");
+      void queryClient.invalidateQueries({ queryKey: classKey(classId), exact: true });
+      void queryClient.invalidateQueries({ queryKey: classesKey, exact: true });
+    },
+  });
   const discard = useAction({
     mutationFn: () => deleteRosterUpload(classId),
     fallback: copy.changeFailed,
@@ -129,6 +170,8 @@ export function RosterUpload({ classId }: { classId: string }) {
     if (!file) return;
     column.reset();
     discard.reset();
+    send.reset();
+    setSent(null);
     upload.mutate(file);
   };
 
@@ -147,6 +190,8 @@ export function RosterUpload({ classId }: { classId: string }) {
     if (upload.isPending) return; // the file being read would be staged out of sight
     upload.reset();
     paste.reset();
+    send.reset();
+    setSent(null);
     setPasting(true);
     setFocusNext("paste");
   };
@@ -207,6 +252,16 @@ export function RosterUpload({ classId }: { classId: string }) {
     // when they do not, at 320 px and at 200 % text.
     <div className="flex flex-wrap gap-x-16 gap-y-10">
       <div className="flex min-w-0 max-w-full shrink grow-0 basis-md flex-col gap-6">
+        {sent ? (
+          <p
+            ref={sentLine}
+            tabIndex={-1}
+            role="status"
+            className="text-body-phone text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink lg:text-body"
+          >
+            {copy.sent(sent.sent, dayLabel(sent.last_valid_day, todayIso()))}
+          </p>
+        ) : null}
         <div className="flex flex-col gap-field-gap">
           <p id="roster-file-label" className="text-label text-ink">
             {staged && !fromFile ? copy.pasteLabel : copy.fileLabel}
@@ -238,6 +293,7 @@ export function RosterUpload({ classId }: { classId: string }) {
                   if (discard.isPending) return;
                   upload.reset();
                   column.reset();
+                  send.reset();
                   latestColumn.current = null;
                   setPending(null);
                   discard.mutate();
@@ -317,7 +373,30 @@ export function RosterUpload({ classId }: { classId: string }) {
           </div>
         ) : null}
 
-        {staged ? <SendArea staged={staged} /> : null}
+        {staged ? (
+          <SendArea
+            staged={staged}
+            sending={send.isPending}
+            onEdit={() => {
+              if (send.isError) send.reset();
+            }}
+            onSend={(days) => {
+              setSent(null);
+              send.mutate(
+                { uploadId: staged.id, days },
+                {
+                  onError: (error) => {
+                    // The staging changed under the page: show the one the api has now.
+                    const code = errorCode(error);
+                    if (code === "not_found" || code === "nothing_to_send") void staging.refetch();
+                  },
+                },
+              );
+            }}
+          />
+        ) : null}
+        {/* Outside the send area: a refused send whose staging is gone keeps its line. */}
+        <ActionError message={send.errorMessage} />
       </div>
 
       {staged ? (
@@ -330,30 +409,85 @@ export function RosterUpload({ classId }: { classId: string }) {
   );
 }
 
-/** «Send N Invitasjoner» with the number of rows that get one (UX-DR47). Unavailable, still
- * primary, when no row is valid, and the page says so (UX-DR9). Sending is Story 4.4's: until
- * then a press does nothing. */
-function SendArea({ staged }: { staged: Staged }) {
+/** Today as an ISO date on the browser's clock, for the year in the result line. */
+function todayIso(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+/** «Gyldig i antall dager», prefilled with 14, and «Send N Invitasjoner» with the number of rows
+ * that get one (Story 4.4, FR-8, UX-DR47). A validity that is not a whole number of days in the
+ * range is refused under the field before anything is sent, and the line clears as the Lecturer
+ * types. Unavailable, still primary, when no row is valid, and the page says so (UX-DR9).
+ * «Ugyldige rader får ingen e-post …» stands by the button only once rows are staged (Issue #86). */
+function SendArea({
+  staged,
+  sending,
+  onEdit,
+  onSend,
+}: {
+  staged: Staged;
+  sending: boolean;
+  onEdit: () => void;
+  onSend: (days: number) => void;
+}) {
+  const [days, setDays] = useState(String(VALID_DAYS.default));
+  const [refused, setRefused] = useState(false);
   const none = staged.valid_count === 0;
+  const note = staged.row_count > 0;
+  const described = [none ? "roster-send-none" : "", note ? "roster-send-note" : ""].filter(Boolean).join(" ");
   return (
-    <div className="flex flex-col items-start gap-3">
+    <form
+      noValidate
+      className="flex flex-col items-start gap-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (none || sending) return;
+        const parsed = parseValidDays(days);
+        if (parsed === null) {
+          setRefused(true);
+          return;
+        }
+        onSend(parsed);
+      }}
+    >
+      {none ? null : (
+        <TextField
+          id="roster-valid-days"
+          label={copy.validDays}
+          inputMode="numeric"
+          autoComplete="off"
+          value={days}
+          onChange={(event) => {
+            setDays(event.target.value);
+            setRefused(false);
+            onEdit();
+          }}
+          hint={copy.validDaysHint(VALID_DAYS.min, VALID_DAYS.max)}
+          error={refused ? copy.validDaysError(VALID_DAYS.min, VALID_DAYS.max) : undefined}
+          className="w-full max-w-[14rem]"
+        />
+      )}
       <Button
+        type="submit"
         variant="primary"
-        unavailable={none}
-        aria-describedby={none ? "roster-send-none roster-send-note" : "roster-send-note"}
+        unavailable={none || sending}
+        aria-describedby={described || undefined}
         className="w-full max-w-md"
       >
-        {copy.send(staged.valid_count)}
+        {sending ? copy.sending : copy.send(staged.valid_count)}
       </Button>
       {none ? (
         <p id="roster-send-none" className="text-body-phone text-ink">
           {copy.noValid}
         </p>
       ) : null}
-      <p id="roster-send-note" className="max-w-md text-body-phone text-ink-secondary">
-        {copy.invalidNote}
-      </p>
-    </div>
+      {note ? (
+        <p id="roster-send-note" className="max-w-md text-body-phone text-ink-secondary">
+          {copy.invalidNote}
+        </p>
+      ) : null}
+    </form>
   );
 }
 
@@ -369,7 +503,7 @@ function InvalidRows({ staged }: { staged: Staged }) {
   if (staged.invalid_rows.length === 0) return null;
   const pasted = staged.source === "paste";
   const rowWord = pasted ? copy.invalidPlace : copy.invalidRow;
-  const valueWord = pasted ? copy.invalidPasted : copy.invalidValue;
+  const valueWord = invalidValueLabel(staged);
   const shown = staged.invalid_rows.slice(0, INVALID_ROWS_SHOWN);
   const grid = "sm:grid sm:grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,11rem)_8.5rem] sm:items-center sm:gap-x-4";
   return (

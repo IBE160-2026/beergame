@@ -13,7 +13,8 @@ import { RosterUpload } from "./roster-upload";
 
 /**
  * A Class's own page (Story 4.1): its name as the heading, then the course code and Institution,
- * and for its owner the Roster upload (Story 4.2). Later stories add Invitations and staff. A Class the Lecturer is not staff of, one
+ * and for its owner the Roster upload (Story 4.2) with how many addresses the Roster holds (Story
+ * 4.4). Later stories add Invitations and staff. A Class the Lecturer is not staff of, one
  * that does not exist and an address that names no Class all show the permission-denied page
  * (FR-5): the api answers them alike.
  */
@@ -69,6 +70,9 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
             {nb.classes.roster.title}
           </h2>
           <p className="mt-1 max-w-2xl text-body-phone text-ink-secondary lg:text-body">{nb.classes.roster.lead}</p>
+          {item.roster_count > 0 ? (
+            <p className="mt-2 text-body-phone text-ink lg:text-body">{nb.classes.roster.onRosterCount(item.roster_count)}</p>
+          ) : null}
           <div className="mt-6">
             <RosterUpload classId={item.id} />
           </div>

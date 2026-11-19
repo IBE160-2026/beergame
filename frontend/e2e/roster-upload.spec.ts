@@ -101,7 +101,7 @@ for (const vp of VIEWPORTS) {
       await lecturer.keyboard.press("ArrowUp");
       expect((await evaluated).status()).toBe(200);
       await expect(columnSelect(lecturer)).toHaveValue("2");
-      await expect(lecturer.getByText(`Kolonne C, SIS User ID. ${copy.chosen(0, 12)}`)).toBeVisible();
+      await expect(lecturer.getByText(`Kolonne C, SIS User ID. ${copy.chosen(0, 0, 12)}`)).toBeVisible();
 
       // The staging is the api's: it is there after a reload.
       await lecturer.reload();
@@ -181,7 +181,9 @@ for (const vp of VIEWPORTS) {
       await lecturer.keyboard.press("ArrowUp");
       expect((await evaluated).status()).toBe(200);
       await expect(columnSelect(lecturer)).toHaveAttribute("aria-invalid", "true");
-      await expect(lecturer.locator("#roster-column-error")).toHaveText(`Kolonne B, Student-ID. ${copy.chosen(0, 8)}`);
+      await expect(lecturer.locator("#roster-column-error")).toHaveText(`Kolonne B, Student-ID. ${copy.chosen(0, 0, 8)}`);
+      // The invalid-row list names the chosen column, not «E-post» (Issue #86).
+      await expect(invalidItems(lecturer).first()).toContainText(`${copy.invalidValue("Student-ID", "B")}:`);
       await expect(sendButton(lecturer, 0)).toHaveAttribute("aria-disabled", "true");
       await expect(lecturer.getByText(copy.noValid)).toBeVisible();
 
@@ -218,6 +220,8 @@ for (const vp of VIEWPORTS) {
       expect((await empty).status()).toBe(201);
       await expect(sendButton(lecturer, 0)).toHaveAttribute("aria-disabled", "true");
       await expect(lecturer.getByText(copy.noValid)).toBeVisible();
+      // No rows, so no note about invalid rows (Issue #86).
+      await expect(lecturer.getByText(copy.invalidNote)).toHaveCount(0);
       await expectAccessible(lecturer, vp.phone);
       await lecturer.context().close();
     });
@@ -234,7 +238,7 @@ test.describe("files and paste", () => {
     await expect(lecturer.getByText(copy.rowsRead(13))).toBeVisible();
     await expect(columnSelect(lecturer)).toHaveValue("3");
     await expect(lecturer.getByText(`Kolonne D, SIS Login ID. ${copy.suggested(12, 13)}`)).toBeVisible();
-    await expect(lecturer.getByText("Valgt fordi alle rader unntatt én ser ut som adresser.", { exact: false })).toBeVisible();
+    await expect(lecturer.getByText("Valgt fordi alle rader unntatt én er gyldige adresser.", { exact: false })).toBeVisible();
     await lecturer.context().close();
   });
 

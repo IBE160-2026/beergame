@@ -397,12 +397,17 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "roster_count": {
+            "title": "Roster Count",
+            "type": "integer"
           }
         },
         "required": [
           "id",
           "name",
-          "course_code"
+          "course_code",
+          "roster_count"
         ],
         "title": "ClassListItem",
         "type": "object"
@@ -472,6 +477,10 @@
             "title": "Name",
             "type": "string"
           },
+          "roster_count": {
+            "title": "Roster Count",
+            "type": "integer"
+          },
           "staff_role": {
             "$ref": "#/components/schemas/StaffRole"
           }
@@ -484,7 +493,8 @@
           "institution_name",
           "staff_role",
           "created_at",
-          "archived"
+          "archived",
+          "roster_count"
         ],
         "title": "ClassOut",
         "type": "object"
@@ -1001,7 +1011,10 @@
                 "$ref": "#/components/schemas/AddressProblem"
               },
               {
-                "const": "duplicate",
+                "enum": [
+                  "duplicate",
+                  "on_roster"
+                ],
                 "type": "string"
               }
             ],
@@ -1057,6 +1070,57 @@
           "cells"
         ],
         "title": "RosterPreviewRow",
+        "type": "object"
+      },
+      "RosterSendIn": {
+        "description": "«Send N Invitasjoner»: the staged upload the page shows, and the validity in whole days.\nA validity outside the range answers 422 `invalid_request` with\n`fields.valid_days = valid_days_out_of_range`.",
+        "properties": {
+          "upload_id": {
+            "format": "uuid",
+            "title": "Upload Id",
+            "type": "string"
+          },
+          "valid_days": {
+            "default": 14,
+            "title": "Valid Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "upload_id"
+        ],
+        "title": "RosterSendIn",
+        "type": "object"
+      },
+      "RosterSendOut": {
+        "description": "What the result line states: how many Invitations went out, and until when they work.",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "last_valid_day": {
+            "format": "date",
+            "title": "Last Valid Day",
+            "type": "string"
+          },
+          "sent": {
+            "title": "Sent",
+            "type": "integer"
+          },
+          "valid_days": {
+            "title": "Valid Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sent",
+          "valid_days",
+          "last_valid_day",
+          "expires_at"
+        ],
+        "title": "RosterSendOut",
         "type": "object"
       },
       "RosterSource": {
@@ -1119,6 +1183,11 @@
             "title": "Has Header",
             "type": "boolean"
           },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
           "invalid_rows": {
             "items": {
               "$ref": "#/components/schemas/RosterInvalidRow"
@@ -1161,6 +1230,7 @@
           }
         },
         "required": [
+          "id",
           "source",
           "file_name",
           "row_count",
@@ -3377,6 +3447,89 @@
           }
         },
         "summary": "Get Class",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/invitations": {
+      "post": {
+        "description": "«Send N Invitasjoner» (Story 4.4): write the staged upload's valid addresses to the Roster\nand send each new address a Student Invitation valid through the `valid_days`-th day after\ntoday (Europe/Oslo), in one transaction; the mails leave from `worker-batch`. 404\n`not_found` when `upload_id` is not the Class's staging (sent already, replaced or expired);\n422 `nothing_to_send` when no staged row is valid; 422 `invalid_request` with\n`fields.valid_days` for a validity outside 1–60 days. Nothing changes on a refusal.",
+        "operationId": "sendRosterInvitations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RosterSendIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosterSendOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Send Invitations",
         "tags": [
           "classes"
         ]

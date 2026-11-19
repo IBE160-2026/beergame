@@ -46,8 +46,8 @@ ACCESS_REQUEST_TABLES = {"access_requests"}
 """The table of revision 0022 (Story 3.13)."""
 CLASS_TABLES = {"classes", "class_staff"}
 """The tables of revision 0023 (Story 4.1)."""
-ROSTER_TABLES = {"roster_uploads", "roster_upload_rows"}
-"""The tables of revision 0024 (Story 4.2)."""
+ROSTER_TABLES = {"roster_uploads", "roster_upload_rows", "roster_entries"}
+"""The tables of revisions 0024 (Story 4.2) and 0026 (Story 4.4)."""
 HEAD_TABLES = (
     AI_HEAD_TABLES
     | JOB_TABLES
@@ -62,7 +62,7 @@ HEAD_TABLES = (
     | CLASS_TABLES
     | ROSTER_TABLES
 )
-HEAD = "0025"  # 0025 adds the staged Roster's source (Story 4.3)
+HEAD = "0026"  # 0026 adds the Roster and Student Invitations (Story 4.4)
 
 
 def reset_schema(url: str) -> None:
@@ -468,6 +468,46 @@ def test_downgrade_to_0023_removes_the_roster_uploads(migrations_database):
     assert current_version(migrations_database) == HEAD
 
 
+def test_downgrade_to_0025_removes_the_roster_and_keeps_role_invitations(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    with psycopg.connect(libpq_dsn(migrations_database), autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO invitations (id, email, role, token_hash, created_at, expires_at) "
+            "VALUES (gen_random_uuid(), 'a@x.no', 'lecturer', 'h', now(), now())"
+        )
+        # A sent Student Invitation, with its Class and Roster entry (Story 4.4).
+        conn.execute(
+            "INSERT INTO institutions (id, name, created_at, updated_at) "
+            "VALUES ('00000000-0000-0000-0000-000000000001', 'USN', now(), now())"
+        )
+        conn.execute(
+            "INSERT INTO classes (id, name, institution_id, created_at) VALUES "
+            "('00000000-0000-0000-0000-000000000002', 'k', "
+            "'00000000-0000-0000-0000-000000000001', now())"
+        )
+        conn.execute(
+            "INSERT INTO roster_entries (id, class_id, email, registration, added_at) VALUES "
+            "('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000002', "
+            "'s@x.no', 'invited', now())"
+        )
+        conn.execute(
+            "INSERT INTO invitations (id, email, kind, class_id, roster_entry_id, token_hash, "
+            "created_at, expires_at) VALUES (gen_random_uuid(), 's@x.no', 'student', "
+            "'00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003', "
+            "'h2', now(), now())"
+        )
+    command.downgrade(cfg, "0025")
+    assert tables(migrations_database) == HEAD_TABLES - {"roster_entries"}
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        assert conn.execute("SELECT email, role FROM invitations").fetchall() == [
+            ("a@x.no", "lecturer")
+        ]
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
 def test_the_procrastinate_schema_of_0008_is_the_one_the_installed_version_ships():
     """Revision 0008 keeps procrastinate 3.11.0's `schema.sql`. When procrastinate is upgraded
     this fails: add a revision with the upgrade's migration SQL and the new schema file."""
@@ -515,7 +555,12 @@ def test_the_check_constraints_list_exactly_the_enum_values(migrations_database)
     from app.ai import models as ai_models
     from app.modules.classes.schemas import StaffRole
     from app.modules.games import schemas
-    from app.modules.identity.schemas import AccountRole, RosterSource
+    from app.modules.identity.schemas import (
+        AccountRole,
+        InvitationKind,
+        RosterRegistration,
+        RosterSource,
+    )
     from app.modules.messaging import models as mail_models
 
     ai_checks = {
@@ -526,6 +571,8 @@ def test_the_check_constraints_list_exactly_the_enum_values(migrations_database)
         "ck_invitations_role": {role.value for role in AccountRole},
         "ck_class_staff_role": {role.value for role in StaffRole},
         "ck_roster_uploads_source": {source.value for source in RosterSource},
+        "ck_invitations_kind": {kind.value for kind in InvitationKind},
+        "ck_roster_entries_registration": {r.value for r in RosterRegistration},
         "ck_mail_deliveries_mode": set(mail_models.MODES),
         "ck_mail_deliveries_skipped_reason": set(mail_models.SKIP_REASONS),
     }

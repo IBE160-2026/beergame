@@ -34,6 +34,7 @@ __all__ = [
     "app",
     "conninfo",
     "defer",
+    "defer_many",
     "load_tasks",
     "run_until_idle",
 ]
@@ -93,6 +94,34 @@ async def defer(
     await savepoint.commit()
     log.debug("job_deferred", task=task, queue=queue, job_id=job_id)
     return True
+
+
+async def defer_many(
+    session: AsyncSession,
+    task: str,
+    *,
+    queue: str,
+    jobs: Sequence[tuple[str, dict[str, str | int]]],
+) -> int:
+    """Defer one job of `task` per `(queueing_lock, kwargs)` in one statement, on `session`'s
+    connection inside its transaction (`defer` for many at once, Story 4.4). For jobs whose
+    locks are new, such as one per freshly created row: a lock already waiting fails the whole
+    batch (procrastinate's `AlreadyEnqueued`), and the caller's transaction with it."""
+    if not jobs:
+        return 0
+    for _, kwargs in jobs:
+        for name, value in kwargs.items():
+            if not isinstance(value, str | int) or isinstance(value, bool):
+                raise TypeError(f"job argument {name!r} must be an id or a whole number")
+    connection = await session.connection()
+    raw = (await connection.get_raw_connection()).driver_connection
+    template = app.configure_task(name=task, queue=queue, connection=raw).job
+    deferred = await app.job_manager.batch_defer_jobs_async(
+        jobs=[template.evolve(queueing_lock=lock, task_kwargs=dict(kw)) for lock, kw in jobs],
+        connection=raw,
+    )
+    log.debug("jobs_deferred", task=task, queue=queue, count=len(deferred))
+    return len(deferred)
 
 
 def _connector(database_url: str | None, size: int) -> procrastinate.PsycopgConnector:

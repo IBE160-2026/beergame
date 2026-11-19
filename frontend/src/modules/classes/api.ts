@@ -113,3 +113,17 @@ export function deleteRosterUpload(classId: string) {
     api.DELETE("/api/classes/{class_id}/roster-upload", { params: { path: { class_id: classId } } }),
   );
 }
+
+// Sending Invitations to the Roster (Story 4.4, FR-8).
+
+export type RosterSent = components["schemas"]["RosterSendOut"];
+
+/** «Send N Invitasjoner»: the staged upload the page shows and the validity in whole days. */
+export function sendRosterInvitations(classId: string, uploadId: string, validDays: number) {
+  return request(() =>
+    api.POST("/api/classes/{class_id}/invitations", {
+      params: { path: { class_id: classId } },
+      body: { upload_id: uploadId, valid_days: validDays },
+    }),
+  );
+}

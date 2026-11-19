@@ -23,6 +23,7 @@ from app.modules.classes.schemas import (
     InstitutionChoice,
     InstitutionChoicesOut,
     InvalidClass,
+    RosterSendOut,
     StaffRole,
     class_name,
     course_code,
@@ -88,6 +89,7 @@ async def create_class(user: authz.Principal, body: ClassIn, *, now: datetime) -
         staff_role=StaffRole.owner,
         created_at=now,
         archived=False,
+        roster_count=0,
     )
 
 
@@ -95,11 +97,17 @@ async def list_classes(user: authz.Principal) -> ClassListOut:
     """The Classes `user` is staff of, by name: «Klassene dine»."""
     async with get_sessionmaker().begin() as s:
         rows = await repo.classes_of(s, user)
+    readable = [row for row in rows if authz.can(user, "classes.read", _StaffOf(row["staff_role"]))]
+    counts = await identity.roster_counts([row["id"] for row in readable])
     return ClassListOut(
         items=[
-            ClassListItem(id=row["id"], name=row["name"], course_code=row["course_code"])
-            for row in rows
-            if authz.can(user, "classes.read", _StaffOf(row["staff_role"]))
+            ClassListItem(
+                id=row["id"],
+                name=row["name"],
+                course_code=row["course_code"],
+                roster_count=counts.get(row["id"], 0),
+            )
+            for row in readable
         ]
     )
 
@@ -111,6 +119,7 @@ async def get_class(user: authz.Principal, class_id: uuid.UUID) -> ClassOut | No
     if row is None or not authz.can(user, "classes.read", _StaffOf(row["staff_role"])):
         return None
     institution = await identity.get_institution(row["institution_id"])
+    counts = await identity.roster_counts([row["id"]])
     return ClassOut(
         id=row["id"],
         name=row["name"],
@@ -120,6 +129,7 @@ async def get_class(user: authz.Principal, class_id: uuid.UUID) -> ClassOut | No
         staff_role=StaffRole(row["staff_role"]),
         created_at=row["created_at"],
         archived=row["archived_at"] is not None,
+        roster_count=counts.get(row["id"], 0),
     )
 
 
@@ -182,6 +192,51 @@ async def discard_roster_upload(user: authz.Principal, class_id: uuid.UUID) -> b
     return await identity.delete_roster_upload(class_id)
 
 
+class NothingToSend(Exception):
+    """The staged upload has no row that gets an Invitation (`nothing_to_send`)."""
+
+
+async def send_invitations(
+    user: authz.Principal,
+    class_id: uuid.UUID,
+    upload_id: uuid.UUID,
+    valid_days: int,
+    *,
+    now: datetime,
+) -> RosterSendOut | Staging | None:
+    """«Send N Invitasjoner» (Story 4.4, FR-7, FR-8): one command, one transaction. Through
+    `identity.service` it writes the staged valid addresses to the Roster, deletes the staging,
+    and creates and enqueues one Invitation per new address; the request returns once the rows
+    commit and `worker-batch` sends the mails. None when the User may not manage the Class;
+    `Staging(None)` when the staging `upload_id` is gone (sent already, replaced or expired).
+    Raises `NothingToSend`."""
+    if not await may_manage(user, class_id):
+        return None
+    await identity.purge_expired_roster_uploads(now)
+    try:
+        async with get_sessionmaker().begin() as s:
+            sent = await identity.send_roster_invitations(
+                s, class_id, user.id, upload_id, valid_days, now=now
+            )
+    except identity.RosterStagingGone:
+        log.info("roster_send_refused", class_id=str(class_id), error_code="not_found")
+        return Staging(None)
+    except identity.NothingToSend:
+        log.info("roster_send_refused", class_id=str(class_id), error_code="nothing_to_send")
+        raise NothingToSend from None
+    return RosterSendOut(
+        sent=sent.sent,
+        valid_days=valid_days,
+        last_valid_day=identity.last_valid_day(sent.expires_at),
+        expires_at=sent.expires_at,
+    )
+
+
+async def name_of_class(session: AsyncSession, class_id: uuid.UUID) -> str | None:
+    """The name a Student Invitation's mail gives its Class (`identity`'s resolver)."""
+    return await repo.class_name(session, class_id)
+
+
 async def owned_active_classes(session: AsyncSession, user_id: uuid.UUID) -> int:
     """The revoke blocker of the Lecturer role (FR-2, Story 3.9's registry): how many Classes
     that are not archived the User owns, read in the revoke's own transaction."""
@@ -189,3 +244,4 @@ async def owned_active_classes(session: AsyncSession, user_id: uuid.UUID) -> int
 
 
 identity.register_revoke_blocker(identity.AccountRole.lecturer, owned_active_classes)
+identity.register_class_name(name_of_class)

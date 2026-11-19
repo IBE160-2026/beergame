@@ -1,10 +1,11 @@
 """API shapes and data rules of `modules/classes` (Story 4.1)."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from pydantic_core import PydanticCustomError
 
 from app.platform import authz
 
@@ -74,6 +75,8 @@ class ClassListItem(BaseModel):
     id: uuid.UUID
     name: str
     course_code: str | None
+    roster_count: int
+    """Addresses on the Class's Roster (Story 4.4, UX-DR56)."""
 
 
 class ClassListOut(BaseModel):
@@ -93,6 +96,8 @@ class ClassOut(BaseModel):
     staff_role: StaffRole
     created_at: datetime
     archived: bool
+    roster_count: int
+    """Addresses on the Class's Roster (Story 4.4)."""
 
 
 class InstitutionChoice(BaseModel):
@@ -104,3 +109,41 @@ class InstitutionChoicesOut(BaseModel):
     """The Institutions a new Class may belong to, by name («Lag Klasse»)."""
 
     items: list[InstitutionChoice]
+
+
+# Sending Invitations to the Roster (Story 4.4, FR-8).
+
+INVITATION_VALID_DAYS_DEFAULT = 14
+INVITATION_VALID_DAYS_MIN = 1
+INVITATION_VALID_DAYS_MAX = 60
+"""The range of whole days a Student Invitation may be valid for, per sending ([ASSUMPTION]:
+FR-8 asks for a stated range; 60 days covers a semester's start with room)."""
+
+
+class RosterSendIn(BaseModel):
+    """«Send N Invitasjoner»: the staged upload the page shows, and the validity in whole days.
+    A validity outside the range answers 422 `invalid_request` with
+    `fields.valid_days = valid_days_out_of_range`."""
+
+    upload_id: uuid.UUID
+    # Strict: `true`, "14" or 14.0 are refused, not read as a number of days.
+    valid_days: int = Field(default=INVITATION_VALID_DAYS_DEFAULT, strict=True)
+
+    @field_validator("valid_days")
+    @classmethod
+    def _range(cls, value: int) -> int:
+        if not INVITATION_VALID_DAYS_MIN <= value <= INVITATION_VALID_DAYS_MAX:
+            raise PydanticCustomError(
+                "valid_days_out_of_range", "The validity is outside the allowed range."
+            )
+        return value
+
+
+class RosterSendOut(BaseModel):
+    """What the result line states: how many Invitations went out, and until when they work."""
+
+    sent: int
+    valid_days: int
+    last_valid_day: date
+    """The last day (Europe/Oslo) the links work."""
+    expires_at: datetime

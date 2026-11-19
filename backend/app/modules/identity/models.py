@@ -17,7 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 
-from app.modules.identity.schemas import AccountRole
+from app.modules.identity.schemas import AccountRole, InvitationKind, RosterRegistration
 from app.platform.db import metadata
 
 users = Table(
@@ -73,7 +73,8 @@ invitations = Table(
     Column("id", Uuid, primary_key=True),
     # Stored trimmed and lower-cased, as `users.email`.
     Column("email", Text, nullable=False, index=True),
-    Column("role", Text, nullable=False),
+    # The account role a `role` Invitation offers; NULL for every other kind (Story 4.4).
+    Column("role", Text, nullable=True),
     # SHA-256 of the link token; the token itself is never stored (AD-11, `auth.link_token`).
     Column("token_hash", Text, nullable=False, unique=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
@@ -82,12 +83,31 @@ invitations = Table(
     Column("voided_at", DateTime(timezone=True), nullable=True),
     # When the holder of the expired or voided link asked for a new one (Story 3.8).
     Column("renewal_requested_at", DateTime(timezone=True), nullable=True),
-    # The Admin who sent it; NULL when the system did (the bootstrap Invitation, Story 3.8).
+    # The Admin or Lecturer who sent it; NULL when the system did (the bootstrap Invitation).
     Column("invited_by", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+    Column("kind", Text, nullable=False, server_default=text("'role'")),
+    # For a `student` Invitation: the Class (`classes.classes` by name only) and its Roster entry.
+    Column("class_id", Uuid, ForeignKey("classes.id", ondelete="CASCADE"), nullable=True),
+    Column(
+        "roster_entry_id",
+        Uuid,
+        ForeignKey("roster_entries.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    ),
     CheckConstraint("email = lower(btrim(email))", name="ck_invitations_email_normalised"),
     CheckConstraint(
         f"role IN ({', '.join(repr(role.value) for role in AccountRole)})",
         name="ck_invitations_role",
+    ),
+    CheckConstraint(
+        f"kind IN ({', '.join(repr(kind.value) for kind in InvitationKind)})",
+        name="ck_invitations_kind",
+    ),
+    CheckConstraint(
+        "(kind = 'role') = (role IS NOT NULL) "
+        "AND (kind = 'student') = (class_id IS NOT NULL AND roster_entry_id IS NOT NULL)",
+        name="ck_invitations_kind_fields",
     ),
     Index(
         "uq_invitations_open",
@@ -96,10 +116,44 @@ invitations = Table(
         unique=True,
         postgresql_where=text("accepted_at IS NULL AND voided_at IS NULL"),
     ),
+    Index(
+        "uq_invitations_open_roster_entry",
+        "roster_entry_id",
+        unique=True,
+        postgresql_where=text(
+            "roster_entry_id IS NOT NULL AND accepted_at IS NULL AND voided_at IS NULL"
+        ),
+    ),
 )
-"""One row per Invitation to an account role (Story 3.7, FR-1). Sending again for the same address
-and role voids the open one, so at most one is open per address and role. Times come from the
-api's clock; expiry is read from `expires_at`, with no background job."""
+"""One row per Invitation: to an account role (Story 3.7, FR-1) or, of kind `student`, to a Class's
+Roster (Story 4.4, FR-8). Sending a role Invitation again for the same address and role voids the
+open one, so at most one is open per address and role; at most one is open per Roster entry. Times
+come from the api's clock; expiry is read from `expires_at`, with no background job."""
+
+roster_entries = Table(
+    "roster_entries",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    # `classes.classes` by name only: `identity` imports no `classes` code.
+    Column("class_id", Uuid, ForeignKey("classes.id", ondelete="CASCADE"), nullable=False),
+    # Stored trimmed and lower-cased, as `users.email`.
+    Column("email", Text, nullable=False),
+    # The User the address belongs to, once known (Story 4.5).
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+    Column("registration", Text, nullable=False),
+    Column("added_at", DateTime(timezone=True), nullable=False),
+    # Set when the Lecturer removes the address (Story 4.8); the row stays.
+    Column("removed_at", DateTime(timezone=True), nullable=True),
+    CheckConstraint("email = lower(btrim(email))", name="ck_roster_entries_email_normalised"),
+    CheckConstraint(
+        f"registration IN ({', '.join(repr(r.value) for r in RosterRegistration)})",
+        name="ck_roster_entries_registration",
+    ),
+    Index("uq_roster_entries_class_email", "class_id", "email", unique=True),
+)
+"""One row per address on a Class's Roster (Story 4.4, FR-7, FR-8, AD-14). Addresses live only
+here and in `invitations`; `classes` reaches them through `identity.service`. Times come from the
+api's clock."""
 
 institutions = Table(
     "institutions",

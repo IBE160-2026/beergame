@@ -112,6 +112,9 @@ class Settings(BaseSettings):
     email_from: str = LOCAL_EMAIL_FROM
     public_base_url: str = LOCAL_PUBLIC_BASE_URL
     resend_api_key: str = ""
+    # The provider's rate limit (Story 4.4, NFR-3): the Resend sender sends at most this many
+    # mails a second per process; `worker-batch` runs the mail queue in one process.
+    mail_provider_per_second: float = Field(2.0, gt=0, le=100)
 
     # Storage (AD-17): required in production from Story 3.14 on, used by `platform/storage`
     # in a later epic. Server only, never sent to the browser.

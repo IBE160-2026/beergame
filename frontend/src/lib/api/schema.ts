@@ -567,6 +567,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/classes/{class_id}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Invitations
+         * @description «Send N Invitasjoner» (Story 4.4): write the staged upload's valid addresses to the Roster
+         *     and send each new address a Student Invitation valid through the `valid_days`-th day after
+         *     today (Europe/Oslo), in one transaction; the mails leave from `worker-batch`. 404
+         *     `not_found` when `upload_id` is not the Class's staging (sent already, replaced or expired);
+         *     422 `nothing_to_send` when no staged row is valid; 422 `invalid_request` with
+         *     `fields.valid_days` for a validity outside 1–60 days. Nothing changes on a refusal.
+         */
+        post: operations["sendRosterInvitations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/classes/{class_id}/roster-paste": {
         parameters: {
             query?: never;
@@ -842,6 +867,8 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /** Roster Count */
+            roster_count: number;
         };
         /**
          * ClassListOut
@@ -879,6 +906,8 @@ export interface components {
             institution_name: string | null;
             /** Name */
             name: string;
+            /** Roster Count */
+            roster_count: number;
             staff_role: components["schemas"]["StaffRole"];
         };
         /** ErrorBody */
@@ -1111,7 +1140,7 @@ export interface components {
             /** First Row */
             first_row?: number | null;
             /** Reason */
-            reason: components["schemas"]["AddressProblem"] | "duplicate";
+            reason: components["schemas"]["AddressProblem"] | ("duplicate" | "on_roster");
             /** Row Number */
             row_number: number;
             /** Value */
@@ -1128,6 +1157,44 @@ export interface components {
             cells: string[];
             /** Row Number */
             row_number: number;
+        };
+        /**
+         * RosterSendIn
+         * @description «Send N Invitasjoner»: the staged upload the page shows, and the validity in whole days.
+         *     A validity outside the range answers 422 `invalid_request` with
+         *     `fields.valid_days = valid_days_out_of_range`.
+         */
+        RosterSendIn: {
+            /**
+             * Upload Id
+             * Format: uuid
+             */
+            upload_id: string;
+            /**
+             * Valid Days
+             * @default 14
+             */
+            valid_days: number;
+        };
+        /**
+         * RosterSendOut
+         * @description What the result line states: how many Invitations went out, and until when they work.
+         */
+        RosterSendOut: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Last Valid Day
+             * Format: date
+             */
+            last_valid_day: string;
+            /** Sent */
+            sent: number;
+            /** Valid Days */
+            valid_days: number;
         };
         /**
          * RosterSource
@@ -1153,6 +1220,11 @@ export interface components {
             file_name: string;
             /** Has Header */
             has_header: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
             /** Invalid Rows */
             invalid_rows: components["schemas"]["RosterInvalidRow"][];
             /** Preview */
@@ -2765,6 +2837,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sendRosterInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RosterSendIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RosterSendOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

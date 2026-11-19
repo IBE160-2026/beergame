@@ -1,6 +1,14 @@
-{# Invitation to an account role (Story 3.7, FR-1). The link uses DESIGN.md's lager #2B6CA3. #}
+{# An Invitation (Story 3.7, FR-1; Story 4.4, FR-8). The link uses DESIGN.md's lager #2B6CA3. #}
+{% set months = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember"] %}
+{% if kind == "student" %}
+{% set until = last_valid_day.day ~ ". " ~ months[last_valid_day.month - 1] ~ " " ~ last_valid_day.year %}
+<p style="margin:0 0 16px;">Du er invitert til Klassen {{ class_name }} i ØL-spillet.</p>
+<p style="margin:0 0 16px;"><a href="{{ url(link) }}" style="color:#2B6CA3;font-weight:600;">Bli med i Klassen</a></p>
+<p style="margin:0;color:#44586F;">Invitasjonen er gyldig til og med {{ until }} og kan brukes én gang. Venter du ikke denne invitasjonen, kan du se bort fra e-posten.</p>
+{% else %}
 {% set role_name = {"lecturer": "Faglærer", "admin": "Admin"}[role] %}
 {% set validity = "én dag" if valid_days == 1 else valid_days ~ " dager" %}
 <p style="margin:0 0 16px;">Du er invitert til ØL-spillet som {{ role_name }}.</p>
 <p style="margin:0 0 16px;"><a href="{{ url(link) }}" style="color:#2B6CA3;font-weight:600;">Opprett konto</a></p>
 <p style="margin:0;color:#44586F;">Invitasjonen er gyldig i {{ validity }} og kan brukes én gang. Venter du ikke denne invitasjonen, kan du se bort fra e-posten.</p>
+{% endif %}

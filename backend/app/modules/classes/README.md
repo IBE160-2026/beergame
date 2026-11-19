@@ -51,6 +51,32 @@ only `classes.service`.
   pieces than `ROSTER_MAX_ROWS` answers 422 `roster_paste_too_long` and stages nothing.
 - «Send N Invitasjoner» and «Registrer manuelt» are drawn now; they act from Stories 4.4 and 4.8.
 
+## The Roster and sending Invitations (Story 4.4, decided)
+
+- `roster_entries` (owned by `identity`) holds one row per address and Class: `registration`
+  `invited` or `registered` (later stories add states), `user_id` once known, `removed_at` set by
+  a removal. `(class_id, email)` is unique. `classes` reaches it only through `identity.service`.
+- `POST /api/classes/{id}/invitations` with the staging's `upload_id` and `valid_days` is one
+  command in `classes.service`, one transaction: under the staging lock it writes the valid
+  addresses to the Roster (ON CONFLICT DO NOTHING), deletes the staging, and creates one
+  `invitations` row of kind `student` (Class and Roster entry set, `role` NULL) per new entry,
+  with its `invitation` notice addressed by reference and its claim job deferred in one statement
+  (`notify.enqueue_by_ref`, `jobs.defer_many`). A repeat, a replaced staging or an expired one
+  answers 404 `not_found`; a staging with nothing valid 422 `nothing_to_send`.
+- A staged address already on the Roster, invited or registered, is listed as `on_roster` and
+  is not counted or sent. Re-inviting listed addresses is the reminder of Story 4.7.
+- The validity is 1–60 whole days, 14 by default ([ASSUMPTION]: FR-8 asks for a stated range).
+  An Invitation works through the last valid day in Europe/Oslo: `expires_at` is the Oslo
+  midnight after today + N days, so the mail and the result line can say «til og med 3. desember».
+- The mail names the Class through a resolver `classes.service` registers with `identity` at
+  import (`messaging.delivery` imports `classes.service` so the worker has it); `identity` imports
+  no `classes` code.
+- The link leads to `/invitasjon`, which takes only role Invitations until Student registration
+  (Story 4.5): until then a Student link reads as not valid there. The Admin's invitation list and
+  resend show and take role Invitations only.
+- The Resend sender paces sends to `MAIL_PROVIDER_PER_SECOND` (2) per process; the mail queue
+  runs in the one `worker-batch` process. The mock sender is not paced.
+
 ## Open point for the founder: real Canvas exports
 
 The upload is tested only on synthetic fixtures with invented names and addresses, in the column
