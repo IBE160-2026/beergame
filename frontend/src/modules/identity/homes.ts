@@ -38,6 +38,9 @@ export const classPath = (id: string) => `/klasser/${encodeURIComponent(id)}`;
 /** «Faglærere og assistenter» of a Class (Story 4.9). */
 export const classStaffPath = (id: string) => `${classPath(id)}/faglaerere`;
 
+/** A Class session's Klasseøkt screen (Story 5.1). */
+export const classSessionPath = (id: string) => `/klasseokter/${encodeURIComponent(id)}`;
+
 /** The link that leads to each home («Til Lærerhjem» …). */
 export const HOME_LINK: Record<Home, string> = {
   adminArea: nb.navigation.toAdminArea,

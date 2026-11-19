@@ -10,6 +10,7 @@ import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { Link } from "@/components/link";
 import { classPath, classStaffPath, HOME_PATH } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
+import { ClassSessions } from "@/modules/sessions/class-sessions";
 
 import { classKey, useClass } from "./api";
 import { ArchiveClass } from "./archive-class";
@@ -106,6 +107,9 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
             </Link>
           </p>
         ) : null}
+        {/* The Class sessions (Story 5.1): every staff member reads them; the Faglærere create
+            them while the Class is active. */}
+        {item ? <ClassSessions classId={item.id} canCreate={writable} /> : null}
         {/* The Roster upload is the Faglærere's (the api's `classes.manage` policy), while the
             Class is active. */}
         {item && writable ? (

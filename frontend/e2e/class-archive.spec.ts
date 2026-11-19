@@ -73,6 +73,7 @@ test("the Faglærer archives a Class: read-only, listed apart, and its open link
   await expect(lecturer.getByRole("button", { name: nb.classes.entries.manual })).toHaveCount(0);
   await expect(lecturer.getByRole("button", { name: copy.open, exact: true })).toHaveCount(0);
   await expect(lecturer.getByRole("button", { name: /^Send påminnelse/ })).toHaveCount(0);
+  await expect(lecturer.getByRole("button", { name: nb.sessions.list.create })).toHaveCount(0);
   await expect(lecturer.getByRole("heading", { level: 2, name: nb.classes.roster.title })).toBeVisible();
   // The staff page lists the staff with no form and no «Fjern».
   await lecturer.getByRole("link", { name: nb.classes.page.staff }).click();

@@ -49,7 +49,9 @@ CLASS_TABLES = {"classes", "class_staff"}
 """The tables of revision 0023 (Story 4.1)."""
 ROSTER_TABLES = {"roster_uploads", "roster_upload_rows", "roster_entries"}
 """The tables of revisions 0024 (Story 4.2) and 0026 (Story 4.4)."""
-HEAD_TABLES = (
+SESSION_TABLES = {"class_sessions"}
+"""The table of revision 0032 (Story 5.1)."""
+PRE_SESSION_TABLES = (
     AI_HEAD_TABLES
     | JOB_TABLES
     | {"simulation_batches"}
@@ -63,7 +65,8 @@ HEAD_TABLES = (
     | CLASS_TABLES
     | ROSTER_TABLES
 )
-HEAD = "0031"  # 0031 adds Assistant lecturers and their Invitations (Story 4.9)
+HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES
+HEAD = "0032"  # 0032 adds the Class sessions (Story 5.1)
 
 
 def reset_schema(url: str) -> None:
@@ -266,7 +269,7 @@ def test_downgrade_to_0012_removes_the_simulation_batches(migrations_database):
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0012")
     assert tables(migrations_database) == (
-        HEAD_TABLES
+        PRE_SESSION_TABLES
         - {"simulation_batches"}
         - MEASUREMENT_TABLES
         - IDENTITY_TABLES
@@ -298,7 +301,7 @@ def test_downgrade_to_0013_removes_the_effort_measurements_and_pins(migrations_d
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0013")
     assert tables(migrations_database) == (
-        HEAD_TABLES
+        PRE_SESSION_TABLES
         - MEASUREMENT_TABLES
         - IDENTITY_TABLES
         - MAIL_TABLES
@@ -324,7 +327,7 @@ def test_downgrade_to_0014_removes_the_identity_and_rate_limit_tables(migrations
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0014")
     assert tables(migrations_database) == (
-        HEAD_TABLES
+        PRE_SESSION_TABLES
         - IDENTITY_TABLES
         - MAIL_TABLES
         - RESET_TABLES
@@ -344,7 +347,7 @@ def test_downgrade_to_0015_removes_the_notice_and_delivery_tables(migrations_dat
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0015")
     assert tables(migrations_database) == (
-        HEAD_TABLES
+        PRE_SESSION_TABLES
         - MAIL_TABLES
         - RESET_TABLES
         - INVITATION_TABLES
@@ -363,7 +366,7 @@ def test_downgrade_to_0016_removes_the_reset_table_and_the_stale_reason(migratio
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0016")
     assert tables(migrations_database) == (
-        HEAD_TABLES
+        PRE_SESSION_TABLES
         - RESET_TABLES
         - INVITATION_TABLES
         - INSTITUTION_TABLES
@@ -388,7 +391,7 @@ def test_downgrade_to_0017_removes_the_invitation_and_audit_tables(migrations_da
     command.downgrade(cfg, "0017")
     assert (
         tables(migrations_database)
-        == HEAD_TABLES
+        == PRE_SESSION_TABLES
         - INVITATION_TABLES
         - INSTITUTION_TABLES
         - ACCESS_REQUEST_TABLES
@@ -426,7 +429,11 @@ def test_downgrade_to_0020_removes_the_institutions(migrations_database):
     command.downgrade(cfg, "0020")
     assert (
         tables(migrations_database)
-        == HEAD_TABLES - INSTITUTION_TABLES - ACCESS_REQUEST_TABLES - CLASS_TABLES - ROSTER_TABLES
+        == PRE_SESSION_TABLES
+        - INSTITUTION_TABLES
+        - ACCESS_REQUEST_TABLES
+        - CLASS_TABLES
+        - ROSTER_TABLES
     )
     assert current_version(migrations_database) == "0020"
     command.upgrade(cfg, "head")
@@ -440,7 +447,7 @@ def test_downgrade_to_0021_removes_the_access_requests(migrations_database):
     command.downgrade(cfg, "0021")
     assert (
         tables(migrations_database)
-        == HEAD_TABLES - ACCESS_REQUEST_TABLES - CLASS_TABLES - ROSTER_TABLES
+        == PRE_SESSION_TABLES - ACCESS_REQUEST_TABLES - CLASS_TABLES - ROSTER_TABLES
     )
     assert current_version(migrations_database) == "0021"
     command.upgrade(cfg, "head")
@@ -452,7 +459,7 @@ def test_downgrade_to_0022_removes_the_classes(migrations_database):
     cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0022")
-    assert tables(migrations_database) == HEAD_TABLES - CLASS_TABLES - ROSTER_TABLES
+    assert tables(migrations_database) == PRE_SESSION_TABLES - CLASS_TABLES - ROSTER_TABLES
     assert current_version(migrations_database) == "0022"
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
@@ -463,7 +470,7 @@ def test_downgrade_to_0023_removes_the_roster_uploads(migrations_database):
     cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0023")
-    assert tables(migrations_database) == HEAD_TABLES - ROSTER_TABLES
+    assert tables(migrations_database) == PRE_SESSION_TABLES - ROSTER_TABLES
     assert current_version(migrations_database) == "0023"
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
@@ -500,7 +507,7 @@ def test_downgrade_to_0025_removes_the_roster_and_keeps_role_invitations(migrati
             "'h2', now(), now())"
         )
     command.downgrade(cfg, "0025")
-    assert tables(migrations_database) == HEAD_TABLES - {"roster_entries"}
+    assert tables(migrations_database) == PRE_SESSION_TABLES - {"roster_entries"}
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         assert conn.execute("SELECT email, role FROM invitations").fetchall() == [
             ("a@x.no", "lecturer")
@@ -613,6 +620,16 @@ def test_0031_admits_assistants_and_its_downgrade_removes_them(migrations_databa
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         assert conn.execute("SELECT count(*) FROM class_staff").fetchone() == (0,)
         assert conn.execute("SELECT count(*) FROM invitations").fetchone() == (0,)
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_downgrade_to_0031_removes_the_class_sessions(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0031")
+    assert tables(migrations_database) == PRE_SESSION_TABLES
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 

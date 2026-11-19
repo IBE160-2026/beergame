@@ -163,6 +163,15 @@
         "title": "AddressProblem",
         "type": "string"
       },
+      "AiMode": {
+        "description": "Who holds the AI Seats of the Class session's games (FR-15).",
+        "enum": [
+          "llm",
+          "rule_based"
+        ],
+        "title": "AiMode",
+        "type": "string"
+      },
       "AuditActor": {
         "description": "An actor of the log for the filter: a User with their name, or the system (both null).",
         "properties": {
@@ -526,6 +535,294 @@
         "title": "ClassOut",
         "type": "object"
       },
+      "ClassSessionListItem": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "saved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved At"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "saved_at"
+        ],
+        "title": "ClassSessionListItem",
+        "type": "object"
+      },
+      "ClassSessionListOut": {
+        "description": "The Class sessions of one Class, newest first. No paging: a Class has a handful.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClassSessionListItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ClassSessionListOut",
+        "type": "object"
+      },
+      "ClassSessionOut": {
+        "description": "One Class session as its Class's staff read it.",
+        "properties": {
+          "ai_mode": {
+            "$ref": "#/components/schemas/AiMode"
+          },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "debrief_mode": {
+            "$ref": "#/components/schemas/DebriefMode"
+          },
+          "game_settings": {
+            "$ref": "#/components/schemas/GameSettings"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "inactivity_limit_hours": {
+            "title": "Inactivity Limit Hours",
+            "type": "integer"
+          },
+          "is_classic": {
+            "title": "Is Classic",
+            "type": "boolean"
+          },
+          "llm_unavailable": {
+            "anyOf": [
+              {
+                "const": "no_default_model",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Unavailable"
+          },
+          "obligatory": {
+            "title": "Obligatory",
+            "type": "boolean"
+          },
+          "saved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved At"
+          }
+        },
+        "required": [
+          "id",
+          "class_id",
+          "class_name",
+          "game_settings",
+          "is_classic",
+          "ai_mode",
+          "debrief_mode",
+          "inactivity_limit_hours",
+          "obligatory",
+          "llm_unavailable",
+          "saved_at",
+          "created_at",
+          "can_manage"
+        ],
+        "title": "ClassSessionOut",
+        "type": "object"
+      },
+      "ClassSessionSaveIn": {
+        "additionalProperties": false,
+        "description": "«Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice).",
+        "properties": {
+          "ai_mode": {
+            "$ref": "#/components/schemas/AiMode"
+          }
+        },
+        "required": [
+          "ai_mode"
+        ],
+        "title": "ClassSessionSaveIn",
+        "type": "object"
+      },
+      "DebriefMode": {
+        "enum": [
+          "group",
+          "personal"
+        ],
+        "title": "DebriefMode",
+        "type": "string"
+      },
+      "DemandFixed": {
+        "additionalProperties": false,
+        "description": "A fixed series: `values[w - 1]` is the demand in Week w.",
+        "properties": {
+          "kind": {
+            "const": "fixed",
+            "title": "Kind",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "minItems": 1,
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "values"
+        ],
+        "title": "DemandFixed",
+        "type": "object"
+      },
+      "DemandRandom": {
+        "additionalProperties": false,
+        "description": "Discrete uniform demand over `mean - spread` to `mean + spread`, never below 0.",
+        "properties": {
+          "kind": {
+            "const": "random",
+            "title": "Kind",
+            "type": "string"
+          },
+          "mean": {
+            "minimum": 0.0,
+            "title": "Mean",
+            "type": "integer"
+          },
+          "spread": {
+            "title": "Spread",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "mean",
+          "spread"
+        ],
+        "title": "DemandRandom",
+        "type": "object"
+      },
+      "DemandStep": {
+        "additionalProperties": false,
+        "description": "Customer demand `start` until `change_week`, then `new_level` from that Week on.",
+        "properties": {
+          "change_week": {
+            "minimum": 1.0,
+            "title": "Change Week",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "step",
+            "title": "Kind",
+            "type": "string"
+          },
+          "new_level": {
+            "minimum": 0.0,
+            "title": "New Level",
+            "type": "integer"
+          },
+          "start": {
+            "minimum": 0.0,
+            "title": "Start",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start",
+          "new_level",
+          "change_week",
+          "kind"
+        ],
+        "title": "DemandStep",
+        "type": "object"
+      },
+      "DemandStepNoise": {
+        "additionalProperties": false,
+        "description": "A step in the mean with discrete uniform noise of `spread` around it.",
+        "properties": {
+          "change_week": {
+            "minimum": 1.0,
+            "title": "Change Week",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "step+noise",
+            "title": "Kind",
+            "type": "string"
+          },
+          "new_level": {
+            "minimum": 0.0,
+            "title": "New Level",
+            "type": "integer"
+          },
+          "spread": {
+            "title": "Spread",
+            "type": "integer"
+          },
+          "start": {
+            "minimum": 0.0,
+            "title": "Start",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start",
+          "new_level",
+          "change_week",
+          "kind",
+          "spread"
+        ],
+        "title": "DemandStepNoise",
+        "type": "object"
+      },
       "EnrolledClassListOut": {
         "description": "The Classes the User is a Student in, by name. No paging: a Student has a handful.",
         "properties": {
@@ -608,6 +905,157 @@
           "error"
         ],
         "title": "ErrorEnvelope",
+        "type": "object"
+      },
+      "GameSettings": {
+        "additionalProperties": false,
+        "description": "Everything that defines a Game's arithmetic. `GameSettings()` is the Classic game.",
+        "properties": {
+          "backorder_cost": {
+            "default": "1.00",
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/Role"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "demand": {
+            "default": {
+              "change_week": 5,
+              "kind": "step",
+              "new_level": 8,
+              "start": 4
+            },
+            "discriminator": {
+              "mapping": {
+                "fixed": "#/components/schemas/DemandFixed",
+                "random": "#/components/schemas/DemandRandom",
+                "step": "#/components/schemas/DemandStep",
+                "step+noise": "#/components/schemas/DemandStepNoise"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DemandFixed"
+              },
+              {
+                "$ref": "#/components/schemas/DemandStep"
+              },
+              {
+                "$ref": "#/components/schemas/DemandRandom"
+              },
+              {
+                "$ref": "#/components/schemas/DemandStepNoise"
+              }
+            ],
+            "title": "Demand"
+          },
+          "demand_seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Demand Seed"
+          },
+          "guided_weeks": {
+            "default": 4,
+            "minimum": 0.0,
+            "title": "Guided Weeks",
+            "type": "integer"
+          },
+          "holding_cost": {
+            "default": "0.50",
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "max_order": {
+            "default": 999,
+            "minimum": 0.0,
+            "title": "Max Order",
+            "type": "integer"
+          },
+          "order_delay": {
+            "default": 2,
+            "minimum": 1.0,
+            "title": "Order Delay",
+            "type": "integer"
+          },
+          "production_delay": {
+            "default": 2,
+            "minimum": 1.0,
+            "title": "Production Delay",
+            "type": "integer"
+          },
+          "roles": {
+            "default": [
+              "retailer",
+              "wholesaler",
+              "distributor",
+              "factory"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "shipping_delay": {
+            "default": 2,
+            "minimum": 1.0,
+            "title": "Shipping Delay",
+            "type": "integer"
+          },
+          "starting_backlog": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Starting Backlog",
+            "type": "integer"
+          },
+          "starting_inventory": {
+            "default": 12,
+            "minimum": 0.0,
+            "title": "Starting Inventory",
+            "type": "integer"
+          },
+          "supply_line": {
+            "default": 4,
+            "minimum": 0.0,
+            "title": "Supply Line",
+            "type": "integer"
+          },
+          "weeks": {
+            "default": 36,
+            "minimum": 1.0,
+            "title": "Weeks",
+            "type": "integer"
+          }
+        },
+        "title": "GameSettings",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1368,6 +1816,16 @@
         ],
         "title": "ResetTokenIn",
         "type": "object"
+      },
+      "Role": {
+        "enum": [
+          "retailer",
+          "wholesaler",
+          "distributor",
+          "factory"
+        ],
+        "title": "Role",
+        "type": "string"
       },
       "RoleIn": {
         "description": "The account role an Admin grants (Story 3.9).",
@@ -3865,6 +4323,150 @@
         ]
       }
     },
+    "/api/class-sessions/{session_id}": {
+      "get": {
+        "description": "One Class session, for the Klasseøkt screen. Its Class's Assistant lecturers read it too.",
+        "operationId": "getClassSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Class Session",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "put": {
+        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.",
+        "operationId": "saveClassSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassSessionSaveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Save Class Session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/classes": {
       "get": {
         "description": "The Classes the User is staff of, by name: «Klassene dine» on the Lærerhjem.",
@@ -4237,6 +4839,140 @@
         "summary": "Archive Class",
         "tags": [
           "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/class-sessions": {
+      "get": {
+        "description": "The Class's sessions, newest first, for the Klasse page.",
+        "operationId": "listClassSessions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassSessionListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Class Sessions",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "post": {
+        "description": "«Lag Klasseøkt»: a Class session filled in with the Classic defaults (FR-11). When no model\nconfig is pinned as the default, it gets Rule-based players and `llm_unavailable` says why.",
+        "operationId": "createClassSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Class Session",
+        "tags": [
+          "sessions"
         ]
       }
     },

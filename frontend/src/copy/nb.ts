@@ -689,6 +689,103 @@ export const nb = {
     },
   },
 
+  /** The Klasseøkt (Story 5.1, FR-11, UX-DR48). The page title, «Alt er fylt ut med
+   * standardene.», «Spillinnstillinger: Klassisk», the delay-sources line, «Kjeden ved start»,
+   * «Varer mot høyre, ordre mot venstre», «Lagre Klasseøkt», «Du kan lagre uten å endre noe.»,
+   * the setting labels and the KI-modus and Debrief-modus names are EXPERIENCE.md's and mockup
+   * 03's own; the rest is [ASSUMPTION] draft copy. */
+  sessions: {
+    title: (className: string) => `Klasseøkt for ${className}`,
+    crumb: "Klasseøkt",
+    defaults: "Alt er fylt ut med standardene.",
+    settingsTitle: "Spillinnstillinger: Klassisk",
+    // [ASSUMPTION] the heading once a setting differs from Classic (Story 5.3 adds its line).
+    settingsTitleChanged: "Spillinnstillinger",
+    delaySources: "Kildene er uenige om forsinkelsene. Dette er produktets standard, og du kan endre den.",
+    settings: {
+      startingInventory: "Startlager",
+      supplyLine: "I hvert ledd ved start",
+      orderDelay: "Ordreforsinkelse",
+      shippingDelay: "Fraktforsinkelse",
+      productionDelay: "Produksjonsforsinkelse",
+      holdingCost: "Lagerkost",
+      backorderCost: "Restordrekost",
+      weeks: "Antall uker",
+      demand: "Etterspørsel",
+      guidedWeeks: "Veiledede uker",
+      inactivityLimit: "Inaktivitetsgrense",
+    },
+    values: {
+      units: (count: number) => `${count} ${count === 1 ? "enhet" : "enheter"}`,
+      weeks: (count: number) => `${count} ${count === 1 ? "uke" : "uker"}`,
+      /** A cost rate, decimal comma already applied: «0,50 per enhet per uke». */
+      cost: (rate: string) => `${rate} per enhet per uke`,
+      /** The step pattern: «4, så 8 fra Uke 5». */
+      step: (start: number, next: number, week: number) => `${start}, så ${next} fra Uke ${week}`,
+      // [ASSUMPTION] the other Demand patterns until Story 5.4 words them.
+      otherDemand: "Eget mønster",
+      guidedWeeks: (count: number) => (count === 0 ? "Ingen" : count === 1 ? "1" : `1–${count}`),
+      inactivityLimit: (hours: number) => `${hours} t, så KI overtar`,
+    },
+    chain: {
+      title: "Kjeden ved start",
+      caption: "Varer mot høyre, ordre mot venstre",
+      customers: "Kundene",
+      inventory: (units: number) => `Lager ${units}`,
+      delay: (weeks: number) => `${weeks} ${weeks === 1 ? "uke" : "uker"}`,
+      /** The diagram's text: the same values as sentences, also read by screen readers. */
+      text: (v: {
+        roles: string;
+        inventory: number;
+        slot: number;
+        shipping: number;
+        production: number;
+        order: number;
+      }) =>
+        `${v.roles} starter med Lager ${v.inventory} hver. Hver boks på røret er ${v.slot} ${v.slot === 1 ? "enhet" : "enheter"}. ` +
+        `Frakt mellom leddene tar ${v.shipping} ${v.shipping === 1 ? "uke" : "uker"}, og produksjon inn til Fabrikk tar ${v.production} ${v.production === 1 ? "uke" : "uker"}. ` +
+        `Prikkene er ordre på vei, ${v.order} ${v.order === 1 ? "uke" : "uker"}. Studentene ser ikke kundene under spillet.`,
+      /** «Fabrikk, Distributør, Grossist og Detaljist». */
+      list: (names: readonly string[]) =>
+        names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} og ${names[names.length - 1]}`,
+    },
+    choices: {
+      aiMode: "KI-modus",
+      llm: "LLM-spillere",
+      ruleBased: "Regelbaserte spillere",
+      debriefMode: "Debrief-modus",
+      group: "Gruppedebrief",
+      personal: "Personlig debrief",
+      obligatory: "Obligatorisk",
+      obligatoryYes: "Ja, står i emneplanen",
+      // [ASSUMPTION]
+      obligatoryNo: "Nei",
+      // [ASSUMPTION] FR-15: no model config is pinned as the default.
+      llmUnavailable:
+        "LLM-spillere kan ikke velges før en Admin har valgt en standardmodell. Til da får Klasseøkten regelbaserte spillere.",
+    },
+    save: "Lagre Klasseøkt",
+    saving: "Lagrer …",
+    saveHint: "Du kan lagre uten å endre noe.",
+    // [ASSUMPTION]
+    saved: "Klasseøkten er lagret.",
+    // [ASSUMPTION] the save of LLM players refused (`llm_unavailable`).
+    llmRefused: "LLM-spillere kan ikke velges ennå. Be en Admin velge en standardmodell.",
+    // [ASSUMPTION] above the Klasseøkt an Assistant lecturer reads.
+    assistantLead: "Du er Assistent i Klassen. Du ser Klasseøkten, men Faglærerne endrer den.",
+    /** The Klasse page's list (Story 5.1). [ASSUMPTION] */
+    list: {
+      title: "Klasseøkter",
+      empty: "Ingen Klasseøkter ennå.",
+      create: "Lag Klasseøkt",
+      creating: "Lager …",
+      createFailed: "Klasseøkten ble ikke laget. Prøv igjen.",
+      item: (created: string) => `Klasseøkt opprettet ${created}`,
+      saved: "Lagret",
+      unsaved: "Ikke lagret ennå",
+    },
+  },
+
   /** The Admin-område and its pages (FR-1–FR-3). «Brukere og roller» is EXPERIENCE.md's own. */
   admin: {
     /** The pages the Admin-område links to; later stories add theirs. */

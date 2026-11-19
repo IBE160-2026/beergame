@@ -503,6 +503,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Class Session
+         * @description One Class session, for the Klasseøkt screen. Its Class's Assistant lecturers read it too.
+         */
+        get: operations["getClassSession"];
+        /**
+         * Save Class Session
+         * @description «Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config
+         *     is pinned as the default answer 409 `llm_unavailable`, and nothing changes.
+         */
+        put: operations["saveClassSession"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/classes": {
         parameters: {
             query?: never;
@@ -628,6 +653,31 @@ export interface paths {
          *     it is archived already.
          */
         post: operations["archiveClass"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/{class_id}/class-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Class Sessions
+         * @description The Class's sessions, newest first, for the Klasse page.
+         */
+        get: operations["listClassSessions"];
+        put?: never;
+        /**
+         * Create Class Session
+         * @description «Lag Klasseøkt»: a Class session filled in with the Classic defaults (FR-11). When no model
+         *     config is pinned as the default, it gets Rule-based players and `llm_unavailable` says why.
+         */
+        post: operations["createClassSession"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1070,6 +1120,12 @@ export interface components {
          */
         AddressProblem: "empty" | "whitespace" | "missing_at" | "two_at" | "missing_name" | "missing_domain";
         /**
+         * AiMode
+         * @description Who holds the AI Seats of the Class session's games (FR-15).
+         * @enum {string}
+         */
+        AiMode: "llm" | "rule_based";
+        /**
          * AuditActor
          * @description An actor of the log for the filter: a User with their name, or the system (both null).
          */
@@ -1228,6 +1284,143 @@ export interface components {
             roster_count: number;
             staff_role: components["schemas"]["StaffRole"];
         };
+        /** ClassSessionListItem */
+        ClassSessionListItem: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Saved At */
+            saved_at: string | null;
+        };
+        /**
+         * ClassSessionListOut
+         * @description The Class sessions of one Class, newest first. No paging: a Class has a handful.
+         */
+        ClassSessionListOut: {
+            /** Items */
+            items: components["schemas"]["ClassSessionListItem"][];
+        };
+        /**
+         * ClassSessionOut
+         * @description One Class session as its Class's staff read it.
+         */
+        ClassSessionOut: {
+            ai_mode: components["schemas"]["AiMode"];
+            /** Can Manage */
+            can_manage: boolean;
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            debrief_mode: components["schemas"]["DebriefMode"];
+            game_settings: components["schemas"]["GameSettings"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Inactivity Limit Hours */
+            inactivity_limit_hours: number;
+            /** Is Classic */
+            is_classic: boolean;
+            /** Llm Unavailable */
+            llm_unavailable: "no_default_model" | null;
+            /** Obligatory */
+            obligatory: boolean;
+            /** Saved At */
+            saved_at: string | null;
+        };
+        /**
+         * ClassSessionSaveIn
+         * @description «Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice).
+         */
+        ClassSessionSaveIn: {
+            ai_mode: components["schemas"]["AiMode"];
+        };
+        /**
+         * DebriefMode
+         * @enum {string}
+         */
+        DebriefMode: "group" | "personal";
+        /**
+         * DemandFixed
+         * @description A fixed series: `values[w - 1]` is the demand in Week w.
+         */
+        DemandFixed: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "fixed";
+            /** Values */
+            values: number[];
+        };
+        /**
+         * DemandRandom
+         * @description Discrete uniform demand over `mean - spread` to `mean + spread`, never below 0.
+         */
+        DemandRandom: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "random";
+            /** Mean */
+            mean: number;
+            /** Spread */
+            spread: number;
+        };
+        /**
+         * DemandStep
+         * @description Customer demand `start` until `change_week`, then `new_level` from that Week on.
+         */
+        DemandStep: {
+            /** Change Week */
+            change_week: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "step";
+            /** New Level */
+            new_level: number;
+            /** Start */
+            start: number;
+        };
+        /**
+         * DemandStepNoise
+         * @description A step in the mean with discrete uniform noise of `spread` around it.
+         */
+        DemandStepNoise: {
+            /** Change Week */
+            change_week: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "step+noise";
+            /** New Level */
+            new_level: number;
+            /** Spread */
+            spread: number;
+            /** Start */
+            start: number;
+        };
         /**
          * EnrolledClassListOut
          * @description The Classes the User is a Student in, by name. No paging: a Student has a handful.
@@ -1265,6 +1458,99 @@ export interface components {
         /** ErrorEnvelope */
         ErrorEnvelope: {
             error: components["schemas"]["ErrorBody"];
+        };
+        /**
+         * GameSettings
+         * @description Everything that defines a Game's arithmetic. `GameSettings()` is the Classic game.
+         */
+        GameSettings: {
+            /**
+             * Backorder Cost
+             * @default 1.00
+             */
+            backorder_cost: string;
+            /** Capacity */
+            capacity?: {
+                [key: string]: number;
+            } | null;
+            /**
+             * Demand
+             * @default {
+             *       "change_week": 5,
+             *       "kind": "step",
+             *       "new_level": 8,
+             *       "start": 4
+             *     }
+             */
+            demand: components["schemas"]["DemandFixed"] | components["schemas"]["DemandStep"] | components["schemas"]["DemandRandom"] | components["schemas"]["DemandStepNoise"];
+            /** Demand Seed */
+            demand_seed?: number | null;
+            /**
+             * Guided Weeks
+             * @default 4
+             */
+            guided_weeks: number;
+            /**
+             * Holding Cost
+             * @default 0.50
+             */
+            holding_cost: string;
+            /**
+             * Max Order
+             * @default 999
+             */
+            max_order: number;
+            /**
+             * Order Delay
+             * @default 2
+             */
+            order_delay: number;
+            /**
+             * Production Delay
+             * @default 2
+             */
+            production_delay: number;
+            /**
+             * Roles
+             * @default [
+             *       "retailer",
+             *       "wholesaler",
+             *       "distributor",
+             *       "factory"
+             *     ]
+             */
+            roles: components["schemas"]["Role"][];
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /**
+             * Shipping Delay
+             * @default 2
+             */
+            shipping_delay: number;
+            /**
+             * Starting Backlog
+             * @default 0
+             */
+            starting_backlog: number;
+            /**
+             * Starting Inventory
+             * @default 12
+             */
+            starting_inventory: number;
+            /**
+             * Supply Line
+             * @default 4
+             */
+            supply_line: number;
+            /**
+             * Weeks
+             * @default 36
+             */
+            weeks: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1621,6 +1907,11 @@ export interface components {
             /** Token */
             token: string;
         };
+        /**
+         * Role
+         * @enum {string}
+         */
+        Role: "retailer" | "wholesaler" | "distributor" | "factory";
         /**
          * RoleIn
          * @description The account role an Admin grants (Story 3.9).
@@ -3269,6 +3560,117 @@ export interface operations {
             };
         };
     };
+    getClassSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSessionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    saveClassSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClassSessionSaveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSessionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     listClasses: {
         parameters: {
             query?: never;
@@ -3541,6 +3943,113 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClassOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listClassSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSessionListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    createClassSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSessionOut"];
                 };
             };
             /** @description Unauthorized */
