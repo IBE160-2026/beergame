@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
-import { type Browser, expect, type Page, test } from "@playwright/test";
+import { test as base, type Browser, type BrowserContext, expect, type Page } from "@playwright/test";
 
-import { demoContext, latestMail, nextMail, untilFontsLoaded } from "./auth";
+import { demoSession, latestMail, nextMail, untilFontsLoaded } from "./auth";
 
 /** Shared by the Class specs (Stories 4.1, 4.2): the viewports of NFR-6, the axe and layout
  * check, and a fresh Lecturer made from an Invitation, so the demo Lecturer's Classes stay as the
@@ -45,29 +45,53 @@ export async function freshLecturerWithAddress(
   browser: Browser,
   text200 = false,
 ): Promise<{ page: Page; address: string }> {
+  const { session, address } = await invitedLecturer(browser, test.info().project.use.baseURL);
+  const viewport = page.viewportSize();
+  const own = await lecturerPage(browser, session, { width: viewport!.width, height: viewport!.height, text200 });
+  return { page: own, address };
+}
+
+export type Session = Awaited<ReturnType<BrowserContext["storageState"]>>;
+
+/** A new Lecturer: the demo Admin invites the address, and the mailed link is accepted through
+ * the api. One mail through the worker. */
+async function invitedLecturer(browser: Browser, baseURL?: string): Promise<{ session: Session; address: string }> {
   const tag = `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
   const address = `klasse-${tag}@example.com`;
-  const admin = await demoContext(browser, "admin");
-  const before = await latestMail(page, address);
+  const admin = await browser.newContext({ baseURL, storageState: { cookies: [demoSession("admin")], origins: [] } });
+  const before = await latestMail(admin, address);
   const sent = await admin.request.post("/api/admin/invitations", {
     data: { email: address, role: "lecturer" },
     headers: CSRF,
   });
   expect(sent.status()).toBe(201);
+  const mail = await nextMail(admin, address, before);
   await admin.close();
-  const mail = await nextMail(page, address, before);
   const token = mail.text.match(/\/invitasjon#([A-Za-z0-9_-]+)/)![1];
-  const context = await browser.newContext({
-    baseURL: test.info().project.use.baseURL,
-    viewport: page.viewportSize(),
-  });
+  const context = await browser.newContext({ baseURL });
   const accepted = await context.request.post("/api/auth/invitation/accept", {
     data: { token, name: `Lene${tag} Testesen`, password: "et-godt-passord" },
     headers: CSRF,
   });
   expect(accepted.status()).toBe(200);
+  const session = await context.storageState();
+  await context.close();
+  return { session, address };
+}
+
+/** A page of its own, logged in with `session`, at the viewport's size (and 200 % text). */
+export async function lecturerPage(
+  browser: Browser,
+  session: Session,
+  viewport: Pick<Viewport, "width" | "height" | "text200">,
+): Promise<Page> {
+  const context = await browser.newContext({
+    baseURL: test.info().project.use.baseURL,
+    viewport: { width: viewport.width, height: viewport.height },
+    storageState: session,
+  });
   const own = await context.newPage();
-  if (text200) {
+  if (viewport.text200) {
     await own.addInitScript(() => {
       document.addEventListener("DOMContentLoaded", () => {
         const style = document.createElement("style");
@@ -76,5 +100,17 @@ export async function freshLecturerWithAddress(
       });
     });
   }
-  return { page: own, address };
+  return own;
 }
+
+/** Playwright's `test` with `lecturerSession`: one fresh Lecturer per worker, made once and shared
+ * by every test of that worker that asks for it. For specs whose tests each make a Class of their
+ * own, where a Lecturer per test would only queue one more mail for the worker. */
+export const test = base.extend<object, { lecturerSession: Session }>({
+  lecturerSession: [
+    async ({ browser }, use, workerInfo) => {
+      await use((await invitedLecturer(browser, workerInfo.project.use.baseURL)).session);
+    },
+    { scope: "worker" },
+  ],
+});

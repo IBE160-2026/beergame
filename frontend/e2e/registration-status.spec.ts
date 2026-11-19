@@ -1,19 +1,29 @@
-import { expect, type Page, test } from "@playwright/test";
+import { type BrowserContext, expect } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { latestMail, nextMail } from "./support/auth";
-import { expectAccessible, freshLecturer, VIEWPORTS } from "./support/classes";
+import { expectAccessible, lecturerPage, test, VIEWPORTS } from "./support/classes";
 
 /** Registration status and reminders (Story 4.7, FR-9, NFR-6, NFR-10), on the local stack at
  * 320 px, 200 % text and 1440 px. A fresh Lecturer sends three Invitations, one of which bounces
  * hard through the dev stand-in for the provider. «Status etter utsending» shows the totals as
  * text and every address with its status; the list filters and searches; a reminder to all
  * leaves out and names the hard bounce, and a single address gets its own. Needs `worker-batch`
- * running. */
+ * running.
+ *
+ * The three viewports share the Class, made once through the api, so its three Invitations go
+ * through the mail worker once. They run one after the other: each reminds the same addresses
+ * again, as a Lecturer may, and every status, count and mail it checks is the same each time. */
 const copy = nb.classes.registration;
 const CSRF = { "X-Requested-With": "olspillet" };
 
-async function sentClass(lecturer: Page, addresses: string[]): Promise<string> {
+test.describe.configure({ mode: "serial" });
+
+const tag = `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
+const [ola, kari, per] = ["ola", "kari", "per"].map((n) => `${n}-${tag}@stud.example.no`);
+let classId: string;
+
+async function sentClass(lecturer: BrowserContext, addresses: string[]): Promise<string> {
   const places = await lecturer.request.get("/api/classes/institutions");
   const place = ((await places.json()).items as { id: string; name: string }[]).find(
     (item) => item.name === "Demohøgskolen",
@@ -38,23 +48,24 @@ async function sentClass(lecturer: Page, addresses: string[]): Promise<string> {
   return classId;
 }
 
+test.beforeAll(async ({ browser, lecturerSession }) => {
+  const lecturer = await browser.newContext({
+    baseURL: test.info().project.use.baseURL,
+    storageState: lecturerSession,
+  });
+  classId = await sentClass(lecturer, [ola, kari, per]);
+  const bounced = await lecturer.request.post("/api/dev/mailbox/bounce", {
+    data: { to: per, bounce_class: "hard" },
+    headers: CSRF,
+  });
+  expect(bounced.status()).toBe(200);
+  await lecturer.close();
+});
+
 for (const vp of VIEWPORTS) {
   test.describe(`registration status, ${vp.name}`, () => {
-    test.use({ viewport: { width: vp.width, height: vp.height } });
-
-    test("the Lecturer follows each address and sends reminders", async ({ page, browser }) => {
-      // A long journey through the mail worker (several mails, each awaited in the dev mailbox):
-      // up to 25-28 s in a plain full-suite run, which left the default 30 s no margin under load.
-      test.slow();
-      const lecturer = await freshLecturer(page, browser, vp.text200);
-      const tag = `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
-      const [ola, kari, per] = ["ola", "kari", "per"].map((n) => `${n}-${tag}@stud.example.no`);
-      const classId = await sentClass(lecturer, [ola, kari, per]);
-      const bounced = await lecturer.request.post("/api/dev/mailbox/bounce", {
-        data: { to: per, bounce_class: "hard" },
-        headers: CSRF,
-      });
-      expect(bounced.status()).toBe(200);
+    test("the Lecturer follows each address and sends reminders", async ({ browser, lecturerSession }) => {
+      const lecturer = await lecturerPage(browser, lecturerSession, vp);
 
       await lecturer.goto(`/klasser/${classId}`);
       const section = lecturer.getByRole("region", { name: copy.title });

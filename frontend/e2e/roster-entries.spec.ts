@@ -1,14 +1,15 @@
-import { type Browser, expect, type Page, test } from "@playwright/test";
+import { type Browser, expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { latestMail, nextMail } from "./support/auth";
-import { expectAccessible, freshLecturer, VIEWPORTS } from "./support/classes";
+import { expectAccessible, lecturerPage, test, VIEWPORTS } from "./support/classes";
 
 /** Manual registration and single addresses (Story 4.8, FR-7, FR-9, NFR-6, UX-DR47), on the local
- * stack at 320 px and 1440 px. A fresh Lecturer with a fresh Class adds one address, registers a
- * Student by hand from the «Klasseliste» Lenke and from an invalid pasted row, removes the Student
- * and puts the address back. The Student sets a password through «Nytt passord» from the mail and
- * reaches Hjem. Needs `worker-batch` running. Demo accounts are never touched. */
+ * stack at 320 px and 1440 px. A fresh Lecturer (one per worker) with a fresh Class per test adds
+ * one address, registers a Student by hand from the «Klasseliste» Lenke and from an invalid pasted
+ * row, removes the Student and puts the address back. The Student sets a password through «Nytt
+ * passord» from the mail and reaches Hjem. What a test does not look at is set up through the api.
+ * Needs `worker-batch` running. Demo accounts are never touched. */
 const copy = nb.classes.entries;
 const status = nb.classes.registration;
 const CSRF = { "X-Requested-With": "olspillet" };
@@ -40,18 +41,36 @@ async function reaches(browser: Browser, email: string, classId: string): Promis
   return found;
 }
 
+/** «Legg til adresse» through the api: the address on the Roster, not invited. */
+async function addEntry(lecturer: Page, classId: string, email: string) {
+  const added = await lecturer.request.post(`/api/classes/${classId}/roster/entries`, {
+    data: { email },
+    headers: CSRF,
+  });
+  expect(added.status()).toBe(201);
+}
+
+function addresses(...names: string[]): string[] {
+  const tag = `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
+  return names.map((n) => `${n}-${tag}@stud.example.no`);
+}
+
 for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
   test.describe(`manual registration and single addresses, ${vp.name}`, () => {
-    test.use({ viewport: { width: vp.width, height: vp.height } });
+    let lecturer: Page;
+    let classId: string;
 
-    test("the Lecturer adds, registers by hand and removes single addresses", async ({ page, browser }) => {
-      // A long journey through the mail worker (several mails, each awaited in the dev mailbox):
-      // up to 25-28 s in a plain full-suite run, which left the default 30 s no margin under load.
-      test.slow();
-      const lecturer = await freshLecturer(page, browser);
-      const tag = `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
-      const [late, kari, fixed] = ["sen", "kari", "rettet"].map((n) => `${n}-${tag}@stud.example.no`);
-      const classId = await freshClass(lecturer);
+    test.beforeEach(async ({ browser, lecturerSession }) => {
+      lecturer = await lecturerPage(browser, lecturerSession, vp);
+      classId = await freshClass(lecturer);
+    });
+
+    test.afterEach(async () => {
+      await lecturer.context().close();
+    });
+
+    test("one address is added after its errors, never twice", async () => {
+      const [late] = addresses("sen");
       await lecturer.goto(`/klasser/${classId}`);
       const roster = lecturer.getByRole("region", { name: nb.classes.roster.title });
 
@@ -60,7 +79,7 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
       await addLink.click();
       const field = roster.getByLabel(copy.email);
       await expect(field).toBeFocused();
-      await field.fill(`sen-${tag}@stud`);
+      await field.fill(late.replace(/\.example\.no$/, ""));
       await roster.getByRole("button", { name: copy.addSubmit, exact: true }).click();
       await expect(field).toHaveAttribute("aria-invalid", "true");
       await expect(roster.getByText(nb.classes.roster.reasons.missing_domain)).toBeVisible();
@@ -84,6 +103,17 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
       await expect(roster.getByText(nb.classes.roster.onRoster)).toBeVisible();
       await roster.getByRole("button", { name: copy.cancel }).click();
       await expect(addLink).toBeFocused();
+    });
+
+    test("a Student registered by hand sets a password, is removed and put back", async ({ browser }) => {
+      const [late, kari] = addresses("sen", "kari");
+      // Another address stays on the Roster, so its status list stays when Kari is removed.
+      await addEntry(lecturer, classId, late);
+      await lecturer.goto(`/klasser/${classId}`);
+      const roster = lecturer.getByRole("region", { name: nb.classes.roster.title });
+      const addLink = roster.getByRole("button", { name: copy.add, exact: true });
+      const section = lecturer.getByRole("region", { name: status.title });
+      const rows = section.getByRole("region", { name: status.listTitle }).getByRole("listitem");
 
       // «Registrer manuelt» from the Klasseliste Lenke.
       const before = await latestMail(lecturer, kari);
@@ -116,25 +146,6 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
       await student.close();
       expect(await reaches(browser, kari, classId)).toBe(200);
 
-      // A row's «Registrer manuelt» opens prefilled; «Avbryt» returns focus to it.
-      const rowManual = rows.filter({ hasText: late }).getByRole("button", { name: copy.manualFor(late) });
-      await rowManual.click();
-      await expect(section.getByLabel(copy.email)).toHaveValue(late);
-      await expect(section.getByLabel(copy.email)).toBeFocused();
-      await expectAccessible(lecturer, vp.phone);
-
-      // One form on the page: a Klasseliste form closes the row's, and the row's closes it again.
-      await addLink.click();
-      await expect(roster.getByLabel(copy.email)).toBeFocused();
-      await expect(section.getByLabel(copy.email)).toHaveCount(0);
-      await expect(rowManual).toHaveAttribute("aria-expanded", "false");
-      await rowManual.click();
-      await expect(section.getByLabel(copy.email)).toBeFocused();
-      await expect(roster.getByLabel(copy.email)).toHaveCount(0);
-      await expect(addLink).toHaveAttribute("aria-expanded", "false");
-      await section.getByRole("button", { name: copy.cancel }).click();
-      await expect(rowManual).toBeFocused();
-
       // «Fjern»: the consequence before the button; the Student loses access.
       await rows.filter({ hasText: kari }).getByRole("button", { name: copy.removeFor(kari) }).click();
       await expect(section.getByText(copy.removeRegistered(kari))).toBeVisible();
@@ -153,15 +164,52 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
       await expect(roster.getByRole("status").filter({ hasText: copy.restored(kari) })).toBeVisible();
       await expect(rows.filter({ hasText: kari })).toContainText(status.status.registered_manually);
       expect(await reaches(browser, kari, classId)).toBe(200);
+    });
 
-      // An invalid pasted row corrected through «Registrer manuelt».
+    test("a row's «Registrer manuelt» opens prefilled, and the page keeps one form open", async () => {
+      const [late] = addresses("sen");
+      await addEntry(lecturer, classId, late);
+      await lecturer.goto(`/klasser/${classId}`);
+      const roster = lecturer.getByRole("region", { name: nb.classes.roster.title });
+      const addLink = roster.getByRole("button", { name: copy.add, exact: true });
+      const section = lecturer.getByRole("region", { name: status.title });
+      const rows = section.getByRole("region", { name: status.listTitle }).getByRole("listitem");
+
+      // A row's «Registrer manuelt» opens prefilled; «Avbryt» returns focus to it.
+      const rowManual = rows.filter({ hasText: late }).getByRole("button", { name: copy.manualFor(late) });
+      await rowManual.click();
+      await expect(section.getByLabel(copy.email)).toHaveValue(late);
+      await expect(section.getByLabel(copy.email)).toBeFocused();
+      await expectAccessible(lecturer, vp.phone);
+
+      // One form on the page: a Klasseliste form closes the row's, and the row's closes it again.
+      await addLink.click();
+      await expect(roster.getByLabel(copy.email)).toBeFocused();
+      await expect(section.getByLabel(copy.email)).toHaveCount(0);
+      await expect(rowManual).toHaveAttribute("aria-expanded", "false");
+      await rowManual.click();
+      await expect(section.getByLabel(copy.email)).toBeFocused();
+      await expect(roster.getByLabel(copy.email)).toHaveCount(0);
+      await expect(addLink).toHaveAttribute("aria-expanded", "false");
+      await section.getByRole("button", { name: copy.cancel }).click();
+      await expect(rowManual).toBeFocused();
+    });
+
+    test("an invalid pasted row is corrected through «Registrer manuelt»", async () => {
+      const [fixed] = addresses("rettet");
+      const invalidAddress = fixed.replace(/\.example\.no$/, "");
+      await lecturer.goto(`/klasser/${classId}`);
+      const roster = lecturer.getByRole("region", { name: nb.classes.roster.title });
+      const section = lecturer.getByRole("region", { name: status.title });
+      const rows = section.getByRole("region", { name: status.listTitle }).getByRole("listitem");
+
       await roster.getByRole("button", { name: nb.classes.roster.pasteInstead }).click();
-      await roster.getByLabel(nb.classes.roster.pasteLabel).fill(`rettet-${tag}@stud`);
+      await roster.getByLabel(nb.classes.roster.pasteLabel).fill(invalidAddress);
       await roster.getByRole("button", { name: nb.classes.roster.pasteContinue }).click();
       const invalid = roster.getByRole("region", { name: /Ugyldige rader/ });
       const rowLink = invalid.getByRole("button", { name: new RegExp(nb.classes.roster.registerManually) });
       await rowLink.click();
-      await expect(invalid.getByLabel(copy.email)).toHaveValue(`rettet-${tag}@stud`);
+      await expect(invalid.getByLabel(copy.email)).toHaveValue(invalidAddress);
       await expect(invalid.getByLabel(copy.email)).toBeFocused();
       await invalid.getByRole("button", { name: copy.cancel }).click();
       await expect(rowLink).toBeFocused();
@@ -174,7 +222,6 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
       await expect(roster.getByText(/Ugyldige rader/)).toHaveCount(0);
       await expect(rows.filter({ hasText: fixed })).toContainText(status.status.registered_manually);
       await expectAccessible(lecturer, vp.phone);
-      await lecturer.context().close();
     });
   });
 }
