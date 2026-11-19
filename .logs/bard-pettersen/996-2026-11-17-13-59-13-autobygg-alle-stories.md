@@ -1134,3 +1134,25 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 101: beslutninger i Story 5.3.
+
+## Story 5.4: Velge etterspørselsmønster og frø (2026-11-20)
+
+### Oppgave
+Bygge Story 5.4 etter kjøreboka, og vise etterspørselen under «Kundene» (siste punkt i Issue #98).
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-4-choose-demand-pattern-and-seed.md`.
+- **Commit 4a1875c:** `demand` og `demand_seed` i lagring og sjekk, ruten `demand-series`, delen «Etterspørsel» med fire mønstre og frø, tabell uke for uke, og etterspørselen i kjeden.
+- **Tester:**
+  - backend: 2376 tester (58 s);
+  - frontend: Vitest 398, typecheck, bygg og Playwright 207.
+- **Gjennomgang:** 36 funn, 4 middels. De middels er rettet.
+- **Visuell kontroll:** 24 skjermbilder i `screenshots/5.4/`. Ingen klare avvik; to punkter er samlet til avslutningen av epicet.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 102: beslutninger i Story 5.4.
+- Issue #98 lukkes; alle tre punktene er løst.
