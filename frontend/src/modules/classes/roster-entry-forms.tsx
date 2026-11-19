@@ -22,6 +22,7 @@ import {
   type UploadRow,
 } from "./api";
 import { clean } from "./classes";
+import { useFormArea } from "./one-form";
 import { type EntryErrors, entryRefusal, type EntryField, firstRefused, nameError } from "./roster-entry";
 
 const copy = nb.classes.entries;
@@ -374,9 +375,15 @@ export function RosterEntryActions({ classId }: { classId: string }) {
     setFocusNext(null);
   });
 
+  // Another area's form closes this one and clears its result line (one form on the page).
+  const take = useFormArea("entries", () => {
+    setOpen(null);
+    setResult(null);
+  });
   const start = (which: "add" | "manual") => {
     setResult(null); // a new action clears the last result line
     setOpen(which);
+    take();
   };
   const cancel = (which: "add" | "manual") => {
     setOpen(null);

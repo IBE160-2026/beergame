@@ -10,6 +10,7 @@ import { PageShell } from "@/modules/identity/page-shell";
 
 import { classKey, useClass } from "./api";
 import { InvitationSummary } from "./invitation-summary";
+import { OneFormAtATime } from "./one-form";
 import { RegistrationStatus } from "./registration-status";
 import { RosterEntryActions } from "./roster-entry-forms";
 import { RosterUpload } from "./roster-upload";
@@ -66,31 +67,33 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
       phase={item ? "ready" : phase === "ready" ? "loading" : phase}
       onRetry={retry}
     >
-      {facts ? <p className="mt-2 text-body-phone text-ink-secondary lg:text-body">{facts}</p> : null}
-      {/* The Roster upload is the owner's (the api's `classes.manage` policy); Story 4.9 adds the
-          staff who only read the Roster. */}
-      {item?.staff_role === "owner" ? (
-        <section aria-labelledby="roster-title" className="mt-10">
-          <h2 id="roster-title" className="text-headline text-ink">
-            {nb.classes.roster.title}
-          </h2>
-          <p className="mt-1 max-w-2xl text-body-phone text-ink-secondary lg:text-body">{nb.classes.roster.lead}</p>
-          {item.roster_count > 0 ? (
-            <p className="mt-2 text-body-phone text-ink lg:text-body">{nb.classes.roster.onRosterCount(item.roster_count)}</p>
-          ) : null}
-          <div className="mt-6">
-            <RosterUpload classId={item.id} />
-          </div>
-          {/* One address at a time, and a Student registered by hand (Story 4.8). */}
-          <div className="mt-8">
-            <RosterEntryActions classId={item.id} />
-          </div>
-        </section>
-      ) : null}
-      {/* What became of the Invitations (Story 4.6), once a mail has gone out. */}
-      {item?.staff_role === "owner" && item.roster_count > 0 ? <InvitationSummary classId={item.id} /> : null}
-      {/* Where each address stands, and reminders (Story 4.7), once the Roster has addresses. */}
-      {item?.staff_role === "owner" && item.roster_count > 0 ? <RegistrationStatus classId={item.id} /> : null}
+      <OneFormAtATime>
+        {facts ? <p className="mt-2 text-body-phone text-ink-secondary lg:text-body">{facts}</p> : null}
+        {/* The Roster upload is the owner's (the api's `classes.manage` policy); Story 4.9 adds the
+            staff who only read the Roster. */}
+        {item?.staff_role === "owner" ? (
+          <section aria-labelledby="roster-title" className="mt-10">
+            <h2 id="roster-title" className="text-headline text-ink">
+              {nb.classes.roster.title}
+            </h2>
+            <p className="mt-1 max-w-2xl text-body-phone text-ink-secondary lg:text-body">{nb.classes.roster.lead}</p>
+            {item.roster_count > 0 ? (
+              <p className="mt-2 text-body-phone text-ink lg:text-body">{nb.classes.roster.onRosterCount(item.roster_count)}</p>
+            ) : null}
+            <div className="mt-6">
+              <RosterUpload classId={item.id} />
+            </div>
+            {/* One address at a time, and a Student registered by hand (Story 4.8). */}
+            <div className="mt-8">
+              <RosterEntryActions classId={item.id} />
+            </div>
+          </section>
+        ) : null}
+        {/* What became of the Invitations (Story 4.6), once a mail has gone out. */}
+        {item?.staff_role === "owner" && item.roster_count > 0 ? <InvitationSummary classId={item.id} /> : null}
+        {/* Where each address stands, and reminders (Story 4.7), once the Roster has addresses. */}
+        {item?.staff_role === "owner" && item.roster_count > 0 ? <RegistrationStatus classId={item.id} /> : null}
+      </OneFormAtATime>
     </PageShell>
   );
 }

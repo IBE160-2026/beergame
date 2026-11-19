@@ -115,6 +115,16 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
       await expect(section.getByLabel(copy.email)).toHaveValue(late);
       await expect(section.getByLabel(copy.email)).toBeFocused();
       await expectAccessible(lecturer, vp.phone);
+
+      // One form on the page: a Klasseliste form closes the row's, and the row's closes it again.
+      await addLink.click();
+      await expect(roster.getByLabel(copy.email)).toBeFocused();
+      await expect(section.getByLabel(copy.email)).toHaveCount(0);
+      await expect(rowManual).toHaveAttribute("aria-expanded", "false");
+      await rowManual.click();
+      await expect(section.getByLabel(copy.email)).toBeFocused();
+      await expect(roster.getByLabel(copy.email)).toHaveCount(0);
+      await expect(addLink).toHaveAttribute("aria-expanded", "false");
       await section.getByRole("button", { name: copy.cancel }).click();
       await expect(rowManual).toBeFocused();
 

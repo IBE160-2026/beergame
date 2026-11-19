@@ -20,6 +20,7 @@ import {
   sendReminders,
   useRegistrations,
 } from "./api";
+import { useFormArea } from "./one-form";
 import { barShares, filterRegistrations, reminderReach, STATUSES, statusLabel } from "./registration";
 import { EntryResult, ManualForm, RemoveConfirm, resultText } from "./roster-entry-forms";
 import { dayLabel, parseValidDays, VALID_DAYS } from "./roster";
@@ -117,6 +118,17 @@ function StatusView({ classId, data }: { classId: string; data: Registrations })
     },
   });
 
+  // Another area's form closes this one and clears the result lines (one form on the page); a
+  // reminder being sent keeps its confirmation until it answers.
+  const take = useFormArea("status", () => {
+    setOutcome(null);
+    setNotice(null);
+    setRowAction(null);
+    if (!remind.isPending) {
+      remind.reset();
+      setTarget(null);
+    }
+  });
   const open = (next: Target, from: HTMLButtonElement) => {
     // A new action clears the last result line and refusal, and closes any other form.
     setOutcome(null);
@@ -125,6 +137,7 @@ function StatusView({ classId, data }: { classId: string; data: Registrations })
     remind.reset();
     opener.current = from;
     setTarget(next);
+    take();
   };
   const openRow = (next: RowAction, from: HTMLButtonElement) => {
     if (remind.isPending) return;
@@ -134,6 +147,7 @@ function StatusView({ classId, data }: { classId: string; data: Registrations })
     remind.reset();
     opener.current = from;
     setRowAction(next);
+    take();
   };
   const closeRow = () => {
     setRowAction(null);
@@ -466,7 +480,7 @@ function AddressList({
       <ul className="mt-2 border-t border-hairline">
         {shown.map((item) => (
           <li key={item.id} className="border-b border-hairline py-2">
-            <div className="flex flex-col gap-1 sm:grid sm:min-h-tap-target-min sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)_minmax(0,19rem)] sm:items-center sm:gap-x-4">
+            <div className="flex flex-col gap-1 sm:grid sm:min-h-tap-target-min sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)_minmax(0,21rem)] sm:items-center sm:gap-x-4">
               <span className="text-body-phone text-ink [overflow-wrap:anywhere] lg:text-body">{item.email}</span>
               <span className="text-body-phone text-ink-secondary lg:text-body">{statusLabel(item, today)}</span>
               <span className="flex flex-wrap gap-x-4 sm:justify-self-end">

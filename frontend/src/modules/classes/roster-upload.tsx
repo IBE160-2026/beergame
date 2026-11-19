@@ -38,6 +38,7 @@ import {
   parseValidDays,
   VALID_DAYS,
 } from "./roster";
+import { useFormArea } from "./one-form";
 import { EntryResult, ManualForm, resultText } from "./roster-entry-forms";
 
 const copy = nb.classes.roster;
@@ -519,6 +520,11 @@ function InvalidRows({ classId, staged }: { classId: string; staged: Staged }) {
       setFocusResult(false);
     }
   }, [focusResult, result]);
+  // Another area's form closes this one and clears its result line (one form on the page).
+  const take = useFormArea("invalid-rows", () => {
+    setOpen(null);
+    setResult(null);
+  });
   if (staged.invalid_rows.length === 0 && !result) return null;
   const pasted = staged.source === "paste";
   const rowWord = pasted ? copy.invalidPlace : copy.invalidRow;
@@ -570,6 +576,7 @@ function InvalidRows({ classId, staged }: { classId: string; staged: Staged }) {
                       opener.current = event.currentTarget;
                       setResult(null); // a new action clears the last result line
                       setOpen(row.row_number);
+                      take();
                     }}
                   >
                     {copy.registerManually}
