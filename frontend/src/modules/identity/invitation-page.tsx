@@ -28,13 +28,19 @@ import { tokenFromHash, validateNewPassword } from "./password-reset";
 const copy = nb.auth.invitation;
 const INVALID = "invitation_link_invalid";
 
-/** The Invitation of a usable link, or `null` for one that is expired, used or unknown. */
-async function checkLink(token: string): Promise<CheckedInvitation | null> {
-  if (!token) return null;
+/** A link that no longer works; `archived`: its Class is archived, so no new Invitation can come
+ * (Story 4.10, Issue #93). */
+type Unusable = { unusable: true; archived: boolean };
+
+/** The Invitation of a usable link, or why one that is expired, used or unknown is not. */
+async function checkLink(token: string): Promise<CheckedInvitation | Unusable> {
+  if (!token) return { unusable: true, archived: false };
   try {
     return await checkInvitation(token);
   } catch (error) {
-    if (error instanceof ApiRequestError && error.code === INVALID) return null;
+    if (error instanceof ApiRequestError && error.code === INVALID) {
+      return { unusable: true, archived: error.fields.class_archived === true };
+    }
     throw error;
   }
 }
@@ -80,7 +86,10 @@ export function InvitationPage() {
       </div>
     );
   }
-  if (!link.data || !token) return <InvitationInvalid token={token ?? ""} />;
+  if (!link.data || !token || "unusable" in link.data) {
+    const archived = !!link.data && "unusable" in link.data && link.data.archived;
+    return <InvitationInvalid token={token ?? ""} archived={archived} />;
+  }
   return (
     <AcceptForm
       // A new form when the link's state changes (an account appeared meanwhile).
@@ -92,7 +101,8 @@ export function InvitationPage() {
   );
 }
 
-function InvitationInvalid({ token }: { token: string }) {
+/** `archived`: the Class is archived, so «Be om ny Invitasjon» would do nothing and is not shown. */
+function InvitationInvalid({ token, archived }: { token: string; archived: boolean }) {
   const action = useRequestInvitationRenewal();
   const doneRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
@@ -113,18 +123,22 @@ function InvitationInvalid({ token }: { token: string }) {
   return (
     <div className="mt-6 flex flex-col gap-4">
       <p className="border-y border-ink-muted py-2 text-body-phone text-ink lg:text-body">{copy.invalid}</p>
-      <ActionError message={action.errorMessage} />
-      <Button
-        type="button"
-        variant="secondary"
-        unavailable={action.isPending}
-        onClick={() => {
-          if (!action.isPending) action.mutate({ token });
-        }}
-        className="self-start"
-      >
-        {copy.requestNew}
-      </Button>
+      {archived ? null : (
+        <>
+          <ActionError message={action.errorMessage} />
+          <Button
+            type="button"
+            variant="secondary"
+            unavailable={action.isPending}
+            onClick={() => {
+              if (!action.isPending) action.mutate({ token });
+            }}
+            className="self-start"
+          >
+            {copy.requestNew}
+          </Button>
+        </>
+      )}
     </div>
   );
 }

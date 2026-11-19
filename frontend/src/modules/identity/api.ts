@@ -64,9 +64,12 @@ export function useRequestPasswordReset() {
   });
 }
 
-/** Whether a reset link still works: its account's e-mail, or `reset_link_invalid`. */
-export async function checkPasswordReset(token: string): Promise<string> {
-  return (await request(() => api.POST("/api/auth/password-reset/check", { body: { token } }))).email;
+export type CheckedReset = components["schemas"]["ResetCheckOut"];
+
+/** Whether a reset link still works: its account's e-mail and whether the account has no password
+ * yet (a manually registered Student, Story 4.8), or `reset_link_invalid`. */
+export async function checkPasswordReset(token: string): Promise<CheckedReset> {
+  return request(() => api.POST("/api/auth/password-reset/check", { body: { token } }));
 }
 
 export type CheckedInvitation = components["schemas"]["InvitationCheckOut"];

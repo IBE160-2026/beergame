@@ -1595,6 +1595,20 @@ export interface components {
             valid_days: number;
         };
         /**
+         * ResetCheckOut
+         * @description A usable reset link: its address, and whether the account has no password yet (a manually
+         *     registered Student, Story 4.8), so «Nytt passord» words it as a first password.
+         */
+        ResetCheckOut: {
+            /** Email */
+            email: string;
+            /**
+             * First Password
+             * @default false
+             */
+            first_password: boolean;
+        };
+        /**
          * ResetEmailOut
          * @description The address a reset link belongs to, so «Logg inn» can be prefilled.
          */
@@ -1734,6 +1748,11 @@ export interface components {
             invalid_rows: components["schemas"]["RosterInvalidRow"][];
             /** Preview */
             preview: components["schemas"]["RosterPreviewRow"][];
+            /**
+             * Restored Count
+             * @default 0
+             */
+            restored_count: number;
             /** Row Count */
             row_count: number;
             source: components["schemas"]["RosterSource"];
@@ -3185,7 +3204,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ResetEmailOut"];
+                    "application/json": components["schemas"]["ResetCheckOut"];
                 };
             };
             /** @description Gone */

@@ -30,6 +30,7 @@ import {
   useClassStaff,
   withdrawAssistantInvitation,
 } from "./api";
+import { ArchivedRefusal, useArchivedRefusal } from "./archived-refusal";
 import { EntryResult, LINK_BUTTON } from "./roster-entry-forms";
 import { assistantStatus, personLabel, staffRefusal } from "./staff";
 
@@ -96,6 +97,8 @@ function StaffView({ classId, user, updatedAt }: { classId: string; user: Sessio
   );
 }
 
+type Section = "lecturers" | "assistants";
+
 type Open =
   | { kind: "lecturer" }
   | { kind: "assistant" }
@@ -124,11 +127,13 @@ function StaffLists({
   readOnly: boolean;
 }) {
   const [open, setOpen] = useState<Open | null>(null);
+  const refused = useArchivedRefusal();
   // Archived while a form was open (Story 4.10): the form closes with the actions.
   useEffect(() => {
     if (readOnly) setOpen(null);
   }, [readOnly]);
-  const [result, setResult] = useState<string | null>(null);
+  // The result line stands in the section where the action was taken (Issue #92).
+  const [result, setResult] = useState<{ text: string; section: Section } | null>(null);
   const opener = useRef<HTMLButtonElement | null>(null);
   const resultLine = useRef<HTMLParagraphElement>(null);
   const [focusResult, setFocusResult] = useState(0);
@@ -146,11 +151,17 @@ function StaffLists({
     setOpen(null);
     opener.current?.focus();
   };
-  const done = (text: string) => {
+  const done = (section: Section) => (text: string) => {
     setOpen(null);
-    setResult(text);
+    setResult({ text, section });
     setFocusResult((n) => n + 1);
   };
+  const resultIn = (section: Section) =>
+    result?.section === section ? (
+      <div className="mt-4">
+        <EntryResult text={result.text} ref={resultLine} />
+      </div>
+    ) : null;
   const isOpen = (person: StaffLecturer | StaffAssistant) =>
     open?.kind === "remove" && rowKey(open.person) === rowKey(person);
 
@@ -175,7 +186,7 @@ function StaffLists({
           lecturer={open.lecturer}
           self={open.person.user_id === self}
           last={open.lecturer && data.lecturers.length === 1}
-          onDone={done}
+          onDone={done(open.lecturer ? "lecturers" : "assistants")}
           onCancel={cancel}
         />
       </div>
@@ -183,17 +194,18 @@ function StaffLists({
 
   return (
     <div className="mt-8 flex max-w-4xl flex-col gap-10">
+      {readOnly && refused ? <ArchivedRefusal /> : null}
       {readOnly ? (
         <p className="max-w-2xl border-l-2 border-axis pl-3 text-body-phone text-ink lg:text-body">
           {nb.classes.archive.notice}
         </p>
       ) : null}
-      {result ? <EntryResult text={result} ref={resultLine} /> : null}
       <section aria-labelledby="lecturers-title">
         <h2 id="lecturers-title" className="text-headline text-ink">
           {copy.lecturers}
         </h2>
         <p className="mt-1 max-w-2xl text-body-phone text-ink-secondary lg:text-body">{copy.lecturersLead}</p>
+        {resultIn("lecturers")}
         <ul className="mt-4 border-t border-hairline">
           {data.lecturers.map((person) => (
             <li key={person.user_id} className="border-b border-hairline py-2">
@@ -220,7 +232,7 @@ function StaffLists({
               submit={copy.addLecturerSubmit}
               send={(email) => addClassLecturer(classId, email)}
               classId={classId}
-              onDone={(added) => done(copy.lecturerAdded(personLabel(added as StaffLecturer)))}
+              onDone={(added) => done("lecturers")(copy.lecturerAdded(personLabel(added as StaffLecturer)))}
               onCancel={cancel}
             />
           ) : null}
@@ -232,6 +244,7 @@ function StaffLists({
           {copy.assistants}
         </h2>
         <p className="mt-1 max-w-2xl text-body-phone text-ink-secondary lg:text-body">{copy.assistantScope}</p>
+        {resultIn("assistants")}
         {data.assistants.length === 0 ? (
           <p className="mt-4 text-body-phone text-ink-secondary lg:text-body">{copy.noAssistants}</p>
         ) : (
@@ -262,11 +275,11 @@ function StaffLists({
             <EmailForm
               id="staff-assistant"
               title={copy.inviteAssistantTitle}
-              lead={copy.assistantScope}
+              lead={copy.inviteAssistantLead}
               submit={copy.inviteAssistantSubmit}
               send={(email) => inviteClassAssistant(classId, email)}
               classId={classId}
-              onDone={(sent) => done(copy.assistantInvited((sent as StaffAssistant).email))}
+              onDone={(sent) => done("assistants")(copy.assistantInvited((sent as StaffAssistant).email))}
               onCancel={cancel}
             />
           ) : null}
@@ -432,7 +445,7 @@ function RemovePanel({
   return (
     <div role="group" aria-labelledby={`${id}-title`} className={PANEL}>
       <h3 id={`${id}-title`} className="text-label text-ink [overflow-wrap:anywhere]">
-        {copy.removeTitle(who)}
+        {invitation ? copy.withdrawTitle(who) : copy.removeTitle(who)}
       </h3>
       <p id={`${id}-consequence`} className="text-body-phone text-ink [overflow-wrap:anywhere]">
         {consequence}

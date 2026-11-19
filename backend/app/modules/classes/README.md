@@ -82,6 +82,10 @@ only `classes.service`.
   rate limits) take Student Invitations too. A Student link names its Class («name, course code»,
   through the label resolver this module registers) and the Lecturer who sent it, and counts the
   days left to its last valid day in Europe/Oslo (a 14-day sending reads «14 dager» that day).
+- Lock order (Issues #82, #93): every acceptance takes the Class row first (shared for a Student,
+  exclusive for an Assistant, through `identity.register_class_lock`), then the User row, then the
+  Invitation, then the Roster entry, as an archive (Class, then Invitations) and a deactivation
+  (User, then Invitations) take them.
 - Accepting is one transaction in `identity.service`: the Invitation locked, the User created
   without an account role (or the existing User proven by its password: never a second User), the
   Roster entry locked, linked to the User and set `registered`, the Invitation accepted, and
@@ -106,7 +110,9 @@ only `classes.service`.
   their type only.
 - `GET /api/classes/{id}/invitations` (owners) counts the Class's Student Invitations at read
   time: `sent` and `bounced` from the mails (`messaging.service.invitation_deliveries`, never the
-  table), `accepted` from `accepted_at`, `expired` from `expires_at` (not voided). It lists the
+  table), `accepted` from `accepted_at`, `expired` from `expires_at` (not voided), plus each
+  address still waiting whose newest Invitation was voided with no newer one (an archive, Story
+  4.10): its row reads «Uregistrert, Invitasjonen er utløpt», so the count agrees (Issue #93). It lists the
   Roster addresses (not registered, not removed) whose newest Invitation bounced, with
   `registration: "bounced"` and the class: `hard` for Resend's `Permanent`, else `soft`. The
   Roster entry's stored `registration` is not changed by a bounce.
@@ -157,6 +163,9 @@ only `classes.service`.
   as unregistered and remindable, so a reminder sends its first Invitation. A removed address is
   put back as it was; a registered Student has access again without a new registration or mail.
   A Roster send of a removed address puts it back too, and invites it unless it is registered.
+  Such a registered address counts in the staging's `valid_count` but also in `restored_count`,
+  and «Send N Invitasjoner» counts `valid_count - restored_count`: the count on the button and in
+  the result excludes a registered Student (Story 4.4's AC, Story 4.8's re-add, Issue #91).
 - `DELETE /api/classes/{id}/roster/entries/{entry_id}` marks the entry removed, voids its open
   Invitations and emits `user:<id>`; the Student scope (`authz.classes_enrolled_by`) and
   `registered_students` leave it out from the next request. The User and other Classes stay.

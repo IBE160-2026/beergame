@@ -10,8 +10,8 @@ import { enrolledClassesKey, useEnrolledClasses } from "./api";
 /**
  * Hjem's Classes (Story 4.5, EXPERIENCE.md → Hjem before the Start date): each Class the Student
  * is in, named «class-of-1994, IBE160», with «Du får Rolle og spill på startdatoen.» beneath. No
- * game card and no link until the Start date (Epic 6 fills Hjem). A User on no Roster sees only
- * the heading, as before.
+ * game card and no link until the Start date (Epic 6 fills Hjem). A User in no Class (none yet,
+ * removed, or its only Class archived, Story 4.10) is told so (Issue #93).
  */
 export function StudentHome() {
   const classes = useEnrolledClasses();
@@ -37,7 +37,9 @@ export function StudentHome() {
   }
 
   const items = classes.data?.items ?? [];
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return <p className="mt-8 max-w-md text-body-phone text-ink-secondary lg:text-body">{nb.homes.noClass}</p>;
+  }
   return (
     <ul className="mt-8 flex max-w-md flex-col border-t border-hairline">
       {items.map((item) => (

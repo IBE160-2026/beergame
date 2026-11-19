@@ -43,7 +43,11 @@ function isRegistered(item: Registration): boolean {
 }
 
 /** The outcome the result line states, with the address of a single resend. */
-type Outcome = { sent: RemindersSent; address: string | null };
+type Outcome = { sent: RemindersSent; address: string | null; first: boolean };
+
+/** A row that has had no Invitation yet («Ikke invitert ennå», Story 4.8) gets its first one, so
+ * its action never says «ny» (Issue #91). */
+const isFirst = (item: Registration) => item.status === "not_invited";
 
 /**
  * «Status etter utsending» on the Class page (Story 4.7, FR-9, NFR-10, UX-DR47). As mockup 02:
@@ -117,8 +121,8 @@ function StatusView({ classId, data, readOnly }: { classId: string; data: Regist
     },
     fallback: copy.sendFailed,
     onSuccess: (sent, vars) => {
-      const address = vars.entryId ? (data.items.find((i) => i.id === vars.entryId)?.email ?? null) : null;
-      setOutcome({ sent, address });
+      const row = vars.entryId ? data.items.find((i) => i.id === vars.entryId) : undefined;
+      setOutcome({ sent, address: row?.email ?? null, first: row ? isFirst(row) : false });
       setTarget(null);
       setFocusResult(true);
       void queryClient.invalidateQueries({ queryKey: registrationsKey(classId), exact: true });
@@ -363,7 +367,7 @@ function Confirm({
       }}
     >
       <h3 id={`${id}-title`} className="text-label text-ink [overflow-wrap:anywhere]">
-        {all ? copy.confirmTitle : copy.resendFor(target.item.email)}
+        {all ? copy.confirmTitle : isFirst(target.item) ? copy.inviteFor(target.item.email) : copy.resendFor(target.item.email)}
       </h3>
       {all ? <p className="text-body-phone text-ink-secondary">{copy.confirmLead}</p> : null}
       {leftOut > 0 ? <p className="text-body-phone text-ink">{copy.confirmLeft(leftOut)}</p> : null}
@@ -386,7 +390,7 @@ function Confirm({
       />
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
         <Button type="submit" variant="primary" unavailable={sending || reach === 0}>
-          {sending ? copy.sending : all ? copy.confirm(reach) : copy.resend}
+          {sending ? copy.sending : all ? copy.confirm(reach) : isFirst(target.item) ? copy.invite : copy.resend}
         </Button>
         <button type="button" className={LINK_BUTTON} onClick={onCancel}>
           {copy.cancel}
@@ -399,7 +403,7 @@ function Confirm({
 
 /** The result line: how many went out and until when, and the hard bounces left out by name. */
 function Result({ outcome, ref }: { outcome: Outcome; ref: Ref<HTMLDivElement> }) {
-  const { sent, address } = outcome;
+  const { sent, address, first } = outcome;
   const lastDay = dayLabel(sent.last_valid_day, todayIso());
   return (
     <div
@@ -409,7 +413,9 @@ function Result({ outcome, ref }: { outcome: Outcome; ref: Ref<HTMLDivElement> }
       className="max-w-2xl text-body-phone text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink lg:text-body"
     >
       <p className="[overflow-wrap:anywhere]">
-        {address && sent.sent === 1 ? copy.resent(address, lastDay) : copy.sent(sent.sent, lastDay)}
+        {address && sent.sent === 1
+          ? (first ? copy.invitedOne : copy.resent)(address, lastDay)
+          : copy.sent(sent.sent, lastDay)}
       </p>
       {sent.left_out.length > 0 ? (
         <>
@@ -503,11 +509,11 @@ function AddressList({
                   <button
                     type="button"
                     className={LINK_BUTTON}
-                    aria-label={copy.resendFor(item.email)}
+                    aria-label={isFirst(item) ? copy.inviteFor(item.email) : copy.resendFor(item.email)}
                     aria-expanded={open?.id === item.id && open.kind === "resend"}
                     onClick={(event) => onResend(item, event.currentTarget)}
                   >
-                    {copy.resend}
+                    {isFirst(item) ? copy.invite : copy.resend}
                   </button>
                 ) : null}
                 {isRegistered(item) ? null : (

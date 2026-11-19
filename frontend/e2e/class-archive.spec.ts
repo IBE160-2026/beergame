@@ -59,7 +59,7 @@ test("the Faglærer archives a Class: read-only, listed apart, and its open link
 
   // The consequence stands above the button before it is pressed.
   await opener.click();
-  const panel = lecturer.getByRole("group", { name: copy.title });
+  const panel = lecturer.getByRole("group", { name: copy.panelTitle });
   const consequence = panel.getByText(copy.consequence);
   const submit = panel.getByRole("button", { name: copy.submit });
   await expect(consequence).toBeVisible();
@@ -94,6 +94,43 @@ test("the Faglærer archives a Class: read-only, listed apart, and its open link
   await own.goto(link);
   await expect(own.getByText(nb.auth.invitation.invalid)).toBeVisible();
   await expect(own.getByLabel(nb.auth.invitation.password)).toHaveCount(0);
+  // No new Invitation can come from an archived Class, so none is offered (Issue #93).
+  await expect(own.getByRole("button", { name: nb.auth.invitation.requestNew })).toHaveCount(0);
+  await context.close();
+});
+
+test("a Student whose only Class is archived is told so on Hjem", async ({ page, browser }) => {
+  test.setTimeout(90_000);
+  const lecturer = await freshLecturer(page, browser);
+  const klass = await freshClass(lecturer, "eneste");
+  const address = `eneste-${Date.now()}${Math.floor(Math.random() * 1e6)}@stud.example.no`;
+  const before = await latestMail(page, address);
+  const staged = await lecturer.request.post(`/api/classes/${klass.id}/roster-paste`, {
+    data: { text: address },
+    headers: CSRF,
+  });
+  const sent = await lecturer.request.post(`/api/classes/${klass.id}/invitations`, {
+    data: { upload_id: (await staged.json()).id, valid_days: 14 },
+    headers: CSRF,
+  });
+  expect(sent.status()).toBe(201);
+  const mail = await nextMail(page, address, before);
+  const link = mail.text.match(/https?:\/\/[^/\s]+(\/invitasjon#[A-Za-z0-9_-]+)/)![1];
+  const context = await browser.newContext({ baseURL: test.info().project.use.baseURL });
+  const student = await context.newPage();
+  await student.goto(link);
+  await student.getByLabel(nb.auth.invitation.name).fill("Eneste Student");
+  await student.getByLabel(nb.auth.invitation.password).fill("et-langt-passord");
+  await student.getByRole("button", { name: nb.auth.invitation.submit }).click();
+  await expect(student).toHaveURL(/\/hjem$/);
+  await expect(student.getByRole("heading", { level: 2, name: klass.name })).toBeVisible();
+
+  const archived = await lecturer.request.post(`/api/classes/${klass.id}/archive`, { headers: CSRF });
+  expect(archived.status()).toBe(200);
+  await student.reload();
+  // Not an empty page: Hjem says there is no Class now (Issue #93).
+  await expect(student.getByText(nb.homes.noClass)).toBeVisible();
+  await expect(student.getByRole("heading", { level: 2, name: klass.name })).toHaveCount(0);
   await context.close();
 });
 
@@ -109,6 +146,8 @@ test("a page left open turns read-only when another Faglærer has archived the C
   await lecturer.getByRole("button", { name: nb.classes.entries.addSubmit, exact: true }).click();
   // The refusal reads the Class again: the forms go, and focus moves to the notice saying why.
   await expect(lecturer.getByText(copy.notice)).toBeFocused();
+  // The refusal itself is announced, though the form that was refused has closed (Issue #93).
+  await expect(lecturer.getByRole("alert").filter({ hasText: copy.refused })).toBeVisible();
   await expect(lecturer.getByRole("button", { name: nb.classes.entries.add })).toHaveCount(0);
   await expect(lecturer.getByRole("button", { name: copy.open, exact: true })).toHaveCount(0);
 });

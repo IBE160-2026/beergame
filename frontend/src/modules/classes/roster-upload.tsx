@@ -441,7 +441,13 @@ function SendArea({
   const [refused, setRefused] = useState(false);
   const none = staged.valid_count === 0;
   const note = staged.row_count > 0;
-  const described = [none ? "roster-send-none" : "", note ? "roster-send-note" : ""].filter(Boolean).join(" ");
+  // A removed, registered Student sent again is put back with access and no Invitation (Story
+  // 4.8): the button counts only the Invitations that go out (Issue #91).
+  const restored = staged.restored_count;
+  const invites = staged.valid_count - restored;
+  const described = [none ? "roster-send-none" : "", restored > 0 ? "roster-send-restored" : "", note ? "roster-send-note" : ""]
+    .filter(Boolean)
+    .join(" ");
   return (
     <form
       noValidate
@@ -483,11 +489,16 @@ function SendArea({
         aria-describedby={described || undefined}
         className="w-full max-w-md"
       >
-        {sending ? copy.sending : copy.send(staged.valid_count)}
+        {sending ? copy.sending : invites === 0 && restored > 0 ? copy.restoreOnly : copy.send(invites)}
       </Button>
       {none ? (
         <p id="roster-send-none" className="text-body-phone text-ink">
           {copy.noValid}
+        </p>
+      ) : null}
+      {restored > 0 ? (
+        <p id="roster-send-restored" className="max-w-md text-body-phone text-ink-secondary">
+          {copy.restoredNote(restored)}
         </p>
       ) : null}
       {note ? (

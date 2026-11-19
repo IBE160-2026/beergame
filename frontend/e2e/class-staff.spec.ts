@@ -83,7 +83,8 @@ test("the Faglærer shares the Class with a co-owner and an Assistant, and remov
   await field.fill(colleague.address);
   await expect(lecturers.getByText(copy.notLecturer)).toHaveCount(0);
   await lecturers.getByRole("form").getByRole("button", { name: copy.addLecturerSubmit, exact: true }).click();
-  await expect(lecturer.getByRole("status").filter({ hasText: colleague.address })).toBeFocused();
+  // The result line stands in the section where the action was taken (Issue #92).
+  await expect(lecturers.getByRole("status").filter({ hasText: colleague.address })).toBeFocused();
   await expect(lecturers.getByRole("listitem")).toHaveCount(2);
   // The co-owner sees the Class on their Lærerhjem and may manage it.
   await colleague.page.goto("/laererhjem");
@@ -97,7 +98,7 @@ test("the Faglærer shares the Class with a co-owner and an Assistant, and remov
   await expect(lecturer.getByRole("status").filter({ hasText: colleague.address })).toHaveCount(0);
   await assistants.getByLabel(copy.email).fill(assistantAddress);
   await assistants.getByRole("button", { name: copy.inviteAssistantSubmit }).click();
-  await expect(lecturer.getByRole("status").filter({ hasText: assistantAddress })).toBeFocused();
+  await expect(assistants.getByRole("status").filter({ hasText: assistantAddress })).toBeFocused();
   await expect(assistants.getByRole("listitem").filter({ hasText: assistantAddress })).toContainText("Invitert, gyldig til og med");
   const assistant = await acceptAsAssistant(page, browser, assistantAddress, before);
   await expect(assistant.getByRole("link", { name: nb.classes.home.newClass })).toHaveCount(0);
@@ -113,7 +114,7 @@ test("the Faglærer shares the Class with a co-owner and an Assistant, and remov
   await assistants.getByRole("button", { name: new RegExp(`^${copy.remove} .*${assistantAddress}`) }).click();
   await expect(assistants.getByText(/mister tilgangen til Klassen/)).toBeVisible();
   await assistants.getByRole("button", { name: copy.removeSubmit }).click();
-  await expect(lecturer.getByRole("status").filter({ hasText: "er fjernet fra Klassen" })).toBeFocused();
+  await expect(assistants.getByRole("status").filter({ hasText: "er fjernet fra Klassen" })).toBeFocused();
   await expect(assistants.getByText(copy.noAssistants)).toBeVisible();
   await assistant.reload();
   await expect(assistant.getByRole("heading", { level: 1, name: nb.access.denied })).toBeVisible();

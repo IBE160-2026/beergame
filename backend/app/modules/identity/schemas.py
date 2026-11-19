@@ -72,6 +72,13 @@ class ResetEmailOut(BaseModel):
     email: str
 
 
+class ResetCheckOut(ResetEmailOut):
+    """A usable reset link: its address, and whether the account has no password yet (a manually
+    registered Student, Story 4.8), so «Nytt passord» words it as a first password."""
+
+    first_password: bool = False
+
+
 class InvitationIn(BaseModel):
     """An Invitation to an account role (Story 3.7)."""
 
@@ -445,8 +452,12 @@ class RosterUploadOut(BaseModel):
     chosen_count: int
     """How many rows look like addresses in the chosen column, evaluated from the staged cells."""
     valid_count: int
-    """Rows of the chosen column that get an Invitation: valid, not a repeat of an earlier row
+    """Rows of the chosen column that go on the Roster: valid, not a repeat of an earlier row
     and not already on the Roster (0 with no column chosen)."""
+    restored_count: int = 0
+    """Of `valid_count`, the rows whose address is a removed, registered Student of the Class: the
+    send puts them back with access and no Invitation (Stories 4.4, 4.8), so «Send N
+    Invitasjoner» counts `valid_count - restored_count`."""
     invalid_rows: list[RosterInvalidRow]
     """Every other row of the chosen column, by row number ([] with no column chosen)."""
     preview: list[RosterPreviewRow]

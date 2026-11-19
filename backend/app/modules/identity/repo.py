@@ -753,6 +753,21 @@ async def roster_addresses(session: AsyncSession, class_id: uuid.UUID) -> set[st
     return set(result.scalars())
 
 
+async def removed_registered_addresses(
+    session: AsyncSession, class_id: uuid.UUID, registered: list[str]
+) -> set[str]:
+    """Every removed address of the Class's Roster whose entry is registered (`registered`): a
+    send puts it back with access and no Invitation (Story 4.8)."""
+    result = await session.execute(
+        select(roster_entries.c.email).where(
+            roster_entries.c.class_id == class_id,
+            roster_entries.c.removed_at.is_not(None),
+            roster_entries.c.registration.in_(registered),
+        )
+    )
+    return set(result.scalars())
+
+
 async def insert_roster_entries(
     session: AsyncSession, class_id: uuid.UUID, emails: list[str], registration: str, now: datetime
 ) -> list[RowMapping]:

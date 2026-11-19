@@ -224,6 +224,9 @@ export const nb = {
       // [ASSUMPTION] Story 3.6: the account the link belongs to.
       lead: (email: string) => `Velg et nytt passord for ${email}.`,
       password: "Nytt passord",
+      // [ASSUMPTION] Issue #91: a manually registered Student's account has no password yet.
+      firstLead: (email: string) => `Velg et passord for ${email}. Du bruker det til å logge inn.`,
+      firstPassword: "Passord",
       // [ASSUMPTION] Story 3.6: the shortest password is 8 characters.
       passwordRule: "Minst 8 tegn.",
       errors: {
@@ -322,6 +325,8 @@ export const nb = {
     home: "Hjem",
     /** Hjem names each Class the Student is in, with the Start-date line (Story 4.5). */
     startDate: START_DATE_LINE,
+    // [ASSUMPTION] Issue #93: Hjem with no Class (none yet, removed, or archived).
+    noClass: "Du er ikke med i noen Klasse nå. Når en Faglærer legger deg til, står Klassen her.",
   },
 
   /** The Lecturer's Classes (Epic 4). «Klassene dine», «Ny Klasse», «Lag Klasse», «Navn» and
@@ -375,6 +380,8 @@ export const nb = {
     archive: {
       open: "Arkiver Klassen",
       title: "Arkiver Klassen",
+      // [ASSUMPTION] Issue #93: the panel's own title, not the opener's words again.
+      panelTitle: "Vil du arkivere Klassen?",
       /** The consequence, above the button, before it is pressed. */
       consequence:
         "Klassen blir skrivebeskyttet: Klasselista, Invitasjonene og Faglærere og assistenter kan ikke endres etterpå. Invitasjoner som ikke er brukt, slutter å virke. Klassen beholdes til oppbevaringstiden er ute, og det kan ikke angres.",
@@ -403,10 +410,13 @@ export const nb = {
       addLecturer: "Legg til Faglærer",
       addLecturerTitle: "Legg til en Faglærer",
       addLecturerLead: "Personen må ha en konto med Faglærer-rollen. Klassen kommer på Lærerhjemmet deres.",
-      addLecturerSubmit: "Legg til Faglærer",
+      // [ASSUMPTION] Issue #92: not the opener's own words, which stand beside it.
+      addLecturerSubmit: "Legg til i Klassen",
       inviteAssistant: "Inviter Assistent",
       inviteAssistantTitle: "Inviter en Assistent",
       assistantScope: "Assistenten får tilgang bare til denne Klassen.",
+      // [ASSUMPTION] Issue #92: the form's lead; the scope line already stands under «Assistenter».
+      inviteAssistantLead: "Personen får en e-post med en lenke som virker i 14 dager.",
       inviteAssistantSubmit: "Send Invitasjon",
       email: "E-post",
       cancel: "Avbryt",
@@ -418,6 +428,8 @@ export const nb = {
       remove: "Fjern",
       removeFor: (who: string) => `Fjern ${who}`,
       removeTitle: (who: string) => `Fjern ${who} fra Klassen`,
+      // [ASSUMPTION] Issue #92: someone only invited is not in the Class yet.
+      withdrawTitle: (who: string) => `Trekk tilbake Invitasjonen til ${who}`,
       /** The consequence, above the button, before it is pressed. */
       removeLecturer: (who: string) => `${who} mister tilgangen til Klassen fra neste side de åpner. Kontoen beholdes.`,
       removeSelf: "Du mister tilgangen til Klassen. De andre Faglærerne beholder den.",
@@ -495,6 +507,10 @@ export const nb = {
       noMatch: "Ingen adresser passer til søket.",
       resend: "Send ny Invitasjon",
       resendFor: (address: string) => `Send ny Invitasjon til ${address}`,
+      // [ASSUMPTION] Issue #91: a row «Ikke invitert ennå» gets its first Invitation, never a «ny».
+      invite: "Send Invitasjon",
+      inviteFor: (address: string) => `Send Invitasjon til ${address}`,
+      invitedOne: (address: string, lastDay: string) => `Invitasjon sendt til ${address}. Gyldig til og med ${lastDay}.`,
       /** Each status in text, never colour alone (FR-9, NFR-10). */
       status: {
         registered: "Registrert",
@@ -624,6 +640,14 @@ export const nb = {
       invalidNote: "Ugyldige rader får ingen e-post før de er rettet.",
       send: (valid: number) => `Send ${valid} ${valid === 1 ? "Invitasjon" : "Invitasjoner"}`,
       noValid: "Ingen gyldige adresser å invitere.",
+      // [ASSUMPTION] Issue #91: a removed, registered Student sent again comes back with access and
+      // gets no Invitation, so «Send N» leaves them out and this line names them.
+      restoredNote: (count: number) =>
+        count === 1
+          ? "Én adresse tilhører en registrert student som var fjernet. Studenten får tilgang igjen uten ny Invitasjon."
+          : `${count} adresser tilhører registrerte studenter som var fjernet. De får tilgang igjen uten ny Invitasjon.`,
+      // [ASSUMPTION] Issue #91: the button when every valid row is such a Student.
+      restoreOnly: "Legg tilbake på Klasselista",
       pasteContinue: "Fortsett",
       pasted: "Innlimte adresser",
       addressesRead: (count: number) => `${count} ${count === 1 ? "adresse" : "adresser"} lest`,
@@ -638,7 +662,10 @@ export const nb = {
       validDaysError: (min: number, max: number) => `Velg et helt antall dager mellom ${min} og ${max}.`,
       /** The result line after sending: «246 Invitasjoner sendt. Gyldige til og med 3. desember.» */
       sent: (count: number, lastDay: string) =>
-        `${count} ${count === 1 ? "Invitasjon sendt. Gyldig" : "Invitasjoner sendt. Gyldige"} til og med ${lastDay}.`,
+        count === 0
+          ? // [ASSUMPTION] Issue #91: only registered Students were put back.
+            "Klasselista er oppdatert. Ingen nye Invitasjoner sendt."
+          : `${count} ${count === 1 ? "Invitasjon sendt. Gyldig" : "Invitasjoner sendt. Gyldige"} til og med ${lastDay}.`,
       sending: "Sender …",
       sendFailed: "Invitasjonene ble ikke sendt. Prøv igjen.",
       sendGone: "Klasselista er endret siden du lastet den. Se over og send igjen.",

@@ -180,11 +180,30 @@ async def test_expired_is_read_at_request_time_and_leaves_accepted_ones_out(klas
     assert (await summary(klass)).json()["expired"] == 3
 
 
-async def test_a_voided_invitation_never_counts_as_expired(klass, monkeypatch):
+async def test_a_replaced_invitation_never_counts_as_expired(klass, monkeypatch):
     await sent_class(klass, ["a@x.no"])
-    execute("UPDATE invitations SET voided_at = %s", NOW)
-    monkeypatch.setattr(auth, "utcnow", lambda: NOW + timedelta(days=15))
+    async with client() as c:
+        await as_user(c)
+        reminded = await c.post(f"/api/classes/{klass}/reminders", json={}, headers=CSRF)
+    assert reminded.json()["sent"] == 1
+    monkeypatch.setattr(auth, "utcnow", lambda: NOW + timedelta(days=10))
     assert (await summary(klass)).json()["expired"] == 0
+
+
+async def test_a_stopped_link_of_a_waiting_address_counts_as_expired_as_its_row_reads(klass):
+    """Issue #93: an archive voids the open links; each row then reads «Uregistrert, Invitasjonen
+    er utløpt», and «Utløpt» counts them. A voided link of an address registered since does not."""
+    await sent_class(klass, ["a@x.no", "b@x.no"])
+    accept("b@x.no")
+    execute("UPDATE invitations SET voided_at = %s WHERE accepted_at IS NULL", NOW)
+    async with client() as c:
+        await as_user(c)
+        statuses = (await c.get(f"/api/classes/{klass}/registrations")).json()["items"]
+    assert {i["email"]: i["status"] for i in statuses} == {
+        "a@x.no": "unregistered",
+        "b@x.no": "registered",
+    }
+    assert (await summary(klass)).json()["expired"] == 1
 
 
 async def test_a_registered_or_removed_address_is_counted_but_not_listed_as_bounced(klass):

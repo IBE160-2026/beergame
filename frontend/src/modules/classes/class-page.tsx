@@ -13,6 +13,7 @@ import { PageShell } from "@/modules/identity/page-shell";
 
 import { classKey, useClass } from "./api";
 import { ArchiveClass } from "./archive-class";
+import { ArchivedRefusal, useArchivedRefusal } from "./archived-refusal";
 import { InvitationSummary } from "./invitation-summary";
 import { OneFormAtATime } from "./one-form";
 import { RegistrationStatus } from "./registration-status";
@@ -57,6 +58,7 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
   // notice that says why.
   const notice = useRef<HTMLParagraphElement>(null);
   const archivedNow = found.data?.archived;
+  const refused = useArchivedRefusal();
   const wasArchived = useRef(archivedNow);
   useEffect(() => {
     if (archivedNow && wasArchived.current === false) notice.current?.focus();
@@ -87,6 +89,7 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
       <OneFormAtATime>
         {facts ? <p className="mt-2 text-body-phone text-ink-secondary lg:text-body">{facts}</p> : null}
         {/* An archived Class is read-only for everyone (Story 4.10). */}
+        {item?.archived && refused ? <ArchivedRefusal /> : null}
         {item?.archived ? (
           <p
             ref={notice}

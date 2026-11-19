@@ -66,7 +66,7 @@ export function ArchiveClass({ classId }: { classId: string }) {
       {open ? (
         <div role="group" aria-labelledby="archive-panel-title" className={PANEL}>
           <h3 id="archive-panel-title" className="text-label text-ink">
-            {copy.title}
+            {copy.panelTitle}
           </h3>
           <p id="archive-consequence" className="text-body-phone text-ink">
             {copy.consequence}

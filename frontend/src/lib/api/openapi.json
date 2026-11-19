@@ -1322,6 +1322,25 @@
         "title": "ReminderOut",
         "type": "object"
       },
+      "ResetCheckOut": {
+        "description": "A usable reset link: its address, and whether the account has no password yet (a manually\nregistered Student, Story 4.8), so «Nytt passord» words it as a first password.",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "first_password": {
+            "default": false,
+            "title": "First Password",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "ResetCheckOut",
+        "type": "object"
+      },
       "ResetEmailOut": {
         "description": "The address a reset link belongs to, so «Logg inn» can be prefilled.",
         "properties": {
@@ -1626,6 +1645,11 @@
             },
             "title": "Preview",
             "type": "array"
+          },
+          "restored_count": {
+            "default": 0,
+            "title": "Restored Count",
+            "type": "integer"
           },
           "row_count": {
             "title": "Row Count",
@@ -3756,7 +3780,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ResetEmailOut"
+                  "$ref": "#/components/schemas/ResetCheckOut"
                 }
               }
             },

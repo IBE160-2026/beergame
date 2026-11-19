@@ -13,7 +13,7 @@ import structlog.testing
 from app.modules.classes import service as classes
 from tests.classes.test_classes import OTHER, PASSWORD, as_user, make
 from tests.classes.test_invitation_counts import accept, sent_class
-from tests.classes.test_roster_send import send, staged_id
+from tests.classes.test_roster_send import paste, send, staged_id
 from tests.classes.test_roster_upload import NOW, clock, klass
 from tests.classes.test_student_registration import emitted, second_class
 from tests.identity.helpers import CSRF, client, login
@@ -348,6 +348,11 @@ async def test_a_used_link_mails_no_link_and_an_expired_one_no_mail(klass):
     )
     token = auth.link_token(identity.PASSWORD_RESET, reset_of["ny@x.no"])
     async with client() as c:
+        # «Nytt passord» is told the account has no password yet (Issue #91).
+        checked = await c.post(
+            "/api/auth/password-reset/check", json={"token": token}, headers=CSRF
+        )
+        assert checked.json() == {"email": "ny@x.no", "first_password": True}
         done = await c.post(
             "/api/auth/password-reset/confirm",
             json={"token": token, "password": NEW_PASSWORD},
@@ -388,7 +393,11 @@ async def test_a_removed_registered_student_sent_again_has_access_and_no_invitat
     await remove(klass, str(entry_id))
     async with client() as c:
         await as_user(c)
-        sent = await send(c, klass, await staged_id(c, klass, "stud@x.no new@x.no"))
+        staged = await paste(c, klass, "stud@x.no new@x.no")
+        sent = await send(c, klass, staged.json()["id"])
+    # «Send N» counts what is sent (Issue #91): both rows go on the Roster, one is put back with
+    # access and no Invitation, so the button reads «Send 1».
+    assert (staged.json()["valid_count"], staged.json()["restored_count"]) == (2, 1)
     assert sent.json()["sent"] == 1  # the new address only
     assert open_invitations("stud@x.no") == 0
     assert entry("stud@x.no")[1:] == ("registered_manually", user_id, None)

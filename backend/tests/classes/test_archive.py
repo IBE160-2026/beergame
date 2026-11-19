@@ -3,17 +3,20 @@ archived Class allows on every Class route for every role, its old Invitation li
 Students see, the Lecturer-revoke blocker and `is_writable`. The api's clock is fixed (2026-11-19
 09:00 UTC); the database clock is never read, and nothing is ordered by a timestamp."""
 
+import asyncio
 import uuid
 from datetime import timedelta
 
 import pytest
 import structlog.testing
 
+from app.modules.classes import repo as classes_repo
 from app.modules.classes import service as classes
+from app.modules.identity import repo as identity_repo
 from app.modules.identity import service as identity
 from app.modules.identity.schemas import AccountRole
 from app.platform import auth
-from tests.classes.test_classes import LECTURER, OTHER, as_user, make
+from tests.classes.test_classes import LECTURER, OTHER, PASSWORD, as_user, make
 from tests.classes.test_invitation_counts import execute
 from tests.classes.test_roster_send import staged_id, staging_count
 from tests.classes.test_roster_upload import NOW, clock, klass
@@ -95,7 +98,7 @@ async def test_archiving_closes_the_class_in_one_transaction_and_tells_its_staff
     assert sorted(emitted) == sorted([("user", str(owner)), ("user", str(assistant))])
     # The counts keep the expired Invitation; the status list has no live link left.
     summary = (await call(LECTURER, "GET", f"/api/classes/{klass}/invitations")).json()
-    assert summary["expired"] == 1
+    assert summary["expired"] == 2  # Kari's expired link and Ola's stopped one (Issue #93)
     statuses = (await call(LECTURER, "GET", f"/api/classes/{klass}/registrations")).json()
     assert {i["status"] for i in statuses["items"]} == {"unregistered"}
     # A second archive is a change like any other.
@@ -243,11 +246,75 @@ async def test_the_links_of_an_archived_class_register_no_one(klass):
         )
     assert [a.status_code for a in answers] == [410] * 4
     assert {a.json()["error"]["code"] for a in answers} == {"invitation_link_invalid"}
+    # The check tells the link's holder there is no new Invitation to ask for (Issue #93).
+    assert [a.json()["error"]["fields"] for a in answers[::2]] == [{"class_archived": True}] * 2
     assert renewal.status_code == 202
     assert rows("SELECT count(*) FROM invitations WHERE renewal_requested_at IS NOT NULL") == [(0,)]
     assert rows("SELECT id FROM users WHERE email IN ('ola@x.no', %s)", ASSISTANT) == []
     assert rows("SELECT registration, user_id FROM roster_entries") == [("invited", None)]
     assert len(rows("SELECT 1 FROM class_staff WHERE class_id = %s", klass)) == 1
+
+
+@pytest.mark.parametrize("existing", [False, True], ids=["new account", "existing account"])
+async def test_an_assistant_accepting_while_the_class_is_archived_never_deadlocks(
+    klass, monkeypatch, existing
+):
+    """Issue #93: the Assistant accepts at the instant the owner archives. Each side is held after
+    its first lock until the other has taken its own (or a short wait ends). When the acceptance
+    locked its Invitation before the Class row, the archive (Class row, then the Invitations it
+    voids) closed a cycle and Postgres aborted one with a 500. Now the acceptance takes the Class
+    row first: the two run in turn, and either the Assistant joined before the archive or the link
+    was void."""
+    if existing:
+        await make(ASSISTANT, roles=())
+    assert (await invite(klass)).status_code == 201
+    [(invitation_id,)] = rows("SELECT id FROM invitations WHERE kind = 'assistant'")
+    token = auth.link_token(identity.INVITATION, invitation_id)
+    class_locked, invitation_locked = asyncio.Event(), asyncio.Event()
+    real_class_state, real_lock_invitation = classes_repo.class_state, identity_repo.lock_invitation
+
+    async def hold(mine: asyncio.Event, other: asyncio.Event) -> None:
+        mine.set()
+        try:
+            await asyncio.wait_for(other.wait(), timeout=0.5)
+        except TimeoutError:
+            pass
+
+    async def held_class_state(session, class_id, *, exclusive):
+        found = await real_class_state(session, class_id, exclusive=exclusive)
+        await hold(class_locked, invitation_locked)
+        return found
+
+    async def held_lock_invitation(session, invitation_id):
+        found = await real_lock_invitation(session, invitation_id)
+        await hold(invitation_locked, class_locked)
+        return found
+
+    async with client() as owner, client("198.51.100.9") as assistant:
+        await as_user(owner)
+        monkeypatch.setattr(classes_repo, "class_state", held_class_state)
+        monkeypatch.setattr(identity_repo, "lock_invitation", held_lock_invitation)
+        if existing:
+            path, body = "/api/auth/invitation/accept-login", {"password": PASSWORD}
+        else:
+            path, body = "/api/auth/invitation/accept", {"name": "Ada", "password": "et-passord-1"}
+        answers = await asyncio.gather(
+            assistant.post(path, json={"token": token, **body}, headers=CSRF),
+            owner.post(f"/api/classes/{klass}/archive", headers=CSRF),
+            return_exceptions=True,
+        )
+    accepted, archived = answers
+    assert not isinstance(accepted, BaseException), accepted
+    assert not isinstance(archived, BaseException), archived
+    assert archived.status_code == 200
+    assert accepted.status_code in (200, 410)
+    joined = rows(
+        "SELECT count(*) FROM class_staff s JOIN users u ON u.id = s.user_id "
+        "WHERE s.class_id = %s AND u.email = %s",
+        klass,
+        ASSISTANT,
+    )
+    assert joined == [(1 if accepted.status_code == 200 else 0,)]
 
 
 async def test_an_open_link_to_an_archived_class_is_refused_too(klass):

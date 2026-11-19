@@ -283,13 +283,22 @@ async def request_password_reset(address: str, *, ip: str, now: datetime) -> int
     return None
 
 
-async def check_password_reset(token: str, *, now: datetime) -> str | None:
-    """The e-mail a usable reset link belongs to, or None for an unknown, used, voided or
-    expired link, or one whose User is deactivated."""
+@dataclass(frozen=True)
+class ResetChecked:
+    email: str
+    first_password: bool
+    """The User has no password yet (a manual registration, Story 4.8)."""
+
+
+async def check_password_reset(token: str, *, now: datetime) -> ResetChecked | None:
+    """The e-mail a usable reset link belongs to, and whether its User has no password yet; or
+    None for an unknown, used, voided or expired link, or one whose User is deactivated."""
     async with get_sessionmaker().begin() as s:
         reset = await repo.password_reset_by_hash(s, auth.token_hash(token))
         user = await repo.user_by_id(s, reset["user_id"]) if reset else None
-        return user["email"] if _usable(reset, user, now) else None
+        if not _usable(reset, user, now):
+            return None
+        return ResetChecked(user["email"], user["password_hash"] is None)
 
 
 async def confirm_password_reset(token: str, password: str, *, now: datetime) -> str | None:
@@ -645,6 +654,15 @@ async def check_invitation(token: str, *, now: datetime) -> InvitationChecked | 
     )
 
 
+async def link_of_archived_class(token: str) -> bool:
+    """Whether the link is a Class Invitation, never accepted, whose Class is archived (Story
+    4.10): «Du er invitert» then offers no «Be om ny Invitasjon», as no one can send one (Issue
+    #93). Only the link's holder learns it."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.invitation_by_hash(s, auth.token_hash(token))
+        return row is not None and row["accepted_at"] is None and await _class_archived(s, row)
+
+
 def _invitation_window() -> timedelta:
     return timedelta(minutes=get_settings().invitation_rate_limit_window_minutes)
 
@@ -668,8 +686,39 @@ async def _count_acceptance(token: str, ip: str, now: datetime) -> int | None:
     return None
 
 
+ClassLock = Callable[[AsyncSession, uuid.UUID, bool], Awaitable[None]]
+"""`(session, class_id, exclusive)`: lock the Class row until the transaction ends."""
+
+_class_lock: list[ClassLock] = []
+
+
+def register_class_lock(lock: ClassLock) -> None:
+    """`classes.service` hands over how its Class row is locked, so an acceptance can take it
+    first while `identity` imports no `classes` code (AD-14)."""
+    _class_lock[:] = [lock]
+
+
+# One lock order for every path that changes an Invitation (Issues #82, #93): the Class row, then
+# the User row, then the Invitation row, then the Roster entry. An archive and a staff change hold
+# the Class row while they void Invitations; a deactivation holds the User row while it voids them.
+# An acceptance that locked its Invitation first and then waited for either row deadlocked.
+
+
+async def _lock_place(s: AsyncSession, token: str) -> None:
+    """First in an acceptance: lock a Class Invitation's Class row (Story 4.10). Exclusive for an
+    Assistant, as a staff change takes it; shared for a Student, as a Roster change takes it."""
+    found = await repo.invitation_by_hash(s, auth.token_hash(token))
+    if found is None or found["kind"] not in CLASS_KINDS or found["class_id"] is None:
+        return
+    if not _class_lock:
+        raise RuntimeError("no Class lock is registered (import classes.service)")
+    exclusive = found["kind"] == InvitationKind.assistant
+    await _class_lock[0](s, found["class_id"], exclusive)
+
+
 async def _locked_open_invitation(s: AsyncSession, token: str, now: datetime):
-    """The Invitation of `token`, locked, if it is still open; else None."""
+    """The Invitation of `token`, locked, if it is still open; else None. Called after the Class
+    and User rows are locked (the order above)."""
     found = await repo.invitation_by_hash(s, auth.token_hash(token))
     row = await repo.lock_invitation(s, found["id"]) if found else None
     return row if _invitation_open(row, now) else None
@@ -694,6 +743,7 @@ async def accept_invitation_new(
     password_hash = await asyncio.to_thread(auth.hash_password, password)
     user_id = uuid.uuid7()
     async with get_sessionmaker().begin() as s:
+        await _lock_place(s, token)
         row = await _locked_open_invitation(s, token, now)
         if row is None:
             log.info("invitation_accept_refused", error_code="invitation_link_invalid")
@@ -774,8 +824,9 @@ async def accept_invitation_existing(
             return AcceptRefused("invitation_link_invalid")
         return AcceptRefused(outcome.code, outcome.retry_after)
     async with get_sessionmaker().begin() as s:
+        await _lock_place(s, token)
+        user = await repo.lock_user(s, outcome.user.id)  # before the Invitation (Issue #82)
         row = await _locked_open_invitation(s, token, now)
-        user = await repo.lock_user(s, outcome.user.id) if row else None
         if (
             row is None
             or user is None
@@ -1499,6 +1550,7 @@ async def stage_roster_upload(
         await repo.lock_roster_staging(s, class_id)
         await repo.delete_roster_upload(s, class_id)
         on_roster = await repo.roster_addresses(s, class_id)
+        restored = await _restorable(s, class_id)
         await repo.insert_roster_upload(
             s,
             upload_id=upload_id,
@@ -1524,6 +1576,7 @@ async def stage_roster_upload(
         _roster_upload_out,
         upload_id=upload_id,
         on_roster=on_roster,
+        restored=restored,
         source=RosterSource.file,
         file_name=file_name,
         headers=parsed.headers,
@@ -1554,6 +1607,7 @@ async def stage_roster_paste(
         await repo.lock_roster_staging(s, class_id)
         await repo.delete_roster_upload(s, class_id)
         on_roster = await repo.roster_addresses(s, class_id)
+        restored = await _restorable(s, class_id)
         await repo.insert_roster_upload(
             s,
             upload_id=upload_id,
@@ -1579,6 +1633,7 @@ async def stage_roster_paste(
         _roster_upload_out,
         upload_id=upload_id,
         on_roster=on_roster,
+        restored=restored,
         source=RosterSource.paste,
         file_name="",
         headers=[""],
@@ -1625,10 +1680,17 @@ def evaluate_roster_rows(
     return valid, invalid
 
 
+async def _restorable(s: AsyncSession, class_id: uuid.UUID) -> set[str]:
+    """The removed, registered addresses of the Class's Roster: sent again, each is put back with
+    access and gets no Invitation (Stories 4.4, 4.8), so «Send N» leaves them out."""
+    return await repo.removed_registered_addresses(s, class_id, [r.value for r in REGISTERED])
+
+
 def _roster_upload_out(
     *,
     upload_id: uuid.UUID,
     on_roster: Set[str],
+    restored: Set[str] = frozenset(),
     source: RosterSource,
     file_name: str,
     headers: list[str],
@@ -1640,6 +1702,11 @@ def _roster_upload_out(
     suggested = roster_file.suggested_column(counts)
     valid, invalid = (
         evaluate_roster_rows(rows, chosen, on_roster) if chosen is not None else (0, [])
+    )
+    back = (
+        sum(a in restored for a in _valid_addresses(rows, chosen, on_roster))
+        if restored and chosen is not None
+        else 0
     )
     return RosterUploadOut(
         id=upload_id,
@@ -1656,6 +1723,7 @@ def _roster_upload_out(
         chosen_column=chosen,
         chosen_count=counts[chosen] if chosen is not None else 0,
         valid_count=valid,
+        restored_count=back,
         invalid_rows=invalid,
         preview=[
             RosterPreviewRow(row_number=n, cells=cells) for n, cells in rows[:ROSTER_PREVIEW_ROWS]
@@ -1667,6 +1735,7 @@ async def _staged_out(s: AsyncSession, row: RowMapping) -> RosterUploadOut:
     """The staged upload, evaluated again from its staged cells."""
     rows = await repo.roster_rows(s, row["id"])
     on_roster = await repo.roster_addresses(s, row["class_id"])
+    restored = await _restorable(s, row["class_id"])
     # Evaluating up to `ROSTER_MAX_ROWS` rows is CPU work: off the event loop.
     counts = await asyncio.to_thread(
         roster_file.address_counts, [cells for _, cells in rows], row["column_count"]
@@ -1675,6 +1744,7 @@ async def _staged_out(s: AsyncSession, row: RowMapping) -> RosterUploadOut:
         _roster_upload_out,
         upload_id=row["id"],
         on_roster=on_roster,
+        restored=restored,
         source=RosterSource(row["source"]),
         file_name=row["file_name"],
         headers=row["headers"],
@@ -1921,6 +1991,8 @@ class ClassInvitation:
     email: str
     accepted: bool
     expired: bool
+    voided: bool
+    """Its link was stopped before it expired (a reminder, a removal, an archive, Story 4.10)."""
     entry_registered: bool
     entry_removed: bool
 
@@ -1939,6 +2011,7 @@ async def class_student_invitations(class_id: uuid.UUID, *, now: datetime) -> li
             expired=row["accepted_at"] is None
             and row["voided_at"] is None
             and row["expires_at"] <= now,
+            voided=row["accepted_at"] is None and row["voided_at"] is not None,
             entry_registered=row["registration"] in REGISTERED,
             entry_removed=row["removed_at"] is not None,
         )
@@ -2052,8 +2125,9 @@ async def send_entry_reminders(
 
 # Single addresses and manual registration (Story 4.8, FR-7, FR-9, AD-8, AD-9, AD-14). Each runs in
 # the caller's transaction under the Class's Roster staging lock, so it never interleaves with a
-# Roster send or a reminder. Locks are taken in the order an acceptance takes them (Invitation,
-# then address, then Roster entry): the open Invitations are voided before the entry is locked.
+# Roster send or a reminder. Locks are taken in the order an acceptance takes them (Class row,
+# then Invitation, then address, then Roster entry): the open Invitations are voided before the
+# entry is locked.
 
 MANUAL_REGISTRATION = "manual_registration"
 """The notice kind of the mail a manually registered Student gets (Story 4.8)."""

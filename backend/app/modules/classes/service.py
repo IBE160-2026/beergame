@@ -376,11 +376,17 @@ async def invitation_summary(
                 email=invitation.email, registration="bounced", bounce_class=mail.bounce_class
             )
         )
+    # A voided link that is still its address's newest, of an address still waiting (an archive
+    # voids them, Story 4.10), reads «Uregistrert, Invitasjonen er utløpt» on its row: it counts as
+    # expired too, so the row and the counts agree (Issue #93). One a reminder replaced does not.
+    stopped = sum(
+        i.voided and not i.entry_registered and not i.entry_removed for i in newest.values()
+    )
     return InvitationSummaryOut(
         sent=sent,
         bounced=bounced,
         accepted=sum(i.accepted for i in found),
-        expired=sum(i.expired for i in found),
+        expired=sum(i.expired for i in found) + stopped,
         bounces=sorted(bounces, key=lambda b: b.email),
     )
 
@@ -848,9 +854,9 @@ async def join_as_assistant(
     """The acceptance handler of an `assistant` Invitation, inside `identity`'s acceptance
     transaction: the User joins this Class's staff as Assistant lecturer (one already owner stays
     owner), with an audit row and `user:<id>`."""
-    # The Class row's lock, as every staff change takes. An archived Class never gets here: the
-    # archive voids its Invitations, and «Du er invitert» refuses its links (Story 4.10).
-    await repo.class_state(session, place.class_id, exclusive=True)
+    # The acceptance took the Class row's lock first (`lock_class_for_acceptance`), before the
+    # Invitation's. An archived Class never gets here: the archive voids its Invitations under that
+    # lock, and «Du er invitert» refuses its links (Story 4.10).
     joined = await repo.put_staff(
         session, place.class_id, place.user_id, StaffRole.assistant, now, replace=False
     )
@@ -869,6 +875,14 @@ async def join_as_assistant(
     await events.emit(session, "user", str(place.user_id))
 
 
+async def lock_class_for_acceptance(
+    session: AsyncSession, class_id: uuid.UUID, exclusive: bool
+) -> None:
+    """`identity`'s Class lock: an acceptance takes the Class row first, as an archive and a staff
+    change do, before the Invitation row (Issue #93)."""
+    await repo.class_state(session, class_id, exclusive=exclusive)
+
+
 async def assistant_session_role(session: AsyncSession, user_id: uuid.UUID) -> set[str]:
     """The session role `assistant` while the User is Assistant lecturer of any Class."""
     return {authz.ASSISTANT} if await repo.is_assistant_anywhere(session, user_id) else set()
@@ -877,4 +891,5 @@ async def assistant_session_role(session: AsyncSession, user_id: uuid.UUID) -> s
 identity.register_revoke_blocker(identity.AccountRole.lecturer, owned_active_classes)
 identity.register_class_label(label_of_class)
 identity.register_acceptance_handler(identity.InvitationKind.assistant, join_as_assistant)
+identity.register_class_lock(lock_class_for_acceptance)
 identity.register_session_roles(assistant_session_role)

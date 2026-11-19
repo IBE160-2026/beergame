@@ -69,6 +69,8 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
       const section = lecturer.getByRole("region", { name: status.title });
       const rows = section.getByRole("region", { name: status.listTitle }).getByRole("listitem");
       await expect(rows.filter({ hasText: late })).toContainText(status.status.not_invited);
+      // Its first Invitation, never a «ny» one (Issue #91).
+      await expect(rows.filter({ hasText: late }).getByRole("button", { name: status.inviteFor(late) })).toHaveText(status.invite);
       await expect(section.getByRole("button", { name: status.remindAll(1) })).toBeVisible();
 
       // A duplicate is refused beside the field; «Avbryt» returns focus to the Lenke.
@@ -103,7 +105,9 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
       const student = await browser.newContext({ baseURL: test.info().project.use.baseURL });
       const studentPage = await student.newPage();
       await studentPage.goto(link);
-      await studentPage.getByLabel(nb.auth.reset.password).fill(PASSWORD);
+      // The account has no password yet: the page asks for a first one (Issue #91).
+      await expect(studentPage.getByText(nb.auth.reset.firstLead(kari))).toBeVisible();
+      await studentPage.getByLabel(nb.auth.reset.firstPassword, { exact: true }).fill(PASSWORD);
       await studentPage.getByRole("button", { name: nb.auth.reset.submit }).click();
       await expect(studentPage.getByText(nb.auth.reset.done)).toBeFocused();
       await student.close();

@@ -32,6 +32,7 @@ function upload(overrides: Partial<RosterUpload> = {}): RosterUpload {
     chosen_column: 2,
     chosen_count: 246,
     valid_count: 244,
+    restored_count: 0,
     invalid_rows: [],
     preview: [],
     ...overrides,

@@ -74,7 +74,7 @@ async def test_an_active_user_gets_one_mail_with_a_link_that_works_once(lecturer
         assert auth.token_hash(token) == token_hash
         assert deliveries() == [("immediate", 1, True, None, 1)]
 
-        assert (await check(c, token)).json() == {"email": EMAIL}
+        assert (await check(c, token)).json() == {"email": EMAIL, "first_password": False}
         done = await confirm(c, token)
         assert done.status_code == 200
         assert done.json() == {"email": EMAIL}
