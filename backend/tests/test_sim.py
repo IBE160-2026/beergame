@@ -604,8 +604,19 @@ def test_create_as_a_program_prints_only_the_report_on_stdout(games_db):
 # Story 1.8: `start` opens Week 1; `show` prints what one Seat sees.
 
 
+@pytest.fixture(autouse=True)
+def _short_settings(monkeypatch):
+    """`create --settings short`: Classic settings with the 8 Weeks of `SHORT`, for tests where
+    the Game's length is not the point."""
+    from app import sim
+    from app.engine import GameSettings
+
+    monkeypatch.setitem(sim.SETTINGS, "short", lambda: GameSettings(**SHORT))
+
+
 def created_game(capsys) -> str:
-    code, lines, _ = create(capsys, "--seats", "rule_based", "--seed", "7")
+    """A short Game (`SHORT`) of four Rule-based players, created and not started."""
+    code, lines, _ = create(capsys, "--settings", "short", "--seats", "rule_based", "--seed", "7")
     assert code == 0
     return lines[0].removeprefix("game ")
 
@@ -714,16 +725,18 @@ def report(capsys, prefixes: set[str]) -> list[str]:
     return [line for line in capsys.readouterr().out.splitlines() if line.split(" ")[0] in prefixes]
 
 
-def played_game(capsys, seats: str = "rule_based") -> str:
+def played_game(capsys, seats: str = "rule_based", settings: str = "short") -> str:
     """A Game created, started and played to its end with `create`, `start` and `play`. The
-    first call per `seats` runs the commands; later ones store a copy of that Game's rows."""
+    first call per `seats` and `settings` runs the commands; later ones store a copy of that
+    Game's rows."""
+    from app import sim
     from tests.conftest import TEST_DATABASE_URL
     from tests.games.helpers import remember, stored_copy
 
-    copy = stored_copy(TEST_DATABASE_URL, ("sim play", seats))
+    copy = stored_copy(TEST_DATABASE_URL, ("sim play", seats, settings))
     if copy is not None:
         return copy
-    code, lines, _ = create(capsys, "--seats", seats, "--seed", "7")
+    code, lines, _ = create(capsys, "--settings", settings, "--seats", seats, "--seed", "7")
     assert code == 0
     game_id = lines[0].removeprefix("game ")
     assert main(["start", game_id]) == 0
@@ -732,9 +745,9 @@ def played_game(capsys, seats: str = "rule_based") -> str:
     assert report(capsys, {"game", "lifecycle", "weeks"}) == [
         f"game {game_id}",
         "lifecycle finished",
-        "weeks 36",
+        f"weeks {sim.SETTINGS[settings]().weeks}",
     ]
-    remember(TEST_DATABASE_URL, ("sim play", seats), game_id)
+    remember(TEST_DATABASE_URL, ("sim play", seats, settings), game_id)
     return game_id
 
 
@@ -746,7 +759,7 @@ def log_lines(capsys, game_id: str) -> list[str]:
 
 
 def test_log_of_a_rule_based_game_matches_the_engine_only_trace(capsys, games_db):
-    game_id = played_game(capsys)
+    game_id = played_game(capsys, settings="classic")
     lines = log_lines(capsys, game_id)
     assert lines[0].split() == [
         "week",
@@ -803,7 +816,7 @@ def test_play_of_a_finished_game_reports_it_again(capsys, games_db):
     assert main(["play", game_id]) == 0
     assert report(capsys, {"lifecycle", "weeks", "check"}) == [
         "lifecycle finished",
-        "weeks 36",
+        "weeks 8",
         "check ok",
     ]
 
@@ -838,8 +851,8 @@ def test_play_moves_on_a_game_stopped_between_two_advances(capsys, games_db, mon
     assert "lifecycle running" in report(capsys, {"lifecycle"})
     monkeypatch.undo()
     assert main(["play", game_id]) == 0
-    assert report(capsys, {"lifecycle", "weeks"}) == ["lifecycle finished", "weeks 36"]
-    assert len(log_lines(capsys, game_id)) == 1 + 36 * 4
+    assert report(capsys, {"lifecycle", "weeks"}) == ["lifecycle finished", "weeks 8"]
+    assert len(log_lines(capsys, game_id)) == 1 + 8 * 4
 
 
 # Story 1.10: `play` ends with the finished-game check; `check` runs or reads it back.
@@ -848,12 +861,11 @@ def test_play_moves_on_a_game_stopped_between_two_advances(capsys, games_db, mon
 def test_play_and_check_report_the_finished_game_check(capsys, games_db):
     from tests.games.helpers import query
 
-    code, lines, _ = create(capsys, "--seats", "rule_based", "--seed", "7")
-    game_id = lines[0].removeprefix("game ")
+    game_id = created_game(capsys)
     assert main(["start", game_id]) == 0
     capsys.readouterr()
     assert main(["play", game_id]) == 0
-    assert report(capsys, {"weeks", "check"}) == ["weeks 36", "check ok"]
+    assert report(capsys, {"weeks", "check"}) == ["weeks 8", "check ok"]
     for _ in range(2):
         assert main(["check", game_id]) == 0
         assert report(capsys, {"check", "violation"}) == ["check ok"]
@@ -871,7 +883,7 @@ def test_check_prints_each_violation_and_exits_1(capsys, games_db):
     tamper(
         games_db,
         "UPDATE game_weeks SET state = jsonb_set(state, '{seats,1,backlog}', '5') "
-        "WHERE game_id = %s AND week = 15 AND NOT finished",
+        "WHERE game_id = %s AND week = 6 AND NOT finished",
         (game_id,),
     )
     for _ in range(2):  # the second call prints the stored result
@@ -879,8 +891,8 @@ def test_check_prints_each_violation_and_exits_1(capsys, games_db):
         lines = report(capsys, {"check", "violation"})
         count = int(lines[0].removeprefix("check failed "))
         assert len(lines) == 1 + count
-        assert "violation replay week 15 role wholesaler" in lines
-        assert "violation backlog_balance week 15 role wholesaler" in lines
+        assert "violation replay week 6 role wholesaler" in lines
+        assert "violation backlog_balance week 6 role wholesaler" in lines
 
 
 @pytest.mark.parametrize(
@@ -921,8 +933,7 @@ def test_play_exits_1_when_the_finished_game_check_fails(capsys, games_db, monke
         )
 
     monkeypatch.setattr(sim.game_service, "verify_finished", failed)
-    code, lines, _ = create(capsys, "--seats", "rule_based", "--seed", "7")
-    game_id = lines[0].removeprefix("game ")
+    game_id = created_game(capsys)
     assert main(["start", game_id]) == 0
     capsys.readouterr()
     assert main(["play", game_id]) == 1
@@ -951,7 +962,7 @@ def test_check_all_counts_the_finished_games_and_lists_only_failures(capsys, gam
     tamper(
         games_db,
         "UPDATE game_weeks SET state = jsonb_set(state, '{seats,1,backlog}', '5') "
-        "WHERE game_id = %s AND week = 15 AND NOT finished",
+        "WHERE game_id = %s AND week = 6 AND NOT finished",
         (bad,),
     )
     tamper(games_db, "UPDATE games SET rules_version = 99 WHERE id = %s", (refused,))
@@ -965,7 +976,7 @@ def test_check_all_counts_the_finished_games_and_lists_only_failures(capsys, gam
         failed = lines.index(next(line for line in lines if line.startswith(f"game {bad} ")))
         count = int(lines[failed].removeprefix(f"game {bad} check failed "))
         assert all(line.startswith("violation ") for line in lines[failed + 1 : failed + 1 + count])
-        assert "violation replay week 15 role wholesaler" in lines
+        assert "violation replay week 6 role wholesaler" in lines
         assert (
             f"game {refused} check refused rules_version_unsupported: "
             "no rules package for rules version 99" in lines
@@ -1027,17 +1038,18 @@ def batch_file(tmp_path, data, name: str = "batch.json") -> str:
     return str(path)
 
 
-def test_run_plays_the_smoke_batch_and_summarises_it_from_the_tables(capsys, games_db):
+def test_run_plays_the_smoke_batch_and_summarises_it_from_the_tables(capsys, games_db, tmp_path):
+    """The smoke batch's three Games, each of the 8 Weeks of `SHORT`."""
     from tests.games.helpers import query
 
-    code, lines, _ = run_batch(capsys, str(SMOKE))
+    code, lines, _ = run_batch(capsys, smoke(tmp_path, 3))
     assert code == 0
     assert len(lines) == 3 * 3 + 3
     ids = batch_ids(lines)
     assert len(ids) == 3
     for index, game_id in enumerate(ids):
         head, cost, orders = lines[3 * index : 3 * index + 3]
-        assert head == f"game {game_id} seed {7 + index} weeks 36 check ok"
+        assert head == f"game {game_id} seed {7 + index} weeks 8 check ok"
         stored = query(
             games_db,
             "SELECT seat->>'role', seat->>'total_cost' FROM game_weeks, "
@@ -1051,10 +1063,10 @@ def test_run_plays_the_smoke_batch_and_summarises_it_from_the_tables(capsys, gam
             (game_id,),
         )
         assert cost == "cost " + " ".join(f"{r}={c}" for r, c in stored) + f" chain={chain}"
-        assert orders == "orders rule_based=64 scripted=64 guided=16"
+        assert orders == "orders rule_based=8 scripted=8 guided=16"
     batch, cost, orders = lines[-3:]
-    assert batch == "batch games 3 weeks 108 checks ok=3 failed=0"
-    assert orders == "orders rule_based=192 scripted=192 guided=48"
+    assert batch == "batch games 3 weeks 24 checks ok=3 failed=0"
+    assert orders == "orders rule_based=24 scripted=24 guided=48"
     ((total,),) = query(games_db, "SELECT sum((state_seen->>'week_cost')::numeric) FROM seat_weeks")
     assert cost.endswith(f" chain={total}")
     assert query(
@@ -1064,8 +1076,10 @@ def test_run_plays_the_smoke_batch_and_summarises_it_from_the_tables(capsys, gam
 
 
 def smoke(tmp_path, games: int) -> str:
-    """The smoke batch with fewer Games, for tests where the batch size is not the point."""
-    return batch_file(tmp_path, {**json.loads(SMOKE.read_text(encoding="utf-8")), "games": games})
+    """The smoke batch with fewer and shorter (`SHORT`) Games, for tests where neither the batch
+    size nor the Game length is the point. `test_sim_golden.py` plays the smoke batch itself."""
+    data = json.loads(SMOKE.read_text(encoding="utf-8"))
+    return batch_file(tmp_path, {**data, "games": games, "settings": SHORT})
 
 
 def test_run_places_the_order_of_each_scripted_policy(capsys, games_db, tmp_path):
@@ -1111,7 +1125,7 @@ def test_run_twice_gives_identical_orders_and_costs(capsys, games_db, tmp_path):
     assert len(pairs) == 1
     for one, other in pairs:
         assert one != other
-        assert len(weeks(one)) == 36 * 4
+        assert len(weeks(one)) == 8 * 4
         assert weeks(one) == weeks(other)
     # The summaries differ only in the Game ids.
     strip = [line for line in first[1] if not line.startswith("game ")]
@@ -1147,8 +1161,8 @@ def test_run_exports_the_decision_log_as_csv(capsys, games_db, tmp_path):
         "total_cost",
     ]
     body = rows[1:]
-    assert len(body) == 2 * 36 * 4
-    assert [row[0] for row in body[:: 36 * 4]] == batch_ids(lines)
+    assert len(body) == 2 * 8 * 4
+    assert [row[0] for row in body[:: 8 * 4]] == batch_ids(lines)
     assert [(row[1], row[3]) for row in body[:4]] == [
         ("1", "retailer"),
         ("1", "wholesaler"),

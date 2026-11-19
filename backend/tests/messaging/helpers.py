@@ -4,14 +4,12 @@ import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-import psycopg
-
 from app.modules.identity import service as identity
 from app.modules.messaging import service
 from app.platform import jobs, notify
 from app.platform.db import get_sessionmaker
 from app.platform.email import senders
-from tests.conftest import TEST_DATABASE_URL, libpq_dsn
+from tests.conftest import TEST_DATABASE_URL, kept_connection
 
 OSLO = ZoneInfo("Europe/Oslo")
 
@@ -58,8 +56,7 @@ def mails() -> list:
 
 
 def rows(sql: str, *params) -> list[tuple]:
-    with psycopg.connect(libpq_dsn(TEST_DATABASE_URL)) as conn:
-        return conn.execute(sql, params).fetchall()
+    return kept_connection(TEST_DATABASE_URL).execute(sql, params).fetchall()
 
 
 def deliveries() -> list[tuple]:

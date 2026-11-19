@@ -7,17 +7,15 @@ import psycopg
 from psycopg import sql
 
 from app.platform import events
-from tests.conftest import libpq_dsn
+from tests.conftest import kept_connection, libpq_dsn
 
 
 def query(url: str, sql: str, params: tuple = ()) -> list[tuple]:
-    with psycopg.connect(libpq_dsn(url)) as conn:
-        return conn.execute(sql, params).fetchall()
+    return kept_connection(url).execute(sql, params).fetchall()
 
 
 def execute(url: str, sql: str, params: tuple = ()) -> None:
-    with psycopg.connect(libpq_dsn(url), autocommit=True) as conn:
-        conn.execute(sql, params)
+    kept_connection(url).execute(sql, params)
 
 
 def counts(url: str) -> tuple[int, int, int]:
@@ -31,8 +29,9 @@ def counts(url: str) -> tuple[int, int, int]:
 
 def tamper(url: str, sql: str, params: tuple = ()) -> None:
     """Change stored rows past their append-only triggers, as an after-the-fact edit would."""
-    with psycopg.connect(libpq_dsn(url), autocommit=True) as conn:
-        conn.execute("SET session_replication_role = replica")
+    conn = kept_connection(url)
+    with conn.transaction():
+        conn.execute("SET LOCAL session_replication_role = replica")
         conn.execute(sql, params)
 
 
@@ -84,7 +83,8 @@ _played: dict[object, dict[str, str]] = {}
 
 
 def _dump(url: str, game_id: str) -> dict[str, str]:
-    with psycopg.connect(libpq_dsn(url)) as conn, conn.cursor() as cur:
+    conn = kept_connection(url)
+    with conn.transaction(), conn.cursor() as cur:
         dumped = {}
         for table, select in _ONE_GAME.items():
             statement = sql.SQL("COPY ({}) TO STDOUT").format(
@@ -101,7 +101,8 @@ def _restore(url: str, dumped: dict[str, str]) -> str:
     old = sorted(set(_UUID.findall("".join(dumped.values()))))
     new = {value: str(uuid.uuid7()) for value in old}
     game_id = new[_UUID.search(dumped["games"]).group()]
-    with psycopg.connect(libpq_dsn(url)) as conn, conn.cursor() as cur:
+    conn = kept_connection(url)
+    with conn.transaction(), conn.cursor() as cur:
         for table, rows in dumped.items():
             with cur.copy(sql.SQL("COPY {} FROM STDIN").format(sql.Identifier(table))) as copy:
                 copy.write(_UUID.sub(lambda m: new.get(m.group(), m.group()), rows))

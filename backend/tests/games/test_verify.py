@@ -266,7 +266,7 @@ async def test_a_version_without_a_package_is_refused_and_listed(games_db):
 async def test_every_stored_rules_version_has_a_package(games_db):
     """AD-4: fails when a Game in the test database names a rules version with no package."""
     await finished_game(games_db)
-    game_id = await commands.create("simulation", GameSettings(), seed=3)
+    game_id = await commands.create("simulation", GameSettings(weeks=8), seed=3)
     await commands.start(game_id)
     assert await service.rules_versions_without_package() == ()
 
@@ -338,7 +338,8 @@ async def test_commands_run_the_stored_rules_version(games_db, monkeypatch):
     monkeypatch.setitem(sys.modules, "app.engine.rules.v2", v2)
 
     plain = await finished_game(games_db)
-    game_id = await commands.create("simulation", GameSettings(), seed=7)
+    # A short Game: Week 3 is the same in a Game of any length.
+    game_id = await commands.create("simulation", GameSettings(weeks=8), seed=7)
     execute(games_db, "UPDATE games SET rules_version = 2 WHERE id = %s", (game_id,))
     await commands.start(game_id)
     await play_to_end(game_id)

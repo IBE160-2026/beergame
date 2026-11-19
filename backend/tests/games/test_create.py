@@ -287,7 +287,8 @@ async def test_capacity_out_of_range_is_an_engine_error(games_db, monkeypatch):
 
 async def test_a_capped_game_is_stored_played_and_verified(games_db, monkeypatch):
     monkeypatch.setenv("FEATURE_CAPACITY", "true")
-    game_id = await commands.create("simulation", GameSettings(capacity={"wholesaler": 6}), seed=3)
+    settings = GameSettings(capacity={"wholesaler": 6}, weeks=12)  # past the step to 8 a Week
+    game_id = await commands.create("simulation", settings, seed=3)
     ((settings,),) = query(games_db, "SELECT settings FROM games WHERE id = %s", (game_id,))
     assert settings["capacity"] == {"wholesaler": 6}
     await commands.start(game_id)
@@ -298,7 +299,7 @@ async def test_a_capped_game_is_stored_played_and_verified(games_db, monkeypatch
         "ON s.id = w.seat_id WHERE w.game_id = %s AND s.role = 'wholesaler'",
         (game_id,),
     )
-    assert len(shipped) == 36 and max(value for (value,) in shipped) <= 6
+    assert len(shipped) == 12 and max(value for (value,) in shipped) <= 6
     check = await service.verify_finished(game_id)
     assert check.ok, check.violations
 
