@@ -28,6 +28,7 @@ describe("statusLabel", () => {
     expect(statusLabel(item("a", "registered_manually"), today)).toBe("Registrert manuelt");
     expect(statusLabel(item("a", "renewal_requested"), today)).toBe("Ba om ny Invitasjon");
     expect(statusLabel(item("a", "unregistered"), today)).toBe("Uregistrert, Invitasjonen er utløpt");
+    expect(statusLabel(item("a", "not_invited"), today)).toBe("Ikke invitert ennå");
   });
 });
 

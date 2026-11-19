@@ -43,7 +43,7 @@ async def insert_user(
     user_id: uuid.UUID,
     email: str,
     name: str,
-    password_hash: str,
+    password_hash: str | None,
     is_active: bool,
     roles: list[str],
 ) -> None:
@@ -755,32 +755,38 @@ async def roster_addresses(session: AsyncSession, class_id: uuid.UUID) -> set[st
 
 async def insert_roster_entries(
     session: AsyncSession, class_id: uuid.UUID, emails: list[str], registration: str, now: datetime
-) -> list[tuple[uuid.UUID, str]]:
-    """Add each address to the Roster; an address already on it is left as it is. The
-    `(id, email)` of each new entry."""
-    added: list[tuple[uuid.UUID, str]] = []
+) -> list[RowMapping]:
+    """Add each address to the Roster. An address on it that was removed is put back as it was
+    (Story 4.8); one on it and not removed is left as it is. The `id`, `email`, `registration` and
+    `user_id` of each entry added or put back."""
+    added: list[RowMapping] = []
     batch = ROSTER_BATCH
     for start in range(0, len(emails), batch):
-        result = await session.execute(
-            insert(roster_entries)
-            .values(
-                [
-                    {
-                        "id": uuid.uuid7(),
-                        "class_id": class_id,
-                        "email": email,
-                        "registration": registration,
-                        "added_at": now,
-                    }
-                    for email in emails[start : start + batch]
-                ]
-            )
-            .on_conflict_do_nothing(
-                index_elements=[roster_entries.c.class_id, roster_entries.c.email]
-            )
-            .returning(roster_entries.c.id, roster_entries.c.email)
+        stmt = insert(roster_entries).values(
+            [
+                {
+                    "id": uuid.uuid7(),
+                    "class_id": class_id,
+                    "email": email,
+                    "registration": registration,
+                    "added_at": now,
+                }
+                for email in emails[start : start + batch]
+            ]
         )
-        added.extend((row.id, row.email) for row in result)
+        result = await session.execute(
+            stmt.on_conflict_do_update(
+                index_elements=[roster_entries.c.class_id, roster_entries.c.email],
+                set_={"removed_at": None},
+                where=roster_entries.c.removed_at.is_not(None),
+            ).returning(
+                roster_entries.c.id,
+                roster_entries.c.email,
+                roster_entries.c.registration,
+                roster_entries.c.user_id,
+            )
+        )
+        added.extend(result.mappings())
     return added
 
 
@@ -990,3 +996,113 @@ async def registered_user_ids(
         .order_by(roster_entries.c.user_id)
     )
     return list(result.scalars())
+
+
+# Single addresses and manual registration (Story 4.8).
+
+
+async def roster_entry_by_email(
+    session: AsyncSession, class_id: uuid.UUID, email: str, *, lock: bool = False
+) -> RowMapping | None:
+    """The Class's Roster entry for the address, removed or not; with `lock`, locked until the
+    transaction ends."""
+    query = select(roster_entries).where(
+        roster_entries.c.class_id == class_id, roster_entries.c.email == email
+    )
+    result = await session.execute(query.with_for_update() if lock else query)
+    return result.mappings().one_or_none()
+
+
+async def class_roster_entry(
+    session: AsyncSession, class_id: uuid.UUID, entry_id: uuid.UUID, *, lock: bool = False
+) -> RowMapping | None:
+    """The Roster entry if it belongs to the Class; with `lock`, locked until the transaction
+    ends."""
+    query = select(roster_entries).where(
+        roster_entries.c.class_id == class_id, roster_entries.c.id == entry_id
+    )
+    result = await session.execute(query.with_for_update() if lock else query)
+    return result.mappings().one_or_none()
+
+
+async def insert_roster_entry(
+    session: AsyncSession,
+    class_id: uuid.UUID,
+    email: str,
+    registration: str,
+    now: datetime,
+    user_id: uuid.UUID | None = None,
+) -> uuid.UUID:
+    entry_id = uuid.uuid7()
+    await session.execute(
+        insert(roster_entries).values(
+            id=entry_id,
+            class_id=class_id,
+            email=email,
+            user_id=user_id,
+            registration=registration,
+            added_at=now,
+        )
+    )
+    return entry_id
+
+
+async def restore_roster_entry(session: AsyncSession, entry_id: uuid.UUID) -> None:
+    """Put a removed entry back on the Roster as it was."""
+    await session.execute(
+        update(roster_entries).where(roster_entries.c.id == entry_id).values(removed_at=None)
+    )
+
+
+async def register_entry_manually(
+    session: AsyncSession, entry_id: uuid.UUID, user_id: uuid.UUID, registration: str
+) -> None:
+    """Link the entry to its User, set its registration and put it back if it was removed."""
+    await session.execute(
+        update(roster_entries)
+        .where(roster_entries.c.id == entry_id)
+        .values(user_id=user_id, registration=registration, removed_at=None)
+    )
+
+
+async def remove_roster_entry(session: AsyncSession, entry_id: uuid.UUID, now: datetime) -> None:
+    await session.execute(
+        update(roster_entries).where(roster_entries.c.id == entry_id).values(removed_at=now)
+    )
+
+
+async def delete_staged_row(
+    session: AsyncSession, class_id: uuid.UUID, upload_id: uuid.UUID, row_number: int
+) -> bool:
+    """Delete one row of the Class's staged upload `upload_id`. Whether it was there."""
+    result = await session.execute(
+        delete(roster_upload_rows)
+        .where(
+            roster_upload_rows.c.upload_id == upload_id,
+            roster_upload_rows.c.row_number == row_number,
+            roster_upload_rows.c.upload_id.in_(
+                select(roster_uploads.c.id).where(roster_uploads.c.class_id == class_id)
+            ),
+        )
+        .returning(roster_upload_rows.c.row_number)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def newest_open_password_reset(
+    session: AsyncSession, user_id: uuid.UUID, now: datetime
+) -> RowMapping | None:
+    """The User's newest reset link that is neither used, voided nor expired at `now` (by id, a
+    UUIDv7: the last one made)."""
+    result = await session.execute(
+        select(password_resets)
+        .where(
+            password_resets.c.user_id == user_id,
+            password_resets.c.used_at.is_(None),
+            password_resets.c.voided_at.is_(None),
+            password_resets.c.expires_at > now,
+        )
+        .order_by(password_resets.c.id.desc())
+        .limit(1)
+    )
+    return result.mappings().one_or_none()

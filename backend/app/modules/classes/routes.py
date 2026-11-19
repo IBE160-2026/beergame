@@ -17,10 +17,14 @@ from app.modules.classes.schemas import (
     EnrolledClassOut,
     InstitutionChoicesOut,
     InvalidClass,
+    InvalidRosterAddress,
     InvitationSummaryOut,
+    ManualRegistrationIn,
+    RegistrationOut,
     RegistrationsOut,
     ReminderIn,
     ReminderOut,
+    RosterEntryIn,
     RosterSendIn,
     RosterSendOut,
 )
@@ -425,3 +429,94 @@ async def send_reminders(
     if sent is None:
         raise authz.Forbidden
     return JSONResponse(sent.model_dump(mode="json"), status_code=201)
+
+
+# Single addresses and manual registration (Story 4.8, FR-7, FR-9). A refused address answers
+# 422 `invalid_request` with its reason in `fields.email`, beside the field.
+
+
+def _refused_address(error: InvalidRosterAddress) -> Response:
+    return error_response(
+        422, "invalid_request", "The address is refused.", {"email": error.reason}
+    )
+
+
+@router.post(
+    "/{class_id}/roster/entries",
+    status_code=201,
+    response_model=RegistrationOut,
+    responses=documented(401, 403, 422),
+    operation_id="addRosterEntry",
+)
+async def add_roster_entry(
+    class_id: str,
+    body: RosterEntryIn,
+    user: Annotated[authz.Principal, Depends(authz.require("classes.manage"))],
+) -> Response:
+    """«Legg til adresse» (Story 4.8): one address on the Roster, checked as an upload's are, with
+    no Invitation yet (`not_invited`; a reminder sends the first). A removed address is put back
+    as it was, and a registered Student has access again. 422 `invalid_request` with
+    `fields.email` = an address problem or `on_roster`."""
+    try:
+        added = await service.add_roster_entry(user, _class_id(class_id), body, now=auth.utcnow())
+    except InvalidRosterAddress as error:
+        return _refused_address(error)
+    if added is None:
+        raise authz.Forbidden
+    return JSONResponse(added.model_dump(mode="json"), status_code=201)
+
+
+@router.post(
+    "/{class_id}/roster/manual",
+    status_code=201,
+    response_model=RegistrationOut,
+    responses=documented(401, 403, 422),
+    operation_id="registerStudentManually",
+)
+async def register_manually(
+    class_id: str,
+    body: ManualRegistrationIn,
+    user: Annotated[authz.Principal, Depends(authz.require("classes.manage"))],
+) -> Response:
+    """«Registrer manuelt» (Story 4.8, FR-9): the address's User (created without a password, or
+    the existing one) is a Student in the Class at once, registered manually, and is mailed a
+    single-use link to set a password when it has none. 422 `invalid_request` with
+    `fields.email` (an address problem or `already_registered`) or `fields.name`."""
+    try:
+        done = await service.register_manually(user, _class_id(class_id), body, now=auth.utcnow())
+    except InvalidRosterAddress as error:
+        return _refused_address(error)
+    if done is None:
+        raise authz.Forbidden
+    return JSONResponse(done.model_dump(mode="json"), status_code=201)
+
+
+@router.delete(
+    "/{class_id}/roster/entries/{entry_id}",
+    status_code=204,
+    responses=documented(401, 403, 404),
+    operation_id="removeRosterEntry",
+)
+async def remove_roster_entry(
+    class_id: str,
+    entry_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("classes.manage"))],
+) -> Response:
+    """Take an address off the Roster (Story 4.8, FR-7): its open Invitation stops working and a
+    registered Student loses access to the Class from their next request; the account and other
+    Classes stay. 404 `not_found` when the entry is not on the Class's Roster (or no entry id)."""
+    parsed = _class_id(class_id)
+    try:
+        entry = uuid.UUID(entry_id)
+    except ValueError:
+        entry = None
+    if entry is None:
+        if not await service.may_manage(user, parsed):
+            raise authz.Forbidden
+        return error_response(404, "not_found", "The address is not on the Roster.")
+    removed = await service.remove_roster_entry(user, parsed, entry, now=auth.utcnow())
+    if removed is None:
+        raise authz.Forbidden
+    if not removed:
+        return error_response(404, "not_found", "The address is not on the Roster.")
+    return Response(status_code=204)

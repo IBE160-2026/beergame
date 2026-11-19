@@ -216,7 +216,8 @@ class RegistrationStatus(StrEnum):
     the Student asked for a new Invitation from a link that no longer works. `bounced`: the mail
     of its newest Invitation did not arrive (with `bounce_class`). `invited`: its newest
     Invitation still works (with `last_valid_day`). `unregistered`: its newest Invitation expired
-    unaccepted (or it has none)."""
+    or was voided unaccepted. `not_invited`: added by hand and sent no Invitation yet (Story
+    4.8)."""
 
     registered = "registered"
     registered_manually = "registered_manually"
@@ -224,6 +225,7 @@ class RegistrationStatus(StrEnum):
     bounced = "bounced"
     invited = "invited"
     unregistered = "unregistered"
+    not_invited = "not_invited"
 
 
 class RegistrationOut(BaseModel):
@@ -278,3 +280,56 @@ class ReminderOut(BaseModel):
     last_valid_day: date
     expires_at: datetime
     left_out: list[str]
+
+
+# Single addresses and manual registration (Story 4.8, FR-7, FR-9).
+
+EMAIL_MAX_LENGTH = 320
+STUDENT_NAME_MAX_LENGTH = 200
+"""As `identity`'s `NAME_MAX_LENGTH`: the longest name an account may have."""
+
+
+class RosterEntryIn(BaseModel):
+    """«Legg til adresse»: one address, checked as an upload's are. A refused one answers 422
+    `invalid_request` with `fields.email`: an address problem (`missing_at`, …) or `on_roster`."""
+
+    email: str = Field(max_length=EMAIL_MAX_LENGTH)
+
+
+class UploadRow(BaseModel):
+    """A row of the Class's staged upload: the invalid row a manual registration corrects."""
+
+    upload_id: uuid.UUID
+    row_number: int = Field(ge=1)
+
+
+class ManualRegistrationIn(BaseModel):
+    """«Registrer manuelt»: the address and the Student's name (used only when the address has
+    no account yet). `roster_entry_id` is the Roster row the form was opened from: when the
+    address typed is another one, that row is removed (a wrong address corrected).
+    `upload_row` is the staged invalid row it was opened from, which is deleted. A refused
+    address answers 422 `invalid_request` with `fields.email` (an address problem or
+    `already_registered`), a refused name with `fields.name` (`name_empty`, `name_too_long`)."""
+
+    email: str = Field(max_length=EMAIL_MAX_LENGTH)
+    name: str = Field(max_length=4 * STUDENT_NAME_MAX_LENGTH)
+    roster_entry_id: uuid.UUID | None = None
+    upload_row: UploadRow | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _name(cls, value: str) -> str:
+        value = " ".join(value.split())
+        if not value or any(not ch.isprintable() for ch in value):
+            raise PydanticCustomError("name_empty", "A name is required.")
+        if len(value) > STUDENT_NAME_MAX_LENGTH:
+            raise PydanticCustomError("name_too_long", "A name has at most 200 characters.")
+        return value
+
+
+class InvalidRosterAddress(ValueError):
+    """The address of a single-address command is refused: `reason` goes in `fields.email`."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason

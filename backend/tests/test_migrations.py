@@ -62,7 +62,7 @@ HEAD_TABLES = (
     | CLASS_TABLES
     | ROSTER_TABLES
 )
-HEAD = "0029"  # 0029 lets a Roster entry be registered manually (Story 4.7)
+HEAD = "0030"  # 0030 lets a User have no password yet (Story 4.8)
 
 
 def reset_schema(url: str) -> None:
@@ -554,6 +554,22 @@ def test_0029_allows_manual_registration_and_its_downgrade_keeps_the_entry(migra
         assert conn.execute("SELECT registration FROM roster_entries").fetchall() == [
             ("registered",)
         ]
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_0030_allows_a_user_without_password_and_its_downgrade_locks_it(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    with psycopg.connect(libpq_dsn(migrations_database), autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO users (id, email, name, password_hash) VALUES "
+            "(gen_random_uuid(), 'm@x.no', 'M', NULL)"
+        )
+    command.downgrade(cfg, "0029")
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        assert conn.execute("SELECT password_hash FROM users").fetchall() == [("!",)]
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 

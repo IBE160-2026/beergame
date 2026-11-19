@@ -111,6 +111,9 @@ class Settings(BaseSettings):
     roster_max_file_mb: int = Field(5, ge=1, le=50)
     roster_max_rows: int = Field(5000, ge=1)
     roster_staging_ttl_hours: int = Field(24, ge=1)
+    # Manual registration (Story 4.8, FR-9). PLACEHOLDER: the whole days (Europe/Oslo) the
+    # set-password link of a manually registered Student works.
+    manual_registration_link_days: int = Field(14, ge=1, le=60)
 
     # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
     # to the `[email:mock]` sender; the compose file never passes a key.

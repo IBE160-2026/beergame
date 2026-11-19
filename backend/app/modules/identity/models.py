@@ -27,7 +27,9 @@ users = Table(
     # Stored trimmed and lower-cased, so the unique constraint is case-insensitive.
     Column("email", Text, nullable=False, unique=True),
     Column("name", Text, nullable=False),
-    Column("password_hash", Text, nullable=False),
+    # NULL until a manually registered Student sets the first password (Story 4.8): such an
+    # account cannot log in.
+    Column("password_hash", Text, nullable=True),
     Column("is_active", Boolean, nullable=False, server_default=true()),
     # Raised by a deactivation and a password reset: every session issued before then ends
     # (Story 3.10, `auth.read_session`).

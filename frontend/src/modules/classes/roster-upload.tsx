@@ -38,6 +38,7 @@ import {
   parseValidDays,
   VALID_DAYS,
 } from "./roster";
+import { EntryResult, ManualForm, resultText } from "./roster-entry-forms";
 
 const copy = nb.classes.roster;
 
@@ -405,7 +406,7 @@ export function RosterUpload({ classId }: { classId: string }) {
 
       {staged ? (
         <div className="flex min-w-0 max-w-full shrink grow basis-sm flex-col gap-10">
-          <InvalidRows staged={staged} />
+          <InvalidRows classId={classId} staged={staged} />
           {fromFile ? <Preview staged={staged} chosen={shown} /> : null}
         </div>
       ) : null}
@@ -503,62 +504,107 @@ const INVALID_ROWS_SHOWN = 100;
 /** «Ugyldige rader: 4 av 250» and one line per row that gets no Invitation: its number, its
  * value and its reason in text, never colour alone (Story 4.3, FR-7, NFR-6). The lines stack at
  * 320 px. Pasted addresses are named by their place in the text, not as file rows. At most
- * `INVALID_ROWS_SHOWN` lines are drawn. «Registrer manuelt» gets its form in Story 4.8. Nothing
- * shows when every row is valid or no column is chosen. */
-function InvalidRows({ staged }: { staged: Staged }) {
-  if (staged.invalid_rows.length === 0) return null;
+ * `INVALID_ROWS_SHOWN` lines are drawn. «Registrer manuelt» opens the form in place under its row,
+ * prefilled with the row's value (Story 4.8); a registration deletes the staged row it corrected.
+ * Nothing shows when every row is valid or no column is chosen. */
+function InvalidRows({ classId, staged }: { classId: string; staged: Staged }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+  const opener = useRef<HTMLButtonElement | null>(null);
+  const resultLine = useRef<HTMLParagraphElement>(null);
+  const [focusResult, setFocusResult] = useState(false);
+  useEffect(() => {
+    if (focusResult && resultLine.current) {
+      resultLine.current.focus();
+      setFocusResult(false);
+    }
+  }, [focusResult, result]);
+  if (staged.invalid_rows.length === 0 && !result) return null;
   const pasted = staged.source === "paste";
   const rowWord = pasted ? copy.invalidPlace : copy.invalidRow;
   const valueWord = invalidValueLabel(staged);
   const shown = staged.invalid_rows.slice(0, INVALID_ROWS_SHOWN);
   const grid = "sm:grid sm:grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,11rem)_8.5rem] sm:items-center sm:gap-x-4";
   return (
-    <section aria-labelledby="roster-invalid-title" className="min-w-0">
-      <h3 id="roster-invalid-title" className="text-step-title text-ink">
-        {copy.invalidTitle(staged.invalid_rows.length, staged.row_count)}
-      </h3>
-      <div aria-hidden="true" className={cn("mt-3 hidden border-b border-axis py-2 text-label text-ink", grid)}>
-        <span>{rowWord}</span>
-        <span>{valueWord}</span>
-        <span>{copy.invalidReason}</span>
-        <span />
-      </div>
-      <ul className="mt-3 sm:mt-0">
-        {shown.map((row) => (
-          <li
-            key={row.row_number}
-            className={cn(
-              // In the grid the 44 px «Registrer manuelt» sets the height; mockup 02 rows are about 54 px.
-              "relative flex flex-col gap-1 border-b border-hairline py-3 text-body-phone text-ink sm:py-1 lg:text-body",
-              grid,
-            )}
-          >
-            <span className="tabular-nums text-label">
-              <span className="sm:sr-only">{rowWord} </span>
-              {row.row_number}
-            </span>
-            <span className="min-w-0 [overflow-wrap:anywhere]">
-              <span className="sr-only">{valueWord}: </span>
-              {row.value}
-            </span>
-            <span className="text-restordre">
-              <span className="sr-only">{copy.invalidReason}: </span>
-              {invalidReason(row)}
-            </span>
-            <button
-              type="button"
-              className={LINK_BUTTON}
-              aria-label={`${copy.registerManually}, ${rowWord.toLowerCase()} ${row.row_number}`}
-            >
-              {copy.registerManually}
-            </button>
-          </li>
-        ))}
-      </ul>
-      {staged.invalid_rows.length > shown.length ? (
-        <p className="mt-3 text-body-phone text-ink-secondary">
-          {copy.invalidShown(shown.length, staged.invalid_rows.length)}
-        </p>
+    <section aria-labelledby={staged.invalid_rows.length > 0 ? "roster-invalid-title" : undefined} className="min-w-0">
+      {result ? <EntryResult text={result} ref={resultLine} /> : null}
+      {staged.invalid_rows.length > 0 ? (
+        <>
+          <h3 id="roster-invalid-title" className={cn("text-step-title text-ink", result && "mt-6")}>
+            {copy.invalidTitle(staged.invalid_rows.length, staged.row_count)}
+          </h3>
+          <div aria-hidden="true" className={cn("mt-3 hidden border-b border-axis py-2 text-label text-ink", grid)}>
+            <span>{rowWord}</span>
+            <span>{valueWord}</span>
+            <span>{copy.invalidReason}</span>
+            <span />
+          </div>
+          <ul className="mt-3 sm:mt-0">
+            {shown.map((row) => (
+              <li key={row.row_number} className="border-b border-hairline">
+                <div
+                  className={cn(
+                    // In the grid the 44 px «Registrer manuelt» sets the height; mockup 02 rows are about 54 px.
+                    "relative flex flex-col gap-1 py-3 text-body-phone text-ink sm:py-1 lg:text-body",
+                    grid,
+                  )}
+                >
+                  <span className="tabular-nums text-label">
+                    <span className="sm:sr-only">{rowWord} </span>
+                    {row.row_number}
+                  </span>
+                  <span className="min-w-0 [overflow-wrap:anywhere]">
+                    <span className="sr-only">{valueWord}: </span>
+                    {row.value}
+                  </span>
+                  <span className="text-restordre">
+                    <span className="sr-only">{copy.invalidReason}: </span>
+                    {invalidReason(row)}
+                  </span>
+                  <button
+                    type="button"
+                    className={cn(LINK_BUTTON, "self-start sm:self-center")}
+                    aria-label={`${copy.registerManually}, ${rowWord.toLowerCase()} ${row.row_number}`}
+                    aria-expanded={open === row.row_number}
+                    onClick={(event) => {
+                      opener.current = event.currentTarget;
+                      setResult(null); // a new action clears the last result line
+                      setOpen(row.row_number);
+                    }}
+                  >
+                    {copy.registerManually}
+                  </button>
+                </div>
+                {open === row.row_number ? (
+                  <div className="mb-3">
+                    <ManualForm
+                      classId={classId}
+                      from={{
+                        email: row.value.trim(),
+                        uploadRow: { upload_id: staged.id, row_number: row.row_number },
+                      }}
+                      idPrefix={`roster-row-${row.row_number}`}
+                      onDone={(registration) => {
+                        setOpen(null);
+                        setResult(resultText("manual", registration));
+                        setFocusResult(true);
+                      }}
+                      onCancel={() => {
+                        setOpen(null);
+                        opener.current?.focus();
+                      }}
+                    />
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {staged.invalid_rows.length > shown.length ? (
+            <p className="mt-3 text-body-phone text-ink-secondary">
+              {copy.invalidShown(shown.length, staged.invalid_rows.length)}
+            </p>
+          ) : null}
+        </>
       ) : null}
     </section>
   );

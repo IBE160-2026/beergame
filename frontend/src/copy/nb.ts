@@ -418,8 +418,52 @@ export const nb = {
         bounced: "Kom ikke fram",
         invited: "Invitert",
         unregistered: "Uregistrert, Invitasjonen er utløpt",
+        // Story 4.8: added by hand, no Invitation sent yet. [ASSUMPTION]
+        not_invited: "Ikke invitert ennå",
       },
       invitedUntil: (lastDay: string) => `Invitert, gyldig til og med ${lastDay}`,
+    },
+    /** Manual registration and single addresses (Story 4.8, FR-7, FR-9, UX-DR47). «Registrer
+     * manuelt» is EXPERIENCE.md's own; the rest is [ASSUMPTION] draft copy. */
+    entries: {
+      add: "Legg til adresse",
+      addTitle: "Legg til én adresse",
+      addLead: "Adressen kommer på Klasselista uten Invitasjon. Den får sin første med neste påminnelse.",
+      addSubmit: "Legg til",
+      manual: "Registrer manuelt",
+      manualFor: (address: string) => `Registrer manuelt, ${address}`,
+      manualTitle: "Registrer en student manuelt",
+      manualLead:
+        "Studenten kommer inn i Klassen med en gang og får en e-post. Har adressen ingen konto, følger det med en lenke for å velge passord.",
+      email: "E-post",
+      name: "Navn",
+      nameHint: "Brukes bare når adressen ikke har konto fra før.",
+      manualSubmit: "Registrer studenten",
+      cancel: "Avbryt",
+      saving: "Lagrer …",
+      remove: "Fjern",
+      removeFor: (address: string) => `Fjern ${address}`,
+      removeTitle: (address: string) => `Fjern ${address} fra Klasselista`,
+      /** The consequence, above the button, before it is pressed. */
+      removeRegistered: (address: string) =>
+        `${address} mister tilgangen til Klassen. Kontoen og andre Klasser beholdes.`,
+      removeWaiting: (address: string) =>
+        `Invitasjonen til ${address} slutter å virke, og adressen får ingen påminnelser.`,
+      removeNotInvited: (address: string) => `${address} har ikke fått noen Invitasjon og får ingen påminnelser.`,
+      removeSubmit: "Fjern fra Klasselista",
+      /** The result lines. */
+      added: (address: string) => `${address} er lagt til. Ikke invitert ennå.`,
+      restored: (address: string) => `${address} står på Klasselista igjen.`,
+      registered: (address: string) => `${address} er registrert manuelt og får en e-post.`,
+      removed: (address: string) => `${address} er fjernet fra Klasselista.`,
+      /** Beside a refused field. */
+      alreadyRegistered: "Adressen er allerede registrert i Klassen.",
+      emailTooLong: "Adressen er for lang.",
+      nameEmpty: "Skriv navnet til studenten.",
+      nameTooLong: "Navnet kan ha høyst 200 tegn.",
+      failed: "Det ble ikke lagret. Prøv igjen.",
+      removeFailed: "Adressen ble ikke fjernet. Prøv igjen.",
+      gone: "Adressen står ikke lenger på Klasselista.",
     },
     /** The Roster upload on the Class page (Story 4.2, FR-7, UX-DR47). «Velg fil», «Lim inn
      * adresser i stedet», «250 rader lest», «Bytt fil», «E-postkolonne», the reason and the

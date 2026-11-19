@@ -1055,6 +1055,49 @@
         "title": "LoginIn",
         "type": "object"
       },
+      "ManualRegistrationIn": {
+        "description": "«Registrer manuelt»: the address and the Student's name (used only when the address has\nno account yet). `roster_entry_id` is the Roster row the form was opened from: when the\naddress typed is another one, that row is removed (a wrong address corrected).\n`upload_row` is the staged invalid row it was opened from, which is deleted. A refused\naddress answers 422 `invalid_request` with `fields.email` (an address problem or\n`already_registered`), a refused name with `fields.name` (`name_empty`, `name_too_long`).",
+        "properties": {
+          "email": {
+            "maxLength": 320,
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 800,
+            "title": "Name",
+            "type": "string"
+          },
+          "roster_entry_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roster Entry Id"
+          },
+          "upload_row": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UploadRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "email",
+          "name"
+        ],
+        "title": "ManualRegistrationIn",
+        "type": "object"
+      },
       "NewPasswordIn": {
         "properties": {
           "password": {
@@ -1142,14 +1185,15 @@
         "type": "object"
       },
       "RegistrationStatus": {
-        "description": "Where a Roster address stands, read at request time; the first that applies wins.\n`registered` / `registered_manually`: a Student in the Class (stored). `renewal_requested`:\nthe Student asked for a new Invitation from a link that no longer works. `bounced`: the mail\nof its newest Invitation did not arrive (with `bounce_class`). `invited`: its newest\nInvitation still works (with `last_valid_day`). `unregistered`: its newest Invitation expired\nunaccepted (or it has none).",
+        "description": "Where a Roster address stands, read at request time; the first that applies wins.\n`registered` / `registered_manually`: a Student in the Class (stored). `renewal_requested`:\nthe Student asked for a new Invitation from a link that no longer works. `bounced`: the mail\nof its newest Invitation did not arrive (with `bounce_class`). `invited`: its newest\nInvitation still works (with `last_valid_day`). `unregistered`: its newest Invitation expired\nor was voided unaccepted. `not_invited`: added by hand and sent no Invitation yet (Story\n4.8).",
         "enum": [
           "registered",
           "registered_manually",
           "renewal_requested",
           "bounced",
           "invited",
-          "unregistered"
+          "unregistered",
+          "not_invited"
         ],
         "title": "RegistrationStatus",
         "type": "string"
@@ -1344,6 +1388,21 @@
           "column"
         ],
         "title": "RosterColumnIn",
+        "type": "object"
+      },
+      "RosterEntryIn": {
+        "description": "«Legg til adresse»: one address, checked as an upload's are. A refused one answers 422\n`invalid_request` with `fields.email`: an address problem (`missing_at`, …) or `on_roster`.",
+        "properties": {
+          "email": {
+            "maxLength": 320,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "RosterEntryIn",
         "type": "object"
       },
       "RosterInvalidRow": {
@@ -1621,6 +1680,27 @@
         ],
         "title": "StaffRole",
         "type": "string"
+      },
+      "UploadRow": {
+        "description": "A row of the Class's staged upload: the invalid row a manual registration corrects.",
+        "properties": {
+          "row_number": {
+            "minimum": 1.0,
+            "title": "Row Number",
+            "type": "integer"
+          },
+          "upload_id": {
+            "format": "uuid",
+            "title": "Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "upload_id",
+          "row_number"
+        ],
+        "title": "UploadRow",
+        "type": "object"
       },
       "UserListItem": {
         "description": "One User on «Brukere og roller» (Story 3.9).",
@@ -4531,6 +4611,227 @@
           }
         },
         "summary": "Choose Roster Column",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/roster/entries": {
+      "post": {
+        "description": "«Legg til adresse» (Story 4.8): one address on the Roster, checked as an upload's are, with\nno Invitation yet (`not_invited`; a reminder sends the first). A removed address is put back\nas it was, and a registered Student has access again. 422 `invalid_request` with\n`fields.email` = an address problem or `on_roster`.",
+        "operationId": "addRosterEntry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RosterEntryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Add Roster Entry",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/roster/entries/{entry_id}": {
+      "delete": {
+        "description": "Take an address off the Roster (Story 4.8, FR-7): its open Invitation stops working and a\nregistered Student loses access to the Class from their next request; the account and other\nClasses stay. 404 `not_found` when the entry is not on the Class's Roster (or no entry id).",
+        "operationId": "removeRosterEntry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Roster Entry",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/roster/manual": {
+      "post": {
+        "description": "«Registrer manuelt» (Story 4.8, FR-9): the address's User (created without a password, or\nthe existing one) is a Student in the Class at once, registered manually, and is mailed a\nsingle-use link to set a password when it has none. 422 `invalid_request` with\n`fields.email` (an address problem or `already_registered`) or `fields.name`.",
+        "operationId": "registerStudentManually",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualRegistrationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Register Manually",
         "tags": [
           "classes"
         ]

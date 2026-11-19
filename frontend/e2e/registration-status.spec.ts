@@ -68,7 +68,7 @@ for (const vp of VIEWPORTS) {
       await expect(rows).toHaveCount(3);
       await expect(rows.filter({ hasText: ola })).toContainText("Invitert, gyldig til og med");
       await expect(rows.filter({ hasText: per })).toContainText(nb.classes.invitations.bounceStatus("hard"));
-      await expect(rows.filter({ hasText: per }).getByRole("button")).toHaveCount(0);
+      await expect(rows.filter({ hasText: per }).getByRole("button", { name: copy.resendFor(per) })).toHaveCount(0);
 
       // Filter by status and search by address.
       await list.getByLabel(copy.filter).selectOption("bounced");

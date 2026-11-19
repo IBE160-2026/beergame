@@ -81,9 +81,15 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         identity.INVITATION: Delivery(
             IMMEDIATE, "invitation", resolve_ref=identity.invitation_mail_recipient
         ),
+        identity.MANUAL_REGISTRATION: Delivery(
+            IMMEDIATE,
+            "manual_registration",
+            context=identity.manual_registration_mail_context,
+        ),
     }
 )
-"""The product's kinds: `password_reset` (Story 3.6) and `invitation` (Story 3.7)."""
+"""The product's kinds: `password_reset` (Story 3.6), `invitation` (Story 3.7) and
+`manual_registration` (Story 4.8)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

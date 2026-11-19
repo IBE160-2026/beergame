@@ -192,3 +192,36 @@ export function sendReminders(classId: string, validDays: number, entryId?: stri
     }),
   );
 }
+
+// Manual registration and single addresses (Story 4.8, FR-7, FR-9).
+
+export type UploadRow = { upload_id: string; row_number: number };
+export type ManualRegistration = {
+  email: string;
+  name: string;
+  roster_entry_id?: string;
+  upload_row?: UploadRow;
+};
+
+/** «Legg til adresse»: one address on the Roster, not yet invited (or a removed one put back). */
+export function addRosterEntry(classId: string, email: string) {
+  return request(() =>
+    api.POST("/api/classes/{class_id}/roster/entries", { params: { path: { class_id: classId } }, body: { email } }),
+  );
+}
+
+/** «Registrer manuelt»: the Student is in the Class at once and gets a mail. */
+export function registerManually(classId: string, body: ManualRegistration) {
+  return request(() =>
+    api.POST("/api/classes/{class_id}/roster/manual", { params: { path: { class_id: classId } }, body }),
+  );
+}
+
+/** Take an address off the Roster. */
+export function removeRosterEntry(classId: string, entryId: string) {
+  return request(() =>
+    api.DELETE("/api/classes/{class_id}/roster/entries/{entry_id}", {
+      params: { path: { class_id: classId, entry_id: entryId } },
+    }),
+  );
+}

@@ -128,10 +128,12 @@ async def authenticate(
         return LoginRefused("rate_limited", ratelimit.seconds_left(now, window))
 
     # bcrypt is CPU work: off the event loop, and outside any transaction. An unknown e-mail
-    # checks a dummy hash, so it takes as long as a wrong password.
-    stored = row["password_hash"] if row else await asyncio.to_thread(auth.dummy_hash)
+    # checks a dummy hash, so it takes as long as a wrong password; so does an account that has no
+    # password yet (a manually registered Student, Story 4.8), which never logs in.
+    has_password = row is not None and row["password_hash"] is not None
+    stored = row["password_hash"] if has_password else await asyncio.to_thread(auth.dummy_hash)
     matches = await asyncio.to_thread(auth.verify_password, password, stored)
-    ok = row is not None and matches
+    ok = has_password and matches
 
     if ok and row["is_active"]:
         # The same lock order as the count above (IP, then account): parallel logins to one
@@ -1744,9 +1746,18 @@ async def send_roster_invitations(
     )
     if not addresses:
         raise NothingToSend
-    added = await repo.insert_roster_entries(
+    entries = await repo.insert_roster_entries(
         s, class_id, addresses, RosterRegistration.invited.value, now
     )
+    # A removed address sent again is back on the Roster (Story 4.8): a registered Student has
+    # access again with no Invitation; any other gets one, its old links void.
+    back = [e for e in entries if e["registration"] in REGISTERED]
+    for entry in back:
+        if entry["user_id"] is not None:
+            await events.emit(s, "user", str(entry["user_id"]))
+    added = [(e["id"], e["email"]) for e in entries if e["registration"] not in REGISTERED]
+    if added:  # an entry put back may still hold an open link from before its removal
+        await repo.void_open_entry_invitations(s, class_id, [i for i, _ in added], now)
     await repo.delete_roster_upload(s, class_id)
     expires_at = student_invitation_expiry(now, valid_days)
     invitations = [
@@ -1955,3 +1966,202 @@ async def send_entry_reminders(
         valid_days=valid_days,
     )
     return RosterSent(sent=len(invitations), expires_at=expires_at)
+
+
+# Single addresses and manual registration (Story 4.8, FR-7, FR-9, AD-8, AD-9, AD-14). Each runs in
+# the caller's transaction under the Class's Roster staging lock, so it never interleaves with a
+# Roster send or a reminder. Locks are taken in the order an acceptance takes them (Invitation,
+# then address, then Roster entry): the open Invitations are voided before the entry is locked.
+
+MANUAL_REGISTRATION = "manual_registration"
+"""The notice kind of the mail a manually registered Student gets (Story 4.8)."""
+
+
+class RosterRefused(Exception):
+    """The address is refused, with the reason the form shows beside it: an `address_problem`,
+    `on_roster` (add) or `already_registered` (manual registration)."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+def _checked_address(address: str) -> str:
+    address = normalise_email(address)
+    problem = address_problem(address)
+    if problem is not None:
+        raise RosterRefused(problem.value)
+    return address
+
+
+async def _remove_entry(s: AsyncSession, entry: RowMapping, now: datetime) -> None:
+    """Inside a transaction that voided the entry's open Invitations and holds its lock. Its
+    requests for a new Invitation go too, so an address put back later starts afresh."""
+    await repo.remove_roster_entry(s, entry["id"], now)
+    await repo.clear_entry_renewals(s, entry["class_id"], [entry["id"]])
+    if entry["user_id"] is not None:
+        await events.emit(s, "user", str(entry["user_id"]))
+
+
+async def add_roster_entry(
+    s: AsyncSession, class_id: uuid.UUID, address: str, *, now: datetime
+) -> uuid.UUID:
+    """Add one address to the Class's Roster, checked by the one validation of an upload (FR-7):
+    a new entry is not yet invited (no Invitation; a reminder sends its first). A removed one is
+    put back as it was, and a registered Student has access again. Raises `RosterRefused` with an
+    `address_problem` or `on_roster`. The entry's id."""
+    address = _checked_address(address)
+    await repo.lock_roster_staging(s, class_id)
+    entry = await repo.roster_entry_by_email(s, class_id, address, lock=True)
+    if entry is None:
+        entry_id = await repo.insert_roster_entry(
+            s, class_id, address, RosterRegistration.invited.value, now
+        )
+        log.info("roster_entry_added", class_id=str(class_id), roster_entry_id=str(entry_id))
+        return entry_id
+    if entry["removed_at"] is None:
+        raise RosterRefused("on_roster")
+    await repo.restore_roster_entry(s, entry["id"])
+    if entry["user_id"] is not None:
+        await events.emit(s, "user", str(entry["user_id"]))
+    log.info("roster_entry_restored", class_id=str(class_id), roster_entry_id=str(entry["id"]))
+    return entry["id"]
+
+
+async def remove_roster_entry(
+    s: AsyncSession, class_id: uuid.UUID, entry_id: uuid.UUID, *, now: datetime
+) -> bool:
+    """Take an address off the Class's Roster (FR-7): the entry is marked removed, its open
+    Invitations stop working, and a registered Student loses access from their next request
+    (`user:<id>`); the User and their other Classes are untouched. False when the entry is not
+    the Class's or is removed already."""
+    await repo.lock_roster_staging(s, class_id)
+    await repo.void_open_entry_invitations(s, class_id, [entry_id], now)
+    entry = await repo.class_roster_entry(s, class_id, entry_id, lock=True)
+    if entry is None or entry["removed_at"] is not None:
+        return False
+    await _remove_entry(s, entry, now)
+    log.info("roster_entry_removed", class_id=str(class_id), roster_entry_id=str(entry_id))
+    return True
+
+
+async def register_manually(
+    s: AsyncSession,
+    class_id: uuid.UUID,
+    address: str,
+    name: str,
+    *,
+    replaces: uuid.UUID | None = None,
+    upload_row: tuple[uuid.UUID, int] | None = None,
+    now: datetime,
+) -> uuid.UUID:
+    """Register a Student by hand (FR-9): the User of the address (an existing one is reused and
+    never changed; a new one gets `name`, no password and no account role), and its Roster entry
+    (new, waiting, or removed and put back) linked to it and set `registered_manually`, so the
+    Student is in the Class at once. The entry's open Invitations are voided and its requests for a
+    new one answered. `replaces` names the entry the form was opened from: when that is another
+    address, not registered, it is removed (a wrong address corrected). `upload_row` names the
+    staged row the form was opened from, which is deleted. The Student is mailed
+    (`manual_registration`, `immediate`): a User without a password with a single-use link to
+    «Nytt passord», valid to the end of the `MANUAL_REGISTRATION_LINK_DAYS`-th day. Raises
+    `RosterRefused` with an `address_problem` or `already_registered`. The entry's id."""
+    address = _checked_address(address)
+    await repo.lock_roster_staging(s, class_id)
+    found = await repo.roster_entry_by_email(s, class_id, address)
+    if found is not None:
+        await repo.void_open_entry_invitations(s, class_id, [found["id"]], now)
+    old = None
+    if replaces is not None and (found is None or replaces != found["id"]):
+        await repo.void_open_entry_invitations(s, class_id, [replaces], now)
+        old = await repo.class_roster_entry(s, class_id, replaces, lock=True)
+    await repo.lock_user_address(s, address)
+    entry = await repo.roster_entry_by_email(s, class_id, address, lock=True)
+    if (
+        entry is not None
+        and entry["removed_at"] is None
+        and RosterRegistration(entry["registration"]) in REGISTERED
+    ):
+        raise RosterRefused("already_registered")
+    user = await repo.user_by_email(s, address)
+    if user is None:
+        user_id = uuid.uuid7()
+        await repo.insert_user(
+            s,
+            user_id=user_id,
+            email=address,
+            name=name,
+            password_hash=None,
+            is_active=True,
+            roles=[],
+        )
+    else:
+        user_id = user["id"]
+    manual = RosterRegistration.registered_manually.value
+    if entry is None:
+        entry_id = await repo.insert_roster_entry(s, class_id, address, manual, now, user_id)
+    else:
+        entry_id = entry["id"]
+        await repo.register_entry_manually(s, entry_id, user_id, manual)
+        await repo.clear_entry_renewals(s, class_id, [entry_id])
+    if (
+        old is not None
+        and old["removed_at"] is None
+        and RosterRegistration(old["registration"]) not in REGISTERED
+    ):
+        await _remove_entry(s, old, now)
+    if upload_row is not None:
+        await repo.delete_staged_row(s, class_id, *upload_row)
+    if user is None or (user["password_hash"] is None and user["is_active"]):
+        reset_id = uuid.uuid7()
+        await repo.insert_password_reset(
+            s,
+            reset_id=reset_id,
+            user_id=user_id,
+            token_hash=auth.token_hash(auth.link_token(PASSWORD_RESET, reset_id)),
+            created_at=now,
+            expires_at=student_invitation_expiry(now, get_settings().manual_registration_link_days),
+        )
+    await notify.enqueue(
+        s, user_id, MANUAL_REGISTRATION, f"{MANUAL_REGISTRATION}:{uuid.uuid7()}", ref=entry_id
+    )
+    await events.emit(s, "user", str(user_id))
+    log.info(
+        "roster_registered_manually",
+        class_id=str(class_id),
+        roster_entry_id=str(entry_id),
+        user_id=str(user_id),
+        replaced=old is not None,
+    )
+    return entry_id
+
+
+async def manual_registration_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a manual registration's mail, for `messaging` at send time: the
+    Class's name and, for a User with no password yet, the set-password link (path with token) and
+    its last valid day. None when no mail is needed any more: the entry was removed or is no
+    longer this User's manual registration, or the link was used or has expired. Never stored or
+    logged."""
+    if ref is None:
+        return None
+    entry = await repo.roster_entry_by_id(session, ref)
+    if (
+        entry is None
+        or entry["removed_at"] is not None
+        or entry["user_id"] != user_id
+        or entry["registration"] != RosterRegistration.registered_manually
+    ):
+        return None
+    label = await _class_label(session, entry["class_id"])
+    user = await repo.user_by_id(session, user_id)
+    if label is None or user is None:
+        return None
+    context: dict[str, object] = {"class_name": label.name, "link": None, "last_valid_day": None}
+    if user["password_hash"] is None:
+        reset = await repo.newest_open_password_reset(session, user_id, now)
+        if reset is None:
+            return None
+        context["link"] = f"{RESET_LINK_PATH}#{auth.link_token(PASSWORD_RESET, reset['id'])}"
+        context["last_valid_day"] = last_valid_day(reset["expires_at"])
+    return context

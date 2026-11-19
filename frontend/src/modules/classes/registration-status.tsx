@@ -9,7 +9,6 @@ import { SelectField } from "@/components/select-field";
 import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
 import { useAction } from "@/lib/api/mutation";
-import { cn } from "@/lib/utils";
 
 import {
   invitationSummaryKey,
@@ -22,6 +21,7 @@ import {
   useRegistrations,
 } from "./api";
 import { barShares, filterRegistrations, reminderReach, STATUSES, statusLabel } from "./registration";
+import { EntryResult, ManualForm, RemoveConfirm, resultText } from "./roster-entry-forms";
 import { dayLabel, parseValidDays, VALID_DAYS } from "./roster";
 
 const copy = nb.classes.registration;
@@ -31,6 +31,15 @@ const LINK_BUTTON =
 
 /** Who a reminder goes to: every address that has not registered, or one. */
 type Target = { kind: "all" } | { kind: "one"; item: Registration };
+
+/** The row form that is open (Story 4.8): «Registrer manuelt» or «Fjern» for one address. */
+type RowAction = { kind: "manual" | "remove"; item: Registration };
+
+const entries = nb.classes.entries;
+
+function isRegistered(item: Registration): boolean {
+  return item.status === "registered" || item.status === "registered_manually";
+}
 
 /** The outcome the result line states, with the address of a single resend. */
 type Outcome = { sent: RemindersSent; address: string | null };
@@ -71,6 +80,16 @@ function StatusView({ classId, data }: { classId: string; data: Registrations })
   const queryClient = useQueryClient();
   const [target, setTarget] = useState<Target | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [rowAction, setRowAction] = useState<RowAction | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeLine = useRef<HTMLParagraphElement>(null);
+  const [focusNotice, setFocusNotice] = useState(false);
+  useEffect(() => {
+    if (focusNotice && noticeLine.current) {
+      noticeLine.current.focus();
+      setFocusNotice(false);
+    }
+  }, [focusNotice, notice]);
   const resultLine = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLButtonElement | null>(null);
   const [focusResult, setFocusResult] = useState(false);
@@ -99,12 +118,51 @@ function StatusView({ classId, data }: { classId: string; data: Registrations })
   });
 
   const open = (next: Target, from: HTMLButtonElement) => {
-    // A new action clears the last result line and refusal.
+    // A new action clears the last result line and refusal, and closes any other form.
     setOutcome(null);
+    setNotice(null);
+    setRowAction(null);
     remind.reset();
     opener.current = from;
     setTarget(next);
   };
+  const openRow = (next: RowAction, from: HTMLButtonElement) => {
+    if (remind.isPending) return;
+    setOutcome(null);
+    setNotice(null);
+    setTarget(null);
+    remind.reset();
+    opener.current = from;
+    setRowAction(next);
+  };
+  const closeRow = () => {
+    setRowAction(null);
+    opener.current?.focus();
+  };
+  const rowDone = (text: string) => {
+    setRowAction(null);
+    setNotice(text);
+    setFocusNotice(true);
+  };
+  const rowPanel = (action: RowAction) =>
+    action.kind === "manual" ? (
+      <ManualForm
+        key={`manual-${action.item.id}`}
+        classId={classId}
+        from={{ email: action.item.email, entryId: action.item.id }}
+        idPrefix={`manual-${action.item.id}`}
+        onDone={(registration) => rowDone(resultText("manual", registration))}
+        onCancel={closeRow}
+      />
+    ) : (
+      <RemoveConfirm
+        key={`remove-${action.item.id}`}
+        classId={classId}
+        item={action.item}
+        onDone={rowDone}
+        onCancel={closeRow}
+      />
+    );
   const close = () => {
     if (remind.isPending) return;
     remind.reset();
@@ -138,17 +196,27 @@ function StatusView({ classId, data }: { classId: string; data: Registrations })
       />
       {target?.kind === "all" ? confirm(target) : null}
       {outcome ? <Result outcome={outcome} ref={resultLine} /> : null}
+      {notice ? <EntryResult text={notice} ref={noticeLine} /> : null}
       <AddressList
         items={data.items}
-        target={target?.kind === "one" ? target.item.id : null}
-        confirm={target?.kind === "one" ? confirm(target) : null}
+        open={
+          target?.kind === "one"
+            ? { id: target.item.id, kind: "resend" }
+            : rowAction
+              ? { id: rowAction.item.id, kind: rowAction.kind }
+              : null
+        }
+        panel={target?.kind === "one" ? confirm(target) : rowAction ? rowPanel(rowAction) : null}
         onResend={(item, button) => open({ kind: "one", item }, button)}
+        onManual={(item, button) => openRow({ kind: "manual", item }, button)}
+        onRemove={(item, button) => openRow({ kind: "remove", item }, button)}
         onFilter={() => {
-          // A row's confirmation would vanish with its row: close it with the old view.
+          // A row's form would vanish with its row: close it with the old view.
           if (target?.kind === "one" && !remind.isPending) {
             remind.reset();
             setTarget(null);
           }
+          setRowAction(null);
         }}
       />
     </div>
@@ -337,15 +405,19 @@ function Result({ outcome, ref }: { outcome: Outcome; ref: Ref<HTMLDivElement> }
  * text and, where a reminder may go, «Send ny Invitasjon». Rows stack at 320 px. */
 function AddressList({
   items,
-  target,
-  confirm,
+  open,
+  panel,
   onResend,
+  onManual,
+  onRemove,
   onFilter,
 }: {
   items: readonly Registration[];
-  target: string | null;
-  confirm: ReactNode;
+  open: { id: string; kind: "resend" | "manual" | "remove" } | null;
+  panel: ReactNode;
   onResend: (item: Registration, button: HTMLButtonElement) => void;
+  onManual: (item: Registration, button: HTMLButtonElement) => void;
+  onRemove: (item: Registration, button: HTMLButtonElement) => void;
   onFilter: () => void;
 }) {
   const [status, setStatus] = useState<Status | null>(null);
@@ -394,24 +466,44 @@ function AddressList({
       <ul className="mt-2 border-t border-hairline">
         {shown.map((item) => (
           <li key={item.id} className="border-b border-hairline py-2">
-            <div className="flex flex-col gap-1 sm:grid sm:min-h-tap-target-min sm:grid-cols-[minmax(0,1fr)_minmax(0,16rem)_10rem] sm:items-center sm:gap-x-4">
+            <div className="flex flex-col gap-1 sm:grid sm:min-h-tap-target-min sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)_minmax(0,19rem)] sm:items-center sm:gap-x-4">
               <span className="text-body-phone text-ink [overflow-wrap:anywhere] lg:text-body">{item.email}</span>
               <span className="text-body-phone text-ink-secondary lg:text-body">{statusLabel(item, today)}</span>
-              {item.remindable ? (
+              <span className="flex flex-wrap gap-x-4 sm:justify-self-end">
+                {item.remindable ? (
+                  <button
+                    type="button"
+                    className={LINK_BUTTON}
+                    aria-label={copy.resendFor(item.email)}
+                    aria-expanded={open?.id === item.id && open.kind === "resend"}
+                    onClick={(event) => onResend(item, event.currentTarget)}
+                  >
+                    {copy.resend}
+                  </button>
+                ) : null}
+                {isRegistered(item) ? null : (
+                  <button
+                    type="button"
+                    className={LINK_BUTTON}
+                    aria-label={entries.manualFor(item.email)}
+                    aria-expanded={open?.id === item.id && open.kind === "manual"}
+                    onClick={(event) => onManual(item, event.currentTarget)}
+                  >
+                    {entries.manual}
+                  </button>
+                )}
                 <button
                   type="button"
-                  className={cn(LINK_BUTTON, "self-start sm:justify-self-end")}
-                  aria-label={copy.resendFor(item.email)}
-                  aria-expanded={target === item.id}
-                  onClick={(event) => onResend(item, event.currentTarget)}
+                  className={LINK_BUTTON}
+                  aria-label={entries.removeFor(item.email)}
+                  aria-expanded={open?.id === item.id && open.kind === "remove"}
+                  onClick={(event) => onRemove(item, event.currentTarget)}
                 >
-                  {copy.resend}
+                  {entries.remove}
                 </button>
-              ) : (
-                <span aria-hidden="true" className="hidden sm:block" />
-              )}
+              </span>
             </div>
-            {target === item.id ? <div className="mt-2 mb-2">{confirm}</div> : null}
+            {open?.id === item.id ? <div className="mt-2 mb-2">{panel}</div> : null}
           </li>
         ))}
       </ul>

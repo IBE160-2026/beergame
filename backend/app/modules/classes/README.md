@@ -134,6 +134,35 @@ only `classes.service`.
   registered entries that are not removed; an address unregistered after expiry is never among
   them.
 
+### Manual registration and single addresses (Story 4.8)
+
+- Three owner-only commands, each one transaction through `identity.service` under the Roster
+  staging lock. The open Invitations of an entry are voided before the entry is locked, the order
+  an acceptance takes its locks in. Each answers the entry's status as the status list reads it.
+- `POST /api/classes/{id}/roster/manual` `{email, name, roster_entry_id?, upload_row?}`: the
+  User of the address is reused unchanged, or created with the name, no password (migration 0030
+  makes `users.password_hash` nullable; such an account never logs in) and no account role. Its
+  entry (new, waiting, or removed and put back) is linked and set `registered_manually`: the
+  Student is in the Class at once. A registered address is refused as `already_registered`.
+  `roster_entry_id` is the row the form opened from: when another address is typed, that row is
+  removed if it is not registered (how a wrong address is corrected). `upload_row` deletes the
+  staged invalid row it corrected. Whether the address had an account is never answered.
+- The Student gets a `manual_registration` mail (`immediate`, to the User, `ref` = the entry). A
+  User with no password gets a single-use `password_resets` link to «Nytt passord», valid to the
+  end of the `MANUAL_REGISTRATION_LINK_DAYS`-th day in Europe/Oslo (placeholder 14); a User with a
+  password is told to log in as usual. The mail is skipped when the entry was removed or the link
+  is used or expired.
+- `POST /api/classes/{id}/roster/entries` `{email}` adds one address, checked by
+  `address_problem` (or refused as `on_roster`), with no Invitation: status `not_invited`, counted
+  as unregistered and remindable, so a reminder sends its first Invitation. A removed address is
+  put back as it was; a registered Student has access again without a new registration or mail.
+  A Roster send of a removed address puts it back too, and invites it unless it is registered.
+- `DELETE /api/classes/{id}/roster/entries/{entry_id}` marks the entry removed, voids its open
+  Invitations and emits `user:<id>`; the Student scope (`authz.classes_enrolled_by`) and
+  `registered_students` leave it out from the next request. The User and other Classes stay.
+- An address of a registered Student is never edited in place: the account e-mail is the
+  Student's login, used in every Class. The Lecturer removes it and adds the new address.
+
 ## Open point for the founder: real Canvas exports
 
 The upload is tested only on synthetic fixtures with invented names and addresses, in the column

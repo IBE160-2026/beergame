@@ -26,13 +26,16 @@ from app.modules.classes.schemas import (
     InstitutionChoice,
     InstitutionChoicesOut,
     InvalidClass,
+    InvalidRosterAddress,
     InvitationBounce,
     InvitationSummaryOut,
+    ManualRegistrationIn,
     RegistrationOut,
     RegistrationsOut,
     RegistrationStatus,
     RegistrationTotals,
     ReminderOut,
+    RosterEntryIn,
     RosterSendOut,
     StaffRole,
     class_name,
@@ -304,6 +307,8 @@ def _status(
         status = RegistrationStatus.bounced
     elif facts.open:
         status = RegistrationStatus.invited
+    elif facts.invitation_id is None:
+        status = RegistrationStatus.not_invited
     else:
         status = RegistrationStatus.unregistered
     registered = facts.registration in identity.REGISTERED
@@ -399,6 +404,90 @@ async def send_reminders(
         expires_at=sent.expires_at,
         left_out=left_out,
     )
+
+
+# Single addresses and manual registration (Story 4.8, FR-7, FR-9, AD-8, AD-12). Each is one
+# command for the Class's owners and one transaction through `identity.service`; the answer is
+# the entry's status as «Status etter utsending» reads it right after.
+
+
+async def _entry_status(
+    class_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    email: str,
+    fallback: RegistrationStatus,
+    now: datetime,
+) -> RegistrationOut:
+    """The entry's status as the list reads it now; the status the command wrote when another
+    request removed the entry in the meantime (the command has committed: never a 500)."""
+    for item in await _statuses(class_id, now):
+        if item.id == entry_id:
+            return item
+    return RegistrationOut(id=entry_id, email=email, status=fallback, remindable=False)
+
+
+async def add_roster_entry(
+    user: authz.Principal, class_id: uuid.UUID, body: RosterEntryIn, *, now: datetime
+) -> RegistrationOut | None:
+    """«Legg til adresse» (FR-7): one address on the Roster, not yet invited, or a removed one
+    put back. None when the User may not manage the Class. Raises `InvalidRosterAddress`."""
+    if not await may_manage(user, class_id):
+        return None
+    try:
+        async with get_sessionmaker().begin() as s:
+            entry_id = await identity.add_roster_entry(s, class_id, body.email, now=now)
+    except identity.RosterRefused as refused:
+        log.info("roster_entry_refused", class_id=str(class_id), error_code=refused.reason)
+        raise InvalidRosterAddress(refused.reason) from None
+    return await _entry_status(
+        class_id,
+        entry_id,
+        identity.normalise_email(body.email),
+        RegistrationStatus.not_invited,
+        now,
+    )
+
+
+async def register_manually(
+    user: authz.Principal, class_id: uuid.UUID, body: ManualRegistrationIn, *, now: datetime
+) -> RegistrationOut | None:
+    """«Registrer manuelt» (FR-9): the Student is in the Class at once and gets a mail to set a
+    password. None when the User may not manage the Class. Raises `InvalidRosterAddress`."""
+    if not await may_manage(user, class_id):
+        return None
+    row = (body.upload_row.upload_id, body.upload_row.row_number) if body.upload_row else None
+    try:
+        async with get_sessionmaker().begin() as s:
+            entry_id = await identity.register_manually(
+                s,
+                class_id,
+                body.email,
+                body.name,
+                replaces=body.roster_entry_id,
+                upload_row=row,
+                now=now,
+            )
+    except identity.RosterRefused as refused:
+        log.info("manual_registration_refused", class_id=str(class_id), error_code=refused.reason)
+        raise InvalidRosterAddress(refused.reason) from None
+    return await _entry_status(
+        class_id,
+        entry_id,
+        identity.normalise_email(body.email),
+        RegistrationStatus.registered_manually,
+        now,
+    )
+
+
+async def remove_roster_entry(
+    user: authz.Principal, class_id: uuid.UUID, entry_id: uuid.UUID, *, now: datetime
+) -> bool | None:
+    """Take an address off the Roster (FR-7). None when the User may not manage the Class; False
+    when the entry is not on its Roster."""
+    if not await may_manage(user, class_id):
+        return None
+    async with get_sessionmaker().begin() as s:
+        return await identity.remove_roster_entry(s, class_id, entry_id, now=now)
 
 
 async def registered_students(class_id: uuid.UUID) -> list[uuid.UUID]:

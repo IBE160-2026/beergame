@@ -7,6 +7,7 @@ const copy = nb.classes.registration;
 
 /** The statuses in the filter, in the order an Invitation travels (Story 4.7, FR-9). */
 export const STATUSES = [
+  "not_invited",
   "invited",
   "renewal_requested",
   "bounced",

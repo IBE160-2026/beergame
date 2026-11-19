@@ -769,6 +769,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/classes/{class_id}/roster/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Roster Entry
+         * @description «Legg til adresse» (Story 4.8): one address on the Roster, checked as an upload's are, with
+         *     no Invitation yet (`not_invited`; a reminder sends the first). A removed address is put back
+         *     as it was, and a registered Student has access again. 422 `invalid_request` with
+         *     `fields.email` = an address problem or `on_roster`.
+         */
+        post: operations["addRosterEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/{class_id}/roster/entries/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Roster Entry
+         * @description Take an address off the Roster (Story 4.8, FR-7): its open Invitation stops working and a
+         *     registered Student loses access to the Class from their next request; the account and other
+         *     Classes stay. 404 `not_found` when the entry is not on the Class's Roster (or no entry id).
+         */
+        delete: operations["removeRosterEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/{class_id}/roster/manual": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register Manually
+         * @description «Registrer manuelt» (Story 4.8, FR-9): the address's User (created without a password, or
+         *     the existing one) is a Student in the Class at once, registered manually, and is mailed a
+         *     single-use link to set a password when it has none. 422 `invalid_request` with
+         *     `fields.email` (an address problem or `already_registered`) or `fields.name`.
+         */
+        post: operations["registerStudentManually"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -1267,6 +1335,24 @@ export interface components {
             /** Password */
             password: string;
         };
+        /**
+         * ManualRegistrationIn
+         * @description «Registrer manuelt»: the address and the Student's name (used only when the address has
+         *     no account yet). `roster_entry_id` is the Roster row the form was opened from: when the
+         *     address typed is another one, that row is removed (a wrong address corrected).
+         *     `upload_row` is the staged invalid row it was opened from, which is deleted. A refused
+         *     address answers 422 `invalid_request` with `fields.email` (an address problem or
+         *     `already_registered`), a refused name with `fields.name` (`name_empty`, `name_too_long`).
+         */
+        ManualRegistrationIn: {
+            /** Email */
+            email: string;
+            /** Name */
+            name: string;
+            /** Roster Entry Id */
+            roster_entry_id?: string | null;
+            upload_row?: components["schemas"]["UploadRow"] | null;
+        };
         /** NewPasswordIn */
         NewPasswordIn: {
             /** Password */
@@ -1307,10 +1393,11 @@ export interface components {
          *     the Student asked for a new Invitation from a link that no longer works. `bounced`: the mail
          *     of its newest Invitation did not arrive (with `bounce_class`). `invited`: its newest
          *     Invitation still works (with `last_valid_day`). `unregistered`: its newest Invitation expired
-         *     unaccepted (or it has none).
+         *     or was voided unaccepted. `not_invited`: added by hand and sent no Invitation yet (Story
+         *     4.8).
          * @enum {string}
          */
-        RegistrationStatus: "registered" | "registered_manually" | "renewal_requested" | "bounced" | "invited" | "unregistered";
+        RegistrationStatus: "registered" | "registered_manually" | "renewal_requested" | "bounced" | "invited" | "unregistered" | "not_invited";
         /**
          * RegistrationTotals
          * @description «Registrert 238», «Manuelt 2», «Uregistrert 10»: every address not removed, once.
@@ -1405,6 +1492,15 @@ export interface components {
         RosterColumnIn: {
             /** Column */
             column: number;
+        };
+        /**
+         * RosterEntryIn
+         * @description «Legg til adresse»: one address, checked as an upload's are. A refused one answers 422
+         *     `invalid_request` with `fields.email`: an address problem (`missing_at`, …) or `on_roster`.
+         */
+        RosterEntryIn: {
+            /** Email */
+            email: string;
         };
         /**
          * RosterInvalidRow
@@ -1523,6 +1619,19 @@ export interface components {
          * @enum {string}
          */
         StaffRole: "owner";
+        /**
+         * UploadRow
+         * @description A row of the Class's staged upload: the invalid row a manual registration corrects.
+         */
+        UploadRow: {
+            /** Row Number */
+            row_number: number;
+            /**
+             * Upload Id
+             * Format: uuid
+             */
+            upload_id: string;
+        };
         /**
          * UserListItem
          * @description One User on «Brukere og roller» (Story 3.9).
@@ -3655,6 +3764,169 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    addRosterEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RosterEntryIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    removeRosterEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    registerStudentManually: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualRegistrationIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
