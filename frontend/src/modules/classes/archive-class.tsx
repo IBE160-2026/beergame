@@ -45,7 +45,7 @@ export function ArchiveClass({ classId }: { classId: string }) {
   });
 
   return (
-    <section aria-labelledby="archive-title" className="mt-12 flex flex-col items-start gap-4 border-t border-hairline pt-6">
+    <section aria-labelledby="archive-title" className="mt-12 flex max-w-4xl flex-col items-start gap-4 border-t border-hairline pt-6">
       <h2 id="archive-title" className="sr-only">
         {copy.title}
       </h2>
