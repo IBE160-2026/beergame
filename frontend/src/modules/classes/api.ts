@@ -89,6 +89,16 @@ export function uploadRoster(classId: string, file: File) {
   );
 }
 
+/** Stage pasted addresses (Story 4.3): the api splits the text and evaluates each piece. */
+export function pasteRoster(classId: string, text: string) {
+  return request(() =>
+    api.POST("/api/classes/{class_id}/roster-paste", {
+      params: { path: { class_id: classId } },
+      body: { text },
+    }),
+  );
+}
+
 export function chooseRosterColumn(classId: string, column: number) {
   return request(() =>
     api.PUT("/api/classes/{class_id}/roster-upload/column", {

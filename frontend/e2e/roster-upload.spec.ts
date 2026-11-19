@@ -135,6 +135,95 @@ for (const vp of VIEWPORTS) {
   });
 }
 
+/** The invalid-row list: one item per row, read as text. */
+const invalidItems = (page: Page) =>
+  page.getByRole("region", { name: /^Ugyldige rader/ }).locator("li");
+const sendButton = (page: Page, valid: number) => page.getByRole("button", { name: copy.send(valid) });
+
+// Story 4.3: invalid rows and pasted addresses (FR-7, UX-DR47, UX-DR9), by keyboard at each viewport.
+for (const vp of VIEWPORTS) {
+  test.describe(`invalid rows and paste, ${vp.name}`, () => {
+    test.use({ viewport: { width: vp.width, height: vp.height } });
+
+    test("a Lecturer sees the invalid rows, then pastes addresses instead, by keyboard", async ({ page, browser }) => {
+      const lecturer = await classPage(page, browser, vp.text200);
+
+      // A file with four broken addresses and one repeat: each row with its number, value and reason.
+      await tabTo(lecturer, chooseButton(lecturer));
+      expect((await chooseFile(lecturer, fixture("ugyldige-rader.csv"))).status()).toBe(201);
+      await expect(lecturer.getByRole("heading", { name: copy.invalidTitle(5, 8) })).toBeVisible();
+      await expect(invalidItems(lecturer)).toHaveCount(5);
+      const lines = [
+        ["4", "emma.solberg@stud", copy.reasons.missing_domain],
+        ["5", "jakob.lien(at)stud.example.no", copy.reasons.missing_at],
+        ["6", "thea.moe@@stud.example.no", copy.reasons.two_at],
+        ["7", "", copy.reasons.empty],
+        ["9", "Sara.Lund@stud.example.no", copy.duplicate(2)],
+      ];
+      for (const [index, [row, value, reason]] of lines.entries()) {
+        const item = invalidItems(lecturer).nth(index);
+        await expect(item).toContainText(row);
+        if (value) await expect(item).toContainText(value);
+        await expect(item).toContainText(reason);
+        await expect(item.getByRole("button", { name: new RegExp(`^${copy.registerManually}`) })).toBeVisible();
+      }
+      await expect(sendButton(lecturer, 3)).toBeVisible();
+      await expect(sendButton(lecturer, 3)).not.toHaveAttribute("aria-disabled", "true");
+      await expect(lecturer.getByText(copy.invalidNote)).toBeVisible();
+      // The preview marks the chosen column by its tint alone: no visible suffix (Issue #85).
+      await expect(lecturer.getByRole("columnheader", { name: /E-post/ })).toHaveText(/^C E-post, valgt som e-postkolonne$/);
+      await expect(lecturer.getByText("(e-post)")).toHaveCount(0);
+      await expectAccessible(lecturer, vp.phone);
+
+      // A column with no address: its reason is an error, and nothing can be sent.
+      const evaluated = answerTo(lecturer, "/roster-upload/column", "PUT");
+      await tabTo(lecturer, columnSelect(lecturer));
+      await lecturer.keyboard.press("ArrowUp");
+      expect((await evaluated).status()).toBe(200);
+      await expect(columnSelect(lecturer)).toHaveAttribute("aria-invalid", "true");
+      await expect(lecturer.locator("#roster-column-error")).toHaveText(`Kolonne B, Student-ID. ${copy.chosen(0, 8)}`);
+      await expect(sendButton(lecturer, 0)).toHaveAttribute("aria-disabled", "true");
+      await expect(lecturer.getByText(copy.noValid)).toBeVisible();
+
+      // «Bytt fil», then paste: split on separators, `Navn <adresse>` read as the address.
+      await tabTo(lecturer, lecturer.getByRole("button", { name: copy.changeFile }));
+      await lecturer.keyboard.press("Enter");
+      await expect(chooseButton(lecturer)).toBeFocused();
+      await tabTo(lecturer, lecturer.getByRole("button", { name: copy.pasteInstead }));
+      await lecturer.keyboard.press("Enter");
+      const field = lecturer.getByLabel(copy.pasteLabel, { exact: true });
+      await expect(field).toBeFocused();
+      await lecturer.keyboard.type("ola@stud.example.no, Kari Berg <kari@stud.example.no>; feil(at)stud.example.no");
+      const sent = answerTo(lecturer, "/roster-paste");
+      await tabTo(lecturer, lecturer.getByRole("button", { name: copy.pasteContinue }));
+      await lecturer.keyboard.press("Enter");
+      expect((await sent).status()).toBe(201);
+      await expect(lecturer.getByText(copy.addressesRead(3))).toBeFocused();
+      await expect(lecturer.getByText(copy.pasted)).toBeVisible();
+      await expect(lecturer.getByRole("heading", { name: copy.invalidTitle(1, 3) })).toBeVisible();
+      await expect(invalidItems(lecturer).first()).toContainText(copy.reasons.missing_at);
+      await expect(sendButton(lecturer, 2)).toBeVisible();
+      await expect(columnSelect(lecturer)).toHaveCount(0);
+      await expectAccessible(lecturer, vp.phone);
+
+      // An empty paste: nothing valid, and the page says so.
+      await tabTo(lecturer, lecturer.getByRole("button", { name: copy.startOver }));
+      await lecturer.keyboard.press("Enter");
+      await expect(chooseButton(lecturer)).toBeFocused();
+      await tabTo(lecturer, lecturer.getByRole("button", { name: copy.pasteInstead }));
+      await lecturer.keyboard.press("Enter");
+      const empty = answerTo(lecturer, "/roster-paste");
+      await tabTo(lecturer, lecturer.getByRole("button", { name: copy.pasteContinue }));
+      await lecturer.keyboard.press("Enter");
+      expect((await empty).status()).toBe(201);
+      await expect(sendButton(lecturer, 0)).toHaveAttribute("aria-disabled", "true");
+      await expect(lecturer.getByText(copy.noValid)).toBeVisible();
+      await expectAccessible(lecturer, vp.phone);
+      await lecturer.context().close();
+    });
+  });
+}
+
 test.describe("files and paste", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -146,6 +235,32 @@ test.describe("files and paste", () => {
     await expect(columnSelect(lecturer)).toHaveValue("3");
     await expect(lecturer.getByText(`Kolonne D, SIS Login ID. ${copy.suggested(12, 13)}`)).toBeVisible();
     await expect(lecturer.getByText("Valgt fordi alle rader unntatt én ser ut som adresser.", { exact: false })).toBeVisible();
+    await lecturer.context().close();
+  });
+
+  test("a refused paste says so under the field and the line clears as the user types", async ({ page, browser }) => {
+    const lecturer = await classPage(page, browser);
+    // The api's answer to text over the limits, without sending megabytes through the test.
+    await lecturer.route("**/roster-paste", (route) =>
+      route.fulfill({
+        status: 422,
+        contentType: "application/json",
+        body: JSON.stringify({ error: { code: "roster_paste_too_long", message: "The pasted text is too long." } }),
+      }),
+    );
+    await tabTo(lecturer, lecturer.getByRole("button", { name: copy.pasteInstead }));
+    await lecturer.keyboard.press("Enter");
+    const field = lecturer.getByLabel(copy.pasteLabel, { exact: true });
+    await lecturer.keyboard.type("a@stud.example.no");
+    await tabTo(lecturer, lecturer.getByRole("button", { name: copy.pasteContinue }));
+    await lecturer.keyboard.press("Enter");
+    await expect(lecturer.getByRole("alert").filter({ hasText: copy.pasteTooLong })).toBeVisible();
+    await expect(field).toHaveAttribute("aria-invalid", "true");
+    await expectAccessible(lecturer, false);
+    await field.focus();
+    await lecturer.keyboard.type(" ");
+    await expect(lecturer.getByText(copy.pasteTooLong)).toHaveCount(0);
+    await expect(field).not.toHaveAttribute("aria-invalid", "true");
     await lecturer.context().close();
   });
 

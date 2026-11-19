@@ -32,17 +32,24 @@ from app.modules.identity.schemas import (
     InvitationOut,
     InvitationStatus,
     RosterColumn,
+    RosterInvalidRow,
+    RosterPasteTooLong,
     RosterPreviewRow,
+    RosterSource,
     RosterUploadOut,
     UserListItem,
     UserListOut,
     UserOut,
+    address_problem,
     email_is_valid,
     institution_name,
     normalise_email,
 )
 from app.modules.identity.schemas import (
     RosterColumnIn as RosterColumnIn,  # re-exported for `classes.routes`
+)
+from app.modules.identity.schemas import (
+    RosterPasteIn as RosterPasteIn,  # re-exported for `classes.routes`
 )
 from app.modules.identity.schemas import (
     RosterStagingOut as RosterStagingOut,  # re-exported for `classes.routes`
@@ -1362,35 +1369,117 @@ async def stage_roster_upload(
         rows=len(parsed.rows),
         columns=parsed.column_count,
     )
-    preview = [
-        RosterPreviewRow(row_number=n, cells=cells)
-        for n, cells in parsed.rows[:ROSTER_PREVIEW_ROWS]
-    ]
-    return _roster_upload_out(
+    return await asyncio.to_thread(
+        _roster_upload_out,
+        source=RosterSource.file,
         file_name=file_name,
         headers=parsed.headers,
         has_header=parsed.has_header,
-        row_count=len(parsed.rows),
+        rows=parsed.rows,
         counts=counts,
         chosen=suggested,
-        preview=preview,
     )
+
+
+async def stage_roster_paste(
+    class_id: uuid.UUID, uploader: uuid.UUID, text: str, *, now: datetime
+) -> RosterUploadOut:
+    """Stage pasted addresses for the Class as one-column rows, numbered by their place in the
+    text, replacing any earlier staged upload (Story 4.3). Raises `RosterPasteTooLong` for text
+    over `ROSTER_MAX_FILE_MB` or more addresses than `ROSTER_MAX_ROWS`; nothing is staged then.
+    Empty text stages no rows."""
+    await purge_expired_roster_uploads(now)
+    settings = get_settings()
+    if len(text.encode("utf-8", errors="replace")) > settings.roster_max_file_mb * 1024 * 1024:
+        raise RosterPasteTooLong
+    pieces = await asyncio.to_thread(roster_file.split_paste, text, limit=settings.roster_max_rows)
+    if len(pieces) > settings.roster_max_rows:
+        raise RosterPasteTooLong
+    rows = [(n, [piece]) for n, piece in enumerate(pieces, start=1)]
+    upload_id = uuid.uuid7()
+    async with get_sessionmaker().begin() as s:
+        await repo.lock_roster_staging(s, class_id)
+        await repo.delete_roster_upload(s, class_id)
+        await repo.insert_roster_upload(
+            s,
+            upload_id=upload_id,
+            class_id=class_id,
+            uploaded_by=uploader,
+            file_name="",
+            headers=[""],
+            has_header=False,
+            rows=rows,
+            chosen_column=0,
+            now=now,
+            expires_at=now + timedelta(hours=settings.roster_staging_ttl_hours),
+            source=RosterSource.paste,
+        )
+    log.info(
+        "roster_paste_staged",
+        class_id=str(class_id),
+        upload_id=str(upload_id),
+        user_id=str(uploader),
+        rows=len(rows),
+    )
+    return await asyncio.to_thread(
+        _roster_upload_out,
+        source=RosterSource.paste,
+        file_name="",
+        headers=[""],
+        has_header=False,
+        rows=rows,
+        counts=roster_file.address_counts([cells for _, cells in rows], 1),
+        chosen=0,
+    )
+
+
+def evaluate_roster_rows(
+    rows: list[tuple[int, list[str]]], column: int
+) -> tuple[int, list[RosterInvalidRow]]:
+    """Judge each row's cell in `column` with `schemas.address_problem` (Story 4.3, FR-7): how
+    many rows get an Invitation, and every other row with its reason, in row order. Addresses are
+    compared trimmed and case-insensitively; the first occurrence of an address is valid and each
+    later one is a `duplicate` naming the first row."""
+    valid = 0
+    invalid: list[RosterInvalidRow] = []
+    first_seen: dict[str, int] = {}
+    for number, cells in sorted(rows, key=lambda r: r[0]):
+        value = cells[column] if column < len(cells) else ""
+        address = normalise_email(value)
+        problem = address_problem(address)
+        if problem is not None:
+            invalid.append(RosterInvalidRow(row_number=number, value=value, reason=problem))
+        elif address in first_seen:
+            invalid.append(
+                RosterInvalidRow(
+                    row_number=number,
+                    value=value,
+                    reason="duplicate",
+                    first_row=first_seen[address],
+                )
+            )
+        else:
+            first_seen[address] = number
+            valid += 1
+    return valid, invalid
 
 
 def _roster_upload_out(
     *,
+    source: RosterSource,
     file_name: str,
     headers: list[str],
     has_header: bool,
-    row_count: int,
+    rows: list[tuple[int, list[str]]],
     counts: list[int],
     chosen: int | None,
-    preview: list[RosterPreviewRow],
 ) -> RosterUploadOut:
     suggested = roster_file.suggested_column(counts)
+    valid, invalid = evaluate_roster_rows(rows, chosen) if chosen is not None else (0, [])
     return RosterUploadOut(
+        source=source,
         file_name=file_name,
-        row_count=row_count,
+        row_count=len(rows),
         has_header=has_header,
         columns=[
             RosterColumn(index=i, letter=roster_file.column_letter(i), header=h)
@@ -1400,26 +1489,30 @@ def _roster_upload_out(
         suggested_count=counts[suggested] if suggested is not None else 0,
         chosen_column=chosen,
         chosen_count=counts[chosen] if chosen is not None else 0,
-        preview=preview,
+        valid_count=valid,
+        invalid_rows=invalid,
+        preview=[
+            RosterPreviewRow(row_number=n, cells=cells) for n, cells in rows[:ROSTER_PREVIEW_ROWS]
+        ],
     )
 
 
 async def _staged_out(s: AsyncSession, row: RowMapping) -> RosterUploadOut:
     """The staged upload, evaluated again from its staged cells."""
-    cells = await repo.roster_rows(s, row["id"])
-    counts = roster_file.address_counts(cells, row["column_count"])
-    preview = [
-        RosterPreviewRow(row_number=p["row_number"], cells=p["cells"])
-        for p in await repo.roster_preview(s, row["id"], ROSTER_PREVIEW_ROWS)
-    ]
-    return _roster_upload_out(
+    rows = await repo.roster_rows(s, row["id"])
+    # Evaluating up to `ROSTER_MAX_ROWS` rows is CPU work: off the event loop.
+    counts = await asyncio.to_thread(
+        roster_file.address_counts, [cells for _, cells in rows], row["column_count"]
+    )
+    return await asyncio.to_thread(
+        _roster_upload_out,
+        source=RosterSource(row["source"]),
         file_name=row["file_name"],
         headers=row["headers"],
         has_header=row["has_header"],
-        row_count=row["row_count"],
+        rows=rows,
         counts=counts,
         chosen=row["chosen_column"],
-        preview=preview,
     )
 
 

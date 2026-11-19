@@ -125,3 +125,65 @@ def test_a_sheet_with_a_far_away_row_stops_at_the_scan_limit():
     book.save(out)
     with pytest.raises(r.RosterUnreadable):
         r.parse("a.xlsx", out.getvalue(), max_rows=10)
+
+
+# Story 4.3: the reasons of the one address check, and pasted text.
+
+
+@pytest.mark.parametrize(
+    ("value", "reason"),
+    [
+        ("", "empty"),
+        ("a b@x.no", "whitespace"),
+        ("a@x.no\x00", "whitespace"),
+        ("a(at)x.no", "missing_at"),
+        ("a@@x.no", "two_at"),
+        ("a@b@x.no", "two_at"),
+        ("@x.no", "missing_name"),
+        ("a@stud", "missing_domain"),
+        ("a@", "missing_domain"),
+        ("a@x..no", "missing_domain"),
+        ("a@.x.no", "missing_domain"),
+        ("a@x.no", None),
+    ],
+)
+def test_address_problem_names_what_is_wrong(value, reason):
+    from app.modules.identity.schemas import address_problem, email_is_valid
+
+    assert address_problem(value) == reason
+    assert email_is_valid(value) is (reason is None)
+
+
+@pytest.mark.parametrize(
+    ("text", "pieces"),
+    [
+        ("a@x.no, b@x.no;c@x.no\nd@x.no\r\ne@x.no\tf@x.no  g@x.no", list("abcdefg")),
+        ("Ola Nordmann <a@x.no>", ["a"]),
+        ('"Nordmann, Ola" <a@x.no>, "Berg; Ida" <b@x.no>', ["a", "b"]),
+        ("b@x.no Ola <a@x.no>", ["b", "a"]),
+        ("<a@x.no>", ["a"]),
+        ("Ola <a@x.no> Kari <b@x.no>", ["a", "b"]),
+        ("Ola <>", []),
+        ("ola@x.no <ola@x.no>", ["ola"]),
+        ("<a@x.no, (b@x.no) 'c@x.no' mailto:d@x.no <mailto:e@x.no>", list("abcde")),
+        ("a@x.no\x00b@x.no", ["a", "b"]),
+        ("", []),
+        (" ,;\n\t", []),
+    ],
+)
+def test_pasted_text_is_split_and_names_are_dropped(text, pieces):
+    expected = [p if "@" in p else f"{p}@x.no" for p in pieces]
+    assert r.split_paste(text) == expected
+
+
+def test_a_long_pasted_line_is_split_in_linear_time():
+    import time
+
+    text = "a@x.no " * 100_000 + "Ola Nordmann <b@x.no> " + "Kari <c@x.no> " * 10_000
+    start = time.perf_counter()
+    assert len(r.split_paste(text)) == 110_001
+    assert time.perf_counter() - start < 5  # quadratic splitting would take minutes
+
+
+def test_pasted_text_is_split_no_further_than_one_piece_past_the_limit():
+    assert r.split_paste("a@x.no " * 100, limit=3) == ["a@x.no"] * 4

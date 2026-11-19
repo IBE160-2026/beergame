@@ -28,3 +28,17 @@ export function columnReason(upload: RosterUpload): string {
       : copy.chosen(upload.chosen_count, upload.row_count);
   return label ? `${label}. ${reason}` : reason;
 }
+
+/** Whether the chosen column holds no address at all: its reason line is then shown as an error,
+ * not a hint (Issue #85). With no column chosen the line is guidance, not an error. */
+export function columnHasNoAddress(upload: RosterUpload): boolean {
+  return upload.chosen_column !== null && upload.chosen_column !== undefined && upload.chosen_count === 0;
+}
+
+type InvalidRow = RosterUpload["invalid_rows"][number];
+
+/** Why a row gets no Invitation, in text (Story 4.3, NFR-6): «Domene mangler», «Dublett av rad 2». */
+export function invalidReason(row: InvalidRow): string {
+  if (row.reason === "duplicate") return copy.duplicate(row.first_row ?? 0);
+  return copy.reasons[row.reason];
+}

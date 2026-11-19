@@ -675,10 +675,12 @@ async def insert_roster_upload(
     chosen_column: int | None,
     now: datetime,
     expires_at: datetime,
+    source: str = "file",
 ) -> None:
     await session.execute(
         insert(roster_uploads).values(
             id=upload_id,
+            source=source,
             class_id=class_id,
             uploaded_by=uploaded_by,
             file_name=file_name,
@@ -721,20 +723,11 @@ async def set_roster_column(session: AsyncSession, upload_id: uuid.UUID, column:
     )
 
 
-async def roster_rows(session: AsyncSession, upload_id: uuid.UUID) -> list[list[str]]:
-    result = await session.execute(
-        select(roster_upload_rows.c.cells).where(roster_upload_rows.c.upload_id == upload_id)
-    )
-    return list(result.scalars())
-
-
-async def roster_preview(
-    session: AsyncSession, upload_id: uuid.UUID, limit: int
-) -> list[RowMapping]:
+async def roster_rows(session: AsyncSession, upload_id: uuid.UUID) -> list[tuple[int, list[str]]]:
+    """(row number, cells) of every staged row, in the file's order."""
     result = await session.execute(
         select(roster_upload_rows.c.row_number, roster_upload_rows.c.cells)
         .where(roster_upload_rows.c.upload_id == upload_id)
         .order_by(roster_upload_rows.c.row_number)
-        .limit(limit)
     )
-    return list(result.mappings())
+    return [(row.row_number, row.cells) for row in result]

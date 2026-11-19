@@ -1,7 +1,7 @@
-"""Uploading a Roster file to a Class and choosing its e-mail column through the api (Story 4.2,
-FR-7, AD-12, AD-14). The Canvas-shaped fixtures are synthetic, with invented names and addresses,
-and are shared with Playwright (`frontend/e2e/fixtures/roster`). The api's clock is fixed; the
-database clock is never read."""
+"""Uploading or pasting a Roster for a Class, choosing its e-mail column and seeing its invalid
+rows through the api (Stories 4.2 and 4.3, FR-7, AD-12, AD-14). The Canvas-shaped fixtures are
+synthetic, with invented names and addresses, and are shared with Playwright
+(`frontend/e2e/fixtures/roster`). The api's clock is fixed; the database clock is never read."""
 
 import asyncio
 import io
@@ -430,3 +430,153 @@ async def test_a_long_file_name_keeps_its_type(klass):
     assert response.status_code == 201
     assert len(response.json()["file_name"]) == 255
     assert response.json()["file_name"].endswith(".csv")
+
+
+# Story 4.3: invalid rows and pasted addresses (FR-7). The fixture `ugyldige-rader.csv` is shared
+# with Playwright.
+
+
+def paste_path(class_id: str) -> str:
+    return f"/api/classes/{class_id}/roster-paste"
+
+
+async def paste(c, class_id: str, text: str):
+    return await c.post(paste_path(class_id), json={"text": text}, headers=CSRF)
+
+
+def invalid(body: dict) -> list[tuple]:
+    return [
+        (row["row_number"], row["value"], row["reason"], row["first_row"])
+        for row in body["invalid_rows"]
+    ]
+
+
+async def test_each_invalid_row_is_listed_with_its_reason_and_duplicates_name_the_first_row(klass):
+    async with client() as c:
+        await as_user(c)
+        response = await upload(c, klass, "ugyldige.csv", fixture("ugyldige-rader.csv"))
+    body = response.json()
+    assert response.status_code == 201
+    assert body["source"] == "file"
+    assert (body["row_count"], body["chosen_column"], body["valid_count"]) == (8, 2, 3)
+    assert invalid(body) == [
+        (4, "emma.solberg@stud", "missing_domain", None),
+        (5, "jakob.lien(at)stud.example.no", "missing_at", None),
+        (6, "thea.moe@@stud.example.no", "two_at", None),
+        (7, "", "empty", None),
+        (9, "Sara.Lund@stud.example.no", "duplicate", 2),
+    ]
+
+
+async def test_choosing_another_column_evaluates_its_rows(klass):
+    async with client() as c:
+        await as_user(c)
+        await upload(c, klass, "ugyldige.csv", fixture("ugyldige-rader.csv"))
+        chosen = await c.put(path(klass, "/column"), json={"column": 0}, headers=CSRF)
+        again = await c.get(path(klass))
+    for body in (chosen.json(), again.json()["upload"]):
+        assert body["valid_count"] == 0
+        assert [r["reason"] for r in body["invalid_rows"]] == ["whitespace"] * 8
+
+
+async def test_a_file_with_no_column_chosen_lists_nothing_and_has_nothing_valid(klass):
+    async with client() as c:
+        await as_user(c)
+        response = await upload(c, klass, "uten-epost.csv", fixture("uten-epost.csv"))
+    body = response.json()
+    assert body["chosen_column"] is None
+    assert (body["valid_count"], body["invalid_rows"]) == (0, [])
+
+
+async def test_pasted_addresses_are_split_staged_as_one_column_and_evaluated(klass):
+    text = (
+        "a@stud.example.no, b@stud.example.no;c@stud.example.no\n"
+        "Ola Nordmann <d@stud.example.no>  e@stud.example.no\r\n"
+        '"Nordmann, Kari" <f@stud.example.no>\tfeil(at)stud.example.no\n'
+        "A@stud.example.no"
+    )
+    async with client() as c:
+        await as_user(c)
+        response = await paste(c, klass, text)
+        again = await c.get(path(klass))
+    body = response.json()
+    assert response.status_code == 201
+    assert again.json()["upload"] == body
+    assert (body["source"], body["file_name"], body["has_header"]) == ("paste", "", False)
+    assert [col["letter"] for col in body["columns"]] == ["A"]
+    assert (body["row_count"], body["chosen_column"], body["valid_count"]) == (8, 0, 6)
+    assert [row["cells"] for row in body["preview"]] == [
+        ["a@stud.example.no"],
+        ["b@stud.example.no"],
+        ["c@stud.example.no"],
+        ["d@stud.example.no"],
+        ["e@stud.example.no"],
+    ]
+    assert invalid(body) == [
+        (7, "feil(at)stud.example.no", "missing_at", None),
+        (8, "A@stud.example.no", "duplicate", 1),
+    ]
+    assert staged() == [("", 8, 0)]
+
+
+async def test_a_paste_replaces_a_staged_file_and_an_empty_paste_stages_no_rows(klass):
+    async with client() as c:
+        await as_user(c)
+        await upload(c, klass, "ugyldige.csv", fixture("ugyldige-rader.csv"))
+        response = await paste(c, klass, " ,;\n\t ")
+    body = response.json()
+    assert response.status_code == 201
+    assert (body["row_count"], body["valid_count"], body["invalid_rows"]) == (0, 0, [])
+    assert rows("SELECT source, row_count FROM roster_uploads") == [("paste", 0)]
+
+
+async def test_a_paste_over_the_limits_is_refused_and_keeps_the_staging(klass, settings_env):
+    settings_env(ROSTER_MAX_ROWS="3", ROSTER_MAX_FILE_MB="1")
+    async with client() as c:
+        await as_user(c)
+        await paste(c, klass, "a@x.no b@x.no")
+        too_many = await paste(c, klass, "a@x.no b@x.no c@x.no d@x.no")
+        too_big = await paste(c, klass, "æ" * (512 * 1024 + 1))  # 1 MB + 2 bytes in UTF-8
+        kept = await c.get(path(klass))
+        at_limit = await paste(c, klass, "a@x.no b@x.no c@x.no")
+    for refused in (too_many, too_big):
+        assert refused.status_code == 422
+        assert refused.json()["error"]["code"] == "roster_paste_too_long"
+    # The refusals staged nothing: the earlier paste is still there.
+    assert kept.json()["upload"]["preview"] == [
+        {"row_number": 1, "cells": ["a@x.no"]},
+        {"row_number": 2, "cells": ["b@x.no"]},
+    ]
+    assert at_limit.status_code == 201 and at_limit.json()["row_count"] == 3
+
+
+async def test_a_paste_by_another_lecturer_or_without_csrf_is_refused(klass):
+    async with client() as c:
+        await as_user(c, OTHER)
+        other = await paste(c, klass, "a@x.no")
+        unknown = await paste(c, "ikke-en-klasse", "a@x.no")
+    async with client() as c:
+        await as_user(c)
+        no_csrf = await c.post(paste_path(klass), json={"text": "a@x.no"})
+    assert [r.status_code for r in (other, unknown, no_csrf)] == [403, 403, 403]
+    assert staged() == []
+
+
+async def test_no_pasted_address_reaches_the_logs(klass):
+    with structlog.testing.capture_logs() as logs:
+        async with client() as c:
+            await as_user(c)
+            await paste(c, klass, "Hemmelig Navn <hemmelig@stud.example.no>")
+            await c.get(path(klass))
+    text = repr(logs)
+    assert "roster_paste_staged" in text
+    for secret in ("Hemmelig", "hemmelig", "stud.example.no"):
+        assert secret not in text
+
+
+async def test_a_nul_in_pasted_text_separates_and_is_never_stored(klass):
+    async with client() as c:
+        await as_user(c)
+        response = await paste(c, klass, "a@x.no\x00b@x.no")
+    assert response.status_code == 201
+    assert [row["cells"] for row in response.json()["preview"]] == [["a@x.no"], ["b@x.no"]]

@@ -372,8 +372,39 @@ export const nb = {
       preview: "Forhåndsvisning av fila",
       previewRow: "Rad",
       previewNote: (shown: number, rows: number) => `De første ${shown} av ${rows} radene.`,
-      /** The chosen column's header cell in the preview carries this after its name. */
-      previewChosen: "(e-post)",
+      /** Read by screen readers after the chosen column's header in the preview; on screen the
+       * column's tint marks it (Issue #85). */
+      previewChosen: "valgt som e-postkolonne",
+      // Story 4.3 (FR-7, UX-DR47). [ASSUMPTION] draft copy except the heading, the reasons the
+      // UX spine names, «Registrer manuelt», the note and «Send N Invitasjoner».
+      invalidTitle: (invalid: number, rows: number) => `Ugyldige rader: ${invalid} av ${rows}`,
+      invalidRow: "Rad",
+      invalidValue: "E-post i fila",
+      invalidReason: "Hva er galt",
+      /** For pasted addresses, which have no file rows: their place in the text. */
+      invalidPlace: "Nr.",
+      invalidPasted: "Innlimt verdi",
+      invalidShown: (shown: number, invalid: number) => `Viser de første ${shown} av ${invalid} ugyldige radene.`,
+      /** Why a row gets no Invitation, always in text (NFR-6). */
+      reasons: {
+        empty: "Tom celle",
+        whitespace: "Mellomrom i adressen",
+        missing_at: "Mangler @",
+        two_at: "To @",
+        missing_name: "Mangler navn før @",
+        missing_domain: "Domene mangler",
+      },
+      duplicate: (firstRow: number) => `Dublett av rad ${firstRow}`,
+      registerManually: "Registrer manuelt",
+      invalidNote: "Ugyldige rader får ingen e-post før de er rettet.",
+      send: (valid: number) => `Send ${valid} ${valid === 1 ? "Invitasjon" : "Invitasjoner"}`,
+      noValid: "Ingen gyldige adresser å invitere.",
+      pasteContinue: "Fortsett",
+      pasted: "Innlimte adresser",
+      addressesRead: (count: number) => `${count} ${count === 1 ? "adresse" : "adresser"} lest`,
+      startOver: "Start på nytt",
+      pasteTooLong: "Teksten er for lang for én klasseliste. Lim inn færre adresser.",
+      pasteFailed: "Adressene ble ikke lest inn. Prøv igjen.",
     },
   },
 

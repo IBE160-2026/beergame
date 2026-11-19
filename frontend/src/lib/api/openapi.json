@@ -150,6 +150,19 @@
         "title": "AccountRole",
         "type": "string"
       },
+      "AddressProblem": {
+        "description": "Why a value is not an address (Story 4.3, FR-7). The web app words each one.",
+        "enum": [
+          "empty",
+          "whitespace",
+          "missing_at",
+          "two_at",
+          "missing_name",
+          "missing_domain"
+        ],
+        "title": "AddressProblem",
+        "type": "string"
+      },
       "AuditActor": {
         "description": "An actor of the log for the filter: a User with their name, or the system (both null).",
         "properties": {
@@ -968,6 +981,63 @@
         "title": "RosterColumnIn",
         "type": "object"
       },
+      "RosterInvalidRow": {
+        "description": "A staged row that gets no Invitation, and why (Story 4.3).",
+        "properties": {
+          "first_row": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Row"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AddressProblem"
+              },
+              {
+                "const": "duplicate",
+                "type": "string"
+              }
+            ],
+            "title": "Reason"
+          },
+          "row_number": {
+            "title": "Row Number",
+            "type": "integer"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row_number",
+          "value",
+          "reason"
+        ],
+        "title": "RosterInvalidRow",
+        "type": "object"
+      },
+      "RosterPasteIn": {
+        "properties": {
+          "text": {
+            "maxLength": 52428800,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "RosterPasteIn",
+        "type": "object"
+      },
       "RosterPreviewRow": {
         "properties": {
           "cells": {
@@ -988,6 +1058,14 @@
         ],
         "title": "RosterPreviewRow",
         "type": "object"
+      },
+      "RosterSource": {
+        "enum": [
+          "file",
+          "paste"
+        ],
+        "title": "RosterSource",
+        "type": "string"
       },
       "RosterStagingOut": {
         "properties": {
@@ -1041,6 +1119,13 @@
             "title": "Has Header",
             "type": "boolean"
           },
+          "invalid_rows": {
+            "items": {
+              "$ref": "#/components/schemas/RosterInvalidRow"
+            },
+            "title": "Invalid Rows",
+            "type": "array"
+          },
           "preview": {
             "items": {
               "$ref": "#/components/schemas/RosterPreviewRow"
@@ -1051,6 +1136,9 @@
           "row_count": {
             "title": "Row Count",
             "type": "integer"
+          },
+          "source": {
+            "$ref": "#/components/schemas/RosterSource"
           },
           "suggested_column": {
             "anyOf": [
@@ -1066,9 +1154,14 @@
           "suggested_count": {
             "title": "Suggested Count",
             "type": "integer"
+          },
+          "valid_count": {
+            "title": "Valid Count",
+            "type": "integer"
           }
         },
         "required": [
+          "source",
           "file_name",
           "row_count",
           "has_header",
@@ -1077,6 +1170,8 @@
           "suggested_count",
           "chosen_column",
           "chosen_count",
+          "valid_count",
+          "invalid_rows",
           "preview"
         ],
         "title": "RosterUploadOut",
@@ -3282,6 +3377,79 @@
           }
         },
         "summary": "Get Class",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/roster-paste": {
+      "post": {
+        "description": "«Lim inn adresser i stedet» (Story 4.3): split the text on line breaks, commas, semicolons\nand whitespace and stage the pieces as one-column rows, replacing any earlier staged upload;\n`Navn <adresse>` is read as the address. Text over the size limit or with more addresses than\nthe row limit answers 422 `roster_paste_too_long` and stages nothing.",
+        "operationId": "pasteRoster",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RosterPasteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosterUploadOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Paste Roster",
         "tags": [
           "classes"
         ]

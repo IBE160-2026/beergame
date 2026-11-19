@@ -9,6 +9,7 @@ address. Empty rows are skipped; each row keeps its number in the file. Nothing 
 
 import csv
 import io
+import re
 import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime, time
@@ -206,6 +207,62 @@ def _trim(cells: list[str]) -> list[str]:
     while end and not cells[end - 1]:
         end -= 1
     return cells[:end]
+
+
+_BRACKETED = re.compile(r"<([^<>\r\n]*)>")
+_NAME_END = re.compile(r"[,;\r\n>]")
+
+
+def _name_start(text: str, start: int, end: int, address: str) -> int:
+    """Where the name before an `<adresse>` at `end` begins, no earlier than `start`: after the
+    last comma, semicolon or line break (a quoted name may hold commas), and after the last
+    whitespace-separated piece that holds an `@`, which is an address of its own, unless that
+    piece is the bracketed address itself (`ola@x.no <ola@x.no>`, as some mail programs copy)."""
+    region = text[start:end]
+    head = region.rstrip()
+    if head.endswith('"'):
+        opening = head.rfind('"', 0, len(head) - 1)
+        line = max(head.rfind("\n", 0, len(head) - 1), head.rfind("\r", 0, len(head) - 1))
+        if opening > line:
+            return start + opening
+    cut = max((m.end() for m in _NAME_END.finditer(region)), default=0)
+    name = region[cut:]
+    if "@" in name:
+        pieces = list(re.finditer(r"\S+", name))
+        last = max(i for i, p in enumerate(pieces) if "@" in p.group())
+        same = normalise_email(pieces[last].group().strip('"')) == normalise_email(address)
+        cut += pieces[last].start() if same else pieces[last].end()
+    return start + cut
+
+
+_PIECE = re.compile(r"[^\s,;\x00]+")
+_WRAPPING = "<>()[]\"'"
+"""Left over around an address copied from a mail program or a document: stripped."""
+
+
+def split_paste(text: str, *, limit: int | None = None) -> list[str]:
+    """Pasted addresses (Story 4.3): split on line breaks, commas, semicolons and whitespace;
+    `Navn <adresse>` and `"Etternavn, Fornavn" <adresse>` are read as the address alone, and
+    brackets, quotes and a `mailto:` around a piece are dropped. NUL separates too (Postgres
+    stores no NUL). Empty pieces are dropped; each piece is cut to `MAX_CELL_CHARS`. Linear in
+    the text's length; with `limit`, it stops after `limit + 1` pieces."""
+    parts: list[str] = []
+    done = 0
+    for match in _BRACKETED.finditer(text):
+        parts.append(text[done : _name_start(text, done, match.start(), match.group(1))])
+        parts.append(f" {match.group(1)} ")
+        done = match.end()
+    parts.append(text[done:])
+    pieces: list[str] = []
+    for match in _PIECE.finditer("".join(parts)):
+        piece = match.group().strip(_WRAPPING)
+        if piece[:7].lower() == "mailto:":
+            piece = piece[7:].strip(_WRAPPING)
+        if piece:
+            pieces.append(piece[:MAX_CELL_CHARS])
+            if limit is not None and len(pieces) > limit:
+                break
+    return pieces
 
 
 def address_counts(parsed_rows: list[list[str]], column_count: int) -> list[int]:

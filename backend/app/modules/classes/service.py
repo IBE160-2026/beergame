@@ -150,6 +150,15 @@ async def upload_roster(
     return await identity.stage_roster_upload(class_id, user.id, file_name, data, now=now)
 
 
+async def paste_roster(
+    user: authz.Principal, class_id: uuid.UUID, text: str, *, now: datetime
+) -> identity.RosterUploadOut | None:
+    """Stage pasted addresses for the Class (Story 4.3). Raises `identity.RosterPasteTooLong`."""
+    if not await may_manage(user, class_id):
+        return None
+    return await identity.stage_roster_paste(class_id, user.id, text, now=now)
+
+
 async def roster_staging(
     user: authz.Principal, class_id: uuid.UUID, *, now: datetime
 ) -> Staging | None:

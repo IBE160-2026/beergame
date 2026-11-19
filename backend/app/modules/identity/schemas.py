@@ -3,6 +3,7 @@
 import uuid
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 from pydantic_core import PydanticCustomError
@@ -243,19 +244,47 @@ def normalise_email(email: str) -> str:
     return email.strip().lower()
 
 
-def email_is_valid(email: str) -> bool:
-    """The web app's check of an address (`validate-login.ts`), on the normalised value: no
-    whitespace or control character (Postgres refuses NUL), exactly one `@`, a name before it
-    and a domain of two or more labels after it."""
-    if (
-        not email
-        or any(ch.isspace() or not ch.isprintable() for ch in email)
-        or email.count("@") != 1
-    ):
-        return False
+class AddressProblem(StrEnum):
+    """Why a value is not an address (Story 4.3, FR-7). The web app words each one."""
+
+    empty = "empty"
+    whitespace = "whitespace"
+    """A space or control character inside it."""
+    missing_at = "missing_at"
+    two_at = "two_at"
+    """More than one `@`."""
+    missing_name = "missing_name"
+    """Nothing before the `@`."""
+    missing_domain = "missing_domain"
+    """The part after the `@` is not two or more non-empty labels."""
+
+
+def address_problem(email: str) -> AddressProblem | None:
+    """The one check of an address, on the normalised value: what is wrong with it, or None when
+    nothing is. It is the web app's check (`validate-login.ts`): no whitespace or control
+    character (Postgres refuses NUL), exactly one `@`, a name before it and a domain of two or
+    more labels after it. The Roster upload, paste and single-address add all use it."""
+    if not email:
+        return AddressProblem.empty
+    if any(ch.isspace() or not ch.isprintable() for ch in email):
+        return AddressProblem.whitespace
+    ats = email.count("@")
+    if ats == 0:
+        return AddressProblem.missing_at
+    if ats > 1:
+        return AddressProblem.two_at
     local, domain = email.split("@")
+    if not local:
+        return AddressProblem.missing_name
     labels = domain.split(".")
-    return bool(local) and len(labels) >= 2 and all(labels)
+    if len(labels) < 2 or not all(labels):
+        return AddressProblem.missing_domain
+    return None
+
+
+def email_is_valid(email: str) -> bool:
+    """Whether `address_problem` finds nothing wrong with the normalised address."""
+    return address_problem(email) is None
 
 
 ACCESS_REQUEST_PAGE_DEFAULT = 50
@@ -337,10 +366,29 @@ class RosterPreviewRow(BaseModel):
     cells: list[str]
 
 
+class RosterSource(StrEnum):
+    file = "file"
+    paste = "paste"
+
+
+class RosterInvalidRow(BaseModel):
+    """A staged row that gets no Invitation, and why (Story 4.3)."""
+
+    row_number: int
+    """The row's number in the file, or the address's place in the pasted text."""
+    value: str
+    """The cell in the chosen column, as staged."""
+    reason: AddressProblem | Literal["duplicate"]
+    first_row: int | None = None
+    """For `duplicate`: the row where the address first occurs."""
+
+
 class RosterUploadOut(BaseModel):
     """A staged Roster upload as the Class page shows it."""
 
+    source: RosterSource
     file_name: str
+    """"" for pasted addresses."""
     row_count: int
     """Data rows read, without the header row and empty rows."""
     has_header: bool
@@ -352,6 +400,11 @@ class RosterUploadOut(BaseModel):
     chosen_column: int | None
     chosen_count: int
     """How many rows look like addresses in the chosen column, evaluated from the staged cells."""
+    valid_count: int
+    """Rows of the chosen column that get an Invitation: valid and not a repeat of an earlier
+    row (0 with no column chosen)."""
+    invalid_rows: list[RosterInvalidRow]
+    """Every other row of the chosen column, by row number ([] with no column chosen)."""
     preview: list[RosterPreviewRow]
 
 
@@ -361,6 +414,19 @@ class RosterStagingOut(BaseModel):
 
 class RosterColumnIn(BaseModel):
     column: int = Field(ge=0, le=10_000)
+
+
+ROSTER_PASTE_MAX_CHARS = 50 * 1024 * 1024
+"""The schema's own outer cap on pasted text, the highest `ROSTER_MAX_FILE_MB` allows; the
+service holds the text to the configured size and answers `roster_paste_too_long`."""
+
+
+class RosterPasteIn(BaseModel):
+    text: str = Field(max_length=ROSTER_PASTE_MAX_CHARS)
+
+
+class RosterPasteTooLong(Exception):
+    """Pasted text over the size cap, or with more addresses than `ROSTER_MAX_ROWS`."""
 
 
 class InvalidRosterColumn(Exception):

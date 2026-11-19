@@ -192,6 +192,31 @@ async def upload_roster(
     return JSONResponse(staged.model_dump(mode="json"), status_code=201)
 
 
+@router.post(
+    "/{class_id}/roster-paste",
+    status_code=201,
+    response_model=identity.RosterUploadOut,
+    responses=documented(401, 403, 422),
+    operation_id="pasteRoster",
+)
+async def paste_roster(
+    class_id: str,
+    body: identity.RosterPasteIn,
+    user: Annotated[authz.Principal, Depends(authz.require("classes.manage"))],
+) -> Response:
+    """«Lim inn adresser i stedet» (Story 4.3): split the text on line breaks, commas, semicolons
+    and whitespace and stage the pieces as one-column rows, replacing any earlier staged upload;
+    `Navn <adresse>` is read as the address. Text over the size limit or with more addresses than
+    the row limit answers 422 `roster_paste_too_long` and stages nothing."""
+    try:
+        staged = await service.paste_roster(user, _class_id(class_id), body.text, now=auth.utcnow())
+    except identity.RosterPasteTooLong:
+        return error_response(422, "roster_paste_too_long", "The pasted text is too long.")
+    if staged is None:
+        raise authz.Forbidden
+    return JSONResponse(staged.model_dump(mode="json"), status_code=201)
+
+
 @router.get(
     "/{class_id}/roster-upload",
     response_model=identity.RosterStagingOut,

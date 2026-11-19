@@ -62,7 +62,7 @@ HEAD_TABLES = (
     | CLASS_TABLES
     | ROSTER_TABLES
 )
-HEAD = "0024"  # 0024 adds the staged Roster uploads (Story 4.2)
+HEAD = "0025"  # 0025 adds the staged Roster's source (Story 4.3)
 
 
 def reset_schema(url: str) -> None:
@@ -515,7 +515,7 @@ def test_the_check_constraints_list_exactly_the_enum_values(migrations_database)
     from app.ai import models as ai_models
     from app.modules.classes.schemas import StaffRole
     from app.modules.games import schemas
-    from app.modules.identity.schemas import AccountRole
+    from app.modules.identity.schemas import AccountRole, RosterSource
     from app.modules.messaging import models as mail_models
 
     ai_checks = {
@@ -525,6 +525,7 @@ def test_the_check_constraints_list_exactly_the_enum_values(migrations_database)
         "ck_user_roles_role": {role.value for role in AccountRole},
         "ck_invitations_role": {role.value for role in AccountRole},
         "ck_class_staff_role": {role.value for role in StaffRole},
+        "ck_roster_uploads_source": {source.value for source in RosterSource},
         "ck_mail_deliveries_mode": set(mail_models.MODES),
         "ck_mail_deliveries_skipped_reason": set(mail_models.SKIP_REASONS),
     }

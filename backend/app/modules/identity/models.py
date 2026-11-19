@@ -163,10 +163,13 @@ roster_uploads = Table(
     Column("chosen_column", Integer, nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("expires_at", DateTime(timezone=True), nullable=False, index=True),
+    # `file` for an uploaded file, `paste` for pasted addresses (Story 4.3): one column, no header.
+    Column("source", Text, nullable=False, server_default=text("'file'")),
     CheckConstraint(
         "chosen_column IS NULL OR (chosen_column >= 0 AND chosen_column < column_count)",
         name="ck_roster_uploads_chosen_column",
     ),
+    CheckConstraint("source IN ('file', 'paste')", name="ck_roster_uploads_source"),
 )
 """A staged Roster upload (Story 4.2, FR-7, AD-14): the cell values of the file a Lecturer
 uploaded for a Class, never the file itself. A new upload for the Class replaces it; it is purged

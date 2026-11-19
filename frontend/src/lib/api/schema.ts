@@ -567,6 +567,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/classes/{class_id}/roster-paste": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Paste Roster
+         * @description «Lim inn adresser i stedet» (Story 4.3): split the text on line breaks, commas, semicolons
+         *     and whitespace and stage the pieces as one-column rows, replacing any earlier staged upload;
+         *     `Navn <adresse>` is read as the address. Text over the size limit or with more addresses than
+         *     the row limit answers 422 `roster_paste_too_long` and stages nothing.
+         */
+        post: operations["pasteRoster"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/classes/{class_id}/roster-upload": {
         parameters: {
             query?: never;
@@ -715,6 +738,12 @@ export interface components {
          * @enum {string}
          */
         AccountRole: "admin" | "lecturer";
+        /**
+         * AddressProblem
+         * @description Why a value is not an address (Story 4.3, FR-7). The web app words each one.
+         * @enum {string}
+         */
+        AddressProblem: "empty" | "whitespace" | "missing_at" | "two_at" | "missing_name" | "missing_domain";
         /**
          * AuditActor
          * @description An actor of the log for the filter: a User with their name, or the system (both null).
@@ -1074,6 +1103,25 @@ export interface components {
             /** Column */
             column: number;
         };
+        /**
+         * RosterInvalidRow
+         * @description A staged row that gets no Invitation, and why (Story 4.3).
+         */
+        RosterInvalidRow: {
+            /** First Row */
+            first_row?: number | null;
+            /** Reason */
+            reason: components["schemas"]["AddressProblem"] | "duplicate";
+            /** Row Number */
+            row_number: number;
+            /** Value */
+            value: string;
+        };
+        /** RosterPasteIn */
+        RosterPasteIn: {
+            /** Text */
+            text: string;
+        };
         /** RosterPreviewRow */
         RosterPreviewRow: {
             /** Cells */
@@ -1081,6 +1129,11 @@ export interface components {
             /** Row Number */
             row_number: number;
         };
+        /**
+         * RosterSource
+         * @enum {string}
+         */
+        RosterSource: "file" | "paste";
         /** RosterStagingOut */
         RosterStagingOut: {
             upload: components["schemas"]["RosterUploadOut"] | null;
@@ -1100,14 +1153,19 @@ export interface components {
             file_name: string;
             /** Has Header */
             has_header: boolean;
+            /** Invalid Rows */
+            invalid_rows: components["schemas"]["RosterInvalidRow"][];
             /** Preview */
             preview: components["schemas"]["RosterPreviewRow"][];
             /** Row Count */
             row_count: number;
+            source: components["schemas"]["RosterSource"];
             /** Suggested Column */
             suggested_column: number | null;
             /** Suggested Count */
             suggested_count: number;
+            /** Valid Count */
+            valid_count: number;
         };
         /** SessionOut */
         SessionOut: {
@@ -2707,6 +2765,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pasteRoster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RosterPasteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RosterUploadOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

@@ -33,6 +33,24 @@ only `classes.service`.
 - The column with the most cells that look like addresses is preselected (the leftmost on a tie).
   None is preselected when no cell looks like one.
 
+## Invalid rows and pasted addresses (Story 4.3, decided)
+
+- One check, `identity.schemas.address_problem`, decides whether a value is an address and why
+  not: `empty`, `whitespace`, `missing_at`, `two_at` (two or more), `missing_name`,
+  `missing_domain`, in that order. `email_is_valid` (login, access requests) is built on it, so
+  every form agrees. `identity.service.evaluate_roster_rows` applies it to the chosen column.
+- Addresses are compared trimmed and lower-cased. Only valid addresses can repeat: the first
+  occurrence (lowest row number) is valid, and each later one is `duplicate` with `first_row`.
+- The staging answer carries `valid_count` (what «Send N Invitasjoner» counts) and every invalid
+  row (number, value, reason). With no column chosen, nothing is valid and nothing is listed.
+- Pasted text (`POST /api/classes/{id}/roster-paste`) is staged in the same tables, with
+  `source = 'paste'`, one column, no header, and rows numbered by their place in the text. It is
+  split on line breaks, commas, semicolons, whitespace and NUL; `Navn <adresse>` and
+  `"Etternavn, Fornavn" <adresse>` keep only the address; brackets, quotes and `mailto:` around
+  a piece are dropped. An empty paste stages no rows. Text over `ROSTER_MAX_FILE_MB` or with more
+  pieces than `ROSTER_MAX_ROWS` answers 422 `roster_paste_too_long` and stages nothing.
+- «Send N Invitasjoner» and «Registrer manuelt» are drawn now; they act from Stories 4.4 and 4.8.
+
 ## Open point for the founder: real Canvas exports
 
 The upload is tested only on synthetic fixtures with invented names and addresses, in the column
