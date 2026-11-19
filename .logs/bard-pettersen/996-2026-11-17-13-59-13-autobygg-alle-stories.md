@@ -977,3 +977,22 @@ Bygge Story 4.8 på `epic-4` og kontrollere den visuelt. Rette at to skjemaer ku
 
 ### Åpne punkter
 - Issue #91: beslutninger, telling av «Send N» og tekstpunkter. Disse tas i den samlede gjennomgangen.
+
+## Story 4.9: Dele klasse med medeiere og assistenter (2026-11-19)
+
+### Oppgave
+Bygge Story 4.9 på `epic-4`, sjekke alle klasseruter fra 4.2–4.8 mot rollene, og kontrollere visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, med en matrise av rolle × rute. Etterpå visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-9-share-class-co-owners-assistant-lecturers.md`. Commit `8488f0e`, visuell retting `8b56c85`. Migrering 0031.
+- Siden «Faglærere og assistenter» på `/klasser/{id}/faglaerere`, med «Legg til Faglærer», «Inviter Assistent», fjerning, avvisning av siste eier, invitasjonstypen `assistant` og et register for aksept. Assistentrollen regnes ut fra `class_staff`, og assistenten har bare lesetilgang.
+- Backend: 2250 grønne. Frontend: typecheck, Vitest (367), sjekker og bygg grønne. Playwright: 160/160 før gjennomgangen. Etterpå feilet to tester utenfor storyen like etter en omstart.
+- Gjennomgang: 38 funn, 10 rettet.
+- Visuell kontroll: 28 skjermbilder, én retting, fem tekstpunkter til den samlede gjennomgangen.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #92: beslutninger, visuelle punkter og ustabile e2e-tester.
