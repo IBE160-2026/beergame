@@ -134,6 +134,51 @@ test("a mailed Student Invitation registers the Student by phone and desktop, wh
   await lecturer.context().close();
 });
 
+test("Hjem shows the new Class at once when an account joins from a tab that already showed Hjem", async ({
+  page,
+  browser,
+}) => {
+  test.slow();
+  const tag = `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
+  const address = `student-cache-${tag}@stud.example.no`;
+  const lecturer = await freshLecturer(page, browser);
+  const first = `cache-${tag}`;
+  const [link] = await sendTo(lecturer, first, [address], [null]);
+
+  const context = await browser.newContext({ baseURL: test.info().project.use.baseURL });
+  const student = await context.newPage();
+  await student.goto(link);
+  await student.getByLabel(copy.name).fill("Sara Lund");
+  await student.getByLabel(copy.password).fill(PASSWORD);
+  const created = answerTo(student, "/api/auth/invitation/accept");
+  await student.getByRole("button", { name: copy.submit }).click();
+  expect((await created).status()).toBe(200);
+  await expect(student).toHaveURL(/\/hjem$/);
+  await expect(student.getByRole("heading", { level: 2 })).toHaveText([nb.classes.home.label(first, "IBE160")]);
+
+  // Hjem's Classes are now cached in this tab. A second Class invites the address; the tab moves to
+  // the link inside the app, so the cache survives, and joins there.
+  const second = `${first}-b`;
+  const before = await latestMail(lecturer, address);
+  const [link2] = await sendTo(lecturer, second, [address], [before]);
+  await student.evaluate(() => Object.assign(window, { __sameDocument: true }));
+  await student.evaluate((path) => (window as unknown as { next: { router: { push(p: string): void } } }).next.router.push(path), link2);
+  await expect(student.getByText(copy.student.existing.lead(nb.classes.home.label(second, "IBE160")))).toBeVisible();
+  await student.getByLabel(copy.existing.password).fill(PASSWORD);
+  const joined = answerTo(student, "/api/auth/invitation/accept-login");
+  await student.getByRole("button", { name: copy.student.existing.submit }).click();
+  expect((await joined).status()).toBe(200);
+  await expect(student).toHaveURL(/\/hjem$/);
+  await expect(student.getByRole("heading", { level: 2 })).toHaveText([
+    nb.classes.home.label(first, "IBE160"),
+    nb.classes.home.label(second, "IBE160"),
+  ]);
+  // No page load in between: the list came from a refetch, not a fresh document.
+  expect(await student.evaluate(() => (window as unknown as { __sameDocument?: boolean }).__sameDocument)).toBe(true);
+  await context.close();
+  await lecturer.context().close();
+});
+
 test("the demo Student's Hjem names the seeded demo Class", async ({ page }) => {
   await loginByApi(page, "student");
   await page.goto("/hjem");

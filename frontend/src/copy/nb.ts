@@ -287,7 +287,8 @@ export const nb = {
       student: {
         lead: (inviter: string | null, classLabel: string) =>
           inviter ? `Faglærer ${inviter} har lagt deg til i ${classLabel}.` : `Du er lagt til i ${classLabel}.`,
-        email: "E-post, fra Klasselista",
+        // EXPERIENCE.md's terms table and mockup 04 draw this label.
+        email: "E-post, fra klasselisten",
         startDate: START_DATE_LINE,
         existing: {
           lead: (classLabel: string) => `Adressen har allerede en konto. Logg inn, så blir du med i ${classLabel}.`,
