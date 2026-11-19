@@ -880,3 +880,24 @@ Bygge Story 4.3 på `epic-4`, rette to visuelle avvik fra 4.2 (Issue #85) og kon
 
 ### Åpne punkter
 - Issue #86: beslutninger og visuelle avvik.
+
+## Story 4.4: Sende invitasjoner til klasselista med gyldighet (2026-11-19)
+
+### Oppgave
+Bygge Story 4.4 på `epic-4`, rette tre tekstavvik fra 4.3 (Issue #86) og kontrollere siden visuelt. Før storyen ble e2e-jobben i CI gjort raskere.
+
+### Plan
+- CI: Playwright-nettleseren caches, og apt-pakkene installeres bare når cachen ikke treffer. Installasjonen hadde tatt 7 av rundt 10 minutter.
+- `bmad-build-auto` i én underagent, og så visuell kontroll i en egen underagent som også skulle legge til den utsatte testen.
+
+### Resultat
+- CI: første kjøring med cache tok 3,5 min, mot nesten 10 før.
+- Spec: `.docs/implementation-artifacts/spec-4-4-send-invitations-roster-validity-period.md`. Commit `1330577`, visuelle rettinger `4d2a319`. Migrering 0026.
+- Invitasjoner til studenter med gyldighet, merking av adresser som allerede står på lista, avvisning med 404 og 422, og antallet på klasselista på Lærerhjemmet og klassesiden. Issue #86 er rettet.
+- Backend: 2101 grønne på 72 s. Frontend: typecheck, Vitest (348), sjekker og bygg grønne. Playwright: 142 grønne, pluss ny test for avvist sending.
+- Visuell kontroll: 18 skjermbilder og to rettinger. Det utsatte funnet om test for avvist sending er lukket.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #87: beslutninger og visuelle avvik.
+- Issue #86 lukkes.
