@@ -29,9 +29,6 @@ const copy = nb.classes.registration;
 const LINK_BUTTON =
   "inline-flex min-h-tap-target-min min-w-tap-target-min cursor-pointer items-center text-label text-lager underline underline-offset-2 hover:decoration-2 active:text-ink";
 
-/** The width of the status bar's own scale; the SVG stretches it to the column. */
-const BAR_WIDTH = 1000;
-
 /** Who a reminder goes to: every address that has not registered, or one. */
 type Target = { kind: "all" } | { kind: "one"; item: Registration };
 
@@ -182,28 +179,25 @@ function Totals({
       count: data.totals.unregistered,
     },
   ] as const;
-  // The bar's parts on a 1000-wide scale, a 3-unit gap between neighbours (mockup 02).
-  const shown = parts.filter((p) => p.share > 0);
-  const gap = 3;
-  const room = BAR_WIDTH - gap * Math.max(0, shown.length - 1);
-  let x = 0;
-  const rects = shown.map((p) => {
-    const rect = { key: p.key, fill: p.fill, x, width: p.share * room };
-    x += rect.width + gap;
-    return rect;
-  });
   return (
     <div className="max-w-4xl">
-      <svg
-        aria-hidden="true"
-        viewBox={`0 0 ${BAR_WIDTH} 32`}
-        preserveAspectRatio="none"
-        className="block h-8 w-full"
-      >
-        {rects.map((r) => (
-          <rect key={r.key} x={r.x} y={0} width={r.width} height={32} fill={r.fill} />
-        ))}
-      </svg>
+      {/* The parts in proportion with a true 2 px gap between neighbours at every width (mockup
+          02); a part of zero is left out, so no gap stands for it. */}
+      <div aria-hidden="true" className="flex h-8 w-full gap-0.5">
+        {parts
+          .filter((p) => p.share > 0)
+          .map((p) => (
+            <svg
+              key={p.key}
+              viewBox="0 0 1 1"
+              preserveAspectRatio="none"
+              className="block h-full min-w-0.5 basis-0"
+              style={{ flexGrow: p.share }}
+            >
+              <rect width={1} height={1} fill={p.fill} />
+            </svg>
+          ))}
+      </div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-x-6 gap-y-1">
         <ul className="flex flex-wrap gap-x-6 gap-y-1">
           {parts.map((p) => (
