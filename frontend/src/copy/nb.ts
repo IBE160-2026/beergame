@@ -18,6 +18,18 @@
  *
  * Strings marked [ASSUMPTION] are drafts until the founder's copy review (Issue #31).
  */
+
+const COUNT_WORDS = ["null", "én", "to", "tre", "fire", "fem", "seks", "sju", "åtte", "ni", "ti", "elleve", "tolv"];
+
+/** A small count as a word in running text («unntatt fire»); 13 and up as a number. */
+function countWord(count: number): string {
+  return COUNT_WORDS[count] ?? String(count);
+}
+
+/** The Start-date line of «Du er invitert» and Hjem (Story 4.5). [ASSUMPTION] EXPERIENCE.md's draft:
+ * a Student sees game, Role and Seats from the Start date (founder decision 2026-11-12). */
+const START_DATE_LINE = "Du får Rolle og spill på startdatoen.";
+
 export const nb = {
   product: {
     name: "ØL-spillet",
@@ -212,6 +224,9 @@ export const nb = {
       // [ASSUMPTION] Story 3.6: the account the link belongs to.
       lead: (email: string) => `Velg et nytt passord for ${email}.`,
       password: "Nytt passord",
+      // [ASSUMPTION] Issue #91: a manually registered Student's account has no password yet.
+      firstLead: (email: string) => `Velg et passord for ${email}. Du bruker det til å logge inn.`,
+      firstPassword: "Passord",
       // [ASSUMPTION] Story 3.6: the shortest password is 8 characters.
       passwordRule: "Minst 8 tegn.",
       errors: {
@@ -266,8 +281,35 @@ export const nb = {
        * the link or an account exists. */
       invalid: "Lenken er utløpt eller brukt.",
       requestNew: "Be om ny Invitasjon",
-      requested: "Hvis lenken kom fra en Invitasjon, ser Admin nå at du ber om en ny. Den kommer på e-post.",
+      // Story 4.5: the same line for a role and a Student link, so it names whoever sent it.
+      requested: "Hvis lenken kom fra en Invitasjon, ser den som sendte den nå at du ber om en ny. Den kommer på e-post.",
       requestFailed: "Forespørselen ble ikke sendt. Prøv igjen.",
+      /** A Student Invitation (Story 4.5): the Class and its Lecturer, after mockup 04's
+       * «Faglærer Bård har lagt deg til i class-of-1994, IBE160.». `startDate` is EXPERIENCE.md's
+       * draft (founder decision 2026-11-12); the rest is [ASSUMPTION] Story 4.5. */
+      student: {
+        lead: (inviter: string | null, classLabel: string) =>
+          inviter ? `Faglærer ${inviter} har lagt deg til i ${classLabel}.` : `Du er lagt til i ${classLabel}.`,
+        // EXPERIENCE.md's terms table and mockup 04 draw this label.
+        email: "E-post, fra klasselisten",
+        startDate: START_DATE_LINE,
+        existing: {
+          lead: (classLabel: string) => `Adressen har allerede en konto. Logg inn, så blir du med i ${classLabel}.`,
+          submit: "Logg inn og bli med i Klassen",
+          failed: "Du ble ikke med i Klassen. Prøv igjen.",
+        },
+      },
+      /** An Assistant lecturer Invitation (Story 4.9, FR-10). [ASSUMPTION] Story 4.9. */
+      assistant: {
+        lead: (inviter: string | null, classLabel: string) =>
+          inviter
+            ? `Faglærer ${inviter} har invitert deg som Assistent i ${classLabel}. Du får tilgang bare til denne Klassen.`
+            : `Du er invitert som Assistent i ${classLabel}. Du får tilgang bare til denne Klassen.`,
+        existing: {
+          lead: (classLabel: string) => `Adressen har allerede en konto. Logg inn, så blir du Assistent i ${classLabel}.`,
+          submit: "Logg inn og bli Assistent",
+        },
+      },
     },
     session: {
       // [ASSUMPTION] Story 3.2.
@@ -281,6 +323,370 @@ export const nb = {
     adminArea: "Admin-område",
     lecturerHome: "Lærerhjem",
     home: "Hjem",
+    /** Hjem names each Class the Student is in, with the Start-date line (Story 4.5). */
+    startDate: START_DATE_LINE,
+    // [ASSUMPTION] Issue #93: Hjem with no Class (none yet, removed, or archived).
+    noClass: "Du er ikke med i noen Klasse nå. Når en Faglærer legger deg til, står Klassen her.",
+  },
+
+  /** The Lecturer's Classes (Epic 4). «Klassene dine», «Ny Klasse», «Lag Klasse», «Navn» and
+   * «Emnekode» are EXPERIENCE.md's and the mockups' own; the rest is [ASSUMPTION] Story 4.1. */
+  classes: {
+    home: {
+      title: "Klassene dine",
+      empty: "Du har ingen Klasser ennå. En Klasse samler studentene dine og spillene deres.",
+      newClass: "Ny Klasse",
+      /** A Class on the list: «class-of-1994, IBE160». */
+      label: (name: string, courseCode: string | null) => (courseCode ? `${name}, ${courseCode}` : name),
+      waiting: "Venter",
+      deadline: "Neste frist",
+      nothingWaiting: "Ingenting venter ennå.",
+      noDeadline: "Ingen frist ennå.",
+      /** The Roster count beside each Class (Story 4.4, UX-DR56). [ASSUMPTION] */
+      rosterCount: (count: number) =>
+        count === 0 ? "Ingen på Klasselista" : `${count} ${count === 1 ? "adresse" : "adresser"} på Klasselista`,
+    },
+    create: {
+      title: "Lag Klasse",
+      lead: "Du blir eier av Klassen. Studentene legger du til etterpå.",
+      name: "Navn",
+      institution: "Institusjon",
+      choose: "Velg Institusjon",
+      noInstitutions: "Ingen Institusjoner ennå. Be en Admin opprette en.",
+      courseCode: "Emnekode (valgfri)",
+      submit: "Lag Klasse",
+      failed: "Klassen ble ikke laget. Prøv igjen.",
+    },
+    errors: {
+      name_empty: "Skriv navnet på Klassen.",
+      name_too_long: "Navnet kan ha høyst 200 tegn.",
+      name_invalid: "Navnet kan ikke inneholde kontrolltegn.",
+      institution_missing: "Velg en Institusjon.",
+      institution_unknown: "Institusjonen finnes ikke lenger. Velg en annen.",
+      course_code_too_long: "Emnekoden kan ha høyst 50 tegn.",
+      course_code_invalid: "Emnekoden kan ikke inneholde kontrolltegn.",
+    },
+    page: {
+      /** The line under the Class's name: «IBE160 · Demohøgskolen». */
+      facts: (courseCode: string | null, institution: string | null) =>
+        [courseCode, institution].filter(Boolean).join(" · "),
+      /** The Lenke to the Class's staff, for its Faglærere (Story 4.9). */
+      staff: "Faglærere og assistenter",
+      /** Above the Roster an Assistant lecturer reads (Story 4.9). [ASSUMPTION] */
+      assistantLead: "Du er Assistent i Klassen. Du ser Klasselista, men Faglærerne endrer den.",
+    },
+    /** Archiving a Class (Story 4.10, FR-6, UX-DR56). [ASSUMPTION] draft copy: EXPERIENCE.md asks
+     * only that the button states the consequence and that archived Classes are marked in text. */
+    archive: {
+      open: "Arkiver Klassen",
+      title: "Arkiver Klassen",
+      // [ASSUMPTION] Issue #93: the panel's own title, not the opener's words again.
+      panelTitle: "Vil du arkivere Klassen?",
+      /** The consequence, above the button, before it is pressed. */
+      consequence:
+        "Klassen blir skrivebeskyttet: Klasselista, Invitasjonene og Faglærere og assistenter kan ikke endres etterpå. Invitasjoner som ikke er brukt, slutter å virke. Klassen beholdes til oppbevaringstiden er ute, og det kan ikke angres.",
+      submit: "Arkiver nå",
+      cancel: "Avbryt",
+      saving: "Arkiverer …",
+      failed: "Klassen ble ikke arkivert. Prøv igjen.",
+      /** The notice on an archived Class's page. */
+      notice: "Klassen er arkivert. Den kan ikke endres, og den beholdes til oppbevaringstiden er ute.",
+      /** Any action refused because the Class was archived meanwhile (`class_archived`). */
+      refused: "Klassen er arkivert og kan ikke endres.",
+      /** The Lærerhjem: archived Classes under their own heading, each marked in text. */
+      homeTitle: "Arkiverte Klasser",
+      marker: "Arkivert",
+      noActive: "Ingen aktive Klasser.",
+    },
+    /** «Faglærere og assistenter» (Story 4.9, FR-10, UX-DR56). The title, «Legg til Faglærer»,
+     * «Inviter Assistent» and «Assistenten får tilgang bare til denne Klassen.» are EXPERIENCE.md's
+     * own; the rest is [ASSUMPTION] draft copy. */
+    staff: {
+      title: "Faglærere og assistenter",
+      lecturers: "Faglærere",
+      assistants: "Assistenter",
+      lecturersLead: "Faglærerne eier Klassen sammen og har de samme rettighetene.",
+      noAssistants: "Ingen Assistenter ennå.",
+      addLecturer: "Legg til Faglærer",
+      addLecturerTitle: "Legg til en Faglærer",
+      addLecturerLead: "Personen må ha en konto med Faglærer-rollen. Klassen kommer på Lærerhjemmet deres.",
+      // [ASSUMPTION] Issue #92: not the opener's own words, which stand beside it.
+      addLecturerSubmit: "Legg til i Klassen",
+      inviteAssistant: "Inviter Assistent",
+      inviteAssistantTitle: "Inviter en Assistent",
+      assistantScope: "Assistenten får tilgang bare til denne Klassen.",
+      // [ASSUMPTION] Issue #92: the form's lead; the scope line already stands under «Assistenter».
+      inviteAssistantLead: "Personen får en e-post med en lenke som virker i 14 dager.",
+      inviteAssistantSubmit: "Send Invitasjon",
+      email: "E-post",
+      cancel: "Avbryt",
+      saving: "Lagrer …",
+      /** Each person's status, in text. */
+      active: "Aktiv",
+      invited: (lastDay: string) => `Invitert, gyldig til og med ${lastDay}`,
+      expired: "Invitasjonen er utløpt",
+      remove: "Fjern",
+      removeFor: (who: string) => `Fjern ${who}`,
+      removeTitle: (who: string) => `Fjern ${who} fra Klassen`,
+      // [ASSUMPTION] Issue #92: someone only invited is not in the Class yet.
+      withdrawTitle: (who: string) => `Trekk tilbake Invitasjonen til ${who}`,
+      /** The consequence, above the button, before it is pressed. */
+      removeLecturer: (who: string) => `${who} mister tilgangen til Klassen fra neste side de åpner. Kontoen beholdes.`,
+      removeSelf: "Du mister tilgangen til Klassen. De andre Faglærerne beholder den.",
+      removeAssistant: (who: string) => `${who} mister tilgangen til Klassen fra neste side de åpner. Kontoen beholdes.`,
+      withdraw: (who: string) => `Invitasjonen til ${who} slutter å virke.`,
+      withdrawExpired: (who: string) => `Den utløpte Invitasjonen til ${who} fjernes fra lista.`,
+      removeSubmit: "Fjern fra Klassen",
+      withdrawSubmit: "Trekk tilbake Invitasjonen",
+      /** The result lines. */
+      lecturerAdded: (who: string) => `${who} er Faglærer i Klassen.`,
+      assistantInvited: (address: string) => `Invitasjonen er sendt til ${address}.`,
+      removed: (who: string) => `${who} er fjernet fra Klassen.`,
+      withdrawn: (address: string) => `Invitasjonen til ${address} er trukket tilbake.`,
+      gone: "Personen står ikke lenger på lista.",
+      /** Beside a refused field, and the last-owner refusal. */
+      notLecturer: "Adressen tilhører ingen Faglærer. Be Admin gi personen Faglærer-rollen.",
+      alreadyStaff: "Personen er allerede med i Klassen.",
+      lastOwner: "Klassen må ha minst én Faglærer. Legg til en annen Faglærer først.",
+      failed: "Det ble ikke lagret. Prøv igjen.",
+      removeFailed: "Personen ble ikke fjernet. Prøv igjen.",
+      loadFailed: "Lista kunne ikke hentes.",
+    },
+    /** What became of the Invitations on the Class page (Story 4.6, FR-8, NFR-10). [ASSUMPTION]
+     * draft copy. */
+    invitations: {
+      title: "Invitasjoner",
+      /** The four counts, label over figure. */
+      sent: "Sendt",
+      bounced: "Kom ikke fram",
+      accepted: "Akseptert",
+      expired: "Utløpt",
+      bouncedTitle: "Kom ikke fram",
+      bouncedLead: "E-posten nådde ikke disse adressene.",
+      /** A bounced address's registration status, always in text (NFR-10). */
+      bounceStatus: (bounceClass: "hard" | "soft") =>
+        bounceClass === "hard" ? "Kom ikke fram, permanent feil" : "Kom ikke fram, midlertidig feil",
+      failed: "Tallene for Invitasjonene kunne ikke hentes.",
+    },
+    /** «Status etter utsending» on the Class page (Story 4.7, FR-9, NFR-10, UX-DR47). The title,
+     * «Registrert», «Manuelt», «Uregistrert» and «Send påminnelse til N» are EXPERIENCE.md's own;
+     * the rest is [ASSUMPTION] draft copy. */
+    registration: {
+      title: "Status etter utsending",
+      /** The totals, in text beside the bar's keys: «Registrert 238». */
+      registered: "Registrert",
+      manual: "Manuelt",
+      unregistered: "Uregistrert",
+      total: (label: string, count: number) => `${label} ${count}`,
+      remindAll: (count: number) => `Send påminnelse til ${count}`,
+      /** The confirm panel the link opens. */
+      confirmTitle: "Send påminnelse",
+      confirmLead: "Alle som ikke har registrert seg, får en ny Invitasjon. Den gamle lenken slutter å virke.",
+      confirmLeft: (count: number) =>
+        `${count} ${count === 1 ? "adresse" : "adresser"} med permanent feil får ingen påminnelse.`,
+      confirm: (count: number) => `Send ${count} ${count === 1 ? "påminnelse" : "påminnelser"}`,
+      cancel: "Avbryt",
+      sending: "Sender …",
+      /** The result line: «4 påminnelser sendt. Gyldige til og med 3. desember.» */
+      sent: (count: number, lastDay: string) =>
+        count === 0
+          ? "Ingen påminnelser sendt."
+          : `${count} ${count === 1 ? "påminnelse sendt. Gyldig" : "påminnelser sendt. Gyldige"} til og med ${lastDay}.`,
+      resent: (address: string, lastDay: string) => `Ny Invitasjon sendt til ${address}. Gyldig til og med ${lastDay}.`,
+      /** The hard-bounced addresses a reminder left out, named so they can be corrected. */
+      leftOut: "Ikke sendt, fordi e-posten ikke kom fram (permanent feil):",
+      sendFailed: "Påminnelsene ble ikke sendt. Prøv igjen.",
+      nothingToSend: "Ingen av adressene trenger en påminnelse nå.",
+      failed: "Statusen for Klasselista kunne ikke hentes.",
+      /** The list under the totals. */
+      listTitle: "Adresser",
+      filter: "Vis",
+      filterAll: "Alle statuser",
+      search: "Søk etter adresse",
+      shown: (shown: number, total: number) => `Viser ${shown} av ${total} adresser.`,
+      noMatch: "Ingen adresser passer til søket.",
+      resend: "Send ny Invitasjon",
+      resendFor: (address: string) => `Send ny Invitasjon til ${address}`,
+      // [ASSUMPTION] Issue #91: a row «Ikke invitert ennå» gets its first Invitation, never a «ny».
+      invite: "Send Invitasjon",
+      inviteFor: (address: string) => `Send Invitasjon til ${address}`,
+      invitedOne: (address: string, lastDay: string) => `Invitasjon sendt til ${address}. Gyldig til og med ${lastDay}.`,
+      /** Each status in text, never colour alone (FR-9, NFR-10). */
+      status: {
+        registered: "Registrert",
+        registered_manually: "Registrert manuelt",
+        renewal_requested: "Ba om ny Invitasjon",
+        bounced: "Kom ikke fram",
+        invited: "Invitert",
+        unregistered: "Uregistrert, Invitasjonen er utløpt",
+        // Story 4.8: added by hand, no Invitation sent yet. [ASSUMPTION]
+        not_invited: "Ikke invitert ennå",
+      },
+      invitedUntil: (lastDay: string) => `Invitert, gyldig til og med ${lastDay}`,
+    },
+    /** Manual registration and single addresses (Story 4.8, FR-7, FR-9, UX-DR47). «Registrer
+     * manuelt» is EXPERIENCE.md's own; the rest is [ASSUMPTION] draft copy. */
+    entries: {
+      add: "Legg til adresse",
+      addTitle: "Legg til én adresse",
+      addLead: "Adressen kommer på Klasselista uten Invitasjon. Den får sin første med neste påminnelse.",
+      addSubmit: "Legg til",
+      manual: "Registrer manuelt",
+      manualFor: (address: string) => `Registrer manuelt, ${address}`,
+      manualTitle: "Registrer en student manuelt",
+      manualLead:
+        "Studenten kommer inn i Klassen med en gang og får en e-post. Har adressen ingen konto, følger det med en lenke for å velge passord.",
+      email: "E-post",
+      name: "Navn",
+      nameHint: "Brukes bare når adressen ikke har konto fra før.",
+      manualSubmit: "Registrer studenten",
+      cancel: "Avbryt",
+      saving: "Lagrer …",
+      remove: "Fjern",
+      removeFor: (address: string) => `Fjern ${address}`,
+      removeTitle: (address: string) => `Fjern ${address} fra Klasselista`,
+      /** The consequence, above the button, before it is pressed. */
+      removeRegistered: (address: string) =>
+        `${address} mister tilgangen til Klassen. Kontoen og andre Klasser beholdes.`,
+      removeWaiting: (address: string) =>
+        `Invitasjonen til ${address} slutter å virke, og adressen får ingen påminnelser.`,
+      removeNotInvited: (address: string) => `${address} har ikke fått noen Invitasjon og får ingen påminnelser.`,
+      removeSubmit: "Fjern fra Klasselista",
+      /** The result lines. */
+      added: (address: string) => `${address} er lagt til. Ikke invitert ennå.`,
+      restored: (address: string) => `${address} står på Klasselista igjen.`,
+      registered: (address: string) => `${address} er registrert manuelt og får en e-post.`,
+      removed: (address: string) => `${address} er fjernet fra Klasselista.`,
+      /** Beside a refused field. */
+      alreadyRegistered: "Adressen er allerede registrert i Klassen.",
+      emailTooLong: "Adressen er for lang.",
+      nameEmpty: "Skriv navnet til studenten.",
+      nameTooLong: "Navnet kan ha høyst 200 tegn.",
+      failed: "Det ble ikke lagret. Prøv igjen.",
+      removeFailed: "Adressen ble ikke fjernet. Prøv igjen.",
+      gone: "Adressen står ikke lenger på Klasselista.",
+    },
+    /** The Roster upload on the Class page (Story 4.2, FR-7, UX-DR47). «Velg fil», «Lim inn
+     * adresser i stedet», «250 rader lest», «Bytt fil», «E-postkolonne», the reason and the
+     * unreadable line are EXPERIENCE.md's and DESIGN.md's own; the rest is [ASSUMPTION] Story 4.2. */
+    roster: {
+      title: "Klasseliste",
+      lead: "Klasselisten kommer fra Canvas-eksporten din. Ingenting sendes før du trykker send.",
+      fileLabel: "Canvas-eksport",
+      chooseFile: "Velg fil",
+      accepts: "Excel (.xlsx) eller CSV (.csv), slik Canvas eksporterer den.",
+      pasteInstead: "Lim inn adresser i stedet",
+      fileInstead: "Velg fil i stedet",
+      pasteLabel: "Adresser",
+      pasteHint: "Én adresse per linje, eller skilt med komma eller semikolon.",
+      reading: "Leser fila …",
+      rowsRead: (rows: number) => `${rows} ${rows === 1 ? "rad" : "rader"} lest`,
+      changeFile: "Bytt fil",
+      unreadable: "Filen kunne ikke leses. Bruk .xlsx eller .csv, eller lim inn adressene.",
+      uploadFailed: "Fila ble ikke lastet opp. Prøv igjen.",
+      changeFailed: "Fila ble ikke fjernet. Prøv igjen.",
+      columnFailed: "Kolonnen ble ikke byttet. Prøv igjen.",
+      emailColumn: "E-postkolonne",
+      chooseColumn: "Velg kolonne",
+      /** A column in the selector: «Kolonne C, E-post», or «Kolonne C» with no header. */
+      column: (letter: string, header: string) => (header ? `Kolonne ${letter}, ${header}` : `Kolonne ${letter}`),
+      /** Why the preselected column was chosen, «Valgt fordi alle rader unntatt fire er gyldige
+       * adresser.», counting the same rows as «Ugyldige rader: 4 av 250» (Issue #86): repeats and
+       * addresses already on the Klasseliste are not valid either. */
+      suggested: (valid: number, rows: number) =>
+        valid === rows
+          ? "Valgt fordi alle rader er gyldige adresser."
+          : valid * 2 >= rows
+            ? `Valgt fordi alle rader unntatt ${countWord(rows - valid)} er gyldige adresser.`
+            : `Valgt fordi ${valid} av ${rows} rader er gyldige adresser.`,
+      /** A column the Lecturer chose themself, evaluated again by the api; `matching` counts
+       * the cells that look like addresses at all. */
+      chosen: (matching: number, valid: number, rows: number) =>
+        matching === 0
+          ? "Ingen rader i denne kolonnen ser ut som adresser."
+          : `${valid} av ${rows} rader er gyldige adresser.`,
+      noEmailColumn:
+        "Ingen kolonne i fila ser ut som e-postadresser. Velg kolonnen selv, eller lim inn adressene i stedet.",
+      preview: "Forhåndsvisning av fila",
+      previewRow: "Rad",
+      previewNote: (shown: number, rows: number) => `De første ${shown} av ${rows} radene.`,
+      /** Read by screen readers after the chosen column's header in the preview; on screen the
+       * column's tint marks it (Issue #85). */
+      previewChosen: "valgt som e-postkolonne",
+      // Story 4.3 (FR-7, UX-DR47). [ASSUMPTION] draft copy except the heading, the reasons the
+      // UX spine names, «Registrer manuelt», the note and «Send N Invitasjoner».
+      invalidTitle: (invalid: number, rows: number) => `Ugyldige rader: ${invalid} av ${rows}`,
+      invalidRow: "Rad",
+      /** The value column of the invalid-row list names the chosen column (Issue #86). */
+      invalidValue: (header: string, letter: string) => header || `Kolonne ${letter}`,
+      invalidReason: "Hva er galt",
+      /** For pasted addresses, which have no file rows: their place in the text. */
+      invalidPlace: "Nr.",
+      invalidPasted: "Innlimt verdi",
+      invalidShown: (shown: number, invalid: number) => `Viser de første ${shown} av ${invalid} ugyldige radene.`,
+      /** Why a row gets no Invitation, always in text (NFR-6). */
+      reasons: {
+        empty: "Tom celle",
+        whitespace: "Mellomrom i adressen",
+        missing_at: "Mangler @",
+        two_at: "To @",
+        missing_name: "Mangler navn før @",
+        missing_domain: "Domene mangler",
+      },
+      duplicate: (firstRow: number) => `Dublett av rad ${firstRow}`,
+      /** Story 4.4 (FR-7). [ASSUMPTION] */
+      onRoster: "Står allerede på Klasselista",
+      registerManually: "Registrer manuelt",
+      invalidNote: "Ugyldige rader får ingen e-post før de er rettet.",
+      send: (valid: number) => `Send ${valid} ${valid === 1 ? "Invitasjon" : "Invitasjoner"}`,
+      noValid: "Ingen gyldige adresser å invitere.",
+      // [ASSUMPTION] Issue #91: a removed, registered Student sent again comes back with access and
+      // gets no Invitation, so «Send N» leaves them out and this line names them.
+      restoredNote: (count: number) =>
+        count === 1
+          ? "Én adresse tilhører en registrert student som var fjernet. Studenten får tilgang igjen uten ny Invitasjon."
+          : `${count} adresser tilhører registrerte studenter som var fjernet. De får tilgang igjen uten ny Invitasjon.`,
+      // [ASSUMPTION] Issue #91: the button when every valid row is such a Student.
+      restoreOnly: "Legg tilbake på Klasselista",
+      pasteContinue: "Fortsett",
+      pasted: "Innlimte adresser",
+      addressesRead: (count: number) => `${count} ${count === 1 ? "adresse" : "adresser"} lest`,
+      startOver: "Start på nytt",
+      pasteTooLong: "Teksten er for lang for én klasseliste. Lim inn færre adresser.",
+      pasteFailed: "Adressene ble ikke lest inn. Prøv igjen.",
+      // Story 4.4 (FR-8). [ASSUMPTION] draft copy except «Send N Invitasjoner».
+      /** Under the lead on the Class page once the Roster has addresses. */
+      onRosterCount: (count: number) => `${count} ${count === 1 ? "adresse står" : "adresser står"} på Klasselista.`,
+      validDays: "Gyldig i antall dager",
+      validDaysHint: (min: number, max: number) => `Mellom ${min} og ${max} dager.`,
+      validDaysError: (min: number, max: number) => `Velg et helt antall dager mellom ${min} og ${max}.`,
+      /** The result line after sending: «246 Invitasjoner sendt. Gyldige til og med 3. desember.» */
+      sent: (count: number, lastDay: string) =>
+        count === 0
+          ? // [ASSUMPTION] Issue #91: only registered Students were put back.
+            "Klasselista er oppdatert. Ingen nye Invitasjoner sendt."
+          : `${count} ${count === 1 ? "Invitasjon sendt. Gyldig" : "Invitasjoner sendt. Gyldige"} til og med ${lastDay}.`,
+      sending: "Sender …",
+      sendFailed: "Invitasjonene ble ikke sendt. Prøv igjen.",
+      sendGone: "Klasselista er endret siden du lastet den. Se over og send igjen.",
+      /** After a refused send whose staging has no valid row left; the refetched staging then
+       * shows «Ingen gyldige adresser å invitere.» under the button, so this line says why. */
+      nothingToSend: "Klasselista er endret siden du lastet den. Ingen av adressene kan inviteres nå.",
+      months: [
+        "januar",
+        "februar",
+        "mars",
+        "april",
+        "mai",
+        "juni",
+        "juli",
+        "august",
+        "september",
+        "oktober",
+        "november",
+        "desember",
+      ],
+    },
   },
 
   /** The Admin-område and its pages (FR-1–FR-3). «Brukere og roller» is EXPERIENCE.md's own. */

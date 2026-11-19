@@ -3,6 +3,7 @@
 import uuid
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 from pydantic_core import PydanticCustomError
@@ -11,6 +12,35 @@ from pydantic_core import PydanticCustomError
 class AccountRole(StrEnum):
     admin = "admin"
     lecturer = "lecturer"
+
+
+class InvitationKind(StrEnum):
+    """What an Invitation offers: an account role (Story 3.7), a place on a Class's Roster as a
+    Student (Story 4.4), or a place in one Class's staff as Assistant lecturer (Story 4.9)."""
+
+    role = "role"
+    student = "student"
+    assistant = "assistant"
+
+
+class SessionRole(StrEnum):
+    """The roles a session carries (`UserOut.roles`): the account roles, and `assistant` while the
+    User is Assistant lecturer of at least one Class (Story 4.9). `assistant` is read from the
+    Class staff on every request, never stored or granted by the Admin."""
+
+    admin = "admin"
+    lecturer = "lecturer"
+    assistant = "assistant"
+
+
+class RosterRegistration(StrEnum):
+    """Where a Roster address stands, as stored (Story 4.4). Bounces, expiry and requests for a
+    new Invitation are read from the Invitations, never stored here (Story 4.7)."""
+
+    invited = "invited"
+    registered = "registered"
+    # Written by Story 4.8's manual registration; read by Story 4.7's status list.
+    registered_manually = "registered_manually"
 
 
 class LoginIn(BaseModel):
@@ -40,6 +70,13 @@ class ResetEmailOut(BaseModel):
     """The address a reset link belongs to, so «Logg inn» can be prefilled."""
 
     email: str
+
+
+class ResetCheckOut(ResetEmailOut):
+    """A usable reset link: its address, and whether the account has no password yet (a manually
+    registered Student, Story 4.8), so «Nytt passord» words it as a first password."""
+
+    first_password: bool = False
 
 
 class InvitationIn(BaseModel):
@@ -76,12 +113,24 @@ class InvitationTokenIn(BaseModel):
 class InvitationCheckOut(BaseModel):
     """What «Du er invitert» shows for a usable link."""
 
+    kind: InvitationKind
+    """`role` (Story 3.8), `student`: a place on a Class's Roster (Story 4.5), or `assistant`: a
+    place in a Class's staff (Story 4.9)."""
     email: str
-    role: AccountRole
+    role: AccountRole | None
+    """The account role a `role` Invitation grants; null for a Student Invitation."""
     valid_days: int
-    """Whole days left, rounded up."""
+    """Whole days left: rounded up for a role Invitation; for a Student Invitation the days from
+    today to its last valid day in Europe/Oslo, at least 1."""
     has_account: bool
     """Whether the address already has an account: the page then asks for its password."""
+    class_name: str | None = None
+    """The Class a Student or Assistant Invitation adds the address to."""
+    course_code: str | None = None
+    """The course code of that Class, when it has one."""
+    invited_by: str | None = None
+    """The name of the Lecturer who sent a Student or Assistant Invitation, while that User
+    exists."""
 
 
 class AcceptInvitationIn(BaseModel):
@@ -114,7 +163,7 @@ class UserOut(BaseModel):
     id: uuid.UUID
     name: str
     email: str
-    roles: list[AccountRole]
+    roles: list[SessionRole]
 
 
 class SessionOut(BaseModel):
@@ -243,19 +292,47 @@ def normalise_email(email: str) -> str:
     return email.strip().lower()
 
 
-def email_is_valid(email: str) -> bool:
-    """The web app's check of an address (`validate-login.ts`), on the normalised value: no
-    whitespace or control character (Postgres refuses NUL), exactly one `@`, a name before it
-    and a domain of two or more labels after it."""
-    if (
-        not email
-        or any(ch.isspace() or not ch.isprintable() for ch in email)
-        or email.count("@") != 1
-    ):
-        return False
+class AddressProblem(StrEnum):
+    """Why a value is not an address (Story 4.3, FR-7). The web app words each one."""
+
+    empty = "empty"
+    whitespace = "whitespace"
+    """A space or control character inside it."""
+    missing_at = "missing_at"
+    two_at = "two_at"
+    """More than one `@`."""
+    missing_name = "missing_name"
+    """Nothing before the `@`."""
+    missing_domain = "missing_domain"
+    """The part after the `@` is not two or more non-empty labels."""
+
+
+def address_problem(email: str) -> AddressProblem | None:
+    """The one check of an address, on the normalised value: what is wrong with it, or None when
+    nothing is. It is the web app's check (`validate-login.ts`): no whitespace or control
+    character (Postgres refuses NUL), exactly one `@`, a name before it and a domain of two or
+    more labels after it. The Roster upload, paste and single-address add all use it."""
+    if not email:
+        return AddressProblem.empty
+    if any(ch.isspace() or not ch.isprintable() for ch in email):
+        return AddressProblem.whitespace
+    ats = email.count("@")
+    if ats == 0:
+        return AddressProblem.missing_at
+    if ats > 1:
+        return AddressProblem.two_at
     local, domain = email.split("@")
+    if not local:
+        return AddressProblem.missing_name
     labels = domain.split(".")
-    return bool(local) and len(labels) >= 2 and all(labels)
+    if len(labels) < 2 or not all(labels):
+        return AddressProblem.missing_domain
+    return None
+
+
+def email_is_valid(email: str) -> bool:
+    """Whether `address_problem` finds nothing wrong with the normalised address."""
+    return address_problem(email) is None
 
 
 ACCESS_REQUEST_PAGE_DEFAULT = 50
@@ -314,3 +391,98 @@ class AccessRequestListOut(BaseModel):
 
     items: list[AccessRequestOut]
     next_cursor: str | None
+
+
+# Staged Roster uploads (Story 4.2, FR-7, AD-14).
+
+ROSTER_PREVIEW_ROWS = 5
+"""How many data rows the page shows under «Forhåndsvisning av fila»."""
+
+
+class RosterColumn(BaseModel):
+    index: int
+    """0-based."""
+    letter: str
+    """As a spreadsheet names it: A, B, …, AA."""
+    header: str
+    """The header cell; "" when the file has no header row or the cell is empty."""
+
+
+class RosterPreviewRow(BaseModel):
+    row_number: int
+    """The row's number in the file."""
+    cells: list[str]
+
+
+class RosterSource(StrEnum):
+    file = "file"
+    paste = "paste"
+
+
+class RosterInvalidRow(BaseModel):
+    """A staged row that gets no Invitation, and why (Story 4.3)."""
+
+    row_number: int
+    """The row's number in the file, or the address's place in the pasted text."""
+    value: str
+    """The cell in the chosen column, as staged."""
+    reason: AddressProblem | Literal["duplicate", "on_roster"]
+    """`on_roster`: the address is already on the Class's Roster (Story 4.4)."""
+    first_row: int | None = None
+    """For `duplicate`: the row where the address first occurs."""
+
+
+class RosterUploadOut(BaseModel):
+    """A staged Roster upload as the Class page shows it."""
+
+    id: uuid.UUID
+    """Sent back with «Send N Invitasjoner», so a replaced staging is never sent (Story 4.4)."""
+    source: RosterSource
+    file_name: str
+    """"" for pasted addresses."""
+    row_count: int
+    """Data rows read, without the header row and empty rows."""
+    has_header: bool
+    columns: list[RosterColumn]
+    suggested_column: int | None
+    """The column with the most cells that look like addresses; None when none does."""
+    suggested_count: int
+    """How many rows look like addresses in the suggested column (0 with none)."""
+    chosen_column: int | None
+    chosen_count: int
+    """How many rows look like addresses in the chosen column, evaluated from the staged cells."""
+    valid_count: int
+    """Rows of the chosen column that go on the Roster: valid, not a repeat of an earlier row
+    and not already on the Roster (0 with no column chosen)."""
+    restored_count: int = 0
+    """Of `valid_count`, the rows whose address is a removed, registered Student of the Class: the
+    send puts them back with access and no Invitation (Stories 4.4, 4.8), so «Send N
+    Invitasjoner» counts `valid_count - restored_count`."""
+    invalid_rows: list[RosterInvalidRow]
+    """Every other row of the chosen column, by row number ([] with no column chosen)."""
+    preview: list[RosterPreviewRow]
+
+
+class RosterStagingOut(BaseModel):
+    upload: RosterUploadOut | None
+
+
+class RosterColumnIn(BaseModel):
+    column: int = Field(ge=0, le=10_000)
+
+
+ROSTER_PASTE_MAX_CHARS = 50 * 1024 * 1024
+"""The schema's own outer cap on pasted text, the highest `ROSTER_MAX_FILE_MB` allows; the
+service holds the text to the configured size and answers `roster_paste_too_long`."""
+
+
+class RosterPasteIn(BaseModel):
+    text: str = Field(max_length=ROSTER_PASTE_MAX_CHARS)
+
+
+class RosterPasteTooLong(Exception):
+    """Pasted text over the size cap, or with more addresses than `ROSTER_MAX_ROWS`."""
+
+
+class InvalidRosterColumn(Exception):
+    """The chosen column is not one of the staged upload's (`column_unknown`)."""

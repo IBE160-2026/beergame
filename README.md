@@ -90,6 +90,7 @@ With `APP_ENV=local` (the compose default), the backend seeds four demo accounts
 | Faglærer (Lecturer) | `faglaerer@example.com` | `olspillet-demo` | Lærerhjem (`/laererhjem`) |
 | Admin and Faglærer | `admin-faglaerer@example.com` | `olspillet-demo` | Lærerhjem, with a link to the Admin-område |
 | No account role (Student) | `student@example.com` | `olspillet-demo` | Hjem (`/hjem`) |
+| Assistent (Assistant lecturer of «class-of-1994», no account role) | `assistent@example.com` | `olspillet-demo` | Lærerhjem, the demo Class read-only |
 
 Log in at <http://127.0.0.1:8080/logg-inn>. An existing User is never changed by the seed, and a deleted demo account comes back at the next start. To start over, empty the tables with `docker compose exec postgres psql -U olspillet -c "TRUNCATE users CASCADE"`, then restart `backend`.
 

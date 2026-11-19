@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import psycopg
+import pytest
 from alembic import command
 from alembic.config import Config
 
@@ -44,6 +45,10 @@ INSTITUTION_TABLES = {"institutions"}
 """The table of revision 0021 (Story 3.11)."""
 ACCESS_REQUEST_TABLES = {"access_requests"}
 """The table of revision 0022 (Story 3.13)."""
+CLASS_TABLES = {"classes", "class_staff"}
+"""The tables of revision 0023 (Story 4.1)."""
+ROSTER_TABLES = {"roster_uploads", "roster_upload_rows", "roster_entries"}
+"""The tables of revisions 0024 (Story 4.2) and 0026 (Story 4.4)."""
 HEAD_TABLES = (
     AI_HEAD_TABLES
     | JOB_TABLES
@@ -55,8 +60,10 @@ HEAD_TABLES = (
     | INVITATION_TABLES
     | INSTITUTION_TABLES
     | ACCESS_REQUEST_TABLES
+    | CLASS_TABLES
+    | ROSTER_TABLES
 )
-HEAD = "0022"  # 0022 adds `access_requests` (Story 3.13)
+HEAD = "0031"  # 0031 adds Assistant lecturers and their Invitations (Story 4.9)
 
 
 def reset_schema(url: str) -> None:
@@ -268,6 +275,8 @@ def test_downgrade_to_0012_removes_the_simulation_batches(migrations_database):
         - INVITATION_TABLES
         - INSTITUTION_TABLES
         - ACCESS_REQUEST_TABLES
+        - CLASS_TABLES
+        - ROSTER_TABLES
     )
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         columns = conn.execute(
@@ -297,6 +306,8 @@ def test_downgrade_to_0013_removes_the_effort_measurements_and_pins(migrations_d
         - INVITATION_TABLES
         - INSTITUTION_TABLES
         - ACCESS_REQUEST_TABLES
+        - CLASS_TABLES
+        - ROSTER_TABLES
     )
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         functions = conn.execute(
@@ -320,6 +331,8 @@ def test_downgrade_to_0014_removes_the_identity_and_rate_limit_tables(migrations
         - INVITATION_TABLES
         - INSTITUTION_TABLES
         - ACCESS_REQUEST_TABLES
+        - CLASS_TABLES
+        - ROSTER_TABLES
     )
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
@@ -337,6 +350,8 @@ def test_downgrade_to_0015_removes_the_notice_and_delivery_tables(migrations_dat
         - INVITATION_TABLES
         - INSTITUTION_TABLES
         - ACCESS_REQUEST_TABLES
+        - CLASS_TABLES
+        - ROSTER_TABLES
     )
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
@@ -348,7 +363,13 @@ def test_downgrade_to_0016_removes_the_reset_table_and_the_stale_reason(migratio
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0016")
     assert tables(migrations_database) == (
-        HEAD_TABLES - RESET_TABLES - INVITATION_TABLES - INSTITUTION_TABLES - ACCESS_REQUEST_TABLES
+        HEAD_TABLES
+        - RESET_TABLES
+        - INVITATION_TABLES
+        - INSTITUTION_TABLES
+        - ACCESS_REQUEST_TABLES
+        - CLASS_TABLES
+        - ROSTER_TABLES
     )
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         check = conn.execute(
@@ -367,7 +388,12 @@ def test_downgrade_to_0017_removes_the_invitation_and_audit_tables(migrations_da
     command.downgrade(cfg, "0017")
     assert (
         tables(migrations_database)
-        == HEAD_TABLES - INVITATION_TABLES - INSTITUTION_TABLES - ACCESS_REQUEST_TABLES
+        == HEAD_TABLES
+        - INVITATION_TABLES
+        - INSTITUTION_TABLES
+        - ACCESS_REQUEST_TABLES
+        - CLASS_TABLES
+        - ROSTER_TABLES
     )
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         functions = conn.execute(
@@ -398,7 +424,10 @@ def test_downgrade_to_0020_removes_the_institutions(migrations_database):
     cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0020")
-    assert tables(migrations_database) == HEAD_TABLES - INSTITUTION_TABLES - ACCESS_REQUEST_TABLES
+    assert (
+        tables(migrations_database)
+        == HEAD_TABLES - INSTITUTION_TABLES - ACCESS_REQUEST_TABLES - CLASS_TABLES - ROSTER_TABLES
+    )
     assert current_version(migrations_database) == "0020"
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
@@ -409,8 +438,181 @@ def test_downgrade_to_0021_removes_the_access_requests(migrations_database):
     cfg = config(migrations_database)
     command.upgrade(cfg, "head")
     command.downgrade(cfg, "0021")
-    assert tables(migrations_database) == HEAD_TABLES - ACCESS_REQUEST_TABLES
+    assert (
+        tables(migrations_database)
+        == HEAD_TABLES - ACCESS_REQUEST_TABLES - CLASS_TABLES - ROSTER_TABLES
+    )
     assert current_version(migrations_database) == "0021"
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_downgrade_to_0022_removes_the_classes(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0022")
+    assert tables(migrations_database) == HEAD_TABLES - CLASS_TABLES - ROSTER_TABLES
+    assert current_version(migrations_database) == "0022"
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_downgrade_to_0023_removes_the_roster_uploads(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0023")
+    assert tables(migrations_database) == HEAD_TABLES - ROSTER_TABLES
+    assert current_version(migrations_database) == "0023"
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_downgrade_to_0025_removes_the_roster_and_keeps_role_invitations(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    with psycopg.connect(libpq_dsn(migrations_database), autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO invitations (id, email, role, token_hash, created_at, expires_at) "
+            "VALUES (gen_random_uuid(), 'a@x.no', 'lecturer', 'h', now(), now())"
+        )
+        # A sent Student Invitation, with its Class and Roster entry (Story 4.4).
+        conn.execute(
+            "INSERT INTO institutions (id, name, created_at, updated_at) "
+            "VALUES ('00000000-0000-0000-0000-000000000001', 'USN', now(), now())"
+        )
+        conn.execute(
+            "INSERT INTO classes (id, name, institution_id, created_at) VALUES "
+            "('00000000-0000-0000-0000-000000000002', 'k', "
+            "'00000000-0000-0000-0000-000000000001', now())"
+        )
+        conn.execute(
+            "INSERT INTO roster_entries (id, class_id, email, registration, added_at) VALUES "
+            "('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000002', "
+            "'s@x.no', 'invited', now())"
+        )
+        conn.execute(
+            "INSERT INTO invitations (id, email, kind, class_id, roster_entry_id, token_hash, "
+            "created_at, expires_at) VALUES (gen_random_uuid(), 's@x.no', 'student', "
+            "'00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003', "
+            "'h2', now(), now())"
+        )
+    command.downgrade(cfg, "0025")
+    assert tables(migrations_database) == HEAD_TABLES - {"roster_entries"}
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        assert conn.execute("SELECT email, role FROM invitations").fetchall() == [
+            ("a@x.no", "lecturer")
+        ]
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_downgrade_to_0027_removes_the_delivery_event_columns(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0027")
+
+    def columns() -> set[str]:
+        with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+            return {
+                row[0]
+                for row in conn.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = 'mail_deliveries'"
+                ).fetchall()
+            }
+
+    assert not {"delivery_state", "bounce_class", "last_event_id"} & columns()
+    command.upgrade(cfg, "head")
+    assert {"delivery_state", "bounce_class", "last_event_id"} <= columns()
+    assert current_version(migrations_database) == HEAD
+
+
+def test_0029_allows_manual_registration_and_its_downgrade_keeps_the_entry(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    with psycopg.connect(libpq_dsn(migrations_database), autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO institutions (id, name, created_at, updated_at) VALUES "
+            "('00000000-0000-0000-0000-000000000009', 'I', now(), now())"
+        )
+        conn.execute(
+            "INSERT INTO classes (id, name, institution_id, created_at) VALUES "
+            "('00000000-0000-0000-0000-000000000002', 'K', "
+            "'00000000-0000-0000-0000-000000000009', now())"
+        )
+        conn.execute(
+            "INSERT INTO roster_entries (id, class_id, email, registration, added_at) VALUES "
+            "(gen_random_uuid(), '00000000-0000-0000-0000-000000000002', 'm@x.no', "
+            "'registered_manually', now())"
+        )
+    command.downgrade(cfg, "0028")
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        assert conn.execute("SELECT registration FROM roster_entries").fetchall() == [
+            ("registered",)
+        ]
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_0030_allows_a_user_without_password_and_its_downgrade_locks_it(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    with psycopg.connect(libpq_dsn(migrations_database), autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO users (id, email, name, password_hash) VALUES "
+            "(gen_random_uuid(), 'm@x.no', 'M', NULL)"
+        )
+    command.downgrade(cfg, "0029")
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        assert conn.execute("SELECT password_hash FROM users").fetchall() == [("!",)]
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_0031_admits_assistants_and_its_downgrade_removes_them(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    with psycopg.connect(libpq_dsn(migrations_database), autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO users (id, email, name, password_hash) VALUES "
+            "('00000000-0000-0000-0000-000000000001', 'a@x.no', 'A', NULL)"
+        )
+        conn.execute(
+            "INSERT INTO institutions (id, name, created_at, updated_at) VALUES "
+            "('00000000-0000-0000-0000-000000000002', 'I', now(), now())"
+        )
+        conn.execute(
+            "INSERT INTO classes (id, name, institution_id, created_at) VALUES "
+            "('00000000-0000-0000-0000-000000000003', 'K', "
+            "'00000000-0000-0000-0000-000000000002', now())"
+        )
+        conn.execute(
+            "INSERT INTO class_staff (class_id, user_id, role, added_at) VALUES "
+            "('00000000-0000-0000-0000-000000000003', "
+            "'00000000-0000-0000-0000-000000000001', 'assistant', now())"
+        )
+        conn.execute(
+            "INSERT INTO invitations (id, email, token_hash, created_at, expires_at, kind, "
+            "class_id) VALUES (gen_random_uuid(), 'b@x.no', 'h', now(), now(), 'assistant', "
+            "'00000000-0000-0000-0000-000000000003')"
+        )
+        with pytest.raises(psycopg.errors.UniqueViolation):
+            conn.execute(
+                "INSERT INTO invitations (id, email, token_hash, created_at, expires_at, kind, "
+                "class_id) VALUES (gen_random_uuid(), 'b@x.no', 'h2', now(), now(), "
+                "'assistant', '00000000-0000-0000-0000-000000000003')"
+            )
+    command.downgrade(cfg, "0030")
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        assert conn.execute("SELECT count(*) FROM class_staff").fetchone() == (0,)
+        assert conn.execute("SELECT count(*) FROM invitations").fetchone() == (0,)
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 
@@ -460,8 +662,14 @@ def test_the_check_constraints_list_exactly_the_enum_values(migrations_database)
 
     from app.ai import budget as ai_budget
     from app.ai import models as ai_models
+    from app.modules.classes.schemas import StaffRole
     from app.modules.games import schemas
-    from app.modules.identity.schemas import AccountRole
+    from app.modules.identity.schemas import (
+        AccountRole,
+        InvitationKind,
+        RosterRegistration,
+        RosterSource,
+    )
     from app.modules.messaging import models as mail_models
 
     ai_checks = {
@@ -470,8 +678,14 @@ def test_the_check_constraints_list_exactly_the_enum_values(migrations_database)
         "ck_llm_call_scope_kind": set(get_args(ai_budget.ScopeKind)),
         "ck_user_roles_role": {role.value for role in AccountRole},
         "ck_invitations_role": {role.value for role in AccountRole},
+        "ck_class_staff_role": {role.value for role in StaffRole},
+        "ck_roster_uploads_source": {source.value for source in RosterSource},
+        "ck_invitations_kind": {kind.value for kind in InvitationKind},
+        "ck_roster_entries_registration": {r.value for r in RosterRegistration},
         "ck_mail_deliveries_mode": set(mail_models.MODES),
         "ck_mail_deliveries_skipped_reason": set(mail_models.SKIP_REASONS),
+        "ck_mail_deliveries_delivery_state": set(mail_models.DELIVERY_STATES),
+        "ck_mail_deliveries_bounce_class": set(mail_models.BOUNCE_CLASSES),
     }
     reset_schema(migrations_database)
     command.upgrade(config(migrations_database), "head")

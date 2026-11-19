@@ -10,31 +10,53 @@ import asyncio
 import base64
 import math
 import uuid
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Set
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 import structlog
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.identity import repo
+from app.modules.identity import repo, roster_file
 from app.modules.identity.schemas import (
+    ROSTER_PREVIEW_ROWS,
     AccessRequestListOut,
     AccessRequestOut,
     AccountRole,
     InstitutionListOut,
     InstitutionOut,
+    InvalidRosterColumn,
+    InvitationKind,
     InvitationListItem,
     InvitationListOut,
     InvitationOut,
     InvitationStatus,
+    RosterColumn,
+    RosterInvalidRow,
+    RosterPasteTooLong,
+    RosterPreviewRow,
+    RosterRegistration,
+    RosterSource,
+    RosterUploadOut,
+    SessionRole,
     UserListItem,
     UserListOut,
     UserOut,
+    address_problem,
     email_is_valid,
     institution_name,
     normalise_email,
+)
+from app.modules.identity.schemas import (
+    RosterColumnIn as RosterColumnIn,  # re-exported for `classes.routes`
+)
+from app.modules.identity.schemas import (
+    RosterPasteIn as RosterPasteIn,  # re-exported for `classes.routes`
+)
+from app.modules.identity.schemas import (
+    RosterStagingOut as RosterStagingOut,  # re-exported for `classes.routes`
 )
 from app.platform import audit, auth, email, events, notify, ratelimit
 from app.platform.config import get_settings
@@ -78,8 +100,27 @@ def _user_out(row, roles: list[str]) -> UserOut:
         id=row["id"],
         name=row["name"],
         email=row["email"],
-        roles=[AccountRole(role) for role in roles],
+        roles=[SessionRole(role) for role in roles],
     )
+
+
+SessionRoleProvider = Callable[[AsyncSession, uuid.UUID], Awaitable[Set[str]]]
+"""Asked whenever a session's roles are read: the roles the User holds through what another
+module owns. `classes` registers the one that reads Class staff (`assistant`, Story 4.9)."""
+_SESSION_ROLE_PROVIDERS: list[SessionRoleProvider] = []
+
+
+def register_session_roles(provider: SessionRoleProvider) -> None:
+    """Called at import by the module that owns what makes a User hold a session role."""
+    _SESSION_ROLE_PROVIDERS.append(provider)
+
+
+async def _session_roles(s: AsyncSession, user_id: uuid.UUID) -> list[str]:
+    """The User's account roles and the roles the registered providers add, sorted."""
+    roles = set(await repo.roles_of(s, user_id))
+    for provider in _SESSION_ROLE_PROVIDERS:
+        roles |= {SessionRole(role).value for role in await provider(s, user_id)}
+    return sorted(roles)
 
 
 async def authenticate(
@@ -101,16 +142,18 @@ async def authenticate(
             or account_count > settings.login_rate_limit_per_account
         )
         row = None if limited else await repo.user_by_email(s, email)
-        roles = await repo.roles_of(s, row["id"]) if row else []
+        roles = await _session_roles(s, row["id"]) if row else []
     if limited:
         log.info("login_refused", error_code="rate_limited")
         return LoginRefused("rate_limited", ratelimit.seconds_left(now, window))
 
     # bcrypt is CPU work: off the event loop, and outside any transaction. An unknown e-mail
-    # checks a dummy hash, so it takes as long as a wrong password.
-    stored = row["password_hash"] if row else await asyncio.to_thread(auth.dummy_hash)
+    # checks a dummy hash, so it takes as long as a wrong password; so does an account that has no
+    # password yet (a manually registered Student, Story 4.8), which never logs in.
+    has_password = row is not None and row["password_hash"] is not None
+    stored = row["password_hash"] if has_password else await asyncio.to_thread(auth.dummy_hash)
     matches = await asyncio.to_thread(auth.verify_password, password, stored)
-    ok = row is not None and matches
+    ok = has_password and matches
 
     if ok and row["is_active"]:
         # The same lock order as the count above (IP, then account): parallel logins to one
@@ -138,7 +181,7 @@ async def load_user(user_id: uuid.UUID, session_version: int) -> UserOut | None:
         row = await repo.user_by_id(s, user_id)
         if row is None or not row["is_active"] or row["session_version"] != session_version:
             return None
-        return _user_out(row, await repo.roles_of(s, user_id))
+        return _user_out(row, await _session_roles(s, user_id))
 
 
 async def create_user(
@@ -240,13 +283,22 @@ async def request_password_reset(address: str, *, ip: str, now: datetime) -> int
     return None
 
 
-async def check_password_reset(token: str, *, now: datetime) -> str | None:
-    """The e-mail a usable reset link belongs to, or None for an unknown, used, voided or
-    expired link, or one whose User is deactivated."""
+@dataclass(frozen=True)
+class ResetChecked:
+    email: str
+    first_password: bool
+    """The User has no password yet (a manual registration, Story 4.8)."""
+
+
+async def check_password_reset(token: str, *, now: datetime) -> ResetChecked | None:
+    """The e-mail a usable reset link belongs to, and whether its User has no password yet; or
+    None for an unknown, used, voided or expired link, or one whose User is deactivated."""
     async with get_sessionmaker().begin() as s:
         reset = await repo.password_reset_by_hash(s, auth.token_hash(token))
         user = await repo.user_by_id(s, reset["user_id"]) if reset else None
-        return user["email"] if _usable(reset, user, now) else None
+        if not _usable(reset, user, now):
+            return None
+        return ResetChecked(user["email"], user["password_hash"] is None)
 
 
 async def confirm_password_reset(token: str, password: str, *, now: datetime) -> str | None:
@@ -447,15 +499,18 @@ async def invitation_mail_recipient(
     row = await repo.invitation_by_id(session, ref)
     if not _invitation_open(row, now):
         return None
-    return email.Recipient(
-        email=row["email"],
-        name=None,
-        context={
-            "link": f"{INVITATION_LINK_PATH}#{auth.link_token(INVITATION, ref)}",
-            "role": row["role"],
-            "valid_days": _days_left(row["expires_at"], now),
-        },
-    )
+    context: dict[str, object] = {
+        "kind": row["kind"],
+        "link": f"{INVITATION_LINK_PATH}#{auth.link_token(INVITATION, ref)}",
+        "role": row["role"],
+        "valid_days": _days_left(row["expires_at"], now),
+    }
+    if row["kind"] in CLASS_KINDS:
+        name = await _class_name(session, row["class_id"])
+        if name is None:
+            return None
+        context |= {"class_name": name, "last_valid_day": last_valid_day(row["expires_at"])}
+    return email.Recipient(email=row["email"], name=None, context=context)
 
 
 async def invitation_ids_for_email(session: AsyncSession, address: str) -> list[uuid.UUID]:
@@ -482,10 +537,13 @@ RENEWAL_INVITATION = "invitation_renewal_invitation"
 @dataclass(frozen=True)
 class InvitationChecked:
     id: uuid.UUID
+    kind: InvitationKind
     email: str
-    role: AccountRole
+    role: AccountRole | None
     valid_days: int
     has_account: bool
+    class_label: ClassLabel | None = None
+    invited_by: str | None = None
 
 
 @dataclass(frozen=True)
@@ -495,17 +553,76 @@ class AcceptRefused:
     retry_after: int | None = None
 
 
+CLASS_KINDS = frozenset({InvitationKind.student.value, InvitationKind.assistant.value})
+"""The Invitation kinds that offer a place in a Class, valid to a last day in Europe/Oslo."""
+
+
+@dataclass(frozen=True)
+class AcceptedPlace:
+    """What an acceptance handler is told: whose Invitation to which Class was accepted."""
+
+    invitation_id: uuid.UUID
+    class_id: uuid.UUID
+    user_id: uuid.UUID
+    invited_by: uuid.UUID | None
+
+
+AcceptanceHandler = Callable[[AsyncSession, AcceptedPlace, datetime], Awaitable[None]]
+"""Called inside the acceptance transaction, after the Invitation is marked accepted: it gives the
+User what the Invitation offers. Raising rolls the acceptance back."""
+_ACCEPTANCE_HANDLERS: dict[str, AcceptanceHandler] = {}
+
+
+def register_acceptance_handler(kind: InvitationKind, handler: AcceptanceHandler) -> None:
+    """Called at import by the module that owns what an Invitation of `kind` offers (Story 4.9:
+    `classes` for `assistant`), as the revoke blockers are registered. `identity` imports none of
+    it."""
+    _ACCEPTANCE_HANDLERS[InvitationKind(kind).value] = handler
+
+
+def _accepted_kinds() -> frozenset[str]:
+    """The Invitation kinds «Du er invitert» takes: account roles (3.8), Student places (4.5) and
+    every kind a handler is registered for (4.9)."""
+    return frozenset({InvitationKind.role.value, InvitationKind.student.value}) | frozenset(
+        _ACCEPTANCE_HANDLERS
+    )
+
+
+async def _hand_over(s: AsyncSession, row: RowMapping, user_id: uuid.UUID, now: datetime) -> None:
+    """Inside the acceptance transaction: the registered handler of the Invitation's kind."""
+    await _ACCEPTANCE_HANDLERS[row["kind"]](
+        s, AcceptedPlace(row["id"], row["class_id"], user_id, row["invited_by"]), now
+    )
+
+
 async def _usable_invitation(
     session: AsyncSession, row, now: datetime
-) -> tuple[RowMapping, RowMapping | None] | None:
-    """The open Invitation and the User its address has (or None), or None when the link is not
-    usable: not open, or its address belongs to a deactivated User."""
-    if not _invitation_open(row, now):
+) -> tuple[RowMapping, RowMapping | None, ClassLabel | None] | None:
+    """The open Invitation, the User its address has (or None) and, for a Class Invitation
+    (Student or Assistant), its Class; or None when the link is not usable: not open, of a kind not
+    taken here, its address belongs to a deactivated User, its Class is gone or archived (Story
+    4.10), or (Student) its Roster entry was removed."""
+    if not _invitation_open(row, now) or row["kind"] not in _accepted_kinds():
         return None
     user = await repo.user_by_email(session, row["email"])
     if user is not None and not user["is_active"]:
         return None
-    return row, user
+    label = None
+    if row["kind"] == InvitationKind.student:
+        entry = await repo.roster_entry_by_id(session, row["roster_entry_id"])
+        if entry is None or entry["removed_at"] is not None:
+            return None
+    if row["kind"] in CLASS_KINDS:
+        label = await _class_label(session, row["class_id"])
+        if label is None or label.archived:
+            return None
+    return row, user, label
+
+
+def _student_days_left(expires_at: datetime, now: datetime) -> int:
+    """The days from today to a Student link's last valid day, in Europe/Oslo: a sending valid
+    for 14 days reads «14 dager» on the day it is sent, and the last day reads «én dag»."""
+    return max(1, (last_valid_day(expires_at) - now.astimezone(OSLO).date()).days)
 
 
 async def check_invitation(token: str, *, now: datetime) -> InvitationChecked | None:
@@ -513,16 +630,37 @@ async def check_invitation(token: str, *, now: datetime) -> InvitationChecked | 
     async with get_sessionmaker().begin() as s:
         row = await repo.invitation_by_hash(s, auth.token_hash(token))
         usable = await _usable_invitation(s, row, now)
-    if usable is None:
-        return None
-    row, user = usable
+        if usable is None:
+            return None
+        row, user, label = usable
+        inviter = None
+        if label is not None and row["invited_by"] is not None:
+            found = await repo.user_by_id(s, row["invited_by"])
+            inviter = found["name"] if found is not None else None
+    place = row["kind"] in CLASS_KINDS
     return InvitationChecked(
         id=row["id"],
+        kind=InvitationKind(row["kind"]),
         email=row["email"],
-        role=AccountRole(row["role"]),
-        valid_days=_days_left(row["expires_at"], now),
+        role=None if place else AccountRole(row["role"]),
+        valid_days=(
+            _student_days_left(row["expires_at"], now)
+            if place
+            else _days_left(row["expires_at"], now)
+        ),
         has_account=user is not None,
+        class_label=label,
+        invited_by=inviter,
     )
+
+
+async def link_of_archived_class(token: str) -> bool:
+    """Whether the link is a Class Invitation, never accepted, whose Class is archived (Story
+    4.10): «Du er invitert» then offers no «Be om ny Invitasjon», as no one can send one (Issue
+    #93). Only the link's holder learns it."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.invitation_by_hash(s, auth.token_hash(token))
+        return row is not None and row["accepted_at"] is None and await _class_archived(s, row)
 
 
 def _invitation_window() -> timedelta:
@@ -548,8 +686,39 @@ async def _count_acceptance(token: str, ip: str, now: datetime) -> int | None:
     return None
 
 
+ClassLock = Callable[[AsyncSession, uuid.UUID, bool], Awaitable[None]]
+"""`(session, class_id, exclusive)`: lock the Class row until the transaction ends."""
+
+_class_lock: list[ClassLock] = []
+
+
+def register_class_lock(lock: ClassLock) -> None:
+    """`classes.service` hands over how its Class row is locked, so an acceptance can take it
+    first while `identity` imports no `classes` code (AD-14)."""
+    _class_lock[:] = [lock]
+
+
+# One lock order for every path that changes an Invitation (Issues #82, #93): the Class row, then
+# the User row, then the Invitation row, then the Roster entry. An archive and a staff change hold
+# the Class row while they void Invitations; a deactivation holds the User row while it voids them.
+# An acceptance that locked its Invitation first and then waited for either row deadlocked.
+
+
+async def _lock_place(s: AsyncSession, token: str) -> None:
+    """First in an acceptance: lock a Class Invitation's Class row (Story 4.10). Exclusive for an
+    Assistant, as a staff change takes it; shared for a Student, as a Roster change takes it."""
+    found = await repo.invitation_by_hash(s, auth.token_hash(token))
+    if found is None or found["kind"] not in CLASS_KINDS or found["class_id"] is None:
+        return
+    if not _class_lock:
+        raise RuntimeError("no Class lock is registered (import classes.service)")
+    exclusive = found["kind"] == InvitationKind.assistant
+    await _class_lock[0](s, found["class_id"], exclusive)
+
+
 async def _locked_open_invitation(s: AsyncSession, token: str, now: datetime):
-    """The Invitation of `token`, locked, if it is still open; else None."""
+    """The Invitation of `token`, locked, if it is still open; else None. Called after the Class
+    and User rows are locked (the order above)."""
     found = await repo.invitation_by_hash(s, auth.token_hash(token))
     row = await repo.lock_invitation(s, found["id"]) if found else None
     return row if _invitation_open(row, now) else None
@@ -574,14 +743,21 @@ async def accept_invitation_new(
     password_hash = await asyncio.to_thread(auth.hash_password, password)
     user_id = uuid.uuid7()
     async with get_sessionmaker().begin() as s:
+        await _lock_place(s, token)
         row = await _locked_open_invitation(s, token, now)
         if row is None:
             log.info("invitation_accept_refused", error_code="invitation_link_invalid")
             return AcceptRefused("invitation_link_invalid")
+        student = row["kind"] == InvitationKind.student
+        place = row["kind"] in CLASS_KINDS
         await repo.lock_user_address(s, row["email"])
         if await repo.user_by_email(s, row["email"]) is not None:
             log.info("invitation_accept_refused", error_code="account_exists")
             return AcceptRefused("account_exists")
+        # Checked before anything is written, so a refusal leaves nothing behind.
+        if student and not await _roster_entry_open(s, row):
+            log.info("invitation_accept_refused", error_code="invitation_link_invalid")
+            return AcceptRefused("invitation_link_invalid")
         await repo.insert_user(
             s,
             user_id=user_id,
@@ -589,20 +765,44 @@ async def accept_invitation_new(
             name=name,
             password_hash=password_hash,
             is_active=True,
-            roles=[row["role"]],
+            # A Student or an Assistant is no account role: the Roster entry or the Class staff
+            # makes them one (Stories 4.5, 4.9).
+            roles=[] if place else [row["role"]],
         )
         await repo.mark_invitation_accepted(s, row["id"], now)
-        await audit.record(
-            s,
-            user_id,
-            INVITATION_ACCEPTED,
-            {"invitation_id": row["id"], "user_id": user_id},
-            {"role": row["role"], "account": "created"},
-            now,
-        )
+        if student:
+            await _join_class(s, row, user_id)
+        elif place:
+            await _hand_over(s, row, user_id, now)
+        else:
+            await audit.record(
+                s,
+                user_id,
+                INVITATION_ACCEPTED,
+                {"invitation_id": row["id"], "user_id": user_id},
+                {"role": row["role"], "account": "created"},
+                now,
+            )
+        roles = await _session_roles(s, user_id)
     log.info("invitation_accepted", invitation_id=str(row["id"]), user_id=str(user_id))
-    user = UserOut(id=user_id, name=name, email=row["email"], roles=[AccountRole(row["role"])])
-    return LoginOk(user, 0)
+    return LoginOk(UserOut(id=user_id, name=name, email=row["email"], roles=roles), 0)
+
+
+async def _roster_entry_open(s: AsyncSession, invitation: RowMapping) -> bool:
+    """Lock a Student Invitation's Roster entry; whether it is still on the Roster."""
+    entry = await repo.roster_entry_by_id(s, invitation["roster_entry_id"], lock=True)
+    return entry is not None and entry["removed_at"] is None
+
+
+async def _join_class(s: AsyncSession, invitation: RowMapping, user_id: uuid.UUID) -> None:
+    """Inside the acceptance transaction, which holds the entry's lock: link the Roster entry to
+    the User and mark it registered (FR-8), and tell the User's open pages (`user:<id>`)."""
+    linked = await repo.register_roster_entry(
+        s, invitation["roster_entry_id"], user_id, RosterRegistration.registered.value
+    )
+    if not linked:  # the entry's lock rules this out; never accept without the link
+        raise RuntimeError("the Roster entry of a Student Invitation was not linked")
+    await events.emit(s, "user", str(user_id))
 
 
 async def accept_invitation_existing(
@@ -624,22 +824,36 @@ async def accept_invitation_existing(
             return AcceptRefused("invitation_link_invalid")
         return AcceptRefused(outcome.code, outcome.retry_after)
     async with get_sessionmaker().begin() as s:
+        await _lock_place(s, token)
+        user = await repo.lock_user(s, outcome.user.id)  # before the Invitation (Issue #82)
         row = await _locked_open_invitation(s, token, now)
-        user = await repo.lock_user(s, outcome.user.id) if row else None
-        if row is None or user is None or not user["is_active"] or user["email"] != row["email"]:
+        if (
+            row is None
+            or user is None
+            or not user["is_active"]
+            or user["email"] != row["email"]
+            or (row["kind"] == InvitationKind.student and not await _roster_entry_open(s, row))
+        ):
             log.info("invitation_accept_refused", error_code="invitation_link_invalid")
             return AcceptRefused("invitation_link_invalid")
-        granted = await repo.grant_role(s, user["id"], row["role"])
         await repo.mark_invitation_accepted(s, row["id"], now)
-        await audit.record(
-            s,
-            user["id"],
-            INVITATION_ACCEPTED,
-            {"invitation_id": row["id"], "user_id": user["id"]},
-            {"role": row["role"], "account": "existing", "role_added": granted},
-            now,
-        )
-        roles = await repo.roles_of(s, user["id"])
+        if row["kind"] == InvitationKind.student:
+            # The same account becomes a Student in this Class too; never a second User (FR-4).
+            await _join_class(s, row, user["id"])
+        elif row["kind"] in CLASS_KINDS:
+            # The same account joins this Class's staff as Assistant lecturer (Story 4.9).
+            await _hand_over(s, row, user["id"], now)
+        else:
+            granted = await repo.grant_role(s, user["id"], row["role"])
+            await audit.record(
+                s,
+                user["id"],
+                INVITATION_ACCEPTED,
+                {"invitation_id": row["id"], "user_id": user["id"]},
+                {"role": row["role"], "account": "existing", "role_added": granted},
+                now,
+            )
+        roles = await _session_roles(s, user["id"])
     log.info("invitation_accepted", invitation_id=str(row["id"]), user_id=str(user["id"]))
     return LoginOk(_user_out(user, roles), user["session_version"])
 
@@ -662,7 +876,12 @@ async def request_invitation_renewal(token: str, *, ip: str, now: datetime) -> i
         )
         if not limited:
             row = await repo.invitation_by_hash(s, hashed)
-            if row is not None and row["accepted_at"] is None and not _invitation_open(row, now):
+            if (
+                row is not None
+                and row["accepted_at"] is None
+                and not _invitation_open(row, now)
+                and not await _class_archived(s, row)
+            ):
                 await repo.set_renewal_requested(s, row["id"], now)
                 log.info("invitation_renewal_requested", invitation_id=str(row["id"]))
     if limited:
@@ -939,7 +1158,7 @@ async def resend_invitation(
     address and role replaced, and an address whose account is deactivated."""
     async with get_sessionmaker().begin() as s:
         found = await repo.invitation_by_id(s, invitation_id)
-        if found is None:
+        if found is None or found["kind"] != InvitationKind.role:
             return ResendRefused("not_found")
         address, role = found["email"], AccountRole(found["role"])
         await repo.lock_invitation_address(s, address, role.value)
@@ -1067,6 +1286,22 @@ async def list_institutions() -> list[InstitutionOut]:
     async with get_sessionmaker().begin() as s:
         rows = await repo.all_institutions(s)
     return [_institution_out(row) for row in rows]
+
+
+DEMO_INSTITUTION = "Demohøgskolen"
+"""The Institution of the local demo Class (AD-17, Story 4.1)."""
+
+
+async def ensure_demo_institution(session: AsyncSession, now: datetime) -> uuid.UUID:
+    """For the local demo seed only (`classes.seed`, `APP_ENV=local`): the id of the Institution
+    «Demohøgskolen», created in the caller's transaction when no Institution has the name. No
+    audit row: the system seeds it, no Admin acts."""
+    await repo.lock_institution_names(session)  # as a create by an Admin takes it
+    found = await repo.institution_id_by_name(session, DEMO_INSTITUTION)
+    if found is not None:
+        return found
+    row = await repo.insert_institution(session, uuid.uuid7(), DEMO_INSTITUTION, now)
+    return row["id"]
 
 
 async def get_institution(institution_id: uuid.UUID) -> InstitutionOut | None:
@@ -1272,3 +1507,912 @@ async def _grant_bootstrap_admin(
     )
     log.info("bootstrap_admin_checked", user_id=str(user_id), role_added=granted)
     return granted
+
+
+# Staged Roster uploads (Story 4.2, FR-7, AD-14). `classes.service` checks that the User may
+# manage the Class and calls these; the file is parsed in memory and only its cells are staged.
+# Logs carry ids and counts only, never a file name, a cell or an address.
+
+
+RosterUnreadable = roster_file.RosterUnreadable
+"""Raised by `stage_roster_upload` for a file that cannot be used."""
+
+
+async def purge_expired_roster_uploads(now: datetime) -> int:
+    """Delete every staged upload past its `expires_at`. Idempotent; runs on every upload and
+    every staging read, and can be called from `ops.sweep` unchanged."""
+    async with get_sessionmaker().begin() as s:
+        purged = await repo.purge_expired_roster_uploads(s, now)
+    if purged:
+        log.info("roster_uploads_purged", count=purged)
+    return purged
+
+
+async def stage_roster_upload(
+    class_id: uuid.UUID, uploader: uuid.UUID, file_name: str, data: bytes, *, now: datetime
+) -> RosterUploadOut:
+    """Parse the file and stage its rows for the Class, replacing any earlier staged upload in
+    the same transaction. Raises `roster_file.RosterUnreadable`; nothing is staged then, and an
+    earlier staged upload stays."""
+    await purge_expired_roster_uploads(now)
+    settings = get_settings()
+    # Parsing is CPU work: off the event loop, so other requests are not held up.
+    parsed = await asyncio.to_thread(
+        roster_file.parse, file_name, data, max_rows=settings.roster_max_rows
+    )
+    counts = await asyncio.to_thread(
+        roster_file.address_counts, [cells for _, cells in parsed.rows], parsed.column_count
+    )
+    suggested = roster_file.suggested_column(counts)
+    upload_id = uuid.uuid7()
+    async with get_sessionmaker().begin() as s:
+        # Two uploads for one Class at once: the second waits, then replaces the first.
+        await repo.lock_roster_staging(s, class_id)
+        await repo.delete_roster_upload(s, class_id)
+        on_roster = await repo.roster_addresses(s, class_id)
+        restored = await _restorable(s, class_id)
+        await repo.insert_roster_upload(
+            s,
+            upload_id=upload_id,
+            class_id=class_id,
+            uploaded_by=uploader,
+            file_name=file_name,
+            headers=parsed.headers,
+            has_header=parsed.has_header,
+            rows=parsed.rows,
+            chosen_column=suggested,
+            now=now,
+            expires_at=now + timedelta(hours=settings.roster_staging_ttl_hours),
+        )
+    log.info(
+        "roster_upload_staged",
+        class_id=str(class_id),
+        upload_id=str(upload_id),
+        user_id=str(uploader),
+        rows=len(parsed.rows),
+        columns=parsed.column_count,
+    )
+    return await asyncio.to_thread(
+        _roster_upload_out,
+        upload_id=upload_id,
+        on_roster=on_roster,
+        restored=restored,
+        source=RosterSource.file,
+        file_name=file_name,
+        headers=parsed.headers,
+        has_header=parsed.has_header,
+        rows=parsed.rows,
+        counts=counts,
+        chosen=suggested,
+    )
+
+
+async def stage_roster_paste(
+    class_id: uuid.UUID, uploader: uuid.UUID, text: str, *, now: datetime
+) -> RosterUploadOut:
+    """Stage pasted addresses for the Class as one-column rows, numbered by their place in the
+    text, replacing any earlier staged upload (Story 4.3). Raises `RosterPasteTooLong` for text
+    over `ROSTER_MAX_FILE_MB` or more addresses than `ROSTER_MAX_ROWS`; nothing is staged then.
+    Empty text stages no rows."""
+    await purge_expired_roster_uploads(now)
+    settings = get_settings()
+    if len(text.encode("utf-8", errors="replace")) > settings.roster_max_file_mb * 1024 * 1024:
+        raise RosterPasteTooLong
+    pieces = await asyncio.to_thread(roster_file.split_paste, text, limit=settings.roster_max_rows)
+    if len(pieces) > settings.roster_max_rows:
+        raise RosterPasteTooLong
+    rows = [(n, [piece]) for n, piece in enumerate(pieces, start=1)]
+    upload_id = uuid.uuid7()
+    async with get_sessionmaker().begin() as s:
+        await repo.lock_roster_staging(s, class_id)
+        await repo.delete_roster_upload(s, class_id)
+        on_roster = await repo.roster_addresses(s, class_id)
+        restored = await _restorable(s, class_id)
+        await repo.insert_roster_upload(
+            s,
+            upload_id=upload_id,
+            class_id=class_id,
+            uploaded_by=uploader,
+            file_name="",
+            headers=[""],
+            has_header=False,
+            rows=rows,
+            chosen_column=0,
+            now=now,
+            expires_at=now + timedelta(hours=settings.roster_staging_ttl_hours),
+            source=RosterSource.paste,
+        )
+    log.info(
+        "roster_paste_staged",
+        class_id=str(class_id),
+        upload_id=str(upload_id),
+        user_id=str(uploader),
+        rows=len(rows),
+    )
+    return await asyncio.to_thread(
+        _roster_upload_out,
+        upload_id=upload_id,
+        on_roster=on_roster,
+        restored=restored,
+        source=RosterSource.paste,
+        file_name="",
+        headers=[""],
+        has_header=False,
+        rows=rows,
+        counts=roster_file.address_counts([cells for _, cells in rows], 1),
+        chosen=0,
+    )
+
+
+def evaluate_roster_rows(
+    rows: list[tuple[int, list[str]]],
+    column: int,
+    on_roster: Set[str] = frozenset(),
+) -> tuple[int, list[RosterInvalidRow]]:
+    """Judge each row's cell in `column` with `schemas.address_problem` (Story 4.3, FR-7): how
+    many rows get an Invitation, and every other row with its reason, in row order. Addresses are
+    compared trimmed and case-insensitively; an address already on the Class's Roster
+    (`on_roster`, normalised) is `on_roster` (Story 4.4); otherwise the first occurrence of an
+    address is valid and each later one is a `duplicate` naming the first row."""
+    valid = 0
+    invalid: list[RosterInvalidRow] = []
+    first_seen: dict[str, int] = {}
+    for number, cells in sorted(rows, key=lambda r: r[0]):
+        value = cells[column] if column < len(cells) else ""
+        address = normalise_email(value)
+        problem = address_problem(address)
+        if problem is not None:
+            invalid.append(RosterInvalidRow(row_number=number, value=value, reason=problem))
+        elif address in on_roster:
+            invalid.append(RosterInvalidRow(row_number=number, value=value, reason="on_roster"))
+        elif address in first_seen:
+            invalid.append(
+                RosterInvalidRow(
+                    row_number=number,
+                    value=value,
+                    reason="duplicate",
+                    first_row=first_seen[address],
+                )
+            )
+        else:
+            first_seen[address] = number
+            valid += 1
+    return valid, invalid
+
+
+async def _restorable(s: AsyncSession, class_id: uuid.UUID) -> set[str]:
+    """The removed, registered addresses of the Class's Roster: sent again, each is put back with
+    access and gets no Invitation (Stories 4.4, 4.8), so «Send N» leaves them out."""
+    return await repo.removed_registered_addresses(s, class_id, [r.value for r in REGISTERED])
+
+
+def _roster_upload_out(
+    *,
+    upload_id: uuid.UUID,
+    on_roster: Set[str],
+    restored: Set[str] = frozenset(),
+    source: RosterSource,
+    file_name: str,
+    headers: list[str],
+    has_header: bool,
+    rows: list[tuple[int, list[str]]],
+    counts: list[int],
+    chosen: int | None,
+) -> RosterUploadOut:
+    suggested = roster_file.suggested_column(counts)
+    valid, invalid = (
+        evaluate_roster_rows(rows, chosen, on_roster) if chosen is not None else (0, [])
+    )
+    back = (
+        sum(a in restored for a in _valid_addresses(rows, chosen, on_roster))
+        if restored and chosen is not None
+        else 0
+    )
+    return RosterUploadOut(
+        id=upload_id,
+        source=source,
+        file_name=file_name,
+        row_count=len(rows),
+        has_header=has_header,
+        columns=[
+            RosterColumn(index=i, letter=roster_file.column_letter(i), header=h)
+            for i, h in enumerate(headers)
+        ],
+        suggested_column=suggested,
+        suggested_count=counts[suggested] if suggested is not None else 0,
+        chosen_column=chosen,
+        chosen_count=counts[chosen] if chosen is not None else 0,
+        valid_count=valid,
+        restored_count=back,
+        invalid_rows=invalid,
+        preview=[
+            RosterPreviewRow(row_number=n, cells=cells) for n, cells in rows[:ROSTER_PREVIEW_ROWS]
+        ],
+    )
+
+
+async def _staged_out(s: AsyncSession, row: RowMapping) -> RosterUploadOut:
+    """The staged upload, evaluated again from its staged cells."""
+    rows = await repo.roster_rows(s, row["id"])
+    on_roster = await repo.roster_addresses(s, row["class_id"])
+    restored = await _restorable(s, row["class_id"])
+    # Evaluating up to `ROSTER_MAX_ROWS` rows is CPU work: off the event loop.
+    counts = await asyncio.to_thread(
+        roster_file.address_counts, [cells for _, cells in rows], row["column_count"]
+    )
+    return await asyncio.to_thread(
+        _roster_upload_out,
+        upload_id=row["id"],
+        on_roster=on_roster,
+        restored=restored,
+        source=RosterSource(row["source"]),
+        file_name=row["file_name"],
+        headers=row["headers"],
+        has_header=row["has_header"],
+        rows=rows,
+        counts=counts,
+        chosen=row["chosen_column"],
+    )
+
+
+async def roster_upload(class_id: uuid.UUID, *, now: datetime) -> RosterUploadOut | None:
+    """The Class's staged upload, or None when it has none or it has expired."""
+    await purge_expired_roster_uploads(now)
+    async with get_sessionmaker().begin() as s:
+        row = await repo.roster_upload_for_class(s, class_id, now)
+        return await _staged_out(s, row) if row else None
+
+
+async def choose_roster_column(
+    class_id: uuid.UUID, column: int, *, now: datetime
+) -> RosterUploadOut | None:
+    """Store the chosen e-mail column and evaluate the staged rows against it, with no new
+    upload. None when the Class has no staged upload; raises `InvalidRosterColumn` for a column
+    the upload does not have."""
+    await purge_expired_roster_uploads(now)
+    async with get_sessionmaker().begin() as s:
+        row = await repo.roster_upload_for_class(s, class_id, now, lock=True)
+        if row is None:
+            return None
+        if column >= row["column_count"]:
+            raise InvalidRosterColumn
+        await repo.set_roster_column(s, row["id"], column)
+        out = await _staged_out(s, {**row, "chosen_column": column})
+    log.info("roster_column_chosen", class_id=str(class_id), upload_id=str(row["id"]))
+    return out
+
+
+async def delete_roster_upload(class_id: uuid.UUID) -> bool:
+    """Delete the Class's staged upload («Bytt fil»). Whether there was one."""
+    async with get_sessionmaker().begin() as s:
+        deleted = await repo.delete_roster_upload(s, class_id)
+    if deleted:
+        log.info("roster_upload_deleted", class_id=str(class_id))
+    return deleted
+
+
+# The Roster and Student Invitations (Story 4.4, FR-7, FR-8, AD-9, AD-14). `classes.service` runs
+# the send as one command in its own transaction and hands its session here; the addresses never
+# leave this module, and log lines carry ids and counts only.
+
+OSLO = ZoneInfo("Europe/Oslo")
+
+
+@dataclass(frozen=True)
+class ClassLabel:
+    """How a Student Invitation names its Class: «class-of-1994», course code «IBE160»."""
+
+    name: str
+    course_code: str | None
+    archived: bool = False
+    """An archived Class takes no one in: its links are unusable (Story 4.10)."""
+
+
+ClassLabelResolver = Callable[[AsyncSession, uuid.UUID], Awaitable[ClassLabel | None]]
+"""`(session, class_id)` → the Class's name and course code, or None when it is gone."""
+
+_class_label_resolver: list[ClassLabelResolver] = []
+
+
+def register_class_label(resolver: ClassLabelResolver) -> None:
+    """`classes.service` names its Classes here at import, so a Student Invitation's mail and
+    «Du er invitert» can name its Class while `identity` imports no `classes` code (AD-14)."""
+    _class_label_resolver[:] = [resolver]
+
+
+async def _class_label(session: AsyncSession, class_id: uuid.UUID | None) -> ClassLabel | None:
+    if class_id is None:
+        return None
+    if not _class_label_resolver:
+        raise RuntimeError("no Class-label resolver is registered (import classes.service)")
+    return await _class_label_resolver[0](session, class_id)
+
+
+async def _class_archived(session: AsyncSession, invitation: RowMapping) -> bool:
+    """Whether a Class Invitation's Class is archived (Story 4.10): a new Invitation is never
+    asked for there, as no one can send one."""
+    if invitation["kind"] not in CLASS_KINDS:
+        return False
+    label = await _class_label(session, invitation["class_id"])
+    return label is None or label.archived
+
+
+async def _class_name(session: AsyncSession, class_id: uuid.UUID | None) -> str | None:
+    label = await _class_label(session, class_id)
+    return None if label is None else label.name
+
+
+def student_invitation_expiry(now: datetime, valid_days: int) -> datetime:
+    """When a Student Invitation sent at `now` for `valid_days` stops working: the end of the
+    `valid_days`-th day after today in Europe/Oslo, so «gyldig til og med» names a whole day."""
+    last = now.astimezone(OSLO).date() + timedelta(days=valid_days)
+    return datetime.combine(last + timedelta(days=1), time(0), OSLO).astimezone(UTC)
+
+
+def last_valid_day(expires_at: datetime) -> date:
+    """The last Europe/Oslo day on which a link that stops at `expires_at` works."""
+    return (expires_at - timedelta(microseconds=1)).astimezone(OSLO).date()
+
+
+class RosterStagingGone(Exception):
+    """The staged upload to send is gone, has expired, or was replaced by another one."""
+
+
+class NothingToSend(Exception):
+    """The staged upload has no row that gets an Invitation."""
+
+
+@dataclass(frozen=True)
+class RosterSent:
+    sent: int
+    expires_at: datetime
+
+
+async def send_roster_invitations(
+    s: AsyncSession,
+    class_id: uuid.UUID,
+    actor: uuid.UUID,
+    upload_id: uuid.UUID,
+    valid_days: int,
+    *,
+    now: datetime,
+) -> RosterSent:
+    """Inside the caller's transaction: write the staged upload's valid addresses to the Class's
+    Roster, delete the staging, and create and enqueue one Student Invitation per address that
+    was not on the Roster before (FR-7, FR-8). Raises `RosterStagingGone` when the Class's
+    staging is not `upload_id` (sent already, replaced or expired) and `NothingToSend` when no
+    row is valid; nothing changes then. Idempotent: the staging lock serialises sends, an address
+    already on the Roster is left as it is, and each Invitation's notice has its own
+    `dedupe_key`."""
+    await repo.lock_roster_staging(s, class_id)
+    row = await repo.roster_upload_for_class(s, class_id, now, lock=True)
+    if row is None or row["id"] != upload_id:
+        raise RosterStagingGone
+    column = row["chosen_column"]
+    rows = await repo.roster_rows(s, row["id"])
+    on_roster = await repo.roster_addresses(s, class_id)
+    addresses = (
+        await asyncio.to_thread(_valid_addresses, rows, column, on_roster)
+        if column is not None
+        else []
+    )
+    if not addresses:
+        raise NothingToSend
+    entries = await repo.insert_roster_entries(
+        s, class_id, addresses, RosterRegistration.invited.value, now
+    )
+    # A removed address sent again is back on the Roster (Story 4.8): a registered Student has
+    # access again with no Invitation; any other gets one, its old links void.
+    back = [e for e in entries if e["registration"] in REGISTERED]
+    for entry in back:
+        if entry["user_id"] is not None:
+            await events.emit(s, "user", str(entry["user_id"]))
+    added = [(e["id"], e["email"]) for e in entries if e["registration"] not in REGISTERED]
+    if added:  # an entry put back may still hold an open link from before its removal
+        await repo.void_open_entry_invitations(s, class_id, [i for i, _ in added], now)
+    await repo.delete_roster_upload(s, class_id)
+    expires_at = student_invitation_expiry(now, valid_days)
+    invitations = [
+        {
+            "id": uuid.uuid7(),
+            "kind": InvitationKind.student.value,
+            "email": address,
+            "role": None,
+            "class_id": class_id,
+            "roster_entry_id": entry_id,
+            "created_at": now,
+            "expires_at": expires_at,
+            "invited_by": actor,
+        }
+        for entry_id, address in added
+    ]
+    for invitation in invitations:
+        invitation["token_hash"] = auth.token_hash(auth.link_token(INVITATION, invitation["id"]))
+    await repo.insert_student_invitations(s, invitations)
+    await notify.enqueue_by_ref(
+        s, INVITATION, [(f"{INVITATION}:{i['id']}", i["id"]) for i in invitations]
+    )
+    log.info(
+        "roster_invitations_sent",
+        class_id=str(class_id),
+        upload_id=str(upload_id),
+        user_id=str(actor),
+        sent=len(invitations),
+        valid_days=valid_days,
+    )
+    return RosterSent(sent=len(invitations), expires_at=expires_at)
+
+
+def _valid_addresses(
+    rows: list[tuple[int, list[str]]], column: int, on_roster: Set[str]
+) -> list[str]:
+    """The normalised addresses `evaluate_roster_rows` finds valid, in row order."""
+    _, invalid = evaluate_roster_rows(rows, column, on_roster)
+    skip = {row.row_number for row in invalid}
+    return [
+        normalise_email(cells[column] if column < len(cells) else "")
+        for number, cells in sorted(rows, key=lambda r: r[0])
+        if number not in skip
+    ]
+
+
+async def seed_registered_student(
+    s: AsyncSession, class_id: uuid.UUID, email: str, name: str, password: str, now: datetime
+) -> bool:
+    """For the local seed only (AD-17): the User of `email` (made, without an account role, when
+    missing; an existing User is never changed) as a registered Student of the Class, unless the
+    address is on its Roster already. True when an entry was added."""
+    address = normalise_email(email)
+    user = await repo.user_by_email(s, address)
+    user_id = (
+        user["id"]
+        if user is not None
+        else await create_user(email=address, name=name, password=password, session=s)
+    )
+    return await repo.ensure_registered_entry(
+        s, class_id, address, user_id, RosterRegistration.registered.value, now
+    )
+
+
+async def roster_counts(class_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
+    """How many addresses are on each Class's Roster (UX-DR56); a Class with none is left out."""
+    async with get_sessionmaker().begin() as s:
+        return await repo.roster_counts(s, class_ids)
+
+
+@dataclass(frozen=True)
+class ClassInvitation:
+    """A Student Invitation of a Class as `classes` counts it (Story 4.6, FR-8): whether it was
+    accepted, or has expired unaccepted at the time asked, and its Roster entry's address and
+    standing. The address leaves `identity` only for the Lecturer's own page."""
+
+    id: uuid.UUID
+    roster_entry_id: uuid.UUID
+    email: str
+    accepted: bool
+    expired: bool
+    voided: bool
+    """Its link was stopped before it expired (a reminder, a removal, an archive, Story 4.10)."""
+    entry_registered: bool
+    entry_removed: bool
+
+
+async def class_student_invitations(class_id: uuid.UUID, *, now: datetime) -> list[ClassInvitation]:
+    """Every Student Invitation of the Class, oldest first. Expired is read from `expires_at` at
+    `now` (the api's clock): neither accepted nor voided, and past its last valid day."""
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.class_student_invitations(s, class_id)
+    return [
+        ClassInvitation(
+            id=row["id"],
+            roster_entry_id=row["roster_entry_id"],
+            email=row["email"],
+            accepted=row["accepted_at"] is not None,
+            expired=row["accepted_at"] is None
+            and row["voided_at"] is None
+            and row["expires_at"] <= now,
+            voided=row["accepted_at"] is None and row["voided_at"] is not None,
+            entry_registered=row["registration"] in REGISTERED,
+            entry_removed=row["removed_at"] is not None,
+        )
+        for row in rows
+    ]
+
+
+# Registration status and reminders (Story 4.7, FR-9).
+
+REGISTERED = frozenset({RosterRegistration.registered, RosterRegistration.registered_manually})
+"""The stored registrations that make an address a Student in the Class."""
+
+
+@dataclass(frozen=True)
+class RosterFacts:
+    """A Roster entry that has not been removed, as `classes` reads its status (Story 4.7): its
+    stored registration, its newest Student Invitation (None when it has none) and whether the
+    Student asked for a new one. The address leaves `identity` only for the Lecturer's own page."""
+
+    entry_id: uuid.UUID
+    email: str
+    registration: RosterRegistration
+    invitation_id: uuid.UUID | None
+    expires_at: datetime | None
+    open: bool
+    """The newest Invitation is neither accepted nor voided, and still valid at the time asked."""
+    renewal_requested: bool
+
+
+async def class_roster(class_id: uuid.UUID, *, now: datetime) -> list[RosterFacts]:
+    """Every Roster entry of the Class that has not been removed, by address."""
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.class_roster_facts(s, class_id)
+    return [
+        RosterFacts(
+            entry_id=row["id"],
+            email=row["email"],
+            registration=RosterRegistration(row["registration"]),
+            invitation_id=row["invitation_id"],
+            expires_at=row["expires_at"],
+            open=row["invitation_id"] is not None and _invitation_open(row, now),
+            renewal_requested=row["renewal_requested"],
+        )
+        for row in rows
+    ]
+
+
+async def registered_users(class_id: uuid.UUID) -> list[uuid.UUID]:
+    """The Users who are Students in the Class: registered through an Invitation or by hand,
+    and not removed (FR-9). An address unregistered after its Invitation expired is not one."""
+    async with get_sessionmaker().begin() as s:
+        return await repo.registered_user_ids(s, class_id, [r.value for r in REGISTERED])
+
+
+async def send_entry_reminders(
+    s: AsyncSession,
+    class_id: uuid.UUID,
+    actor: uuid.UUID,
+    entry_ids: list[uuid.UUID],
+    valid_days: int,
+    *,
+    now: datetime,
+) -> RosterSent:
+    """Inside the caller's transaction: send each of these Roster entries that is still invited
+    and on the Roster a new Student Invitation valid for `valid_days` (FR-9). Its open Invitations
+    are voided first, so their links stop working, and its requests for a new one are answered.
+    Entries are read again after the void: one whose Student accepted meanwhile, or that is
+    registered, removed or of another Class, gets nothing. Serialised per Class with the Roster
+    send by the staging lock. Each mail is an `immediate` `invitation` notice with its own
+    `dedupe_key`."""
+    await repo.lock_roster_staging(s, class_id)
+    expires_at = student_invitation_expiry(now, valid_days)
+    if not entry_ids:
+        return RosterSent(sent=0, expires_at=expires_at)
+    await repo.void_open_entry_invitations(s, class_id, entry_ids, now)
+    targets = await repo.remindable_entries(
+        s, class_id, entry_ids, RosterRegistration.invited.value
+    )
+    if not targets:
+        return RosterSent(sent=0, expires_at=expires_at)
+    await repo.clear_entry_renewals(s, class_id, [entry_id for entry_id, _ in targets])
+    invitations = [
+        {
+            "id": uuid.uuid7(),
+            "kind": InvitationKind.student.value,
+            "email": address,
+            "role": None,
+            "class_id": class_id,
+            "roster_entry_id": entry_id,
+            "created_at": now,
+            "expires_at": expires_at,
+            "invited_by": actor,
+        }
+        for entry_id, address in targets
+    ]
+    for invitation in invitations:
+        invitation["token_hash"] = auth.token_hash(auth.link_token(INVITATION, invitation["id"]))
+    await repo.insert_student_invitations(s, invitations)
+    await notify.enqueue_by_ref(
+        s, INVITATION, [(f"{INVITATION}:{i['id']}", i["id"]) for i in invitations]
+    )
+    log.info(
+        "roster_reminders_sent",
+        class_id=str(class_id),
+        user_id=str(actor),
+        sent=len(invitations),
+        valid_days=valid_days,
+    )
+    return RosterSent(sent=len(invitations), expires_at=expires_at)
+
+
+# Single addresses and manual registration (Story 4.8, FR-7, FR-9, AD-8, AD-9, AD-14). Each runs in
+# the caller's transaction under the Class's Roster staging lock, so it never interleaves with a
+# Roster send or a reminder. Locks are taken in the order an acceptance takes them (Class row,
+# then Invitation, then address, then Roster entry): the open Invitations are voided before the
+# entry is locked.
+
+MANUAL_REGISTRATION = "manual_registration"
+"""The notice kind of the mail a manually registered Student gets (Story 4.8)."""
+
+
+class RosterRefused(Exception):
+    """The address is refused, with the reason the form shows beside it: an `address_problem`,
+    `on_roster` (add) or `already_registered` (manual registration)."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+def _checked_address(address: str) -> str:
+    address = normalise_email(address)
+    problem = address_problem(address)
+    if problem is not None:
+        raise RosterRefused(problem.value)
+    return address
+
+
+async def _remove_entry(s: AsyncSession, entry: RowMapping, now: datetime) -> None:
+    """Inside a transaction that voided the entry's open Invitations and holds its lock. Its
+    requests for a new Invitation go too, so an address put back later starts afresh."""
+    await repo.remove_roster_entry(s, entry["id"], now)
+    await repo.clear_entry_renewals(s, entry["class_id"], [entry["id"]])
+    if entry["user_id"] is not None:
+        await events.emit(s, "user", str(entry["user_id"]))
+
+
+async def add_roster_entry(
+    s: AsyncSession, class_id: uuid.UUID, address: str, *, now: datetime
+) -> uuid.UUID:
+    """Add one address to the Class's Roster, checked by the one validation of an upload (FR-7):
+    a new entry is not yet invited (no Invitation; a reminder sends its first). A removed one is
+    put back as it was, and a registered Student has access again. Raises `RosterRefused` with an
+    `address_problem` or `on_roster`. The entry's id."""
+    address = _checked_address(address)
+    await repo.lock_roster_staging(s, class_id)
+    entry = await repo.roster_entry_by_email(s, class_id, address, lock=True)
+    if entry is None:
+        entry_id = await repo.insert_roster_entry(
+            s, class_id, address, RosterRegistration.invited.value, now
+        )
+        log.info("roster_entry_added", class_id=str(class_id), roster_entry_id=str(entry_id))
+        return entry_id
+    if entry["removed_at"] is None:
+        raise RosterRefused("on_roster")
+    await repo.restore_roster_entry(s, entry["id"])
+    if entry["user_id"] is not None:
+        await events.emit(s, "user", str(entry["user_id"]))
+    log.info("roster_entry_restored", class_id=str(class_id), roster_entry_id=str(entry["id"]))
+    return entry["id"]
+
+
+async def remove_roster_entry(
+    s: AsyncSession, class_id: uuid.UUID, entry_id: uuid.UUID, *, now: datetime
+) -> bool:
+    """Take an address off the Class's Roster (FR-7): the entry is marked removed, its open
+    Invitations stop working, and a registered Student loses access from their next request
+    (`user:<id>`); the User and their other Classes are untouched. False when the entry is not
+    the Class's or is removed already."""
+    await repo.lock_roster_staging(s, class_id)
+    await repo.void_open_entry_invitations(s, class_id, [entry_id], now)
+    entry = await repo.class_roster_entry(s, class_id, entry_id, lock=True)
+    if entry is None or entry["removed_at"] is not None:
+        return False
+    await _remove_entry(s, entry, now)
+    log.info("roster_entry_removed", class_id=str(class_id), roster_entry_id=str(entry_id))
+    return True
+
+
+async def register_manually(
+    s: AsyncSession,
+    class_id: uuid.UUID,
+    address: str,
+    name: str,
+    *,
+    replaces: uuid.UUID | None = None,
+    upload_row: tuple[uuid.UUID, int] | None = None,
+    now: datetime,
+) -> uuid.UUID:
+    """Register a Student by hand (FR-9): the User of the address (an existing one is reused and
+    never changed; a new one gets `name`, no password and no account role), and its Roster entry
+    (new, waiting, or removed and put back) linked to it and set `registered_manually`, so the
+    Student is in the Class at once. The entry's open Invitations are voided and its requests for a
+    new one answered. `replaces` names the entry the form was opened from: when that is another
+    address, not registered, it is removed (a wrong address corrected). `upload_row` names the
+    staged row the form was opened from, which is deleted. The Student is mailed
+    (`manual_registration`, `immediate`): a User without a password with a single-use link to
+    «Nytt passord», valid to the end of the `MANUAL_REGISTRATION_LINK_DAYS`-th day. Raises
+    `RosterRefused` with an `address_problem` or `already_registered`. The entry's id."""
+    address = _checked_address(address)
+    await repo.lock_roster_staging(s, class_id)
+    found = await repo.roster_entry_by_email(s, class_id, address)
+    if found is not None:
+        await repo.void_open_entry_invitations(s, class_id, [found["id"]], now)
+    old = None
+    if replaces is not None and (found is None or replaces != found["id"]):
+        await repo.void_open_entry_invitations(s, class_id, [replaces], now)
+        old = await repo.class_roster_entry(s, class_id, replaces, lock=True)
+    await repo.lock_user_address(s, address)
+    entry = await repo.roster_entry_by_email(s, class_id, address, lock=True)
+    if (
+        entry is not None
+        and entry["removed_at"] is None
+        and RosterRegistration(entry["registration"]) in REGISTERED
+    ):
+        raise RosterRefused("already_registered")
+    user = await repo.user_by_email(s, address)
+    if user is None:
+        user_id = uuid.uuid7()
+        await repo.insert_user(
+            s,
+            user_id=user_id,
+            email=address,
+            name=name,
+            password_hash=None,
+            is_active=True,
+            roles=[],
+        )
+    else:
+        user_id = user["id"]
+    manual = RosterRegistration.registered_manually.value
+    if entry is None:
+        entry_id = await repo.insert_roster_entry(s, class_id, address, manual, now, user_id)
+    else:
+        entry_id = entry["id"]
+        await repo.register_entry_manually(s, entry_id, user_id, manual)
+        await repo.clear_entry_renewals(s, class_id, [entry_id])
+    if (
+        old is not None
+        and old["removed_at"] is None
+        and RosterRegistration(old["registration"]) not in REGISTERED
+    ):
+        await _remove_entry(s, old, now)
+    if upload_row is not None:
+        await repo.delete_staged_row(s, class_id, *upload_row)
+    if user is None or (user["password_hash"] is None and user["is_active"]):
+        reset_id = uuid.uuid7()
+        await repo.insert_password_reset(
+            s,
+            reset_id=reset_id,
+            user_id=user_id,
+            token_hash=auth.token_hash(auth.link_token(PASSWORD_RESET, reset_id)),
+            created_at=now,
+            expires_at=student_invitation_expiry(now, get_settings().manual_registration_link_days),
+        )
+    await notify.enqueue(
+        s, user_id, MANUAL_REGISTRATION, f"{MANUAL_REGISTRATION}:{uuid.uuid7()}", ref=entry_id
+    )
+    await events.emit(s, "user", str(user_id))
+    log.info(
+        "roster_registered_manually",
+        class_id=str(class_id),
+        roster_entry_id=str(entry_id),
+        user_id=str(user_id),
+        replaced=old is not None,
+    )
+    return entry_id
+
+
+async def manual_registration_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a manual registration's mail, for `messaging` at send time: the
+    Class's name and, for a User with no password yet, the set-password link (path with token) and
+    its last valid day. None when no mail is needed any more: the entry was removed or is no
+    longer this User's manual registration, or the link was used or has expired. Never stored or
+    logged."""
+    if ref is None:
+        return None
+    entry = await repo.roster_entry_by_id(session, ref)
+    if (
+        entry is None
+        or entry["removed_at"] is not None
+        or entry["user_id"] != user_id
+        or entry["registration"] != RosterRegistration.registered_manually
+    ):
+        return None
+    label = await _class_label(session, entry["class_id"])
+    user = await repo.user_by_id(session, user_id)
+    if label is None or user is None:
+        return None
+    context: dict[str, object] = {"class_name": label.name, "link": None, "last_valid_day": None}
+    if user["password_hash"] is None:
+        reset = await repo.newest_open_password_reset(session, user_id, now)
+        if reset is None:
+            return None
+        context["link"] = f"{RESET_LINK_PATH}#{auth.link_token(PASSWORD_RESET, reset['id'])}"
+        context["last_valid_day"] = last_valid_day(reset["expires_at"])
+    return context
+
+
+# Assistant lecturers (Story 4.9, FR-10, AD-14). `classes` decides who may invite and owns the
+# Class staff; the Invitations, their mail and the Users stay here.
+
+ASSISTANT_INVITATION_DAYS = 14
+"""An Assistant Invitation is valid to the end of the 14th day after the sending (Europe/Oslo),
+as a Student Invitation sent with the default validity."""
+
+
+@dataclass(frozen=True)
+class AssistantInvitation:
+    id: uuid.UUID
+    email: str
+    expires_at: datetime
+
+
+@dataclass(frozen=True)
+class Person:
+    id: uuid.UUID
+    name: str
+    email: str
+
+
+def checked_address(address: str) -> str:
+    """The address trimmed and lower-cased; raises `RosterRefused` with its `address_problem`."""
+    return _checked_address(address)
+
+
+async def active_user_for_email(s: AsyncSession, address: str) -> UserOut | None:
+    """The active User of the address with their account roles, or None (no account, or a
+    deactivated one: the caller tells the two apart from no one)."""
+    row = await repo.user_by_email(s, normalise_email(address))
+    if row is None or not row["is_active"]:
+        return None
+    return _user_out(row, await repo.roles_of(s, row["id"]))
+
+
+async def send_assistant_invitation(
+    s: AsyncSession, class_id: uuid.UUID, actor: uuid.UUID, address: str, *, now: datetime
+) -> AssistantInvitation:
+    """In the caller's transaction: void the open Assistant Invitation of the Class to `address`,
+    store a new one (its token only as a hash) and enqueue its `invitation` mail, addressed by the
+    Invitation id. `address` is already checked."""
+    await repo.lock_invitation_address(s, address, f"assistant:{class_id}")
+    await repo.void_assistant_invitations(s, class_id, now, email=address)
+    invitation_id = uuid.uuid7()
+    expires_at = student_invitation_expiry(now, ASSISTANT_INVITATION_DAYS)
+    await repo.insert_assistant_invitation(
+        s,
+        invitation_id=invitation_id,
+        class_id=class_id,
+        email=address,
+        token_hash=auth.token_hash(auth.link_token(INVITATION, invitation_id)),
+        created_at=now,
+        expires_at=expires_at,
+        invited_by=actor,
+    )
+    await notify.enqueue(s, None, INVITATION, f"{INVITATION}:{invitation_id}", ref=invitation_id)
+    return AssistantInvitation(invitation_id, address, expires_at)
+
+
+async def assistant_invitations(s: AsyncSession, class_id: uuid.UUID) -> list[AssistantInvitation]:
+    """The Class's Assistant Invitations not accepted or voided, open or expired, by address."""
+    rows = await repo.assistant_invitations(s, class_id)
+    return [AssistantInvitation(r["id"], r["email"], r["expires_at"]) for r in rows]
+
+
+async def void_assistant_invitations(
+    s: AsyncSession,
+    class_id: uuid.UUID,
+    now: datetime,
+    *,
+    email: str | None = None,
+    invitation_id: uuid.UUID | None = None,
+) -> list[uuid.UUID]:
+    """Void the Class's open Assistant Invitations to `email`, or the one `invitation_id`."""
+    return await repo.void_assistant_invitations(
+        s, class_id, now, email=email, invitation_id=invitation_id
+    )
+
+
+async def close_class(s: AsyncSession, class_id: uuid.UUID, now: datetime) -> int:
+    """In the archive's transaction (Story 4.10): void every open Invitation of the Class, Student
+    and Assistant alike, so no one joins it and no queued mail carries a live link, and delete its
+    staged upload under the staging lock. Returns how many Invitations were voided."""
+    voided = await repo.void_class_invitations(s, class_id, now)
+    await repo.lock_roster_staging(s, class_id)
+    await repo.delete_roster_upload(s, class_id)
+    return len(voided)
+
+
+async def people(s: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, Person]:
+    """Name and address of these Users, for the Class's staff list."""
+    return {r["id"]: Person(r["id"], r["name"], r["email"]) for r in await repo.people(s, ids)}

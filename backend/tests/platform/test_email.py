@@ -131,3 +131,60 @@ def test_the_sender_is_resend_with_a_key_the_mock_without_and_refused_in_product
         get_sender(Settings(app_env="production", database_url="postgresql://x/y"))
     with pytest.raises(ValueError):
         ResendSender("")
+
+
+async def test_the_pacer_spaces_sends_to_the_provider_rate(monkeypatch):
+    """Story 4.4 (NFR-3): at most `MAIL_PROVIDER_PER_SECOND` sends a second per process."""
+    import asyncio
+
+    from app.platform.email import senders
+
+    now = {"t": 100.0}
+    slept: list[float] = []
+
+    async def sleep(seconds: float) -> None:
+        slept.append(round(seconds, 6))
+        now["t"] += seconds
+
+    monkeypatch.setattr(asyncio, "sleep", sleep)
+    pace = senders.Pacer(2.0, clock=lambda: now["t"])
+    for _ in range(3):
+        await pace.wait()
+    assert slept == [0.5, 0.5]
+    now["t"] += 5  # a quiet spell: the next send goes at once
+    await pace.wait()
+    assert slept == [0.5, 0.5]
+    assert senders.pacer(2.0) is senders.pacer(2.0)
+
+
+def test_the_provider_rate_is_a_setting():
+    assert Settings(_env_file=None).mail_provider_per_second == 2.0
+    with pytest.raises(ValueError):
+        Settings(_env_file=None, mail_provider_per_second=0)
+
+
+async def test_the_resend_sender_waits_its_turn_and_get_sender_shares_one_pacer(monkeypatch):
+    import asyncio
+
+    from app.platform.email import senders
+
+    now = {"t": 0.0}
+    order: list[str] = []
+
+    async def sleep(seconds: float) -> None:
+        order.append(f"sleep {seconds}")
+        now["t"] += seconds
+
+    def transport(url, headers, body):
+        order.append("post")
+        return 200, b'{"id": "p1"}'
+
+    monkeypatch.setattr(asyncio, "sleep", sleep)
+    sender = senders.ResendSender(
+        "k", transport=transport, pace=senders.Pacer(2.0, clock=lambda: now["t"])
+    )
+    await sender.send(MAIL, idempotency_key="d1")
+    await sender.send(MAIL, idempotency_key="d2")
+    assert order == ["post", "sleep 0.5", "post"]
+    made = senders.get_sender(Settings(_env_file=None, resend_api_key="k"))
+    assert made._pace is senders.pacer(2.0)

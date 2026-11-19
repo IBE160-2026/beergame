@@ -64,9 +64,12 @@ export function useRequestPasswordReset() {
   });
 }
 
-/** Whether a reset link still works: its account's e-mail, or `reset_link_invalid`. */
-export async function checkPasswordReset(token: string): Promise<string> {
-  return (await request(() => api.POST("/api/auth/password-reset/check", { body: { token } }))).email;
+export type CheckedReset = components["schemas"]["ResetCheckOut"];
+
+/** Whether a reset link still works: its account's e-mail and whether the account has no password
+ * yet (a manually registered Student, Story 4.8), or `reset_link_invalid`. */
+export async function checkPasswordReset(token: string): Promise<CheckedReset> {
+  return request(() => api.POST("/api/auth/password-reset/check", { body: { token } }));
 }
 
 export type CheckedInvitation = components["schemas"]["InvitationCheckOut"];
@@ -76,9 +79,10 @@ export async function checkInvitation(token: string): Promise<CheckedInvitation>
   return request(() => api.POST("/api/auth/invitation/check", { body: { token } }));
 }
 
-/** Accept an Invitation: a new account, or the role added to the address's account. Either way
- * the User is logged in, and the session cache holds them. */
-export function useAcceptInvitation(existing: boolean) {
+/** Accept an Invitation: a new account, or the role (or, for a Student Invitation, the Class)
+ * added to the address's account. Either way the User is logged in, and the session cache holds
+ * them. */
+export function useAcceptInvitation(existing: boolean, student = false) {
   const queryClient = useQueryClient();
   const copy = nb.auth.invitation;
   return useAction<SessionUser, { token: string; name: string; password: string }>({
@@ -90,8 +94,13 @@ export function useAcceptInvitation(existing: boolean) {
       rate_limited: copy.rateLimited,
       invalid_credentials: nb.auth.login.invalidCredentials,
     },
-    fallback: existing ? copy.existing.failed : copy.failed,
-    onSuccess: (user) => queryClient.setQueryData(meKey, user),
+    fallback: existing ? (student ? copy.student.existing.failed : copy.existing.failed) : copy.failed,
+    onSuccess: (user) => {
+      queryClient.setQueryData(meKey, user);
+      // The account may hold a new role or Class: every other read is fetched again (Hjem's
+      // Classes among them), not served from a cache younger than its stale time.
+      void queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "auth" });
+    },
   });
 }
 

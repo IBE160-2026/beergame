@@ -8,10 +8,14 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 
 from app.modules.admin import routes as admin_routes
+from app.modules.classes import routes as classes_routes
+from app.modules.classes import seed as classes_seed
+from app.modules.classes import service as classes_service
 from app.modules.identity import routes as identity_routes
 from app.modules.identity import seed as identity_seed
 from app.modules.identity import service as identity_service
 from app.modules.messaging import routes as messaging_routes
+from app.modules.messaging import webhooks as messaging_webhooks
 from app.platform import audit, auth, authz, db
 from app.platform.auth import CsrfMiddleware
 from app.platform.config import get_settings
@@ -41,6 +45,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
     await seed.ensure_zero_config_logged()  # AD-17: a default model config with zero keys
     await identity_seed.ensure_demo_users_logged()  # AD-17: local demo Admin and Lecturer
+    await classes_seed.ensure_demo_class_logged()  # AD-17: the demo Lecturer's Class (Story 4.1)
     if settings.app_env == "production":
         # AD-17: the first Admin's Invitation, for each listed address with no account yet.
         await identity_service.ensure_bootstrap_invitations(auth.utcnow())
@@ -72,6 +77,11 @@ async def _invalid_request(_: Request, exc: RequestValidationError):
     return error_response(422, "invalid_request", "The request is not valid.", fields)
 
 
+async def _class_archived(_: Request, __: Exception):
+    # Story 4.10: the one answer to any change of an archived Class, for its Faglærere.
+    return classes_routes.class_archived_response()
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="ØL-spillet API",
@@ -84,6 +94,8 @@ def create_app() -> FastAPI:
     app.include_router(identity_routes.router)
     app.include_router(identity_routes.admin_router)
     app.include_router(admin_routes.router)
+    app.include_router(classes_routes.router)
+    app.include_router(messaging_webhooks.router)  # the provider's events (Story 4.6), signed
     if get_settings().app_env != "production":
         app.include_router(messaging_routes.router)  # the dev mailbox (Story 3.6), local only
     authz.register_principal_loader(identity_service.load_user)
@@ -95,6 +107,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(authz.NotAuthenticated, _not_authenticated)
     app.add_exception_handler(authz.Forbidden, _forbidden)
     app.add_exception_handler(RequestValidationError, _invalid_request)
+    app.add_exception_handler(classes_service.ClassArchived, _class_archived)
     app.add_middleware(CsrfMiddleware)
     app.add_middleware(RequestLogMiddleware)  # outermost: refused requests are logged too
     return app

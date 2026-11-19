@@ -28,6 +28,9 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+# Imported for its registration: a Student Invitation's mail names its Class through the resolver
+# `classes.service` registers with `identity` at import (Story 4.4), also in the worker.
+from app.modules.classes import service as classes  # noqa: F401
 from app.modules.identity import service as identity
 from app.platform.config import Settings, get_settings
 from app.platform.email import Recipient
@@ -78,9 +81,15 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         identity.INVITATION: Delivery(
             IMMEDIATE, "invitation", resolve_ref=identity.invitation_mail_recipient
         ),
+        identity.MANUAL_REGISTRATION: Delivery(
+            IMMEDIATE,
+            "manual_registration",
+            context=identity.manual_registration_mail_context,
+        ),
     }
 )
-"""The product's kinds: `password_reset` (Story 3.6) and `invitation` (Story 3.7)."""
+"""The product's kinds: `password_reset` (Story 3.6), `invitation` (Story 3.7) and
+`manual_registration` (Story 4.8)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

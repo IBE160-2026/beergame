@@ -150,6 +150,19 @@
         "title": "AccountRole",
         "type": "string"
       },
+      "AddressProblem": {
+        "description": "Why a value is not an address (Story 4.3, FR-7). The web app words each one.",
+        "enum": [
+          "empty",
+          "whitespace",
+          "missing_at",
+          "two_at",
+          "missing_name",
+          "missing_domain"
+        ],
+        "title": "AddressProblem",
+        "type": "string"
+      },
       "AuditActor": {
         "description": "An actor of the log for the filter: a User with their name, or the system (both null).",
         "properties": {
@@ -325,6 +338,243 @@
         "title": "AuditTarget",
         "type": "object"
       },
+      "BounceClass": {
+        "description": "Why a mail did not reach its address: `hard` the provider calls permanent (the address\ndoes not exist or refuses mail), `soft` every other bounce (a full mailbox, a server down).",
+        "enum": [
+          "hard",
+          "soft"
+        ],
+        "title": "BounceClass",
+        "type": "string"
+      },
+      "BouncedRegistration": {
+        "description": "The registration status of an address whose Invitation bounced; Story 4.7 lists it with\nthe other statuses.",
+        "enum": [
+          "bounced"
+        ],
+        "title": "BouncedRegistration",
+        "type": "string"
+      },
+      "ClassIn": {
+        "description": "A new Class (Story 4.1). The service checks the fields and answers every refused one in\n`fields`: `name`, `institution_id` (`institution_missing`, `institution_unknown`) and\n`course_code`.",
+        "properties": {
+          "course_code": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "institution_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Id"
+          },
+          "name": {
+            "default": "",
+            "maxLength": 800,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "title": "ClassIn",
+        "type": "object"
+      },
+      "ClassListItem": {
+        "description": "One Class on the Lærerhjem: «Klassene dine».",
+        "properties": {
+          "archived": {
+            "title": "Archived",
+            "type": "boolean"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "roster_count": {
+            "title": "Roster Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "course_code",
+          "roster_count",
+          "archived"
+        ],
+        "title": "ClassListItem",
+        "type": "object"
+      },
+      "ClassListOut": {
+        "description": "The Classes the User is staff of, by name. No paging: a Lecturer has a handful.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClassListItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ClassListOut",
+        "type": "object"
+      },
+      "ClassOut": {
+        "description": "One Class with its Institution's name and the User's staff role in it.",
+        "properties": {
+          "archived": {
+            "title": "Archived",
+            "type": "boolean"
+          },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "institution_id": {
+            "format": "uuid",
+            "title": "Institution Id",
+            "type": "string"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "roster_count": {
+            "title": "Roster Count",
+            "type": "integer"
+          },
+          "staff_role": {
+            "$ref": "#/components/schemas/StaffRole"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "course_code",
+          "institution_id",
+          "institution_name",
+          "staff_role",
+          "can_manage",
+          "created_at",
+          "archived",
+          "roster_count"
+        ],
+        "title": "ClassOut",
+        "type": "object"
+      },
+      "EnrolledClassListOut": {
+        "description": "The Classes the User is a Student in, by name. No paging: a Student has a handful.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EnrolledClassOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "EnrolledClassListOut",
+        "type": "object"
+      },
+      "EnrolledClassOut": {
+        "description": "A Class the User is a Student in (Story 4.5): what Hjem names.",
+        "properties": {
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "course_code"
+        ],
+        "title": "EnrolledClassOut",
+        "type": "object"
+      },
       "ErrorBody": {
         "properties": {
           "code": {
@@ -371,6 +621,42 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "InstitutionChoice": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "InstitutionChoice",
+        "type": "object"
+      },
+      "InstitutionChoicesOut": {
+        "description": "The Institutions a new Class may belong to, by name («Lag Klasse»).",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/InstitutionChoice"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "InstitutionChoicesOut",
         "type": "object"
       },
       "InstitutionIn": {
@@ -443,9 +729,53 @@
         "title": "InstitutionOut",
         "type": "object"
       },
+      "InvitationBounce": {
+        "description": "A Roster address whose newest Invitation bounced, not registered and not removed.",
+        "properties": {
+          "bounce_class": {
+            "$ref": "#/components/schemas/BounceClass"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "registration": {
+            "$ref": "#/components/schemas/BouncedRegistration"
+          }
+        },
+        "required": [
+          "email",
+          "registration",
+          "bounce_class"
+        ],
+        "title": "InvitationBounce",
+        "type": "object"
+      },
       "InvitationCheckOut": {
         "description": "What «Du er invitert» shows for a usable link.",
         "properties": {
+          "class_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Name"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
           "email": {
             "title": "Email",
             "type": "string"
@@ -454,8 +784,29 @@
             "title": "Has Account",
             "type": "boolean"
           },
+          "invited_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invited By"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/InvitationKind"
+          },
           "role": {
-            "$ref": "#/components/schemas/AccountRole"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AccountRole"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "valid_days": {
             "title": "Valid Days",
@@ -463,6 +814,7 @@
           }
         },
         "required": [
+          "kind",
           "email",
           "role",
           "valid_days",
@@ -501,6 +853,16 @@
         ],
         "title": "InvitationIn",
         "type": "object"
+      },
+      "InvitationKind": {
+        "description": "What an Invitation offers: an account role (Story 3.7), a place on a Class's Roster as a\nStudent (Story 4.4), or a place in one Class's staff as Assistant lecturer (Story 4.9).",
+        "enum": [
+          "role",
+          "student",
+          "assistant"
+        ],
+        "title": "InvitationKind",
+        "type": "string"
       },
       "InvitationListItem": {
         "description": "The newest Invitation to one address and role, on «Brukere og roller» (Story 3.10).",
@@ -632,6 +994,43 @@
         "title": "InvitationStatus",
         "type": "string"
       },
+      "InvitationSummaryOut": {
+        "description": "The counts of the Class's Student Invitations, computed by the api at read time, and the\naddresses the mail did not reach, by address. `sent`: handed to the mail provider; `bounced`:\nof those, reported bounced; `accepted`: accepted (Story 4.5); `expired`: neither accepted nor\nvoided, and past their last valid day now. Each counts Invitations, not addresses.",
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "bounced": {
+            "title": "Bounced",
+            "type": "integer"
+          },
+          "bounces": {
+            "items": {
+              "$ref": "#/components/schemas/InvitationBounce"
+            },
+            "title": "Bounces",
+            "type": "array"
+          },
+          "expired": {
+            "title": "Expired",
+            "type": "integer"
+          },
+          "sent": {
+            "title": "Sent",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sent",
+          "bounced",
+          "accepted",
+          "expired",
+          "bounces"
+        ],
+        "title": "InvitationSummaryOut",
+        "type": "object"
+      },
       "InvitationTokenIn": {
         "description": "The token of an Invitation link, from the fragment of `/invitasjon#<token>` (Story 3.8).",
         "properties": {
@@ -667,6 +1066,49 @@
         "title": "LoginIn",
         "type": "object"
       },
+      "ManualRegistrationIn": {
+        "description": "«Registrer manuelt»: the address and the Student's name (used only when the address has\nno account yet). `roster_entry_id` is the Roster row the form was opened from: when the\naddress typed is another one, that row is removed (a wrong address corrected).\n`upload_row` is the staged invalid row it was opened from, which is deleted. A refused\naddress answers 422 `invalid_request` with `fields.email` (an address problem or\n`already_registered`), a refused name with `fields.name` (`name_empty`, `name_too_long`).",
+        "properties": {
+          "email": {
+            "maxLength": 320,
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 800,
+            "title": "Name",
+            "type": "string"
+          },
+          "roster_entry_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roster Entry Id"
+          },
+          "upload_row": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UploadRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "email",
+          "name"
+        ],
+        "title": "ManualRegistrationIn",
+        "type": "object"
+      },
       "NewPasswordIn": {
         "properties": {
           "password": {
@@ -700,6 +1142,203 @@
           "email"
         ],
         "title": "PasswordResetIn",
+        "type": "object"
+      },
+      "RegistrationOut": {
+        "description": "One address on the Roster with its status. `id` names the Roster entry for a reminder to\nit alone; `remindable` is whether a reminder would go to it (not registered, not a hard\nbounce).",
+        "properties": {
+          "bounce_class": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BounceClass"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_valid_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Valid Day"
+          },
+          "remindable": {
+            "title": "Remindable",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RegistrationStatus"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "status",
+          "remindable"
+        ],
+        "title": "RegistrationOut",
+        "type": "object"
+      },
+      "RegistrationStatus": {
+        "description": "Where a Roster address stands, read at request time; the first that applies wins.\n`registered` / `registered_manually`: a Student in the Class (stored). `renewal_requested`:\nthe Student asked for a new Invitation from a link that no longer works. `bounced`: the mail\nof its newest Invitation did not arrive (with `bounce_class`). `invited`: its newest\nInvitation still works (with `last_valid_day`). `unregistered`: its newest Invitation expired\nor was voided unaccepted. `not_invited`: added by hand and sent no Invitation yet (Story\n4.8).",
+        "enum": [
+          "registered",
+          "registered_manually",
+          "renewal_requested",
+          "bounced",
+          "invited",
+          "unregistered",
+          "not_invited"
+        ],
+        "title": "RegistrationStatus",
+        "type": "string"
+      },
+      "RegistrationTotals": {
+        "description": "«Registrert 238», «Manuelt 2», «Uregistrert 10»: every address not removed, once.",
+        "properties": {
+          "registered": {
+            "title": "Registered",
+            "type": "integer"
+          },
+          "registered_manually": {
+            "title": "Registered Manually",
+            "type": "integer"
+          },
+          "unregistered": {
+            "title": "Unregistered",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "registered",
+          "registered_manually",
+          "unregistered"
+        ],
+        "title": "RegistrationTotals",
+        "type": "object"
+      },
+      "RegistrationsOut": {
+        "description": "«Status etter utsending»: the totals, how many addresses have not registered («Send\npåminnelse til N»), and every address by address.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RegistrationOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "reminder_count": {
+            "title": "Reminder Count",
+            "type": "integer"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/RegistrationTotals"
+          }
+        },
+        "required": [
+          "totals",
+          "reminder_count",
+          "items"
+        ],
+        "title": "RegistrationsOut",
+        "type": "object"
+      },
+      "ReminderIn": {
+        "description": "«Send påminnelse»: to every address that has not registered, or with `roster_entry_id` to\nthat one alone, valid for `valid_days` (1–60, as a Roster send).",
+        "properties": {
+          "roster_entry_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roster Entry Id"
+          },
+          "valid_days": {
+            "default": 14,
+            "title": "Valid Days",
+            "type": "integer"
+          }
+        },
+        "title": "ReminderIn",
+        "type": "object"
+      },
+      "ReminderOut": {
+        "description": "What the result line states: how many reminders went out, until when they work, and the\naddresses left out because their last mail bounced hard (to correct or register by hand).",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "last_valid_day": {
+            "format": "date",
+            "title": "Last Valid Day",
+            "type": "string"
+          },
+          "left_out": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Left Out",
+            "type": "array"
+          },
+          "sent": {
+            "title": "Sent",
+            "type": "integer"
+          },
+          "valid_days": {
+            "title": "Valid Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sent",
+          "valid_days",
+          "last_valid_day",
+          "expires_at",
+          "left_out"
+        ],
+        "title": "ReminderOut",
+        "type": "object"
+      },
+      "ResetCheckOut": {
+        "description": "A usable reset link: its address, and whether the account has no password yet (a manually\nregistered Student, Story 4.8), so «Nytt passord» words it as a first password.",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "first_password": {
+            "default": false,
+            "title": "First Password",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "ResetCheckOut",
         "type": "object"
       },
       "ResetEmailOut": {
@@ -743,6 +1382,320 @@
         "title": "RoleIn",
         "type": "object"
       },
+      "RosterColumn": {
+        "properties": {
+          "header": {
+            "title": "Header",
+            "type": "string"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "letter": {
+            "title": "Letter",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "letter",
+          "header"
+        ],
+        "title": "RosterColumn",
+        "type": "object"
+      },
+      "RosterColumnIn": {
+        "properties": {
+          "column": {
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Column",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "column"
+        ],
+        "title": "RosterColumnIn",
+        "type": "object"
+      },
+      "RosterEntryIn": {
+        "description": "«Legg til adresse»: one address, checked as an upload's are. A refused one answers 422\n`invalid_request` with `fields.email`: an address problem (`missing_at`, …) or `on_roster`.",
+        "properties": {
+          "email": {
+            "maxLength": 320,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "RosterEntryIn",
+        "type": "object"
+      },
+      "RosterInvalidRow": {
+        "description": "A staged row that gets no Invitation, and why (Story 4.3).",
+        "properties": {
+          "first_row": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Row"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AddressProblem"
+              },
+              {
+                "enum": [
+                  "duplicate",
+                  "on_roster"
+                ],
+                "type": "string"
+              }
+            ],
+            "title": "Reason"
+          },
+          "row_number": {
+            "title": "Row Number",
+            "type": "integer"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row_number",
+          "value",
+          "reason"
+        ],
+        "title": "RosterInvalidRow",
+        "type": "object"
+      },
+      "RosterPasteIn": {
+        "properties": {
+          "text": {
+            "maxLength": 52428800,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "RosterPasteIn",
+        "type": "object"
+      },
+      "RosterPreviewRow": {
+        "properties": {
+          "cells": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "row_number": {
+            "title": "Row Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "row_number",
+          "cells"
+        ],
+        "title": "RosterPreviewRow",
+        "type": "object"
+      },
+      "RosterSendIn": {
+        "description": "«Send N Invitasjoner»: the staged upload the page shows, and the validity in whole days.\nA validity outside the range answers 422 `invalid_request` with\n`fields.valid_days = valid_days_out_of_range`.",
+        "properties": {
+          "upload_id": {
+            "format": "uuid",
+            "title": "Upload Id",
+            "type": "string"
+          },
+          "valid_days": {
+            "default": 14,
+            "title": "Valid Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "upload_id"
+        ],
+        "title": "RosterSendIn",
+        "type": "object"
+      },
+      "RosterSendOut": {
+        "description": "What the result line states: how many Invitations went out, and until when they work.",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "last_valid_day": {
+            "format": "date",
+            "title": "Last Valid Day",
+            "type": "string"
+          },
+          "sent": {
+            "title": "Sent",
+            "type": "integer"
+          },
+          "valid_days": {
+            "title": "Valid Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sent",
+          "valid_days",
+          "last_valid_day",
+          "expires_at"
+        ],
+        "title": "RosterSendOut",
+        "type": "object"
+      },
+      "RosterSource": {
+        "enum": [
+          "file",
+          "paste"
+        ],
+        "title": "RosterSource",
+        "type": "string"
+      },
+      "RosterStagingOut": {
+        "properties": {
+          "upload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RosterUploadOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "upload"
+        ],
+        "title": "RosterStagingOut",
+        "type": "object"
+      },
+      "RosterUploadOut": {
+        "description": "A staged Roster upload as the Class page shows it.",
+        "properties": {
+          "chosen_column": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chosen Column"
+          },
+          "chosen_count": {
+            "title": "Chosen Count",
+            "type": "integer"
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/RosterColumn"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "has_header": {
+            "title": "Has Header",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "invalid_rows": {
+            "items": {
+              "$ref": "#/components/schemas/RosterInvalidRow"
+            },
+            "title": "Invalid Rows",
+            "type": "array"
+          },
+          "preview": {
+            "items": {
+              "$ref": "#/components/schemas/RosterPreviewRow"
+            },
+            "title": "Preview",
+            "type": "array"
+          },
+          "restored_count": {
+            "default": 0,
+            "title": "Restored Count",
+            "type": "integer"
+          },
+          "row_count": {
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "source": {
+            "$ref": "#/components/schemas/RosterSource"
+          },
+          "suggested_column": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Column"
+          },
+          "suggested_count": {
+            "title": "Suggested Count",
+            "type": "integer"
+          },
+          "valid_count": {
+            "title": "Valid Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "file_name",
+          "row_count",
+          "has_header",
+          "columns",
+          "suggested_column",
+          "suggested_count",
+          "chosen_column",
+          "chosen_count",
+          "valid_count",
+          "invalid_rows",
+          "preview"
+        ],
+        "title": "RosterUploadOut",
+        "type": "object"
+      },
       "SessionOut": {
         "properties": {
           "user": {
@@ -753,6 +1706,185 @@
           "user"
         ],
         "title": "SessionOut",
+        "type": "object"
+      },
+      "SessionRole": {
+        "description": "The roles a session carries (`UserOut.roles`): the account roles, and `assistant` while the\nUser is Assistant lecturer of at least one Class (Story 4.9). `assistant` is read from the\nClass staff on every request, never stored or granted by the Admin.",
+        "enum": [
+          "admin",
+          "lecturer",
+          "assistant"
+        ],
+        "title": "SessionRole",
+        "type": "string"
+      },
+      "StaffAssistant": {
+        "description": "An Assistant of the Class: `active` (staff, `user_id` set), or an Invitation not yet\naccepted (`invitation_id` set): `invited` with its last valid day, or `expired`.",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "invitation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invitation Id"
+          },
+          "last_valid_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Valid Day"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StaffStatus"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "email",
+          "status"
+        ],
+        "title": "StaffAssistant",
+        "type": "object"
+      },
+      "StaffEmailIn": {
+        "description": "«Legg til Faglærer» or «Inviter Assistent»: one address. A refused address answers 422\n`invalid_request` with `fields.email`: an address problem, `not_lecturer` (Faglærer: no\nactive account with the Lecturer role, one reason for all) or `already_staff`.",
+        "properties": {
+          "email": {
+            "maxLength": 320,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "StaffEmailIn",
+        "type": "object"
+      },
+      "StaffLecturer": {
+        "description": "A Faglærer of the Class: an owner (the creator or a co-owner), always active.",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "name",
+          "email"
+        ],
+        "title": "StaffLecturer",
+        "type": "object"
+      },
+      "StaffOut": {
+        "description": "«Faglærere og assistenter»: each group by name, then address.",
+        "properties": {
+          "assistants": {
+            "items": {
+              "$ref": "#/components/schemas/StaffAssistant"
+            },
+            "title": "Assistants",
+            "type": "array"
+          },
+          "lecturers": {
+            "items": {
+              "$ref": "#/components/schemas/StaffLecturer"
+            },
+            "title": "Lecturers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lecturers",
+          "assistants"
+        ],
+        "title": "StaffOut",
+        "type": "object"
+      },
+      "StaffRole": {
+        "description": "A User's role in one Class (`class_staff.role`). Co-owners (4.9) are owners too: one role,\nso they have exactly the owner's rights. An Assistant lecturer (4.9) reads the Class.",
+        "enum": [
+          "owner",
+          "assistant"
+        ],
+        "title": "StaffRole",
+        "type": "string"
+      },
+      "StaffStatus": {
+        "enum": [
+          "active",
+          "invited",
+          "expired"
+        ],
+        "title": "StaffStatus",
+        "type": "string"
+      },
+      "UploadRow": {
+        "description": "A row of the Class's staged upload: the invalid row a manual registration corrects.",
+        "properties": {
+          "row_number": {
+            "minimum": 1.0,
+            "title": "Row Number",
+            "type": "integer"
+          },
+          "upload_id": {
+            "format": "uuid",
+            "title": "Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "upload_id",
+          "row_number"
+        ],
+        "title": "UploadRow",
         "type": "object"
       },
       "UserListItem": {
@@ -839,7 +1971,7 @@
           },
           "roles": {
             "items": {
-              "$ref": "#/components/schemas/AccountRole"
+              "$ref": "#/components/schemas/SessionRole"
             },
             "title": "Roles",
             "type": "array"
@@ -2209,7 +3341,7 @@
     },
     "/api/auth/invitation/accept": {
       "post": {
-        "description": "Create the account an Invitation offers, with its role, and log in (FR-1, FR-4).",
+        "description": "Create the account an Invitation offers and log in (FR-1, FR-4): with its role, or, for a\nStudent Invitation, as a registered Student of its Class (Story 4.5, FR-8).",
         "operationId": "acceptInvitation",
         "requestBody": {
           "content": {
@@ -2281,7 +3413,7 @@
     },
     "/api/auth/invitation/accept-login": {
       "post": {
-        "description": "Add an Invitation's role to the account its address already has, and log in.",
+        "description": "Add an Invitation's role, or its Class (Story 4.5), to the account its address already\nhas, and log in.",
         "operationId": "acceptInvitationWithLogin",
         "requestBody": {
           "content": {
@@ -2648,7 +3780,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ResetEmailOut"
+                  "$ref": "#/components/schemas/ResetCheckOut"
                 }
               }
             },
@@ -2730,6 +3862,1595 @@
         "summary": "Confirm Password Reset",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/classes": {
+      "get": {
+        "description": "The Classes the User is staff of, by name: «Klassene dine» on the Lærerhjem.",
+        "operationId": "listClasses",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Classes",
+        "tags": [
+          "classes"
+        ]
+      },
+      "post": {
+        "description": "Create a Class with the User as its owner (FR-6). A refused field answers 422\n`invalid_request` with every refused field in `fields`, and nothing is stored.",
+        "operationId": "createClass",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Create Class",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/enrolled": {
+      "get": {
+        "description": "The Classes the User is a Student in, by name (Story 4.5): Hjem names them. Empty for a\nUser on no Roster.",
+        "operationId": "listEnrolledClasses",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrolledClassListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "summary": "List Enrolled Classes",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/enrolled/{class_id}": {
+      "get": {
+        "description": "One Class the User is a Student in. Another Class, one whose Roster no longer holds the\nUser's address, one that does not exist and an id that is not one all answer the same 403\n`forbidden` (FR-5, FR-7).",
+        "operationId": "getEnrolledClass",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrolledClassOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Enrolled Class",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/institutions": {
+      "get": {
+        "description": "The Institutions a new Class may belong to, by name.",
+        "operationId": "listClassInstitutions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionChoicesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Institutions",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}": {
+      "get": {
+        "description": "One Class. A Class the User is not staff of, one that does not exist and an id that is not\none all answer the same 403 `forbidden` (FR-5).",
+        "operationId": "getClass",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Class",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/archive": {
+      "post": {
+        "description": "«Arkiver Klassen»: the Class becomes read-only and is kept until the retention period ends.\nIts open Invitations stop working and its staged upload is deleted. 409 `class_archived` when\nit is archived already.",
+        "operationId": "archiveClass",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Class",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/invitations": {
+      "get": {
+        "description": "What became of the Class's Student Invitations (Story 4.6, FR-8): how many were sent,\nbounced, accepted and expired, computed now, and the Roster addresses whose newest Invitation\nbounced, with the bounce's class. Its owners and Assistant lecturers may read it (Story 4.9).\nA Class the User may not read, one that does not exist and an id that is not one all answer\nthe same 403 `forbidden`.",
+        "operationId": "getInvitationSummary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationSummaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Invitation Summary",
+        "tags": [
+          "classes"
+        ]
+      },
+      "post": {
+        "description": "«Send N Invitasjoner» (Story 4.4): write the staged upload's valid addresses to the Roster\nand send each new address a Student Invitation valid through the `valid_days`-th day after\ntoday (Europe/Oslo), in one transaction; the mails leave from `worker-batch`. 404\n`not_found` when `upload_id` is not the Class's staging (sent already, replaced or expired);\n422 `nothing_to_send` when no staged row is valid; 422 `invalid_request` with\n`fields.valid_days` for a validity outside 1–60 days. Nothing changes on a refusal.",
+        "operationId": "sendRosterInvitations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RosterSendIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosterSendOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Send Invitations",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/registrations": {
+      "get": {
+        "description": "«Status etter utsending» (Story 4.7, FR-9): every Roster address with its status, read now\n(registered, registered manually, asked for a new Invitation, bounced with its class, invited\nwith its last valid day, unregistered), the totals and how many have not registered. Its\nowners and Assistant lecturers may read it (Story 4.9). A Class the User may not read, one\nthat does not exist and an id that is not one all answer the same 403 `forbidden`.",
+        "operationId": "getRegistrations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Registrations",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/reminders": {
+      "post": {
+        "description": "«Send påminnelse» (Story 4.7, FR-9, NFR-10): a new Invitation valid through the\n`valid_days`-th day after today (Europe/Oslo) to every address that has not registered, or\nwith `roster_entry_id` to that one alone; their old links stop working. Addresses whose last\nmail bounced hard are left out and named in `left_out`. 422 `nothing_to_send` when nothing\nwould be sent or left out (all registered, or the entry is registered or not on the Roster);\n422 `invalid_request` with `fields.valid_days` for a validity outside 1–60 days.",
+        "operationId": "sendReminders",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Send Reminders",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/roster-paste": {
+      "post": {
+        "description": "«Lim inn adresser i stedet» (Story 4.3): split the text on line breaks, commas, semicolons\nand whitespace and stage the pieces as one-column rows, replacing any earlier staged upload;\n`Navn <adresse>` is read as the address. Text over the size limit or with more addresses than\nthe row limit answers 422 `roster_paste_too_long` and stages nothing.",
+        "operationId": "pasteRoster",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RosterPasteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosterUploadOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Paste Roster",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/roster-upload": {
+      "delete": {
+        "description": "«Bytt fil»: delete the Class's staged upload. 204 whether or not there was one.",
+        "operationId": "deleteRosterUpload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Roster Upload",
+        "tags": [
+          "classes"
+        ]
+      },
+      "get": {
+        "description": "The Class's staged upload, evaluated against its chosen column; `upload` is null when\nthere is none or it has expired.",
+        "operationId": "getRosterUpload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosterStagingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Roster Upload",
+        "tags": [
+          "classes"
+        ]
+      },
+      "post": {
+        "description": "Read a Roster file (.xlsx or .csv) in memory and stage its rows for the Class, replacing\nany earlier staged upload. A file that cannot be used answers 422 `roster_unreadable` and\nstages nothing (the earlier staged upload stays).",
+        "operationId": "uploadRoster",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The file's name, percent-encoded; .xlsx or .csv.",
+            "in": "header",
+            "name": "X-File-Name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosterUploadOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Upload Roster",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/roster-upload/column": {
+      "put": {
+        "description": "Choose the e-mail column; the staged rows are evaluated against it at once, from the staged\ncells. 404 `not_found` when nothing is staged (or it expired); 422 `invalid_request` with\n`fields.column = column_unknown` for a column the file does not have.",
+        "operationId": "chooseRosterColumn",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RosterColumnIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosterUploadOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Choose Roster Column",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/roster/entries": {
+      "post": {
+        "description": "«Legg til adresse» (Story 4.8): one address on the Roster, checked as an upload's are, with\nno Invitation yet (`not_invited`; a reminder sends the first). A removed address is put back\nas it was, and a registered Student has access again. 422 `invalid_request` with\n`fields.email` = an address problem or `on_roster`.",
+        "operationId": "addRosterEntry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RosterEntryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Add Roster Entry",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/roster/entries/{entry_id}": {
+      "delete": {
+        "description": "Take an address off the Roster (Story 4.8, FR-7): its open Invitation stops working and a\nregistered Student loses access to the Class from their next request; the account and other\nClasses stay. 404 `not_found` when the entry is not on the Class's Roster (or no entry id).",
+        "operationId": "removeRosterEntry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Roster Entry",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/roster/manual": {
+      "post": {
+        "description": "«Registrer manuelt» (Story 4.8, FR-9): the address's User (created without a password, or\nthe existing one) is a Student in the Class at once, registered manually, and is mailed a\nsingle-use link to set a password when it has none. 422 `invalid_request` with\n`fields.email` (an address problem or `already_registered`) or `fields.name`.",
+        "operationId": "registerStudentManually",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualRegistrationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Register Manually",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/staff": {
+      "get": {
+        "description": "«Faglærere og assistenter»: the Class's Faglærere (owners) and Assistenter, each with a\nstatus (active, invited with the last valid day, or expired).",
+        "operationId": "getClassStaff",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Staff",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/staff/assistants": {
+      "post": {
+        "description": "«Inviter Assistent»: an Invitation for this Class only, valid through the 14th day after\ntoday (Europe/Oslo), mailed from `worker-batch`; an open one to the address is voided. 422\n`invalid_request` with `fields.email` = an address problem or `already_staff`.",
+        "operationId": "inviteClassAssistant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffEmailIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffAssistant"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Invite Assistant",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/staff/invitations/{invitation_id}": {
+      "delete": {
+        "description": "Withdraw an Assistant Invitation that is not accepted: its link stops working. 404\n`not_found` when the Class has no such open Invitation.",
+        "operationId": "withdrawClassAssistantInvitation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "invitation_id",
+            "required": true,
+            "schema": {
+              "title": "Invitation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Assistant Invitation",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/staff/lecturers": {
+      "post": {
+        "description": "«Legg til Faglærer»: a User who already has the Lecturer role becomes co-owner, with the\nowner's rights. 422 `invalid_request` with `fields.email` = an address problem,\n`not_lecturer` (no such Lecturer; nothing about the account is told) or `already_staff`.",
+        "operationId": "addClassLecturer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffEmailIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffLecturer"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Add Lecturer",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/staff/{user_id}": {
+      "delete": {
+        "description": "Take a Faglærer or an Assistant off the Class: their access ends from their next request.\n422 `last_owner` for the Class's last Faglærer; 404 `not_found` when the User is not staff of\nthe Class.",
+        "operationId": "removeClassStaff",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Remove Staff",
+        "tags": [
+          "classes"
         ]
       }
     },

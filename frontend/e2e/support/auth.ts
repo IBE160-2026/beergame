@@ -15,6 +15,8 @@ export const DEMO_USERS = {
   // Story 3.3: both staff roles (lands on the Lærerhjem), and a User with no account role (Hjem).
   adminLecturer: { email: "admin-faglaerer@example.com", name: "Demo Admin og Faglærer", home: "/laererhjem" },
   student: { email: "student@example.com", name: "Demo Student", home: "/hjem" },
+  // Story 4.9: no account role, Assistant lecturer of the demo Class «class-of-1994».
+  assistant: { email: "assistent@example.com", name: "Demo Assistent", home: "/laererhjem" },
 } as const;
 
 export type DemoRole = keyof typeof DEMO_USERS;
@@ -33,6 +35,17 @@ export async function untilHydrated(page: Page, selector = "main form") {
         .evaluate((el) => Object.keys(el).some((key) => key.startsWith("__reactProps$"))),
     )
     .toBe(true);
+}
+
+/** Wait until every web font the page's current layout asks for has loaded. Until then the text
+ * is set in a fallback face with other widths and line heights, so a measured box, a wrap or a
+ * horizontal scroll can change once the font swaps in; under load the font arrives late. The
+ * layout is forced first, so the fonts it needs are requested before `fonts.ready` is read. */
+export async function untilFontsLoaded(page: Page) {
+  await page.evaluate(async () => {
+    document.body.getBoundingClientRect();
+    await document.fonts.ready;
+  });
 }
 
 /** The answer to the next `method` request to the api path `path`. Start it before the press that

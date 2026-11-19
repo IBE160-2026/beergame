@@ -36,6 +36,11 @@ services:
       # Password-reset limits (Story 3.6) far above the app's defaults (5 per address, 50 per IP
       # an hour), so repeated Playwright runs on one stack never hit them. The api tests check
       # the limits themselves.
+      # The per-IP login limit (Story 3.2) far above the app's default (300 an IP per 15 min): every
+      # Playwright browser logs in from 127.0.0.1, and the lockout and wrong-password tests leave
+      # failed attempts behind, so repeated runs inside one window would lock every login out. The
+      # per-account limit stays at the default, which the lockout test checks.
+      LOGIN_RATE_LIMIT_PER_IP: ${LOGIN_RATE_LIMIT_PER_IP:-100000}
       PASSWORD_RESET_RATE_LIMIT_PER_ACCOUNT: ${PASSWORD_RESET_RATE_LIMIT_PER_ACCOUNT:-1000}
       PASSWORD_RESET_RATE_LIMIT_PER_IP: ${PASSWORD_RESET_RATE_LIMIT_PER_IP:-10000}
       # Invitation accept and renewal limits (Story 3.8) far above the app's defaults (50 accepts

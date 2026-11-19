@@ -38,6 +38,7 @@ from app.modules.identity.schemas import (
     LoginIn,
     NewPasswordIn,
     PasswordResetIn,
+    ResetCheckOut,
     ResetEmailOut,
     ResetTokenIn,
     RoleIn,
@@ -131,17 +132,18 @@ async def request_password_reset(body: PasswordResetIn, request: Request) -> Res
 
 @router.post(
     "/password-reset/check",
-    response_model=ResetEmailOut,
+    response_model=ResetCheckOut,
     responses=documented(410, 422),
     operation_id="checkPasswordReset",
     dependencies=[Depends(authz.public)],
 )
 async def check_password_reset(body: ResetTokenIn) -> Response:
     """Whether a reset link still works, and the address it belongs to."""
-    address = await service.check_password_reset(body.token, now=auth.utcnow())
-    if address is None:
+    checked = await service.check_password_reset(body.token, now=auth.utcnow())
+    if checked is None:
         return error_response(*RESET_LINK_INVALID)
-    return JSONResponse(ResetEmailOut(email=address).model_dump(mode="json"))
+    out = ResetCheckOut(email=checked.email, first_password=checked.first_password)
+    return JSONResponse(out.model_dump(mode="json"))
 
 
 @router.post(
@@ -188,12 +190,23 @@ async def check_invitation(body: InvitationTokenIn) -> Response:
     """Whether an Invitation link still works, and what «Du er invitert» shows for it."""
     checked = await service.check_invitation(body.token, now=auth.utcnow())
     if checked is None:
+        if await service.link_of_archived_class(body.token):
+            # The expired-link state with no renewal to offer (Story 4.10, Issue #93).
+            status, message = INVITATION_REFUSALS["invitation_link_invalid"]
+            return error_response(
+                status, "invitation_link_invalid", message, fields={"class_archived": True}
+            )
         return _invitation_answer(service.AcceptRefused("invitation_link_invalid"))
+    label = checked.class_label
     out = InvitationCheckOut(
+        kind=checked.kind,
         email=checked.email,
         role=checked.role,
         valid_days=checked.valid_days,
         has_account=checked.has_account,
+        class_name=label.name if label else None,
+        course_code=label.course_code if label else None,
+        invited_by=checked.invited_by,
     )
     return JSONResponse(out.model_dump(mode="json"))
 
@@ -206,7 +219,8 @@ async def check_invitation(body: InvitationTokenIn) -> Response:
     dependencies=[Depends(authz.public)],
 )
 async def accept_invitation(body: AcceptInvitationIn, request: Request) -> Response:
-    """Create the account an Invitation offers, with its role, and log in (FR-1, FR-4)."""
+    """Create the account an Invitation offers and log in (FR-1, FR-4): with its role, or, for a
+    Student Invitation, as a registered Student of its Class (Story 4.5, FR-8)."""
     return _invitation_answer(
         await service.accept_invitation_new(
             body.token,
@@ -226,7 +240,8 @@ async def accept_invitation(body: AcceptInvitationIn, request: Request) -> Respo
     dependencies=[Depends(authz.public)],
 )
 async def accept_invitation_with_login(body: AcceptExistingIn, request: Request) -> Response:
-    """Add an Invitation's role to the account its address already has, and log in."""
+    """Add an Invitation's role, or its Class (Story 4.5), to the account its address already
+    has, and log in."""
     return _invitation_answer(
         await service.accept_invitation_existing(
             body.token, body.password, ip=ratelimit.client_ip(request), now=auth.utcnow()

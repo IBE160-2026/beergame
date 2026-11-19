@@ -9,6 +9,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 import app.ai.models  # noqa: F401  (registers the model config and budget tables)
+import app.modules.classes.models  # noqa: F401  (classes, class_staff)
 import app.modules.games.models  # noqa: F401  (registers the games tables on the metadata)
 import app.modules.identity.models  # noqa: F401  (users, user_roles)
 import app.modules.messaging.models  # noqa: F401  (mail_deliveries)

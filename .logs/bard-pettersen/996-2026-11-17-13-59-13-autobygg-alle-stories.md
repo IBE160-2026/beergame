@@ -823,3 +823,214 @@ Gjøre klar for PR fra `epic-3`: rette CI, gjøre en samlet oppfølgende gjennom
 
 ### Åpne punkter
 - Issue #82: tre tvilsomme funn (blant annet motsatt låserekkefølge som kan gi 500).
+
+## Story 4.1: Lage klasse fra Lærerhjemmet (2026-11-18)
+
+### Oppgave
+Bygge Story 4.1 på `epic-4` (første story i Epic 4) og kontrollere den visuelt. Epic 3 er merget (PR #83). Brukeren vil at kjøringen stopper etter Epic 4, så compact kan kjøres.
+
+### Plan
+`bmad-build-auto` i én underagent, med sperren fra Story 3.9 koblet på. Deretter visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-1-create-class-from-laererhjem.md`. Commit `e3d48f7`. Migrering 0023.
+- Modulen `classes` (`classes`, `class_staff`), `/api/classes`, policyer og `classes_visible_to(user)`. Sperren mot å fjerne faglærerrollen er koblet på (409 med riktig antall). Lærerhjemmet viser tom og fylt tilstand, og «Lag Klasse», klassesiden og en demoklasse er på plass.
+- Backend: 1992 grønne. Frontend: typecheck, Vitest (335), sjekker og bygg grønne. Playwright: 130 grønne.
+- Gjennomgang: 37 funn, 3 middels grupper og 4 lave rettet.
+- Visuell kontroll: 14 skjermbilder, alle stemmer, to punkter til vurdering.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #84: beslutninger, restrisiko og visuelle punkter.
+
+## Story 4.2: Laste opp klasseliste og velge e-postkolonne (2026-11-19)
+
+### Oppgave
+Bygge Story 4.2 på `epic-4` og kontrollere den visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent. Personopplysninger skal ikke i loggen. Deretter visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-2-upload-roster-file-pick-email-column.md`. Commit `e20518f`, visuelle rettinger `68f0eb9`. Migrering 0024.
+- Opplasting av .xlsx og .csv på klassesiden, lest i minnet. Bare cellene lagres, og de utløper. Forhåndsvisning, valg av e-postkolonne med grunn, og ny kontroll når kolonnen endres. Ny avhengighet: `openpyxl==3.1.5`.
+- Backend: 2042 grønne på rundt 70 s (`test_rescue.py` feilet én gang under en Docker-ombygging). Frontend: typecheck, Vitest (341), sjekker og bygg er grønne. Playwright: 135 grønne.
+- Gjennomgang: 37 funn, 6 middels og 13 lave rettet.
+- Visuell kontroll: 22 skjermbilder og to rettinger. To klare avvik rettes i Story 4.3.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #85: beslutninger, sjekk mot ekte Canvas-eksporter, og visuelle avvik.
+
+## Story 4.3: Ugyldige rader og innliming av adresser (2026-11-19)
+
+### Oppgave
+Bygge Story 4.3 på `epic-4`, rette to visuelle avvik fra 4.2 (Issue #85) og kontrollere visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent. Den ble avbrutt i gjennomgangen og fullførte etter at den ble sendt tilbake. Deretter visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-3-see-invalid-rows-paste-addresses.md`. Commit `6d0f9aa`, visuelle rettinger `073da09`. Migrering 0025.
+- `address_problem` gir hver rad en grunn. `POST /api/classes/{id}/roster-paste` er ny. Siden har «Ugyldige rader: N av M» og innliming med «Fortsett». Issue #85 punkt 1 og 2 er rettet.
+- Backend: 2077 grønne. Frontend: typecheck, Vitest (344), sjekker og bygg grønne. Playwright: 139 grønne, og en ny test for grensen på 100.
+- Gjennomgang: 32 funn, alle 7 middels og 13 lave rettet.
+- Visuell kontroll: 16 skjermbilder og to rettinger. Tre tekstavvik rettes i Story 4.4.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #86: beslutninger og visuelle avvik.
+
+## Story 4.4: Sende invitasjoner til klasselista med gyldighet (2026-11-19)
+
+### Oppgave
+Bygge Story 4.4 på `epic-4`, rette tre tekstavvik fra 4.3 (Issue #86) og kontrollere siden visuelt. Før storyen ble e2e-jobben i CI gjort raskere.
+
+### Plan
+- CI: Playwright-nettleseren caches, og apt-pakkene installeres bare når cachen ikke treffer. Installasjonen hadde tatt 7 av rundt 10 minutter.
+- `bmad-build-auto` i én underagent, og så visuell kontroll i en egen underagent som også skulle legge til den utsatte testen.
+
+### Resultat
+- CI: første kjøring med cache tok 3,5 min, mot nesten 10 før.
+- Spec: `.docs/implementation-artifacts/spec-4-4-send-invitations-roster-validity-period.md`. Commit `1330577`, visuelle rettinger `4d2a319`. Migrering 0026.
+- Invitasjoner til studenter med gyldighet, merking av adresser som allerede står på lista, avvisning med 404 og 422, og antallet på klasselista på Lærerhjemmet og klassesiden. Issue #86 er rettet.
+- Backend: 2101 grønne på 72 s. Frontend: typecheck, Vitest (348), sjekker og bygg grønne. Playwright: 142 grønne, pluss ny test for avvist sending.
+- Visuell kontroll: 18 skjermbilder og to rettinger. Det utsatte funnet om test for avvist sending er lukket.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #87: beslutninger og visuelle avvik.
+- Issue #86 lukkes.
+
+## Story 4.5: Registrere seg som student gjennom invitasjonen (2026-11-19)
+
+### Oppgave
+Bygge Story 4.5 på `epic-4` og kontrollere den visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, som utvider invitasjonsflyten fra Story 3.8. Deretter visuell kontroll i en egen underagent. En `docker compose`-prosess så ut til å henge, så jeg stoppet den. Agentens egen bygging var da allerede ferdig.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-5-register-student-through-invitation.md`. Commit `9ba94af`, visuelle rettinger `d9c098d`. Migrering 0027.
+- Studentlenker virker på «Du er invitert», med ny konto eller eksisterende konto og passord. Aksepten skjer i én transaksjon. Studenten ser bare sine egne klasser, og Hjem viser dem med startdato. Demoklassen har 8 studenter.
+- Backend: 2113 grønne på 73 s. Frontend: typecheck, Vitest (351), sjekker og bygg grønne. Playwright: 146 grønne, pluss ny test for at Hjem oppdateres.
+- Gjennomgang: 36 funn, 13 rettet (5 middels).
+- Visuell kontroll: 22 skjermbilder og én etikett rettet.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #88: beslutninger, restrisiko (arkiverte klasser, ansatte som er studenter) og visuelle punkter.
+
+## Story 4.6: Invitasjoner som kom i retur, og tallene (2026-11-19)
+
+### Oppgave
+Bygge Story 4.6 på `epic-4` og kontrollere den visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, med en lokal simulering av returer som ikke finnes i produksjon. Deretter visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-6-see-bounced-invitations-and-counts.md`. Commit `2983c90`, test fra den visuelle kontrollen `b7a66c7`. Migrering 0028.
+- Webhook for Resend med signatursjekk, tall og returer på `GET /api/classes/{id}/invitations`, seksjonen «Invitasjoner» på klassesiden, og en lokal dev-rute for returer.
+- Backend: 2171 grønne. Frontend: typecheck, Vitest (354), sjekker og bygg grønne. Playwright: 149 grønne, pluss ny test for oppdatering på åpen side.
+- Gjennomgang: 30 funn, 3 middels og 8 lave rettet, 1 utsatt til 4.7.
+- Visuell kontroll: 14 skjermbilder, alle stemmer.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #89: beslutninger om returer og tall, og visuelle punkter.
+
+## Story 4.7: Følge registreringsstatus og sende påminnelser (2026-11-19)
+
+### Oppgave
+Bygge Story 4.7 på `epic-4`, ta med to utsatte punkter fra 4.5 og 4.6, og kontrollere visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, og så visuell kontroll i en egen underagent med vekt på den stablede stolpen.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-7-follow-registration-status-send-reminders.md`. Commit `99f6aa4`, visuell retting `ce41622`. Migrering 0029.
+- `GET /api/classes/{id}/registrations` (status beregnes ved lesing), `POST /api/classes/{id}/reminders` (til alle eller én), `registered_students()`, og seksjonen «Status etter utsending» med stablet stolpe, summer, filter, søk og bekreftelse på stedet.
+- Backend: 2194 grønne. Frontend: typecheck, Vitest (358), sjekker og bygg grønne. Playwright: 153 grønne.
+- Gjennomgang: 35 funn, 1 middels og 7 lave rettet.
+- Visuell kontroll: 36 skjermbilder, én retting, to punkter til vurdering (blant annet kontrasten i segmentet «Uregistrert»).
+- Status: `done`.
+
+### Åpne punkter
+- Issue #90: beslutninger og visuelle punkter.
+
+## Story 4.8: Registrere student manuelt og endre enkeltadresser (2026-11-19)
+
+### Oppgave
+Bygge Story 4.8 på `epic-4` og kontrollere den visuelt. Rette at to skjemaer kunne være åpne samtidig.
+
+### Plan
+`bmad-build-auto` i én underagent, med en eksplisitt beslutning om adresser til registrerte studenter. Deretter visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-8-register-student-manually-change-single-addresses.md`. Commit `8177a33`, visuelle rettinger `5595813`. Migrering 0030.
+- Manuell registrering, ny enkeltadresse og «Fjern», med konsekvensen vist over knappen. Rad-handlinger i statuslista. Engangslenke for første passord.
+- Backend: 2227 grønne. Frontend: typecheck, Vitest (362), sjekker og bygg grønne. Playwright: 155 grønne.
+- Gjennomgang: 36 funn, ett middels rettet og 12 lave rettet.
+- Visuell kontroll: 28 skjermbilder og to rettinger. Bare ett skjema kan nå være åpent om gangen.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #91: beslutninger, telling av «Send N» og tekstpunkter. Disse tas i den samlede gjennomgangen.
+
+## Story 4.9: Dele klasse med medeiere og assistenter (2026-11-19)
+
+### Oppgave
+Bygge Story 4.9 på `epic-4`, sjekke alle klasseruter fra 4.2–4.8 mot rollene, og kontrollere visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, med en matrise av rolle × rute. Etterpå visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-9-share-class-co-owners-assistant-lecturers.md`. Commit `8488f0e`, visuell retting `8b56c85`. Migrering 0031.
+- Siden «Faglærere og assistenter» på `/klasser/{id}/faglaerere`, med «Legg til Faglærer», «Inviter Assistent», fjerning, avvisning av siste eier, invitasjonstypen `assistant` og et register for aksept. Assistentrollen regnes ut fra `class_staff`, og assistenten har bare lesetilgang.
+- Backend: 2250 grønne. Frontend: typecheck, Vitest (367), sjekker og bygg grønne. Playwright: 160/160 før gjennomgangen. Etterpå feilet to tester utenfor storyen like etter en omstart.
+- Gjennomgang: 38 funn, 10 rettet.
+- Visuell kontroll: 28 skjermbilder, én retting, fem tekstpunkter til den samlede gjennomgangen.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #92: beslutninger, visuelle punkter og ustabile e2e-tester.
+
+## Story 4.10: Arkivere en klasse (2026-11-19)
+
+### Oppgave
+Bygge Story 4.10 på `epic-4`, den siste storyen i Epic 4. Avgjøre hva en arkivert klasse tillater på alle ruter fra 4.1–4.9, og kontrollere visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, med en matrise av rolle × rute × arkivert. Deretter visuell kontroll i en egen underagent på en ny klasse, aldri på demoklassen.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-10-archive-class.md`. Commit `e0ed1bd`, visuell retting `d634de7`.
+- Arkivering i én transaksjon, med beskjed til de ansatte. 409 `class_archived` for eiere, ellers 403. Invitasjoner ugyldiggjøres og opplastinger slettes. Studentene mister klassen. Det er ingen angring.
+- Backend: 2270 grønne på 101 s. Frontend: typecheck, Vitest (369), sjekker og bygg grønne. Playwright: 167/167.
+- Gjennomgang: 36 funn. 3 middels og 6 lave er rettet, blant annet en kappløpstest for alle ni rutene som endrer noe.
+- Visuell kontroll: 24 skjermbilder, én retting og fem punkter til den samlede gjennomgangen.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #93: beslutninger, vranglås ved aksept samtidig med arkivering, og visuelle punkter.
+
+## Avslutning av Epic 4 (2026-11-19)
+
+### Oppgave
+Gjøre `epic-4` klar for PR: samlet gjennomgang, rette vranglåser og UX-punkter som var samlet opp, og få e2e-testene stabile også på gamle lokale data. Underveis ble CI gjort raskere med cache for Playwright.
+
+### Plan
+- Én underagent for den samlede gjennomgangen: to vranglåser, B-punktene fra Issue #91–#93, og oppfølging av specene for 4.3–4.6.
+- Én underagent for e2e-testene: de skal ikke avhenge av gamle data, og ustabile tester skal rettes.
+
+### Resultat
+- Commit `7e67cc4`: fast låserekkefølge (klasse → bruker → invitasjon → oppføring på klasselista), med én test per kappløp (Issue #82 punkt 2 og #93). «Send N» teller ikke gjenopprettede studenter. Tekst- og UX-rettinger i 4.8–4.10. Specene for 4.3–4.6 er ok.
+- Commit `bb73550`: `homes.spec.ts` sjekker bare egne data. Testene venter på hydrering, innloggingssvar og fonter før de måler. Den lokale grensen for innlogging per IP er hevet i compose. To trege filer har fått `test.slow()`.
+- Backend: 2278 grønne. Playwright: fire fulle kjøringer, 168/168 hver gang.
+- Issue #82 er lukket.
+
+### Åpne punkter
+- Issue #94: ett tvilsomt funn (et kolonnevalg som er underveis når en ny fil lastes opp).
+- Issue #95: to trege e2e-filer (opptil 28 s).

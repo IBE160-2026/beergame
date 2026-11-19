@@ -50,6 +50,7 @@ __all__ = [
     "claim_due",
     "due",
     "enqueue",
+    "enqueue_by_ref",
     "get",
     "notices",
 ]
@@ -81,6 +82,10 @@ class Notice:
     kind: str
     ref: uuid.UUID | None
     not_before: datetime | None
+
+
+BY_REF_BATCH = 1000
+"""Notices per INSERT statement in `enqueue_by_ref`."""
 
 
 def _notice(row) -> Notice:
@@ -144,6 +149,39 @@ async def enqueue(
         notice_id=str(notice_id),
     )
     return True
+
+
+async def enqueue_by_ref(
+    session: AsyncSession, kind: str, items: Sequence[tuple[str, uuid.UUID]]
+) -> int:
+    """`enqueue` for many notices addressed by reference at once, in the caller's transaction
+    (Story 4.4: a Roster's Invitations): one notice per `(dedupe_key, ref)`, due at once, and
+    the claim jobs deferred in one statement. A used `dedupe_key` is skipped. Returns how many
+    notices were stored."""
+    if not kind or any(not key or ref is None for key, ref in items):
+        raise ValueError("each notice has a kind, a dedupe_key and a ref")
+    stored: list[uuid.UUID] = []
+    batch = BY_REF_BATCH
+    for start in range(0, len(items), batch):
+        result = await session.execute(
+            insert(notices)
+            .values(
+                [
+                    {"id": uuid.uuid7(), "kind": kind, "dedupe_key": key, "ref": ref}
+                    for key, ref in items[start : start + batch]
+                ]
+            )
+            .on_conflict_do_nothing(index_elements=[notices.c.dedupe_key])
+            .returning(notices.c.id)
+        )
+        stored.extend(result.scalars())
+    await jobs.defer_many(
+        session,
+        CLAIM_TASK,
+        queue=jobs.MAIL,
+        jobs=[(f"notice:{notice_id}", {"notice_id": str(notice_id)}) for notice_id in stored],
+    )
+    return len(stored)
 
 
 def _due(now: datetime):

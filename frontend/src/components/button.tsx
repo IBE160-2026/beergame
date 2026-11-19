@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, MouseEvent, MouseEventHandler } from "react";
+import type { ButtonHTMLAttributes, MouseEvent, MouseEventHandler, Ref } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "disabled" | "aria-disabled"> & {
   variant?: "primary" | "secondary";
   unavailable?: boolean;
+  ref?: Ref<HTMLButtonElement>;
 };
 
 const base =

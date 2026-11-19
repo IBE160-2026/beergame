@@ -84,10 +84,14 @@ async def test_a_usable_link_shows_the_address_the_role_and_the_days_left(admin,
         response = await check(c, token)
     assert response.status_code == 200
     assert response.json() == {
+        "kind": "role",
         "email": INVITED,
         "role": "lecturer",
         "valid_days": 11,
         "has_account": False,
+        "class_name": None,
+        "course_code": None,
+        "invited_by": None,
     }
 
 
@@ -110,6 +114,7 @@ async def test_a_link_that_no_longer_works_is_one_answer(admin, clock, state):
     for response in (checked, accepted):
         assert response.status_code == 410
         assert response.json()["error"]["code"] == "invitation_link_invalid"
+        assert response.json()["error"]["fields"] == {}  # a new one may be asked for
     assert len(users_with()) == (1 if state == "deactivated" else 0)
 
 

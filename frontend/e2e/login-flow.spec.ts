@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { DEMO_PASSWORD, DEMO_USERS, type DemoRole, loginByApi, untilHydrated } from "./support/auth";
+import { answerTo, DEMO_PASSWORD, DEMO_USERS, type DemoRole, loginByApi, untilHydrated } from "./support/auth";
 
 const copy = nb.auth.login;
 const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
@@ -56,7 +56,10 @@ for (const vp of VIEWPORTS) {
       await page.keyboard.type(user.email);
       await page.keyboard.press("Tab");
       await page.keyboard.type("feil-passord");
+      // The api hashes the password before it answers, which can outlast an assertion under load.
+      const refused = answerTo(page, "/api/auth/login");
       await page.keyboard.press("Enter");
+      expect((await refused).status()).toBe(401);
       await expect(page.locator("form").getByRole("alert")).toHaveText(copy.invalidCredentials);
       await expect(page.getByLabel(copy.email)).toHaveValue(user.email);
       await expect(page.getByLabel(copy.email)).toBeFocused();
@@ -67,7 +70,9 @@ for (const vp of VIEWPORTS) {
       await page.keyboard.press("Tab");
       await page.keyboard.press("ControlOrMeta+A");
       await page.keyboard.type(DEMO_PASSWORD);
+      const accepted = answerTo(page, "/api/auth/login");
       await page.keyboard.press("Enter");
+      expect((await accepted).status()).toBe(200);
       await expect(page).toHaveURL(new RegExp(`${user.home}$`));
       await expect(page.getByRole("banner").getByText(user.name)).toBeVisible();
       const cookie = await sessionCookie(page);

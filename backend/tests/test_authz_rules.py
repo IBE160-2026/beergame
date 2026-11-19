@@ -31,7 +31,12 @@ PUBLIC_ROUTES = {
     ("POST", "/api/auth/invitation/renewal"),
     # The lecturer-access request from the Landing (Story 3.13): the visitor has no account.
     ("POST", "/api/auth/access-request"),
-    # Later stories add theirs here, and only this kind: webhooks (signature-checked).
+    # The local dev bounce (Story 4.6), mounted only outside production like the dev mailbox.
+    ("POST", "/api/dev/mailbox/bounce"),
+    # The mail provider's events (Story 4.6): admitted by their Svix signature.
+    ("POST", "/api/webhooks/resend"),
+    # Later stories add theirs here, and only these kinds: webhooks (signature-checked), and dev
+    # routes that are never mounted in production.
 }
 
 
@@ -152,3 +157,24 @@ def test_the_role_check_catches(source):
 )
 def test_the_role_check_lets_through(source):
     assert role_comparisons(source) == []
+
+
+def test_can_holds_a_class_action_to_the_staff_role():
+    """Story 4.1 (AD-12): a Class action on a resource needs a staff role in the Class that the
+    action allows, on top of the account role."""
+    import uuid
+
+    class User:
+        id = uuid.uuid4()
+        roles = ("lecturer",)
+
+    class Staff:
+        def __init__(self, role):
+            self.staff_role = role
+
+    assert authz.can(User(), "classes.read")
+    assert authz.can(User(), "classes.manage", Staff("owner"))
+    assert not authz.can(User(), "classes.manage", Staff("assistant"))
+    assert not authz.can(User(), "classes.read", object())
+    User.roles = ("admin",)
+    assert not authz.can(User(), "classes.read", Staff("owner"))

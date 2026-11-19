@@ -96,17 +96,23 @@ def test_only_app_ai_touches_the_model_config_and_budget_tables():
 
 def test_only_ops_imports_messaging_and_nothing_imports_ops():
     """Story 3.5 (AD-9): modules tell people through `platform/notify`, never by importing
-    `messaging`; only the sweep (`ops`) calls `messaging.service`, and only the worker entry
-    point imports `ops`. The app factory mounts the local dev mailbox, `messaging.routes`
-    (Story 3.6)."""
+    `messaging`; only the sweep (`ops`) and `classes` (delivery state, Story 4.6) call
+    `messaging.service`, and only the worker entry point imports `ops`. The app factory mounts
+    the local dev mailbox, `messaging.routes` (Story 3.6), and the provider's webhook,
+    `messaging.webhooks` (Story 4.6)."""
     for path, line, name in imports(APP):
         inside = {
-            folder: (APP / "modules" / folder) in path.parents for folder in ("messaging", "ops")
+            folder: (APP / "modules" / folder) in path.parents
+            for folder in ("messaging", "ops", "classes")
         }
         if name.startswith("app.modules.messaging") and not inside["messaging"]:
-            mounts_routes = path == APP / "main.py" and name == "app.modules.messaging.routes"
+            mounts_routes = path == APP / "main.py" and name in (
+                "app.modules.messaging.routes",
+                "app.modules.messaging.webhooks",
+            )
             assert mounts_routes or (
-                inside["ops"] and name.startswith("app.modules.messaging.service")
+                (inside["ops"] or inside["classes"])
+                and name.startswith("app.modules.messaging.service")
             ), f"{path.name}:{line} imports {name}"
         if name.startswith("app.modules.ops") and not inside["ops"]:
             assert path == APP / "worker.py", f"{path.name}:{line} imports {name}"
@@ -156,3 +162,19 @@ def test_no_code_uses_the_provider_fallback_model():
 def test_the_check_sees_pydantic_ai_in_app_ai():
     names = {name for _, _, name in imports(APP / "ai")}
     assert any(name.startswith("pydantic_ai") for name in names)
+
+
+def test_classes_reaches_identity_only_through_its_service_and_identity_never_imports_classes():
+    """AD-14 (Story 4.1): Roster addresses and Users live in `identity`, which `classes` reaches
+    only through `identity.service`; `identity` learns of Classes only through its registries."""
+    for path, line, name in imports(APP / "modules" / "classes"):
+        if name.startswith("app.modules.") and not name.startswith("app.modules.classes"):
+            # Delivery state of the Invitations' mails comes from `messaging` (Story 4.6).
+            assert name in (
+                "app.modules.identity.service",
+                "app.modules.messaging.service",
+            ), f"{path.name}:{line} imports {name}"
+    for path, line, name in imports(APP / "modules" / "identity"):
+        assert not name.startswith("app.modules.classes"), f"{path.name}:{line} imports {name}"
+    for path, line, name in imports(APP / "platform"):
+        assert not name.startswith("app.modules"), f"{path.name}:{line} imports {name}"

@@ -17,6 +17,7 @@ const TITLE: Record<DemoRole, string> = {
   lecturer: nb.homes.lecturerHome,
   adminLecturer: nb.homes.lecturerHome,
   student: nb.homes.home,
+  assistant: nb.homes.lecturerHome,
 };
 
 async function expectAccessible(page: Page) {
@@ -40,7 +41,7 @@ for (const vp of VIEWPORTS) {
   test.describe(vp.name, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
-    for (const role of ["admin", "lecturer", "student"] as const) {
+    for (const role of ["admin", "lecturer", "student", "assistant"] as const) {
       test(`${role} opens the product and lands on their own home`, async ({ page }) => {
         await loginByApi(page, role);
         await page.goto("/");
@@ -48,11 +49,36 @@ for (const vp of VIEWPORTS) {
         await expect(page.getByRole("heading", { level: 1, name: TITLE[role] })).toBeVisible();
         await expectSession(page, role);
         // No global navigation bar (UX-DR77), and no link to a home that is not theirs. The
-        // Admin-område lists its own pages (Stories 3.7, 3.11, 3.12).
+        // Admin-område lists its own pages (Stories 3.7, 3.11, 3.12); the Lærerhjem the demo
+        // Lecturer's seeded Class and «Ny Klasse» (Story 4.1).
         await expect(page.locator("nav")).toHaveCount(0);
-        const links =
-          role === "admin" ? [nb.admin.sections.users, nb.admin.sections.institutions, nb.admin.sections.audit] : [];
-        await expect(page.getByRole("main").getByRole("link")).toHaveText(links);
+        const mainLinks = page.getByRole("main").getByRole("link");
+        if (role === "lecturer" || role === "assistant") {
+          // The Lærerhjem lists the Classes this User is staff on, which other runs and tests may
+          // add to (active or archived), so the checks are scoped to the seeded Class by name and
+          // to the kind of every link, never to an exact list.
+          const active = page.getByRole("main").getByRole("region", { name: nb.classes.home.title, exact: true });
+          await expect(
+            active.getByRole("link", { name: nb.classes.home.label("class-of-1994", "IBE160"), exact: true }),
+          ).toBeVisible();
+          const newClass = page.getByRole("main").getByRole("link", { name: nb.classes.home.newClass, exact: true });
+          if (role === "lecturer") {
+            // «Ny Klasse» stands last under «Klassene dine» (Story 4.1).
+            await expect(active.getByRole("link").last()).toHaveText(nb.classes.home.newClass);
+            await expect(newClass).toHaveCount(1);
+          } else {
+            // Story 4.9: an Assistant lecturer gets no «Ny Klasse».
+            await expect(newClass).toHaveCount(0);
+          }
+          // Every link on the Lærerhjem is a Class page or «Ny Klasse»: none leads to another home.
+          const hrefs = await mainLinks.evaluateAll((links) => links.map((a) => a.getAttribute("href")));
+          expect(hrefs.length).toBeGreaterThan(0);
+          for (const href of hrefs) expect(href).toMatch(/^\/klasser\/[^/]+$/);
+        } else {
+          const links =
+            role === "admin" ? [nb.admin.sections.users, nb.admin.sections.institutions, nb.admin.sections.audit] : [];
+          await expect(mainLinks).toHaveText(links);
+        }
         await expectAccessible(page);
       });
     }

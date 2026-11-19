@@ -1,0 +1,10 @@
+{# A Lecturer registered the Student by hand (Story 4.8, FR-9). The link uses DESIGN.md's lager #2B6CA3. #}
+{% set months = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember"] %}
+<p style="margin:0 0 16px;">Faglæreren din har registrert deg i Klassen {{ class_name }} i ØL-spillet.</p>
+{% if link %}
+{% set until = last_valid_day.day ~ ". " ~ months[last_valid_day.month - 1] ~ " " ~ last_valid_day.year %}
+<p style="margin:0 0 16px;"><a href="{{ url(link) }}" style="color:#2B6CA3;font-weight:600;">Velg passord</a></p>
+<p style="margin:0;color:#44586F;">Lenken virker til og med {{ until }} og kan brukes én gang. Venter du ikke denne e-posten, kan du se bort fra den.</p>
+{% else %}
+<p style="margin:0;color:#44586F;">Logg inn som vanlig med e-postadressen din for å se Klassen.</p>
+{% endif %}

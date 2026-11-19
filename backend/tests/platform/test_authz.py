@@ -68,6 +68,16 @@ def test_every_logged_in_user_reads_their_own_session():
         assert authz.can(user, "session.read")
 
 
+def test_any_user_may_ask_for_their_enrolled_classes_held_to_the_student_scope():
+    """Story 4.5: the policy is open; `classes_enrolled_by` decides, from the User's own Roster
+    entries that are not removed."""
+    for user in (ADMIN, LECTURER, BOTH, NONE):
+        assert authz.can(user, "classes.read_enrolled")
+    sql = str(authz.classes_enrolled_by(NONE).compile(compile_kwargs={"literal_binds": False}))
+    assert "FROM roster_entries" in sql
+    assert "roster_entries.user_id = " in sql and "roster_entries.removed_at IS NULL" in sql
+
+
 def test_an_unknown_action_is_an_error_never_an_allow():
     with pytest.raises(KeyError):
         authz.can(ADMIN, "users.lsit")

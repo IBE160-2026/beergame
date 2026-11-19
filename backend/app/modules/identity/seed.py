@@ -40,6 +40,8 @@ DEMO_USERS = (
         (AccountRole.admin, AccountRole.lecturer),
     ),
     DemoUser("student@example.com", "Demo Student", ()),
+    # Story 4.9: no account role; `classes/seed.py` makes them Assistant of the demo Class.
+    DemoUser("assistent@example.com", "Demo Assistent", ()),
 )
 
 SEED_LOCK = 0x3_02_1D

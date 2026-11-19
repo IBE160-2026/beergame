@@ -267,6 +267,60 @@ async def test_two_admins_deactivating_each_other_at_once_leave_one_active_admin
     assert rows("SELECT count(*) FROM users WHERE is_active") == [(1,)]
 
 
+async def test_an_acceptance_and_a_deactivation_of_the_same_user_at_once_never_deadlock(
+    admin, clock, monkeypatch
+):
+    """Issue #82: Bård accepts an Invitation with his password while Kari deactivates him. Each
+    side is held after its first row lock until the other has taken its own (or a short wait
+    ends). When the acceptance locked the Invitation before the User, the deactivation (User, then
+    the Invitations it voids) closed a cycle and Postgres aborted one of them with a 500. One lock
+    order (User, then Invitation) lets them run in turn."""
+    bard = await make(BARD, "Bård", [AccountRole.lecturer])
+    sent = await service.send_invitation(admin, BARD, AccountRole.admin, now=clock)
+    token = auth.link_token(service.INVITATION, sent.id)
+    user_locked, invitation_locked = asyncio.Event(), asyncio.Event()
+    real_lock_user, real_lock_invitation = repo.lock_user, repo.lock_invitation
+
+    async def hold(mine: asyncio.Event, other: asyncio.Event) -> None:
+        mine.set()
+        try:
+            await asyncio.wait_for(other.wait(), timeout=0.5)
+        except TimeoutError:
+            pass
+
+    async def held_lock_user(session, user_id):
+        found = await real_lock_user(session, user_id)
+        await hold(user_locked, invitation_locked)
+        return found
+
+    async def held_lock_invitation(session, invitation_id):
+        found = await real_lock_invitation(session, invitation_id)
+        await hold(invitation_locked, user_locked)
+        return found
+
+    async with client() as kari_c, client("198.51.100.9") as bard_c:
+        await as_user(kari_c)
+        monkeypatch.setattr(repo, "lock_user", held_lock_user)
+        monkeypatch.setattr(repo, "lock_invitation", held_lock_invitation)
+        answers = await asyncio.gather(
+            bard_c.post(
+                "/api/auth/invitation/accept-login",
+                json={"token": token, "password": PASSWORD},
+                headers=CSRF,
+            ),
+            deactivate(kari_c, bard),
+            return_exceptions=True,
+        )
+    accepted, deactivated = answers
+    assert not isinstance(accepted, BaseException), accepted
+    assert not isinstance(deactivated, BaseException), deactivated
+    assert deactivated.status_code == 200
+    assert accepted.status_code in (200, 410)
+    assert account(bard)[3] is False
+    # Either the acceptance ran first (the role is added) or it saw the deactivation.
+    assert ("admin" in roles_in_db(bard)) == (accepted.status_code == 200)
+
+
 async def test_only_an_admin_may_change_a_status(admin):
     lecturer = await make("lektor@example.com", "Lektor", [AccountRole.lecturer])
     async with client() as anon:

@@ -33,10 +33,16 @@ export function errorCode(error: unknown): string {
   return error instanceof ApiRequestError ? error.code : "unknown_error";
 }
 
+/** Codes worded the same for every action. `class_archived` (Story 4.10): the Class was archived
+ * while its page was open; the query client then reads the Class again (`providers.tsx`). */
+export const SHARED_MESSAGES: Readonly<Record<string, string>> = {
+  class_archived: nb.classes.archive.refused,
+};
+
 /**
  * The line shown beside an action that failed (UX-DR59, UX-DR76). `messages` names the codes an
- * action words itself; every other code, unknown ones included, reads `fallback`, which is «Det
- * ble ikke lagret. Prøv igjen.» unless the action says otherwise.
+ * action words itself; then the shared codes; every other code, unknown ones included, reads
+ * `fallback`, which is «Det ble ikke lagret. Prøv igjen.» unless the action says otherwise.
  */
 export function actionErrorMessage(
   error: unknown,
@@ -44,7 +50,8 @@ export function actionErrorMessage(
   fallback: string = nb.system.actionFailed,
 ): string {
   const code = errorCode(error);
-  return Object.hasOwn(messages, code) ? messages[code] : fallback;
+  if (Object.hasOwn(messages, code)) return messages[code];
+  return Object.hasOwn(SHARED_MESSAGES, code) ? SHARED_MESSAGES[code] : fallback;
 }
 
 /**

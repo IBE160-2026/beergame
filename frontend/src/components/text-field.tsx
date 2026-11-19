@@ -14,10 +14,12 @@ export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "id"> &
   label: string;
   error?: string;
   hint?: string;
+  /** Classes for the input alone, e.g. a narrow field whose hint and error keep the full width. */
+  inputClassName?: string;
   ref?: Ref<HTMLInputElement>;
 };
 
-export function TextField({ id, label, error, hint, className, ...props }: TextFieldProps) {
+export function TextField({ id, label, error, hint, className, inputClassName, ...props }: TextFieldProps) {
   const errorId = `${id}-error`;
   const hintId = `${id}-hint`;
   const describedBy = [hint ? hintId : "", error ? errorId : ""].filter(Boolean).join(" ") || undefined;
@@ -31,7 +33,10 @@ export function TextField({ id, label, error, hint, className, ...props }: TextF
         id={id}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
-        className="min-h-control-height-phone w-full min-w-0 rounded-sm border border-ink-muted bg-paper px-3 py-2 text-button font-normal text-ink hover:border-ink aria-invalid:border-[1.4px] aria-invalid:border-restordre read-only:bg-future-tint read-only:text-ink-muted"
+        className={cn(
+          "min-h-control-height-phone w-full min-w-0 rounded-sm border border-ink-muted bg-paper px-3 py-2 text-button font-normal text-ink hover:border-ink aria-invalid:border-[1.4px] aria-invalid:border-restordre read-only:bg-future-tint read-only:text-ink-muted",
+          inputClassName,
+        )}
       />
       {hint ? (
         <p id={hintId} className="text-body-phone text-ink-secondary">

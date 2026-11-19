@@ -12,15 +12,15 @@ import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 import { usePageState } from "@/lib/page-state";
 
-import { checkPasswordReset, useConfirmPasswordReset } from "./api";
+import { type CheckedReset, checkPasswordReset, useConfirmPasswordReset } from "./api";
 import { LoginForm } from "./login-form";
 import { type NewPasswordError, tokenFromHash, validateNewPassword } from "./password-reset";
 
 const copy = nb.auth.reset;
 const INVALID = "reset_link_invalid";
 
-/** The account e-mail of a usable link, or `null` for a link that is expired, used or unknown. */
-async function checkLink(token: string): Promise<string | null> {
+/** A usable link's account, or `null` for a link that is expired, used or unknown. */
+async function checkLink(token: string): Promise<CheckedReset | null> {
   if (!token) return null;
   try {
     return await checkPasswordReset(token);
@@ -76,7 +76,15 @@ export function ResetPassword() {
     );
   }
   if (!link.data || !token) return <ResetInvalid />;
-  return <NewPasswordForm token={token} email={link.data} onDone={setDone} onInvalid={() => link.refetch()} />;
+  return (
+    <NewPasswordForm
+      token={token}
+      email={link.data.email}
+      first={link.data.first_password ?? false}
+      onDone={setDone}
+      onInvalid={() => link.refetch()}
+    />
+  );
 }
 
 function ResetInvalid() {
@@ -106,14 +114,18 @@ function ResetDone({ email }: { email: string }) {
   );
 }
 
+/** `first`: the account has no password yet (a manual registration, Story 4.8), so the page asks
+ * for a first password, not a new one (Issue #91). */
 function NewPasswordForm({
   token,
   email,
+  first,
   onDone,
   onInvalid,
 }: {
   token: string;
   email: string;
+  first: boolean;
   onDone: (email: string) => void;
   onInvalid: () => void;
 }) {
@@ -152,7 +164,7 @@ function NewPasswordForm({
 
   return (
     <>
-      <p className="mt-2 text-body-phone text-ink-secondary lg:text-body">{copy.lead(email)}</p>
+      <p className="mt-2 text-body-phone text-ink-secondary lg:text-body">{first ? copy.firstLead(email) : copy.lead(email)}</p>
       <form method="post" noValidate onSubmit={onSubmit} className="mt-8 flex flex-col gap-5">
         {/* For password managers: the account the new password belongs to. */}
         <input type="email" name="username" autoComplete="username" value={email} readOnly hidden />
@@ -162,7 +174,7 @@ function NewPasswordForm({
           name="password"
           type="password"
           autoComplete="new-password"
-          label={copy.password}
+          label={first ? copy.firstPassword : copy.password}
           hint={copy.passwordRule}
           error={error ? copy.errors[error] : undefined}
           onChange={() => {

@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-18-2026 21:59
+last_updated: 11-19-2026 05:46
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -66,7 +66,7 @@ development_status:
   2-13-describe-each-ai-player-type-in-plain-norwegian: done
   epic-2-retrospective: optional
 
-  epic-3: in-progress
+  epic-3: done
   3-1-see-logg-inn-in-the-product-s-design: done
   3-2-log-in-and-log-out-with-e-mail-and-password: done
   3-3-land-on-your-own-home-and-be-held-to-your-role: done
@@ -84,17 +84,17 @@ development_status:
   3-15-reach-the-product-in-production: backlog
   epic-3-retrospective: optional
 
-  epic-4: backlog
-  4-1-create-a-class-from-the-lærerhjem: backlog
-  4-2-upload-a-roster-file-and-pick-the-e-mail-column: backlog
-  4-3-see-invalid-rows-and-paste-addresses-instead: backlog
-  4-4-send-invitations-to-the-roster-with-a-validity-period: backlog
-  4-5-register-as-a-student-through-the-invitation: backlog
-  4-6-see-bounced-invitations-and-the-counts: backlog
-  4-7-follow-registration-status-and-send-reminders: backlog
-  4-8-register-a-student-manually-and-change-single-addresses: backlog
-  4-9-share-a-class-with-co-owner-lecturers-and-assistant-lecturer: backlog
-  4-10-archive-a-class: backlog
+  epic-4: in-progress
+  4-1-create-a-class-from-the-lærerhjem: done
+  4-2-upload-a-roster-file-and-pick-the-e-mail-column: done
+  4-3-see-invalid-rows-and-paste-addresses-instead: done
+  4-4-send-invitations-to-the-roster-with-a-validity-period: done
+  4-5-register-as-a-student-through-the-invitation: done
+  4-6-see-bounced-invitations-and-the-counts: done
+  4-7-follow-registration-status-and-send-reminders: done
+  4-8-register-a-student-manually-and-change-single-addresses: done
+  4-9-share-a-class-with-co-owner-lecturers-and-assistant-lecturer: done
+  4-10-archive-a-class: done
   epic-4-retrospective: optional
 
   epic-5: backlog

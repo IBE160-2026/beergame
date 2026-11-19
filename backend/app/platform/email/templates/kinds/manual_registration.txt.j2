@@ -1,0 +1,16 @@
+{# A Lecturer registered the Student by hand (Story 4.8, FR-9). `class_name` comes from
+   `identity.service.manual_registration_mail_context` at send time; for a User with no password
+   yet also `link` (path with the token) and `last_valid_day` (a date, Europe/Oslo). #}
+{% set subject = "Du er registrert i ØL-spillet" %}
+{% set months = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember"] %}
+Faglæreren din har registrert deg i Klassen {{ class_name }} i ØL-spillet.
+{% if link %}
+{% set until = last_valid_day.day ~ ". " ~ months[last_valid_day.month - 1] ~ " " ~ last_valid_day.year %}
+Velg et passord her, så kan du logge inn:
+
+{{ url(link) }}
+
+Lenken virker til og med {{ until }} og kan brukes én gang. Venter du ikke denne e-posten, kan du se bort fra den.
+{% else %}
+Logg inn som vanlig med e-postadressen din for å se Klassen.
+{% endif %}

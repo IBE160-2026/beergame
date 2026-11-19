@@ -12,6 +12,7 @@ production, and refuses in production without a key. Another provider is one mor
 
 import asyncio
 import json
+import time
 import urllib.error
 import urllib.request
 from collections.abc import Callable
@@ -61,14 +62,47 @@ def urllib_post(url: str, headers: dict[str, str], body: bytes) -> tuple[int, by
         return exc.code, exc.read()
 
 
+class Pacer:
+    """At most `per_second` starts a second in this process (Story 4.4, NFR-3): each caller waits
+    its turn, so a Class of 400 Invitations stays under the provider's rate limit."""
+
+    def __init__(self, per_second: float, clock: Callable[[], float] = time.monotonic) -> None:
+        self._interval = 1.0 / per_second
+        self._clock = clock
+        self._lock = asyncio.Lock()
+        self._next = 0.0
+
+    async def wait(self) -> None:
+        async with self._lock:
+            delay = self._next - self._clock()
+            if delay > 0:
+                await asyncio.sleep(delay)
+            self._next = max(self._next, self._clock()) + self._interval
+
+
+_PACERS: dict[float, Pacer] = {}
+
+
+def pacer(per_second: float) -> Pacer:
+    """The process's one pacer for a rate: a new `ResendSender` per mail shares it."""
+    if per_second not in _PACERS:
+        _PACERS[per_second] = Pacer(per_second)
+    return _PACERS[per_second]
+
+
 class ResendSender:
-    def __init__(self, api_key: str, transport: Transport | None = None) -> None:
+    def __init__(
+        self, api_key: str, transport: Transport | None = None, *, pace: Pacer | None = None
+    ) -> None:
         if not api_key:
             raise ValueError("Resend needs an API key")
         self._api_key = api_key
         self._transport = transport or urllib_post
+        self._pace = pace
 
     async def send(self, mail: Mail, *, idempotency_key: str) -> str:
+        if self._pace is not None:
+            await self._pace.wait()
         body = json.dumps(
             {
                 "from": mail.sender,
@@ -106,7 +140,7 @@ MOCK = MockSender()
 def get_sender(settings: Settings | None = None) -> Sender:
     settings = settings or get_settings()
     if settings.resend_api_key:
-        return ResendSender(settings.resend_api_key)
+        return ResendSender(settings.resend_api_key, pace=pacer(settings.mail_provider_per_second))
     if settings.app_env == "production":
         raise SendRefused("no_provider_key")
     return MOCK
