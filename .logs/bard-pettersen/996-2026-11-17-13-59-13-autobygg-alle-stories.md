@@ -1064,3 +1064,27 @@ Merge Epic 4 når CI er grønn, lage `epic-5` fra den nye `main` med statusen «
 - Issue #95: to trege e2e-filer, bør tas før Epic 5.
 - Issue #94: ett tvilsomt funn i 4.3.
 - Issue #31: tekstgjennomgang av alle [ASSUMPTION]-tekster.
+
+## Story 5.1: Lage klasseøkt med Classic-standardene (2026-11-19)
+
+### Oppgave
+Bygge Story 5.1 etter kjøreboka. Faglæreren lager en klasseøkt fra klassesiden, og økta fylles med Classic-standardene.
+
+### Plan
+Før storyen: gjøre testpakkene raskere og løse Issue #95. Deretter bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Testfart:** backend-pakken gikk fra 98,6 s til 56,8 s, og hele Playwright-pakken fra 86 s til 77 s. Commits 072297b og 10090f6. Issue #95 er lukket.
+- **Spec:** `.docs/implementation-artifacts/spec-5-1-create-class-session-classic-defaults.md`.
+- **Commits:**
+  - 19c85f0: ny modul `sessions`, migrasjon 0032 `class_sessions`, skjermen `/klasseokter/{id}` og lista på klassesiden;
+  - 3623044: visuelle rettinger (merkelapper på 13 px, likt radbrudd på mobil).
+- **Tester:** 2296 backend-tester (56 s), 372 Vitest-tester, 182 Playwright-tester, typecheck, copy-sjekk, fargelint og bygg.
+- **Gjennomgang:** fire gjennomgangsagenter fant 40 punkter. 12 ble rettet, og resten ble avvist med begrunnelse i specen.
+- **Skjermbilder:** `screenshots/5.1/`, 14 bilder.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 99: beslutninger i Story 5.1.
+- Issue #98: visuelle avvik (rulling i kjeden på mobil, etterspørselen under «Kundene», like merkelapper). Rettes i 5.2.
+- Issue #97: ingen bekreftelse når siste adresse fjernes (Epic 4). Tas i avslutningen av Epic 5.
