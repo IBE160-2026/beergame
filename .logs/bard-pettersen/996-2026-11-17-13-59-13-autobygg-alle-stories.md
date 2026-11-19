@@ -996,3 +996,22 @@ Bygge Story 4.9 på `epic-4`, sjekke alle klasseruter fra 4.2–4.8 mot rollene,
 
 ### Åpne punkter
 - Issue #92: beslutninger, visuelle punkter og ustabile e2e-tester.
+
+## Story 4.10: Arkivere en klasse (2026-11-19)
+
+### Oppgave
+Bygge Story 4.10 på `epic-4`, den siste storyen i Epic 4. Avgjøre hva en arkivert klasse tillater på alle ruter fra 4.1–4.9, og kontrollere visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, med en matrise av rolle × rute × arkivert. Deretter visuell kontroll i en egen underagent på en ny klasse, aldri på demoklassen.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-10-archive-class.md`. Commit `e0ed1bd`, visuell retting `d634de7`.
+- Arkivering i én transaksjon, med beskjed til de ansatte. 409 `class_archived` for eiere, ellers 403. Invitasjoner ugyldiggjøres og opplastinger slettes. Studentene mister klassen. Det er ingen angring.
+- Backend: 2270 grønne på 101 s. Frontend: typecheck, Vitest (369), sjekker og bygg grønne. Playwright: 167/167.
+- Gjennomgang: 36 funn. 3 middels og 6 lave er rettet, blant annet en kappløpstest for alle ni rutene som endrer noe.
+- Visuell kontroll: 24 skjermbilder, én retting og fem punkter til den samlede gjennomgangen.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #93: beslutninger, vranglås ved aksept samtidig med arkivering, og visuelle punkter.
