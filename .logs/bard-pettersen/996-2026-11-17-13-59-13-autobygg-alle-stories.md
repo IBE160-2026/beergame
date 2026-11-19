@@ -939,3 +939,22 @@ Bygge Story 4.6 på `epic-4` og kontrollere den visuelt.
 
 ### Åpne punkter
 - Issue #89: beslutninger om returer og tall, og visuelle punkter.
+
+## Story 4.7: Følge registreringsstatus og sende påminnelser (2026-11-19)
+
+### Oppgave
+Bygge Story 4.7 på `epic-4`, ta med to utsatte punkter fra 4.5 og 4.6, og kontrollere visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, og så visuell kontroll i en egen underagent med vekt på den stablede stolpen.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-7-follow-registration-status-send-reminders.md`. Commit `99f6aa4`, visuell retting `ce41622`. Migrering 0029.
+- `GET /api/classes/{id}/registrations` (status beregnes ved lesing), `POST /api/classes/{id}/reminders` (til alle eller én), `registered_students()`, og seksjonen «Status etter utsending» med stablet stolpe, summer, filter, søk og bekreftelse på stedet.
+- Backend: 2194 grønne. Frontend: typecheck, Vitest (358), sjekker og bygg grønne. Playwright: 153 grønne.
+- Gjennomgang: 35 funn, 1 middels og 7 lave rettet.
+- Visuell kontroll: 36 skjermbilder, én retting, to punkter til vurdering (blant annet kontrasten i segmentet «Uregistrert»).
+- Status: `done`.
+
+### Åpne punkter
+- Issue #90: beslutninger og visuelle punkter.
