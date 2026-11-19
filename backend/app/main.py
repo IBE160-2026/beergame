@@ -14,6 +14,7 @@ from app.modules.identity import routes as identity_routes
 from app.modules.identity import seed as identity_seed
 from app.modules.identity import service as identity_service
 from app.modules.messaging import routes as messaging_routes
+from app.modules.messaging import webhooks as messaging_webhooks
 from app.platform import audit, auth, authz, db
 from app.platform.auth import CsrfMiddleware
 from app.platform.config import get_settings
@@ -88,6 +89,7 @@ def create_app() -> FastAPI:
     app.include_router(identity_routes.admin_router)
     app.include_router(admin_routes.router)
     app.include_router(classes_routes.router)
+    app.include_router(messaging_webhooks.router)  # the provider's events (Story 4.6), signed
     if get_settings().app_env != "production":
         app.include_router(messaging_routes.router)  # the dev mailbox (Story 3.6), local only
     authz.register_principal_loader(identity_service.load_user)

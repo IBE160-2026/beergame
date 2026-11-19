@@ -355,6 +355,22 @@ export const nb = {
       facts: (courseCode: string | null, institution: string | null) =>
         [courseCode, institution].filter(Boolean).join(" · "),
     },
+    /** What became of the Invitations on the Class page (Story 4.6, FR-8, NFR-10). [ASSUMPTION]
+     * draft copy. */
+    invitations: {
+      title: "Invitasjoner",
+      /** The four counts, label over figure. */
+      sent: "Sendt",
+      bounced: "Kom ikke fram",
+      accepted: "Akseptert",
+      expired: "Utløpt",
+      bouncedTitle: "Kom ikke fram",
+      bouncedLead: "E-posten nådde ikke disse adressene.",
+      /** A bounced address's registration status, always in text (NFR-10). */
+      bounceStatus: (bounceClass: "hard" | "soft") =>
+        bounceClass === "hard" ? "Kom ikke fram, permanent feil" : "Kom ikke fram, midlertidig feil",
+      failed: "Tallene for Invitasjonene kunne ikke hentes.",
+    },
     /** The Roster upload on the Class page (Story 4.2, FR-7, UX-DR47). «Velg fil», «Lim inn
      * adresser i stedet», «250 rader lest», «Bytt fil», «E-postkolonne», the reason and the
      * unreadable line are EXPERIENCE.md's and DESIGN.md's own; the rest is [ASSUMPTION] Story 4.2. */

@@ -161,3 +161,42 @@ class RosterSendOut(BaseModel):
     last_valid_day: date
     """The last day (Europe/Oslo) the links work."""
     expires_at: datetime
+
+
+# What became of the Invitations (Story 4.6, FR-8, NFR-10).
+
+
+class BounceClass(StrEnum):
+    """Why a mail did not reach its address: `hard` the provider calls permanent (the address
+    does not exist or refuses mail), `soft` every other bounce (a full mailbox, a server down)."""
+
+    hard = "hard"
+    soft = "soft"
+
+
+class BouncedRegistration(StrEnum):
+    """The registration status of an address whose Invitation bounced; Story 4.7 lists it with
+    the other statuses."""
+
+    bounced = "bounced"
+
+
+class InvitationBounce(BaseModel):
+    """A Roster address whose newest Invitation bounced, not registered and not removed."""
+
+    email: str
+    registration: BouncedRegistration
+    bounce_class: BounceClass
+
+
+class InvitationSummaryOut(BaseModel):
+    """The counts of the Class's Student Invitations, computed by the api at read time, and the
+    addresses the mail did not reach, by address. `sent`: handed to the mail provider; `bounced`:
+    of those, reported bounced; `accepted`: accepted (Story 4.5); `expired`: neither accepted nor
+    voided, and past their last valid day now. Each counts Invitations, not addresses."""
+
+    sent: int
+    bounced: int
+    accepted: int
+    expired: int
+    bounces: list[InvitationBounce]

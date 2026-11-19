@@ -94,6 +94,26 @@ only `classes.service`.
   `@example.com` («Demo Student N», password `olspillet-demo`) as registered Students; existing
   Users and Roster addresses are left as they are.
 
+### Bounces and counts (Story 4.6)
+
+- The mail provider posts delivery, delay and bounce events to `POST /api/webhooks/resend`
+  (`messaging/webhooks.py`), admitted by their Svix signature under `RESEND_WEBHOOK_SECRET`
+  (5 minutes' tolerance), the one mutating route without `X-Requested-With`. The event is stored on
+  the `mail_deliveries` row with the provider's message id (migration 0028: `delivery_state`,
+  `bounce_class`, `last_event_id`). States only move forward (delayed, delivered, bounced) and a
+  hard bounce stays hard, so a repeated or late event changes nothing; the same event id twice is
+  `repeated`. Events for unknown mails, and other event types, are acknowledged and logged with
+  their type only.
+- `GET /api/classes/{id}/invitations` (owners) counts the Class's Student Invitations at read
+  time: `sent` and `bounced` from the mails (`messaging.service.invitation_deliveries`, never the
+  table), `accepted` from `accepted_at`, `expired` from `expires_at` (not voided). It lists the
+  Roster addresses (not registered, not removed) whose newest Invitation bounced, with
+  `registration: "bounced"` and the class: `hard` for Resend's `Permanent`, else `soft`. The
+  Roster entry's stored `registration` is not changed by a bounce.
+- Locally, `POST /api/dev/mailbox/bounce` `{to, bounce_class}` signs an `email.bounced` event for
+  the newest mail sent to an address and passes it through the same handler. Like the dev mailbox
+  it is not mounted in production; production also refuses the local default secret.
+
 ## Open point for the founder: real Canvas exports
 
 The upload is tested only on synthetic fixtures with invented names and addresses, in the column

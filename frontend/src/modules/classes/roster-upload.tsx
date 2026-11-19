@@ -21,6 +21,7 @@ import {
   type RosterSent,
   type RosterStaging,
   type RosterUpload as Staged,
+  invitationSummaryKey,
   rosterUploadKey,
   sendRosterInvitations,
   uploadRoster,
@@ -140,6 +141,7 @@ export function RosterUpload({ classId }: { classId: string }) {
       setFocusNext("sent");
       void queryClient.invalidateQueries({ queryKey: classKey(classId), exact: true });
       void queryClient.invalidateQueries({ queryKey: classesKey, exact: true });
+      void queryClient.invalidateQueries({ queryKey: invitationSummaryKey(classId), exact: true });
     },
   });
   const discard = useAction({

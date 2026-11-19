@@ -850,3 +850,24 @@ async def roster_counts(session: AsyncSession, class_ids: list[uuid.UUID]) -> di
         .group_by(roster_entries.c.class_id)
     )
     return {row[0]: row[1] for row in result}
+
+
+async def class_student_invitations(session: AsyncSession, class_id: uuid.UUID) -> list[RowMapping]:
+    """Every Student Invitation of the Class with its Roster entry's address and standing
+    (Story 4.6), by Invitation id (a UUIDv7, so in the order they were made)."""
+    result = await session.execute(
+        select(
+            invitations.c.id,
+            invitations.c.roster_entry_id,
+            invitations.c.accepted_at,
+            invitations.c.voided_at,
+            invitations.c.expires_at,
+            roster_entries.c.email,
+            roster_entries.c.registration,
+            roster_entries.c.removed_at,
+        )
+        .join(roster_entries, roster_entries.c.id == invitations.c.roster_entry_id)
+        .where(invitations.c.class_id == class_id, invitations.c.kind == "student")
+        .order_by(invitations.c.id)
+    )
+    return list(result.mappings())

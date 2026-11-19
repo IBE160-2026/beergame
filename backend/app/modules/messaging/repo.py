@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from datetime import datetime
 
 from sqlalchemy import RowMapping, and_, any_, or_, select, text, update
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.messaging.models import mail_deliveries
@@ -148,3 +149,58 @@ async def latest_sent_for(
         .limit(1)
     )
     return result.mappings().one_or_none()
+
+
+async def lock_by_provider_id(session: AsyncSession, provider_id: str) -> RowMapping | None:
+    """The sent delivery the provider names `provider_id`, locked until the transaction ends
+    (Story 4.6: a webhook event waits for another on the same mail); None when it is unknown."""
+    result = await session.execute(
+        select(mail_deliveries)
+        .where(
+            mail_deliveries.c.provider_message_id == provider_id,
+            mail_deliveries.c.sent_at.is_not(None),
+        )
+        .order_by(mail_deliveries.c.id)
+        .limit(1)
+        .with_for_update()
+    )
+    return result.mappings().one_or_none()
+
+
+async def store_event(
+    session: AsyncSession,
+    delivery_id: uuid.UUID,
+    *,
+    state: str,
+    bounce_class: str | None,
+    event_id: str,
+) -> None:
+    await session.execute(
+        update(mail_deliveries)
+        .where(mail_deliveries.c.id == delivery_id)
+        .values(delivery_state=state, bounce_class=bounce_class, last_event_id=event_id)
+    )
+
+
+async def deliveries_for_refs(
+    session: AsyncSession, refs: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, RowMapping]:
+    """Per ref (an Invitation id) of a mail addressed by reference, its newest delivery: newest
+    by id, a UUIDv7 drawn in claim order, never by a timestamp (Issue #63)."""
+    if not refs:
+        return {}
+    ref = notices.c.ref.label("ref")
+    result = await session.execute(
+        select(
+            ref,
+            mail_deliveries.c.sent_at,
+            mail_deliveries.c.delivery_state,
+            mail_deliveries.c.bounce_class,
+        )
+        .select_from(mail_deliveries)
+        .join(notices, notices.c.id == any_(mail_deliveries.c.notice_ids))
+        .where(mail_deliveries.c.user_id.is_(None), notices.c.ref.in_(list(refs)))
+        .order_by(notices.c.ref, mail_deliveries.c.id.desc())
+        .ext(distinct_on(notices.c.ref))
+    )
+    return {row["ref"]: row for row in result.mappings()}

@@ -619,7 +619,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get Invitation Summary
+         * @description What became of the Class's Student Invitations (Story 4.6, FR-8): how many were sent,
+         *     bounced, accepted and expired, computed now, and the Roster addresses whose newest Invitation
+         *     bounced, with the bounce's class. A Class the User may not manage, one that does not exist
+         *     and an id that is not one all answer the same 403 `forbidden`.
+         */
+        get: operations["getInvitationSummary"];
         put?: never;
         /**
          * Send Invitations
@@ -882,6 +889,20 @@ export interface components {
             label: string | null;
         };
         /**
+         * BounceClass
+         * @description Why a mail did not reach its address: `hard` the provider calls permanent (the address
+         *     does not exist or refuses mail), `soft` every other bounce (a full mailbox, a server down).
+         * @enum {string}
+         */
+        BounceClass: "hard" | "soft";
+        /**
+         * BouncedRegistration
+         * @description The registration status of an address whose Invitation bounced; Story 4.7 lists it with
+         *     the other statuses.
+         * @enum {string}
+         */
+        BouncedRegistration: "bounced";
+        /**
          * ClassIn
          * @description A new Class (Story 4.1). The service checks the fields and answers every refused one in
          *     `fields`: `name`, `institution_id` (`institution_missing`, `institution_unknown`) and
@@ -1055,6 +1076,16 @@ export interface components {
             name: string;
         };
         /**
+         * InvitationBounce
+         * @description A Roster address whose newest Invitation bounced, not registered and not removed.
+         */
+        InvitationBounce: {
+            bounce_class: components["schemas"]["BounceClass"];
+            /** Email */
+            email: string;
+            registration: components["schemas"]["BouncedRegistration"];
+        };
+        /**
          * InvitationCheckOut
          * @description What «Du er invitert» shows for a usable link.
          */
@@ -1153,6 +1184,25 @@ export interface components {
          * @enum {string}
          */
         InvitationStatus: "open" | "accepted" | "expired";
+        /**
+         * InvitationSummaryOut
+         * @description The counts of the Class's Student Invitations, computed by the api at read time, and the
+         *     addresses the mail did not reach, by address. `sent`: handed to the mail provider; `bounced`:
+         *     of those, reported bounced; `accepted`: accepted (Story 4.5); `expired`: neither accepted nor
+         *     voided, and past their last valid day now. Each counts Invitations, not addresses.
+         */
+        InvitationSummaryOut: {
+            /** Accepted */
+            accepted: number;
+            /** Bounced */
+            bounced: number;
+            /** Bounces */
+            bounces: components["schemas"]["InvitationBounce"][];
+            /** Expired */
+            expired: number;
+            /** Sent */
+            sent: number;
+        };
         /**
          * InvitationTokenIn
          * @description The token of an Invitation link, from the fragment of `/invitasjon#<token>` (Story 3.8).
@@ -2970,6 +3020,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClassOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getInvitationSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationSummaryOut"];
                 };
             };
             /** @description Unauthorized */

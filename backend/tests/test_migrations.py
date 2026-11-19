@@ -62,7 +62,7 @@ HEAD_TABLES = (
     | CLASS_TABLES
     | ROSTER_TABLES
 )
-HEAD = "0027"  # 0027 indexes Roster entries by User (Story 4.5)
+HEAD = "0028"  # 0028 stores what the mail provider reports (Story 4.6)
 
 
 def reset_schema(url: str) -> None:
@@ -508,6 +508,28 @@ def test_downgrade_to_0025_removes_the_roster_and_keeps_role_invitations(migrati
     assert current_version(migrations_database) == HEAD
 
 
+def test_downgrade_to_0027_removes_the_delivery_event_columns(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0027")
+
+    def columns() -> set[str]:
+        with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+            return {
+                row[0]
+                for row in conn.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = 'mail_deliveries'"
+                ).fetchall()
+            }
+
+    assert not {"delivery_state", "bounce_class", "last_event_id"} & columns()
+    command.upgrade(cfg, "head")
+    assert {"delivery_state", "bounce_class", "last_event_id"} <= columns()
+    assert current_version(migrations_database) == HEAD
+
+
 def test_the_procrastinate_schema_of_0008_is_the_one_the_installed_version_ships():
     """Revision 0008 keeps procrastinate 3.11.0's `schema.sql`. When procrastinate is upgraded
     this fails: add a revision with the upgrade's migration SQL and the new schema file."""
@@ -575,6 +597,8 @@ def test_the_check_constraints_list_exactly_the_enum_values(migrations_database)
         "ck_roster_entries_registration": {r.value for r in RosterRegistration},
         "ck_mail_deliveries_mode": set(mail_models.MODES),
         "ck_mail_deliveries_skipped_reason": set(mail_models.SKIP_REASONS),
+        "ck_mail_deliveries_delivery_state": set(mail_models.DELIVERY_STATES),
+        "ck_mail_deliveries_bounce_class": set(mail_models.BOUNCE_CLASSES),
     }
     reset_schema(migrations_database)
     command.upgrade(config(migrations_database), "head")

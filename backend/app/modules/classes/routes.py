@@ -17,6 +17,7 @@ from app.modules.classes.schemas import (
     EnrolledClassOut,
     InstitutionChoicesOut,
     InvalidClass,
+    InvitationSummaryOut,
     RosterSendIn,
     RosterSendOut,
 )
@@ -347,3 +348,23 @@ async def send_invitations(
     if isinstance(sent, service.Staging):
         return error_response(404, "not_found", "The staged upload is gone.")
     return JSONResponse(sent.model_dump(mode="json"), status_code=201)
+
+
+@router.get(
+    "/{class_id}/invitations",
+    response_model=InvitationSummaryOut,
+    responses=documented(401, 403),
+    operation_id="getInvitationSummary",
+)
+async def get_invitation_summary(
+    class_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("classes.manage"))],
+) -> Response:
+    """What became of the Class's Student Invitations (Story 4.6, FR-8): how many were sent,
+    bounced, accepted and expired, computed now, and the Roster addresses whose newest Invitation
+    bounced, with the bounce's class. A Class the User may not manage, one that does not exist
+    and an id that is not one all answer the same 403 `forbidden`."""
+    summary = await service.invitation_summary(user, _class_id(class_id), now=auth.utcnow())
+    if summary is None:
+        raise authz.Forbidden
+    return JSONResponse(summary.model_dump(mode="json"))

@@ -25,12 +25,15 @@ from app.modules.classes.schemas import (
     InstitutionChoice,
     InstitutionChoicesOut,
     InvalidClass,
+    InvitationBounce,
+    InvitationSummaryOut,
     RosterSendOut,
     StaffRole,
     class_name,
     course_code,
 )
 from app.modules.identity import service as identity
+from app.modules.messaging import service as messaging
 from app.platform import authz
 from app.platform.db import get_sessionmaker
 
@@ -231,6 +234,46 @@ async def send_invitations(
         valid_days=valid_days,
         last_valid_day=identity.last_valid_day(sent.expires_at),
         expires_at=sent.expires_at,
+    )
+
+
+async def invitation_summary(
+    user: authz.Principal, class_id: uuid.UUID, *, now: datetime
+) -> InvitationSummaryOut | None:
+    """The counts of the Class's Student Invitations and the bounced addresses (Story 4.6, FR-8,
+    AD-10): the Invitations from `identity`, the state of their mails from `messaging` (never its
+    table), combined here at `now`, the api's clock. None when the User may not manage the
+    Class."""
+    if not await may_manage(user, class_id):
+        return None
+    found = await identity.class_student_invitations(class_id, now=now)
+    mails = await messaging.invitation_deliveries([i.id for i in found])
+    sent = bounced = 0
+    newest: dict[uuid.UUID, identity.ClassInvitation] = {}
+    for invitation in found:  # oldest first, so the last one per entry is its newest
+        newest[invitation.roster_entry_id] = invitation
+        mail = mails.get(invitation.id)
+        if mail is not None and mail.sent:
+            sent += 1
+            bounced += mail.state == "bounced"
+    bounces = []
+    for invitation in newest.values():
+        mail = mails.get(invitation.id)
+        if mail is None or mail.state != "bounced" or mail.bounce_class is None:
+            continue
+        if invitation.entry_registered or invitation.entry_removed:
+            continue
+        bounces.append(
+            InvitationBounce(
+                email=invitation.email, registration="bounced", bounce_class=mail.bounce_class
+            )
+        )
+    return InvitationSummaryOut(
+        sent=sent,
+        bounced=bounced,
+        accepted=sum(i.accepted for i in found),
+        expired=sum(i.expired for i in found),
+        bounces=sorted(bounces, key=lambda b: b.email),
     )
 
 

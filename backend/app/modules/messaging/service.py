@@ -9,12 +9,18 @@
 - `send(delivery_id)`: the `mail` job. It locks the delivery, resolves the address through the
   owning module, renders, sends and stores the provider's id. A delivery that is sent, given up
   or held by another job is left alone, so a job that runs twice sends one mail.
+- `receive_webhook(body, headers, now)` (Story 4.6): a signed provider event about a sent mail,
+  stored on its delivery. `invitation_deliveries(refs)` reads what was stored per Invitation, for
+  `classes`; `simulate_bounce` is the local stand-in for the provider's bounce.
 
 Claiming writes the `mail_deliveries` row and defers the `mail` job in one transaction. Job
 arguments, log lines and rows hold ids only; the address exists only inside `send`.
 """
 
+import json
+import re
 import uuid
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -22,19 +28,26 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity import service as identity
-from app.modules.messaging import delivery, repo
+from app.modules.messaging import delivery, repo, signature
 from app.platform import email, jobs, notify
+from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
 __all__ = [
     "MAX_ATTEMPTS",
     "SEND_MAIL",
     "DueItem",
+    "EventUnreadable",
+    "InvitationDelivery",
+    "SignatureInvalid",
     "claim",
     "claim_notice",
     "due_items",
+    "invitation_deliveries",
     "latest_sent_mail",
+    "receive_webhook",
     "send",
+    "simulate_bounce",
 ]
 
 log = structlog.get_logger(__name__)
@@ -300,3 +313,160 @@ async def latest_sent_mail(address: str) -> tuple[email.Mail, datetime] | None:
             return None
         mail = await _compose(session, row, carried, table, row["sent_at"])
     return None if isinstance(mail, str) else (mail, row["sent_at"])
+
+
+# What the provider reports about sent mails (Story 4.6, AD-11, AD-14, NFR-10). Resend posts a
+# signed event per delivery, delay and bounce; the event names the mail by the provider's message
+# id, which `send` stored. Logs hold the event type and ids only, never an address.
+
+SignatureInvalid = signature.SignatureInvalid
+
+STATE_OF_EVENT = {
+    "email.delivery_delayed": "delayed",
+    "email.delivered": "delivered",
+    "email.bounced": "bounced",
+}
+"""The event types stored; every other type is acknowledged and ignored."""
+_RANK = {
+    (None, None): 0,
+    ("delayed", None): 1,
+    ("bounced", "soft"): 2,
+    ("delivered", None): 3,
+    ("bounced", "hard"): 4,
+}
+"""How far a mail has got: a temporary failure (a delay, a soft bounce) gives way to a later
+delivery, and nothing undoes a hard bounce."""
+HARD_BOUNCE_TYPE = "Permanent"
+"""Resend's `data.bounce.type` of a permanent bounce; `Transient` and `Undetermined` are soft."""
+_EVENT_TYPE = re.compile(r"[a-z][a-z._]{0,63}")
+
+
+class EventUnreadable(Exception):
+    """A correctly signed body that is not an event this handler can read."""
+
+
+def _loggable_type(value: object) -> str:
+    return value if isinstance(value, str) and _EVENT_TYPE.fullmatch(value) else "unreadable"
+
+
+def _bounce_class(data: Mapping[str, object]) -> str:
+    bounce = data.get("bounce")
+    kind = bounce.get("type") if isinstance(bounce, Mapping) else None
+    return "hard" if kind == HARD_BOUNCE_TYPE else "soft"
+
+
+def _moves_forward(row, state: str, bounce_class: str | None) -> bool:
+    """Whether an event moves the stored state forward (`_RANK`); a repeated, older or late
+    event does not, and changes nothing."""
+    return _RANK[(state, bounce_class)] > _RANK[(row["delivery_state"], row["bounce_class"])]
+
+
+async def receive_webhook(body: bytes, headers: Mapping[str, str], now: datetime) -> str:
+    """Verify and store one provider event. Returns `stored`, `repeated` (this event id was the
+    last one stored) or `ignored` (a type not stored, or a mail this system does not know).
+    An event that does not move the mail's state forward is `unchanged` and stores nothing.
+    Raises `SignatureInvalid` before reading the body, and `EventUnreadable`."""
+    event_id = signature.verify(get_settings().resend_webhook_secret, headers, body, now)
+    try:
+        event = json.loads(body)
+    except ValueError:
+        raise EventUnreadable from None
+    if not isinstance(event, dict):
+        raise EventUnreadable
+    kind = event.get("type")
+    state = STATE_OF_EVENT.get(kind) if isinstance(kind, str) else None
+    if state is None:
+        log.info("webhook_event_ignored", event_type=_loggable_type(kind), reason="type")
+        return "ignored"
+    data = event.get("data")
+    if not isinstance(data, dict):
+        raise EventUnreadable
+    provider_id = data.get("email_id")
+    if not isinstance(provider_id, str) or not provider_id or len(provider_id) > 200:
+        raise EventUnreadable
+    async with get_sessionmaker().begin() as session:
+        row = await repo.lock_by_provider_id(session, provider_id)
+        if row is None:
+            log.info("webhook_event_ignored", event_type=kind, reason="unknown_mail")
+            return "ignored"
+        if row["last_event_id"] == event_id:
+            log.info("webhook_event_repeated", delivery_id=str(row["id"]), event_type=kind)
+            return "repeated"
+        bounce_class = _bounce_class(data) if state == "bounced" else None
+        if not _moves_forward(row, state, bounce_class):
+            log.info("webhook_event_unchanged", delivery_id=str(row["id"]), event_type=kind)
+            return "unchanged"
+        await repo.store_event(
+            session, row["id"], state=state, bounce_class=bounce_class, event_id=event_id
+        )
+    log.info(
+        "webhook_event_stored",
+        delivery_id=str(row["id"]),
+        event_type=kind,
+        delivery_state=state,
+        bounce_class=bounce_class,
+    )
+    return "stored"
+
+
+@dataclass(frozen=True)
+class InvitationDelivery:
+    """What is known of the newest mail of an Invitation: whether it was handed to the provider,
+    and what the provider reported since (None before any report)."""
+
+    sent: bool
+    state: str | None
+    bounce_class: str | None
+
+
+async def invitation_deliveries(refs: Sequence[uuid.UUID]) -> dict[uuid.UUID, InvitationDelivery]:
+    """Per Invitation id in `refs` with a mail claimed, its newest delivery (Story 4.6). Other
+    modules read delivery state here, never from `mail_deliveries` (AD-14)."""
+    async with get_sessionmaker().begin() as session:
+        found = await repo.deliveries_for_refs(session, refs)
+    return {
+        ref: InvitationDelivery(
+            sent=row["sent_at"] is not None,
+            state=row["delivery_state"],
+            bounce_class=row["bounce_class"],
+        )
+        for ref, row in found.items()
+    }
+
+
+async def simulate_bounce(address: str, bounce_class: str, now: datetime) -> uuid.UUID | None:
+    """The local stand-in for the provider's bounce (Story 4.6, AD-17): sign an `email.bounced`
+    event for the newest mail sent to `address` with the configured secret and pass it through
+    `receive_webhook`, as the provider would post it. Returns that mail's delivery id; None when
+    no mail was sent there. Refused in production, where the dev routes are not mounted."""
+    if get_settings().app_env == "production":
+        raise RuntimeError("the bounce simulation exists outside production only")
+    async with get_sessionmaker().begin() as session:
+        user_id = await identity.user_id_for_email(session, address)
+        refs = await identity.invitation_ids_for_email(session, address)
+        row = await repo.latest_sent_for(session, user_id, refs)
+    if row is None or not row["provider_message_id"]:
+        return None
+    body = json.dumps(
+        {
+            "type": "email.bounced",
+            "created_at": now.isoformat(),
+            "data": {
+                "email_id": row["provider_message_id"],
+                "bounce": {
+                    "type": HARD_BOUNCE_TYPE if bounce_class == "hard" else "Transient",
+                    "message": "Simulated locally.",
+                },
+            },
+        }
+    ).encode("utf-8")
+    event_id = f"msg_local_{uuid.uuid7().hex}"
+    stamp = int(now.timestamp())
+    secret = get_settings().resend_webhook_secret
+    headers = {
+        signature.ID: event_id,
+        signature.TIMESTAMP: str(stamp),
+        signature.SIGNATURE: signature.sign(secret, event_id, stamp, body),
+    }
+    await receive_webhook(body, headers, now)
+    return row["id"]

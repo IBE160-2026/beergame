@@ -138,3 +138,25 @@ export function sendRosterInvitations(classId: string, uploadId: string, validDa
     }),
   );
 }
+
+// What became of the Invitations (Story 4.6, FR-8).
+
+export type InvitationSummary = components["schemas"]["InvitationSummaryOut"];
+
+export const invitationSummaryKey = (classId: string) => ["classes", "invitations", classId] as const;
+
+/** How often the counts are read again while the page is open: the mails leave `worker-batch`
+ * after the send returns, and bounces arrive from the provider later still. */
+export const INVITATION_SUMMARY_REFRESH_MS = 15_000;
+
+/** The counts of sent, bounced, accepted and expired Invitations, computed by the api, and the
+ * addresses the mail did not reach. Read again every 15 s while the tab is visible. */
+export function useInvitationSummary(classId: string) {
+  return useQuery({
+    queryKey: invitationSummaryKey(classId),
+    queryFn: () =>
+      request(() => api.GET("/api/classes/{class_id}/invitations", { params: { path: { class_id: classId } } })),
+    retry: false,
+    refetchInterval: INVITATION_SUMMARY_REFRESH_MS,
+  });
+}

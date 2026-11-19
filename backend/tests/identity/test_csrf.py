@@ -36,8 +36,9 @@ async def test_reads_and_webhooks_need_no_header():
     async with client() as c:
         assert (await c.get("/api/auth/me")).status_code == 401  # reached the route
         webhook = await c.post("/api/webhooks/resend")
-    assert webhook.status_code == 404  # no such route yet, but not refused by the guard
-    assert "csrf_header_missing" not in webhook.text
+    # Reached the route (Story 4.6), which refuses it for its missing signature instead.
+    assert webhook.status_code == 401
+    assert webhook.json()["error"]["code"] == "webhook_signature_invalid"
 
 
 async def test_the_guard_covers_the_bare_api_path_but_not_other_paths():

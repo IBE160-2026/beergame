@@ -1815,3 +1815,39 @@ async def roster_counts(class_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
     """How many addresses are on each Class's Roster (UX-DR56); a Class with none is left out."""
     async with get_sessionmaker().begin() as s:
         return await repo.roster_counts(s, class_ids)
+
+
+@dataclass(frozen=True)
+class ClassInvitation:
+    """A Student Invitation of a Class as `classes` counts it (Story 4.6, FR-8): whether it was
+    accepted, or has expired unaccepted at the time asked, and its Roster entry's address and
+    standing. The address leaves `identity` only for the Lecturer's own page."""
+
+    id: uuid.UUID
+    roster_entry_id: uuid.UUID
+    email: str
+    accepted: bool
+    expired: bool
+    entry_registered: bool
+    entry_removed: bool
+
+
+async def class_student_invitations(class_id: uuid.UUID, *, now: datetime) -> list[ClassInvitation]:
+    """Every Student Invitation of the Class, oldest first. Expired is read from `expires_at` at
+    `now` (the api's clock): neither accepted nor voided, and past its last valid day."""
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.class_student_invitations(s, class_id)
+    return [
+        ClassInvitation(
+            id=row["id"],
+            roster_entry_id=row["roster_entry_id"],
+            email=row["email"],
+            accepted=row["accepted_at"] is not None,
+            expired=row["accepted_at"] is None
+            and row["voided_at"] is None
+            and row["expires_at"] <= now,
+            entry_registered=row["registration"] == RosterRegistration.registered,
+            entry_removed=row["removed_at"] is not None,
+        )
+        for row in rows
+    ]

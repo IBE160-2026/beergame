@@ -338,6 +338,23 @@
         "title": "AuditTarget",
         "type": "object"
       },
+      "BounceClass": {
+        "description": "Why a mail did not reach its address: `hard` the provider calls permanent (the address\ndoes not exist or refuses mail), `soft` every other bounce (a full mailbox, a server down).",
+        "enum": [
+          "hard",
+          "soft"
+        ],
+        "title": "BounceClass",
+        "type": "string"
+      },
+      "BouncedRegistration": {
+        "description": "The registration status of an address whose Invitation bounced; Story 4.7 lists it with\nthe other statuses.",
+        "enum": [
+          "bounced"
+        ],
+        "title": "BouncedRegistration",
+        "type": "string"
+      },
       "ClassIn": {
         "description": "A new Class (Story 4.1). The service checks the fields and answers every refused one in\n`fields`: `name`, `institution_id` (`institution_missing`, `institution_unknown`) and\n`course_code`.",
         "properties": {
@@ -702,6 +719,28 @@
         "title": "InstitutionOut",
         "type": "object"
       },
+      "InvitationBounce": {
+        "description": "A Roster address whose newest Invitation bounced, not registered and not removed.",
+        "properties": {
+          "bounce_class": {
+            "$ref": "#/components/schemas/BounceClass"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "registration": {
+            "$ref": "#/components/schemas/BouncedRegistration"
+          }
+        },
+        "required": [
+          "email",
+          "registration",
+          "bounce_class"
+        ],
+        "title": "InvitationBounce",
+        "type": "object"
+      },
       "InvitationCheckOut": {
         "description": "What «Du er invitert» shows for a usable link.",
         "properties": {
@@ -943,6 +982,43 @@
         ],
         "title": "InvitationStatus",
         "type": "string"
+      },
+      "InvitationSummaryOut": {
+        "description": "The counts of the Class's Student Invitations, computed by the api at read time, and the\naddresses the mail did not reach, by address. `sent`: handed to the mail provider; `bounced`:\nof those, reported bounced; `accepted`: accepted (Story 4.5); `expired`: neither accepted nor\nvoided, and past their last valid day now. Each counts Invitations, not addresses.",
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "bounced": {
+            "title": "Bounced",
+            "type": "integer"
+          },
+          "bounces": {
+            "items": {
+              "$ref": "#/components/schemas/InvitationBounce"
+            },
+            "title": "Bounces",
+            "type": "array"
+          },
+          "expired": {
+            "title": "Expired",
+            "type": "integer"
+          },
+          "sent": {
+            "title": "Sent",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sent",
+          "bounced",
+          "accepted",
+          "expired",
+          "bounces"
+        ],
+        "title": "InvitationSummaryOut",
+        "type": "object"
       },
       "InvitationTokenIn": {
         "description": "The token of an Invitation link, from the fragment of `/invitasjon#<token>` (Story 3.8).",
@@ -3650,6 +3726,67 @@
       }
     },
     "/api/classes/{class_id}/invitations": {
+      "get": {
+        "description": "What became of the Class's Student Invitations (Story 4.6, FR-8): how many were sent,\nbounced, accepted and expired, computed now, and the Roster addresses whose newest Invitation\nbounced, with the bounce's class. A Class the User may not manage, one that does not exist\nand an id that is not one all answer the same 403 `forbidden`.",
+        "operationId": "getInvitationSummary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationSummaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Invitation Summary",
+        "tags": [
+          "classes"
+        ]
+      },
       "post": {
         "description": "«Send N Invitasjoner» (Story 4.4): write the staged upload's valid addresses to the Roster\nand send each new address a Student Invitation valid through the `valid_days`-th day after\ntoday (Europe/Oslo), in one transaction; the mails leave from `worker-batch`. 404\n`not_found` when `upload_id` is not the Class's staging (sent already, replaced or expired);\n422 `nothing_to_send` when no staged row is valid; 422 `invalid_request` with\n`fields.valid_days` for a validity outside 1–60 days. Nothing changes on a refusal.",
         "operationId": "sendRosterInvitations",

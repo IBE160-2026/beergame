@@ -31,7 +31,12 @@ PUBLIC_ROUTES = {
     ("POST", "/api/auth/invitation/renewal"),
     # The lecturer-access request from the Landing (Story 3.13): the visitor has no account.
     ("POST", "/api/auth/access-request"),
-    # Later stories add theirs here, and only this kind: webhooks (signature-checked).
+    # The local dev bounce (Story 4.6), mounted only outside production like the dev mailbox.
+    ("POST", "/api/dev/mailbox/bounce"),
+    # The mail provider's events (Story 4.6): admitted by their Svix signature.
+    ("POST", "/api/webhooks/resend"),
+    # Later stories add theirs here, and only these kinds: webhooks (signature-checked), and dev
+    # routes that are never mounted in production.
 }
 
 

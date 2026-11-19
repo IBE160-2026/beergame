@@ -5,6 +5,7 @@ With APP_ENV=production the process refuses to start when a required
 secret is missing or still has its built-in local default.
 """
 
+import base64
 import ipaddress
 from decimal import Decimal
 from email.utils import parseaddr
@@ -19,6 +20,10 @@ LOCAL_DATABASE_URL = "postgresql+psycopg://olspillet:olspillet@localhost:5432/ol
 LOCAL_JWT_SECRET = "local-only-jwt-secret-not-for-production"
 LOCAL_EMAIL_FROM = "ØL-spillet <noreply@olspillet.local>"
 LOCAL_PUBLIC_BASE_URL = "http://127.0.0.1:8080"
+# The local signing secret of the mail provider's webhook (Story 4.6): Svix's `whsec_` and the
+# base64 of a local-only key, so the tests and the dev bounce route can sign events. Refused in
+# production.
+LOCAL_RESEND_WEBHOOK_SECRET = "whsec_bG9jYWwtb25seS13ZWJob29rLXNlY3JldC1ub3QtZm9yLXByb2Q="
 # The peers whose `X-Forwarded-For` the api believes: loopback, private networks, the shared
 # address space Railway's network uses, and IPv6 unique-local (Railway's private network). The
 # api is never public; the proxy in front of it decides the client address (Story 3.14).
@@ -115,6 +120,9 @@ class Settings(BaseSettings):
     # The provider's rate limit (Story 4.4, NFR-3): the Resend sender sends at most this many
     # mails a second per process; `worker-batch` runs the mail queue in one process.
     mail_provider_per_second: float = Field(2.0, gt=0, le=100)
+    # The signing secret of Resend's delivery and bounce webhook (Story 4.6, AD-11): `whsec_`
+    # and a base64 key, as Resend shows it. Production refuses the local default.
+    resend_webhook_secret: str = LOCAL_RESEND_WEBHOOK_SECRET
 
     # Storage (AD-17): required in production from Story 3.14 on, used by `platform/storage`
     # in a later epic. Server only, never sent to the browser.
@@ -179,6 +187,10 @@ class Settings(BaseSettings):
         ):
             bad.append("public_base_url")
         bad.extend(name for name in REQUIRED_SECRETS if not getattr(self, name).strip())
+        if self.resend_webhook_secret == LOCAL_RESEND_WEBHOOK_SECRET or not webhook_key(
+            self.resend_webhook_secret
+        ):
+            bad.append("resend_webhook_secret")
         networks = trusted_networks(self.trusted_proxy_cidrs)
         if not networks or any(net.prefixlen == 0 for net in networks):
             bad.append("trusted_proxy_cidrs")
@@ -196,6 +208,19 @@ class Settings(BaseSettings):
 def trusted_networks(value: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
     """The networks of a comma-separated CIDR list; raises ValueError on a malformed entry."""
     return [ipaddress.ip_network(part.strip()) for part in value.split(",") if part.strip()]
+
+
+def webhook_key(secret: str) -> bytes | None:
+    """The signing key of a Svix-style webhook secret (`whsec_` and base64), or None when the
+    secret has another shape or an empty key."""
+    prefix = "whsec_"
+    if not secret.startswith(prefix):
+        return None
+    try:
+        key = base64.b64decode(secret[len(prefix) :], validate=True)
+    except ValueError:
+        return None
+    return key or None
 
 
 def _requires_tls(database_url: str) -> bool:

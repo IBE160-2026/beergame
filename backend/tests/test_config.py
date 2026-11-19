@@ -25,6 +25,8 @@ PRODUCTION_ENV = {
     "DATABASE_URL": "postgresql://u:p@db.example:5432/prod?sslmode=require",
     "JWT_SECRET": "test-only-Vq3xT9mK2pL7wR4zN8bY6cH1dF5gJ0sA",
     "RESEND_API_KEY": "test-only-resend-key",
+    # `whsec_` and the base64 of "test-only-webhook-key".
+    "RESEND_WEBHOOK_SECRET": "whsec_dGVzdC1vbmx5LXdlYmhvb2sta2V5",
     "SUPABASE_URL": "https://test-only.supabase.example",
     "SUPABASE_SERVICE_ROLE_KEY": "test-only-service-role-key",
     "EMAIL_FROM": "ØL-spillet <noreply@olspillet.example>",
@@ -39,6 +41,7 @@ REQUIRED = [
     "EMAIL_FROM",
     "PUBLIC_BASE_URL",
     "RESEND_API_KEY",
+    "RESEND_WEBHOOK_SECRET",
     "SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",
 ]
@@ -137,6 +140,10 @@ def test_production_refuses_without_each_required_variable(clean_env, name):
         ("EMAIL_FROM", "ØL-spillet <noreply@localhost>"),
         ("TRUSTED_PROXY_CIDRS", ","),
         ("RESEND_API_KEY", "  "),
+        ("RESEND_WEBHOOK_SECRET", "whsec_bG9jYWwtb25seS13ZWJob29rLXNlY3JldC1ub3QtZm9yLXByb2Q="),
+        ("RESEND_WEBHOOK_SECRET", "not-a-whsec-secret"),
+        ("RESEND_WEBHOOK_SECRET", "whsec_"),
+        ("RESEND_WEBHOOK_SECRET", "whsec_%%%"),
         ("TRUSTED_PROXY_CIDRS", "0.0.0.0/0"),
         ("TRUSTED_PROXY_CIDRS", "10.0.0.0/8,::/0"),
     ],
