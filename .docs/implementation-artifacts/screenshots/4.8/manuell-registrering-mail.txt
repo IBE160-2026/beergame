@@ -1,0 +1,17 @@
+Subject: Du er registrert i ØL-spillet
+
+ØL-spillet
+
+Hei Kari Nordmann,
+
+Faglæreren din har registrert deg i Klassen class-of-1994 i ØL-spillet.
+Velg et passord her, så kan du logge inn:
+
+http://127.0.0.1:8080/nytt-passord#hoG9BILS-53ttssSGyvWbniVEiyHa7Wp4TwQjQL5Jjs
+
+Lenken virker til og med 3. desember 2026 og kan brukes én gang. Venter du ikke denne e-posten, kan du se bort fra den.
+
+Hilsen ØL-spillet
+http://127.0.0.1:8080/
+
+Denne e-posten er sendt automatisk. Svar på den blir ikke lest.
