@@ -465,7 +465,9 @@ function SendArea({
           }}
           hint={copy.validDaysHint(VALID_DAYS.min, VALID_DAYS.max)}
           error={refused ? copy.validDaysError(VALID_DAYS.min, VALID_DAYS.max) : undefined}
-          className="w-full max-w-[14rem]"
+          // The field fits a number of days; its hint and error keep the send area's width.
+          className="w-full max-w-md"
+          inputClassName="max-w-[14rem]"
         />
       )}
       <Button

@@ -134,3 +134,77 @@ for (const vp of SEND_VIEWPORTS) {
     });
   });
 }
+
+/** Stage a two-column file (`Navn`, `E-post`) with two valid addresses through the api. */
+async function stageFile(page: Page, classId: string, tag: string) {
+  const body = ["Navn,E-post", `Ola,ola-${tag}@stud.example.no`, `Kari,kari-${tag}@stud.example.no`].join("\n");
+  const staged = await page.request.post(`/api/classes/${classId}/roster-upload`, {
+    data: Buffer.from(body),
+    headers: { ...CSRF, "Content-Type": "application/octet-stream", "X-File-Name": "liste.csv" },
+  });
+  expect(staged.status()).toBe(201);
+}
+
+test.describe("a refused send", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test("a staging replaced under the page: the line stays and the new staging shows", async ({ page, browser }) => {
+    const { lecturer } = await classPage(page, browser);
+    const classId = new URL(lecturer.url()).pathname.split("/").pop()!;
+    const tag = `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
+    await stageFile(lecturer, classId, tag);
+    await lecturer.reload();
+    const send = lecturer.getByRole("button", { name: copy.send(2) });
+    await expect(send).toBeVisible();
+
+    // Another tab replaces the staging: the page still holds the old one's id.
+    const pasted = await lecturer.request.post(`/api/classes/${classId}/roster-paste`, {
+      data: { text: `per-${tag}@stud.example.no` },
+      headers: CSRF,
+    });
+    expect(pasted.status()).toBe(201);
+
+    const refused = answerTo(lecturer, "/invitations");
+    await tabTo(lecturer, send);
+    await lecturer.keyboard.press("Enter");
+    expect((await refused).status()).toBe(404);
+    await expect(lecturer.getByRole("alert").filter({ hasText: copy.sendGone })).toBeVisible();
+    // The page reloads the staging the api has now, and the line outlives the old send area.
+    await expect(lecturer.getByText(copy.pasted)).toBeVisible();
+    await expect(lecturer.getByRole("button", { name: copy.send(1) })).toBeVisible();
+    await expect(lecturer.getByRole("alert").filter({ hasText: copy.sendGone })).toBeVisible();
+    await expectAccessible(lecturer, false);
+    await lecturer.context().close();
+  });
+
+  test("a staging with no valid row left: the line says why and the button is unavailable", async ({
+    page,
+    browser,
+  }) => {
+    const { lecturer } = await classPage(page, browser);
+    const classId = new URL(lecturer.url()).pathname.split("/").pop()!;
+    const tag = `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
+    await stageFile(lecturer, classId, tag);
+    await lecturer.reload();
+    const send = lecturer.getByRole("button", { name: copy.send(2) });
+    await expect(send).toBeVisible();
+
+    // Another tab picks the name column: the same staging, with no valid row.
+    const chosen = await lecturer.request.put(`/api/classes/${classId}/roster-upload/column`, {
+      data: { column: 0 },
+      headers: CSRF,
+    });
+    expect(chosen.status()).toBe(200);
+
+    const refused = answerTo(lecturer, "/invitations");
+    await tabTo(lecturer, send);
+    await lecturer.keyboard.press("Enter");
+    expect((await refused).status()).toBe(422);
+    await expect(lecturer.getByRole("alert").filter({ hasText: copy.nothingToSend })).toBeVisible();
+    await expect(lecturer.getByRole("button", { name: copy.send(0) })).toHaveAttribute("aria-disabled", "true");
+    // The refetched staging says it once under the button; the refusal does not repeat it.
+    await expect(lecturer.getByText(copy.noValid, { exact: true })).toHaveCount(1);
+    await expectAccessible(lecturer, false);
+    await lecturer.context().close();
+  });
+});

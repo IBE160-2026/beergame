@@ -425,7 +425,9 @@ export const nb = {
       sending: "Sender …",
       sendFailed: "Invitasjonene ble ikke sendt. Prøv igjen.",
       sendGone: "Klasselista er endret siden du lastet den. Se over og send igjen.",
-      nothingToSend: "Ingen gyldige adresser å invitere.",
+      /** After a refused send whose staging has no valid row left; the refetched staging then
+       * shows «Ingen gyldige adresser å invitere.» under the button, so this line says why. */
+      nothingToSend: "Klasselista er endret siden du lastet den. Ingen av adressene kan inviteres nå.",
       months: [
         "januar",
         "februar",
