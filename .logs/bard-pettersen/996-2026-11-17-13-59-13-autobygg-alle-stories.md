@@ -958,3 +958,22 @@ Bygge Story 4.7 på `epic-4`, ta med to utsatte punkter fra 4.5 og 4.6, og kontr
 
 ### Åpne punkter
 - Issue #90: beslutninger og visuelle punkter.
+
+## Story 4.8: Registrere student manuelt og endre enkeltadresser (2026-11-19)
+
+### Oppgave
+Bygge Story 4.8 på `epic-4` og kontrollere den visuelt. Rette at to skjemaer kunne være åpne samtidig.
+
+### Plan
+`bmad-build-auto` i én underagent, med en eksplisitt beslutning om adresser til registrerte studenter. Deretter visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-8-register-student-manually-change-single-addresses.md`. Commit `8177a33`, visuelle rettinger `5595813`. Migrering 0030.
+- Manuell registrering, ny enkeltadresse og «Fjern», med konsekvensen vist over knappen. Rad-handlinger i statuslista. Engangslenke for første passord.
+- Backend: 2227 grønne. Frontend: typecheck, Vitest (362), sjekker og bygg grønne. Playwright: 155 grønne.
+- Gjennomgang: 36 funn, ett middels rettet og 12 lave rettet.
+- Visuell kontroll: 28 skjermbilder og to rettinger. Bare ett skjema kan nå være åpent om gangen.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #91: beslutninger, telling av «Send N» og tekstpunkter. Disse tas i den samlede gjennomgangen.
