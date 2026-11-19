@@ -264,6 +264,10 @@ def validate(
                         f"Guided Weeks ({settings.guided_weeks}) must end before demand "
                         f"changes in Week {change}"
                     ),
+                    minimum=0,
+                    # Also no Weeks to play when the change falls after the Game.
+                    maximum=min(change, settings.weeks) - 1,
+                    placeholder=False,
                 )
             )
         elif settings.guided_weeks >= settings.weeks:
@@ -275,6 +279,9 @@ def validate(
                         f"Guided Weeks ({settings.guided_weeks}) leave no Weeks to play "
                         f"in a Game of {settings.weeks} Weeks"
                     ),
+                    minimum=0,
+                    maximum=settings.weeks - 1,
+                    placeholder=False,
                 )
             )
     return tuple(errors)

@@ -6,7 +6,8 @@ one all answer the same 403 `forbidden` (FR-5). A change to a Class session of a
 answers 409 `class_archived` (`classes.service.ClassArchived`, mapped in `main.py`).
 
 Story 5.2 adds the four dates to the save, the Student's read `/api/me/class-sessions` and the
-Lærerhjem's read `/api/lecturer-home/class-sessions`."""
+Lærerhjem's read `/api/lecturer-home/class-sessions`. Story 5.3 adds the Game settings to the
+save and the check of a draft, `/api/class-sessions/{id}/settings-check`."""
 
 import uuid
 from typing import Annotated
@@ -21,6 +22,8 @@ from app.modules.sessions.schemas import (
     ClassSessionSaveIn,
     EnrolledSessionListOut,
     LecturerOverviewOut,
+    SettingsCheckIn,
+    SettingsCheckOut,
 )
 from app.platform import auth, authz
 from app.platform.errors import documented, error_response
@@ -108,10 +111,27 @@ async def save_class_session(
     422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for
     the earlier one when only it changed, `required` once locked), 409 `deadline_passed`
     (`passed`). Once the Start date has passed, a changed AI mode answers 409 `session_locked`.
-    Dates count to the whole minute."""
+    Dates count to the whole minute.
+
+    With `game_settings` (the editable settings, laid over the stored ones) the engine
+    judges the settings (FR-12): 422 `invalid_settings` with `fields` mapping each setting to
+    `{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409
+    `session_locked` (`{"game_settings": "locked"}`)."""
     try:
         saved = await service.save_session(
-            user, _id(session_id), body.ai_mode, now=auth.utcnow(), dates=body.dates
+            user,
+            _id(session_id),
+            body.ai_mode,
+            now=auth.utcnow(),
+            dates=body.dates,
+            game_settings=body.game_settings,
+        )
+    except service.InvalidSettings as refused:
+        return error_response(
+            422,
+            refused.code,
+            "The Game settings break the engine's rules.",
+            {field: problem.model_dump() for field, problem in refused.problems.items()},
         )
     except service.LlmUnavailableError:
         return error_response(
@@ -124,6 +144,30 @@ async def save_class_session(
     if saved is None:
         raise authz.Forbidden
     return JSONResponse(saved.model_dump(mode="json"))
+
+
+@router.post(
+    "/class-sessions/{session_id}/settings-check",
+    response_model=SettingsCheckOut,
+    responses=documented(401, 403, 409),
+    operation_id="checkClassSessionSettings",
+)
+async def check_class_session_settings(
+    session_id: str,
+    body: SettingsCheckIn,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """The engine's errors and warnings on a draft of the Game settings, as the Lecturer leaves a
+    field (FR-12, AD-1). Stores nothing. Once locked it answers 409 `session_locked`."""
+    try:
+        found = await service.check_settings(
+            user, _id(session_id), body.game_settings, now=auth.utcnow()
+        )
+    except service.SessionLocked as refused:
+        return error_response(409, refused.code, "This can no longer change.", refused.fields)
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
 
 
 @router.get(

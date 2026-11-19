@@ -47,12 +47,27 @@ export function createClassSession(classId: string) {
   );
 }
 
-/** «Lagre Klasseøkt»: saves the Class session as it stands, with its four dates (Story 5.2). */
-export function saveClassSession(id: string, aiMode: AiMode, dates: DatesIn) {
+export type SettingsCheck = components["schemas"]["SettingsCheckOut"];
+/** A draft of the Game settings as sent: any field, laid over the stored settings by the api. */
+export type SettingsDraftBody = Record<string, unknown>;
+
+/** «Lagre Klasseøkt»: saves the Class session as it stands, with its four dates (Story 5.2) and,
+ * while the settings block is open, its Game settings (Story 5.3). */
+export function saveClassSession(id: string, aiMode: AiMode, dates: DatesIn, gameSettings?: SettingsDraftBody) {
   return request(() =>
     api.PUT("/api/class-sessions/{session_id}", {
       params: { path: { session_id: id } },
-      body: { ai_mode: aiMode, dates },
+      body: { ai_mode: aiMode, dates, ...(gameSettings ? { game_settings: gameSettings } : {}) },
+    }),
+  );
+}
+
+/** The api's errors and warnings on a draft of the Game settings; nothing is stored (Story 5.3). */
+export function checkClassSessionSettings(id: string, gameSettings: SettingsDraftBody) {
+  return request(() =>
+    api.POST("/api/class-sessions/{session_id}/settings-check", {
+      params: { path: { session_id: id } },
+      body: { game_settings: gameSettings },
     }),
   );
 }

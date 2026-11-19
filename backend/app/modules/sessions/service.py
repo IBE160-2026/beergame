@@ -1,5 +1,5 @@
-"""Class sessions (Stories 5.1 and 5.2, FR-11, FR-13, FR-15, FR-18, AD-4, AD-6). Other modules
-import only this file.
+"""Class sessions (Stories 5.1 to 5.3, FR-11, FR-12, FR-13, FR-15, FR-18, AD-4, AD-6). Other
+modules import only this file.
 
 A Lecturer who owns or co-owns a Class creates a Class session from the Klasse page. It is filled
 in with the engine's Classic `GameSettings` (this module holds no second copy of a value), a
@@ -15,6 +15,10 @@ never moved (`deadline_passed`), and none cleared once the session is locked. `i
 one lock predicate; `effective_debrief_deadline` and `effective_test_deadline` are the only way
 another module reads a Student's deadline.
 
+The Game settings (Story 5.3) are saved with «Lagre Klasseøkt» too, and a draft can be judged
+without saving (`check_settings`). Both lay the draft over the stored settings and judge it with
+the engine's `validate` and `warnings` only (AD-1): this module and the web app hold no rule.
+
 Every mutation passes one guard, `_writable`, which asks `classes.service.is_writable` inside the
 mutation's transaction and raises `classes.service.ClassArchived` (409 `class_archived`) for an
 archived Class. Who may do what is `platform/authz`'s: `class_sessions.read`,
@@ -29,11 +33,13 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import structlog
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget, config
 from app.engine import GameSettings
 from app.engine.demand import new_seed
+from app.engine.settings import RANGES, Range, validate, warnings
 from app.modules.classes import service as classes
 from app.modules.sessions import repo
 from app.modules.sessions.models import DATE_NAMES
@@ -53,6 +59,9 @@ from app.modules.sessions.schemas import (
     NextDate,
     NextDeadline,
     SessionRef,
+    SettingProblem,
+    SettingsCheckOut,
+    SettingWarning,
     WaitingClass,
 )
 from app.platform import auth, authz, events
@@ -106,6 +115,17 @@ class InvalidDates(_FieldsError):
     code = "invalid_dates"
 
 
+class InvalidSettings(Exception):
+    """The Game settings break the engine's rules (422 `invalid_settings`): one problem per
+    setting, with the range that applies."""
+
+    code = "invalid_settings"
+
+    def __init__(self, problems: dict[str, SettingProblem]) -> None:
+        super().__init__(sorted(problems))
+        self.problems = problems
+
+
 def classic_settings() -> GameSettings:
     """The engine's Classic preset with a fresh seed drawn by the server (FR-13)."""
     return GameSettings(demand_seed=new_seed(secrets.token_bytes(16)))
@@ -118,6 +138,78 @@ def is_classic(settings: GameSettings) -> bool:
 
 ClassSessionLike = ClassSessionOut | Mapping[str, Any]
 """A Class session as `ClassSessionOut` or as its row."""
+
+
+def _bound(value: object) -> str | None:
+    return None if value is None else str(value)
+
+
+def _problem(
+    code: str, field: str, minimum: object = None, maximum: object = None, *, ranged: bool = False
+) -> SettingProblem:
+    """One refused setting. `ranged` takes the bounds from `RANGES`, for a value the engine never
+    saw (wrong type or below zero); the engine's own errors bring theirs, or none."""
+    allowed: Range | None = RANGES.get(field)
+    if ranged and allowed is not None:
+        minimum, maximum = allowed.minimum, allowed.maximum
+    return SettingProblem(
+        code=code,
+        minimum=_bound(minimum),
+        maximum=_bound(maximum),
+        decimal_places=allowed.decimal_places if allowed is not None else None,
+    )
+
+
+EDITABLE_SETTINGS = frozenset(RANGES)
+"""The Game settings a Lecturer changes through the Klasseøkt (Story 5.3): those the engine
+gives a range. Later stories add theirs (5.4 the Demand pattern and seed, 5.15 capacity)."""
+
+
+def judge_settings(
+    stored: GameSettings, draft: Mapping[str, Any]
+) -> tuple[GameSettings | None, dict[str, SettingProblem], list[SettingWarning]]:
+    """`draft` laid over `stored` and judged by the engine alone (FR-12, AD-1): the settings (None
+    when they do not even parse), the errors by setting, and the warnings on settings without an
+    error. A value of the wrong type is `not_a_number` and a negative one `out_of_range`, both
+    with the setting's range, as the engine's own range errors. The other settings of a draft
+    that does not parse are still judged, with the unreadable ones at their stored values, so
+    one mistyped field hides no error or warning elsewhere. A key outside `EDITABLE_SETTINGS`
+    (the seed the server draws, the chain, the Demand pattern until Story 5.4) is
+    `not_editable` and never laid over."""
+    base = stored.model_dump(mode="json")
+    problems: dict[str, SettingProblem] = {
+        key: _problem("not_editable", key) for key in draft if key not in EDITABLE_SETTINGS
+    }
+    data = {**base, **{key: value for key, value in draft.items() if key not in problems}}
+    try:
+        settings: GameSettings | None = GameSettings.model_validate(data)
+    except ValidationError as exc:
+        for error in exc.errors():
+            field = str(error["loc"][0]) if error["loc"] else "game_settings"
+            if field in problems:
+                continue
+            if error["type"] in ("greater_than_equal", "greater_than"):
+                code = "out_of_range"
+            else:
+                code = "not_a_number" if field in RANGES else "invalid"
+            problems[field] = _problem(code, field, ranged=True)
+        settings = None
+        rest = {key: value for key, value in data.items() if key not in problems}
+        try:
+            judged = GameSettings.model_validate({**base, **rest})
+        except ValidationError:
+            return None, problems, []
+    else:
+        judged = settings
+    for found in validate(judged, capacity_enabled=get_settings().feature_capacity):
+        if found.field not in problems:
+            problems[found.field] = _problem(found.code, found.field, found.minimum, found.maximum)
+    risky = [
+        SettingWarning(code=w.code, field=w.field, values=w.values)
+        for w in warnings(judged)
+        if w.field not in problems
+    ]
+    return settings, problems, risky
 
 
 def _value(class_session: ClassSessionLike, name: str) -> Any:
@@ -304,6 +396,10 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         locked=is_locked(row, now=now),
         passed_dates=_passed(row, now),
         play_time_warning=_play_time_warning(row, settings),
+        settings_warnings=[
+            SettingWarning(code=w.code, field=w.field, values=w.values) for w in warnings(settings)
+        ],
+        calibrated_settings=GameSettings(),
     )
 
 
@@ -331,13 +427,16 @@ async def save_session(
     *,
     now: datetime,
     dates: DatesIn | None = None,
+    game_settings: Mapping[str, Any] | None = None,
 ) -> ClassSessionOut | None:
     """«Lagre Klasseøkt»: saves the Class session as it stands and emits `session:<id>`. LLM
     players on a Class session with no model config take the active default and its budget row
-    in the same transaction, or raise `LlmUnavailableError` and change nothing. With `dates` the
-    four dates are replaced under the rules of `judge_dates`; a change emits `user:<id>` once per
-    registered Student of the Class. Once locked, a changed AI mode raises `SessionLocked`. None
-    when the User may not manage the Class; raises `ClassArchived`."""
+    in the same transaction, or raise `LlmUnavailableError` and change nothing. With
+    `game_settings` the draft is judged by `judge_settings` and stored, or `InvalidSettings` is
+    raised. With `dates` the four dates are replaced under the rules of `judge_dates`; a change
+    emits `user:<id>` once per registered Student of the Class. Once locked, a changed AI mode or
+    changed Game settings raise `SessionLocked`. None when the User may not manage the Class;
+    raises `ClassArchived`."""
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, session_id)
     if row is None or await _class_for(user, row["class_id"], "class_sessions.manage") is None:
@@ -350,11 +449,22 @@ async def save_session(
             return None
         locked = is_locked(row, now=now)
         changed: dict[str, datetime | None] = {}
+        new_settings: GameSettings | None = None
         try:
             if locked and ai_mode.value != row["ai_mode"]:
                 raise SessionLocked({"ai_mode": "locked"})
+            if game_settings is not None:
+                new_settings = _settings_to_store(row, game_settings, locked=locked)
             if dates is not None:
                 changed = judge_dates(row, dates, now=now, locked=locked)
+        except InvalidSettings as refused:
+            log.info(
+                "class_session_refused",
+                class_session_id=str(session_id),
+                error_code=refused.code,
+                fields=sorted(refused.problems),
+            )
+            raise
         except _FieldsError as refused:
             log.info(
                 "class_session_refused",
@@ -382,18 +492,60 @@ async def save_session(
             ai_mode=ai_mode.value,
             model_config_id=config_id,
             dates=changed,
+            game_settings=new_settings.model_dump(mode="json") if new_settings else None,
         )
         await events.emit(s, "session", str(session_id))
         if changed:
             for student in students:
                 await events.emit(s, "user", str(student))
-    log.info("class_session_saved", class_session_id=str(session_id), dates=sorted(changed))
+    log.info(
+        "class_session_saved",
+        class_session_id=str(session_id),
+        dates=sorted(changed),
+        settings_changed=new_settings is not None,
+    )
     if changed and locked:
         # After the start a moved deadline holds for the whole Class session (FR-18).
         log.info(
             "class_session_dates_moved", class_session_id=str(session_id), dates=sorted(changed)
         )
     return await get_session(user, session_id)
+
+
+def _settings_to_store(
+    row: Mapping[str, Any], draft: Mapping[str, Any], *, locked: bool
+) -> GameSettings | None:
+    """The Game settings to store from a draft, or None when they do not change. Raises
+    `SessionLocked` for a change once locked and `InvalidSettings` for a draft the engine
+    refuses. An unchanged draft is never judged, so a locked session can be saved as it stands."""
+    stored = GameSettings.model_validate(row["game_settings"])
+    settings, problems, _ = judge_settings(stored, draft)
+    if any(problem.code == "not_editable" for problem in problems.values()):
+        raise InvalidSettings(problems)
+    if settings == stored:
+        return None
+    if locked:
+        raise SessionLocked({"game_settings": "locked"})
+    if problems or settings is None:
+        raise InvalidSettings(problems)
+    return settings
+
+
+async def check_settings(
+    user: authz.Principal, session_id: uuid.UUID, draft: Mapping[str, Any], *, now: datetime
+) -> SettingsCheckOut | None:
+    """What the engine says of a draft of the Game settings, as the Lecturer leaves a field
+    (FR-12): errors and warnings, nothing stored. Raises `SessionLocked` once locked. None when
+    the User may not manage the Class."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, session_id)
+    if row is None or await _class_for(user, row["class_id"], "class_sessions.manage") is None:
+        return None
+    if is_locked(row, now=now):
+        raise SessionLocked({"game_settings": "locked"})
+    stored = GameSettings.model_validate(row["game_settings"])
+    _, problems, risky = judge_settings(stored, draft)
+    return SettingsCheckOut(errors=problems, warnings=risky)
 
 
 def _next_deadline(

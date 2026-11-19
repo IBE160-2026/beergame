@@ -714,6 +714,61 @@ export const nb = {
       demand: "Etterspørsel",
       guidedWeeks: "Veiledede uker",
       inactivityLimit: "Inaktivitetsgrense",
+      // [ASSUMPTION] Story 5.3: the two settings the list did not show before.
+      startingBacklog: "Startrestordre",
+      maxOrder: "Største ordre",
+    },
+    /** Changing the Game settings (Story 5.3, FR-12, UX-DR48). [ASSUMPTION] draft copy. The api
+     * judges every value; these lines only word its codes. Numbers arrive formatted. */
+    edit: {
+      open: "Endre spillinnstillinger",
+      cancel: "Avbryt endringene",
+      // Under the field: one value holds for all four Roles.
+      perRole: "Gjelder hvert ledd.",
+      costHint: "Kroner per enhet per uke, med komma.",
+      guidedHint: "Antall uker fra Uke 1 med veiledning.",
+      locked: "Klasseøkten har startet. Spillinnstillingene kan ikke endres.",
+      refused: "Spillinnstillingene ble ikke lagret. Se feltene.",
+      errors: {
+        outOfRange: (min: string, max: string) => `Må være fra ${min} til ${max}.`,
+        wholeNumber: (min: string, max: string) => `Skriv et helt tall fra ${min} til ${max}.`,
+        amount: (min: string, max: string) => `Skriv et beløp fra ${min} til ${max}, med komma.`,
+        decimals: (places: number, min: string, max: string) =>
+          `Bruk høyst ${places} desimaler, fra ${min} til ${max}.`,
+        guidedBeforeChange: (min: string, max: string) =>
+          `Veiledningen må slutte før etterspørselen endres. Velg fra ${min} til ${max}.`,
+        guidedLeaveWeeks: (min: string, max: string) =>
+          `Det må være uker igjen å spille etter veiledningen. Velg fra ${min} til ${max}.`,
+        inventoryAndBacklog: "Et ledd kan ikke starte med både lager og restordre. Sett ett av dem til 0.",
+        demandChangeOutside: "Etterspørselen endres etter siste uke. Velg flere uker i Antall uker.",
+        notEditable: "Denne innstillingen kan ikke endres her.",
+        other: "Verdien er ikke tillatt.",
+      },
+      /** Never blocking; the word «Advarsel» carries it, not the colour. */
+      warnings: {
+        supplyLine: (supply: string, start: string) =>
+          `Advarsel: ${supply} i hvert ledd er ikke det samme som etterspørselen ved start (${start}), så kjeden starter ikke i balanse.`,
+        backorder: (backorder: string, holding: string) =>
+          `Advarsel: Restordrekost (${backorder}) er ikke høyere enn Lagerkost (${holding}). Da koster det ikke mer å gå tom enn å ha varer på lager.`,
+        maxOrder: (max: string, threshold: string, peak: string) =>
+          `Advarsel: Største ordre (${max}) er under ${threshold}. Med etterspørsel opp til ${peak} kan grensen stoppe vanlige ordre.`,
+        weeks: (arrival: string, weeks: string) =>
+          `Advarsel: Endringen i etterspørselen når Detaljisten tidligst i Uke ${arrival}, etter siste uke (${weeks}).`,
+        other: "Advarsel: Uvanlig verdi.",
+      },
+      /** Shown once a setting differs from Classic (FR-12), from the values the api returned. */
+      calibrated: (v: {
+        inventory: string;
+        slot: string;
+        order: string;
+        shipping: string;
+        production: string;
+        holding: string;
+        backorder: string;
+        weeks: string;
+      }) =>
+        `Debrief-oppgavene og kontrollen av KI-spillerne er kalibrert for Klassisk: Startlager ${v.inventory}, ${v.slot} i hvert ledd, ` +
+        `forsinkelser ${v.order}, ${v.shipping} og ${v.production} uker, Lagerkost ${v.holding}, Restordrekost ${v.backorder} og ${v.weeks} uker.`,
     },
     values: {
       units: (count: number) => `${count} ${count === 1 ? "enhet" : "enheter"}`,

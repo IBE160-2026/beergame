@@ -53,3 +53,23 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   and «Neste frist» (the next date), over the User's Classes that are not archived, scoped by
   `authz.classes_visible_to`.
 - Each session has a `number` within its Class, oldest first (Issue #98).
+
+## Game settings (Story 5.3)
+
+- «Lagre Klasseøkt» takes `game_settings`: the settings with an engine range
+  (`service.EDITABLE_SETTINGS`), laid over the stored settings. Any other key (the seed, the
+  chain, the Demand pattern until Story 5.4, capacity until 5.15) is `not_editable`. The
+  engine alone judges the rest (`GameSettings.model_validate`, then `engine.validate` with
+  `FEATURE_CAPACITY`). A refusal is
+  422 `invalid_settings` with `fields: {setting: {code, minimum, maximum, decimal_places}}`, the
+  bounds as decimal strings or null. A value of the wrong type is `not_a_number`, one below zero
+  `out_of_range`, both with the setting's `RANGES` bounds.
+- `POST /api/class-sessions/{id}/settings-check` judges a draft the same way and answers
+  `{errors, warnings}`; it stores and emits nothing. The screen calls it as the Lecturer leaves a
+  field.
+- Once locked, changed settings and every check answer 409 `session_locked`
+  (`{"game_settings": "locked"}`); settings resent unchanged still save.
+- The order of a save: archived, locked, `invalid_settings`, then the dates.
+- `ClassSessionOut` carries `settings_warnings` (the engine's warnings on the stored settings;
+  a setting with an error gets no warning in a check) and `calibrated_settings` (the Classic
+  preset, which the screen names as what content and Play guard were calibrated for).

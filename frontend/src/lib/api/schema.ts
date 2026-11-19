@@ -521,12 +521,39 @@ export interface paths {
          *     is pinned as the default answer 409 `llm_unavailable`, and nothing changes.
          *
          *     With `dates` the four dates are replaced (FR-18). `fields` names each date in question:
-         *     422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `required`
-         *     once locked), 409 `deadline_passed` (`passed`). Once the Start date has passed, a changed AI
-         *     mode answers 409 `session_locked`.
+         *     422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for
+         *     the earlier one when only it changed, `required` once locked), 409 `deadline_passed`
+         *     (`passed`). Once the Start date has passed, a changed AI mode answers 409 `session_locked`.
+         *     Dates count to the whole minute.
+         *
+         *     With `game_settings` (the editable settings, laid over the stored ones) the engine
+         *     judges the settings (FR-12): 422 `invalid_settings` with `fields` mapping each setting to
+         *     `{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409
+         *     `session_locked` (`{"game_settings": "locked"}`).
          */
         put: operations["saveClassSession"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/settings-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Class Session Settings
+         * @description The engine's errors and warnings on a draft of the Game settings, as the Lecturer leaves a
+         *     field (FR-12, AD-1). Stores nothing. Once locked it answers 409 `session_locked`.
+         */
+        post: operations["checkClassSessionSettings"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1362,6 +1389,7 @@ export interface components {
          */
         ClassSessionOut: {
             ai_mode: components["schemas"]["AiMode"];
+            calibrated_settings: components["schemas"]["GameSettings"];
             /** Can Manage */
             can_manage: boolean;
             /**
@@ -1405,6 +1433,8 @@ export interface components {
             play_time_warning: boolean;
             /** Saved At */
             saved_at: string | null;
+            /** Settings Warnings */
+            settings_warnings: components["schemas"]["SettingWarning"][];
             /** Start At */
             start_at: string | null;
             /** Test Deadline */
@@ -1412,12 +1442,18 @@ export interface components {
         };
         /**
          * ClassSessionSaveIn
-         * @description «Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice)
-         *     and the four dates (Story 5.2); without `dates` the dates stay as they are.
+         * @description «Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice),
+         *     the four dates (Story 5.2) and the Game settings (Story 5.3); without `dates` or
+         *     `game_settings` they stay as they are. `game_settings` is laid over the stored settings, so a
+         *     field left out keeps its value.
          */
         ClassSessionSaveIn: {
             ai_mode: components["schemas"]["AiMode"];
             dates?: components["schemas"]["DatesIn"] | null;
+            /** Game Settings */
+            game_settings?: {
+                [key: string]: unknown;
+            } | null;
         };
         /**
          * DatesIn
@@ -2244,6 +2280,60 @@ export interface components {
          * @enum {string}
          */
         SessionRole: "admin" | "lecturer" | "assistant";
+        /**
+         * SettingProblem
+         * @description Why one Game setting is refused (Story 5.3, FR-12): the engine's stable code and the range
+         *     that applies, its bounds as decimal strings («1», «100.00»), or None when the rule has none.
+         */
+        SettingProblem: {
+            /** Code */
+            code: string;
+            /** Decimal Places */
+            decimal_places: number | null;
+            /** Maximum */
+            maximum: string | null;
+            /** Minimum */
+            minimum: string | null;
+        };
+        /**
+         * SettingWarning
+         * @description A legal but unusual Game setting (FR-12): the engine's code, the setting it stands under,
+         *     and the numbers behind it as decimal strings. It never blocks a save.
+         */
+        SettingWarning: {
+            /** Code */
+            code: string;
+            /** Field */
+            field: string;
+            /** Values */
+            values: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * SettingsCheckIn
+         * @description A draft of the Game settings to judge without saving: the editable settings, laid
+         *     over the stored settings. Values are sent as typed, so the engine judges them all.
+         */
+        SettingsCheckIn: {
+            /** Game Settings */
+            game_settings: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * SettingsCheckOut
+         * @description What the engine says of a draft (FR-12): the errors by setting, which block a save, and the
+         *     warnings, which do not.
+         */
+        SettingsCheckOut: {
+            /** Errors */
+            errors: {
+                [key: string]: components["schemas"]["SettingProblem"];
+            };
+            /** Warnings */
+            warnings: components["schemas"]["SettingWarning"][];
+        };
         /**
          * StaffAssistant
          * @description An Assistant of the Class: `active` (staff, `user_id` set), or an Invitation not yet
@@ -3860,6 +3950,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    checkClassSessionSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsCheckIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsCheckOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

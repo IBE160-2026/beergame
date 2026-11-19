@@ -1,4 +1,5 @@
 import { nb } from "@/copy/nb";
+import { formatNumber } from "@/lib/number-format";
 
 import type { GameSettings } from "./api";
 
@@ -24,10 +25,9 @@ export function upstreamFirst(settings: Pick<GameSettings, "roles">): Role[] {
   return [...settings.roles].reverse();
 }
 
-/** A decimal string from the API with a decimal comma («0.50» → «0,50»). The value is shown as the
- * API sent it; Story 5.3 brings the shared number formatter. */
-export function decimalComma(value: string): string {
-  return value.replace(".", ",");
+/** A cost rate from the API («0.5») as the screen shows it: two decimals and a comma («0,50»). */
+export function costText(value: string): string {
+  return formatNumber(value, { decimals: 2 });
 }
 
 /** The Demand pattern in words: the step pattern as «4, så 8 fra Uke 5». */
@@ -36,22 +36,27 @@ export function demandText(demand: GameSettings["demand"]): string {
   return copy.values.otherDemand;
 }
 
-/** The settings list of the Klasseøkt, in the mockup's order, from the values the API returned. */
-export function settingRows(settings: GameSettings, inactivityLimitHours: number): { label: string; value: string }[] {
+export type SettingRow = { key: string; label: string; value: string };
+
+/** The settings list of the Klasseøkt, in the mockup's order, from the values the API returned. Each
+ * row's `key` is the setting's api name (or `demand`, `inactivity_limit_hours`). */
+export function settingRows(settings: GameSettings, inactivityLimitHours: number): SettingRow[] {
   const s = copy.settings;
   const v = copy.values;
   return [
-    { label: s.startingInventory, value: String(settings.starting_inventory) },
-    { label: s.supplyLine, value: v.units(settings.supply_line) },
-    { label: s.orderDelay, value: v.weeks(settings.order_delay) },
-    { label: s.shippingDelay, value: v.weeks(settings.shipping_delay) },
-    { label: s.productionDelay, value: v.weeks(settings.production_delay) },
-    { label: s.holdingCost, value: v.cost(decimalComma(settings.holding_cost)) },
-    { label: s.backorderCost, value: v.cost(decimalComma(settings.backorder_cost)) },
-    { label: s.weeks, value: String(settings.weeks) },
-    { label: s.demand, value: demandText(settings.demand) },
-    { label: s.guidedWeeks, value: v.guidedWeeks(settings.guided_weeks) },
-    { label: s.inactivityLimit, value: v.inactivityLimit(inactivityLimitHours) },
+    { key: "starting_inventory", label: s.startingInventory, value: formatNumber(settings.starting_inventory) },
+    { key: "starting_backlog", label: s.startingBacklog, value: formatNumber(settings.starting_backlog) },
+    { key: "supply_line", label: s.supplyLine, value: v.units(settings.supply_line) },
+    { key: "order_delay", label: s.orderDelay, value: v.weeks(settings.order_delay) },
+    { key: "shipping_delay", label: s.shippingDelay, value: v.weeks(settings.shipping_delay) },
+    { key: "production_delay", label: s.productionDelay, value: v.weeks(settings.production_delay) },
+    { key: "holding_cost", label: s.holdingCost, value: v.cost(costText(settings.holding_cost)) },
+    { key: "backorder_cost", label: s.backorderCost, value: v.cost(costText(settings.backorder_cost)) },
+    { key: "weeks", label: s.weeks, value: formatNumber(settings.weeks) },
+    { key: "demand", label: s.demand, value: demandText(settings.demand) },
+    { key: "guided_weeks", label: s.guidedWeeks, value: v.guidedWeeks(settings.guided_weeks) },
+    { key: "max_order", label: s.maxOrder, value: formatNumber(settings.max_order) },
+    { key: "inactivity_limit_hours", label: s.inactivityLimit, value: v.inactivityLimit(inactivityLimitHours) },
   ];
 }
 

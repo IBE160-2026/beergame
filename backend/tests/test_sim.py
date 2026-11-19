@@ -150,11 +150,12 @@ def test_settings_check_reads_a_file_with_a_byte_order_mark(capsys, tmp_path):
     assert capsys.readouterr().out.startswith("warning too_few_weeks_for_demand_change")
 
 
-def test_settings_check_cross_field_error_has_no_range(capsys, tmp_path):
+def test_settings_check_guided_weeks_error_carries_its_range(capsys, tmp_path):
+    # Since Story 5.3 the Guided-Weeks rules state the allowed range too.
     code, lines = check(capsys, tmp_path, '{"guided_weeks": 5}')
     assert code == 1
     assert lines[0].startswith("error guided_weeks_not_before_demand_change guided_weeks: ")
-    assert "allowed" not in lines[0]
+    assert "allowed" in lines[0]
 
 
 def test_settings_check_refuses_capacity_when_feature_capacity_is_off(

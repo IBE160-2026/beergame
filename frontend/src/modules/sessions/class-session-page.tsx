@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 
 import { ActionError } from "@/components/action-error";
 import { Button } from "@/components/button";
@@ -16,6 +16,7 @@ import { classPath, classSessionPath, HOME_PATH } from "@/modules/identity/homes
 import { PageShell } from "@/modules/identity/page-shell";
 
 import {
+  checkClassSessionSettings,
   type ClassSession,
   classSessionKey,
   classSessionsKey,
@@ -27,7 +28,8 @@ import { ChainDiagram } from "./chain-diagram";
 import { DateFields } from "./date-fields";
 import { DateLine } from "./date-line";
 import { type DateInputs, dateErrors, datesBody, inputsOf } from "./dates";
-import { settingRows } from "./sessions";
+import { calibratedText, draftOf, problemsOf, type SettingProblem, settingsBody, warningsBySetting } from "./settings";
+import { SettingsBlock } from "./settings-form";
 
 const copy = nb.sessions;
 
@@ -37,8 +39,9 @@ const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 /**
  * The Klasseøkt (Story 5.1, FR-11, UX-DR48): a new Class session as the API filled it in with the
  * Classic defaults, «Kjeden ved start» drawn from the values it returned, and «Lagre Klasseøkt»,
- * which saves it as it stands. An Assistant lecturer reads it with no action. Anything the User
- * may not reach shows the permission-denied page (FR-5).
+ * which saves it as it stands. The Game settings open in place for changes (Story 5.3). An
+ * Assistant lecturer reads it with no action. Anything the User may not reach shows the
+ * permission-denied page (FR-5).
  */
 export function ClassSessionPage({ sessionId }: { sessionId: string }) {
   const named = SESSION_ID.test(sessionId);
@@ -91,13 +94,37 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   const [inputs, setInputs] = useState<DateInputs>(() => inputsOf(item));
   const [testTouched, setTestTouched] = useState(item.test_deadline != null);
   const [saved, setSaved] = useState(false);
+  // The Game settings as typed while the block is open (Story 5.3), and what the api last said of
+  // them: errors by setting and warnings in words.
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(() => draftOf(settings));
+  const [problems, setProblems] = useState<Record<string, SettingProblem>>({});
+  const [warnings, setWarnings] = useState(() => warningsBySetting(item.settings_warnings));
+  const checked = useRef("");
+  const checks = useRef(0);
   const action = useAction({
-    mutationFn: () => saveClassSession(item.id, item.ai_mode, datesBody(inputs)),
+    mutationFn: async () => {
+      try {
+        return await saveClassSession(
+          item.id,
+          item.ai_mode,
+          datesBody(inputs),
+          editing && item.can_manage && !item.locked ? settingsBody(draft) : undefined,
+        );
+      } catch (error) {
+        if (error instanceof ApiRequestError && error.code === "invalid_settings") {
+          checks.current += 1;
+          setProblems(problemsOf(error.fields));
+        }
+        throw error;
+      }
+    },
     messages: {
       llm_unavailable: copy.llmRefused,
       invalid_dates: copy.dates.refused,
       deadline_passed: copy.dates.refused,
       session_locked: copy.dates.locked,
+      invalid_settings: copy.edit.refused,
     },
     onSuccess: (result) => {
       queryClient.setQueryData(classSessionKey(item.id), result);
@@ -105,9 +132,44 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       void queryClient.invalidateQueries({ queryKey: lecturerHomeKey, exact: true });
       setInputs(inputsOf(result));
       setTestTouched(result.test_deadline != null);
+      // The saved values stand in the list; the block opens again for a next change.
+      checks.current += 1;
+      setProblems({});
+      setEditing(false);
       setSaved(true);
     },
   });
+  // Leaving a changed field: the api judges the whole draft (AD-1). A later answer wins.
+  const checkDraft = () => {
+    const body = settingsBody(draft);
+    const key = JSON.stringify(body);
+    if (key === checked.current) return;
+    checked.current = key;
+    const run = ++checks.current;
+    checkClassSessionSettings(item.id, body).then(
+      (result) => {
+        if (run !== checks.current) return;
+        setProblems(result.errors);
+        setWarnings(warningsBySetting(result.warnings));
+      },
+      () => {
+        // A check that fails says nothing; the save judges the draft again.
+        if (run === checks.current) checked.current = "";
+      },
+    );
+  };
+  const openSettings = () => {
+    const stored = draftOf(item.game_settings);
+    setDraft(stored);
+    checked.current = JSON.stringify(settingsBody(stored));
+    setProblems({});
+    setWarnings(warningsBySetting(item.settings_warnings));
+    setEditing(true);
+  };
+  const cancelSettings = () => {
+    checks.current += 1;
+    setEditing(false);
+  };
   // Why nothing can be changed: the Class is archived (Story 4.10), or the User is its Assistent.
   const klass = useClass(item.class_id).data;
   const readOnlyLine = item.can_manage
@@ -128,14 +190,22 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           <h2 id="settings-title" className="text-headline text-ink">
             {item.is_classic ? copy.settingsTitle : copy.settingsTitleChanged}
           </h2>
-          <dl className="mt-4">
-            {settingRows(settings, item.inactivity_limit_hours).map((row) => (
-              <div key={row.label} className="flex items-baseline justify-between gap-4 border-b border-hairline py-2">
-                <dt className="text-body-phone text-ink lg:text-body">{row.label}</dt>
-                <dd className="text-right text-body-phone font-semibold text-ink tabular-nums lg:text-body">{row.value}</dd>
-              </div>
-            ))}
-          </dl>
+          {item.is_classic ? null : (
+            <p className="mt-2 text-body-phone text-ink-secondary">{calibratedText(item.calibrated_settings)}</p>
+          )}
+          {item.locked && item.can_manage ? <p className="mt-2 text-body-phone text-ink">{copy.edit.locked}</p> : null}
+          <SettingsBlock
+            item={item}
+            editable={item.can_manage && !item.locked}
+            open={editing && item.can_manage && !item.locked}
+            draft={draft}
+            problems={problems}
+            warnings={editing ? warnings : warningsBySetting(item.settings_warnings)}
+            onOpen={openSettings}
+            onCancel={cancelSettings}
+            onChange={setDraft}
+            onLeave={checkDraft}
+          />
           <p className="mt-3 text-body-phone text-ink-secondary">{copy.delaySources}</p>
           <div className="mt-8">
             <ChainDiagram settings={settings} />

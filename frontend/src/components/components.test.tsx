@@ -109,6 +109,12 @@ describe("TextField", () => {
     expect(html).toMatch(/<p id="email-error" class="[^"]*text-restordre[^"]*">Mangler @<\/p>/);
     expect(html).toContain("aria-invalid:border-restordre");
   });
+
+  it("ties a hint, a reason and each note to the field, notes last and in ink (Story 5.3)", () => {
+    const html = renderToStaticMarkup(<TextField id="x" label="L" hint="h" error="e" notes={["n1", "n2"]} />);
+    expect(html).toContain('aria-describedby="x-hint x-error x-note-0 x-note-1"');
+    expect(html).toMatch(/<p id="x-note-1" class="[^"]*text-ink[^"]*">n2<\/p>/);
+  });
 });
 
 describe("Skeleton", () => {

@@ -78,6 +78,8 @@ test("the owner of an archived Class reads its Klasseøkt with no save and is to
   await expect(lecturer.getByText(nb.classes.archive.notice)).toBeVisible();
   await expect(lecturer.getByText(copy.assistantLead)).toHaveCount(0);
   await expect(lecturer.getByRole("button", { name: copy.save })).toHaveCount(0);
+  // The Game settings do not open either (Story 5.3).
+  await expect(lecturer.getByRole("button", { name: copy.edit.open })).toHaveCount(0);
   // The date fields are read-only too (Story 5.2).
   for (const name of Object.values(copy.dates.names)) {
     await expect(lecturer.getByLabel(name, { exact: true })).toHaveAttribute("readonly", "");

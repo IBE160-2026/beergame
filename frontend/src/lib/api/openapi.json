@@ -596,6 +596,9 @@
           "ai_mode": {
             "$ref": "#/components/schemas/AiMode"
           },
+          "calibrated_settings": {
+            "$ref": "#/components/schemas/GameSettings"
+          },
           "can_manage": {
             "title": "Can Manage",
             "type": "boolean"
@@ -710,6 +713,13 @@
             ],
             "title": "Saved At"
           },
+          "settings_warnings": {
+            "items": {
+              "$ref": "#/components/schemas/SettingWarning"
+            },
+            "title": "Settings Warnings",
+            "type": "array"
+          },
           "start_at": {
             "anyOf": [
               {
@@ -756,14 +766,16 @@
           "test_deadline",
           "locked",
           "passed_dates",
-          "play_time_warning"
+          "play_time_warning",
+          "settings_warnings",
+          "calibrated_settings"
         ],
         "title": "ClassSessionOut",
         "type": "object"
       },
       "ClassSessionSaveIn": {
         "additionalProperties": false,
-        "description": "«Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice)\nand the four dates (Story 5.2); without `dates` the dates stay as they are.",
+        "description": "«Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice),\nthe four dates (Story 5.2) and the Game settings (Story 5.3); without `dates` or\n`game_settings` they stay as they are. `game_settings` is laid over the stored settings, so a\nfield left out keeps its value.",
         "properties": {
           "ai_mode": {
             "$ref": "#/components/schemas/AiMode"
@@ -777,6 +789,18 @@
                 "type": "null"
               }
             ]
+          },
+          "game_settings": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Settings"
           }
         },
         "required": [
@@ -2567,6 +2591,124 @@
         ],
         "title": "SessionRole",
         "type": "string"
+      },
+      "SettingProblem": {
+        "description": "Why one Game setting is refused (Story 5.3, FR-12): the engine's stable code and the range\nthat applies, its bounds as decimal strings («1», «100.00»), or None when the rule has none.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "decimal_places": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decimal Places"
+          },
+          "maximum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum"
+          },
+          "minimum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum"
+          }
+        },
+        "required": [
+          "code",
+          "minimum",
+          "maximum",
+          "decimal_places"
+        ],
+        "title": "SettingProblem",
+        "type": "object"
+      },
+      "SettingWarning": {
+        "description": "A legal but unusual Game setting (FR-12): the engine's code, the setting it stands under,\nand the numbers behind it as decimal strings. It never blocks a save.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "code",
+          "field",
+          "values"
+        ],
+        "title": "SettingWarning",
+        "type": "object"
+      },
+      "SettingsCheckIn": {
+        "additionalProperties": false,
+        "description": "A draft of the Game settings to judge without saving: the editable settings, laid\nover the stored settings. Values are sent as typed, so the engine judges them all.",
+        "properties": {
+          "game_settings": {
+            "additionalProperties": true,
+            "title": "Game Settings",
+            "type": "object"
+          }
+        },
+        "required": [
+          "game_settings"
+        ],
+        "title": "SettingsCheckIn",
+        "type": "object"
+      },
+      "SettingsCheckOut": {
+        "description": "What the engine says of a draft (FR-12): the errors by setting, which block a save, and the\nwarnings, which do not.",
+        "properties": {
+          "errors": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SettingProblem"
+            },
+            "title": "Errors",
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/SettingWarning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "errors",
+          "warnings"
+        ],
+        "title": "SettingsCheckOut",
+        "type": "object"
       },
       "StaffAssistant": {
         "description": "An Assistant of the Class: `active` (staff, `user_id` set), or an Invitation not yet\naccepted (`invitation_id` set): `invited` with its last valid day, or `expired`.",
@@ -4806,7 +4948,7 @@
         ]
       },
       "put": {
-        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `required`\nonce locked), 409 `deadline_passed` (`passed`). Once the Start date has passed, a changed AI\nmode answers 409 `session_locked`.",
+        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Once the Start date has passed, a changed AI mode answers 409 `session_locked`.\nDates count to the whole minute.\n\nWith `game_settings` (the editable settings, laid over the stored ones) the engine\njudges the settings (FR-12): 422 `invalid_settings` with `fields` mapping each setting to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).",
         "operationId": "saveClassSession",
         "parameters": [
           {
@@ -4882,6 +5024,89 @@
           }
         },
         "summary": "Save Class Session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/settings-check": {
+      "post": {
+        "description": "The engine's errors and warnings on a draft of the Game settings, as the Lecturer leaves a\nfield (FR-12, AD-1). Stores nothing. Once locked it answers 409 `session_locked`.",
+        "operationId": "checkClassSessionSettings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsCheckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsCheckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Class Session Settings",
         "tags": [
           "sessions"
         ]

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { GameSettings } from "./api";
-import { chainText, decimalComma, demandText, settingRows, upstreamFirst } from "./sessions";
+import { chainText, costText, demandText, settingRows, upstreamFirst } from "./sessions";
 
 /** A settings object as the API sends it. The values are a test fixture, not a copy of the
  * Classic preset: the web app reads them, it never supplies them. */
@@ -27,6 +27,7 @@ describe("the Klasseøkt (Story 5.1)", () => {
   it("lists the settings in words from the values the API returned", () => {
     expect(settingRows(settings, 24).map((r) => `${r.label}: ${r.value}`)).toEqual([
       "Startlager: 12",
+      "Startrestordre: 0",
       "I hvert ledd ved start: 4 enheter",
       "Ordreforsinkelse: 2 uker",
       "Fraktforsinkelse: 3 uker",
@@ -36,6 +37,7 @@ describe("the Klasseøkt (Story 5.1)", () => {
       "Antall uker: 36",
       "Etterspørsel: 4, så 8 fra Uke 5",
       "Veiledede uker: 1–4",
+      "Største ordre: 999",
       "Inaktivitetsgrense: 24 t, så KI overtar",
     ]);
   });
@@ -50,7 +52,8 @@ describe("the Klasseøkt (Story 5.1)", () => {
   });
 
   it("writes decimals with a comma and names a pattern it does not word yet", () => {
-    expect(decimalComma("12.25")).toBe("12,25");
+    expect(costText("12.25")).toBe("12,25");
+    expect(costText("0.5")).toBe("0,50");
     expect(demandText({ kind: "fixed", values: [4, 4] })).toBe("Eget mønster");
   });
 });

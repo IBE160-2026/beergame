@@ -1,9 +1,9 @@
-"""API shapes of `modules/sessions` (Stories 5.1 and 5.2)."""
+"""API shapes of `modules/sessions` (Stories 5.1, 5.2 and 5.3)."""
 
 import uuid
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict
 
@@ -32,6 +32,43 @@ Testfrist (FR-18)."""
 
 DateKind = Literal["start", "play", "debrief", "test"]
 """A date by what it is, for «Neste frist»."""
+
+
+class SettingProblem(BaseModel):
+    """Why one Game setting is refused (Story 5.3, FR-12): the engine's stable code and the range
+    that applies, its bounds as decimal strings («1», «100.00»), or None when the rule has none."""
+
+    code: str
+    minimum: str | None
+    maximum: str | None
+    decimal_places: int | None
+    """For a cost rate: the most decimal places it takes."""
+
+
+class SettingWarning(BaseModel):
+    """A legal but unusual Game setting (FR-12): the engine's code, the setting it stands under,
+    and the numbers behind it as decimal strings. It never blocks a save."""
+
+    code: str
+    field: str
+    values: dict[str, str]
+
+
+class SettingsCheckIn(BaseModel):
+    """A draft of the Game settings to judge without saving: the editable settings, laid
+    over the stored settings. Values are sent as typed, so the engine judges them all."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    game_settings: dict[str, Any]
+
+
+class SettingsCheckOut(BaseModel):
+    """What the engine says of a draft (FR-12): the errors by setting, which block a save, and the
+    warnings, which do not."""
+
+    errors: dict[str, SettingProblem]
+    warnings: list[SettingWarning]
 
 
 class ClassSessionOut(BaseModel):
@@ -71,6 +108,11 @@ class ClassSessionOut(BaseModel):
     play_time_warning: bool
     """The time between the Start date and the Play deadline is shorter than the configured
     least playing time per Week times the Weeks. Never true while that value is unset (SM-11)."""
+    settings_warnings: list[SettingWarning]
+    """The engine's warnings on the stored Game settings, in its order (Story 5.3)."""
+    calibrated_settings: GameSettings
+    """The settings the product's content and Play guard were calibrated for: the Classic
+    preset, so the web app holds no copy of it (FR-12)."""
 
 
 class ClassSessionListItem(BaseModel):
@@ -99,13 +141,16 @@ class DatesIn(BaseModel):
 
 
 class ClassSessionSaveIn(BaseModel):
-    """«Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice)
-    and the four dates (Story 5.2); without `dates` the dates stay as they are."""
+    """«Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice),
+    the four dates (Story 5.2) and the Game settings (Story 5.3); without `dates` or
+    `game_settings` they stay as they are. `game_settings` is laid over the stored settings, so a
+    field left out keeps its value."""
 
     model_config = ConfigDict(extra="forbid")
 
     ai_mode: AiMode
     dates: DatesIn | None = None
+    game_settings: dict[str, Any] | None = None
 
 
 class NextDeadline(BaseModel):

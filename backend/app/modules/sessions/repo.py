@@ -102,9 +102,13 @@ async def save(
     ai_mode: str,
     model_config_id: uuid.UUID | None,
     dates: dict[str, datetime | None] | None,
+    game_settings: dict[str, Any] | None = None,
 ) -> None:
+    values: dict[str, Any] = {**(dates or {})}
+    if game_settings is not None:
+        values["game_settings"] = game_settings
     await session.execute(
         update(class_sessions)
         .where(class_sessions.c.id == session_id)
-        .values(saved_at=now, ai_mode=ai_mode, model_config_id=model_config_id, **(dates or {}))
+        .values(saved_at=now, ai_mode=ai_mode, model_config_id=model_config_id, **values)
     )
