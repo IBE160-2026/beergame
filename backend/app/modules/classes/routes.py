@@ -27,6 +27,11 @@ from app.modules.classes.schemas import (
     RosterEntryIn,
     RosterSendIn,
     RosterSendOut,
+    StaffAssistant,
+    StaffEmailIn,
+    StaffLecturer,
+    StaffOut,
+    StaffRefused,
 )
 from app.modules.identity import service as identity
 from app.platform import auth, authz
@@ -365,12 +370,13 @@ async def send_invitations(
 )
 async def get_invitation_summary(
     class_id: str,
-    user: Annotated[authz.Principal, Depends(authz.require("classes.manage"))],
+    user: Annotated[authz.Principal, Depends(authz.require("classes.read"))],
 ) -> Response:
     """What became of the Class's Student Invitations (Story 4.6, FR-8): how many were sent,
     bounced, accepted and expired, computed now, and the Roster addresses whose newest Invitation
-    bounced, with the bounce's class. A Class the User may not manage, one that does not exist
-    and an id that is not one all answer the same 403 `forbidden`."""
+    bounced, with the bounce's class. Its owners and Assistant lecturers may read it (Story 4.9).
+    A Class the User may not read, one that does not exist and an id that is not one all answer
+    the same 403 `forbidden`."""
     summary = await service.invitation_summary(user, _class_id(class_id), now=auth.utcnow())
     if summary is None:
         raise authz.Forbidden
@@ -385,13 +391,13 @@ async def get_invitation_summary(
 )
 async def get_registrations(
     class_id: str,
-    user: Annotated[authz.Principal, Depends(authz.require("classes.manage"))],
+    user: Annotated[authz.Principal, Depends(authz.require("classes.read"))],
 ) -> Response:
     """«Status etter utsending» (Story 4.7, FR-9): every Roster address with its status, read now
     (registered, registered manually, asked for a new Invitation, bounced with its class, invited
-    with its last valid day, unregistered), the totals and how many have not registered. A Class
-    the User may not manage, one that does not exist and an id that is not one all answer the
-    same 403 `forbidden`."""
+    with its last valid day, unregistered), the totals and how many have not registered. Its
+    owners and Assistant lecturers may read it (Story 4.9). A Class the User may not read, one
+    that does not exist and an id that is not one all answer the same 403 `forbidden`."""
     found = await service.registrations(user, _class_id(class_id), now=auth.utcnow())
     if found is None:
         raise authz.Forbidden
@@ -519,4 +525,147 @@ async def remove_roster_entry(
         raise authz.Forbidden
     if not removed:
         return error_response(404, "not_found", "The address is not on the Roster.")
+    return Response(status_code=204)
+
+
+# The Class's staff (Story 4.9, FR-10): «Faglærere og assistenter», for the Class's owners only.
+
+
+def _staff_refused(error: StaffRefused) -> Response:
+    if error.field is None:
+        return error_response(422, error.reason, "The Class must keep a Faglærer.")
+    return error_response(
+        422, "invalid_request", "The address is refused.", {error.field: error.reason}
+    )
+
+
+@router.get(
+    "/{class_id}/staff",
+    response_model=StaffOut,
+    responses=documented(401, 403),
+    operation_id="getClassStaff",
+)
+async def get_staff(
+    class_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("classes.manage"))],
+) -> Response:
+    """«Faglærere og assistenter»: the Class's Faglærere (owners) and Assistenter, each with a
+    status (active, invited with the last valid day, or expired)."""
+    found = await service.staff(user, _class_id(class_id), now=auth.utcnow())
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
+    "/{class_id}/staff/lecturers",
+    status_code=201,
+    response_model=StaffLecturer,
+    responses=documented(401, 403, 422),
+    operation_id="addClassLecturer",
+)
+async def add_lecturer(
+    class_id: str,
+    body: StaffEmailIn,
+    user: Annotated[authz.Principal, Depends(authz.require("classes.manage"))],
+) -> Response:
+    """«Legg til Faglærer»: a User who already has the Lecturer role becomes co-owner, with the
+    owner's rights. 422 `invalid_request` with `fields.email` = an address problem,
+    `not_lecturer` (no such Lecturer; nothing about the account is told) or `already_staff`."""
+    try:
+        added = await service.add_lecturer(user, _class_id(class_id), body, now=auth.utcnow())
+    except StaffRefused as error:
+        return _staff_refused(error)
+    if added is None:
+        raise authz.Forbidden
+    return JSONResponse(added.model_dump(mode="json"), status_code=201)
+
+
+@router.post(
+    "/{class_id}/staff/assistants",
+    status_code=201,
+    response_model=StaffAssistant,
+    responses=documented(401, 403, 422),
+    operation_id="inviteClassAssistant",
+)
+async def invite_assistant(
+    class_id: str,
+    body: StaffEmailIn,
+    user: Annotated[authz.Principal, Depends(authz.require("classes.manage"))],
+) -> Response:
+    """«Inviter Assistent»: an Invitation for this Class only, valid through the 14th day after
+    today (Europe/Oslo), mailed from `worker-batch`; an open one to the address is voided. 422
+    `invalid_request` with `fields.email` = an address problem or `already_staff`."""
+    try:
+        sent = await service.invite_assistant(user, _class_id(class_id), body, now=auth.utcnow())
+    except StaffRefused as error:
+        return _staff_refused(error)
+    if sent is None:
+        raise authz.Forbidden
+    return JSONResponse(sent.model_dump(mode="json"), status_code=201)
+
+
+def _uuid(value: str) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(value)
+    except ValueError:
+        return None
+
+
+# Declared before `/{class_id}/staff/{user_id}`, so `invitations` is never read as a User id.
+@router.delete(
+    "/{class_id}/staff/invitations/{invitation_id}",
+    status_code=204,
+    responses=documented(401, 403, 404),
+    operation_id="withdrawClassAssistantInvitation",
+)
+async def withdraw_assistant_invitation(
+    class_id: str,
+    invitation_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("classes.manage"))],
+) -> Response:
+    """Withdraw an Assistant Invitation that is not accepted: its link stops working. 404
+    `not_found` when the Class has no such open Invitation."""
+    parsed = _class_id(class_id)
+    found = _uuid(invitation_id)
+    if found is None:
+        if not await service.may_manage(user, parsed):
+            raise authz.Forbidden
+        return error_response(404, "not_found", "No such Invitation.")
+    done = await service.withdraw_assistant_invitation(user, parsed, found, now=auth.utcnow())
+    if done is None:
+        raise authz.Forbidden
+    if not done:
+        return error_response(404, "not_found", "No such Invitation.")
+    return Response(status_code=204)
+
+
+@router.delete(
+    "/{class_id}/staff/{user_id}",
+    status_code=204,
+    responses=documented(401, 403, 404, 422),
+    operation_id="removeClassStaff",
+)
+async def remove_staff(
+    class_id: str,
+    user_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("classes.manage"))],
+) -> Response:
+    """Take a Faglærer or an Assistant off the Class: their access ends from their next request.
+    422 `last_owner` for the Class's last Faglærer; 404 `not_found` when the User is not staff of
+    the Class."""
+    parsed = _class_id(class_id)
+    member = _uuid(user_id)
+    if member is None:
+        if not await service.may_manage(user, parsed):
+            raise authz.Forbidden
+        return error_response(404, "not_found", "Not staff of the Class.")
+    try:
+        done = await service.remove_staff(user, parsed, member, now=auth.utcnow())
+    except StaffRefused as error:
+        return _staff_refused(error)
+    if done is None:
+        raise authz.Forbidden
+    if not done:
+        return error_response(404, "not_found", "Not staff of the Class.")
     return Response(status_code=204)

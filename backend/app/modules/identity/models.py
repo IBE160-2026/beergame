@@ -88,7 +88,8 @@ invitations = Table(
     # The Admin or Lecturer who sent it; NULL when the system did (the bootstrap Invitation).
     Column("invited_by", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
     Column("kind", Text, nullable=False, server_default=text("'role'")),
-    # For a `student` Invitation: the Class (`classes.classes` by name only) and its Roster entry.
+    # For a `student` Invitation: the Class (`classes.classes` by name only) and its Roster entry;
+    # for an `assistant` Invitation (Story 4.9) the Class alone.
     Column("class_id", Uuid, ForeignKey("classes.id", ondelete="CASCADE"), nullable=True),
     Column(
         "roster_entry_id",
@@ -108,7 +109,8 @@ invitations = Table(
     ),
     CheckConstraint(
         "(kind = 'role') = (role IS NOT NULL) "
-        "AND (kind = 'student') = (class_id IS NOT NULL AND roster_entry_id IS NOT NULL)",
+        "AND (kind = 'student') = (class_id IS NOT NULL AND roster_entry_id IS NOT NULL) "
+        "AND (kind = 'assistant') = (class_id IS NOT NULL AND roster_entry_id IS NULL)",
         name="ck_invitations_kind_fields",
     ),
     Index(
@@ -117,6 +119,13 @@ invitations = Table(
         "role",
         unique=True,
         postgresql_where=text("accepted_at IS NULL AND voided_at IS NULL"),
+    ),
+    Index(
+        "uq_invitations_open_assistant",
+        "class_id",
+        "email",
+        unique=True,
+        postgresql_where=text("kind = 'assistant' AND accepted_at IS NULL AND voided_at IS NULL"),
     ),
     Index(
         "uq_invitations_open_roster_entry",

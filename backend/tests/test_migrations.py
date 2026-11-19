@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import psycopg
+import pytest
 from alembic import command
 from alembic.config import Config
 
@@ -62,7 +63,7 @@ HEAD_TABLES = (
     | CLASS_TABLES
     | ROSTER_TABLES
 )
-HEAD = "0030"  # 0030 lets a User have no password yet (Story 4.8)
+HEAD = "0031"  # 0031 adds Assistant lecturers and their Invitations (Story 4.9)
 
 
 def reset_schema(url: str) -> None:
@@ -570,6 +571,48 @@ def test_0030_allows_a_user_without_password_and_its_downgrade_locks_it(migratio
     command.downgrade(cfg, "0029")
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         assert conn.execute("SELECT password_hash FROM users").fetchall() == [("!",)]
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_0031_admits_assistants_and_its_downgrade_removes_them(migrations_database):
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    with psycopg.connect(libpq_dsn(migrations_database), autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO users (id, email, name, password_hash) VALUES "
+            "('00000000-0000-0000-0000-000000000001', 'a@x.no', 'A', NULL)"
+        )
+        conn.execute(
+            "INSERT INTO institutions (id, name, created_at, updated_at) VALUES "
+            "('00000000-0000-0000-0000-000000000002', 'I', now(), now())"
+        )
+        conn.execute(
+            "INSERT INTO classes (id, name, institution_id, created_at) VALUES "
+            "('00000000-0000-0000-0000-000000000003', 'K', "
+            "'00000000-0000-0000-0000-000000000002', now())"
+        )
+        conn.execute(
+            "INSERT INTO class_staff (class_id, user_id, role, added_at) VALUES "
+            "('00000000-0000-0000-0000-000000000003', "
+            "'00000000-0000-0000-0000-000000000001', 'assistant', now())"
+        )
+        conn.execute(
+            "INSERT INTO invitations (id, email, token_hash, created_at, expires_at, kind, "
+            "class_id) VALUES (gen_random_uuid(), 'b@x.no', 'h', now(), now(), 'assistant', "
+            "'00000000-0000-0000-0000-000000000003')"
+        )
+        with pytest.raises(psycopg.errors.UniqueViolation):
+            conn.execute(
+                "INSERT INTO invitations (id, email, token_hash, created_at, expires_at, kind, "
+                "class_id) VALUES (gen_random_uuid(), 'b@x.no', 'h2', now(), now(), "
+                "'assistant', '00000000-0000-0000-0000-000000000003')"
+            )
+    command.downgrade(cfg, "0030")
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        assert conn.execute("SELECT count(*) FROM class_staff").fetchone() == (0,)
+        assert conn.execute("SELECT count(*) FROM invitations").fetchone() == (0,)
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 

@@ -5,9 +5,10 @@ import { nb } from "@/copy/nb";
  * FR-2). The API enforces access on every request (`platform/authz`); this decides what the web
  * app shows, so a page a User may not open is never rendered for them.
  *
- * - A Lecturer lands on the Lærerhjem, also when they are Admin too (links lead both ways).
- * - An Admin who is not a Lecturer lands on the Admin-område.
- * - Every other User (a Student; an Assistent until Epic 4 says otherwise) lands on Hjem.
+ * - A Lecturer lands on the Lærerhjem, also when they are Admin too (links lead both ways), and so
+ *   does an Assistent (Story 4.9: the session role `assistant`), who sees only their Classes there.
+ * - An Admin who is neither lands on the Admin-område.
+ * - Every other User (a Student) lands on Hjem.
  */
 export type Home = "adminArea" | "lecturerHome" | "home";
 
@@ -34,6 +35,9 @@ export const NEW_CLASS_PATH = "/klasser/ny";
 /** A Class's own page (Story 4.1). */
 export const classPath = (id: string) => `/klasser/${encodeURIComponent(id)}`;
 
+/** «Faglærere og assistenter» of a Class (Story 4.9). */
+export const classStaffPath = (id: string) => `${classPath(id)}/faglaerere`;
+
 /** The link that leads to each home («Til Lærerhjem» …). */
 export const HOME_LINK: Record<Home, string> = {
   adminArea: nb.navigation.toAdminArea,
@@ -43,9 +47,14 @@ export const HOME_LINK: Record<Home, string> = {
 
 const isAdmin = (user: RoleHolder) => user.roles.includes("admin");
 const isLecturer = (user: RoleHolder) => user.roles.includes("lecturer");
+const isAssistant = (user: RoleHolder) => user.roles.includes("assistant");
+const isStaff = (user: RoleHolder) => isLecturer(user) || isAssistant(user);
+
+/** Whether `user` may create a Class: a Lecturer, never an Assistent (Story 4.9). */
+export const canCreateClass = isLecturer;
 
 export function homeOf(user: RoleHolder): Home {
-  if (isLecturer(user)) return "lecturerHome";
+  if (isStaff(user)) return "lecturerHome";
   if (isAdmin(user)) return "adminArea";
   return "home";
 }
@@ -56,8 +65,8 @@ export function canView(page: Home, user: RoleHolder): boolean {
     case "adminArea":
       return isAdmin(user);
     case "lecturerHome":
-      return isLecturer(user);
+      return isStaff(user);
     case "home":
-      return !isAdmin(user) && !isLecturer(user);
+      return !isAdmin(user) && !isStaff(user);
   }
 }

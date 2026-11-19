@@ -7,7 +7,8 @@ outside the User's scope is never read, so it cannot be told apart from one that
 import uuid
 from datetime import datetime
 
-from sqlalchemy import RowMapping, func, insert, select
+from sqlalchemy import RowMapping, delete, func, insert, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.classes.models import class_staff, classes
@@ -131,3 +132,80 @@ async def demo_class_of(session: AsyncSession, owner: uuid.UUID, name: str) -> u
         .limit(1)
     )
     return result.scalar_one_or_none()
+
+
+# The Class's staff (Story 4.9). Called only after the caller's policy let the User manage the
+# Class (or, for the acceptance handler and the session role, for a User's own rows).
+
+
+async def lock_class(session: AsyncSession, class_id: uuid.UUID) -> bool:
+    """Lock the Class row until the transaction ends, so staff changes to one Class run in turn
+    (two removals cannot both pass the last-owner check). False when the Class is gone."""
+    result = await session.execute(
+        select(classes.c.id).where(classes.c.id == class_id).with_for_update()
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def staff_of(session: AsyncSession, class_id: uuid.UUID) -> list[RowMapping]:
+    """Every staff row of the Class: `user_id`, `role`."""
+    result = await session.execute(
+        select(class_staff.c.user_id, class_staff.c.role).where(class_staff.c.class_id == class_id)
+    )
+    return list(result.mappings())
+
+
+async def staff_role(session: AsyncSession, class_id: uuid.UUID, user_id: uuid.UUID) -> str | None:
+    result = await session.execute(
+        select(class_staff.c.role).where(
+            class_staff.c.class_id == class_id, class_staff.c.user_id == user_id
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def put_staff(
+    session: AsyncSession,
+    class_id: uuid.UUID,
+    user_id: uuid.UUID,
+    role: StaffRole,
+    now: datetime,
+    *,
+    replace: bool,
+) -> bool:
+    """Add the User to the Class's staff as `role`. A User already staff keeps their row unless
+    `replace` (then the role changes). True when a row was written."""
+    query = pg_insert(class_staff).values(
+        class_id=class_id, user_id=user_id, role=role.value, added_at=now
+    )
+    if replace:
+        query = query.on_conflict_do_update(
+            index_elements=[class_staff.c.class_id, class_staff.c.user_id],
+            set_={"role": role.value},
+            where=class_staff.c.role != role.value,
+        )
+    else:
+        query = query.on_conflict_do_nothing()
+    result = await session.execute(query.returning(class_staff.c.user_id))
+    return result.scalar_one_or_none() is not None
+
+
+async def remove_staff(session: AsyncSession, class_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    await session.execute(
+        delete(class_staff).where(
+            class_staff.c.class_id == class_id, class_staff.c.user_id == user_id
+        )
+    )
+
+
+async def is_assistant_anywhere(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    """Whether the User is Assistant lecturer of any Class: the session role `assistant`."""
+    result = await session.execute(
+        select(class_staff.c.class_id)
+        .where(
+            class_staff.c.user_id == user_id,
+            class_staff.c.role == StaffRole.assistant.value,
+        )
+        .limit(1)
+    )
+    return result.first() is not None

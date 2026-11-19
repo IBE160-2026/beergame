@@ -34,6 +34,15 @@ export async function expectAccessible(page: Page, phone: boolean) {
 
 /** A fresh Lecturer, made from an Invitation, logged in on a page of its own. */
 export async function freshLecturer(page: Page, browser: Browser, text200 = false): Promise<Page> {
+  return (await freshLecturerWithAddress(page, browser, text200)).page;
+}
+
+/** As `freshLecturer`, with the Lecturer's address (Story 4.9 adds them as co-owner). */
+export async function freshLecturerWithAddress(
+  page: Page,
+  browser: Browser,
+  text200 = false,
+): Promise<{ page: Page; address: string }> {
   const tag = `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
   const address = `klasse-${tag}@example.com`;
   const admin = await demoContext(browser, "admin");
@@ -65,5 +74,5 @@ export async function freshLecturer(page: Page, browser: Browser, text200 = fals
       });
     });
   }
-  return own;
+  return { page: own, address };
 }

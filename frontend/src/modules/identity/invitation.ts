@@ -45,7 +45,7 @@ export function roleName(role: "lecturer" | "admin"): string {
 
 /** What a checked link offers, in the page's words (Stories 3.8 and 4.5). */
 export type InvitationOffer = {
-  kind: "role" | "student";
+  kind: "role" | "student" | "assistant";
   role?: "lecturer" | "admin" | null;
   class_name?: string | null;
   course_code?: string | null;
@@ -56,6 +56,10 @@ export type InvitationOffer = {
  * has an account, what logging in adds. */
 export function invitationLead(offer: InvitationOffer, existing: boolean): string {
   const copy = nb.auth.invitation;
+  if (offer.kind === "assistant") {
+    const label = nb.classes.home.label(offer.class_name ?? "", offer.course_code ?? null);
+    return existing ? copy.assistant.existing.lead(label) : copy.assistant.lead(offer.invited_by ?? null, label);
+  }
   if (offer.kind === "student") {
     const label = nb.classes.home.label(offer.class_name ?? "", offer.course_code ?? null);
     return existing ? copy.student.existing.lead(label) : copy.student.lead(offer.invited_by ?? null, label);

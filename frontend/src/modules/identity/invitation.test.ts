@@ -59,6 +59,19 @@ describe("invitationLead", () => {
     );
   });
 
+  it("names the Class and its scope for an Assistant Invitation (Story 4.9)", () => {
+    const offer = { ...student, kind: "assistant" as const };
+    expect(invitationLead(offer, false)).toBe(
+      "Faglærer Bård har invitert deg som Assistent i class-of-1994, IBE160. Du får tilgang bare til denne Klassen.",
+    );
+    expect(invitationLead({ ...offer, invited_by: null }, false)).toBe(
+      "Du er invitert som Assistent i class-of-1994, IBE160. Du får tilgang bare til denne Klassen.",
+    );
+    expect(invitationLead(offer, true)).toBe(
+      "Adressen har allerede en konto. Logg inn, så blir du Assistent i class-of-1994, IBE160.",
+    );
+  });
+
   it("names the role for a role Invitation", () => {
     expect(invitationLead({ kind: "role", role: "admin" }, true)).toBe(
       "Adressen har allerede en konto. Logg inn, så får kontoen rollen Admin.",

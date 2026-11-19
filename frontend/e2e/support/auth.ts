@@ -15,6 +15,8 @@ export const DEMO_USERS = {
   // Story 3.3: both staff roles (lands on the Lærerhjem), and a User with no account role (Hjem).
   adminLecturer: { email: "admin-faglaerer@example.com", name: "Demo Admin og Faglærer", home: "/laererhjem" },
   student: { email: "student@example.com", name: "Demo Student", home: "/hjem" },
+  // Story 4.9: no account role, Assistant lecturer of the demo Class «class-of-1994».
+  assistant: { email: "assistent@example.com", name: "Demo Assistent", home: "/laererhjem" },
 } as const;
 
 export type DemoRole = keyof typeof DEMO_USERS;

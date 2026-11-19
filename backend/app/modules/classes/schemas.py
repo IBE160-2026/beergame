@@ -14,9 +14,11 @@ COURSE_CODE_MAX_LENGTH = 50
 
 
 class StaffRole(StrEnum):
-    """A User's role in one Class (`class_staff.role`). Co-owners (4.9) are owners too."""
+    """A User's role in one Class (`class_staff.role`). Co-owners (4.9) are owners too: one role,
+    so they have exactly the owner's rights. An Assistant lecturer (4.9) reads the Class."""
 
     owner = authz.OWNER
+    assistant = authz.ASSISTANT_STAFF
 
 
 class InvalidClass(ValueError):
@@ -94,6 +96,9 @@ class ClassOut(BaseModel):
     institution_id: uuid.UUID
     institution_name: str | None
     staff_role: StaffRole
+    can_manage: bool
+    """Whether the User may change the Class: its Roster, Invitations and staff (an owner, Story
+    4.9). The web app shows those actions only then; the api refuses them otherwise."""
     created_at: datetime
     archived: bool
     roster_count: int
@@ -333,3 +338,56 @@ class InvalidRosterAddress(ValueError):
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
+
+
+# The Class's staff (Story 4.9, FR-10, UX-DR56): «Faglærere og assistenter».
+
+
+class StaffEmailIn(BaseModel):
+    """«Legg til Faglærer» or «Inviter Assistent»: one address. A refused address answers 422
+    `invalid_request` with `fields.email`: an address problem, `not_lecturer` (Faglærer: no
+    active account with the Lecturer role, one reason for all) or `already_staff`."""
+
+    email: str = Field(max_length=EMAIL_MAX_LENGTH)
+
+
+class StaffStatus(StrEnum):
+    active = "active"
+    invited = "invited"
+    expired = "expired"
+
+
+class StaffLecturer(BaseModel):
+    """A Faglærer of the Class: an owner (the creator or a co-owner), always active."""
+
+    user_id: uuid.UUID
+    name: str
+    email: str
+
+
+class StaffAssistant(BaseModel):
+    """An Assistant of the Class: `active` (staff, `user_id` set), or an Invitation not yet
+    accepted (`invitation_id` set): `invited` with its last valid day, or `expired`."""
+
+    user_id: uuid.UUID | None = None
+    invitation_id: uuid.UUID | None = None
+    name: str | None = None
+    email: str
+    status: StaffStatus
+    last_valid_day: date | None = None
+
+
+class StaffOut(BaseModel):
+    """«Faglærere og assistenter»: each group by name, then address."""
+
+    lecturers: list[StaffLecturer]
+    assistants: list[StaffAssistant]
+
+
+class StaffRefused(ValueError):
+    """A staff command is refused: `field` (or None for the whole command) and `reason`."""
+
+    def __init__(self, reason: str, field: str | None = "email") -> None:
+        super().__init__(reason)
+        self.reason = reason
+        self.field = field

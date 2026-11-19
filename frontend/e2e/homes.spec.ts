@@ -17,6 +17,7 @@ const TITLE: Record<DemoRole, string> = {
   lecturer: nb.homes.lecturerHome,
   adminLecturer: nb.homes.lecturerHome,
   student: nb.homes.home,
+  assistant: nb.homes.lecturerHome,
 };
 
 async function expectAccessible(page: Page) {
@@ -40,7 +41,7 @@ for (const vp of VIEWPORTS) {
   test.describe(vp.name, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
-    for (const role of ["admin", "lecturer", "student"] as const) {
+    for (const role of ["admin", "lecturer", "student", "assistant"] as const) {
       test(`${role} opens the product and lands on their own home`, async ({ page }) => {
         await loginByApi(page, role);
         await page.goto("/");
@@ -59,6 +60,9 @@ for (const vp of VIEWPORTS) {
           await expect(page.getByRole("main").getByRole("region", { name: nb.classes.home.title }).getByRole("link")).toHaveCount(
             await mainLinks.count(),
           );
+        } else if (role === "assistant") {
+          // Story 4.9: only the Class they are attached to, and no «Ny Klasse».
+          await expect(mainLinks).toHaveText([nb.classes.home.label("class-of-1994", "IBE160")]);
         } else {
           const links =
             role === "admin" ? [nb.admin.sections.users, nb.admin.sections.institutions, nb.admin.sections.audit] : [];

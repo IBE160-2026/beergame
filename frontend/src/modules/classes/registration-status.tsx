@@ -54,7 +54,7 @@ type Outcome = { sent: RemindersSent; address: string | null };
  * Invitasjon», which opens the same confirmation for that address alone. The result line names
  * how many reminders went out and the hard-bounced addresses left out.
  */
-export function RegistrationStatus({ classId }: { classId: string }) {
+export function RegistrationStatus({ classId, readOnly = false }: { classId: string; readOnly?: boolean }) {
   const found = useRegistrations(classId);
   if (found.isPending) return null;
   const data = found.data;
@@ -70,14 +70,16 @@ export function RegistrationStatus({ classId }: { classId: string }) {
             {copy.failed}
           </p>
         ) : (
-          <StatusView classId={classId} data={data} />
+          <StatusView classId={classId} data={data} readOnly={readOnly} />
         )}
       </div>
     </section>
   );
 }
 
-function StatusView({ classId, data }: { classId: string; data: Registrations }) {
+/** `readOnly`: an Assistant lecturer reads the list (Story 4.9) and gets no reminder or row
+ * action, which the api would refuse. */
+function StatusView({ classId, data, readOnly }: { classId: string; data: Registrations; readOnly: boolean }) {
   const queryClient = useQueryClient();
   const [target, setTarget] = useState<Target | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
@@ -207,6 +209,7 @@ function StatusView({ classId, data }: { classId: string; data: Registrations })
         data={data}
         onRemindAll={(button) => open({ kind: "all" }, button)}
         remindOpen={target?.kind === "all"}
+        readOnly={readOnly}
       />
       {target?.kind === "all" ? confirm(target) : null}
       {outcome ? <Result outcome={outcome} ref={resultLine} /> : null}
@@ -224,6 +227,7 @@ function StatusView({ classId, data }: { classId: string; data: Registrations })
         onResend={(item, button) => open({ kind: "one", item }, button)}
         onManual={(item, button) => openRow({ kind: "manual", item }, button)}
         onRemove={(item, button) => openRow({ kind: "remove", item }, button)}
+        readOnly={readOnly}
         onFilter={() => {
           // A row's form would vanish with its row: close it with the old view.
           if (target?.kind === "one" && !remind.isPending) {
@@ -243,10 +247,12 @@ function Totals({
   data,
   onRemindAll,
   remindOpen,
+  readOnly,
 }: {
   data: Registrations;
   onRemindAll: (button: HTMLButtonElement) => void;
   remindOpen: boolean;
+  readOnly: boolean;
 }) {
   const shares = barShares(data.totals);
   // Fills, not text: the bar and its keys are drawn as SVG in the theme's colours.
@@ -293,7 +299,7 @@ function Totals({
         </ul>
         {/* Not when every address waiting is a hard bounce: no reminder could go out, and each
             row already says «Kom ikke fram, permanent feil». */}
-        {data.reminder_count > 0 && reminderReach(data.items).reach > 0 ? (
+        {!readOnly && data.reminder_count > 0 && reminderReach(data.items).reach > 0 ? (
           <button
             type="button"
             className={LINK_BUTTON}
@@ -425,6 +431,7 @@ function AddressList({
   onManual,
   onRemove,
   onFilter,
+  readOnly,
 }: {
   items: readonly Registration[];
   open: { id: string; kind: "resend" | "manual" | "remove" } | null;
@@ -433,6 +440,7 @@ function AddressList({
   onManual: (item: Registration, button: HTMLButtonElement) => void;
   onRemove: (item: Registration, button: HTMLButtonElement) => void;
   onFilter: () => void;
+  readOnly: boolean;
 }) {
   const [status, setStatus] = useState<Status | null>(null);
   const [query, setQuery] = useState("");
@@ -483,6 +491,7 @@ function AddressList({
             <div className="flex flex-col gap-1 sm:grid sm:min-h-tap-target-min sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)_minmax(0,21rem)] sm:items-center sm:gap-x-4">
               <span className="text-body-phone text-ink [overflow-wrap:anywhere] lg:text-body">{item.email}</span>
               <span className="text-body-phone text-ink-secondary lg:text-body">{statusLabel(item, today)}</span>
+              {readOnly ? null : (
               <span className="flex flex-wrap gap-x-4 sm:justify-self-end">
                 {item.remindable ? (
                   <button
@@ -516,6 +525,7 @@ function AddressList({
                   {entries.remove}
                 </button>
               </span>
+              )}
             </div>
             {open?.id === item.id ? <div className="mt-2 mb-2">{panel}</div> : null}
           </li>

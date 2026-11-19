@@ -623,8 +623,9 @@ export interface paths {
          * Get Invitation Summary
          * @description What became of the Class's Student Invitations (Story 4.6, FR-8): how many were sent,
          *     bounced, accepted and expired, computed now, and the Roster addresses whose newest Invitation
-         *     bounced, with the bounce's class. A Class the User may not manage, one that does not exist
-         *     and an id that is not one all answer the same 403 `forbidden`.
+         *     bounced, with the bounce's class. Its owners and Assistant lecturers may read it (Story 4.9).
+         *     A Class the User may not read, one that does not exist and an id that is not one all answer
+         *     the same 403 `forbidden`.
          */
         get: operations["getInvitationSummary"];
         put?: never;
@@ -655,9 +656,9 @@ export interface paths {
          * Get Registrations
          * @description «Status etter utsending» (Story 4.7, FR-9): every Roster address with its status, read now
          *     (registered, registered manually, asked for a new Invitation, bounced with its class, invited
-         *     with its last valid day, unregistered), the totals and how many have not registered. A Class
-         *     the User may not manage, one that does not exist and an id that is not one all answer the
-         *     same 403 `forbidden`.
+         *     with its last valid day, unregistered), the totals and how many have not registered. Its
+         *     owners and Assistant lecturers may read it (Story 4.9). A Class the User may not read, one
+         *     that does not exist and an id that is not one all answer the same 403 `forbidden`.
          */
         get: operations["getRegistrations"];
         put?: never;
@@ -832,6 +833,114 @@ export interface paths {
          */
         post: operations["registerStudentManually"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/{class_id}/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Staff
+         * @description «Faglærere og assistenter»: the Class's Faglærere (owners) and Assistenter, each with a
+         *     status (active, invited with the last valid day, or expired).
+         */
+        get: operations["getClassStaff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/{class_id}/staff/assistants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invite Assistant
+         * @description «Inviter Assistent»: an Invitation for this Class only, valid through the 14th day after
+         *     today (Europe/Oslo), mailed from `worker-batch`; an open one to the address is voided. 422
+         *     `invalid_request` with `fields.email` = an address problem or `already_staff`.
+         */
+        post: operations["inviteClassAssistant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/{class_id}/staff/invitations/{invitation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Withdraw Assistant Invitation
+         * @description Withdraw an Assistant Invitation that is not accepted: its link stops working. 404
+         *     `not_found` when the Class has no such open Invitation.
+         */
+        delete: operations["withdrawClassAssistantInvitation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/{class_id}/staff/lecturers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Lecturer
+         * @description «Legg til Faglærer»: a User who already has the Lecturer role becomes co-owner, with the
+         *     owner's rights. 422 `invalid_request` with `fields.email` = an address problem,
+         *     `not_lecturer` (no such Lecturer; nothing about the account is told) or `already_staff`.
+         */
+        post: operations["addClassLecturer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/{class_id}/staff/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Staff
+         * @description Take a Faglærer or an Assistant off the Class: their access ends from their next request.
+         *     422 `last_owner` for the Class's last Faglærer; 404 `not_found` when the User is not staff of
+         *     the Class.
+         */
+        delete: operations["removeClassStaff"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1068,6 +1177,8 @@ export interface components {
         ClassOut: {
             /** Archived */
             archived: boolean;
+            /** Can Manage */
+            can_manage: boolean;
             /** Course Code */
             course_code: string | null;
             /**
@@ -1235,11 +1346,11 @@ export interface components {
         };
         /**
          * InvitationKind
-         * @description What an Invitation offers: an account role (Story 3.7) or a place on a Class's Roster as a
-         *     Student (Story 4.4). Story 4.9 adds `assistant`.
+         * @description What an Invitation offers: an account role (Story 3.7), a place on a Class's Roster as a
+         *     Student (Story 4.4), or a place in one Class's staff as Assistant lecturer (Story 4.9).
          * @enum {string}
          */
-        InvitationKind: "role" | "student";
+        InvitationKind: "role" | "student" | "assistant";
         /**
          * InvitationListItem
          * @description The newest Invitation to one address and role, on «Brukere og roller» (Story 3.10).
@@ -1614,11 +1725,78 @@ export interface components {
             user: components["schemas"]["UserOut"];
         };
         /**
-         * StaffRole
-         * @description A User's role in one Class (`class_staff.role`). Co-owners (4.9) are owners too.
+         * SessionRole
+         * @description The roles a session carries (`UserOut.roles`): the account roles, and `assistant` while the
+         *     User is Assistant lecturer of at least one Class (Story 4.9). `assistant` is read from the
+         *     Class staff on every request, never stored or granted by the Admin.
          * @enum {string}
          */
-        StaffRole: "owner";
+        SessionRole: "admin" | "lecturer" | "assistant";
+        /**
+         * StaffAssistant
+         * @description An Assistant of the Class: `active` (staff, `user_id` set), or an Invitation not yet
+         *     accepted (`invitation_id` set): `invited` with its last valid day, or `expired`.
+         */
+        StaffAssistant: {
+            /** Email */
+            email: string;
+            /** Invitation Id */
+            invitation_id?: string | null;
+            /** Last Valid Day */
+            last_valid_day?: string | null;
+            /** Name */
+            name?: string | null;
+            status: components["schemas"]["StaffStatus"];
+            /** User Id */
+            user_id?: string | null;
+        };
+        /**
+         * StaffEmailIn
+         * @description «Legg til Faglærer» or «Inviter Assistent»: one address. A refused address answers 422
+         *     `invalid_request` with `fields.email`: an address problem, `not_lecturer` (Faglærer: no
+         *     active account with the Lecturer role, one reason for all) or `already_staff`.
+         */
+        StaffEmailIn: {
+            /** Email */
+            email: string;
+        };
+        /**
+         * StaffLecturer
+         * @description A Faglærer of the Class: an owner (the creator or a co-owner), always active.
+         */
+        StaffLecturer: {
+            /** Email */
+            email: string;
+            /** Name */
+            name: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
+        /**
+         * StaffOut
+         * @description «Faglærere og assistenter»: each group by name, then address.
+         */
+        StaffOut: {
+            /** Assistants */
+            assistants: components["schemas"]["StaffAssistant"][];
+            /** Lecturers */
+            lecturers: components["schemas"]["StaffLecturer"][];
+        };
+        /**
+         * StaffRole
+         * @description A User's role in one Class (`class_staff.role`). Co-owners (4.9) are owners too: one role,
+         *     so they have exactly the owner's rights. An Assistant lecturer (4.9) reads the Class.
+         * @enum {string}
+         */
+        StaffRole: "owner" | "assistant";
+        /**
+         * StaffStatus
+         * @enum {string}
+         */
+        StaffStatus: "active" | "invited" | "expired";
         /**
          * UploadRow
          * @description A row of the Class's staged upload: the invalid row a manual registration corrects.
@@ -1674,7 +1852,7 @@ export interface components {
             /** Name */
             name: string;
             /** Roles */
-            roles: components["schemas"]["AccountRole"][];
+            roles: components["schemas"]["SessionRole"][];
         };
         /** ValidationError */
         ValidationError: {
@@ -3927,6 +4105,275 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getClassStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    inviteClassAssistant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffEmailIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAssistant"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    withdrawClassAssistantInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+                invitation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    addClassLecturer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffEmailIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffLecturer"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    removeClassStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

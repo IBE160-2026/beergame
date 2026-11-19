@@ -14,10 +14,12 @@ modules ask `can(user, action, resource)`, they never compare roles themselves.
   reset since, Story 3.10), is `SessionExpired`.
 - A policy runs before the route handler, so a refusal is the same 403 `forbidden` whether or not
   the item exists: the answer never reveals what is there.
-- The account roles are `admin` and `lecturer`. A Student or an Assistent is not an account role:
-  Class membership makes them (Epic 4). Class-scoped helpers are added here by the epic that
-  creates the tables they join; until a Class-scoped grant exists no account role reads Student
-  answers or AI assessments, the Admin role included.
+- The account roles are `admin` and `lecturer`. A Student is not an account role: Class
+  membership makes them (Epic 4). `assistant` is a session role (Story 4.9): the principal holds
+  it while the User is Assistant lecturer of at least one Class, read from `class_staff` on every
+  request (`identity.service.register_session_roles`), never stored or granted. Class-scoped
+  helpers are added here by the epic that creates the tables they join; until a Class-scoped
+  grant exists no role reads Student answers or AI assessments, the Admin role included.
 - Classes (Story 4.1, AD-12): `classes_visible_to(user)` is the scope every `classes` repository
   query on Class rows joins through: the ids of the Classes the User is staff of. A Class action
   (`classes.read`, `classes.manage`) also takes the resource, which carries the User's
@@ -42,6 +44,7 @@ from app.platform import auth
 
 ADMIN = "admin"
 LECTURER = "lecturer"
+ASSISTANT = "assistant"
 
 
 class Principal(Protocol):
@@ -76,10 +79,11 @@ POLICIES: dict[str, frozenset[str]] = {
     "institutions.manage": frozenset({ADMIN}),
     "audit.read": frozenset({ADMIN}),
     # The Lærerhjem and the Classes on it (Story 4.1). The Class actions are also held to the
-    # User's staff role in the Class (`CLASS_STAFF_ROLES`).
-    "lecturer_home.view": frozenset({LECTURER}),
+    # User's staff role in the Class (`CLASS_STAFF_ROLES`). An Assistant lecturer reads the
+    # Classes they are staff of and nothing else (Story 4.9).
+    "lecturer_home.view": frozenset({LECTURER, ASSISTANT}),
     "classes.create": frozenset({LECTURER}),
-    "classes.read": frozenset({LECTURER}),
+    "classes.read": frozenset({LECTURER, ASSISTANT}),
     "classes.manage": frozenset({LECTURER}),
     # The Classes a User is a Student in (Story 4.5): any User, held to `classes_enrolled_by`.
     "classes.read_enrolled": frozenset({ANY_USER}),
@@ -94,9 +98,11 @@ POLICIES: dict[str, frozenset[str]] = {
 
 OWNER = "owner"
 """The staff role of the Lecturer who created a Class (Story 4.1); co-owners share it (4.9)."""
+ASSISTANT_STAFF = "assistant"
+"""The staff role of an Assistant lecturer in one Class (Story 4.9)."""
 
 CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
-    "classes.read": frozenset({OWNER}),
+    "classes.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "classes.manage": frozenset({OWNER}),
 }
 """Class action → the staff roles in the Class that may do it. Later stories add theirs."""

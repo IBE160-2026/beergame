@@ -40,6 +40,7 @@ from app.modules.identity.schemas import (
     RosterRegistration,
     RosterSource,
     RosterUploadOut,
+    SessionRole,
     UserListItem,
     UserListOut,
     UserOut,
@@ -99,8 +100,27 @@ def _user_out(row, roles: list[str]) -> UserOut:
         id=row["id"],
         name=row["name"],
         email=row["email"],
-        roles=[AccountRole(role) for role in roles],
+        roles=[SessionRole(role) for role in roles],
     )
+
+
+SessionRoleProvider = Callable[[AsyncSession, uuid.UUID], Awaitable[Set[str]]]
+"""Asked whenever a session's roles are read: the roles the User holds through what another
+module owns. `classes` registers the one that reads Class staff (`assistant`, Story 4.9)."""
+_SESSION_ROLE_PROVIDERS: list[SessionRoleProvider] = []
+
+
+def register_session_roles(provider: SessionRoleProvider) -> None:
+    """Called at import by the module that owns what makes a User hold a session role."""
+    _SESSION_ROLE_PROVIDERS.append(provider)
+
+
+async def _session_roles(s: AsyncSession, user_id: uuid.UUID) -> list[str]:
+    """The User's account roles and the roles the registered providers add, sorted."""
+    roles = set(await repo.roles_of(s, user_id))
+    for provider in _SESSION_ROLE_PROVIDERS:
+        roles |= {SessionRole(role).value for role in await provider(s, user_id)}
+    return sorted(roles)
 
 
 async def authenticate(
@@ -122,7 +142,7 @@ async def authenticate(
             or account_count > settings.login_rate_limit_per_account
         )
         row = None if limited else await repo.user_by_email(s, email)
-        roles = await repo.roles_of(s, row["id"]) if row else []
+        roles = await _session_roles(s, row["id"]) if row else []
     if limited:
         log.info("login_refused", error_code="rate_limited")
         return LoginRefused("rate_limited", ratelimit.seconds_left(now, window))
@@ -161,7 +181,7 @@ async def load_user(user_id: uuid.UUID, session_version: int) -> UserOut | None:
         row = await repo.user_by_id(s, user_id)
         if row is None or not row["is_active"] or row["session_version"] != session_version:
             return None
-        return _user_out(row, await repo.roles_of(s, user_id))
+        return _user_out(row, await _session_roles(s, user_id))
 
 
 async def create_user(
@@ -476,7 +496,7 @@ async def invitation_mail_recipient(
         "role": row["role"],
         "valid_days": _days_left(row["expires_at"], now),
     }
-    if row["kind"] == InvitationKind.student:
+    if row["kind"] in CLASS_KINDS:
         name = await _class_name(session, row["class_id"])
         if name is None:
             return None
@@ -524,18 +544,56 @@ class AcceptRefused:
     retry_after: int | None = None
 
 
-ACCEPTED_KINDS = frozenset({InvitationKind.role.value, InvitationKind.student.value})
-"""The Invitation kinds «Du er invitert» takes: account roles (3.8) and Student places (4.5)."""
+CLASS_KINDS = frozenset({InvitationKind.student.value, InvitationKind.assistant.value})
+"""The Invitation kinds that offer a place in a Class, valid to a last day in Europe/Oslo."""
+
+
+@dataclass(frozen=True)
+class AcceptedPlace:
+    """What an acceptance handler is told: whose Invitation to which Class was accepted."""
+
+    invitation_id: uuid.UUID
+    class_id: uuid.UUID
+    user_id: uuid.UUID
+    invited_by: uuid.UUID | None
+
+
+AcceptanceHandler = Callable[[AsyncSession, AcceptedPlace, datetime], Awaitable[None]]
+"""Called inside the acceptance transaction, after the Invitation is marked accepted: it gives the
+User what the Invitation offers. Raising rolls the acceptance back."""
+_ACCEPTANCE_HANDLERS: dict[str, AcceptanceHandler] = {}
+
+
+def register_acceptance_handler(kind: InvitationKind, handler: AcceptanceHandler) -> None:
+    """Called at import by the module that owns what an Invitation of `kind` offers (Story 4.9:
+    `classes` for `assistant`), as the revoke blockers are registered. `identity` imports none of
+    it."""
+    _ACCEPTANCE_HANDLERS[InvitationKind(kind).value] = handler
+
+
+def _accepted_kinds() -> frozenset[str]:
+    """The Invitation kinds «Du er invitert» takes: account roles (3.8), Student places (4.5) and
+    every kind a handler is registered for (4.9)."""
+    return frozenset({InvitationKind.role.value, InvitationKind.student.value}) | frozenset(
+        _ACCEPTANCE_HANDLERS
+    )
+
+
+async def _hand_over(s: AsyncSession, row: RowMapping, user_id: uuid.UUID, now: datetime) -> None:
+    """Inside the acceptance transaction: the registered handler of the Invitation's kind."""
+    await _ACCEPTANCE_HANDLERS[row["kind"]](
+        s, AcceptedPlace(row["id"], row["class_id"], user_id, row["invited_by"]), now
+    )
 
 
 async def _usable_invitation(
     session: AsyncSession, row, now: datetime
 ) -> tuple[RowMapping, RowMapping | None, ClassLabel | None] | None:
-    """The open Invitation, the User its address has (or None) and, for a Student Invitation, its
-    Class; or None when the link is not usable: not open, of a kind not taken here, its address
-    belongs to a deactivated User, or (Student) its Roster entry was removed or its Class is
-    gone."""
-    if not _invitation_open(row, now) or row["kind"] not in ACCEPTED_KINDS:
+    """The open Invitation, the User its address has (or None) and, for a Class Invitation
+    (Student or Assistant), its Class; or None when the link is not usable: not open, of a kind not
+    taken here, its address belongs to a deactivated User, its Class is gone, or (Student) its
+    Roster entry was removed."""
+    if not _invitation_open(row, now) or row["kind"] not in _accepted_kinds():
         return None
     user = await repo.user_by_email(session, row["email"])
     if user is not None and not user["is_active"]:
@@ -545,6 +603,7 @@ async def _usable_invitation(
         entry = await repo.roster_entry_by_id(session, row["roster_entry_id"])
         if entry is None or entry["removed_at"] is not None:
             return None
+    if row["kind"] in CLASS_KINDS:
         label = await _class_label(session, row["class_id"])
         if label is None:
             return None
@@ -569,15 +628,15 @@ async def check_invitation(token: str, *, now: datetime) -> InvitationChecked | 
         if label is not None and row["invited_by"] is not None:
             found = await repo.user_by_id(s, row["invited_by"])
             inviter = found["name"] if found is not None else None
-    student = row["kind"] == InvitationKind.student
+    place = row["kind"] in CLASS_KINDS
     return InvitationChecked(
         id=row["id"],
         kind=InvitationKind(row["kind"]),
         email=row["email"],
-        role=None if student else AccountRole(row["role"]),
+        role=None if place else AccountRole(row["role"]),
         valid_days=(
             _student_days_left(row["expires_at"], now)
-            if student
+            if place
             else _days_left(row["expires_at"], now)
         ),
         has_account=user is not None,
@@ -640,6 +699,7 @@ async def accept_invitation_new(
             log.info("invitation_accept_refused", error_code="invitation_link_invalid")
             return AcceptRefused("invitation_link_invalid")
         student = row["kind"] == InvitationKind.student
+        place = row["kind"] in CLASS_KINDS
         await repo.lock_user_address(s, row["email"])
         if await repo.user_by_email(s, row["email"]) is not None:
             log.info("invitation_accept_refused", error_code="account_exists")
@@ -655,12 +715,15 @@ async def accept_invitation_new(
             name=name,
             password_hash=password_hash,
             is_active=True,
-            # A Student is no account role: the Roster entry makes them one (Story 4.5).
-            roles=[] if student else [row["role"]],
+            # A Student or an Assistant is no account role: the Roster entry or the Class staff
+            # makes them one (Stories 4.5, 4.9).
+            roles=[] if place else [row["role"]],
         )
         await repo.mark_invitation_accepted(s, row["id"], now)
         if student:
             await _join_class(s, row, user_id)
+        elif place:
+            await _hand_over(s, row, user_id, now)
         else:
             await audit.record(
                 s,
@@ -670,8 +733,8 @@ async def accept_invitation_new(
                 {"role": row["role"], "account": "created"},
                 now,
             )
+        roles = await _session_roles(s, user_id)
     log.info("invitation_accepted", invitation_id=str(row["id"]), user_id=str(user_id))
-    roles = [] if student else [AccountRole(row["role"])]
     return LoginOk(UserOut(id=user_id, name=name, email=row["email"], roles=roles), 0)
 
 
@@ -726,6 +789,9 @@ async def accept_invitation_existing(
         if row["kind"] == InvitationKind.student:
             # The same account becomes a Student in this Class too; never a second User (FR-4).
             await _join_class(s, row, user["id"])
+        elif row["kind"] in CLASS_KINDS:
+            # The same account joins this Class's staff as Assistant lecturer (Story 4.9).
+            await _hand_over(s, row, user["id"], now)
         else:
             granted = await repo.grant_role(s, user["id"], row["role"])
             await audit.record(
@@ -736,7 +802,7 @@ async def accept_invitation_existing(
                 {"role": row["role"], "account": "existing", "role_added": granted},
                 now,
             )
-        roles = await repo.roles_of(s, user["id"])
+        roles = await _session_roles(s, user["id"])
     log.info("invitation_accepted", invitation_id=str(row["id"]), user_id=str(user["id"]))
     return LoginOk(_user_out(user, roles), user["session_version"])
 
@@ -2165,3 +2231,88 @@ async def manual_registration_mail_context(
         context["link"] = f"{RESET_LINK_PATH}#{auth.link_token(PASSWORD_RESET, reset['id'])}"
         context["last_valid_day"] = last_valid_day(reset["expires_at"])
     return context
+
+
+# Assistant lecturers (Story 4.9, FR-10, AD-14). `classes` decides who may invite and owns the
+# Class staff; the Invitations, their mail and the Users stay here.
+
+ASSISTANT_INVITATION_DAYS = 14
+"""An Assistant Invitation is valid to the end of the 14th day after the sending (Europe/Oslo),
+as a Student Invitation sent with the default validity."""
+
+
+@dataclass(frozen=True)
+class AssistantInvitation:
+    id: uuid.UUID
+    email: str
+    expires_at: datetime
+
+
+@dataclass(frozen=True)
+class Person:
+    id: uuid.UUID
+    name: str
+    email: str
+
+
+def checked_address(address: str) -> str:
+    """The address trimmed and lower-cased; raises `RosterRefused` with its `address_problem`."""
+    return _checked_address(address)
+
+
+async def active_user_for_email(s: AsyncSession, address: str) -> UserOut | None:
+    """The active User of the address with their account roles, or None (no account, or a
+    deactivated one: the caller tells the two apart from no one)."""
+    row = await repo.user_by_email(s, normalise_email(address))
+    if row is None or not row["is_active"]:
+        return None
+    return _user_out(row, await repo.roles_of(s, row["id"]))
+
+
+async def send_assistant_invitation(
+    s: AsyncSession, class_id: uuid.UUID, actor: uuid.UUID, address: str, *, now: datetime
+) -> AssistantInvitation:
+    """In the caller's transaction: void the open Assistant Invitation of the Class to `address`,
+    store a new one (its token only as a hash) and enqueue its `invitation` mail, addressed by the
+    Invitation id. `address` is already checked."""
+    await repo.lock_invitation_address(s, address, f"assistant:{class_id}")
+    await repo.void_assistant_invitations(s, class_id, now, email=address)
+    invitation_id = uuid.uuid7()
+    expires_at = student_invitation_expiry(now, ASSISTANT_INVITATION_DAYS)
+    await repo.insert_assistant_invitation(
+        s,
+        invitation_id=invitation_id,
+        class_id=class_id,
+        email=address,
+        token_hash=auth.token_hash(auth.link_token(INVITATION, invitation_id)),
+        created_at=now,
+        expires_at=expires_at,
+        invited_by=actor,
+    )
+    await notify.enqueue(s, None, INVITATION, f"{INVITATION}:{invitation_id}", ref=invitation_id)
+    return AssistantInvitation(invitation_id, address, expires_at)
+
+
+async def assistant_invitations(s: AsyncSession, class_id: uuid.UUID) -> list[AssistantInvitation]:
+    """The Class's Assistant Invitations not accepted or voided, open or expired, by address."""
+    rows = await repo.assistant_invitations(s, class_id)
+    return [AssistantInvitation(r["id"], r["email"], r["expires_at"]) for r in rows]
+
+
+async def void_assistant_invitations(
+    s: AsyncSession,
+    class_id: uuid.UUID,
+    now: datetime,
+    *,
+    email: str | None = None,
+    invitation_id: uuid.UUID | None = None,
+) -> list[uuid.UUID]:
+    """Void the Class's open Assistant Invitations to `email`, or the one `invitation_id`."""
+    return await repo.void_assistant_invitations(
+        s, class_id, now, email=email, invitation_id=invitation_id
+    )
+
+
+async def people(s: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, Person]:
+    """Name and address of these Users, for the Class's staff list."""
+    return {r["id"]: Person(r["id"], r["name"], r["email"]) for r in await repo.people(s, ids)}

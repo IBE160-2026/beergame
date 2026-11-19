@@ -4,8 +4,9 @@ With `APP_ENV=local`, the api adds at start one Class, «class-of-1994» with th
 «IBE160» at «Demohøgskolen», owned by the demo Lecturer, when that User exists and is staff of no
 Class yet. Then, on every start, the demo Class (the Class of that name the demo Lecturer owns)
 gets its eight registered demo Students: the demo Student of `identity/seed.py` and seven more,
-each a User with the demo password and a Roster entry linked to it. A User or an address already
-there is left as it is. Nothing is seeded in any other environment.
+each a User with the demo password and a Roster entry linked to it, and the demo Assistant
+(`assistent@example.com`, Story 4.9) is its Assistant lecturer. A User, an address or a staff row
+already there is left as it is. Nothing is seeded in any other environment.
 """
 
 import uuid
@@ -15,6 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from app.modules.classes import repo
+from app.modules.classes.schemas import StaffRole
 from app.modules.identity import service as identity
 from app.platform import auth
 from app.platform.config import get_settings
@@ -24,6 +26,8 @@ log = structlog.get_logger(__name__)
 
 DEMO_LECTURER = "faglaerer@example.com"
 """The demo Lecturer of `identity/seed.py` (`DEMO_USERS`)."""
+DEMO_ASSISTANT = "assistent@example.com"
+"""The demo Assistant lecturer of `identity/seed.py` (Story 4.9)."""
 DEMO_CLASS = "class-of-1994"
 DEMO_COURSE_CODE = "IBE160"
 DEMO_PASSWORD = "olspillet-demo"
@@ -78,6 +82,11 @@ async def ensure_demo_students() -> int:
         for email, name in DEMO_STUDENTS:
             if await identity.seed_registered_student(s, class_id, email, name, DEMO_PASSWORD, now):
                 added += 1
+        assistant = await identity.user_id_for_email(s, DEMO_ASSISTANT)
+        if assistant is not None and await repo.put_staff(
+            s, class_id, assistant, StaffRole.assistant, now, replace=False
+        ):
+            log.info("demo_assistant_seeded", class_id=str(class_id))
     if added:
         log.info("demo_students_seeded", class_id=str(class_id), count=added)
     return added

@@ -225,3 +225,53 @@ export function removeRosterEntry(classId: string, entryId: string) {
     }),
   );
 }
+
+// The Class's staff (Story 4.9, FR-10): «Faglærere og assistenter», for its Faglærere.
+
+export type ClassStaff = components["schemas"]["StaffOut"];
+export type StaffLecturer = components["schemas"]["StaffLecturer"];
+export type StaffAssistant = components["schemas"]["StaffAssistant"];
+
+export const classStaffKey = (classId: string) => ["classes", "staff", classId] as const;
+
+/** The Class's Faglærere and Assistenter with their status. */
+export function useClassStaff(classId: string) {
+  return useQuery({
+    queryKey: classStaffKey(classId),
+    queryFn: () =>
+      request(() => api.GET("/api/classes/{class_id}/staff", { params: { path: { class_id: classId } } })),
+    retry: false,
+  });
+}
+
+/** «Legg til Faglærer»: a User with the Lecturer role becomes co-owner. */
+export function addClassLecturer(classId: string, email: string) {
+  return request(() =>
+    api.POST("/api/classes/{class_id}/staff/lecturers", { params: { path: { class_id: classId } }, body: { email } }),
+  );
+}
+
+/** «Inviter Assistent»: an Invitation for this Class only. */
+export function inviteClassAssistant(classId: string, email: string) {
+  return request(() =>
+    api.POST("/api/classes/{class_id}/staff/assistants", { params: { path: { class_id: classId } }, body: { email } }),
+  );
+}
+
+/** Take a Faglærer or an Assistent off the Class. */
+export function removeClassStaff(classId: string, userId: string) {
+  return request(() =>
+    api.DELETE("/api/classes/{class_id}/staff/{user_id}", {
+      params: { path: { class_id: classId, user_id: userId } },
+    }),
+  );
+}
+
+/** Withdraw an Assistant Invitation that is not accepted. */
+export function withdrawAssistantInvitation(classId: string, invitationId: string) {
+  return request(() =>
+    api.DELETE("/api/classes/{class_id}/staff/invitations/{invitation_id}", {
+      params: { path: { class_id: classId, invitation_id: invitationId } },
+    }),
+  );
+}

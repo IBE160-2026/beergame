@@ -453,6 +453,10 @@
             "title": "Archived",
             "type": "boolean"
           },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
           "course_code": {
             "anyOf": [
               {
@@ -509,6 +513,7 @@
           "institution_id",
           "institution_name",
           "staff_role",
+          "can_manage",
           "created_at",
           "archived",
           "roster_count"
@@ -845,10 +850,11 @@
         "type": "object"
       },
       "InvitationKind": {
-        "description": "What an Invitation offers: an account role (Story 3.7) or a place on a Class's Roster as a\nStudent (Story 4.4). Story 4.9 adds `assistant`.",
+        "description": "What an Invitation offers: an account role (Story 3.7), a place on a Class's Roster as a\nStudent (Story 4.4), or a place in one Class's staff as Assistant lecturer (Story 4.9).",
         "enum": [
           "role",
-          "student"
+          "student",
+          "assistant"
         ],
         "title": "InvitationKind",
         "type": "string"
@@ -1673,12 +1679,162 @@
         "title": "SessionOut",
         "type": "object"
       },
-      "StaffRole": {
-        "description": "A User's role in one Class (`class_staff.role`). Co-owners (4.9) are owners too.",
+      "SessionRole": {
+        "description": "The roles a session carries (`UserOut.roles`): the account roles, and `assistant` while the\nUser is Assistant lecturer of at least one Class (Story 4.9). `assistant` is read from the\nClass staff on every request, never stored or granted by the Admin.",
         "enum": [
-          "owner"
+          "admin",
+          "lecturer",
+          "assistant"
+        ],
+        "title": "SessionRole",
+        "type": "string"
+      },
+      "StaffAssistant": {
+        "description": "An Assistant of the Class: `active` (staff, `user_id` set), or an Invitation not yet\naccepted (`invitation_id` set): `invited` with its last valid day, or `expired`.",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "invitation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invitation Id"
+          },
+          "last_valid_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Valid Day"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StaffStatus"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "email",
+          "status"
+        ],
+        "title": "StaffAssistant",
+        "type": "object"
+      },
+      "StaffEmailIn": {
+        "description": "«Legg til Faglærer» or «Inviter Assistent»: one address. A refused address answers 422\n`invalid_request` with `fields.email`: an address problem, `not_lecturer` (Faglærer: no\nactive account with the Lecturer role, one reason for all) or `already_staff`.",
+        "properties": {
+          "email": {
+            "maxLength": 320,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "StaffEmailIn",
+        "type": "object"
+      },
+      "StaffLecturer": {
+        "description": "A Faglærer of the Class: an owner (the creator or a co-owner), always active.",
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "name",
+          "email"
+        ],
+        "title": "StaffLecturer",
+        "type": "object"
+      },
+      "StaffOut": {
+        "description": "«Faglærere og assistenter»: each group by name, then address.",
+        "properties": {
+          "assistants": {
+            "items": {
+              "$ref": "#/components/schemas/StaffAssistant"
+            },
+            "title": "Assistants",
+            "type": "array"
+          },
+          "lecturers": {
+            "items": {
+              "$ref": "#/components/schemas/StaffLecturer"
+            },
+            "title": "Lecturers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lecturers",
+          "assistants"
+        ],
+        "title": "StaffOut",
+        "type": "object"
+      },
+      "StaffRole": {
+        "description": "A User's role in one Class (`class_staff.role`). Co-owners (4.9) are owners too: one role,\nso they have exactly the owner's rights. An Assistant lecturer (4.9) reads the Class.",
+        "enum": [
+          "owner",
+          "assistant"
         ],
         "title": "StaffRole",
+        "type": "string"
+      },
+      "StaffStatus": {
+        "enum": [
+          "active",
+          "invited",
+          "expired"
+        ],
+        "title": "StaffStatus",
         "type": "string"
       },
       "UploadRow": {
@@ -1786,7 +1942,7 @@
           },
           "roles": {
             "items": {
-              "$ref": "#/components/schemas/AccountRole"
+              "$ref": "#/components/schemas/SessionRole"
             },
             "title": "Roles",
             "type": "array"
@@ -3984,7 +4140,7 @@
     },
     "/api/classes/{class_id}/invitations": {
       "get": {
-        "description": "What became of the Class's Student Invitations (Story 4.6, FR-8): how many were sent,\nbounced, accepted and expired, computed now, and the Roster addresses whose newest Invitation\nbounced, with the bounce's class. A Class the User may not manage, one that does not exist\nand an id that is not one all answer the same 403 `forbidden`.",
+        "description": "What became of the Class's Student Invitations (Story 4.6, FR-8): how many were sent,\nbounced, accepted and expired, computed now, and the Roster addresses whose newest Invitation\nbounced, with the bounce's class. Its owners and Assistant lecturers may read it (Story 4.9).\nA Class the User may not read, one that does not exist and an id that is not one all answer\nthe same 403 `forbidden`.",
         "operationId": "getInvitationSummary",
         "parameters": [
           {
@@ -4128,7 +4284,7 @@
     },
     "/api/classes/{class_id}/registrations": {
       "get": {
-        "description": "«Status etter utsending» (Story 4.7, FR-9): every Roster address with its status, read now\n(registered, registered manually, asked for a new Invitation, bounced with its class, invited\nwith its last valid day, unregistered), the totals and how many have not registered. A Class\nthe User may not manage, one that does not exist and an id that is not one all answer the\nsame 403 `forbidden`.",
+        "description": "«Status etter utsending» (Story 4.7, FR-9): every Roster address with its status, read now\n(registered, registered manually, asked for a new Invitation, bounced with its class, invited\nwith its last valid day, unregistered), the totals and how many have not registered. Its\nowners and Assistant lecturers may read it (Story 4.9). A Class the User may not read, one\nthat does not exist and an id that is not one all answer the same 403 `forbidden`.",
         "operationId": "getRegistrations",
         "parameters": [
           {
@@ -4832,6 +4988,365 @@
           }
         },
         "summary": "Register Manually",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/staff": {
+      "get": {
+        "description": "«Faglærere og assistenter»: the Class's Faglærere (owners) and Assistenter, each with a\nstatus (active, invited with the last valid day, or expired).",
+        "operationId": "getClassStaff",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Staff",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/staff/assistants": {
+      "post": {
+        "description": "«Inviter Assistent»: an Invitation for this Class only, valid through the 14th day after\ntoday (Europe/Oslo), mailed from `worker-batch`; an open one to the address is voided. 422\n`invalid_request` with `fields.email` = an address problem or `already_staff`.",
+        "operationId": "inviteClassAssistant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffEmailIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffAssistant"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Invite Assistant",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/staff/invitations/{invitation_id}": {
+      "delete": {
+        "description": "Withdraw an Assistant Invitation that is not accepted: its link stops working. 404\n`not_found` when the Class has no such open Invitation.",
+        "operationId": "withdrawClassAssistantInvitation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "invitation_id",
+            "required": true,
+            "schema": {
+              "title": "Invitation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Assistant Invitation",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/staff/lecturers": {
+      "post": {
+        "description": "«Legg til Faglærer»: a User who already has the Lecturer role becomes co-owner, with the\nowner's rights. 422 `invalid_request` with `fields.email` = an address problem,\n`not_lecturer` (no such Lecturer; nothing about the account is told) or `already_staff`.",
+        "operationId": "addClassLecturer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffEmailIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffLecturer"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Add Lecturer",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/staff/{user_id}": {
+      "delete": {
+        "description": "Take a Faglærer or an Assistant off the Class: their access ends from their next request.\n422 `last_owner` for the Class's last Faglærer; 404 `not_found` when the User is not staff of\nthe Class.",
+        "operationId": "removeClassStaff",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Remove Staff",
         "tags": [
           "classes"
         ]

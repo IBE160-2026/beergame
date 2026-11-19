@@ -5,7 +5,8 @@ import { Link } from "@/components/link";
 import { LoadingNote, Skeleton } from "@/components/skeleton";
 import { nb } from "@/copy/nb";
 import { usePageState } from "@/lib/page-state";
-import { classPath, NEW_CLASS_PATH } from "@/modules/identity/homes";
+import { useMe } from "@/modules/identity/api";
+import { canCreateClass, classPath, NEW_CLASS_PATH } from "@/modules/identity/homes";
 
 import { classesKey, useClasses } from "./api";
 
@@ -16,10 +17,12 @@ const copy = nb.classes.home;
  * action. With Classes, «Klassene dine» lists each as a Lenke to the Class («name, course code»)
  * with its Roster count beside it (Story 4.4),
  * «Ny Klasse» stays under the list, and beside it stand the places for what is waiting and the
- * next deadline, which stay empty until Class sessions exist (Epic 5).
+ * next deadline, which stay empty until Class sessions exist (Epic 5). An Assistant lecturer sees
+ * the Classes they are attached to and no «Ny Klasse» (Story 4.9).
  */
 export function LecturerHome() {
   const classes = useClasses();
+  const creates = canCreateClass(useMe().data ?? { roles: [] });
   const { phase, retry } = usePageState(classes, classesKey);
 
   if (phase === "loading" || phase === "slow") {
@@ -46,11 +49,13 @@ export function LecturerHome() {
     return (
       <div className="mt-8 max-w-md">
         <p className="text-body-phone text-ink-secondary lg:text-body">{copy.empty}</p>
-        <p className="mt-4">
-          <Link href={NEW_CLASS_PATH} standalone>
-            {copy.newClass}
-          </Link>
-        </p>
+        {creates ? (
+          <p className="mt-4">
+            <Link href={NEW_CLASS_PATH} standalone>
+              {copy.newClass}
+            </Link>
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -76,11 +81,13 @@ export function LecturerHome() {
             </li>
           ))}
         </ul>
-        <p className="mt-4">
-          <Link href={NEW_CLASS_PATH} standalone>
-            {copy.newClass}
-          </Link>
-        </p>
+        {creates ? (
+          <p className="mt-4">
+            <Link href={NEW_CLASS_PATH} standalone>
+              {copy.newClass}
+            </Link>
+          </p>
+        ) : null}
       </section>
       <dl className="flex flex-col gap-4 self-start border-t border-hairline pt-4">
         <div>

@@ -1106,3 +1106,81 @@ async def newest_open_password_reset(
         .limit(1)
     )
     return result.mappings().one_or_none()
+
+
+# Assistant lecturer Invitations (Story 4.9). Their Class is `class_id`; they name no Roster entry
+# and no account role.
+
+
+def _open_assistant(class_id: uuid.UUID):
+    return (
+        invitations.c.kind == "assistant",
+        invitations.c.class_id == class_id,
+        invitations.c.accepted_at.is_(None),
+        invitations.c.voided_at.is_(None),
+    )
+
+
+async def void_assistant_invitations(
+    session: AsyncSession,
+    class_id: uuid.UUID,
+    now: datetime,
+    *,
+    email: str | None = None,
+    invitation_id: uuid.UUID | None = None,
+) -> list[uuid.UUID]:
+    """Void the Class's open Assistant Invitations, to `email` or the one `invitation_id` when
+    given; returns their ids."""
+    query = update(invitations).where(*_open_assistant(class_id))
+    if email is not None:
+        query = query.where(invitations.c.email == email)
+    if invitation_id is not None:
+        query = query.where(invitations.c.id == invitation_id)
+    result = await session.execute(query.values(voided_at=now).returning(invitations.c.id))
+    return sorted(result.scalars())
+
+
+async def insert_assistant_invitation(
+    session: AsyncSession,
+    *,
+    invitation_id: uuid.UUID,
+    class_id: uuid.UUID,
+    email: str,
+    token_hash: str,
+    created_at: datetime,
+    expires_at: datetime,
+    invited_by: uuid.UUID,
+) -> None:
+    await session.execute(
+        invitations.insert().values(
+            id=invitation_id,
+            kind="assistant",
+            class_id=class_id,
+            email=email,
+            token_hash=token_hash,
+            created_at=created_at,
+            expires_at=expires_at,
+            invited_by=invited_by,
+        )
+    )
+
+
+async def assistant_invitations(session: AsyncSession, class_id: uuid.UUID) -> list[RowMapping]:
+    """The Class's Assistant Invitations that are neither accepted nor voided (open or expired),
+    at most one per address by the partial unique index."""
+    result = await session.execute(
+        select(invitations.c.id, invitations.c.email, invitations.c.expires_at)
+        .where(*_open_assistant(class_id))
+        .order_by(invitations.c.email, invitations.c.id)
+    )
+    return list(result.mappings())
+
+
+async def people(session: AsyncSession, ids: list[uuid.UUID]) -> list[RowMapping]:
+    """Name and address of these Users."""
+    if not ids:
+        return []
+    result = await session.execute(
+        select(users.c.id, users.c.name, users.c.email).where(users.c.id.in_(ids))
+    )
+    return list(result.mappings())

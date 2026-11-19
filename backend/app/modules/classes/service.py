@@ -37,13 +37,19 @@ from app.modules.classes.schemas import (
     ReminderOut,
     RosterEntryIn,
     RosterSendOut,
+    StaffAssistant,
+    StaffEmailIn,
+    StaffLecturer,
+    StaffOut,
+    StaffRefused,
     StaffRole,
+    StaffStatus,
     class_name,
     course_code,
 )
 from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
-from app.platform import authz
+from app.platform import audit, authz, events
 from app.platform.db import get_sessionmaker
 
 log = structlog.get_logger(__name__)
@@ -101,6 +107,7 @@ async def create_class(user: authz.Principal, body: ClassIn, *, now: datetime) -
         institution_id=institution.id,
         institution_name=institution.name,
         staff_role=StaffRole.owner,
+        can_manage=True,
         created_at=now,
         archived=False,
         roster_count=0,
@@ -141,10 +148,19 @@ async def get_class(user: authz.Principal, class_id: uuid.UUID) -> ClassOut | No
         institution_id=row["institution_id"],
         institution_name=institution.name if institution else None,
         staff_role=StaffRole(row["staff_role"]),
+        can_manage=authz.can(user, "classes.manage", _StaffOf(row["staff_role"])),
         created_at=row["created_at"],
         archived=row["archived_at"] is not None,
         roster_count=counts.get(row["id"], 0),
     )
+
+
+async def may_read(user: authz.Principal, class_id: uuid.UUID) -> bool:
+    """Whether `user` may read the Class and its Roster: an owner or an Assistant lecturer of it
+    (Story 4.9). Outside the User's scope and not existing both answer False."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.class_for(s, user, class_id)
+    return row is not None and authz.can(user, "classes.read", _StaffOf(row["staff_role"]))
 
 
 async def may_manage(user: authz.Principal, class_id: uuid.UUID) -> bool:
@@ -251,9 +267,9 @@ async def invitation_summary(
 ) -> InvitationSummaryOut | None:
     """The counts of the Class's Student Invitations and the bounced addresses (Story 4.6, FR-8,
     AD-10): the Invitations from `identity`, the state of their mails from `messaging` (never its
-    table), combined here at `now`, the api's clock. None when the User may not manage the
-    Class."""
-    if not await may_manage(user, class_id):
+    table), combined here at `now`, the api's clock. None when the User may not read the Class
+    (its owners and Assistant lecturers may, Story 4.9)."""
+    if not await may_read(user, class_id):
         return None
     found = await identity.class_student_invitations(class_id, now=now)
     mails = await messaging.invitation_deliveries([i.id for i in found])
@@ -338,8 +354,9 @@ async def registrations(
 ) -> RegistrationsOut | None:
     """«Status etter utsending» (Story 4.7, FR-9, UX-DR47): every Roster address with its status,
     read now from `identity`'s Roster and Invitations and `messaging`'s delivery state, and the
-    totals. None when the User may not manage the Class."""
-    if not await may_manage(user, class_id):
+    totals. None when the User may not read the Class (its owners and Assistant lecturers may,
+    Story 4.9)."""
+    if not await may_read(user, class_id):
         return None
     items = await _statuses(class_id, now)
     registered = sum(i.status is RegistrationStatus.registered for i in items)
@@ -528,5 +545,241 @@ async def owned_active_classes(session: AsyncSession, user_id: uuid.UUID) -> int
     return await repo.count_owned_active(session, user_id)
 
 
+# The Class's staff (Story 4.9, FR-10, AD-8, AD-12, AD-15): co-owners are `owner` rows with
+# exactly the owner's rights; Assistant lecturers join through an Invitation of kind `assistant`.
+# Every change is one transaction holding the Class row's lock, with an audit row (ids only) and
+# `user:<id>` so the person's open pages read again.
+
+STAFF_ADDED = "class_staff.added"
+STAFF_INVITED = "class_staff.invited"
+STAFF_INVITATION_VOIDED = "class_staff.invitation_voided"
+STAFF_JOINED = "class_staff.joined"
+STAFF_REMOVED = "class_staff.removed"
+
+
+def _checked(address: str) -> str:
+    try:
+        return identity.checked_address(address)
+    except identity.RosterRefused as refused:
+        raise StaffRefused(refused.reason) from None
+
+
+def _sort_key(name: str | None, email: str) -> tuple[str, str]:
+    return ((name or email).casefold(), email)
+
+
+async def staff(user: authz.Principal, class_id: uuid.UUID, *, now: datetime) -> StaffOut | None:
+    """«Faglærere og assistenter»: the owners, and the Assistants with their status: active, or
+    an Invitation not accepted (invited with its last valid day, or expired). None when the User
+    may not manage the Class."""
+    if not await may_manage(user, class_id):
+        return None
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.staff_of(s, class_id)
+        pending = await identity.assistant_invitations(s, class_id)
+        people = await identity.people(s, [row["user_id"] for row in rows])
+    lecturers: list[StaffLecturer] = []
+    assistants: list[StaffAssistant] = []
+    for row in rows:
+        person = people.get(row["user_id"])
+        if person is None:
+            continue
+        if StaffRole(row["role"]) is StaffRole.owner:
+            lecturers.append(StaffLecturer(user_id=person.id, name=person.name, email=person.email))
+        else:
+            assistants.append(
+                StaffAssistant(
+                    user_id=person.id,
+                    name=person.name,
+                    email=person.email,
+                    status=StaffStatus.active,
+                )
+            )
+    on_staff = {person.email for person in people.values()}
+    for invitation in pending:
+        if invitation.email in on_staff:
+            continue
+        still_open = now < invitation.expires_at
+        assistants.append(
+            StaffAssistant(
+                invitation_id=invitation.id,
+                email=invitation.email,
+                status=StaffStatus.invited if still_open else StaffStatus.expired,
+                last_valid_day=(
+                    identity.last_valid_day(invitation.expires_at) if still_open else None
+                ),
+            )
+        )
+    return StaffOut(
+        lecturers=sorted(lecturers, key=lambda p: _sort_key(p.name, p.email)),
+        assistants=sorted(assistants, key=lambda p: _sort_key(p.name, p.email)),
+    )
+
+
+async def add_lecturer(
+    user: authz.Principal, class_id: uuid.UUID, body: StaffEmailIn, *, now: datetime
+) -> StaffLecturer | None:
+    """«Legg til Faglærer»: an active User with the Lecturer role becomes an owner of the Class
+    (an Assistant of it is promoted). None when the User may not manage the Class. Raises
+    `StaffRefused`: an address problem, `not_lecturer` (no account, a deactivated one or no
+    Lecturer role: one reason, so nothing about the account is revealed) or `already_staff`."""
+    if not await may_manage(user, class_id):
+        return None
+    address = _checked(body.email)
+    async with get_sessionmaker().begin() as s:
+        if not await repo.lock_class(s, class_id):
+            return None
+        found = await identity.active_user_for_email(s, address)
+        if found is None or not authz.can(found, "classes.manage"):
+            log.info("staff_refused", class_id=str(class_id), error_code="not_lecturer")
+            raise StaffRefused("not_lecturer")
+        before = await repo.staff_role(s, class_id, found.id)
+        if before is not None and StaffRole(before) is StaffRole.owner:
+            log.info("staff_refused", class_id=str(class_id), error_code="already_staff")
+            raise StaffRefused("already_staff")
+        await repo.put_staff(s, class_id, found.id, StaffRole.owner, now, replace=True)
+        await identity.void_assistant_invitations(s, class_id, now, email=found.email)
+        await audit.record(
+            s,
+            user.id,
+            STAFF_ADDED,
+            {"class_id": class_id, "user_id": found.id},
+            {"role": StaffRole.owner.value, "previous_role": before},
+            now,
+        )
+        await events.emit(s, "user", str(found.id))
+    log.info("staff_added", class_id=str(class_id), user_id=str(found.id))
+    return StaffLecturer(user_id=found.id, name=found.name, email=found.email)
+
+
+async def invite_assistant(
+    user: authz.Principal, class_id: uuid.UUID, body: StaffEmailIn, *, now: datetime
+) -> StaffAssistant | None:
+    """«Inviter Assistent»: an Invitation of kind `assistant` for this Class only, mailed from
+    `worker-batch` (an open one to the same address is voided). None when the User may not manage
+    the Class. Raises `StaffRefused`: an address problem or `already_staff`."""
+    if not await may_manage(user, class_id):
+        return None
+    address = _checked(body.email)
+    async with get_sessionmaker().begin() as s:
+        if not await repo.lock_class(s, class_id):
+            return None
+        members = await identity.people(s, [r["user_id"] for r in await repo.staff_of(s, class_id)])
+        if any(person.email == address for person in members.values()):
+            log.info("staff_refused", class_id=str(class_id), error_code="already_staff")
+            raise StaffRefused("already_staff")
+        sent = await identity.send_assistant_invitation(s, class_id, user.id, address, now=now)
+        await audit.record(
+            s,
+            user.id,
+            STAFF_INVITED,
+            {"class_id": class_id, "invitation_id": sent.id},
+            {"role": StaffRole.assistant.value},
+            now,
+        )
+    log.info("assistant_invited", class_id=str(class_id), invitation_id=str(sent.id))
+    return StaffAssistant(
+        invitation_id=sent.id,
+        email=sent.email,
+        status=StaffStatus.invited,
+        last_valid_day=identity.last_valid_day(sent.expires_at),
+    )
+
+
+async def remove_staff(
+    user: authz.Principal, class_id: uuid.UUID, member: uuid.UUID, *, now: datetime
+) -> bool | None:
+    """Take a Faglærer or an Assistant off the Class: their access ends from their next request.
+    None when the User may not manage the Class; False when `member` is not staff of it. Raises
+    `StaffRefused("last_owner")` for the Class's last owner: a Class always keeps a Lecturer."""
+    if not await may_manage(user, class_id):
+        return None
+    async with get_sessionmaker().begin() as s:
+        if not await repo.lock_class(s, class_id):
+            return None
+        rows = await repo.staff_of(s, class_id)
+        role = next((StaffRole(r["role"]) for r in rows if r["user_id"] == member), None)
+        if role is None:
+            return False
+        owners = sum(StaffRole(r["role"]) is StaffRole.owner for r in rows)
+        if role is StaffRole.owner and owners <= 1:
+            log.info("staff_refused", class_id=str(class_id), error_code="last_owner")
+            raise StaffRefused("last_owner", field=None)
+        await repo.remove_staff(s, class_id, member)
+        person = (await identity.people(s, [member])).get(member)
+        if person is not None:
+            await identity.void_assistant_invitations(s, class_id, now, email=person.email)
+        await audit.record(
+            s,
+            user.id,
+            STAFF_REMOVED,
+            {"class_id": class_id, "user_id": member},
+            {"role": role.value},
+            now,
+        )
+        await events.emit(s, "user", str(member))
+    log.info("staff_removed", class_id=str(class_id), user_id=str(member))
+    return True
+
+
+async def withdraw_assistant_invitation(
+    user: authz.Principal, class_id: uuid.UUID, invitation_id: uuid.UUID, *, now: datetime
+) -> bool | None:
+    """Void an Assistant Invitation of the Class that is not accepted: its link stops working.
+    None when the User may not manage the Class; False when there is no such open Invitation."""
+    if not await may_manage(user, class_id):
+        return None
+    async with get_sessionmaker().begin() as s:
+        if not await repo.lock_class(s, class_id):
+            return None
+        voided = await identity.void_assistant_invitations(
+            s, class_id, now, invitation_id=invitation_id
+        )
+        if not voided:
+            return False
+        await audit.record(
+            s,
+            user.id,
+            STAFF_INVITATION_VOIDED,
+            {"class_id": class_id, "invitation_id": invitation_id},
+            {"role": StaffRole.assistant.value},
+            now,
+        )
+    log.info("assistant_invitation_withdrawn", class_id=str(class_id))
+    return True
+
+
+async def join_as_assistant(
+    session: AsyncSession, place: identity.AcceptedPlace, now: datetime
+) -> None:
+    """The acceptance handler of an `assistant` Invitation, inside `identity`'s acceptance
+    transaction: the User joins this Class's staff as Assistant lecturer (one already owner stays
+    owner), with an audit row and `user:<id>`."""
+    await repo.lock_class(session, place.class_id)
+    joined = await repo.put_staff(
+        session, place.class_id, place.user_id, StaffRole.assistant, now, replace=False
+    )
+    await audit.record(
+        session,
+        place.user_id,
+        STAFF_JOINED,
+        {
+            "class_id": place.class_id,
+            "user_id": place.user_id,
+            "invitation_id": place.invitation_id,
+        },
+        {"role": StaffRole.assistant.value, "joined": joined},
+        now,
+    )
+    await events.emit(session, "user", str(place.user_id))
+
+
+async def assistant_session_role(session: AsyncSession, user_id: uuid.UUID) -> set[str]:
+    """The session role `assistant` while the User is Assistant lecturer of any Class."""
+    return {authz.ASSISTANT} if await repo.is_assistant_anywhere(session, user_id) else set()
+
+
 identity.register_revoke_blocker(identity.AccountRole.lecturer, owned_active_classes)
 identity.register_class_label(label_of_class)
+identity.register_acceptance_handler(identity.InvitationKind.assistant, join_as_assistant)
+identity.register_session_roles(assistant_session_role)

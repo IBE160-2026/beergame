@@ -19,13 +19,14 @@ async def _counts() -> tuple[int, int]:
     return n_users, n_roles
 
 
-async def test_local_seeds_the_four_demo_users_once(identity_db, monkeypatch):
+async def test_local_seeds_the_five_demo_users_once(identity_db, monkeypatch):
     monkeypatch.setenv("APP_ENV", "local")
-    assert await seed.ensure_demo_users() == 4
+    assert await seed.ensure_demo_users() == 5
     assert await seed.ensure_demo_users() == 0
-    # Admin, Lecturer, Admin and Lecturer, and one with no account role (Hjem).
-    assert await _counts() == (4, 4)
-    assert sorted(len(demo.roles) for demo in seed.DEMO_USERS) == [0, 1, 1, 2]
+    # Admin, Lecturer, Admin and Lecturer, and two with no account role: the Student (Hjem) and
+    # the Assistant, whom the Class seed attaches (Story 4.9).
+    assert await _counts() == (5, 4)
+    assert sorted(len(demo.roles) for demo in seed.DEMO_USERS) == [0, 0, 1, 1, 2]
     async with client() as c:
         for demo in seed.DEMO_USERS:
             response = await login(c, demo.email, seed.DEMO_PASSWORD)
@@ -50,13 +51,13 @@ async def test_production_never_seeds(identity_db, monkeypatch):
 async def test_only_missing_demo_users_are_added_and_existing_users_are_kept(
     identity_db, monkeypatch
 ):
-    """A database seeded by Story 3.2 gets the two new demo Users; a User who already holds a
+    """A database seeded by Story 3.2 gets the newer demo Users; a User who already holds a
     demo e-mail is left as they are."""
     monkeypatch.setenv("APP_ENV", "local")  # before the first get_settings(), which caches
     await service.create_user(email="kari@example.com", name="Kari", password="x" * 12)
     await service.create_user(email="admin@example.com", name="Endret", password="x" * 12)
-    assert await seed.ensure_demo_users() == 3
-    assert await _counts() == (5, 3)  # the existing «admin@» keeps no role and its name
+    assert await seed.ensure_demo_users() == 4
+    assert await _counts() == (6, 3)  # the existing «admin@» keeps no role and its name
     async with client() as c:
         response = await login(c, "admin@example.com", seed.DEMO_PASSWORD)
         assert response.status_code == 401

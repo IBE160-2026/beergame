@@ -5,7 +5,8 @@ import { ApiRequestError } from "@/lib/api/client";
 import { usePageState } from "@/lib/page-state";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
-import { classPath, HOME_PATH } from "@/modules/identity/homes";
+import { Link } from "@/components/link";
+import { classPath, classStaffPath, HOME_PATH } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 
 import { classKey, useClass } from "./api";
@@ -19,10 +20,11 @@ import { RosterUpload } from "./roster-upload";
  * A Class's own page (Story 4.1): its name as the heading, then the course code and Institution,
  * and for its owner the Roster upload (Story 4.2) with how many addresses the Roster holds (Story
  * 4.4), what became of the Invitations (Story 4.6) and where each address stands, with reminders
- * (Story 4.7), single addresses and manual registration (Story 4.8). Later stories add staff. A
- * Class the
- * Lecturer is not staff of, one that does not exist and an address that names no Class all show
- * the permission-denied page (FR-5): the api answers them alike.
+ * (Story 4.7), single addresses and manual registration (Story 4.8), and the Lenke to «Faglærere og
+ * assistenter» (Story 4.9). An Assistant lecturer reads the Roster's count, the Invitation counts
+ * and the status list, with no action (Story 4.9). A Class the User is not staff of, one that does
+ * not exist and an address that names no Class all show the permission-denied page (FR-5): the api
+ * answers them alike.
  */
 export function ClassPage({ classId }: { classId: string }) {
   // An address that is no Class id is never sent to the api: as a path it could name another
@@ -69,9 +71,15 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
     >
       <OneFormAtATime>
         {facts ? <p className="mt-2 text-body-phone text-ink-secondary lg:text-body">{facts}</p> : null}
-        {/* The Roster upload is the owner's (the api's `classes.manage` policy); Story 4.9 adds the
-            staff who only read the Roster. */}
-        {item?.staff_role === "owner" ? (
+        {item?.can_manage ? (
+          <p className="mt-4">
+            <Link href={classStaffPath(item.id)} standalone>
+              {nb.classes.page.staff}
+            </Link>
+          </p>
+        ) : null}
+        {/* The Roster upload is the Faglærere's (the api's `classes.manage` policy). */}
+        {item?.can_manage ? (
           <section aria-labelledby="roster-title" className="mt-10">
             <h2 id="roster-title" className="text-headline text-ink">
               {nb.classes.roster.title}
@@ -89,10 +97,24 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
             </div>
           </section>
         ) : null}
+        {/* An Assistant lecturer reads the Roster and changes nothing (Story 4.9). */}
+        {item && !item.can_manage ? (
+          <section aria-labelledby="roster-title" className="mt-10">
+            <h2 id="roster-title" className="text-headline text-ink">
+              {nb.classes.roster.title}
+            </h2>
+            <p className="mt-1 max-w-2xl text-body-phone text-ink-secondary lg:text-body">
+              {nb.classes.page.assistantLead}
+            </p>
+            <p className="mt-2 text-body-phone text-ink lg:text-body">
+              {item.roster_count > 0 ? nb.classes.roster.onRosterCount(item.roster_count) : nb.classes.home.rosterCount(0)}
+            </p>
+          </section>
+        ) : null}
         {/* What became of the Invitations (Story 4.6), once a mail has gone out. */}
-        {item?.staff_role === "owner" && item.roster_count > 0 ? <InvitationSummary classId={item.id} /> : null}
+        {item && item.roster_count > 0 ? <InvitationSummary classId={item.id} /> : null}
         {/* Where each address stands, and reminders (Story 4.7), once the Roster has addresses. */}
-        {item?.staff_role === "owner" && item.roster_count > 0 ? <RegistrationStatus classId={item.id} /> : null}
+        {item && item.roster_count > 0 ? <RegistrationStatus classId={item.id} readOnly={!item.can_manage} /> : null}
       </OneFormAtATime>
     </PageShell>
   );

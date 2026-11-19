@@ -163,6 +163,27 @@ only `classes.service`.
 - An address of a registered Student is never edited in place: the account e-mail is the
   Student's login, used in every Class. The Lecturer removes it and adds the new address.
 
+## Staff: co-owners and Assistant lecturers (Story 4.9)
+
+- A co-owner is an `owner` row in `class_staff`: one role, so co-owners have exactly the creator's
+  rights, and the Lecturer-revoke blocker counts co-owned Classes. A Class always keeps one owner
+  (`last_owner`); the creator may be removed once another owner exists.
+- An Assistant lecturer is an `assistant` row. `authz` gives the principal the session role
+  `assistant` while the User has such a row anywhere (`identity.register_session_roles`; never
+  stored, never granted by the Admin), so they reach the Lærerhjem and `classes.read`. They read
+  the Class, its Invitation counts and its registrations; every other Class route refuses them.
+- `GET /api/classes/{id}/staff`, `POST …/staff/lecturers` (an active User with the Lecturer
+  role; otherwise the one reason `not_lecturer`), `POST …/staff/assistants` (an Invitation of
+  kind `assistant`, valid to the end of the 14th day, mailed as `invitation`), `DELETE
+  …/staff/{user_id}` and `DELETE …/staff/invitations/{invitation_id}`: owners only, one
+  transaction holding the Class row's lock, an audit row (`class_staff.*`, ids only) and
+  `user:<id>`.
+- Accepting an `assistant` Invitation runs `join_as_assistant`, registered with
+  `identity.register_acceptance_handler`, inside the acceptance transaction. `identity` imports
+  no `classes` code.
+- Local seed: `assistent@example.com` («Demo Assistent», password `olspillet-demo`, no account
+  role) is Assistant lecturer of «class-of-1994».
+
 ## Open point for the founder: real Canvas exports
 
 The upload is tested only on synthetic fixtures with invented names and addresses, in the column

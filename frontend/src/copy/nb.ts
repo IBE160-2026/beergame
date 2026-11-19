@@ -296,6 +296,17 @@ export const nb = {
           failed: "Du ble ikke med i Klassen. Prøv igjen.",
         },
       },
+      /** An Assistant lecturer Invitation (Story 4.9, FR-10). [ASSUMPTION] Story 4.9. */
+      assistant: {
+        lead: (inviter: string | null, classLabel: string) =>
+          inviter
+            ? `Faglærer ${inviter} har invitert deg som Assistent i ${classLabel}. Du får tilgang bare til denne Klassen.`
+            : `Du er invitert som Assistent i ${classLabel}. Du får tilgang bare til denne Klassen.`,
+        existing: {
+          lead: (classLabel: string) => `Adressen har allerede en konto. Logg inn, så blir du Assistent i ${classLabel}.`,
+          submit: "Logg inn og bli Assistent",
+        },
+      },
     },
     session: {
       // [ASSUMPTION] Story 3.2.
@@ -354,6 +365,59 @@ export const nb = {
       /** The line under the Class's name: «IBE160 · Demohøgskolen». */
       facts: (courseCode: string | null, institution: string | null) =>
         [courseCode, institution].filter(Boolean).join(" · "),
+      /** The Lenke to the Class's staff, for its Faglærere (Story 4.9). */
+      staff: "Faglærere og assistenter",
+      /** Above the Roster an Assistant lecturer reads (Story 4.9). [ASSUMPTION] */
+      assistantLead: "Du er Assistent i Klassen. Du ser Klasselista, men Faglærerne endrer den.",
+    },
+    /** «Faglærere og assistenter» (Story 4.9, FR-10, UX-DR56). The title, «Legg til Faglærer»,
+     * «Inviter Assistent» and «Assistenten får tilgang bare til denne Klassen.» are EXPERIENCE.md's
+     * own; the rest is [ASSUMPTION] draft copy. */
+    staff: {
+      title: "Faglærere og assistenter",
+      lecturers: "Faglærere",
+      assistants: "Assistenter",
+      lecturersLead: "Faglærerne eier Klassen sammen og har de samme rettighetene.",
+      noAssistants: "Ingen Assistenter ennå.",
+      addLecturer: "Legg til Faglærer",
+      addLecturerTitle: "Legg til en Faglærer",
+      addLecturerLead: "Personen må ha en konto med Faglærer-rollen. Klassen kommer på Lærerhjemmet deres.",
+      addLecturerSubmit: "Legg til Faglærer",
+      inviteAssistant: "Inviter Assistent",
+      inviteAssistantTitle: "Inviter en Assistent",
+      assistantScope: "Assistenten får tilgang bare til denne Klassen.",
+      inviteAssistantSubmit: "Send Invitasjon",
+      email: "E-post",
+      cancel: "Avbryt",
+      saving: "Lagrer …",
+      /** Each person's status, in text. */
+      active: "Aktiv",
+      invited: (lastDay: string) => `Invitert, gyldig til og med ${lastDay}`,
+      expired: "Invitasjonen er utløpt",
+      remove: "Fjern",
+      removeFor: (who: string) => `Fjern ${who}`,
+      removeTitle: (who: string) => `Fjern ${who} fra Klassen`,
+      /** The consequence, above the button, before it is pressed. */
+      removeLecturer: (who: string) => `${who} mister tilgangen til Klassen fra neste side de åpner. Kontoen beholdes.`,
+      removeSelf: "Du mister tilgangen til Klassen. De andre Faglærerne beholder den.",
+      removeAssistant: (who: string) => `${who} mister tilgangen til Klassen fra neste side de åpner. Kontoen beholdes.`,
+      withdraw: (who: string) => `Invitasjonen til ${who} slutter å virke.`,
+      withdrawExpired: (who: string) => `Den utløpte Invitasjonen til ${who} fjernes fra lista.`,
+      removeSubmit: "Fjern fra Klassen",
+      withdrawSubmit: "Trekk tilbake Invitasjonen",
+      /** The result lines. */
+      lecturerAdded: (who: string) => `${who} er Faglærer i Klassen.`,
+      assistantInvited: (address: string) => `Invitasjonen er sendt til ${address}.`,
+      removed: (who: string) => `${who} er fjernet fra Klassen.`,
+      withdrawn: (address: string) => `Invitasjonen til ${address} er trukket tilbake.`,
+      gone: "Personen står ikke lenger på lista.",
+      /** Beside a refused field, and the last-owner refusal. */
+      notLecturer: "Adressen tilhører ingen Faglærer. Be Admin gi personen Faglærer-rollen.",
+      alreadyStaff: "Personen er allerede med i Klassen.",
+      lastOwner: "Klassen må ha minst én Faglærer. Legg til en annen Faglærer først.",
+      failed: "Det ble ikke lagret. Prøv igjen.",
+      removeFailed: "Personen ble ikke fjernet. Prøv igjen.",
+      loadFailed: "Lista kunne ikke hentes.",
     },
     /** What became of the Invitations on the Class page (Story 4.6, FR-8, NFR-10). [ASSUMPTION]
      * draft copy. */

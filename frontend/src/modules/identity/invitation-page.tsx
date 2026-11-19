@@ -141,7 +141,9 @@ function AcceptForm({
   const router = useRouter();
   const existing = invitation.has_account;
   const student = invitation.kind === "student";
-  const action = useAcceptInvitation(existing, student);
+  // Story 4.9: a place in one Class's staff; a failed login reads as for a Student's Class.
+  const assistant = invitation.kind === "assistant";
+  const action = useAcceptInvitation(existing, student || assistant);
   const [errors, setErrors] = useState<InvitationErrors>({});
   const [submitted, setSubmitted] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -244,7 +246,13 @@ function AcceptForm({
         />
         <ActionError message={action.errorMessage} />
         <Button type="submit" variant="primary" unavailable={action.isPending} className="mt-1 w-full">
-          {existing ? (student ? copy.student.existing.submit : copy.existing.submit) : copy.submit}
+          {existing
+            ? student
+              ? copy.student.existing.submit
+              : assistant
+                ? copy.assistant.existing.submit
+                : copy.existing.submit
+            : copy.submit}
         </Button>
         <p className="text-body-phone text-ink-secondary lg:text-body">{validityLine(invitation.valid_days, student)}</p>
         {existing ? (

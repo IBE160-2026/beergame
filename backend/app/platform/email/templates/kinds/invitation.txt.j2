@@ -1,11 +1,19 @@
-{# An Invitation (Story 3.7, FR-1; Story 4.4, FR-8). `kind`, `link` (path with the token), `role`
+{# An Invitation (Story 3.7, FR-1; Story 4.4, FR-8; Story 4.9, FR-10). `kind`, `link` (path with the token), `role`
    and `valid_days` come from `identity.service.invitation_mail_recipient` at send time; a Student
-   Invitation adds `class_name` and `last_valid_day` (a date, Europe/Oslo). #}
+   or Assistant Invitation (Story 4.9) adds `class_name` and `last_valid_day` (a date,
+   Europe/Oslo). #}
 {% set subject = "Invitasjon til ØL-spillet" %}
 {% set months = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember"] %}
 {% if kind == "student" %}
 {% set until = last_valid_day.day ~ ". " ~ months[last_valid_day.month - 1] ~ " " ~ last_valid_day.year %}
 Du er invitert til Klassen {{ class_name }} i ØL-spillet. Bli med her:
+
+{{ url(link) }}
+
+Invitasjonen er gyldig til og med {{ until }} og kan brukes én gang. Venter du ikke denne invitasjonen, kan du se bort fra e-posten.
+{% elif kind == "assistant" %}
+{% set until = last_valid_day.day ~ ". " ~ months[last_valid_day.month - 1] ~ " " ~ last_valid_day.year %}
+Du er invitert som Assistent i Klassen {{ class_name }} i ØL-spillet. Du får tilgang bare til denne Klassen. Bli med her:
 
 {{ url(link) }}
 
