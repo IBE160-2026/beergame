@@ -506,10 +506,13 @@ RENEWAL_INVITATION = "invitation_renewal_invitation"
 @dataclass(frozen=True)
 class InvitationChecked:
     id: uuid.UUID
+    kind: InvitationKind
     email: str
-    role: AccountRole
+    role: AccountRole | None
     valid_days: int
     has_account: bool
+    class_label: ClassLabel | None = None
+    invited_by: str | None = None
 
 
 @dataclass(frozen=True)
@@ -519,36 +522,65 @@ class AcceptRefused:
     retry_after: int | None = None
 
 
+ACCEPTED_KINDS = frozenset({InvitationKind.role.value, InvitationKind.student.value})
+"""The Invitation kinds «Du er invitert» takes: account roles (3.8) and Student places (4.5)."""
+
+
 async def _usable_invitation(
     session: AsyncSession, row, now: datetime
-) -> tuple[RowMapping, RowMapping | None] | None:
-    """The open Invitation and the User its address has (or None), or None when the link is not
-    usable: not open, or its address belongs to a deactivated User."""
-    if not _invitation_open(row, now):
+) -> tuple[RowMapping, RowMapping | None, ClassLabel | None] | None:
+    """The open Invitation, the User its address has (or None) and, for a Student Invitation, its
+    Class; or None when the link is not usable: not open, of a kind not taken here, its address
+    belongs to a deactivated User, or (Student) its Roster entry was removed or its Class is
+    gone."""
+    if not _invitation_open(row, now) or row["kind"] not in ACCEPTED_KINDS:
         return None
     user = await repo.user_by_email(session, row["email"])
     if user is not None and not user["is_active"]:
         return None
-    return row, user
+    label = None
+    if row["kind"] == InvitationKind.student:
+        entry = await repo.roster_entry_by_id(session, row["roster_entry_id"])
+        if entry is None or entry["removed_at"] is not None:
+            return None
+        label = await _class_label(session, row["class_id"])
+        if label is None:
+            return None
+    return row, user, label
+
+
+def _student_days_left(expires_at: datetime, now: datetime) -> int:
+    """The days from today to a Student link's last valid day, in Europe/Oslo: a sending valid
+    for 14 days reads «14 dager» on the day it is sent, and the last day reads «én dag»."""
+    return max(1, (last_valid_day(expires_at) - now.astimezone(OSLO).date()).days)
 
 
 async def check_invitation(token: str, *, now: datetime) -> InvitationChecked | None:
     """What «Du er invitert» shows for a usable link, or None."""
     async with get_sessionmaker().begin() as s:
         row = await repo.invitation_by_hash(s, auth.token_hash(token))
-        # A Student Invitation (Story 4.4) is taken through Student registration (Story 4.5).
-        if row is not None and row["kind"] != InvitationKind.role:
-            row = None
         usable = await _usable_invitation(s, row, now)
-    if usable is None:
-        return None
-    row, user = usable
+        if usable is None:
+            return None
+        row, user, label = usable
+        inviter = None
+        if label is not None and row["invited_by"] is not None:
+            found = await repo.user_by_id(s, row["invited_by"])
+            inviter = found["name"] if found is not None else None
+    student = row["kind"] == InvitationKind.student
     return InvitationChecked(
         id=row["id"],
+        kind=InvitationKind(row["kind"]),
         email=row["email"],
-        role=AccountRole(row["role"]),
-        valid_days=_days_left(row["expires_at"], now),
+        role=None if student else AccountRole(row["role"]),
+        valid_days=(
+            _student_days_left(row["expires_at"], now)
+            if student
+            else _days_left(row["expires_at"], now)
+        ),
         has_account=user is not None,
+        class_label=label,
+        invited_by=inviter,
     )
 
 
@@ -605,10 +637,15 @@ async def accept_invitation_new(
         if row is None:
             log.info("invitation_accept_refused", error_code="invitation_link_invalid")
             return AcceptRefused("invitation_link_invalid")
+        student = row["kind"] == InvitationKind.student
         await repo.lock_user_address(s, row["email"])
         if await repo.user_by_email(s, row["email"]) is not None:
             log.info("invitation_accept_refused", error_code="account_exists")
             return AcceptRefused("account_exists")
+        # Checked before anything is written, so a refusal leaves nothing behind.
+        if student and not await _roster_entry_open(s, row):
+            log.info("invitation_accept_refused", error_code="invitation_link_invalid")
+            return AcceptRefused("invitation_link_invalid")
         await repo.insert_user(
             s,
             user_id=user_id,
@@ -616,20 +653,41 @@ async def accept_invitation_new(
             name=name,
             password_hash=password_hash,
             is_active=True,
-            roles=[row["role"]],
+            # A Student is no account role: the Roster entry makes them one (Story 4.5).
+            roles=[] if student else [row["role"]],
         )
         await repo.mark_invitation_accepted(s, row["id"], now)
-        await audit.record(
-            s,
-            user_id,
-            INVITATION_ACCEPTED,
-            {"invitation_id": row["id"], "user_id": user_id},
-            {"role": row["role"], "account": "created"},
-            now,
-        )
+        if student:
+            await _join_class(s, row, user_id)
+        else:
+            await audit.record(
+                s,
+                user_id,
+                INVITATION_ACCEPTED,
+                {"invitation_id": row["id"], "user_id": user_id},
+                {"role": row["role"], "account": "created"},
+                now,
+            )
     log.info("invitation_accepted", invitation_id=str(row["id"]), user_id=str(user_id))
-    user = UserOut(id=user_id, name=name, email=row["email"], roles=[AccountRole(row["role"])])
-    return LoginOk(user, 0)
+    roles = [] if student else [AccountRole(row["role"])]
+    return LoginOk(UserOut(id=user_id, name=name, email=row["email"], roles=roles), 0)
+
+
+async def _roster_entry_open(s: AsyncSession, invitation: RowMapping) -> bool:
+    """Lock a Student Invitation's Roster entry; whether it is still on the Roster."""
+    entry = await repo.roster_entry_by_id(s, invitation["roster_entry_id"], lock=True)
+    return entry is not None and entry["removed_at"] is None
+
+
+async def _join_class(s: AsyncSession, invitation: RowMapping, user_id: uuid.UUID) -> None:
+    """Inside the acceptance transaction, which holds the entry's lock: link the Roster entry to
+    the User and mark it registered (FR-8), and tell the User's open pages (`user:<id>`)."""
+    linked = await repo.register_roster_entry(
+        s, invitation["roster_entry_id"], user_id, RosterRegistration.registered.value
+    )
+    if not linked:  # the entry's lock rules this out; never accept without the link
+        raise RuntimeError("the Roster entry of a Student Invitation was not linked")
+    await events.emit(s, "user", str(user_id))
 
 
 async def accept_invitation_existing(
@@ -653,19 +711,29 @@ async def accept_invitation_existing(
     async with get_sessionmaker().begin() as s:
         row = await _locked_open_invitation(s, token, now)
         user = await repo.lock_user(s, outcome.user.id) if row else None
-        if row is None or user is None or not user["is_active"] or user["email"] != row["email"]:
+        if (
+            row is None
+            or user is None
+            or not user["is_active"]
+            or user["email"] != row["email"]
+            or (row["kind"] == InvitationKind.student and not await _roster_entry_open(s, row))
+        ):
             log.info("invitation_accept_refused", error_code="invitation_link_invalid")
             return AcceptRefused("invitation_link_invalid")
-        granted = await repo.grant_role(s, user["id"], row["role"])
         await repo.mark_invitation_accepted(s, row["id"], now)
-        await audit.record(
-            s,
-            user["id"],
-            INVITATION_ACCEPTED,
-            {"invitation_id": row["id"], "user_id": user["id"]},
-            {"role": row["role"], "account": "existing", "role_added": granted},
-            now,
-        )
+        if row["kind"] == InvitationKind.student:
+            # The same account becomes a Student in this Class too; never a second User (FR-4).
+            await _join_class(s, row, user["id"])
+        else:
+            granted = await repo.grant_role(s, user["id"], row["role"])
+            await audit.record(
+                s,
+                user["id"],
+                INVITATION_ACCEPTED,
+                {"invitation_id": row["id"], "user_id": user["id"]},
+                {"role": row["role"], "account": "existing", "role_added": granted},
+                now,
+            )
         roles = await repo.roles_of(s, user["id"])
     log.info("invitation_accepted", invitation_id=str(row["id"]), user_id=str(user["id"]))
     return LoginOk(_user_out(user, roles), user["session_version"])
@@ -1586,24 +1654,38 @@ async def delete_roster_upload(class_id: uuid.UUID) -> bool:
 
 OSLO = ZoneInfo("Europe/Oslo")
 
-ClassNameResolver = Callable[[AsyncSession, uuid.UUID], Awaitable[str | None]]
-"""`(session, class_id)` → the Class's name, or None when it is gone."""
 
-_class_name_resolver: list[ClassNameResolver] = []
+@dataclass(frozen=True)
+class ClassLabel:
+    """How a Student Invitation names its Class: «class-of-1994», course code «IBE160»."""
+
+    name: str
+    course_code: str | None
 
 
-def register_class_name(resolver: ClassNameResolver) -> None:
-    """`classes.service` names its Classes here at import, so a Student Invitation's mail can
-    name its Class while `identity` imports no `classes` code (AD-14)."""
-    _class_name_resolver[:] = [resolver]
+ClassLabelResolver = Callable[[AsyncSession, uuid.UUID], Awaitable[ClassLabel | None]]
+"""`(session, class_id)` → the Class's name and course code, or None when it is gone."""
+
+_class_label_resolver: list[ClassLabelResolver] = []
+
+
+def register_class_label(resolver: ClassLabelResolver) -> None:
+    """`classes.service` names its Classes here at import, so a Student Invitation's mail and
+    «Du er invitert» can name its Class while `identity` imports no `classes` code (AD-14)."""
+    _class_label_resolver[:] = [resolver]
+
+
+async def _class_label(session: AsyncSession, class_id: uuid.UUID | None) -> ClassLabel | None:
+    if class_id is None:
+        return None
+    if not _class_label_resolver:
+        raise RuntimeError("no Class-label resolver is registered (import classes.service)")
+    return await _class_label_resolver[0](session, class_id)
 
 
 async def _class_name(session: AsyncSession, class_id: uuid.UUID | None) -> str | None:
-    if class_id is None:
-        return None
-    if not _class_name_resolver:
-        raise RuntimeError("no Class-name resolver is registered (import classes.service)")
-    return await _class_name_resolver[0](session, class_id)
+    label = await _class_label(session, class_id)
+    return None if label is None else label.name
 
 
 def student_invitation_expiry(now: datetime, valid_days: int) -> datetime:
@@ -1709,6 +1791,24 @@ def _valid_addresses(
         for number, cells in sorted(rows, key=lambda r: r[0])
         if number not in skip
     ]
+
+
+async def seed_registered_student(
+    s: AsyncSession, class_id: uuid.UUID, email: str, name: str, password: str, now: datetime
+) -> bool:
+    """For the local seed only (AD-17): the User of `email` (made, without an account role, when
+    missing; an existing User is never changed) as a registered Student of the Class, unless the
+    address is on its Roster already. True when an entry was added."""
+    address = normalise_email(email)
+    user = await repo.user_by_email(s, address)
+    user_id = (
+        user["id"]
+        if user is not None
+        else await create_user(email=address, name=name, password=password, session=s)
+    )
+    return await repo.ensure_registered_entry(
+        s, class_id, address, user_id, RosterRegistration.registered.value, now
+    )
 
 
 async def roster_counts(class_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:

@@ -62,7 +62,7 @@ HEAD_TABLES = (
     | CLASS_TABLES
     | ROSTER_TABLES
 )
-HEAD = "0026"  # 0026 adds the Roster and Student Invitations (Story 4.4)
+HEAD = "0027"  # 0027 indexes Roster entries by User (Story 4.5)
 
 
 def reset_schema(url: str) -> None:

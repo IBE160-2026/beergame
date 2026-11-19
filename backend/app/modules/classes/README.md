@@ -71,11 +71,28 @@ only `classes.service`.
 - The mail names the Class through a resolver `classes.service` registers with `identity` at
   import (`messaging.delivery` imports `classes.service` so the worker has it); `identity` imports
   no `classes` code.
-- The link leads to `/invitasjon`, which takes only role Invitations until Student registration
-  (Story 4.5): until then a Student link reads as not valid there. The Admin's invitation list and
+- The link leads to `/invitasjon` («Du er invitert», Story 4.5). The Admin's invitation list and
   resend show and take role Invitations only.
 - The Resend sender paces sends to `MAIL_PROVIDER_PER_SECOND` (2) per process; the mail queue
   runs in the one `worker-batch` process. The mock sender is not paced.
+
+## Student registration (Story 4.5, decided)
+
+- «Du er invitert» and the Story 3.8 routes (`check`, `accept`, `accept-login`, `renewal`, same
+  rate limits) take Student Invitations too. A Student link names its Class («name, course code»,
+  through the label resolver this module registers) and the Lecturer who sent it, and counts the
+  days left to its last valid day in Europe/Oslo (a 14-day sending reads «14 dager» that day).
+- Accepting is one transaction in `identity.service`: the Invitation locked, the User created
+  without an account role (or the existing User proven by its password: never a second User), the
+  Roster entry locked, linked to the User and set `registered`, the Invitation accepted, and
+  `user:<id>` emitted. A Roster entry removed meanwhile refuses the link and writes nothing. Student
+  acceptance writes no audit row (the epic audits staff changes and archive only).
+- The Student scope is `authz.classes_enrolled_by`: Roster entries linked to the User and not
+  removed (migration 0027 indexes `roster_entries.user_id`). `GET /api/classes/enrolled` lists
+  them for Hjem; `GET /api/classes/enrolled/{id}` answers one or 403 `forbidden`.
+- Local seed: on every start the demo Class gets `student@example.com` and `student2`…`student8`
+  `@example.com` («Demo Student N», password `olspillet-demo`) as registered Students; existing
+  Users and Roster addresses are left as they are.
 
 ## Open point for the founder: real Canvas exports
 

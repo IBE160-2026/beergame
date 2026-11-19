@@ -150,6 +150,8 @@ roster_entries = Table(
         name="ck_roster_entries_registration",
     ),
     Index("uq_roster_entries_class_email", "class_id", "email", unique=True),
+    # `authz.classes_enrolled_by` reads a Student's entries by User (Story 4.5).
+    Index("ix_roster_entries_user_id", "user_id"),
 )
 """One row per address on a Class's Roster (Story 4.4, FR-7, FR-8, AD-14). Addresses live only
 here and in `invitations`; `classes` reaches them through `identity.service`. Times come from the

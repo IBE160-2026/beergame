@@ -189,11 +189,16 @@ async def check_invitation(body: InvitationTokenIn) -> Response:
     checked = await service.check_invitation(body.token, now=auth.utcnow())
     if checked is None:
         return _invitation_answer(service.AcceptRefused("invitation_link_invalid"))
+    label = checked.class_label
     out = InvitationCheckOut(
+        kind=checked.kind,
         email=checked.email,
         role=checked.role,
         valid_days=checked.valid_days,
         has_account=checked.has_account,
+        class_name=label.name if label else None,
+        course_code=label.course_code if label else None,
+        invited_by=checked.invited_by,
     )
     return JSONResponse(out.model_dump(mode="json"))
 
@@ -206,7 +211,8 @@ async def check_invitation(body: InvitationTokenIn) -> Response:
     dependencies=[Depends(authz.public)],
 )
 async def accept_invitation(body: AcceptInvitationIn, request: Request) -> Response:
-    """Create the account an Invitation offers, with its role, and log in (FR-1, FR-4)."""
+    """Create the account an Invitation offers and log in (FR-1, FR-4): with its role, or, for a
+    Student Invitation, as a registered Student of its Class (Story 4.5, FR-8)."""
     return _invitation_answer(
         await service.accept_invitation_new(
             body.token,
@@ -226,7 +232,8 @@ async def accept_invitation(body: AcceptInvitationIn, request: Request) -> Respo
     dependencies=[Depends(authz.public)],
 )
 async def accept_invitation_with_login(body: AcceptExistingIn, request: Request) -> Response:
-    """Add an Invitation's role to the account its address already has, and log in."""
+    """Add an Invitation's role, or its Class (Story 4.5), to the account its address already
+    has, and log in."""
     return _invitation_answer(
         await service.accept_invitation_existing(
             body.token, body.password, ip=ratelimit.client_ip(request), now=auth.utcnow()

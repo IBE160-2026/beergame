@@ -1,4 +1,5 @@
-"""`/api/classes`: the Lecturer's Classes (Story 4.1, FR-5, FR-6, AD-12)."""
+"""`/api/classes`: the Lecturer's Classes (Story 4.1, FR-5, FR-6, AD-12), and under
+`/api/classes/enrolled` the Classes a Student is in (Story 4.5)."""
 
 import uuid
 from typing import Annotated
@@ -12,6 +13,8 @@ from app.modules.classes.schemas import (
     ClassIn,
     ClassListOut,
     ClassOut,
+    EnrolledClassListOut,
+    EnrolledClassOut,
     InstitutionChoicesOut,
     InvalidClass,
     RosterSendIn,
@@ -70,6 +73,39 @@ async def list_institutions(
 ) -> Response:
     """The Institutions a new Class may belong to, by name."""
     return JSONResponse((await service.institution_choices()).model_dump(mode="json"))
+
+
+@router.get(
+    "/enrolled",
+    response_model=EnrolledClassListOut,
+    responses=documented(401),
+    operation_id="listEnrolledClasses",
+)
+async def list_enrolled_classes(
+    user: Annotated[authz.Principal, Depends(authz.require("classes.read_enrolled"))],
+) -> Response:
+    """The Classes the User is a Student in, by name (Story 4.5): Hjem names them. Empty for a
+    User on no Roster."""
+    return JSONResponse((await service.enrolled_classes(user)).model_dump(mode="json"))
+
+
+@router.get(
+    "/enrolled/{class_id}",
+    response_model=EnrolledClassOut,
+    responses=documented(401, 403),
+    operation_id="getEnrolledClass",
+)
+async def get_enrolled_class(
+    class_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("classes.read_enrolled"))],
+) -> Response:
+    """One Class the User is a Student in. Another Class, one whose Roster no longer holds the
+    User's address, one that does not exist and an id that is not one all answer the same 403
+    `forbidden` (FR-5, FR-7)."""
+    found = await service.enrolled_class(user, _class_id(class_id))
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
 
 
 @router.get(

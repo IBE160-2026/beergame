@@ -35,6 +35,17 @@ export function useClass(id: string) {
   });
 }
 
+export const enrolledClassesKey = ["classes", "enrolled"] as const;
+
+/** The Classes the User is a Student in, by name (Story 4.5): what Hjem names. */
+export function useEnrolledClasses() {
+  return useQuery({
+    queryKey: enrolledClassesKey,
+    queryFn: () => request(() => api.GET("/api/classes/enrolled")),
+    retry: false,
+  });
+}
+
 /** The Institutions a new Class may belong to, by name («Lag Klasse»). */
 export function useClassInstitutions() {
   return useQuery({

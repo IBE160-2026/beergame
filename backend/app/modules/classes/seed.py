@@ -1,9 +1,11 @@
-"""The local demo Class (AD-17, Story 4.1).
+"""The local demo Class and its Students (AD-17, Stories 4.1 and 4.5).
 
 With `APP_ENV=local`, the api adds at start one Class, «class-of-1994» with the course code
 «IBE160» at «Demohøgskolen», owned by the demo Lecturer, when that User exists and is staff of no
-Class yet. Nothing else is changed, and nothing is seeded in any other environment. Its eight
-registered demo Students come with Story 4.5, the first story in which a Student can be in a Class.
+Class yet. Then, on every start, the demo Class (the Class of that name the demo Lecturer owns)
+gets its eight registered demo Students: the demo Student of `identity/seed.py` and seven more,
+each a User with the demo password and a Roster entry linked to it. A User or an address already
+there is left as it is. Nothing is seeded in any other environment.
 """
 
 import uuid
@@ -24,6 +26,13 @@ DEMO_LECTURER = "faglaerer@example.com"
 """The demo Lecturer of `identity/seed.py` (`DEMO_USERS`)."""
 DEMO_CLASS = "class-of-1994"
 DEMO_COURSE_CODE = "IBE160"
+DEMO_PASSWORD = "olspillet-demo"
+"""The password of every demo User (`identity/seed.py`)."""
+DEMO_STUDENTS: tuple[tuple[str, str], ...] = (
+    ("student@example.com", "Demo Student"),
+    *((f"student{n}@example.com", f"Demo Student {n}") for n in range(2, 9)),
+)
+"""The eight registered Students of the demo Class (Story 4.5): address and name."""
 
 SEED_LOCK = 0x4_01_C1
 """The advisory lock key that keeps processes starting together from seeding twice."""
@@ -53,10 +62,32 @@ async def ensure_demo_class() -> bool:
     return True
 
 
+async def ensure_demo_students() -> int:
+    """Give the demo Class its registered demo Students when `APP_ENV=local`; returns how many
+    Roster entries were added (0 when there is no demo Class)."""
+    if get_settings().app_env != "local":
+        return 0
+    now = auth.utcnow()
+    added = 0
+    async with get_sessionmaker().begin() as s:
+        await s.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": SEED_LOCK})
+        lecturer = await identity.user_id_for_email(s, DEMO_LECTURER)
+        class_id = await repo.demo_class_of(s, lecturer, DEMO_CLASS) if lecturer else None
+        if class_id is None:
+            return 0
+        for email, name in DEMO_STUDENTS:
+            if await identity.seed_registered_student(s, class_id, email, name, DEMO_PASSWORD, now):
+                added += 1
+    if added:
+        log.info("demo_students_seeded", class_id=str(class_id), count=added)
+    return added
+
+
 async def ensure_demo_class_logged() -> None:
     """For process start: a database error is logged, never raised."""
     try:
         await ensure_demo_class()
+        await ensure_demo_students()
     except DBAPIError as exc:
         log.warning(
             "demo_class_failed",

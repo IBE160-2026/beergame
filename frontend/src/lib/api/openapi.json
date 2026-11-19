@@ -499,6 +499,55 @@
         "title": "ClassOut",
         "type": "object"
       },
+      "EnrolledClassListOut": {
+        "description": "The Classes the User is a Student in, by name. No paging: a Student has a handful.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EnrolledClassOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "EnrolledClassListOut",
+        "type": "object"
+      },
+      "EnrolledClassOut": {
+        "description": "A Class the User is a Student in (Story 4.5): what Hjem names.",
+        "properties": {
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "course_code"
+        ],
+        "title": "EnrolledClassOut",
+        "type": "object"
+      },
       "ErrorBody": {
         "properties": {
           "code": {
@@ -656,6 +705,28 @@
       "InvitationCheckOut": {
         "description": "What «Du er invitert» shows for a usable link.",
         "properties": {
+          "class_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Name"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
           "email": {
             "title": "Email",
             "type": "string"
@@ -664,8 +735,29 @@
             "title": "Has Account",
             "type": "boolean"
           },
+          "invited_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invited By"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/InvitationKind"
+          },
           "role": {
-            "$ref": "#/components/schemas/AccountRole"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AccountRole"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "valid_days": {
             "title": "Valid Days",
@@ -673,6 +765,7 @@
           }
         },
         "required": [
+          "kind",
           "email",
           "role",
           "valid_days",
@@ -711,6 +804,15 @@
         ],
         "title": "InvitationIn",
         "type": "object"
+      },
+      "InvitationKind": {
+        "description": "What an Invitation offers: an account role (Story 3.7) or a place on a Class's Roster as a\nStudent (Story 4.4). Story 4.9 adds `assistant`.",
+        "enum": [
+          "role",
+          "student"
+        ],
+        "title": "InvitationKind",
+        "type": "string"
       },
       "InvitationListItem": {
         "description": "The newest Invitation to one address and role, on «Brukere og roller» (Story 3.10).",
@@ -2721,7 +2823,7 @@
     },
     "/api/auth/invitation/accept": {
       "post": {
-        "description": "Create the account an Invitation offers, with its role, and log in (FR-1, FR-4).",
+        "description": "Create the account an Invitation offers and log in (FR-1, FR-4): with its role, or, for a\nStudent Invitation, as a registered Student of its Class (Story 4.5, FR-8).",
         "operationId": "acceptInvitation",
         "requestBody": {
           "content": {
@@ -2793,7 +2895,7 @@
     },
     "/api/auth/invitation/accept-login": {
       "post": {
-        "description": "Add an Invitation's role to the account its address already has, and log in.",
+        "description": "Add an Invitation's role, or its Class (Story 4.5), to the account its address already\nhas, and log in.",
         "operationId": "acceptInvitationWithLogin",
         "requestBody": {
           "content": {
@@ -3342,6 +3444,101 @@
           }
         },
         "summary": "Create Class",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/enrolled": {
+      "get": {
+        "description": "The Classes the User is a Student in, by name (Story 4.5): Hjem names them. Empty for a\nUser on no Roster.",
+        "operationId": "listEnrolledClasses",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrolledClassListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "summary": "List Enrolled Classes",
+        "tags": [
+          "classes"
+        ]
+      }
+    },
+    "/api/classes/enrolled/{class_id}": {
+      "get": {
+        "description": "One Class the User is a Student in. Another Class, one whose Roster no longer holds the\nUser's address, one that does not exist and an id that is not one all answer the same 403\n`forbidden` (FR-5, FR-7).",
+        "operationId": "getEnrolledClass",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrolledClassOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Enrolled Class",
         "tags": [
           "classes"
         ]

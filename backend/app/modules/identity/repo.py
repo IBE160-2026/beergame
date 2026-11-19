@@ -791,6 +791,55 @@ async def insert_student_invitations(session: AsyncSession, values: list[dict]) 
         await session.execute(insert(invitations), values[start : start + batch])
 
 
+async def roster_entry_by_id(
+    session: AsyncSession, entry_id: uuid.UUID, *, lock: bool = False
+) -> RowMapping | None:
+    """The Roster entry; with `lock`, locked until the transaction ends."""
+    query = select(roster_entries).where(roster_entries.c.id == entry_id)
+    result = await session.execute(query.with_for_update() if lock else query)
+    return result.mappings().one_or_none()
+
+
+async def register_roster_entry(
+    session: AsyncSession, entry_id: uuid.UUID, user_id: uuid.UUID, registration: str
+) -> bool:
+    """Link a Roster entry that is not removed to its User and mark it registered (Story 4.5).
+    False when the entry is gone or removed (nothing changes)."""
+    result = await session.execute(
+        update(roster_entries)
+        .where(roster_entries.c.id == entry_id, roster_entries.c.removed_at.is_(None))
+        .values(user_id=user_id, registration=registration)
+        .returning(roster_entries.c.id)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def ensure_registered_entry(
+    session: AsyncSession,
+    class_id: uuid.UUID,
+    email: str,
+    user_id: uuid.UUID,
+    registration: str,
+    now: datetime,
+) -> bool:
+    """For the local seed: a registered Roster entry linked to the User, unless the address is
+    on the Roster already (left as it is). True when added."""
+    result = await session.execute(
+        insert(roster_entries)
+        .values(
+            id=uuid.uuid7(),
+            class_id=class_id,
+            email=email,
+            user_id=user_id,
+            registration=registration,
+            added_at=now,
+        )
+        .on_conflict_do_nothing(index_elements=[roster_entries.c.class_id, roster_entries.c.email])
+        .returning(roster_entries.c.id)
+    )
+    return result.scalar_one_or_none() is not None
+
+
 async def roster_counts(session: AsyncSession, class_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
     """How many addresses each Class has on its Roster (removed ones left out)."""
     if not class_ids:

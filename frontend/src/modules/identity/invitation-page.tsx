@@ -16,9 +16,9 @@ import { usePageState } from "@/lib/page-state";
 import { type CheckedInvitation, checkInvitation, useAcceptInvitation, useRequestInvitationRenewal } from "./api";
 import { HOME_PATH, homeOf } from "./homes";
 import {
+  invitationLead,
   type InvitationErrors,
   normaliseName,
-  roleName,
   validateInvitation,
   validateName,
   validityLine,
@@ -42,7 +42,8 @@ async function checkLink(token: string): Promise<CheckedInvitation | null> {
 /**
  * «Du er invitert» (Story 3.8, FR-1, FR-4, UX-DR61). The token comes from the URL fragment. While
  * the link is checked the page shows the Skjelett. A usable link shows the new-account form, or,
- * when the address already has an account, a login that adds the role. Either way the User then
+ * when the address already has an account, a login that adds the role. A Student Invitation (Story
+ * 4.5) names its Class and Lecturer instead of a role, and joins the account to the Class. Either way the User then
  * lands on their own home. A link that is expired or used offers one action: ask for a new one.
  */
 export function InvitationPage() {
@@ -139,13 +140,13 @@ function AcceptForm({
 }) {
   const router = useRouter();
   const existing = invitation.has_account;
-  const action = useAcceptInvitation(existing);
+  const student = invitation.kind === "student";
+  const action = useAcceptInvitation(existing, student);
   const [errors, setErrors] = useState<InvitationErrors>({});
   const [submitted, setSubmitted] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const [focusRequest, setFocusRequest] = useState<{ field: "name" | "password"; n: number }>();
-  const role = roleName(invitation.role);
 
   useEffect(() => {
     if (!focusRequest) return;
@@ -201,7 +202,7 @@ function AcceptForm({
   return (
     <>
       <p className="mt-2 text-body-phone text-ink-secondary lg:text-body">
-        {existing ? copy.existing.lead(role) : copy.lead(role)}
+        {invitationLead(invitation, existing)}
       </p>
       <form method="post" noValidate onSubmit={onSubmit} className="mt-8 flex flex-col gap-5">
         {existing ? null : (
@@ -220,7 +221,7 @@ function AcceptForm({
           name="username"
           type="email"
           autoComplete="username"
-          label={existing ? copy.existing.email : copy.email}
+          label={existing ? copy.existing.email : student ? copy.student.email : copy.email}
           value={invitation.email}
           readOnly
         />
@@ -243,9 +244,9 @@ function AcceptForm({
         />
         <ActionError message={action.errorMessage} />
         <Button type="submit" variant="primary" unavailable={action.isPending} className="mt-1 w-full">
-          {existing ? copy.existing.submit : copy.submit}
+          {existing ? (student ? copy.student.existing.submit : copy.existing.submit) : copy.submit}
         </Button>
-        <p className="text-body-phone text-ink-secondary lg:text-body">{validityLine(invitation.valid_days)}</p>
+        <p className="text-body-phone text-ink-secondary lg:text-body">{validityLine(invitation.valid_days, student)}</p>
         {existing ? (
           <p>
             <Link href="/glemt-passord" standalone>

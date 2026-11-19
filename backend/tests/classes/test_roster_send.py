@@ -237,10 +237,10 @@ async def test_the_mail_names_the_class_and_the_last_valid_day(klass):
     assert auth.token_hash(token) == token_hash
     assert deliveries() == [("immediate", 1, True, None, 1)]
 
-    # Until Student registration (Story 4.5), «Du er invitert» does not take the link.
+    # «Du er invitert» takes the mailed link (Story 4.5).
     async with client() as c:
         checked = await c.post("/api/auth/invitation/check", json={"token": token}, headers=CSRF)
-    assert checked.status_code == 410
+    assert checked.status_code == 200 and checked.json()["kind"] == "student"
 
 
 async def test_an_invitation_past_its_last_day_is_not_mailed(klass):

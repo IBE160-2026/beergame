@@ -100,6 +100,20 @@ class ClassOut(BaseModel):
     """Addresses on the Class's Roster (Story 4.4)."""
 
 
+class EnrolledClassOut(BaseModel):
+    """A Class the User is a Student in (Story 4.5): what Hjem names."""
+
+    id: uuid.UUID
+    name: str
+    course_code: str | None
+
+
+class EnrolledClassListOut(BaseModel):
+    """The Classes the User is a Student in, by name. No paging: a Student has a handful."""
+
+    items: list[EnrolledClassOut]
+
+
 class InstitutionChoice(BaseModel):
     id: uuid.UUID
     name: str

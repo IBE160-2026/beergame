@@ -24,6 +24,9 @@ modules ask `can(user, action, resource)`, they never compare roles themselves.
   `staff_role` in that Class: `can(user, "classes.manage", resource)` holds only for a staff role
   the action allows. A Class outside the scope is never loaded, so it is refused the same as one
   that does not exist (FR-5).
+- Students (Story 4.5): `classes_enrolled_by(user)` is the scope of a Student's own Classes, from
+  the Roster entries linked to the User and not removed. `classes.read_enrolled` is open to every
+  logged-in User; the scope decides what they see.
 
 This module imports no `app.modules` code.
 """
@@ -78,6 +81,8 @@ POLICIES: dict[str, frozenset[str]] = {
     "classes.create": frozenset({LECTURER}),
     "classes.read": frozenset({LECTURER}),
     "classes.manage": frozenset({LECTURER}),
+    # The Classes a User is a Student in (Story 4.5): any User, held to `classes_enrolled_by`.
+    "classes.read_enrolled": frozenset({ANY_USER}),
     # The own session.
     "session.read": frozenset({ANY_USER}),
     # FR-5: no account role grants these. Epic 4+ adds the Class-scoped grants.
@@ -125,6 +130,22 @@ def classes_visible_to(user: Principal | uuid.UUID) -> Select:
     (AD-12)."""
     user_id = user if isinstance(user, uuid.UUID) else user.id
     return select(_class_staff.c.class_id).where(_class_staff.c.user_id == user_id)
+
+
+_roster_entries = table(
+    "roster_entries", column("class_id"), column("user_id"), column("removed_at")
+)
+"""`identity.roster_entries` by name only, for the Student scope."""
+
+
+def classes_enrolled_by(user: Principal | uuid.UUID) -> Select:
+    """The ids of the Classes `user` is a Student in (Story 4.5, FR-5, FR-7): a Roster entry
+    linked to the User and not removed. A subquery for `WHERE classes.id IN (...)`; every query on
+    a Student's Classes joins through it, so another Class reads as one that does not exist."""
+    user_id = user if isinstance(user, uuid.UUID) else user.id
+    return select(_roster_entries.c.class_id).where(
+        _roster_entries.c.user_id == user_id, _roster_entries.c.removed_at.is_(None)
+    )
 
 
 PrincipalLoader = Callable[[uuid.UUID, int], Awaitable[Principal | None]]

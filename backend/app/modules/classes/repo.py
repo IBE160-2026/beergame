@@ -89,8 +89,45 @@ async def any_class_of(session: AsyncSession, user_id: uuid.UUID) -> bool:
     return result.first() is not None
 
 
-async def class_name(session: AsyncSession, class_id: uuid.UUID) -> str | None:
-    """The Class's name, for the mail of its Student Invitations (no User's scope: the mail job
-    names the Class it was given by id)."""
-    result = await session.execute(select(classes.c.name).where(classes.c.id == class_id))
+async def class_label(session: AsyncSession, class_id: uuid.UUID) -> RowMapping | None:
+    """The Class's name and course code, for its Student Invitations' mail and «Du er invitert»
+    (no User's scope: the Invitation names the Class by id)."""
+    result = await session.execute(
+        select(classes.c.name, classes.c.course_code).where(classes.c.id == class_id)
+    )
+    return result.mappings().one_or_none()
+
+
+def _enrolled(user: authz.Principal | uuid.UUID):
+    """The Classes the User is a Student in, through the Student scope (Story 4.5, AD-12)."""
+    return select(classes.c.id, classes.c.name, classes.c.course_code).where(
+        classes.c.id.in_(authz.classes_enrolled_by(user))
+    )
+
+
+async def enrolled_classes(session: AsyncSession, user: authz.Principal) -> list[RowMapping]:
+    """The Classes the User is a Student in, by name (case-insensitively), then id."""
+    result = await session.execute(
+        _enrolled(user).order_by(func.lower(classes.c.name), classes.c.id)
+    )
+    return list(result.mappings())
+
+
+async def enrolled_class(
+    session: AsyncSession, user: authz.Principal, class_id: uuid.UUID
+) -> RowMapping | None:
+    """The Class, or None when the User is not a Student in it or it does not exist."""
+    result = await session.execute(_enrolled(user).where(classes.c.id == class_id))
+    return result.mappings().one_or_none()
+
+
+async def demo_class_of(session: AsyncSession, owner: uuid.UUID, name: str) -> uuid.UUID | None:
+    """For the local seed: the id of the Class called `name` the User owns."""
+    result = await session.execute(
+        _visible(owner)
+        .with_only_columns(classes.c.id)
+        .where(classes.c.name == name, class_staff.c.role == StaffRole.owner.value)
+        .order_by(classes.c.id)
+        .limit(1)
+    )
     return result.scalar_one_or_none()

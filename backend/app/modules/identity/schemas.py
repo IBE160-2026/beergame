@@ -92,12 +92,22 @@ class InvitationTokenIn(BaseModel):
 class InvitationCheckOut(BaseModel):
     """What «Du er invitert» shows for a usable link."""
 
+    kind: InvitationKind
+    """`role` (Story 3.8) or `student`: a place on a Class's Roster (Story 4.5)."""
     email: str
-    role: AccountRole
+    role: AccountRole | None
+    """The account role a `role` Invitation grants; null for a Student Invitation."""
     valid_days: int
-    """Whole days left, rounded up."""
+    """Whole days left: rounded up for a role Invitation; for a Student Invitation the days from
+    today to its last valid day in Europe/Oslo, at least 1."""
     has_account: bool
     """Whether the address already has an account: the page then asks for its password."""
+    class_name: str | None = None
+    """The Class a Student Invitation adds the address to."""
+    course_code: str | None = None
+    """The course code of that Class, when it has one."""
+    invited_by: str | None = None
+    """The name of the Lecturer who sent a Student Invitation, while that User exists."""
 
 
 class AcceptInvitationIn(BaseModel):

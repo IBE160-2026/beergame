@@ -319,7 +319,8 @@ export interface paths {
         put?: never;
         /**
          * Accept Invitation
-         * @description Create the account an Invitation offers, with its role, and log in (FR-1, FR-4).
+         * @description Create the account an Invitation offers and log in (FR-1, FR-4): with its role, or, for a
+         *     Student Invitation, as a registered Student of its Class (Story 4.5, FR-8).
          */
         post: operations["acceptInvitation"];
         delete?: never;
@@ -339,7 +340,8 @@ export interface paths {
         put?: never;
         /**
          * Accept Invitation With Login
-         * @description Add an Invitation's role to the account its address already has, and log in.
+         * @description Add an Invitation's role, or its Class (Story 4.5), to the account its address already
+         *     has, and log in.
          */
         post: operations["acceptInvitationWithLogin"];
         delete?: never;
@@ -520,6 +522,49 @@ export interface paths {
          *     `invalid_request` with every refused field in `fields`, and nothing is stored.
          */
         post: operations["createClass"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/enrolled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Enrolled Classes
+         * @description The Classes the User is a Student in, by name (Story 4.5): Hjem names them. Empty for a
+         *     User on no Roster.
+         */
+        get: operations["listEnrolledClasses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/enrolled/{class_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Enrolled Class
+         * @description One Class the User is a Student in. Another Class, one whose Roster no longer holds the
+         *     User's address, one that does not exist and an id that is not one all answer the same 403
+         *     `forbidden` (FR-5, FR-7).
+         */
+        get: operations["getEnrolledClass"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -910,6 +955,29 @@ export interface components {
             roster_count: number;
             staff_role: components["schemas"]["StaffRole"];
         };
+        /**
+         * EnrolledClassListOut
+         * @description The Classes the User is a Student in, by name. No paging: a Student has a handful.
+         */
+        EnrolledClassListOut: {
+            /** Items */
+            items: components["schemas"]["EnrolledClassOut"][];
+        };
+        /**
+         * EnrolledClassOut
+         * @description A Class the User is a Student in (Story 4.5): what Hjem names.
+         */
+        EnrolledClassOut: {
+            /** Course Code */
+            course_code: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /** ErrorBody */
         ErrorBody: {
             /** Code */
@@ -991,11 +1059,18 @@ export interface components {
          * @description What «Du er invitert» shows for a usable link.
          */
         InvitationCheckOut: {
+            /** Class Name */
+            class_name?: string | null;
+            /** Course Code */
+            course_code?: string | null;
             /** Email */
             email: string;
             /** Has Account */
             has_account: boolean;
-            role: components["schemas"]["AccountRole"];
+            /** Invited By */
+            invited_by?: string | null;
+            kind: components["schemas"]["InvitationKind"];
+            role: components["schemas"]["AccountRole"] | null;
             /** Valid Days */
             valid_days: number;
         };
@@ -1010,6 +1085,13 @@ export interface components {
             email: string;
             role: components["schemas"]["AccountRole"];
         };
+        /**
+         * InvitationKind
+         * @description What an Invitation offers: an account role (Story 3.7) or a place on a Class's Roster as a
+         *     Student (Story 4.4). Story 4.9 adds `assistant`.
+         * @enum {string}
+         */
+        InvitationKind: "role" | "student";
         /**
          * InvitationListItem
          * @description The newest Invitation to one address and role, on «Brukere og roller» (Story 3.10).
@@ -2750,6 +2832,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listEnrolledClasses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrolledClassListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getEnrolledClass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrolledClassOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

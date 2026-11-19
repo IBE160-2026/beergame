@@ -26,6 +26,10 @@ function countWord(count: number): string {
   return COUNT_WORDS[count] ?? String(count);
 }
 
+/** The Start-date line of «Du er invitert» and Hjem (Story 4.5). [ASSUMPTION] EXPERIENCE.md's draft:
+ * a Student sees game, Role and Seats from the Start date (founder decision 2026-11-12). */
+const START_DATE_LINE = "Du får Rolle og spill på startdatoen.";
+
 export const nb = {
   product: {
     name: "ØL-spillet",
@@ -274,8 +278,23 @@ export const nb = {
        * the link or an account exists. */
       invalid: "Lenken er utløpt eller brukt.",
       requestNew: "Be om ny Invitasjon",
-      requested: "Hvis lenken kom fra en Invitasjon, ser Admin nå at du ber om en ny. Den kommer på e-post.",
+      // Story 4.5: the same line for a role and a Student link, so it names whoever sent it.
+      requested: "Hvis lenken kom fra en Invitasjon, ser den som sendte den nå at du ber om en ny. Den kommer på e-post.",
       requestFailed: "Forespørselen ble ikke sendt. Prøv igjen.",
+      /** A Student Invitation (Story 4.5): the Class and its Lecturer, after mockup 04's
+       * «Faglærer Bård har lagt deg til i class-of-1994, IBE160.». `startDate` is EXPERIENCE.md's
+       * draft (founder decision 2026-11-12); the rest is [ASSUMPTION] Story 4.5. */
+      student: {
+        lead: (inviter: string | null, classLabel: string) =>
+          inviter ? `Faglærer ${inviter} har lagt deg til i ${classLabel}.` : `Du er lagt til i ${classLabel}.`,
+        email: "E-post, fra Klasselista",
+        startDate: START_DATE_LINE,
+        existing: {
+          lead: (classLabel: string) => `Adressen har allerede en konto. Logg inn, så blir du med i ${classLabel}.`,
+          submit: "Logg inn og bli med i Klassen",
+          failed: "Du ble ikke med i Klassen. Prøv igjen.",
+        },
+      },
     },
     session: {
       // [ASSUMPTION] Story 3.2.
@@ -289,6 +308,8 @@ export const nb = {
     adminArea: "Admin-område",
     lecturerHome: "Lærerhjem",
     home: "Hjem",
+    /** Hjem names each Class the Student is in, with the Start-date line (Story 4.5). */
+    startDate: START_DATE_LINE,
   },
 
   /** The Lecturer's Classes (Epic 4). «Klassene dine», «Ny Klasse», «Lag Klasse», «Navn» and

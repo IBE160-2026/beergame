@@ -20,6 +20,8 @@ from app.modules.classes.schemas import (
     ClassListItem,
     ClassListOut,
     ClassOut,
+    EnrolledClassListOut,
+    EnrolledClassOut,
     InstitutionChoice,
     InstitutionChoicesOut,
     InvalidClass,
@@ -232,9 +234,29 @@ async def send_invitations(
     )
 
 
-async def name_of_class(session: AsyncSession, class_id: uuid.UUID) -> str | None:
-    """The name a Student Invitation's mail gives its Class (`identity`'s resolver)."""
-    return await repo.class_name(session, class_id)
+async def label_of_class(session: AsyncSession, class_id: uuid.UUID) -> identity.ClassLabel | None:
+    """How a Student Invitation names its Class, in its mail and on «Du er invitert»
+    (`identity`'s resolver)."""
+    row = await repo.class_label(session, class_id)
+    return None if row is None else identity.ClassLabel(row["name"], row["course_code"])
+
+
+# The Classes a Student is in (Story 4.5, FR-5, FR-7, AD-12): read through the Student scope only.
+
+
+async def enrolled_classes(user: authz.Principal) -> EnrolledClassListOut:
+    """The Classes `user` is a Student in, by name: what Hjem names."""
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.enrolled_classes(s, user)
+    return EnrolledClassListOut(items=[EnrolledClassOut(**row) for row in rows])
+
+
+async def enrolled_class(user: authz.Principal, class_id: uuid.UUID) -> EnrolledClassOut | None:
+    """The Class, or None when `user` is not a Student in it (another Class, a removed address,
+    or none at all): one answer (FR-5)."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.enrolled_class(s, user, class_id)
+    return None if row is None else EnrolledClassOut(**row)
 
 
 async def owned_active_classes(session: AsyncSession, user_id: uuid.UUID) -> int:
@@ -244,4 +266,4 @@ async def owned_active_classes(session: AsyncSession, user_id: uuid.UUID) -> int
 
 
 identity.register_revoke_blocker(identity.AccountRole.lecturer, owned_active_classes)
-identity.register_class_name(name_of_class)
+identity.register_class_label(label_of_class)

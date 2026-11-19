@@ -25,8 +25,9 @@ const CROSS_LINK: Partial<Record<Home, Home>> = { lecturerHome: "adminArea", adm
  * One of the three homes (Story 3.3). A User whose roles do not allow it sees the permission-
  * denied page at the same address; a visitor who is not logged in goes to «Logg inn» and comes
  * back after it. While `/me` loads the page shows the Skjelett, and a failed load the page-error
- * line (Story 3.4). The Lærerhjem's content comes from `classes` as `children` (Story 4.1); Hjem
- * holds a heading only until Epic 6 fills it; the Admin-område lists its pages, «Brukere og
+ * line (Story 3.4). The Lærerhjem's content comes from `classes` as `children` (Story 4.1), and so
+ * does Hjem's: the Student's Classes (Story 4.5) until Epic 6 fills it. The Admin-område lists its
+ * pages, «Brukere og
  * roller» first (Story 3.7).
  */
 export function HomePage({ page, children }: { page: Home; children?: ReactNode }) {
