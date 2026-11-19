@@ -780,9 +780,55 @@ export const nb = {
       create: "Lag Klasseøkt",
       creating: "Lager …",
       createFailed: "Klasseøkten ble ikke laget. Prøv igjen.",
-      item: (created: string) => `Klasseøkt opprettet ${created}`,
+      /** «Klasseøkt 2, opprettet 19. nov. 2026 kl. 10:00»: the running number keeps two sessions
+       * created in the same minute apart (Issue #98). */
+      item: (number: number, created: string) => `Klasseøkt ${number}, opprettet ${created}`,
       saved: "Lagret",
       unsaved: "Ikke lagret ennå",
+    },
+    /** The four dates and the Datolinje (Story 5.2, FR-18, UX-DR51). «Datoer», «Startdato»,
+     * «Spillfrist», «Debrieffrist» and «Testfrist» are EXPERIENCE.md's and mockup 03's own; the
+     * rest is [ASSUMPTION] draft copy. */
+    dates: {
+      title: "Datoer",
+      names: {
+        start_at: "Startdato",
+        play_deadline: "Spillfrist",
+        debrief_deadline: "Debrieffrist",
+        test_deadline: "Testfrist",
+      },
+      // [ASSUMPTION]
+      none: "Ingen datoer ennå.",
+      // [ASSUMPTION]
+      timeZone: "Tidene er norsk tid.",
+      // [ASSUMPTION] under the Testfrist while it is the prefilled value.
+      testPrefilled: "Fylt ut 7 dager etter Debrieffristen. Du kan endre den.",
+      // [ASSUMPTION] beside a date that has passed and no longer moves.
+      passed: "Passert. Datoen kan ikke flyttes.",
+      /** A date on the Datolinje: «ti. 24. nov.». */
+      day: (weekday: string, day: number, month: string) => `${weekday} ${day}. ${month}`,
+      weekdays: ["sø.", "ma.", "ti.", "on.", "to.", "fr.", "lø."],
+      /** The reason under a date the API refused. [ASSUMPTION] */
+      errors: {
+        order: (earlier: string) => `Må komme etter ${earlier}.`,
+        before: (later: string) => `Må komme før ${later}.`,
+        past: "Velg et tidspunkt fram i tid.",
+        passed: "Datoen er passert og kan ikke flyttes.",
+        required: "Klasseøkten har startet. Datoen kan ikke tas bort.",
+      },
+      // [ASSUMPTION] the alert line of a save refused for its dates.
+      refused: "Datoene ble ikke lagret. Se feltene.",
+      // [ASSUMPTION] a setting changed after the Start date (`session_locked`).
+      locked: "Klasseøkten har startet. Innstillingene kan ikke endres lenger.",
+      // [ASSUMPTION] FR-18: the warning that never blocks.
+      playTimeShort: (weeks: number) =>
+        `Det er kort tid mellom Startdato og Spillfrist for ${weeks} uker. Du kan likevel lagre.`,
+    },
+    /** The Lærerhjem's «Venter» and «Neste frist» (Story 5.2, UX-DR56). [ASSUMPTION] */
+    home: {
+      lacksDates: (className: string, number: number) => `${className}: Klasseøkt ${number} mangler datoer`,
+      nextDate: (dateName: string, number: number, className: string) =>
+        `${dateName}, Klasseøkt ${number}, ${className}`,
     },
   },
 

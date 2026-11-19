@@ -115,6 +115,11 @@ class Settings(BaseSettings):
     # set-password link of a manually registered Student works.
     manual_registration_link_days: int = Field(14, ge=1, le=60)
 
+    # The date plan of a Class session (Story 5.2, FR-18). PLACEHOLDER, unset until SM-11 is
+    # known: the least playing time per Week, in minutes. While unset the Klasseøkt never warns
+    # that the time between the Start date and the Play deadline is too short.
+    min_play_minutes_per_week: int | None = Field(None, ge=1)
+
     # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
     # to the `[email:mock]` sender; the compose file never passes a key.
     email_from: str = LOCAL_EMAIL_FROM

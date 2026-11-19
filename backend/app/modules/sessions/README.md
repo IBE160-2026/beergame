@@ -30,3 +30,26 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   then 409.
 - The model config is referenced by id only. It is frozen (`ai.config.mark_referenced`) by the
   Start-date lock (Story 5.11), not here.
+
+## Dates (Story 5.2)
+
+- `class_sessions` holds `start_at`, `play_deadline`, `debrief_deadline` and `test_deadline`
+  (migration 0033), UTC and NULL until set. A CHECK keeps every pair that is set in order.
+- «Lagre Klasseøkt» takes `dates` with all four (instants with an offset, or null). Without
+  `dates` they stay. The rules, in this order: 409 `session_locked` for a changed AI mode once
+  locked; 409 `deadline_passed` for a changed date that has passed (the Start date too); 422
+  `invalid_dates` for a changed date not in the future (`past`) or cleared once locked
+  (`required`); 422 `invalid_dates` for the later date of a pair out of order (`order`).
+  Unchanged dates are never judged.
+- A save that changes a date emits `user:<id>` for each registered Student of the Class.
+- `service.is_locked(class_session)` is the one lock predicate: the Start date has passed.
+  `effective_debrief_deadline` and `effective_test_deadline` are the only way another module
+  reads a Student's deadline (Epic 11 adds per-Student values inside them).
+- `play_time_warning` needs `MIN_PLAY_MINUTES_PER_WEEK` (unset until SM-11), and is false
+  while it is unset.
+- `GET /api/me/class-sessions`: a Student's sessions with dates and `next_deadline`, scoped by
+  `authz.classes_enrolled_by`; never the Game settings.
+- `GET /api/lecturer-home/class-sessions`: the Lærerhjem's «Venter» (sessions lacking a date)
+  and «Neste frist» (the next date), over the User's Classes that are not archived, scoped by
+  `authz.classes_visible_to`.
+- Each session has a `number` within its Class, oldest first (Issue #98).

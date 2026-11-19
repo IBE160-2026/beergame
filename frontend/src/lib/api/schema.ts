@@ -519,6 +519,11 @@ export interface paths {
          * Save Class Session
          * @description «Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config
          *     is pinned as the default answer 409 `llm_unavailable`, and nothing changes.
+         *
+         *     With `dates` the four dates are replaced (FR-18). `fields` names each date in question:
+         *     422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `required`
+         *     once locked), 409 `deadline_passed` (`passed`). Once the Start date has passed, a changed AI
+         *     mode answers 409 `session_locked`.
          */
         put: operations["saveClassSession"];
         post?: never;
@@ -1035,6 +1040,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/lecturer-home/class-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lecturer Home Class Sessions
+         * @description The Lærerhjem's «Venter» and «Neste frist» over the User's Classes that are not archived
+         *     (UX-DR56).
+         */
+        get: operations["lecturerHomeClassSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/class-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Class Sessions
+         * @description The Class sessions of the Classes the User is a Student in: dates and the next deadline,
+         *     never the Game settings (FR-18). Empty for a User who is no Student.
+         */
+        get: operations["listMyClassSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1296,6 +1343,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Number */
+            number: number;
             /** Saved At */
             saved_at: string | null;
         };
@@ -1327,6 +1376,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Debrief Deadline */
+            debrief_deadline: string | null;
             debrief_mode: components["schemas"]["DebriefMode"];
             game_settings: components["schemas"]["GameSettings"];
             /**
@@ -1340,17 +1391,47 @@ export interface components {
             is_classic: boolean;
             /** Llm Unavailable */
             llm_unavailable: "no_default_model" | null;
+            /** Locked */
+            locked: boolean;
+            /** Number */
+            number: number;
             /** Obligatory */
             obligatory: boolean;
+            /** Passed Dates */
+            passed_dates: ("start_at" | "play_deadline" | "debrief_deadline" | "test_deadline")[];
+            /** Play Deadline */
+            play_deadline: string | null;
+            /** Play Time Warning */
+            play_time_warning: boolean;
             /** Saved At */
             saved_at: string | null;
+            /** Start At */
+            start_at: string | null;
+            /** Test Deadline */
+            test_deadline: string | null;
         };
         /**
          * ClassSessionSaveIn
-         * @description «Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice).
+         * @description «Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice)
+         *     and the four dates (Story 5.2); without `dates` the dates stay as they are.
          */
         ClassSessionSaveIn: {
             ai_mode: components["schemas"]["AiMode"];
+            dates?: components["schemas"]["DatesIn"] | null;
+        };
+        /**
+         * DatesIn
+         * @description The four dates as the Lecturer set them, each an instant with its offset or None.
+         */
+        DatesIn: {
+            /** Debrief Deadline */
+            debrief_deadline: string | null;
+            /** Play Deadline */
+            play_deadline: string | null;
+            /** Start At */
+            start_at: string | null;
+            /** Test Deadline */
+            test_deadline: string | null;
         };
         /**
          * DebriefMode
@@ -1443,6 +1524,43 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+        };
+        /** EnrolledSessionListOut */
+        EnrolledSessionListOut: {
+            /** Items */
+            items: components["schemas"]["EnrolledSessionOut"][];
+        };
+        /**
+         * EnrolledSessionOut
+         * @description A Class session as its Student reads it (Story 5.2, FR-18, AD-3): the dates and the next
+         *     deadline that applies. Never the Game settings, the number of Weeks or the demand.
+         */
+        EnrolledSessionOut: {
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /** Debrief Deadline */
+            debrief_deadline: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            next_deadline: components["schemas"]["NextDeadline"] | null;
+            /** Number */
+            number: number;
+            /** Obligatory */
+            obligatory: boolean;
+            /** Play Deadline */
+            play_deadline: string | null;
+            /** Start At */
+            start_at: string | null;
+            /** Test Deadline */
+            test_deadline: string | null;
         };
         /** ErrorBody */
         ErrorBody: {
@@ -1749,6 +1867,16 @@ export interface components {
             /** Token */
             token: string;
         };
+        /**
+         * LecturerOverviewOut
+         * @description The Lærerhjem's «Venter» and «Neste frist» (Story 5.2, UX-DR56): over the User's Classes
+         *     that are not archived.
+         */
+        LecturerOverviewOut: {
+            next_date: components["schemas"]["NextDate"] | null;
+            /** Waiting */
+            waiting: components["schemas"]["WaitingClass"][];
+        };
         /** LoginIn */
         LoginIn: {
             /** Email */
@@ -1780,6 +1908,46 @@ export interface components {
             password: string;
             /** Token */
             token: string;
+        };
+        /** NextDate */
+        NextDate: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "start" | "play" | "debrief" | "test";
+            /** Number */
+            number: number;
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+        };
+        /** NextDeadline */
+        NextDeadline: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "start" | "play" | "debrief" | "test";
         };
         /** PasswordResetIn */
         PasswordResetIn: {
@@ -2058,6 +2226,16 @@ export interface components {
         SessionOut: {
             user: components["schemas"]["UserOut"];
         };
+        /** SessionRef */
+        SessionRef: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Number */
+            number: number;
+        };
         /**
          * SessionRole
          * @description The roles a session carries (`UserOut.roles`): the account roles, and `assistant` while the
@@ -2200,6 +2378,21 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /**
+         * WaitingClass
+         * @description A Class with Class sessions that still lack a date.
+         */
+        WaitingClass: {
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /** Sessions */
+            sessions: components["schemas"]["SessionRef"][];
         };
     };
     responses: never;
@@ -5018,6 +5211,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    lecturerHomeClassSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LecturerOverviewOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listMyClassSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrolledSessionListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

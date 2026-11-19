@@ -54,7 +54,7 @@ export function ClassSessions({ classId, canCreate }: { classId: string; canCrea
           {items.map((item) => (
             <li key={item.id} className="flex flex-col items-start border-b border-hairline pb-2 sm:flex-row sm:items-baseline sm:justify-between sm:gap-x-4 sm:py-1">
               <Link href={classSessionPath(item.id)} standalone>
-                {copy.item(formatTime(item.created_at))}
+                {copy.item(item.number, formatTime(item.created_at))}
               </Link>
               <span className="text-body-phone text-ink-secondary">{item.saved_at ? copy.saved : copy.unsaved}</span>
             </li>

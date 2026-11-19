@@ -1,5 +1,6 @@
 import { type ReactNode, useId } from "react";
 
+import { ScrollRegion } from "@/components/scroll-region";
 import { nb } from "@/copy/nb";
 
 import type { GameSettings } from "./api";
@@ -115,9 +116,10 @@ export function ChainDiagram({ settings }: { settings: GameSettings }) {
         </h3>
         <p className="text-body-phone text-ink-secondary">{copy.caption}</p>
       </div>
-      {/* Below its natural width the diagram scrolls inside its own region, so its labels stay
-          readable on a phone (as the Datolinje, UX-DR75); the page itself never scrolls sideways. */}
-      <div role="group" aria-labelledby={titleId} tabIndex={0} className="mt-3 max-w-2xl overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
+      {/* Below its natural width the diagram scrolls inside its own region, with a fading edge on
+          the side that has more, so its labels stay readable on a phone (as the Datolinje,
+          UX-DR75, Issue #98); the page itself never scrolls sideways. */}
+      <ScrollRegion labelledBy={titleId} className="mt-3 max-w-2xl">
         <svg
           role="img"
           aria-labelledby={textId}
@@ -128,7 +130,7 @@ export function ChainDiagram({ settings }: { settings: GameSettings }) {
         >
           {parts}
         </svg>
-      </div>
+      </ScrollRegion>
       <figcaption id={textId} className="mt-3 max-w-2xl text-body-phone text-ink-secondary">
         {chainText(settings)}
       </figcaption>

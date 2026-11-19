@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { ActionError } from "@/components/action-error";
 import { Button } from "@/components/button";
@@ -15,8 +15,18 @@ import { useClass } from "@/modules/classes/api";
 import { classPath, classSessionPath, HOME_PATH } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 
-import { type ClassSession, classSessionKey, classSessionsKey, saveClassSession, useClassSession } from "./api";
+import {
+  type ClassSession,
+  classSessionKey,
+  classSessionsKey,
+  lecturerHomeKey,
+  saveClassSession,
+  useClassSession,
+} from "./api";
 import { ChainDiagram } from "./chain-diagram";
+import { DateFields } from "./date-fields";
+import { DateLine } from "./date-line";
+import { type DateInputs, dateErrors, datesBody, inputsOf } from "./dates";
 import { settingRows } from "./sessions";
 
 const copy = nb.sessions;
@@ -75,6 +85,29 @@ function ClassSessionView({ sessionId, user, updatedAt }: { sessionId: string; u
 
 function ClassSessionBody({ item }: { item: ClassSession }) {
   const settings = item.game_settings;
+  const queryClient = useQueryClient();
+  const datesTitle = useId();
+  // The date fields as typed; they take effect only when «Lagre Klasseøkt» saves them.
+  const [inputs, setInputs] = useState<DateInputs>(() => inputsOf(item));
+  const [testTouched, setTestTouched] = useState(item.test_deadline != null);
+  const [saved, setSaved] = useState(false);
+  const action = useAction({
+    mutationFn: () => saveClassSession(item.id, item.ai_mode, datesBody(inputs)),
+    messages: {
+      llm_unavailable: copy.llmRefused,
+      invalid_dates: copy.dates.refused,
+      deadline_passed: copy.dates.refused,
+      session_locked: copy.dates.locked,
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData(classSessionKey(item.id), result);
+      void queryClient.invalidateQueries({ queryKey: classSessionsKey(item.class_id), exact: true });
+      void queryClient.invalidateQueries({ queryKey: lecturerHomeKey, exact: true });
+      setInputs(inputsOf(result));
+      setTestTouched(result.test_deadline != null);
+      setSaved(true);
+    },
+  });
   // Why nothing can be changed: the Class is archived (Story 4.10), or the User is its Assistent.
   const klass = useClass(item.class_id).data;
   const readOnlyLine = item.can_manage
@@ -108,9 +141,40 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
             <ChainDiagram settings={settings} />
           </div>
         </section>
+        <section aria-labelledby={datesTitle} className="min-w-0">
+          <h2 id={datesTitle} className="text-headline text-ink">
+            {copy.dates.title}
+          </h2>
+          <DateLine dates={item} titleId={datesTitle} />
+          <DateFields
+            inputs={inputs}
+            testTouched={testTouched}
+            onChange={(next, touched) => {
+              setInputs(next);
+              setTestTouched(touched);
+            }}
+            errors={dateErrors(action.error, inputs)}
+            passed={item.passed_dates}
+            readOnly={!item.can_manage}
+          />
+          {item.play_time_warning ? (
+            <p className="mt-3 text-body-phone text-ink lg:text-body">{copy.dates.playTimeShort(settings.weeks)}</p>
+          ) : null}
+        </section>
       </div>
       <Choices item={item} />
-      {item.can_manage ? <SaveRow item={item} /> : null}
+      {item.can_manage ? (
+        <SaveRow
+          pending={action.isPending}
+          errorMessage={action.errorMessage}
+          saved={saved && !action.isError}
+          onSave={() => {
+            if (action.isPending) return;
+            setSaved(false);
+            action.mutate();
+          }}
+        />
+      ) : null}
     </>
   );
 }
@@ -139,18 +203,17 @@ function Choices({ item }: { item: ClassSession }) {
 }
 
 /** «Lagre Klasseøkt», the screen's primary button. A failure keeps focus and values. */
-function SaveRow({ item }: { item: ClassSession }) {
-  const queryClient = useQueryClient();
-  const [saved, setSaved] = useState(false);
-  const action = useAction({
-    mutationFn: () => saveClassSession(item.id, item.ai_mode),
-    messages: { llm_unavailable: copy.llmRefused },
-    onSuccess: (result) => {
-      queryClient.setQueryData(classSessionKey(item.id), result);
-      void queryClient.invalidateQueries({ queryKey: classSessionsKey(item.class_id), exact: true });
-      setSaved(true);
-    },
-  });
+function SaveRow({
+  pending,
+  errorMessage,
+  saved,
+  onSave,
+}: {
+  pending: boolean;
+  errorMessage: string | undefined;
+  saved: boolean;
+  onSave: () => void;
+}) {
   return (
     <div className="mt-10 flex flex-col items-start gap-3 lg:items-end">
       <div className="flex flex-col-reverse items-start gap-3 lg:flex-row lg:items-center lg:gap-6">
@@ -159,20 +222,16 @@ function SaveRow({ item }: { item: ClassSession }) {
         </p>
         <Button
           variant="primary"
-          unavailable={action.isPending}
+          unavailable={pending}
           aria-describedby="save-hint"
-          onClick={() => {
-            if (action.isPending) return;
-            setSaved(false);
-            action.mutate();
-          }}
+          onClick={onSave}
         >
-          {action.isPending ? copy.saving : copy.save}
+          {pending ? copy.saving : copy.save}
         </Button>
       </div>
-      <ActionError message={action.errorMessage} />
+      <ActionError message={errorMessage} />
       <p role="status" className="text-body-phone text-ink">
-        {saved && !action.isError ? copy.saved : ""}
+        {saved ? copy.saved : ""}
       </p>
     </div>
   );

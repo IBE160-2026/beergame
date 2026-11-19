@@ -7,6 +7,7 @@ import { nb } from "@/copy/nb";
 import { usePageState } from "@/lib/page-state";
 import { useMe } from "@/modules/identity/api";
 import { canCreateClass, classPath, NEW_CLASS_PATH } from "@/modules/identity/homes";
+import { LecturerHomeSessions } from "@/modules/sessions/lecturer-home-sessions";
 
 import { type ClassListItem, classesKey, useClasses } from "./api";
 import { splitArchived } from "./classes";
@@ -17,8 +18,8 @@ const copy = nb.classes.home;
  * The Lærerhjem's content (Story 4.1, UX-DR56). With no Class, one line and «Ny Klasse», the only
  * action. With Classes, «Klassene dine» lists each as a Lenke to the Class («name, course code»)
  * with its Roster count beside it (Story 4.4),
- * «Ny Klasse» stays under the list, and beside it stand the places for what is waiting and the
- * next deadline, which stay empty until Class sessions exist (Epic 5). An Assistant lecturer sees
+ * «Ny Klasse» stays under the list, and beside it stand «Venter» and «Neste frist», filled from
+ * the Class sessions (Story 5.2, `LecturerHomeSessions`). An Assistant lecturer sees
  * the Classes they are attached to and no «Ny Klasse» (Story 4.9).
  */
 export function LecturerHome() {
@@ -92,16 +93,7 @@ export function LecturerHome() {
           </section>
         ) : null}
       </div>
-      <dl className="flex flex-col gap-4 self-start border-t border-hairline pt-4">
-        <div>
-          <dt className="text-label text-ink">{copy.waiting}</dt>
-          <dd className="mt-1 text-body-phone text-ink-secondary lg:text-body">{copy.nothingWaiting}</dd>
-        </div>
-        <div>
-          <dt className="text-label text-ink">{copy.deadline}</dt>
-          <dd className="mt-1 text-body-phone text-ink-secondary lg:text-body">{copy.noDeadline}</dd>
-        </div>
-      </dl>
+      <LecturerHomeSessions />
     </div>
   );
 }

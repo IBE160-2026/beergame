@@ -21,9 +21,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A User the Admin deactivates or reactivates (Story 3.10): their open pages reload.
         "identity.deactivate_user": frozenset({"user"}),
         "identity.reactivate_user": frozenset({"user"}),
-        # A Class session created or saved (Story 5.1): its Class's staff read it again.
+        # A Class session created or saved (Story 5.1): its Class's staff read it again. A save
+        # that changes a date also tells each registered Student of the Class (Story 5.2).
         "sessions.create": frozenset({"session"}),
-        "sessions.save": frozenset({"session"}),
+        "sessions.save": frozenset({"session", "user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

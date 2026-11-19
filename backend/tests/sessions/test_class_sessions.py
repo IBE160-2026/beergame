@@ -145,8 +145,9 @@ async def test_saving_unchanged_stamps_it_and_tells_the_staff(klass, default_mod
     assert response.json()["saved_at"] is not None
     assert stored()[0][7] == NOW
     assert rows("SELECT game_settings FROM class_sessions") == before
+    # No date changed, so no Student is told (Story 5.2 adds `user` for a date change).
     assert emitted == [("session", session_id)]
-    assert {topic for topic, _ in emitted} == COMMAND_TOPICS["sessions.save"]
+    assert {topic for topic, _ in emitted} <= COMMAND_TOPICS["sessions.save"]
     listed = await call(LECTURER, "GET", f"/api/classes/{klass}/class-sessions")
     assert [(i["id"], i["saved_at"] is not None) for i in listed.json()["items"]] == [
         (session_id, True)

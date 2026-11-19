@@ -114,3 +114,18 @@ export const test = base.extend<object, { lecturerSession: Session }>({
     { scope: "worker" },
   ],
 });
+
+/** A fresh Class of `lecturer`, at the demo Institution, made through the api (Story 5.1). */
+export async function freshClass(lecturer: Page): Promise<{ id: string; name: string }> {
+  const places = await lecturer.request.get("/api/classes/institutions");
+  const place = ((await places.json()).items as { id: string; name: string }[]).find(
+    (item) => item.name === "Demohøgskolen",
+  )!;
+  const name = `okt-${Date.now() % 100000}${Math.floor(Math.random() * 100)}`;
+  const created = await lecturer.request.post("/api/classes", {
+    data: { name, institution_id: place.id },
+    headers: CSRF,
+  });
+  expect(created.status()).toBe(201);
+  return { id: (await created.json()).id as string, name };
+}

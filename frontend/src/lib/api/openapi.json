@@ -547,6 +547,10 @@
             "title": "Id",
             "type": "string"
           },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
           "saved_at": {
             "anyOf": [
               {
@@ -562,6 +566,7 @@
         },
         "required": [
           "id",
+          "number",
           "created_at",
           "saved_at"
         ],
@@ -609,6 +614,18 @@
             "title": "Created At",
             "type": "string"
           },
+          "debrief_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debrief Deadline"
+          },
           "debrief_mode": {
             "$ref": "#/components/schemas/DebriefMode"
           },
@@ -640,8 +657,45 @@
             ],
             "title": "Llm Unavailable"
           },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
           "obligatory": {
             "title": "Obligatory",
+            "type": "boolean"
+          },
+          "passed_dates": {
+            "items": {
+              "enum": [
+                "start_at",
+                "play_deadline",
+                "debrief_deadline",
+                "test_deadline"
+              ],
+              "type": "string"
+            },
+            "title": "Passed Dates",
+            "type": "array"
+          },
+          "play_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Play Deadline"
+          },
+          "play_time_warning": {
+            "title": "Play Time Warning",
             "type": "boolean"
           },
           "saved_at": {
@@ -655,12 +709,37 @@
               }
             ],
             "title": "Saved At"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
           }
         },
         "required": [
           "id",
           "class_id",
           "class_name",
+          "number",
           "game_settings",
           "is_classic",
           "ai_mode",
@@ -670,23 +749,102 @@
           "llm_unavailable",
           "saved_at",
           "created_at",
-          "can_manage"
+          "can_manage",
+          "start_at",
+          "play_deadline",
+          "debrief_deadline",
+          "test_deadline",
+          "locked",
+          "passed_dates",
+          "play_time_warning"
         ],
         "title": "ClassSessionOut",
         "type": "object"
       },
       "ClassSessionSaveIn": {
         "additionalProperties": false,
-        "description": "«Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice).",
+        "description": "«Lagre Klasseøkt». The screen sends the AI mode as it stands (Story 5.5 adds the choice)\nand the four dates (Story 5.2); without `dates` the dates stay as they are.",
         "properties": {
           "ai_mode": {
             "$ref": "#/components/schemas/AiMode"
+          },
+          "dates": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DatesIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "ai_mode"
         ],
         "title": "ClassSessionSaveIn",
+        "type": "object"
+      },
+      "DatesIn": {
+        "additionalProperties": false,
+        "description": "The four dates as the Lecturer set them, each an instant with its offset or None.",
+        "properties": {
+          "debrief_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debrief Deadline"
+          },
+          "play_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Play Deadline"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          }
+        },
+        "required": [
+          "start_at",
+          "play_deadline",
+          "debrief_deadline",
+          "test_deadline"
+        ],
+        "title": "DatesIn",
         "type": "object"
       },
       "DebriefMode": {
@@ -870,6 +1028,121 @@
           "course_code"
         ],
         "title": "EnrolledClassOut",
+        "type": "object"
+      },
+      "EnrolledSessionListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EnrolledSessionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "EnrolledSessionListOut",
+        "type": "object"
+      },
+      "EnrolledSessionOut": {
+        "description": "A Class session as its Student reads it (Story 5.2, FR-18, AD-3): the dates and the next\ndeadline that applies. Never the Game settings, the number of Weeks or the demand.",
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "debrief_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debrief Deadline"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "next_deadline": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NextDeadline"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "obligatory": {
+            "title": "Obligatory",
+            "type": "boolean"
+          },
+          "play_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Play Deadline"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          }
+        },
+        "required": [
+          "id",
+          "class_id",
+          "class_name",
+          "number",
+          "start_at",
+          "play_deadline",
+          "debrief_deadline",
+          "test_deadline",
+          "next_deadline",
+          "obligatory"
+        ],
+        "title": "EnrolledSessionOut",
         "type": "object"
       },
       "ErrorBody": {
@@ -1494,6 +1767,34 @@
         "title": "InvitationTokenIn",
         "type": "object"
       },
+      "LecturerOverviewOut": {
+        "description": "The Lærerhjem's «Venter» and «Neste frist» (Story 5.2, UX-DR56): over the User's Classes\nthat are not archived.",
+        "properties": {
+          "next_date": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NextDate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "waiting": {
+            "items": {
+              "$ref": "#/components/schemas/WaitingClass"
+            },
+            "title": "Waiting",
+            "type": "array"
+          }
+        },
+        "required": [
+          "waiting",
+          "next_date"
+        ],
+        "title": "LecturerOverviewOut",
+        "type": "object"
+      },
       "LoginIn": {
         "properties": {
           "email": {
@@ -1576,6 +1877,78 @@
           "password"
         ],
         "title": "NewPasswordIn",
+        "type": "object"
+      },
+      "NextDate": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "start",
+              "play",
+              "debrief",
+              "test"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "at",
+          "session_id",
+          "number",
+          "class_id",
+          "class_name"
+        ],
+        "title": "NextDate",
+        "type": "object"
+      },
+      "NextDeadline": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "start",
+              "play",
+              "debrief",
+              "test"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "at"
+        ],
+        "title": "NextDeadline",
         "type": "object"
       },
       "PasswordResetIn": {
@@ -2166,6 +2539,25 @@
         "title": "SessionOut",
         "type": "object"
       },
+      "SessionRef": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "number"
+        ],
+        "title": "SessionRef",
+        "type": "object"
+      },
       "SessionRole": {
         "description": "The roles a session carries (`UserOut.roles`): the account roles, and `assistant` while the\nUser is Assistant lecturer of at least one Class (Story 4.9). `assistant` is read from the\nClass staff on every request, never stored or granted by the Admin.",
         "enum": [
@@ -2482,6 +2874,34 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WaitingClass": {
+        "description": "A Class with Class sessions that still lack a date.",
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/SessionRef"
+            },
+            "title": "Sessions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "class_id",
+          "class_name",
+          "sessions"
+        ],
+        "title": "WaitingClass",
         "type": "object"
       }
     }
@@ -4386,7 +4806,7 @@
         ]
       },
       "put": {
-        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.",
+        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `required`\nonce locked), 409 `deadline_passed` (`passed`). Once the Start date has passed, a changed AI\nmode answers 409 `session_locked`.",
         "operationId": "saveClassSession",
         "parameters": [
           {
@@ -6204,6 +6624,80 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/api/lecturer-home/class-sessions": {
+      "get": {
+        "description": "The Lærerhjem's «Venter» and «Neste frist» over the User's Classes that are not archived\n(UX-DR56).",
+        "operationId": "lecturerHomeClassSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LecturerOverviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "Lecturer Home Class Sessions",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/class-sessions": {
+      "get": {
+        "description": "The Class sessions of the Classes the User is a Student in: dates and the next deadline,\nnever the Game settings (FR-18). Empty for a User who is no Student.",
+        "operationId": "listMyClassSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrolledSessionListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "summary": "List My Class Sessions",
+        "tags": [
+          "sessions"
+        ]
       }
     }
   }

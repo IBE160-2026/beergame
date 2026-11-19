@@ -14,6 +14,11 @@ export type AiMode = components["schemas"]["AiMode"];
 /** The query keys of Class sessions (Story 5.1). */
 export const classSessionKey = (id: string) => ["class-sessions", "detail", id] as const;
 export const classSessionsKey = (classId: string) => ["class-sessions", "of-class", classId] as const;
+/** The Lærerhjem's «Venter» and «Neste frist» (Story 5.2). */
+export const lecturerHomeKey = ["class-sessions", "lecturer-home"] as const;
+
+export type LecturerOverview = components["schemas"]["LecturerOverviewOut"];
+export type DatesIn = components["schemas"]["DatesIn"];
 
 /** One Class session. One the User may not read, or one that does not exist, fails with 403. */
 export function useClassSession(id: string) {
@@ -42,12 +47,22 @@ export function createClassSession(classId: string) {
   );
 }
 
-/** «Lagre Klasseøkt»: saves the Class session as it stands. */
-export function saveClassSession(id: string, aiMode: AiMode) {
+/** «Lagre Klasseøkt»: saves the Class session as it stands, with its four dates (Story 5.2). */
+export function saveClassSession(id: string, aiMode: AiMode, dates: DatesIn) {
   return request(() =>
     api.PUT("/api/class-sessions/{session_id}", {
       params: { path: { session_id: id } },
-      body: { ai_mode: aiMode },
+      body: { ai_mode: aiMode, dates },
     }),
   );
+}
+
+/** The Lærerhjem's «Venter» and «Neste frist», fetched when the Lærerhjem opens (Story 5.2);
+ * refetching on `session:<id>` comes with Story 6.4. */
+export function useLecturerOverview() {
+  return useQuery({
+    queryKey: lecturerHomeKey,
+    queryFn: () => request(() => api.GET("/api/lecturer-home/class-sessions")),
+    retry: false,
+  });
 }

@@ -18,6 +18,10 @@ from app.platform.db import metadata
 MIN_INACTIVITY_LIMIT_HOURS = 20
 """The floor of the Inactivity limit (EXPERIENCE.md: whole hours, never under 20)."""
 
+DATE_NAMES = ("start_at", "play_deadline", "debrief_deadline", "test_deadline")
+"""The four dates of a Class session in their order (Story 5.2, FR-18): Startdato, Spillfrist,
+Debrieffrist, Testfrist. Every pair that is set keeps this order."""
+
 class_sessions = Table(
     "class_sessions",
     metadata,
@@ -37,6 +41,8 @@ class_sessions = Table(
     Column("created_at", DateTime(timezone=True), nullable=False),
     # Set by «Lagre Klasseøkt»; NULL while the Class session was created and never saved.
     Column("saved_at", DateTime(timezone=True), nullable=True),
+    # The four dates (Story 5.2), UTC, NULL until the Lecturer sets them.
+    *(Column(name, DateTime(timezone=True), nullable=True) for name in DATE_NAMES),
     CheckConstraint("ai_mode IN ('llm', 'rule_based')", name="ck_class_sessions_ai_mode"),
     CheckConstraint("debrief_mode IN ('group', 'personal')", name="ck_class_sessions_debrief_mode"),
     CheckConstraint(
@@ -46,6 +52,14 @@ class_sessions = Table(
     CheckConstraint(
         "ai_mode <> 'llm' OR model_config_id IS NOT NULL",
         name="ck_class_sessions_llm_has_config",
+    ),
+    CheckConstraint(
+        " AND ".join(
+            f"({a} IS NULL OR {b} IS NULL OR {a} < {b})"
+            for i, a in enumerate(DATE_NAMES)
+            for b in DATE_NAMES[i + 1 :]
+        ),
+        name="ck_class_sessions_date_order",
     ),
 )
 """One row per Class session. Times come from the api's clock."""

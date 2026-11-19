@@ -70,10 +70,11 @@ for (const vp of VIEWPORTS) {
             // Story 4.9: an Assistant lecturer gets no «Ny Klasse».
             await expect(newClass).toHaveCount(0);
           }
-          // Every link on the Lærerhjem is a Class page or «Ny Klasse»: none leads to another home.
+          // Every link on the Lærerhjem is a Class page, «Ny Klasse» or a Klasseøkt named under
+          // «Venter» or «Neste frist» (Story 5.2): none leads to another home.
           const hrefs = await mainLinks.evaluateAll((links) => links.map((a) => a.getAttribute("href")));
           expect(hrefs.length).toBeGreaterThan(0);
-          for (const href of hrefs) expect(href).toMatch(/^\/klasser\/[^/]+$/);
+          for (const href of hrefs) expect(href).toMatch(/^\/(klasser|klasseokter)\/[^/]+$/);
         } else {
           const links =
             role === "admin" ? [nb.admin.sections.users, nb.admin.sections.institutions, nb.admin.sections.audit] : [];

@@ -2,7 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { loginByApi } from "./support/auth";
-import { expectAccessible, freshLecturer } from "./support/classes";
+import { expectAccessible, freshClass, freshLecturer } from "./support/classes";
 
 /** Creating a Class session with the Classic defaults (Story 5.1, FR-5, FR-11, NFR-6, UX-DR48), on
  * the local stack. A fresh Lecturer makes a fresh Class through the api; the flow from the Klasse
@@ -10,20 +10,6 @@ import { expectAccessible, freshLecturer } from "./support/classes";
  * rules on every route are pinned by `backend/tests/sessions/test_class_sessions.py`. */
 const copy = nb.sessions;
 const CSRF = { "X-Requested-With": "olspillet" };
-
-async function freshClass(lecturer: Page): Promise<{ id: string; name: string }> {
-  const places = await lecturer.request.get("/api/classes/institutions");
-  const place = ((await places.json()).items as { id: string; name: string }[]).find(
-    (item) => item.name === "Demohøgskolen",
-  )!;
-  const name = `okt-${Date.now() % 100000}${Math.floor(Math.random() * 100)}`;
-  const created = await lecturer.request.post("/api/classes", {
-    data: { name, institution_id: place.id },
-    headers: CSRF,
-  });
-  expect(created.status()).toBe(201);
-  return { id: (await created.json()).id as string, name };
-}
 
 test("from the Klasse page to a saved Class session without editing a field", async ({ page, browser }) => {
   const lecturer = await freshLecturer(page, browser);
@@ -92,6 +78,10 @@ test("the owner of an archived Class reads its Klasseøkt with no save and is to
   await expect(lecturer.getByText(nb.classes.archive.notice)).toBeVisible();
   await expect(lecturer.getByText(copy.assistantLead)).toHaveCount(0);
   await expect(lecturer.getByRole("button", { name: copy.save })).toHaveCount(0);
+  // The date fields are read-only too (Story 5.2).
+  for (const name of Object.values(copy.dates.names)) {
+    await expect(lecturer.getByLabel(name, { exact: true })).toHaveAttribute("readonly", "");
+  }
 });
 
 test("an Assistant lecturer reads the Class sessions and has no action to create one", async ({ page }) => {

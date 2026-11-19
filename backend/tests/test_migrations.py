@@ -66,7 +66,7 @@ PRE_SESSION_TABLES = (
     | ROSTER_TABLES
 )
 HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES
-HEAD = "0032"  # 0032 adds the Class sessions (Story 5.1)
+HEAD = "0033"  # 0033 adds the four dates of a Class session (Story 5.2)
 
 
 def reset_schema(url: str) -> None:
@@ -715,6 +715,15 @@ def test_the_check_constraints_list_exactly_the_enum_values(migrations_database)
             ).fetchall()
         )
     assert set(rows) == set(CHECKS) | set(ai_checks)
+    # 0033 (Story 5.2): every pair of the four dates that is set keeps their order. Its downgrade
+    # runs in `test_downgrade_to_0031_removes_the_class_sessions`.
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        (order,) = conn.execute(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+            "WHERE conname = 'ck_class_sessions_date_order'"
+        ).fetchone()
+    for pair in ("start_at < play_deadline", "debrief_deadline < test_deadline"):
+        assert pair in order
     for name, enum in CHECKS.items():
         listed = set(re.findall(r"'([a-z_]+)'", rows[name]))
         assert listed == {member.value for member in getattr(schemas, enum)}, name

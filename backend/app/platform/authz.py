@@ -89,6 +89,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # read them. Held to the User's staff role in the Class (`CLASS_STAFF_ROLES`).
     "class_sessions.read": frozenset({LECTURER, ASSISTANT}),
     "class_sessions.manage": frozenset({LECTURER}),
+    # The Class sessions of the Classes a User is a Student in, with their dates (Story 5.2): any
+    # User, held to `classes_enrolled_by`.
+    "class_sessions.read_enrolled": frozenset({ANY_USER}),
     # The Classes a User is a Student in (Story 4.5): any User, held to `classes_enrolled_by`.
     "classes.read_enrolled": frozenset({ANY_USER}),
     # The own session.
