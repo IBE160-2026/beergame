@@ -1088,3 +1088,27 @@ Før storyen: gjøre testpakkene raskere og løse Issue #95. Deretter bygge med 
 - Issue 99: beslutninger i Story 5.1.
 - Issue #98: visuelle avvik (rulling i kjeden på mobil, etterspørselen under «Kundene», like merkelapper). Rettes i 5.2.
 - Issue #97: ingen bekreftelse når siste adresse fjernes (Epic 4). Tas i avslutningen av Epic 5.
+
+## Story 5.2: Sette de fire datoene på datolinja (2026-11-19)
+
+### Oppgave
+Bygge Story 5.2 etter kjøreboka, og rette avvik (a) og (b) fra Issue #98 på samme skjerm.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-2-set-four-dates-on-datolinje.md`.
+- **Commit e0c80d8:**
+  - migrasjon 0033 med de fire datoene, og reglene for rekkefølge og passerte datoer i API-et;
+  - datolinja og `GET /api/me/class-sessions`;
+  - «Venter» og «Neste frist» på Lærerhjemmet;
+  - kanter som toner ut når innholdet ruller, og løpenummer i merkelappene.
+- **Tester:** 2315 backend-tester (57 s), Vitest, typecheck, bygg og 193 Playwright-tester.
+- **Gjennomgang:** 31 punkter, 4 middels. De middels er rettet.
+- **Visuell kontroll:** 19 skjermbilder i `screenshots/5.2/`. Ingen klare avvik.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 100: beslutninger og visuelle vurderinger i 5.2. Et halvveis utfylt datofelt tømmer datoen; det tas i avslutningen av Epic 5.
+- Issue #98: etterspørselen under «Kundene» står igjen, og tas i 5.4.
