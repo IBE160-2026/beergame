@@ -861,3 +861,22 @@ Bygge Story 4.2 på `epic-4` og kontrollere den visuelt.
 
 ### Åpne punkter
 - Issue #85: beslutninger, sjekk mot ekte Canvas-eksporter, og visuelle avvik.
+
+## Story 4.3: Ugyldige rader og innliming av adresser (2026-11-19)
+
+### Oppgave
+Bygge Story 4.3 på `epic-4`, rette to visuelle avvik fra 4.2 (Issue #85) og kontrollere visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent. Den ble avbrutt i gjennomgangen og fullførte etter at den ble sendt tilbake. Deretter visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-3-see-invalid-rows-paste-addresses.md`. Commit `6d0f9aa`, visuelle rettinger `073da09`. Migrering 0025.
+- `address_problem` gir hver rad en grunn. `POST /api/classes/{id}/roster-paste` er ny. Siden har «Ugyldige rader: N av M» og innliming med «Fortsett». Issue #85 punkt 1 og 2 er rettet.
+- Backend: 2077 grønne. Frontend: typecheck, Vitest (344), sjekker og bygg grønne. Playwright: 139 grønne, og en ny test for grensen på 100.
+- Gjennomgang: 32 funn, alle 7 middels og 13 lave rettet.
+- Visuell kontroll: 16 skjermbilder og to rettinger. Tre tekstavvik rettes i Story 4.4.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #86: beslutninger og visuelle avvik.
