@@ -920,3 +920,22 @@ Bygge Story 4.5 på `epic-4` og kontrollere den visuelt.
 
 ### Åpne punkter
 - Issue #88: beslutninger, restrisiko (arkiverte klasser, ansatte som er studenter) og visuelle punkter.
+
+## Story 4.6: Invitasjoner som kom i retur, og tallene (2026-11-19)
+
+### Oppgave
+Bygge Story 4.6 på `epic-4` og kontrollere den visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, med en lokal simulering av returer som ikke finnes i produksjon. Deretter visuell kontroll i en egen underagent.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-6-see-bounced-invitations-and-counts.md`. Commit `2983c90`, test fra den visuelle kontrollen `b7a66c7`. Migrering 0028.
+- Webhook for Resend med signatursjekk, tall og returer på `GET /api/classes/{id}/invitations`, seksjonen «Invitasjoner» på klassesiden, og en lokal dev-rute for returer.
+- Backend: 2171 grønne. Frontend: typecheck, Vitest (354), sjekker og bygg grønne. Playwright: 149 grønne, pluss ny test for oppdatering på åpen side.
+- Gjennomgang: 30 funn, 3 middels og 8 lave rettet, 1 utsatt til 4.7.
+- Visuell kontroll: 14 skjermbilder, alle stemmer.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #89: beslutninger om returer og tall, og visuelle punkter.
