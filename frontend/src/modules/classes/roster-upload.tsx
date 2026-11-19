@@ -190,7 +190,7 @@ export function RosterUpload({ classId }: { classId: string }) {
           <Button unavailable={paste.isPending} onClick={() => paste.mutate(pasteText)}>
             {copy.pasteContinue}
           </Button>
-          <button type="button" className={LINK_BUTTON} onClick={endPaste}>
+          <button type="button" className={cn(LINK_BUTTON, "self-center")} onClick={endPaste}>
             {copy.fileInstead}
           </button>
         </div>
@@ -387,7 +387,11 @@ function InvalidRows({ staged }: { staged: Staged }) {
         {shown.map((row) => (
           <li
             key={row.row_number}
-            className={cn("relative flex flex-col gap-1 border-b border-hairline py-3 text-body-phone text-ink lg:text-body", grid)}
+            className={cn(
+              // In the grid the 44 px «Registrer manuelt» sets the height; mockup 02 rows are about 54 px.
+              "relative flex flex-col gap-1 border-b border-hairline py-3 text-body-phone text-ink sm:py-1 lg:text-body",
+              grid,
+            )}
           >
             <span className="tabular-nums text-label">
               <span className="sm:sr-only">{rowWord} </span>

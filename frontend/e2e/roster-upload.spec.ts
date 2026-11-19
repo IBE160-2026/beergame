@@ -238,6 +238,18 @@ test.describe("files and paste", () => {
     await lecturer.context().close();
   });
 
+  test("a file with more than 100 invalid rows lists the first 100 and counts them all", async ({ page, browser }) => {
+    const lecturer = await classPage(page, browser);
+    await tabTo(lecturer, chooseButton(lecturer));
+    expect((await chooseFile(lecturer, fixture("mange-ugyldige.csv"))).status()).toBe(201);
+    await expect(lecturer.getByRole("heading", { name: copy.invalidTitle(130, 150) })).toBeVisible();
+    await expect(invalidItems(lecturer)).toHaveCount(100);
+    await expect(invalidItems(lecturer).last()).toContainText("101");
+    await expect(lecturer.getByText(copy.invalidShown(100, 130))).toBeVisible();
+    await expect(sendButton(lecturer, 20)).toBeVisible();
+    await lecturer.context().close();
+  });
+
   test("a refused paste says so under the field and the line clears as the user types", async ({ page, browser }) => {
     const lecturer = await classPage(page, browser);
     // The api's answer to text over the limits, without sending megabytes through the test.
