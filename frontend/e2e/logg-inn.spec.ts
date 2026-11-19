@@ -3,7 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import tokens from "../src/theme/tokens.json";
-import { untilHydrated } from "./support/auth";
+import { untilFontsLoaded, untilHydrated } from "./support/auth";
 
 const copy = nb.auth.login;
 
@@ -244,11 +244,14 @@ test("a press right after an error is fixed reaches the button", async ({ page }
   const password = page.getByLabel(copy.password);
   await expect(password).toHaveAccessibleDescription(copy.errors.passwordEmpty);
   await password.fill("hemmelig");
+  // The press goes to where the button stands now, so the layout must be settled first: the
+  // reason cleared as it was typed, and the text set in the product's font, not the fallback face
+  // that is shown until the font has loaded.
+  await expect(page.getByText(copy.errors.passwordEmpty)).toHaveCount(0);
+  await untilFontsLoaded(page);
   const box = await submit.boundingBox();
 
-  const request = page.waitForRequest((r) => r.url().endsWith("/api/auth/login") && r.method() === "POST", {
-    timeout: 3_000,
-  });
+  const request = page.waitForRequest((r) => r.url().endsWith("/api/auth/login") && r.method() === "POST");
   await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
   await request;
   await expect(page.getByText(copy.errors.passwordEmpty)).toHaveCount(0);

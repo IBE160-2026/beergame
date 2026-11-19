@@ -53,16 +53,27 @@ for (const vp of VIEWPORTS) {
         // Lecturer's seeded Class and «Ny Klasse» (Story 4.1).
         await expect(page.locator("nav")).toHaveCount(0);
         const mainLinks = page.getByRole("main").getByRole("link");
-        if (role === "lecturer") {
-          // Every link on the Lærerhjem is a Class or «Ny Klasse»; the seeded Class is among them.
-          await expect(mainLinks.filter({ hasText: nb.classes.home.label("class-of-1994", "IBE160") }).first()).toBeVisible();
-          await expect(mainLinks.last()).toHaveText(nb.classes.home.newClass);
-          await expect(page.getByRole("main").getByRole("region", { name: nb.classes.home.title }).getByRole("link")).toHaveCount(
-            await mainLinks.count(),
-          );
-        } else if (role === "assistant") {
-          // Story 4.9: only the Class they are attached to, and no «Ny Klasse».
-          await expect(mainLinks).toHaveText([nb.classes.home.label("class-of-1994", "IBE160")]);
+        if (role === "lecturer" || role === "assistant") {
+          // The Lærerhjem lists the Classes this User is staff on, which other runs and tests may
+          // add to (active or archived), so the checks are scoped to the seeded Class by name and
+          // to the kind of every link, never to an exact list.
+          const active = page.getByRole("main").getByRole("region", { name: nb.classes.home.title, exact: true });
+          await expect(
+            active.getByRole("link", { name: nb.classes.home.label("class-of-1994", "IBE160"), exact: true }),
+          ).toBeVisible();
+          const newClass = page.getByRole("main").getByRole("link", { name: nb.classes.home.newClass, exact: true });
+          if (role === "lecturer") {
+            // «Ny Klasse» stands last under «Klassene dine» (Story 4.1).
+            await expect(active.getByRole("link").last()).toHaveText(nb.classes.home.newClass);
+            await expect(newClass).toHaveCount(1);
+          } else {
+            // Story 4.9: an Assistant lecturer gets no «Ny Klasse».
+            await expect(newClass).toHaveCount(0);
+          }
+          // Every link on the Lærerhjem is a Class page or «Ny Klasse»: none leads to another home.
+          const hrefs = await mainLinks.evaluateAll((links) => links.map((a) => a.getAttribute("href")));
+          expect(hrefs.length).toBeGreaterThan(0);
+          for (const href of hrefs) expect(href).toMatch(/^\/klasser\/[^/]+$/);
         } else {
           const links =
             role === "admin" ? [nb.admin.sections.users, nb.admin.sections.institutions, nb.admin.sections.audit] : [];

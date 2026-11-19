@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { type Browser, expect, type Page, test } from "@playwright/test";
 
-import { demoContext, latestMail, nextMail } from "./auth";
+import { demoContext, latestMail, nextMail, untilFontsLoaded } from "./auth";
 
 /** Shared by the Class specs (Stories 4.1, 4.2): the viewports of NFR-6, the axe and layout
  * check, and a fresh Lecturer made from an Invitation, so the demo Lecturer's Classes stay as the
@@ -18,6 +18,8 @@ export const VIEWPORTS: Viewport[] = [
 ];
 
 export async function expectAccessible(page: Page, phone: boolean) {
+  // The reflow and tap-target checks below measure the layout: measure it in the product's font.
+  await untilFontsLoaded(page);
   const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
   const scrolls = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);

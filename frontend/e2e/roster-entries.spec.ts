@@ -45,6 +45,9 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
     test("the Lecturer adds, registers by hand and removes single addresses", async ({ page, browser }) => {
+      // A long journey through the mail worker (several mails, each awaited in the dev mailbox):
+      // up to 25-28 s in a plain full-suite run, which left the default 30 s no margin under load.
+      test.slow();
       const lecturer = await freshLecturer(page, browser);
       const tag = `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
       const [late, kari, fixed] = ["sen", "kari", "rettet"].map((n) => `${n}-${tag}@stud.example.no`);

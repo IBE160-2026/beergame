@@ -37,6 +37,17 @@ export async function untilHydrated(page: Page, selector = "main form") {
     .toBe(true);
 }
 
+/** Wait until every web font the page's current layout asks for has loaded. Until then the text
+ * is set in a fallback face with other widths and line heights, so a measured box, a wrap or a
+ * horizontal scroll can change once the font swaps in; under load the font arrives late. The
+ * layout is forced first, so the fonts it needs are requested before `fonts.ready` is read. */
+export async function untilFontsLoaded(page: Page) {
+  await page.evaluate(async () => {
+    document.body.getBoundingClientRect();
+    await document.fonts.ready;
+  });
+}
+
 /** The answer to the next `method` request to the api path `path`. Start it before the press that
  * sends the request, and await it after: a step that hashes a password can take longer than an
  * assertion's 5 s on a busy machine, and an assertion should look only once the answer is in. */

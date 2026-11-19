@@ -2,7 +2,16 @@ import AxeBuilder from "@axe-core/playwright";
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { DEMO_USERS, demoContext, latestMail, loginByApi, nextMail } from "./support/auth";
+import {
+  answerTo,
+  DEMO_USERS,
+  demoContext,
+  latestMail,
+  loginByApi,
+  nextMail,
+  untilFontsLoaded,
+  untilHydrated,
+} from "./support/auth";
 
 /** Deactivating and reactivating a User, and the Invitation list with its resend, on «Brukere og
  * roller» (Story 3.10, FR-1, FR-3, UX-DR57, UX-DR61, NFR-6), on the local stack with the mail
@@ -20,6 +29,8 @@ const VIEWPORTS = [
 ];
 
 async function expectAccessible(page: Page, phone: boolean) {
+  // The reflow and tap-target checks below measure the layout: measure it in the product's font.
+  await untilFontsLoaded(page);
   const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
   const scrolls = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
@@ -110,15 +121,21 @@ for (const vp of VIEWPORTS) {
       expect((await fresh.context.request.get("/api/auth/me")).status()).toBe(401);
       const own = await fresh.context.newPage();
       await own.goto("/logg-inn");
+      // A press before hydration reaches the bare form, which posts to the page and loses it.
+      await untilHydrated(own);
       await own.getByLabel(nb.auth.login.email).fill(fresh.address);
       await own.getByLabel(nb.auth.login.password).fill(PASSWORD);
+      const refused = answerTo(own, "/api/auth/login");
       await own.getByRole("button", { name: nb.auth.login.submit }).click();
+      expect((await refused).status()).toBe(403);
       await expect(own.getByText(nb.auth.login.deactivated)).toBeVisible();
 
       await reactivate.click();
       await expect(deactivate).toBeFocused();
       await expect(page.getByRole("status").filter({ hasText: list.reactivatedLine(fresh.first) })).toBeVisible();
+      const accepted = answerTo(own, "/api/auth/login");
       await own.getByRole("button", { name: nb.auth.login.submit }).click();
+      expect((await accepted).status()).toBe(200);
       await expect(own).toHaveURL(/\/laererhjem$/);
       await fresh.context.close();
     });
@@ -238,6 +255,8 @@ test.describe("Invitation states", () => {
     await openUsers(page);
     const buttons = invitationsSection(page).getByRole("button", { name: /^Send ny invitasjon til / });
     await expect(buttons).toHaveCount(3);
+    // Measured in the product's font: the fallback face sets the label at another width.
+    await untilFontsLoaded(page);
     const boxes = await buttons.evaluateAll((els) =>
       els.map((el) => {
         const box = el.getBoundingClientRect();
