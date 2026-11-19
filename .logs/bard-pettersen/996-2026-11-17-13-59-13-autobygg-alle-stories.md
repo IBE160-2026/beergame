@@ -901,3 +901,22 @@ Bygge Story 4.4 på `epic-4`, rette tre tekstavvik fra 4.3 (Issue #86) og kontro
 ### Åpne punkter
 - Issue #87: beslutninger og visuelle avvik.
 - Issue #86 lukkes.
+
+## Story 4.5: Registrere seg som student gjennom invitasjonen (2026-11-19)
+
+### Oppgave
+Bygge Story 4.5 på `epic-4` og kontrollere den visuelt.
+
+### Plan
+`bmad-build-auto` i én underagent, som utvider invitasjonsflyten fra Story 3.8. Deretter visuell kontroll i en egen underagent. En `docker compose`-prosess så ut til å henge, så jeg stoppet den. Agentens egen bygging var da allerede ferdig.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-4-5-register-student-through-invitation.md`. Commit `9ba94af`, visuelle rettinger `d9c098d`. Migrering 0027.
+- Studentlenker virker på «Du er invitert», med ny konto eller eksisterende konto og passord. Aksepten skjer i én transaksjon. Studenten ser bare sine egne klasser, og Hjem viser dem med startdato. Demoklassen har 8 studenter.
+- Backend: 2113 grønne på 73 s. Frontend: typecheck, Vitest (351), sjekker og bygg grønne. Playwright: 146 grønne, pluss ny test for at Hjem oppdateres.
+- Gjennomgang: 36 funn, 13 rettet (5 middels).
+- Visuell kontroll: 22 skjermbilder og én etikett rettet.
+- Status: `done`.
+
+### Åpne punkter
+- Issue #88: beslutninger, restrisiko (arkiverte klasser, ansatte som er studenter) og visuelle punkter.
