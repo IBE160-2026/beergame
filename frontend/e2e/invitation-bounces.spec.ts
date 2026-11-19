@@ -51,6 +51,35 @@ async function bounce(page: Page, address: string, bounceClass: "hard" | "soft")
   expect(answer.status()).toBe(200);
 }
 
+/** The definition under the count labelled `label` in «Invitasjoner». */
+function count(page: Page, label: string) {
+  const section = page.getByRole("region", { name: copy.title });
+  return section
+    .locator("dl > div")
+    .filter({ has: page.getByRole("term").filter({ hasText: new RegExp(`^${label}$`) }) })
+    .getByRole("definition");
+}
+
+test("the counts on an open Class page follow a bounce without a reload", async ({ page, browser }) => {
+  const lecturer = await freshLecturer(page, browser);
+  const tag = `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
+  const [ola, kari] = ["ola", "kari"].map((n) => `${n}-${tag}@stud.example.no`);
+  const classId = await sentClass(lecturer, [ola, kari]);
+  // The page's own clock, so the 15 s refresh is run forward instead of waited for.
+  await lecturer.clock.install();
+  await lecturer.goto(`/klasser/${classId}`);
+  await expect(count(lecturer, copy.sent)).toHaveText("2");
+  await expect(count(lecturer, copy.bounced)).toHaveText("0");
+  const section = lecturer.getByRole("region", { name: copy.title });
+  await expect(section.getByRole("listitem")).toHaveCount(0);
+
+  await bounce(lecturer, ola, "hard");
+  await lecturer.clock.fastForward(16_000);
+  await expect(count(lecturer, copy.bounced)).toHaveText("1");
+  await expect(section.getByRole("listitem").filter({ hasText: ola })).toContainText(copy.bounceStatus("hard"));
+  await lecturer.context().close();
+});
+
 for (const vp of VIEWPORTS) {
   test.describe(`bounces and counts, ${vp.name}`, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
