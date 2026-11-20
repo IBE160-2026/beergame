@@ -30,7 +30,11 @@ export function Stegene({ title, items, titleId }: { title: string; items: Stege
         {items.map((item, index) => (
           <li key={item.key} data-state={item.state} className="relative flex gap-3 pb-2 last:pb-0">
             {index < items.length - 1 ? (
-              <span aria-hidden="true" className="absolute top-4 bottom-0 left-[5px] border-l border-axis" />
+              // From under this marker to the top of the next one, centred on the marker at any text size.
+              <span
+                aria-hidden="true"
+                className="absolute top-[1.125rem] -bottom-1.5 left-[calc(0.375rem-0.5px)] border-l border-axis"
+              />
             ) : null}
             <svg aria-hidden="true" viewBox="0 0 12 12" className="relative mt-1.5 size-3 shrink-0">
               <circle

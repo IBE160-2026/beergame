@@ -88,7 +88,7 @@ function SessionBlock({ session, labelled }: { session: EnrolledSession; labelle
   const deadline = deadlineText(session);
   const labs = session.lab_hours ?? [];
   return (
-    <div className="mt-4 first-of-type:mt-2">
+    <div className="mt-2 not-first-of-type:mt-6 not-first-of-type:border-t not-first-of-type:border-hairline not-first-of-type:pt-4">
       {labelled || session.obligatory ? (
         <p className="text-label text-ink-secondary">
           {[labelled ? copy.session(session.number) : null, session.obligatory ? copy.obligatory : null]
@@ -137,7 +137,7 @@ function GameCard({ game, session }: { game: NonNullable<EnrolledSession["game"]
           {game.seats.map((seat) => (
             <li key={seat.role} className="flex flex-wrap gap-x-4 text-body-phone lg:text-body">
               <span className="min-w-[6.5rem] text-ink">{roleName(seat.role)}</span>
-              <span className={seat.holder === "student" ? "break-words text-ink" : "text-ink-secondary"}>
+              <span className={seat.holder === "student" && seat.name ? "break-words text-ink" : "text-ink-secondary"}>
                 {holderText(seat)}
               </span>
             </li>
