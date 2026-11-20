@@ -330,6 +330,7 @@ function Preview({
               picked={pickedAt}
               busy={busy}
               refs={seatRefs.current}
+              error={moveError}
               onPick={(at) => {
                 move.reset();
                 setResult("");
@@ -403,7 +404,7 @@ function Preview({
           {copy.close}
         </button>
       </div>
-      <ActionError message={redraw.errorMessage ?? confirmError ?? moveError} />
+      <ActionError message={redraw.errorMessage ?? confirmError} />
       <p role="status" className="text-body-phone text-ink">
         {result}
       </p>
@@ -436,6 +437,7 @@ function SeatList({
   picked,
   busy,
   refs,
+  error,
   onPick,
   onTarget,
 }: {
@@ -443,6 +445,8 @@ function SeatList({
   picked: SeatAt | null;
   busy: boolean;
   refs: Map<string, HTMLButtonElement>;
+  /** A refused move, said beside the Seat buttons that sent it (EXPERIENCE.md → Action error). */
+  error: string | undefined;
   onPick: (at: SeatAt | null) => void;
   onTarget: (at: SeatAt) => void;
 }) {
@@ -508,6 +512,7 @@ function SeatList({
           );
         })}
       </ul>
+      <ActionError message={error} className="mt-2 max-w-prose" />
     </section>
   );
 }
