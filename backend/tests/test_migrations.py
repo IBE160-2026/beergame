@@ -68,7 +68,7 @@ PRE_SESSION_TABLES = (
     | ROSTER_TABLES
 )
 HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES
-HEAD = "0043"  # 0043 adds where a copied Class session came from (Story 5.18)
+HEAD = "0044"  # 0044 adds when the lock of a Class session was refused (GitHub issue 109)
 
 
 def reset_schema(url: str) -> None:
@@ -758,6 +758,18 @@ def test_0037_to_0043_keep_drafts_class_games_free_seats_the_lock_reminders_meth
                 ).fetchall()
             )
 
+    def class_session_columns() -> set[str]:
+        with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+            return {
+                name
+                for (name,) in conn.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = 'class_sessions'"
+                ).fetchall()
+            }
+
+    # 0044 (GitHub issue 109): when the lock was first refused.
+    assert "lock_refused_at" in class_session_columns()
     drafts = constraints("allocation_drafts")
     assert "revision >= 1" in drafts["ck_allocation_drafts_revision"]
     assert "UNIQUE (class_session_id)" in drafts["uq_allocation_drafts_class_session"]
@@ -780,6 +792,8 @@ def test_0037_to_0043_keep_drafts_class_games_free_seats_the_lock_reminders_meth
             "WHERE conname = 'fk_class_sessions_copied_from'"
         ).fetchone()
     assert "ON DELETE SET NULL" in copied
+    command.downgrade(cfg, "0043")
+    assert "lock_refused_at" not in class_session_columns()
     command.downgrade(cfg, "0042")
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         columns = {
