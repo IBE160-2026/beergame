@@ -83,6 +83,12 @@ describe("cellFor", () => {
     expect(cellFor(state, "cost", 11)).toEqual({ kind: "plain", text: "20" });
   });
 
+  it("writes an Order already placed at nå (a Veiledet uke) as its number, only at nå", () => {
+    expect(cellFor(state, "order", 11, 4)).toEqual({ kind: "order-placed", text: "4" });
+    expect(cellFor(state, "order", 10, 4)).toEqual({ kind: "plain", text: "8" });
+    expect(cellFor(state, "order", 12, 4)).toEqual({ kind: "empty" });
+  });
+
   it("right of nå shows only the known arrivals, each in its Uke", () => {
     expect([12, 13, 14, 15].map((w) => cellFor(state, "incomingDelivery", w))).toEqual([
       { kind: "arrival", text: "4" },

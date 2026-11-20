@@ -152,11 +152,9 @@ export const nb = {
     login: "Logg inn",
     seat: {
       caption: "Ett sete, Grossist, Uke 4. Veiledet uke.",
-      week: "Uke",
-      // The mockup's row label for the Seat's own order (01-landing.png).
-      yourOrder: "Din ordre",
-      // [ASSUMPTION] Story 3.13: the mockup's note, without the line about the graph's time axis.
-      ownNumbers: "Studenten ser bare sine egne tall.",
+      // The mockup's note (01-landing.png); Story 6.8 brings back its line about the graph's time
+      // axis, now that the figure has one. [ASSUMPTION]
+      ownNumbers: "Studenten ser bare sine egne tall. Tidsaksen slutter fire uker etter nå.",
       demoData: "Demodata",
       classCurves: "Lagerkurvene for hele klassen ser du først når du er logget inn.",
     },

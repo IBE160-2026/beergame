@@ -74,7 +74,9 @@ export type Cell =
   /** A known arrival right of nå: ordered, not guaranteed. */
   | { kind: "arrival"; text: string }
   /** Din ordre at nå before an Order is typed: an empty dashed cell. */
-  | { kind: "order-empty" };
+  | { kind: "order-empty" }
+  /** Din ordre at nå with an Order already placed (a Veiledet uke): the number, in nå's weight. */
+  | { kind: "order-placed"; text: string };
 
 type Values = {
   incoming_order: number;
@@ -151,8 +153,9 @@ export function graphSeries(state: SeatState): GraphSeries {
   };
 }
 
-/** What the cell of `row` in Uke `week` shows. */
-export function cellFor(state: SeatState, row: RowKey, week: number): Cell {
+/** What the cell of `row` in Uke `week` shows. `nowOrder` is an Order already placed at nå (a
+ * Veiledet uke's fixed Order, as the Landing shows it); without it nå's Din ordre is empty. */
+export function cellFor(state: SeatState, row: RowKey, week: number, nowOrder?: number): Cell {
   if (week < state.week) {
     const past = state.history[week - 1];
     if (!past) return { kind: "empty" };
@@ -161,7 +164,7 @@ export function cellFor(state: SeatState, row: RowKey, week: number): Cell {
     return known(past, row);
   }
   if (week === state.week) {
-    if (row === "order") return { kind: "order-empty" };
+    if (row === "order") return nowOrder === undefined ? { kind: "order-empty" } : { kind: "order-placed", text: formatNumber(nowOrder) };
     if (row === "cost") return { kind: "plain", text: formatNumber(state.week_cost, { narrow: true }) };
     return known(state, row);
   }

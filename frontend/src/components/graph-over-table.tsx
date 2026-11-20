@@ -126,6 +126,7 @@ export function GraphOverTable({
   head,
   body,
   fixed,
+  labelledBy,
   swipe,
   footer,
 }: {
@@ -137,6 +138,8 @@ export function GraphOverTable({
   head: ReactNode;
   body: ReactNode;
   fixed?: FixedLayout;
+  /** The id of the element that names the table, if any. */
+  labelledBy?: string;
   /** «Sveip for tidligere uker», shown while earlier columns are scrolled out of view. */
   swipe?: string;
   /** A line under the region, beside «Sveip» (a key). */
@@ -254,7 +257,7 @@ export function GraphOverTable({
       >
         {/* `relative` keeps the now-line and the screen-reader-only labels inside the scroll area. */}
         <div ref={wrapper} className="relative w-max">
-          <table className="border-collapse text-table-cell text-ink tabular-nums lining-nums lg:text-table-cell-laptop">
+          <table aria-labelledby={labelledBy} className="border-collapse text-table-cell text-ink tabular-nums lining-nums lg:text-table-cell-laptop">
             <thead>
               {fields.map((field) =>
                 variants.map((variant) => {

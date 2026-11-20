@@ -5,7 +5,7 @@ import { buttonClassName } from "@/components/button";
 import { nb } from "@/copy/nb";
 import { GoHome } from "@/modules/identity/go-home";
 
-import { SeatTable } from "./seat-table";
+import { SeatFigure } from "./seat-figure";
 
 const copy = nb.landing;
 
@@ -13,10 +13,10 @@ export const ACCESS_REQUEST_PATH = "/laerertilgang";
 
 /**
  * The Landing at `/` (Story 3.13, UX-DR61, UX-DR9, UX-DR75): the product name, the headline in
- * `display`, the lead and the two ways in, then one Demodata Seat as a week table. It renders
+ * `display`, the lead and the two ways in, then one Demodata Seat as Graf over tabell (Story 6.8). It renders
  * without waiting for the session; a User who is logged in is sent on to their own home.
  * On laptop the headline stands left of the lead and buttons; on phone everything is one column
- * in the order headline, lead, buttons, Seat table.
+ * in the order headline, lead, buttons, Seat figure.
  */
 export function LandingPage() {
   return (
@@ -41,7 +41,7 @@ export function LandingPage() {
           </div>
         </div>
         <section className="mt-12 lg:mt-16">
-          <SeatTable />
+          <SeatFigure />
           <p className="mt-8 text-body-phone text-ink-secondary lg:text-body">{copy.seat.classCurves}</p>
         </section>
       </main>

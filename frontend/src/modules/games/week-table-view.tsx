@@ -34,6 +34,9 @@ const NET_FILL: Record<NetStep, string> = {
 // side gap, so neighbouring numbers («−14», «−20», «27,5») never run together (DESIGN.md → Graf
 // over tabell at narrow widths).
 const WEEK_COL = "w-[1.6em] min-w-[1.6em] px-[0.1em] text-center";
+/** A figure with few columns (the Landing's eight) widens them from 1024 px, so the graph is not
+ * a narrow strip on a wide page. */
+const WEEK_COL_WIDE = "lg:w-[5em] lg:min-w-[5em]";
 /** Netto lager cells stand apart as separate squares, as drawn (`05-spill.png`). */
 const NET_CELL = "shadow-[inset_0_0_0_1px_var(--color-paper)]";
 const ROW_LABEL =
@@ -158,9 +161,25 @@ function CostKey({ rates, grownTo }: { rates: GraphSeries["rates"]; grownTo: str
  * both. One scroll region named «Graf og tabell»; see `GraphOverTable`. The cells take no focus;
  * the region does, so arrow keys scroll it. With `fixed`, every width is given (the print page).
  */
-export function WeekTable({ state, fixed }: { state: SeatState; fixed?: FixedLayout }) {
+export function WeekTable({
+  state,
+  fixed,
+  nowOrder,
+  labelledBy,
+  wide = false,
+}: {
+  state: SeatState;
+  fixed?: FixedLayout;
+  /** An Order already placed at nå (a Veiledet uke's fixed Order), written in Din ordre. */
+  nowOrder?: number;
+  /** The id of the element that names the table (the Landing's caption). */
+  labelledBy?: string;
+  /** Wider week columns from 1024 px (see `WEEK_COL_WIDE`). */
+  wide?: boolean;
+}) {
   const columns = weekColumns(state.week);
   const series = graphSeries(state);
+  const weekCol = cn(WEEK_COL, wide && WEEK_COL_WIDE);
   const weekCell = fixedCell(fixed, "week");
   const labelCell = fixedCell(fixed, "label");
   return (
@@ -169,6 +188,7 @@ export function WeekTable({ state, fixed }: { state: SeatState; fixed?: FixedLay
       columns={columns}
       fields={graphFields(state, series)}
       fixed={fixed}
+      labelledBy={labelledBy}
       swipe={copy.swipe}
       footer={
         <p className="mt-1 text-caption text-ink-secondary">
@@ -189,7 +209,7 @@ export function WeekTable({ state, fixed }: { state: SeatState; fixed?: FixedLay
               data-now={column.when === "now" ? "" : undefined}
               style={weekCell}
               className={cn(
-                WEEK_COL,
+                weekCol,
                 "h-row-phone lg:h-row-laptop",
                 // Only nå is bold ink; the other Uke numbers are grey, as axis labels (`05-spill.png`).
                 column.when === "now" ? "font-bold text-ink" : "font-normal text-ink-muted",
@@ -208,7 +228,13 @@ export function WeekTable({ state, fixed }: { state: SeatState; fixed?: FixedLay
             {row.label}
           </th>
           {columns.map((column) => (
-            <WeekCell key={column.week} column={column} cell={cellFor(state, row.key, column.week)} style={weekCell} />
+            <WeekCell
+              key={column.week}
+              column={column}
+              cell={cellFor(state, row.key, column.week, nowOrder)}
+              weekCol={weekCol}
+              style={weekCell}
+            />
           ))}
         </tr>
       ))}
@@ -216,8 +242,8 @@ export function WeekTable({ state, fixed }: { state: SeatState; fixed?: FixedLay
   );
 }
 
-function WeekCell({ column, cell, style }: { column: Column; cell: Cell; style?: CSSProperties }) {
-  const base = cn(WEEK_COL, "h-row-phone lg:h-row-laptop", columnClass(column));
+function WeekCell({ column, cell, weekCol, style }: { column: Column; cell: Cell; weekCol: string; style?: CSSProperties }) {
+  const base = cn(weekCol, "h-row-phone lg:h-row-laptop", columnClass(column));
   switch (cell.kind) {
     case "net":
       return (
@@ -236,6 +262,12 @@ function WeekCell({ column, cell, style }: { column: Column; cell: Cell; style?:
         <td style={style} className={base}>
           <span className="inline-block min-w-[1.3em] border border-ink leading-tight">{cell.text}</span>
           <span className="sr-only">, {copy.arrival}</span>
+        </td>
+      );
+    case "order-placed":
+      return (
+        <td style={style} className={cn(base, "font-bold")}>
+          {cell.text}
         </td>
       );
     case "order-empty":

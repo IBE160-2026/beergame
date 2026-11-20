@@ -1,0 +1,116 @@
+{
+  "seat_state": {
+    "role": "wholesaler",
+    "inventory": 12,
+    "backlog": 0,
+    "incoming_orders": [
+      4,
+      4,
+      4,
+      4
+    ],
+    "supply_line": 12,
+    "order_history": [
+      4,
+      4,
+      4
+    ],
+    "neighbour_numbers": [],
+    "schema_version": 3,
+    "week": 4,
+    "incoming_order": 4,
+    "incoming_delivery": 4,
+    "shipped": 4,
+    "supply_line_slots": [
+      {
+        "stage": "in_transit",
+        "quantity": 4,
+        "arrival_week": 5
+      },
+      {
+        "stage": "in_transit",
+        "quantity": 4,
+        "arrival_week": 6
+      },
+      {
+        "stage": "ordered",
+        "quantity": 4,
+        "arrival_week": 7
+      }
+    ],
+    "overdue": 0,
+    "net_inventory": 12,
+    "position": 24,
+    "cost_lines": [
+      {
+        "kind": "holding",
+        "units": 12,
+        "rate": "0.50",
+        "amount": "6.00"
+      },
+      {
+        "kind": "backorder",
+        "units": 0,
+        "rate": "1.00",
+        "amount": "0.00"
+      }
+    ],
+    "week_cost": "6.00",
+    "total_cost": "24.00",
+    "history": [
+      {
+        "week": 1,
+        "incoming_order": 4,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 12,
+        "backlog": 0,
+        "net_inventory": 12,
+        "supply_line": 12,
+        "position": 24,
+        "cost": "6.00",
+        "holding_cost": "6.00",
+        "backorder_cost": "0.00",
+        "order": 4
+      },
+      {
+        "week": 2,
+        "incoming_order": 4,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 12,
+        "backlog": 0,
+        "net_inventory": 12,
+        "supply_line": 12,
+        "position": 24,
+        "cost": "6.00",
+        "holding_cost": "6.00",
+        "backorder_cost": "0.00",
+        "order": 4
+      },
+      {
+        "week": 3,
+        "incoming_order": 4,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 12,
+        "backlog": 0,
+        "net_inventory": 12,
+        "supply_line": 12,
+        "position": 24,
+        "cost": "6.00",
+        "holding_cost": "6.00",
+        "backorder_cost": "0.00",
+        "order": 4
+      }
+    ],
+    "min_order": 0,
+    "max_order": 999,
+    "preview": {
+      "order_arrival_week": 8,
+      "supply_line_base": 12,
+      "position_base": 24
+    }
+  },
+  "guided_order": 4
+}

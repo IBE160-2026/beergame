@@ -54,3 +54,30 @@ def test_the_stand_in_envelope_is_the_engines_week(week):
     envelope = PlayOut.model_validate(stored)
     assert envelope.seat_state == wholesaler_in_week(week)
     assert stored["seat_state"] == wholesaler_in_week(week).model_dump(mode="json")
+
+
+# The Landing's Demodata Seat (Story 6.8, UX-DR70): the same Grossist in Uke 4, a Veiledet uke,
+# with the fixed Order the game places there. Only `seat_state`: no names, no other Seat.
+LANDING = (
+    Path(__file__).resolve().parents[3]
+    / "frontend"
+    / "src"
+    / "modules"
+    / "landing"
+    / "demo-seat.json"
+)
+
+
+def landing_demo_seat() -> dict:
+    return {
+        "seat_state": wholesaler_in_week(4).model_dump(mode="json"),
+        "guided_order": guided_order(GameSettings()),
+    }
+
+
+def test_the_landing_demodata_is_the_engines_guided_week():
+    # The caption says «Uke 4. Veiledet uke.»: Uke 4 must still be a Guided Week.
+    assert 4 <= GameSettings().guided_weeks
+    stored = json.loads(LANDING.read_text(encoding="utf-8"))
+    assert stored == landing_demo_seat()
+    assert SeatState.model_validate(stored["seat_state"]) == wholesaler_in_week(4)

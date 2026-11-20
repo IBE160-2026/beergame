@@ -2,7 +2,8 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { DEMO_USERS, loginByApi } from "./support/auth";
+import { DEMO_USERS, loginByApi, untilFontsLoaded } from "./support/auth";
+import { alignment, labelProblems, textReadable } from "./support/graph";
 
 /** The Landing and «Be om lærertilgang» (Story 3.13, UX-DR61, UX-DR70, UX-DR75, NFR-6), on the
  * local stack. Each submitting test uses its own fresh address and dismisses its request again. */
@@ -65,16 +66,46 @@ for (const vp of VIEWPORTS) {
       for (const locator of [headline, lead, request, login, table]) await expect(locator).toBeVisible();
       await expect(request).toHaveAttribute("href", "/laerertilgang");
       await expect(login).toHaveAttribute("href", "/logg-inn");
-      // One Seat in the Veiledede uker: weeks 1–4 as columns, tabular figures, «Demodata».
-      await expect(table.getByRole("columnheader")).toHaveText([landing.seat.week, "1", "2", "3", "4"]);
-      await expect(table.getByRole("rowheader")).toHaveText([
+      // One Seat in a Veiledet uke as the play screen's table: Uke 1 … nå + 4 as columns, the
+      // fixed Order 4 at nå, tabular figures, «Demodata» (Stories 3.13, 6.8).
+      await expect(table.getByRole("columnheader")).toHaveText([1, 2, 3, 4, 5, 6, 7, 8].map((w) => `${nb.terms.week} ${w}`));
+      const order = table.locator("tr").filter({ has: page.getByRole("rowheader", { name: nb.games.play.table.order, exact: true }) });
+      await expect(order.getByRole("cell")).toHaveText(["4", "4", "4", "4", "", "", "", ""]);
+      // The fixed Order at nå carries nå's weight, as the Uke number does.
+      await expect(order.getByRole("cell").nth(3)).toHaveCSS("font-weight", "700");
+      // The play screen's rows; Sendt and På vei only in the laptop layout.
+      await expect(table.locator("tbody th[scope=row]").filter({ visible: true })).toHaveText([
         nb.terms.incomingOrder,
         nb.terms.incomingDelivery,
+        ...(vp.phone ? [] : [nb.terms.unitsShipped]),
         nb.terms.netInventory,
-        nb.terms.supplyLine,
-        landing.seat.yourOrder,
+        ...(vp.phone ? [] : [nb.terms.supplyLine]),
+        nb.terms.position,
+        nb.games.play.table.order,
+        nb.games.play.table.cost,
       ]);
       await expect(table).toHaveCSS("font-variant-numeric", "lining-nums tabular-nums");
+      // The same Graf over tabell as the play screen: every mark over its column, lines up to nå.
+      await expect(page.locator('svg[data-chart="net"]:visible')).toHaveCount(1);
+      await untilFontsLoaded(page);
+      const found = await alignment(page);
+      expect(found.off).toEqual([]);
+      expect(found.worst).toBeLessThanOrEqual(1);
+      expect(found.nowLine).toBeLessThanOrEqual(1);
+      expect(found.drawn).toEqual([1, 2, 3, 4]);
+      expect(await labelProblems(page)).toEqual([]);
+      await textReadable(page);
+      // The graph adds nothing for screen readers: the table is its alternative.
+      const unhidden = await page.evaluate(
+        () => [...document.querySelectorAll("svg[data-chart]")].filter((svg) => !svg.closest('[aria-hidden="true"]')).length,
+      );
+      expect(unhidden).toBe(0);
+      // Hidden information: no other Role's Seat, no customers and no week count anywhere on the
+      // page, screen-reader text and chart titles included.
+      const text = (await page.locator("main").textContent()) ?? "";
+      for (const other of [nb.terms.retailer, nb.terms.distributor, nb.terms.factory]) expect(text).not.toContain(other);
+      expect(text).not.toMatch(/kunde/i);
+      expect(text).not.toMatch(/uker spilt|\d+\s*uker/i);
       const demo = page.getByText(landing.seat.demoData, { exact: true });
       await expect(demo).toBeVisible();
       await expect(demo).toHaveCSS("color", "rgb(94, 111, 130)");
@@ -88,6 +119,12 @@ for (const vp of VIEWPORTS) {
         const [h, l] = await Promise.all([headline.boundingBox(), lead.boundingBox()]);
         expect(l!.x).toBeGreaterThan(h!.x + h!.width);
         await expect(headline).toHaveCSS("font-size", "48px");
+        // Eight columns, so from 1024 px they are wider than the play screen's 1.6 em.
+        const column = await table.getByRole("columnheader").first().evaluate((th) => ({
+          width: th.getBoundingClientRect().width,
+          em: parseFloat(getComputedStyle(th).fontSize),
+        }));
+        expect(column.width).toBeGreaterThanOrEqual(5 * column.em - 0.5);
       }
       await expectAccessible(page);
     });
