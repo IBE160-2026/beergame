@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-20-2026 04:13
+last_updated: 11-20-2026 04:59
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -107,7 +107,7 @@ development_status:
   5-7-mark-the-class-session-obligatory-and-set-the-inactivity-lim: done
   5-8-preview-a-random-allocation-and-run-it-again: done
   5-9-confirm-the-allocation-i-am-looking-at: done
-  5-10-move-or-swap-students-in-the-allocation: in-progress
+  5-10-move-or-swap-students-in-the-allocation: done
   5-11-lock-the-class-session-at-the-start-date: backlog
   5-12-open-the-class-games-on-the-frozen-snapshot: backlog
   5-13-seat-students-who-register-after-the-allocation: backlog
