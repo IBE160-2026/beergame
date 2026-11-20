@@ -1767,3 +1767,25 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 129: beslutninger i Story 6.11.
+
+## Story 6.12: Bekrefte ordren og beholde det som er skrevet (2026-11-20)
+
+### Oppgave
+Bygge Story 6.12 etter kjøreboka, med testen som ble utsatt fra 6.11.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-12-confirm-the-order-and-keep-what-i-typed.md`.
+- **Commit 77f6111:** ordreruten med `actor` i `place_order`, tilstandene «sender» og «bekreftet» i ordrefeltet, og utkast som tåler ny lasting (`drafts.ts`).
+- **Tester:**
+  - backend: 2712 tester;
+  - frontend: Vitest 638 og bygg;
+  - Playwright: 382 tester.
+- **Gjennomgang:** 31 lave funn. 6 ble rettet.
+- **Visuell kontroll:** 22 skjermbilder i `screenshots/6.12/`. Ett avvik er rettet (7c2e91c).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 130: beslutninger i Story 6.12.
