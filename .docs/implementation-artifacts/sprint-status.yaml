@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-20-2026 16:44
+last_updated: 11-20-2026 17:20
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -123,7 +123,7 @@ development_status:
   6-2-read-the-rules-before-the-first-order: done
   6-3-do-the-starting-task: done
   6-4-see-changes-without-reloading: done
-  6-5-start-the-class-game: in-progress
+  6-5-start-the-class-game: done
   6-6-see-my-seat-s-week-in-the-week-table: backlog
   6-7-see-netto-lager-posisjon-and-cost-as-a-graph-over-the-table: backlog
   6-8-see-the-landing-s-demodata-seat-as-a-graph-over-its-table: backlog
