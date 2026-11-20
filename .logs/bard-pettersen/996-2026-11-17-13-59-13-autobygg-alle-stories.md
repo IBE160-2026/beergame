@@ -1701,3 +1701,25 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 126: beslutninger i Story 6.8.
+
+## Story 6.9: Se mitt ledd i kjeden i Kjedebåndet (2026-11-20)
+
+### Oppgave
+Bygge Story 6.9 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-9-kjedeband-own-link.md`.
+- **Commit dd227c6:** Kjedebåndet i SVG med en egen utregning av oppsettet, plassert mellom Topplinja og grafen. Ingen endringer i backend.
+- **Tester:**
+  - backend: 2695 tester;
+  - frontend: Vitest 544 og bygg;
+  - Playwright: 357 tester med 2 arbeidere.
+- **Gjennomgang:** 36 lave funn. 6 ble rettet.
+- **Visuell kontroll:** 40 skjermbilder i `screenshots/6.9/`. Ett avvik er rettet (c7287ef).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 127: beslutninger i Story 6.9.
