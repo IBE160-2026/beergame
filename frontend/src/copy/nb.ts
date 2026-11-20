@@ -1011,6 +1011,43 @@ export const nb = {
       refused: "Labtimen ble ikke lagret. Se feltene.",
       hasEnded: "Labtimen er over og kan ikke endres lenger.",
     },
+    /** The block «Fordeling» and its Fordelingsforhåndsvisning (Story 5.8, FR-20, UX-DR50). The
+     * heading form, «Tomme seter får KI-spiller.», «Vis som liste», «Kjør fordeling på nytt» and
+     * «Ikke bekreftet.» are EXPERIENCE.md's and mockup 03's own; the rest is [ASSUMPTION] draft copy. */
+    allocation: {
+      title: "Fordeling",
+      notConfirmed: "Ikke bekreftet.",
+      nobody: "Ingen registrerte studenter å fordele ennå.",
+      open: "Se fordelingen",
+      opening: "Henter fordelingen …",
+      close: "Lukk",
+      /** «Fordeling: 60 Klassespill à 4». */
+      heading: (games: number) => `Fordeling: ${games} Klassespill à 4`,
+      /** «240 studenter fordeles tilfeldig. Hver søyle er ett spill, hver rad en Rolle.» */
+      lead: (students: number) =>
+        `${students} ${students === 1 ? "student" : "studenter"} fordeles tilfeldig. Hver søyle er ett spill, hver rad en Rolle.`,
+      emptySeats: "Tomme seter får KI-spiller.",
+      missing: (count: number) =>
+        `${count} ${count === 1 ? "registrert student er" : "registrerte studenter er"} ikke med.`,
+      missingRedraw: "Kjør fordeling på nytt for å ta dem med.",
+      view: "Visning",
+      chart: "Diagram",
+      list: "Vis som liste",
+      /** The chart's name, for its scroll region. */
+      chartLabel: "Fordelingen, ett spill per søyle",
+      /** «Spill 17». */
+      game: (number: number) => `Spill ${number}`,
+      /** One Seat in the game's line: «Ida, Detaljist». */
+      seat: (name: string, role: string) => `${name}, ${role}`,
+      aiPlayer: "KI-spiller",
+      removed: "Ikke lenger i Klassen",
+      redraw: "Kjør fordeling på nytt",
+      redrawing: "Trekker …",
+      redrawn: "Fordelingen er trukket på nytt.",
+      noticeLine: "Ingen får beskjed før du bekrefter.",
+      failed: "Fordelingen kunne ikke hentes. Prøv igjen.",
+      locked: "Klasseøkten har startet. Fordelingen kan ikke trekkes på nytt.",
+    },
     /** The Lærerhjem's «Venter» and «Neste frist» (Story 5.2, UX-DR56). [ASSUMPTION] */
     home: {
       lacksDates: (className: string, number: number) => `${className}: Klasseøkt ${number} mangler datoer`,

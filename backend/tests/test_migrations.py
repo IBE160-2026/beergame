@@ -50,8 +50,8 @@ CLASS_TABLES = {"classes", "class_staff"}
 """The tables of revision 0023 (Story 4.1)."""
 ROSTER_TABLES = {"roster_uploads", "roster_upload_rows", "roster_entries"}
 """The tables of revisions 0024 (Story 4.2) and 0026 (Story 4.4)."""
-SESSION_TABLES = {"class_sessions", "lab_hours"}
-"""The table of revision 0032 (Story 5.1)."""
+SESSION_TABLES = {"class_sessions", "lab_hours", "allocation_drafts"}
+"""The tables of `sessions`: revisions 0032 (Story 5.1), 0035 (Story 5.6) and 0037 (Story 5.8)."""
 PRE_SESSION_TABLES = (
     AI_HEAD_TABLES
     | JOB_TABLES
@@ -67,7 +67,7 @@ PRE_SESSION_TABLES = (
     | ROSTER_TABLES
 )
 HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES
-HEAD = "0036"  # 0036 adds the required share of Weeks of a Class session (Story 5.7)
+HEAD = "0037"  # 0037 adds the allocation drafts of Class sessions (Story 5.8)
 
 
 def reset_schema(url: str) -> None:
@@ -729,6 +729,28 @@ def test_0036_backfills_80_keeps_the_share_in_range_and_its_downgrade_drops_it(
     command.downgrade(cfg, "0035")
     with psycopg.connect(libpq_dsn(migrations_database)) as conn:
         assert conn.execute(query).fetchall() == []
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_0037_keeps_one_draft_per_class_session_and_its_downgrade_drops_the_table(
+    migrations_database,
+):
+    """0037 (Story 5.8): one current draft per Class session, its revision from 1."""
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        constraints = dict(
+            conn.execute(
+                "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint "
+                "WHERE conrelid = 'allocation_drafts'::regclass AND contype IN ('c', 'u')"
+            ).fetchall()
+        )
+    assert "revision >= 1" in constraints["ck_allocation_drafts_revision"]
+    assert "UNIQUE (class_session_id)" in constraints["uq_allocation_drafts_class_session"]
+    command.downgrade(cfg, "0036")
+    assert "allocation_drafts" not in tables(migrations_database)
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 

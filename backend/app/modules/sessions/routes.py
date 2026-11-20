@@ -12,7 +12,8 @@ Demand pattern and seed to both and the staff's read of the series,
 `/api/class-sessions/{id}/demand-series`. Story 5.5 adds the Effort level and Debrief mode to the
 save and the offered levels, AI player descriptions and provider flag to the read. Story 5.6 adds
 the Lab hours, `/api/class-sessions/{id}/lab-hours[/{lab_hour_id}]`, saved on their own. Story
-5.7 adds the obligatory mark, its required share and the Inactivity limit to the save."""
+5.7 adds the obligatory mark, its required share and the Inactivity limit to the save. Story 5.8
+adds the allocation draft, `/api/class-sessions/{id}/allocation[/redraw]`."""
 
 import uuid
 from typing import Annotated
@@ -22,6 +23,7 @@ from fastapi.responses import JSONResponse, Response
 
 from app.modules.sessions import service
 from app.modules.sessions.schemas import (
+    AllocationOut,
     ClassSessionListOut,
     ClassSessionOut,
     ClassSessionSaveIn,
@@ -260,6 +262,69 @@ async def remove_lab_hour(
     if not removed:
         raise authz.Forbidden
     return Response(status_code=204)
+
+
+@router.get(
+    "/class-sessions/{session_id}/allocation",
+    response_model=AllocationOut,
+    responses=documented(401, 403),
+    operation_id="getAllocation",
+)
+async def get_allocation(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.read"))],
+) -> Response:
+    """The «Fordeling» block (Story 5.8, FR-20): the registered Students, those not in the draft,
+    and the stored draft (None until one is drawn) with the Students' names read now. For the
+    Class's staff, Assistant lecturers too."""
+    found = await service.allocation_of(user, _id(session_id))
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+async def _draw(user: authz.Principal, session_id: str, *, again: bool) -> Response:
+    try:
+        drawn = await service.draw_allocation(user, _id(session_id), now=auth.utcnow(), again=again)
+    except service.SessionLocked as refused:
+        return error_response(409, refused.code, "The Class session has started.", refused.fields)
+    if drawn is None:
+        raise authz.Forbidden
+    return JSONResponse(drawn.model_dump(mode="json"))
+
+
+@router.post(
+    "/class-sessions/{session_id}/allocation",
+    response_model=AllocationOut,
+    responses=documented(401, 403, 409),
+    operation_id="openAllocation",
+)
+async def open_allocation(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """Opening «Fordeling»: the stored draft unchanged, or, when none is stored, a draft drawn at
+    random from the registered Students in groups of four with a random Role each. With no
+    registered Student nothing is stored. No Game or Seat is created and no Student is told.
+    Once the Start date has passed a stored draft is still returned, and a draw answers 409
+    `session_locked` (`{"allocation": "locked"}`). An archived Class answers 409
+    `class_archived`."""
+    return await _draw(user, session_id, again=False)
+
+
+@router.post(
+    "/class-sessions/{session_id}/allocation/redraw",
+    response_model=AllocationOut,
+    responses=documented(401, 403, 409),
+    operation_id="redrawAllocation",
+)
+async def redraw_allocation(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """«Kjør fordeling på nytt»: a new seed and a new draft under a new id, revision 1. The
+    refusals are those of opening it."""
+    return await _draw(user, session_id, again=True)
 
 
 @router.post(

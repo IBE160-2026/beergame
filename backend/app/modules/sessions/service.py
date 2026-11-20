@@ -39,6 +39,12 @@ Student through a digest notice (`OBLIGATORY_NOTICE`, mail read at send time by
 `obligatory_mail_context`). `required_share` is the one source of the share for Story 8.9 and
 Epic 13; nothing here computes Completion with it.
 
+The allocation (Story 5.8, FR-20) is a stored draft, one per Class session: opening the
+«Fordeling» block draws one from the registered Students with a fresh seed through the pure
+`allocation.allocate` when none is stored, and «Kjør fordeling på nytt» replaces it under a new id.
+The preview always shows the stored draft, with names resolved at read time
+(`classes.service.student_names`); no Game, Seat or notice exists until Story 5.9 confirms it.
+
 Every mutation passes one guard, `_writable`, which asks `classes.service.is_writable` inside the
 mutation's transaction and raises `classes.service.ClassArchived` (409 `class_archived`) for an
 archived Class. Who may do what is `platform/authz`'s: `class_sessions.read`,
@@ -64,14 +70,16 @@ from app.engine.demand import DemandFixed, DemandRandom, DemandStep, DemandStepN
 from app.engine.settings import (
     DEMAND_RANGES,
     RANGES,
+    ROLES,
     Range,
+    Role,
     demand_series,
     validate,
     warnings,
 )
 from app.modules.classes import service as classes
 from app.modules.players import service as players
-from app.modules.sessions import repo
+from app.modules.sessions import allocation, repo
 from app.modules.sessions.models import (
     DATE_NAMES,
     MAX_REQUIRED_SHARE_PERCENT,
@@ -82,6 +90,10 @@ from app.modules.sessions.models import (
 from app.modules.sessions.schemas import (
     AiDescriptionsOut,
     AiMode,
+    AllocationDraftOut,
+    AllocationGameOut,
+    AllocationOut,
+    AllocationSeatOut,
     ClassSessionListItem,
     ClassSessionListOut,
     ClassSessionOut,
@@ -1207,3 +1219,130 @@ async def obligatory_mail_context(
     if user_id not in await classes.registered_students(row["class_id"]):
         return None
     return {"class_name": label.name}
+
+
+# The allocation draft (Story 5.8, FR-20, AD-12, AD-14).
+
+SEAT_ORDER: tuple[Role, ...] = tuple(reversed(ROLES))
+"""The Seats of a Class game as the preview lists them: Fabrikk first, Detaljist last."""
+
+
+async def _allocation_out(class_id: uuid.UUID, draft: Mapping[str, Any] | None) -> AllocationOut:
+    """The block's state: the registered Students now, and the stored draft with its names."""
+    registered = await classes.registered_students(class_id)
+    if draft is None:
+        return AllocationOut(registered_count=len(registered), missing_count=0, draft=None)
+    placed = [
+        allocation.Seat(uuid.UUID(a["user_id"]), a["game_number"], Role(a["role"]))
+        for a in draft["assignments"]
+    ]
+    in_draft = {seat.user_id for seat in placed}
+    names = await classes.student_names(class_id, sorted(in_draft))
+    games: dict[int, dict[Role, uuid.UUID]] = {}
+    for seat in placed:
+        games.setdefault(seat.game_number, {})[seat.role] = seat.user_id
+    return AllocationOut(
+        registered_count=len(registered),
+        missing_count=sum(1 for student in registered if student not in in_draft),
+        draft=AllocationDraftOut(
+            id=draft["id"],
+            revision=draft["revision"],
+            drawn_at=draft["drawn_at"],
+            games=[
+                AllocationGameOut(
+                    number=number,
+                    seats=[
+                        AllocationSeatOut(
+                            role=role,
+                            user_id=games[number].get(role),
+                            name=names.get(games[number][role]) if role in games[number] else None,
+                        )
+                        for role in SEAT_ORDER
+                    ],
+                )
+                for number in sorted(games)
+            ],
+        ),
+    )
+
+
+async def allocation_of(user: authz.Principal, session_id: uuid.UUID) -> AllocationOut | None:
+    """The «Fordeling» block as stored, for the Class's staff (Assistant lecturers too). None
+    when the User may not read the Class."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, session_id)
+        draft = await repo.draft_of(s, session_id) if row else None
+    if row is None or await _class_for(user, row["class_id"], "class_sessions.read") is None:
+        return None
+    return await _allocation_out(row["class_id"], draft)
+
+
+async def draw_allocation(
+    user: authz.Principal, session_id: uuid.UUID, *, now: datetime, again: bool
+) -> AllocationOut | None:
+    """Opening «Fordeling» (`again` False): the stored draft as it is, or, when none is stored, a
+    draft drawn from the registered Students with a fresh seed, revision 1. «Kjør fordeling på
+    nytt» (`again` True): a new seed and a new draft under a new id. With no registered Student
+    nothing is stored (and a redraw removes the draft). A stored draft emits `session:<id>`; no
+    Student is told and no Game or Seat exists (FR-20). Once the Start date has passed, opening a
+    stored draft still returns it, and any draw raises `SessionLocked`. Raises `ClassArchived`;
+    None when the User may not manage the Class."""
+    row = await _managed_session(user, session_id)
+    if row is None:
+        return None
+    students = await classes.registered_students(row["class_id"])
+    async with get_sessionmaker().begin() as s:
+        await _writable(s, row["class_id"])
+        row = await repo.session_row(s, session_id, lock=True)
+        if row is None:
+            return None
+        draft = await repo.draft_of(s, session_id)
+        if is_locked(row, now=now) and (again or draft is None):
+            # Opening a stored draft only reads it, so a page open past the Start date still
+            # shows it; drawing is what the lock refuses.
+            refused = SessionLocked({"allocation": "locked"})
+            log.info(
+                "allocation_refused",
+                class_session_id=str(session_id),
+                error_code=refused.code,
+            )
+            raise refused
+        if draft is not None and not again:
+            pass  # The stored draft, never recomputed.
+        elif not students:
+            if draft is not None:
+                await repo.delete_draft(s, session_id)
+                await events.emit(s, "session", str(session_id))
+            draft = None
+        else:
+            seed = allocation.draw_seed()
+            seats = allocation.allocate(students, seed)
+            draft_id = uuid.uuid7()
+            await repo.replace_draft(
+                s,
+                session_id,
+                id=draft_id,
+                revision=1,
+                seed=seed,
+                assignments=[
+                    {
+                        "user_id": str(seat.user_id),
+                        "game_number": seat.game_number,
+                        "role": seat.role.value,
+                    }
+                    for seat in seats
+                ],
+                drawn_by=user.id,
+                drawn_at=now,
+            )
+            await events.emit(s, "session", str(session_id))
+            draft = await repo.draft_of(s, session_id)
+            log.info(
+                "allocation_drawn",
+                class_session_id=str(session_id),
+                draft_id=str(draft_id),
+                again=again,
+                students=len(students),
+                games=seats[-1].game_number,
+            )
+    return await _allocation_out(row["class_id"], draft)

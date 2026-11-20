@@ -1,4 +1,4 @@
-"""API shapes of `modules/sessions` (Stories 5.1 to 5.6)."""
+"""API shapes of `modules/sessions` (Stories 5.1 to 5.8)."""
 
 import uuid
 from datetime import datetime
@@ -8,6 +8,7 @@ from typing import Any, Literal
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
 
 from app.engine import GameSettings
+from app.engine.settings import Role
 
 
 class AiMode(StrEnum):
@@ -307,3 +308,39 @@ class LecturerOverviewOut(BaseModel):
 
     waiting: list[WaitingClass]
     next_date: NextDate | None
+
+
+class AllocationSeatOut(BaseModel):
+    """One Seat of a Class game in the draft (Story 5.8). `user_id` None is an empty Seat (an AI
+    player at the lock). `name` is resolved now through `classes.service.student_names`; None
+    with a `user_id` means the Student is no longer in the Class."""
+
+    role: Role
+    user_id: uuid.UUID | None
+    name: str | None
+
+
+class AllocationGameOut(BaseModel):
+    """One Class game of the draft: its number and its four Seats, Fabrikk first."""
+
+    number: int
+    seats: list[AllocationSeatOut]
+
+
+class AllocationDraftOut(BaseModel):
+    """The stored draft (Story 5.8, FR-20): what the preview shows, never a recomputation.
+    Story 5.9 confirms it by `id` and `revision`."""
+
+    id: uuid.UUID
+    revision: int
+    drawn_at: datetime
+    games: list[AllocationGameOut]
+
+
+class AllocationOut(BaseModel):
+    """The «Fordeling» block: the registered Students now, those of them not in the draft (they
+    registered after it was drawn), and the draft, None until one is drawn."""
+
+    registered_count: int
+    missing_count: int
+    draft: AllocationDraftOut | None

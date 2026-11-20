@@ -551,6 +551,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/allocation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Allocation
+         * @description The «Fordeling» block (Story 5.8, FR-20): the registered Students, those not in the draft,
+         *     and the stored draft (None until one is drawn) with the Students' names read now. For the
+         *     Class's staff, Assistant lecturers too.
+         */
+        get: operations["getAllocation"];
+        put?: never;
+        /**
+         * Open Allocation
+         * @description Opening «Fordeling»: the stored draft unchanged, or, when none is stored, a draft drawn at
+         *     random from the registered Students in groups of four with a random Role each. With no
+         *     registered Student nothing is stored. No Game or Seat is created and no Student is told.
+         *     Once the Start date has passed a stored draft is still returned, and a draw answers 409
+         *     `session_locked` (`{"allocation": "locked"}`). An archived Class answers 409
+         *     `class_archived`.
+         */
+        post: operations["openAllocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/allocation/redraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redraw Allocation
+         * @description «Kjør fordeling på nytt»: a new seed and a new draft under a new id, revision 1. The
+         *     refusals are those of opening it.
+         */
+        post: operations["redrawAllocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/demand-series": {
         parameters: {
             query?: never;
@@ -1296,6 +1348,62 @@ export interface components {
          * @enum {string}
          */
         AiMode: "llm" | "rule_based";
+        /**
+         * AllocationDraftOut
+         * @description The stored draft (Story 5.8, FR-20): what the preview shows, never a recomputation.
+         *     Story 5.9 confirms it by `id` and `revision`.
+         */
+        AllocationDraftOut: {
+            /**
+             * Drawn At
+             * Format: date-time
+             */
+            drawn_at: string;
+            /** Games */
+            games: components["schemas"]["AllocationGameOut"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Revision */
+            revision: number;
+        };
+        /**
+         * AllocationGameOut
+         * @description One Class game of the draft: its number and its four Seats, Fabrikk first.
+         */
+        AllocationGameOut: {
+            /** Number */
+            number: number;
+            /** Seats */
+            seats: components["schemas"]["AllocationSeatOut"][];
+        };
+        /**
+         * AllocationOut
+         * @description The «Fordeling» block: the registered Students now, those of them not in the draft (they
+         *     registered after it was drawn), and the draft, None until one is drawn.
+         */
+        AllocationOut: {
+            draft: components["schemas"]["AllocationDraftOut"] | null;
+            /** Missing Count */
+            missing_count: number;
+            /** Registered Count */
+            registered_count: number;
+        };
+        /**
+         * AllocationSeatOut
+         * @description One Seat of a Class game in the draft (Story 5.8). `user_id` None is an empty Seat (an AI
+         *     player at the lock). `name` is resolved now through `classes.service.student_names`; None
+         *     with a `user_id` means the Student is no longer in the Class.
+         */
+        AllocationSeatOut: {
+            /** Name */
+            name: string | null;
+            role: components["schemas"]["Role"];
+            /** User Id */
+            user_id: string | null;
+        };
         /**
          * AuditActor
          * @description An actor of the log for the filter: a User with their name, or the system (both null).
@@ -4169,6 +4277,171 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getAllocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllocationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    openAllocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllocationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    redrawAllocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllocationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

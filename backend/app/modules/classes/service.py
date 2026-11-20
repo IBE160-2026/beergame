@@ -611,6 +611,14 @@ async def registered_students(class_id: uuid.UUID) -> list[uuid.UUID]:
     return await identity.registered_users(class_id)
 
 
+async def student_names(class_id: uuid.UUID, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """The scope helper by which Epic 5 names the Students of an allocation at read time
+    (Story 5.8, AD-12, AD-14): the names of those of `user_ids` who are Students in the Class now.
+    An id that is no longer one (removed from the Roster) or never was is left out. The caller has
+    checked that the User may read the Class."""
+    return await identity.student_names(class_id, user_ids)
+
+
 async def label_of_class(session: AsyncSession, class_id: uuid.UUID) -> identity.ClassLabel | None:
     """How a Student Invitation names its Class, in its mail and on «Du er invitert»
     (`identity`'s resolver)."""

@@ -191,6 +191,130 @@
         "title": "AiMode",
         "type": "string"
       },
+      "AllocationDraftOut": {
+        "description": "The stored draft (Story 5.8, FR-20): what the preview shows, never a recomputation.\nStory 5.9 confirms it by `id` and `revision`.",
+        "properties": {
+          "drawn_at": {
+            "format": "date-time",
+            "title": "Drawn At",
+            "type": "string"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/AllocationGameOut"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "drawn_at",
+          "games"
+        ],
+        "title": "AllocationDraftOut",
+        "type": "object"
+      },
+      "AllocationGameOut": {
+        "description": "One Class game of the draft: its number and its four Seats, Fabrikk first.",
+        "properties": {
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/AllocationSeatOut"
+            },
+            "title": "Seats",
+            "type": "array"
+          }
+        },
+        "required": [
+          "number",
+          "seats"
+        ],
+        "title": "AllocationGameOut",
+        "type": "object"
+      },
+      "AllocationOut": {
+        "description": "The «Fordeling» block: the registered Students now, those of them not in the draft (they\nregistered after it was drawn), and the draft, None until one is drawn.",
+        "properties": {
+          "draft": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AllocationDraftOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "missing_count": {
+            "title": "Missing Count",
+            "type": "integer"
+          },
+          "registered_count": {
+            "title": "Registered Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "registered_count",
+          "missing_count",
+          "draft"
+        ],
+        "title": "AllocationOut",
+        "type": "object"
+      },
+      "AllocationSeatOut": {
+        "description": "One Seat of a Class game in the draft (Story 5.8). `user_id` None is an empty Seat (an AI\nplayer at the lock). `name` is resolved now through `classes.service.student_names`; None\nwith a `user_id` means the Student is no longer in the Class.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "role",
+          "user_id",
+          "name"
+        ],
+        "title": "AllocationSeatOut",
+        "type": "object"
+      },
       "AuditActor": {
         "description": "An actor of the log for the filter: a User with their name, or the system (both null).",
         "properties": {
@@ -5335,6 +5459,213 @@
           }
         },
         "summary": "Save Class Session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/allocation": {
+      "get": {
+        "description": "The «Fordeling» block (Story 5.8, FR-20): the registered Students, those not in the draft,\nand the stored draft (None until one is drawn) with the Students' names read now. For the\nClass's staff, Assistant lecturers too.",
+        "operationId": "getAllocation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllocationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Allocation",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "post": {
+        "description": "Opening «Fordeling»: the stored draft unchanged, or, when none is stored, a draft drawn at\nrandom from the registered Students in groups of four with a random Role each. With no\nregistered Student nothing is stored. No Game or Seat is created and no Student is told.\nOnce the Start date has passed a stored draft is still returned, and a draw answers 409\n`session_locked` (`{\"allocation\": \"locked\"}`). An archived Class answers 409\n`class_archived`.",
+        "operationId": "openAllocation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllocationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Allocation",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/allocation/redraw": {
+      "post": {
+        "description": "«Kjør fordeling på nytt»: a new seed and a new draft under a new id, revision 1. The\nrefusals are those of opening it.",
+        "operationId": "redrawAllocation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllocationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Redraw Allocation",
         "tags": [
           "sessions"
         ]

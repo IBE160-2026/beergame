@@ -5,10 +5,10 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import RowMapping, func, insert, select, update
+from sqlalchemy import RowMapping, delete, func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.sessions.models import DATE_NAMES, class_sessions, lab_hours
+from app.modules.sessions.models import DATE_NAMES, allocation_drafts, class_sessions, lab_hours
 from app.platform import authz
 
 _number = (
@@ -184,4 +184,28 @@ async def save(
             inactivity_limit_hours=inactivity_limit_hours,
             **values,
         )
+    )
+
+
+async def draft_of(session: AsyncSession, class_session_id: uuid.UUID) -> RowMapping | None:
+    """The Class session's current allocation draft, or None (Story 5.8)."""
+    result = await session.execute(
+        select(allocation_drafts).where(allocation_drafts.c.class_session_id == class_session_id)
+    )
+    return result.mappings().one_or_none()
+
+
+async def delete_draft(session: AsyncSession, class_session_id: uuid.UUID) -> None:
+    """Removes the Class session's draft, if any."""
+    await session.execute(
+        delete(allocation_drafts).where(allocation_drafts.c.class_session_id == class_session_id)
+    )
+
+
+async def replace_draft(session: AsyncSession, class_session_id: uuid.UUID, **values: Any) -> None:
+    """Stores `values` as the Class session's one current draft, removing the one before. The
+    caller holds the Class session's row lock, so two draws never race."""
+    await delete_draft(session, class_session_id)
+    await session.execute(
+        insert(allocation_drafts).values(class_session_id=class_session_id, **values)
     )

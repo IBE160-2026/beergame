@@ -140,3 +140,18 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   Class is archived or the User is no longer a registered Student. Switching off tells nobody.
 - `service.required_share(class_session)` is the one source of the share for Story 8.9 and
   Epic 13; this module computes no Completion with it.
+
+## Allocation draft (Story 5.8)
+
+- `allocation.allocate(student_ids, seed)` is pure and deterministic: the ids sorted, shuffled with
+  the seed, four at a time into games 1, 2, …, each group with its own shuffle of the Roles. When
+  the count is not divisible by four, only the last group has one to three Students.
+- `allocation_drafts` (migration 0037): one current draft per Class session (unique), with its id,
+  `revision` (1 when drawn), seed, assignments (`user_id`, game number, Role; ids only) and who drew
+  it. The preview always shows this row; it is never recomputed.
+- `GET …/allocation` reads it (staff, Assistant lecturers too) with `registered_count`,
+  `missing_count` (registered after the draw) and the Students' names resolved now through
+  `classes.service.student_names`. `POST …/allocation` returns the stored draft or draws one;
+  `POST …/allocation/redraw` replaces it under a new id. With no registered Student nothing is
+  stored. Once locked both answer 409 `session_locked`; an archived Class 409 `class_archived`.
+- A draw emits `session:<id>` only: no Game, Seat or notice exists before Story 5.9 confirms it.

@@ -146,3 +146,36 @@ export function useLecturerOverview() {
     retry: false,
   });
 }
+
+export type Allocation = components["schemas"]["AllocationOut"];
+export type AllocationGame = components["schemas"]["AllocationGameOut"];
+export type AllocationSeat = components["schemas"]["AllocationSeatOut"];
+
+/** The «Fordeling» block of a Class session (Story 5.8). */
+export const allocationKey = (id: string) => ["class-sessions", "allocation", id] as const;
+
+/** The «Fordeling» block as stored: the registered Students and the draft, None until drawn. */
+export function useAllocation(sessionId: string) {
+  return useQuery({
+    queryKey: allocationKey(sessionId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/allocation", { params: { path: { session_id: sessionId } } }),
+      ),
+    retry: false,
+  });
+}
+
+/** Opening the preview: the stored draft, or one drawn now when none is stored (Story 5.8). */
+export function openAllocation(sessionId: string) {
+  return request(() =>
+    api.POST("/api/class-sessions/{session_id}/allocation", { params: { path: { session_id: sessionId } } }),
+  );
+}
+
+/** «Kjør fordeling på nytt»: a new draft under a new id; nobody is told (Story 5.8). */
+export function redrawAllocation(sessionId: string) {
+  return request(() =>
+    api.POST("/api/class-sessions/{session_id}/allocation/redraw", { params: { path: { session_id: sessionId } } }),
+  );
+}

@@ -2066,6 +2066,14 @@ async def registered_users(class_id: uuid.UUID) -> list[uuid.UUID]:
         return await repo.registered_user_ids(s, class_id, [r.value for r in REGISTERED])
 
 
+async def student_names(class_id: uuid.UUID, ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """The names of those of `ids` who are Students in the Class now (registered, not removed),
+    by User id; any other id is left out (AD-12)."""
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.student_names(s, class_id, [r.value for r in REGISTERED], ids)
+    return {row["id"]: row["name"] for row in rows}
+
+
 async def send_entry_reminders(
     s: AsyncSession,
     class_id: uuid.UUID,

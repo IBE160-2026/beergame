@@ -1,6 +1,7 @@
 """Tables owned by `modules/sessions` (Story 5.1, FR-11, AD-4)."""
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Column,
@@ -9,6 +10,7 @@ from sqlalchemy import (
     Integer,
     Table,
     Text,
+    UniqueConstraint,
     Uuid,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -113,3 +115,27 @@ lab_hours = Table(
 )
 """The Lab hours of a Class session (Story 5.6, FR-19), UTC. Only `sessions` reads it; other
 modules ask `service.current_lab_hour`."""
+
+allocation_drafts = Table(
+    "allocation_drafts",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    # One current draft per Class session: a new draw replaces the row under a new id.
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    # 1 when drawn; Story 5.10's edits raise it, and Story 5.9's confirm checks it.
+    Column("revision", Integer, nullable=False),
+    Column("seed", BigInteger, nullable=False),
+    # `[{"user_id", "game_number", "role"}]`: ids only, never names or emails (AD-14).
+    Column("assignments", JSONB, nullable=False),
+    Column("drawn_by", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+    Column("drawn_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("revision >= 1", name="ck_allocation_drafts_revision"),
+    UniqueConstraint("class_session_id", name="uq_allocation_drafts_class_session"),
+)
+"""The Class session's current allocation draft (Story 5.8, FR-20): what the preview shows and
+what Story 5.9 confirms by id and revision. Never recomputed from the Roster."""

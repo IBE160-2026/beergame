@@ -28,6 +28,7 @@ import {
   saveClassSession,
   useClassSession,
 } from "./api";
+import { AllocationBlock } from "./allocation-panel";
 import { ChainDiagram } from "./chain-diagram";
 import {
   type ChoicesDraft,
@@ -54,7 +55,8 @@ const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 /**
  * The Klasseøkt (Story 5.1, FR-11, UX-DR48): a new Class session as the API filled it in with the
  * Classic defaults, «Kjeden ved start» drawn from the values it returned, and «Lagre Klasseøkt»,
- * which saves it as it stands. The Game settings open in place for changes (Story 5.3); KI-modus,
+ * which saves it as it stands. The Game settings open in place for changes (Story 5.3); «Fordeling»
+ * previews a random allocation in place (Story 5.8); KI-modus,
  * Innsatsnivå and Debrief-modus are Valgknapper that take effect on save (Story 5.5). An
  * Assistant lecturer reads it with no action. Anything the User may not reach shows the
  * permission-denied page (FR-5).
@@ -289,6 +291,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           {item.play_time_warning ? (
             <p className="mt-3 text-body-phone text-ink lg:text-body">{copy.dates.playTimeShort(settings.weeks)}</p>
           ) : null}
+          <AllocationBlock item={item} />
         </section>
       </div>
       <Choices

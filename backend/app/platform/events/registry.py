@@ -31,6 +31,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "sessions.add_lab_hour": frozenset({"session", "user"}),
         "sessions.change_lab_hour": frozenset({"session", "user"}),
         "sessions.remove_lab_hour": frozenset({"session", "user"}),
+        # An allocation draft drawn or drawn again (Story 5.8): the staff read the session again;
+        # no Student is told before the confirmation.
+        "sessions.draw_allocation": frozenset({"session"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add
