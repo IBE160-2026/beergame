@@ -209,6 +209,10 @@ class ClassSessionOut(BaseModel):
     capacity_enabled: bool
     """`FEATURE_CAPACITY` (Story 5.15, AD-17): the Klasseøkt offers a shipping capacity. Off, the
     screen shows nothing about capacity and the api refuses one (`feature_disabled`)."""
+    info_visibility_enabled: bool
+    """`FEATURE_INFO_VISIBILITY` (Story 5.16, AD-17): the Klasseøkt offers Information
+    visibility. Off, the screen shows nothing about it and the api refuses a view switched on
+    (`feature_disabled`)."""
 
 
 class ClassSessionListItem(BaseModel):

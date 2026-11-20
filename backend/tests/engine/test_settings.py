@@ -3,12 +3,12 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from app.engine import ROLES, DemandStep, GameSettings, Role
+from app.engine import ROLES, DemandStep, GameSettings, InfoVisibility, Role
 
 
 def test_classic_defaults_dump_as_json_with_decimal_strings():
     assert GameSettings().model_dump(mode="json") == {
-        "schema_version": 1,
+        "schema_version": 2,
         "roles": ["retailer", "wholesaler", "distributor", "factory"],
         "starting_inventory": 12,
         "starting_backlog": 0,
@@ -23,6 +23,7 @@ def test_classic_defaults_dump_as_json_with_decimal_strings():
         "weeks": 36,
         "guided_weeks": 4,
         "max_order": 999,
+        "info_visibility": {"upstream": False, "downstream": False},
     }
 
 
@@ -53,7 +54,14 @@ def test_settings_are_frozen():
     "override",
     [
         {"colour": "red"},
-        {"schema_version": 2},
+        {"schema_version": 3},
+        {"schema_version": True},
+        {"schema_version": 1.0},
+        {"schema_version": 1, "info_visibility": {"upstream": False}},
+        {"info_visibility": {"upstream": "true"}},
+        {"info_visibility": {"upstream": 1}},
+        {"info_visibility": {"left": True}},
+        {"info_visibility": True},
         {"starting_inventory": -1},
         {"starting_inventory": True},
         {"starting_inventory": "12"},
@@ -87,3 +95,27 @@ def test_settings_are_frozen():
 def test_basic_type_and_sign_constraints(override):
     with pytest.raises(ValidationError):
         GameSettings(**override)
+
+
+def test_settings_stored_as_version_1_read_as_version_2_with_every_view_off():
+    # Story 5.16 bumped the schema; a version-1 dump (no `info_visibility`) still reads.
+    old = GameSettings().model_dump(mode="json")
+    old["schema_version"] = 1
+    del old["info_visibility"]
+    settings = GameSettings.model_validate(old)
+    assert settings == GameSettings()
+    assert settings.schema_version == 2
+    assert settings.info_visibility == InfoVisibility(upstream=False, downstream=False)
+    assert not settings.info_visibility.on
+
+
+def test_information_visibility_holds_an_upstream_and_a_downstream_view():
+    settings = GameSettings(info_visibility={"upstream": True})
+    assert settings.info_visibility.on
+    assert (settings.info_visibility.upstream, settings.info_visibility.downstream) == (True, False)
+    assert settings.model_dump(mode="json")["info_visibility"] == {
+        "upstream": True,
+        "downstream": False,
+    }
+    assert GameSettings.model_validate_json(settings.model_dump_json()) == settings
+    assert settings != GameSettings()

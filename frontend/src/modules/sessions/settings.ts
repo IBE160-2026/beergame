@@ -90,9 +90,18 @@ export type CapacityDraft = {
   kept?: Partial<Record<Role, number>>;
 };
 
-/** The fields as typed, Norwegian style («0,50»), with the Demand pattern and its seed, and the
- * capacity while `FEATURE_CAPACITY` is on (absent otherwise, so it is never sent). */
-export type SettingsDraft = Record<SettingName, string> & { demand: DemandDraft; capacity?: CapacityDraft };
+/** Information visibility as chosen (Story 5.16, cut list, FR-83): the view of the Seat directly
+ * upstream and of the Seat directly downstream, each on or off. */
+export type InfoVisibilityDraft = { upstream: boolean; downstream: boolean };
+
+/** The fields as typed, Norwegian style («0,50»), with the Demand pattern and its seed, the capacity
+ * while `FEATURE_CAPACITY` is on and Information visibility while `FEATURE_INFO_VISIBILITY` is on
+ * (each absent otherwise, so it is never sent). */
+export type SettingsDraft = Record<SettingName, string> & {
+  demand: DemandDraft;
+  capacity?: CapacityDraft;
+  infoVisibility?: InfoVisibilityDraft;
+};
 
 /** The Demand fields each kind shows, in order; `seed` only for the kinds that draw. */
 export const DEMAND_FIELDS: Record<DemandKind, readonly DemandFieldName[]> = {
@@ -131,10 +140,15 @@ function capacityDraftOf(settings: GameSettings): CapacityDraft {
   return draft;
 }
 
-/** The fields of the settings the api returned; the capacity only while `FEATURE_CAPACITY` is on. */
-export function draftOf(settings: GameSettings, capacityEnabled = false): SettingsDraft {
+/** The fields of the settings the api returned; the capacity only while `FEATURE_CAPACITY` is on,
+ * Information visibility only while `FEATURE_INFO_VISIBILITY` is on. */
+export function draftOf(settings: GameSettings, capacityEnabled = false, infoVisibilityEnabled = false): SettingsDraft {
   const draft = { demand: demandDraftOf(settings) } as SettingsDraft;
   if (capacityEnabled) draft.capacity = capacityDraftOf(settings);
+  if (infoVisibilityEnabled) {
+    const views = settings.info_visibility;
+    draft.infoVisibility = { upstream: views.upstream, downstream: views.downstream };
+  }
   for (const field of EDITABLE) {
     const value = settings[field.name];
     draft[field.name] = field.kind === "cost" ? costText(String(value)) : String(value);
@@ -194,6 +208,7 @@ export function settingsBody(draft: SettingsDraft, roles: readonly Role[] = ALL_
   body.demand = demandBody(draft.demand);
   if (DEMAND_FIELDS[draft.demand.kind].includes("seed")) body.demand_seed = whole(draft.demand.seed);
   if (draft.capacity) body.capacity = capacityBody(draft.capacity, roles);
+  if (draft.infoVisibility) body.info_visibility = { ...draft.infoVisibility };
   return body;
 }
 

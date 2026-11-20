@@ -79,6 +79,15 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   409 `session_locked` first once locked) and the screen shows nothing about capacity. A
   capacity stored while the flag was on is kept (left out or sent back unchanged), does not block
   other settings, and is frozen by the lock like every setting; null clears it.
+- Information visibility (Story 5.16, cut list, FR-83): `game_settings.info_visibility` is the
+  engine's `{upstream, downstream}`, two booleans, both off by default (`GameSettings` schema
+  version 2; settings stored as version 1 read with both off). Anything else is
+  `info_visibility` `invalid`. `ClassSessionOut.info_visibility_enabled` is
+  `FEATURE_INFO_VISIBILITY`. Off, a view switched on that differs from the stored value answers
+  422 `feature_disabled` (`{"info_visibility": "feature_disabled"}`; 409 `session_locked` first
+  once locked) and the screen shows nothing about it; switching views off is always allowed. The
+  lock freezes it into every Class game's snapshot, which `seat_state`, the LLM prompt and the
+  Decision log read; filling the neighbour numbers is Story 6.21's.
 - `ClassSessionOut` carries `settings_warnings` (the engine's warnings on the stored settings;
   a setting with an error gets no warning in a check) and `calibrated_settings` (the Classic
   preset, which the screen names as what content and Play guard were calibrated for).

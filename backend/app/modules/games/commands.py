@@ -137,7 +137,12 @@ def _effective_settings(
         raise CommandError(
             "invalid_settings", "the Game settings are invalid", 422, fields
         ) from None
-    errors = validate(effective, capacity_enabled=get_settings().feature_capacity)
+    flags = get_settings()
+    errors = validate(
+        effective,
+        capacity_enabled=flags.feature_capacity,
+        info_visibility_enabled=flags.feature_info_visibility,
+    )
     if errors:
         raise CommandError(
             "invalid_settings",

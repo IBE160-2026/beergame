@@ -135,7 +135,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   // The Game settings as typed while the block is open (Story 5.3), and what the api last said of
   // them: errors by setting and warnings in words.
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(() => draftOf(settings, item.capacity_enabled));
+  const [draft, setDraft] = useState(() => draftOf(settings, item.capacity_enabled, item.info_visibility_enabled));
   const [problems, setProblems] = useState<Record<string, SettingProblem>>({});
   const [warnings, setWarnings] = useState(() => warningsBySetting(item.settings_warnings));
   const checked = useRef("");
@@ -166,7 +166,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       deadline_passed: copy.dates.refused,
       session_locked: copy.dates.locked,
       invalid_settings: copy.edit.refused,
-      feature_disabled: copy.edit.capacity.disabled,
+      feature_disabled: copy.edit.featureDisabled,
       invalid_effort_level: copy.choices.effortRefused,
       invalid_session_values: copy.choices.valuesRefused,
     },
@@ -207,7 +207,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
     );
   };
   const openSettings = () => {
-    const stored = draftOf(item.game_settings, item.capacity_enabled);
+    const stored = draftOf(item.game_settings, item.capacity_enabled, item.info_visibility_enabled);
     setDraft(stored);
     checked.current = JSON.stringify(settingsBody(stored, item.game_settings.roles));
     setProblems({});

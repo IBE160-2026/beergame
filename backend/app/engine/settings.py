@@ -8,9 +8,17 @@ from collections.abc import Mapping
 from decimal import Decimal
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 from app.engine.demand import (
     SEED_MAX,
@@ -39,13 +47,35 @@ Rate = Annotated[Decimal, Field(ge=0)]
 
 FROZEN = ConfigDict(frozen=True, extra="forbid")
 
+SCHEMA_VERSION = 2
+"""The current `GameSettings` schema. Version 2 added `info_visibility` (Story 5.16); settings
+stored as version 1 read as version 2 with every view off."""
+
+
+class InfoVisibility(BaseModel):
+    """Information visibility (cut list, FR-83): which neighbour each Seat sees, with its current
+    inventory and backlog. Both views off by default; the Factory has no upstream neighbour and
+    the Retailer no downstream one, so their view on that side shows nothing."""
+
+    model_config = FROZEN
+
+    upstream: StrictBool = False
+    """Each Seat sees the Seat directly upstream (the one it orders from)."""
+    downstream: StrictBool = False
+    """Each Seat sees the Seat directly downstream (the one that orders from it)."""
+
+    @property
+    def on(self) -> bool:
+        """Whether any view is switched on."""
+        return self.upstream or self.downstream
+
 
 class GameSettings(BaseModel):
     """Everything that defines a Game's arithmetic. `GameSettings()` is the Classic game."""
 
     model_config = FROZEN
 
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = SCHEMA_VERSION
     roles: tuple[Role, ...] = ROLES
     starting_inventory: Units = 12
     starting_backlog: Units = 0
@@ -70,6 +100,26 @@ class GameSettings(BaseModel):
     """Most units a Role can ship per Week (cut list, FR-12): one key per capped Role, so one
     Seat or every Seat. None (the default) caps no Seat and is left out of the dump, so settings
     without capacity serialise exactly as before. Range-checked by `validate`."""
+    info_visibility: InfoVisibility = InfoVisibility()
+    """Which neighbours' numbers each Seat sees (cut list, FR-83). It changes no arithmetic, so
+    the rules version stays; `validate` refuses a view while the flag is off."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _upgrade_version_1(cls, data: Any) -> Any:
+        """Settings stored before version 2 read as version 2 with every view off (AD-4). A
+        version-1 object never held `info_visibility`, so one that does is refused. The version
+        is a whole number: `true` or `1.0` is refused rather than read as version 1."""
+        if not isinstance(data, dict) or "schema_version" not in data:
+            return data
+        version = data["schema_version"]
+        if type(version) is not int:
+            raise ValueError("schema_version must be a whole number")
+        if version == 1:
+            if "info_visibility" in data:
+                raise ValueError("schema_version 1 has no info_visibility")
+            return {**data, "schema_version": SCHEMA_VERSION}
+        return data
 
     @field_validator("roles")
     @classmethod
@@ -219,14 +269,19 @@ def _check_range(field: str, value: int | Decimal, allowed: Range) -> SettingsEr
 
 
 def validate(
-    settings: GameSettings, *, capacity_enabled: bool = False
+    settings: GameSettings,
+    *,
+    capacity_enabled: bool = False,
+    info_visibility_enabled: bool = False,
 ) -> tuple[SettingsError, ...]:
     """Every rule `settings` breaks: RANGES order first, then the Demand pattern, then
-    capacity, then cross-field rules.
+    capacity, then Information visibility, then cross-field rules.
 
     At most one error per field: a range error suppresses that field's cross-field error.
     `capacity_enabled` is the caller's `FEATURE_CAPACITY` flag: when it is off, any capacity is
     refused with `capacity_disabled` (fails closed when a caller leaves it out).
+    `info_visibility_enabled` is the caller's `FEATURE_INFO_VISIBILITY` flag: when it is off, a
+    view that is switched on is refused with `info_visibility_disabled` (also fails closed).
     """
     errors: list[SettingsError] = []
     for field, allowed in RANGES.items():
@@ -235,6 +290,14 @@ def validate(
             errors.append(error)
     errors.extend(validate_demand(settings.demand, settings.weeks, settings.demand_seed))
     errors.extend(_validate_capacity(settings, capacity_enabled))
+    if settings.info_visibility.on and not info_visibility_enabled:
+        errors.append(
+            SettingsError(
+                code="info_visibility_disabled",
+                field="info_visibility",
+                message="Information visibility is switched off (FEATURE_INFO_VISIBILITY)",
+            )
+        )
     flagged = {error.field for error in errors}
 
     if (

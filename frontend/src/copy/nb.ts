@@ -724,6 +724,8 @@ export const nb = {
       maxOrder: "Største ordre",
       // [ASSUMPTION] Story 5.15 (cut list, FEATURE_CAPACITY): the most a Role can ship per Week.
       capacity: "Kapasitet",
+      // [ASSUMPTION] Story 5.16 (cut list, FEATURE_INFO_VISIBILITY): EXPERIENCE.md's draft name.
+      infoVisibility: "Synlige naboer",
     },
     /** Changing the Game settings (Story 5.3, FR-12, UX-DR48). [ASSUMPTION] draft copy. The api
      * judges every value; these lines only word its codes. Numbers arrive formatted. */
@@ -788,6 +790,22 @@ export const nb = {
         help: "Et ledd med kapasitet kan ha lager og restordre samtidig. Studentene får vite kapasiteten i briefingen.",
         disabled: "Kapasitet er slått av i denne installasjonen.",
       },
+      /** Information visibility (Story 5.16, cut list, FEATURE_INFO_VISIBILITY, FR-83, UX-DR12).
+       * [ASSUMPTION] draft copy. Showing the numbers on the play screen is Story 6.21's. */
+      infoVisibility: {
+        legend: "Synlige naboer",
+        upstream: "Leddet oppstrøms",
+        downstream: "Leddet nedstrøms",
+        upstreamOn: "Ja, vis lager og restordre hos leddet du bestiller fra",
+        downstreamOn: "Ja, vis lager og restordre hos leddet som bestiller fra deg",
+        off: "Nei",
+        help:
+          "Gjelder alle Klassespill i Klasseøkten, også KI-spillerne. Tallene er naboleddets lager og restordre slik de står i uken. " +
+          "Fabrikken har ingen nabo oppstrøms, og Detaljisten ingen nedstrøms. Det er ikke vist at innstillingen gir bedre læring eller lavere kost.",
+        disabled: "Synlige naboer er slått av i denne installasjonen.",
+      },
+      // [ASSUMPTION] Story 5.16: a save refused because a cut-list setting is switched off.
+      featureDisabled: "En av innstillingene er slått av i denne installasjonen. Ingenting ble lagret.",
       /** The Demand pattern and its seed (Story 5.4, FR-13). [ASSUMPTION] draft copy. */
       demand: {
         legend: "Etterspørsel",
@@ -852,6 +870,11 @@ export const nb = {
       capacityNone: "Ingen",
       capacityAll: (units: number) => `${units} per uke for alle ledd`,
       capacityRoles: (units: string, roles: string) => `${units} per uke for ${roles}`,
+      // [ASSUMPTION] Story 5.16: Information visibility in the settings list.
+      infoVisibilityNone: "Av",
+      infoVisibilityUpstream: "Leddet oppstrøms",
+      infoVisibilityDownstream: "Leddet nedstrøms",
+      infoVisibilityBoth: "Begge naboene",
     },
     chain: {
       title: "Kjeden ved start",

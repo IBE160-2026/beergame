@@ -145,6 +145,8 @@ def test_classic_settings_are_calibrated_whatever_the_seed():
     assert not is_calibrated(GameSettings(shipping_delay=3), PARAMS)
     assert not is_calibrated(GameSettings(weeks=20), PARAMS)
     assert not is_calibrated(GameSettings(capacity={"factory": 6}), PARAMS)
+    # A neighbour's numbers change what a player sees, so it is not the calibrated profile.
+    assert not is_calibrated(GameSettings(info_visibility={"upstream": True}), PARAMS)
 
 
 def test_a_new_profile_is_data_in_a_new_version_of_the_set():

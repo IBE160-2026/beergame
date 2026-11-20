@@ -12,6 +12,7 @@ from app.engine import (
     demand_series,
 )
 from app.modules.games import commands, service
+from app.platform.config import get_settings
 from tests.games.helpers import counts, listening, play_to_end, query
 
 
@@ -46,7 +47,7 @@ async def test_create_freezes_the_snapshot(games_db):
     )
     expected = GameSettings(demand_seed=123)
     assert settings == expected.model_dump(mode="json")
-    assert settings["schema_version"] == 1
+    assert settings["schema_version"] == 2
     assert settings["holding_cost"] == "0.50"
     assert GameSettings.model_validate(settings) == expected
     assert series == list(demand_series(expected))
@@ -315,3 +316,21 @@ async def test_a_capacity_that_is_not_a_whole_number_is_invalid(games_db):
     assert (caught.value.code, caught.value.status) == ("invalid_settings", 422)
     assert caught.value.fields == {"capacity.retailer": "invalid"}
     assert counts(games_db) == (0, 0, 0)
+
+
+async def test_information_visibility_is_refused_when_its_flag_is_off(games_db, monkeypatch):
+    # Story 5.16: the engine gate fails closed, so a simulation Game obeys the flag as well.
+    monkeypatch.setenv("FEATURE_INFO_VISIBILITY", "false")
+    views = GameSettings(info_visibility={"upstream": True})
+    with pytest.raises(commands.CommandError) as caught:
+        await commands.create("simulation", views, seed=1)
+    assert (caught.value.code, caught.value.fields) == (
+        "invalid_settings",
+        {"info_visibility": "info_visibility_disabled"},
+    )
+    assert counts(games_db) == (0, 0, 0)
+    monkeypatch.setenv("FEATURE_INFO_VISIBILITY", "true")
+    get_settings.cache_clear()
+    game_id = await commands.create("simulation", views, seed=1)
+    ((settings,),) = query(games_db, "SELECT settings FROM games WHERE id = %s", (game_id,))
+    assert settings["info_visibility"] == {"upstream": True, "downstream": False}

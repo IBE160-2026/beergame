@@ -541,6 +541,11 @@ export interface paths {
          *     capped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a
          *     non-empty capacity answers 422 `feature_disabled` (`{"capacity": "feature_disabled"}`).
          *
+         *     `game_settings.info_visibility` (Story 5.16) is `{upstream, downstream}`, two booleans that
+         *     let each Seat see its neighbour's inventory and backlog; anything else is `info_visibility`
+         *     `invalid`. While `FEATURE_INFO_VISIBILITY` is off a view switched on answers 422
+         *     `feature_disabled` (`{"info_visibility": "feature_disabled"}`).
+         *
          *     `obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,
          *     FR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit
          *     under 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once
@@ -1753,6 +1758,8 @@ export interface components {
             id: string;
             /** Inactivity Limit Hours */
             inactivity_limit_hours: number;
+            /** Info Visibility Enabled */
+            info_visibility_enabled: boolean;
             /** Is Classic */
             is_classic: boolean;
             /** Lab Hours */
@@ -2043,6 +2050,13 @@ export interface components {
              */
             holding_cost: string;
             /**
+             * @default {
+             *       "downstream": false,
+             *       "upstream": false
+             *     }
+             */
+            info_visibility: components["schemas"]["InfoVisibility"];
+            /**
              * Max Order
              * @default 999
              */
@@ -2069,10 +2083,10 @@ export interface components {
             roles: components["schemas"]["Role"][];
             /**
              * Schema Version
-             * @default 1
-             * @constant
+             * @default 2
+             * @enum {integer}
              */
-            schema_version: 1;
+            schema_version: 1 | 2;
             /**
              * Shipping Delay
              * @default 2
@@ -2103,6 +2117,24 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * InfoVisibility
+         * @description Information visibility (cut list, FR-83): which neighbour each Seat sees, with its current
+         *     inventory and backlog. Both views off by default; the Factory has no upstream neighbour and
+         *     the Retailer no downstream one, so their view on that side shows nothing.
+         */
+        InfoVisibility: {
+            /**
+             * Downstream
+             * @default false
+             */
+            downstream: boolean;
+            /**
+             * Upstream
+             * @default false
+             */
+            upstream: boolean;
         };
         /** InstitutionChoice */
         InstitutionChoice: {

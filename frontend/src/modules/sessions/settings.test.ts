@@ -18,7 +18,7 @@ import {
 
 /** Settings as the API sends them; a test fixture, not a copy of the Classic preset. */
 const settings: GameSettings = {
-  schema_version: 1,
+  schema_version: 2,
   roles: ["retailer", "wholesaler", "distributor", "factory"],
   starting_inventory: 12,
   starting_backlog: 0,
@@ -33,7 +33,23 @@ const settings: GameSettings = {
   weeks: 36,
   guided_weeks: 4,
   max_order: 1999,
+  info_visibility: { upstream: false, downstream: false },
 };
+
+describe("Information visibility (Story 5.16)", () => {
+  it("is in the draft only while the flag is on, both views off by default", () => {
+    expect(draftOf(settings).infoVisibility).toBeUndefined();
+    expect(draftOf(settings, false, true).infoVisibility).toEqual({ upstream: false, downstream: false });
+    const up = { ...settings, info_visibility: { upstream: true, downstream: false } };
+    expect(draftOf(up, true, true).infoVisibility).toEqual({ upstream: true, downstream: false });
+  });
+
+  it("sends both views while the flag is on, and nothing about them otherwise", () => {
+    expect(settingsBody(draftOf(settings))).not.toHaveProperty("info_visibility");
+    const draft = { ...draftOf(settings, false, true), infoVisibility: { upstream: false, downstream: true } };
+    expect(settingsBody(draft).info_visibility).toEqual({ upstream: false, downstream: true });
+  });
+});
 
 describe("the settings block (Story 5.3)", () => {
   it("fills the fields from the api, costs with two decimals and a comma", () => {

@@ -14,6 +14,7 @@ import { cappedRoles, roleName, type SettingRow, settingRows } from "./sessions"
 import {
   type CapacityDraft,
   capacityProblem,
+  type InfoVisibilityDraft,
   DEMAND_FIELDS,
   DEMAND_KINDS,
   type DemandDraft,
@@ -126,6 +127,14 @@ export function SettingsBlock({
             onLeave={onLeave}
           />
         ) : null}
+        {draft.infoVisibility ? (
+          <InfoVisibilityFields
+            views={draft.infoVisibility}
+            problem={problems.info_visibility}
+            onChange={(infoVisibility) => onChange({ ...draft, infoVisibility })}
+            onLeave={onLeave}
+          />
+        ) : null}
         <TextField
           id="setting-inactivity_limit_hours"
           label={nb.terms.inactivityLimit}
@@ -189,7 +198,8 @@ function isCapacityKey(name: string): boolean {
 function otherErrors(problems: Readonly<Record<string, SettingProblem>>): Record<string, string[]> {
   const result: Record<string, string[]> = {};
   for (const [name, problem] of Object.entries(problems)) {
-    if (EDITABLE_NAMES.includes(name) || isDemandKey(name) || isCapacityKey(name)) continue;
+    if (EDITABLE_NAMES.includes(name) || isDemandKey(name) || isCapacityKey(name) || name === "info_visibility")
+      continue;
     (result[""] ??= []).push(problemText(problem));
   }
   return result;
@@ -374,6 +384,77 @@ function CapacityFields({
   );
 }
 
+const iv = copy.edit.infoVisibility;
+
+/** Information visibility (Story 5.16, cut list, FR-83, UX-DR12): under the heading «Synlige naboer»
+ * two Bryter, off by default, for the view of the Seat directly upstream and of the Seat directly
+ * downstream, each naming the numbers it shows; then the help line with the scope. Rendered only
+ * while `FEATURE_INFO_VISIBILITY` is on. A switch is judged by the api at once, as leaving a field. */
+function InfoVisibilityFields({
+  views,
+  problem,
+  onChange,
+  onLeave,
+}: {
+  views: InfoVisibilityDraft;
+  problem: SettingProblem | undefined;
+  onChange: (views: InfoVisibilityDraft) => void;
+  onLeave: () => void;
+}) {
+  const titleId = useId();
+  const upId = useId();
+  const downId = useId();
+  const helpId = useId();
+  // Judged after the render that holds the new draft, so the check sends it.
+  const pending = useRef(false);
+  useEffect(() => {
+    if (!pending.current) return;
+    pending.current = false;
+    onLeave();
+  });
+  const choose = (next: InfoVisibilityDraft) => {
+    onChange(next);
+    pending.current = true;
+  };
+  const sides = [
+    { side: "upstream", id: upId, label: iv.upstream, on: iv.upstreamOn },
+    { side: "downstream", id: downId, label: iv.downstream, on: iv.downstreamOn },
+  ] as const;
+  return (
+    <section aria-labelledby={titleId} className="mt-6 border-t border-hairline pt-4">
+      <h3 id={titleId} className="text-label text-ink">
+        {iv.legend}
+      </h3>
+      <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-2 lg:grid-cols-2">
+        {sides.map(({ side, id, label, on }) => (
+          <div key={side}>
+            <p id={id} className="text-body-phone text-ink-secondary">
+              {label}
+            </p>
+            <Switch
+              id={`setting-info-visibility-${side}`}
+              checked={views[side]}
+              labelledBy={`${titleId} ${id}`}
+              describedBy={helpId}
+              onChange={(checked) => choose({ ...views, [side]: checked })}
+            >
+              {views[side] ? on : iv.off}
+            </Switch>
+          </div>
+        ))}
+      </div>
+      <p id={helpId} className="mt-3 text-body-phone text-ink-secondary">
+        {iv.help}
+      </p>
+      {problem ? (
+        <p className="mt-2 text-body-phone text-restordre">
+          {problem.code === "feature_disabled" ? iv.disabled : problemText(problem)}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 /** «Vis etterspørselen uke for uke» (Story 5.4, FR-13): the saved series as the api materialised
  * it, a table of Week and demand, for the Class's staff. */
 function DemandSeries({ item }: { item: ClassSession }) {
@@ -439,7 +520,12 @@ function DemandSeries({ item }: { item: ClassSession }) {
 /** The saved settings as a list; a warning stands as a further description under its setting.
  * The api's errors on settings with no field show in the open block (`otherErrors`). */
 function ReadOnlyRows({ item, warnings }: { item: ClassSession; warnings: Readonly<Record<string, string[]>> }) {
-  const rows = settingRows(item.game_settings, item.inactivity_limit_hours, item.capacity_enabled);
+  const rows = settingRows(
+    item.game_settings,
+    item.inactivity_limit_hours,
+    item.capacity_enabled,
+    item.info_visibility_enabled,
+  );
   const capped = item.capacity_enabled && cappedRoles(item.game_settings).length > 0;
   // A capacity is set (Story 5.15): what a capped Seat means, and that Students are told, under
   // its own row rather than under the list.

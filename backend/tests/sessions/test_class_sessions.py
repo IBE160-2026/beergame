@@ -74,7 +74,7 @@ async def test_a_new_class_session_holds_the_classic_defaults_the_default_model_
     seed_value = settings["demand_seed"]
     assert isinstance(seed_value, int) and 0 <= seed_value <= SEED_MAX
     assert GameSettings.model_validate(settings) == GameSettings(demand_seed=seed_value)
-    assert settings["schema_version"] == 1
+    assert settings["schema_version"] == 2
     assert (settings["starting_inventory"], settings["supply_line"], settings["weeks"]) == (
         12,
         4,

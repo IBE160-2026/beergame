@@ -6,7 +6,7 @@ import { chainText, costText, customerLines, demandText, settingRows, upstreamFi
 /** A settings object as the API sends it. The values are a test fixture, not a copy of the
  * Classic preset: the web app reads them, it never supplies them. */
 const settings: GameSettings = {
-  schema_version: 1,
+  schema_version: 2,
   roles: ["retailer", "wholesaler", "distributor", "factory"],
   starting_inventory: 12,
   starting_backlog: 0,
@@ -21,6 +21,7 @@ const settings: GameSettings = {
   weeks: 36,
   guided_weeks: 4,
   max_order: 999,
+  info_visibility: { upstream: false, downstream: false },
 };
 
 describe("the Klasseøkt (Story 5.1)", () => {
@@ -82,6 +83,26 @@ describe("the Demand pattern in words (Story 5.4)", () => {
     expect(customerLines(noise)).toEqual(["4, så 8 ± 2", "fra Uke 5"]);
     expect(customerLines(random)).toEqual(["8 ± 2", "tilfeldig"]);
     expect(customerLines(fixed)).toEqual(["Fast serie", "3 uker"]);
+  });
+});
+
+describe("Information visibility in words (Story 5.16)", () => {
+  const value = (upstream: boolean, downstream: boolean, on = true) =>
+    settingRows({ ...settings, info_visibility: { upstream, downstream } }, 24, false, on).find(
+      (r) => r.key === "info_visibility",
+    );
+
+  it("lists the views only while the flag is on, before the Inactivity limit", () => {
+    expect(value(true, false, false)).toBeUndefined();
+    const keys = settingRows(settings, 24, false, true).map((r) => r.key);
+    expect(keys.slice(-2)).toEqual(["info_visibility", "inactivity_limit_hours"]);
+    expect(value(false, false)).toEqual({ key: "info_visibility", label: "Synlige naboer", value: "Av" });
+  });
+
+  it("names the views that are on", () => {
+    expect(value(true, false)?.value).toBe("Leddet oppstrøms");
+    expect(value(false, true)?.value).toBe("Leddet nedstrøms");
+    expect(value(true, true)?.value).toBe("Begge naboene");
   });
 });
 

@@ -82,13 +82,25 @@ export function capacityText(settings: GameSettings): string {
   return capped.map(([role, units]) => v.capacityRoles(formatNumber(units), roleName(role))).join("; ");
 }
 
+/** Information visibility in words for the settings list (Story 5.16): «Av», one view, or both. */
+export function infoVisibilityText(settings: GameSettings): string {
+  const v = copy.values;
+  const { upstream: up, downstream: down } = settings.info_visibility;
+  if (up && down) return v.infoVisibilityBoth;
+  if (up) return v.infoVisibilityUpstream;
+  if (down) return v.infoVisibilityDownstream;
+  return v.infoVisibilityNone;
+}
+
 /** The settings list of the Klasseøkt, in the mockup's order, from the values the API returned. Each
  * row's `key` is the setting's api name (or `demand`, `inactivity_limit_hours`). The capacity row
- * shows only while `FEATURE_CAPACITY` is on (Story 5.15). */
+ * shows only while `FEATURE_CAPACITY` is on (Story 5.15), the Information visibility row only while
+ * `FEATURE_INFO_VISIBILITY` is on (Story 5.16). */
 export function settingRows(
   settings: GameSettings,
   inactivityLimitHours: number,
   capacityEnabled = false,
+  infoVisibilityEnabled = false,
 ): SettingRow[] {
   const s = copy.settings;
   const v = copy.values;
@@ -110,6 +122,9 @@ export function settingRows(
     { key: "guided_weeks", label: s.guidedWeeks, value: v.guidedWeeks(settings.guided_weeks) },
     { key: "max_order", label: s.maxOrder, value: formatNumber(settings.max_order) },
     ...(capacityEnabled ? [{ key: "capacity", label: s.capacity, value: capacityText(settings) }] : []),
+    ...(infoVisibilityEnabled
+      ? [{ key: "info_visibility", label: s.infoVisibility, value: infoVisibilityText(settings) }]
+      : []),
     { key: "inactivity_limit_hours", label: s.inactivityLimit, value: v.inactivityLimit(inactivityLimitHours) },
   ];
 }

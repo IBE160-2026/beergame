@@ -4,6 +4,7 @@ from unittest import mock
 
 import pytest
 
+from app.platform.config import get_settings
 from app.sim import main
 
 GOLDEN = Path(__file__).parent / "engine" / "golden"
@@ -165,6 +166,18 @@ def test_settings_check_refuses_capacity_when_feature_capacity_is_off(
     code, lines = check(capsys, tmp_path, '{"capacity": {"retailer": 6}}')
     assert code == 1
     assert lines[0].startswith("error capacity_disabled capacity: ")
+
+
+def test_settings_check_takes_information_visibility_from_its_flag(capsys, tmp_path, monkeypatch):
+    # Story 5.16: the CLI passes `FEATURE_INFO_VISIBILITY` to the engine's fail-closed gate.
+    views = '{"info_visibility": {"upstream": true}}'
+    monkeypatch.setenv("FEATURE_INFO_VISIBILITY", "false")
+    code, lines = check(capsys, tmp_path, views)
+    assert code == 1
+    assert lines[0].startswith("error info_visibility_disabled info_visibility: ")
+    monkeypatch.setenv("FEATURE_INFO_VISIBILITY", "true")
+    get_settings.cache_clear()
+    assert check(capsys, tmp_path, views) == (0, ["OK"])
 
 
 def test_settings_check_capacity_warns_below_peak_demand(capsys, tmp_path, monkeypatch):

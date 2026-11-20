@@ -276,7 +276,8 @@ class LabHourEnded(Exception):
 
 class FeatureDisabled(_FieldsError):
     """A cut-list setting was sent while its flag is off (422 `feature_disabled`, AD-17): a
-    non-empty `capacity` while `FEATURE_CAPACITY` is off (Story 5.15)."""
+    non-empty `capacity` while `FEATURE_CAPACITY` is off (Story 5.15), or a view of
+    `info_visibility` switched on while `FEATURE_INFO_VISIBILITY` is off (Story 5.16)."""
 
     code = "feature_disabled"
 
@@ -388,15 +389,36 @@ def _parse_problem(error: Mapping[str, Any], data: Mapping[str, Any], stored: Ga
 CAPACITY_ROLES = frozenset(role.value for role in Role)
 """The keys a capacity map may hold, as the api names them (`capacity.retailer`)."""
 
-EDITABLE_SETTINGS = frozenset({*RANGES, "demand", "demand_seed", "capacity"})
+EDITABLE_SETTINGS = frozenset({*RANGES, "demand", "demand_seed", "capacity", "info_visibility"})
 """The Game settings a Lecturer changes through the Klasseøkt: those the engine gives a range
-(Story 5.3), the Demand pattern with its seed (Story 5.4), and the capacity (Story 5.15), the
-last only while `FEATURE_CAPACITY` is on."""
+(Story 5.3), the Demand pattern with its seed (Story 5.4), the capacity (Story 5.15) and
+Information visibility (Story 5.16), the last two only while their flag is on."""
 
 
 def capacity_enabled() -> bool:
     """`FEATURE_CAPACITY` (AD-17): whether the Klasseøkt offers a shipping capacity (Story 5.15)."""
     return get_settings().feature_capacity
+
+
+def info_visibility_enabled() -> bool:
+    """`FEATURE_INFO_VISIBILITY` (AD-17): whether the Klasseøkt offers Information visibility
+    (Story 5.16)."""
+    return get_settings().feature_info_visibility
+
+
+VIEWS = ("upstream", "downstream")
+"""The views of `info_visibility`, as the api names them; a view left out is off."""
+
+
+def _shows_a_new_neighbour(value: object, stored: Mapping[str, Any]) -> bool:
+    """Whether a draft's `info_visibility` switches on a view that is off as stored; switching a
+    view off never counts. A value that is not a map of views with boolean values is left to the
+    engine, which refuses it as `invalid` whatever the flag."""
+    if not isinstance(value, Mapping) or not set(value) <= set(VIEWS):
+        return False
+    if any(type(view) is not bool for view in value.values()):
+        return False
+    return any(value.get(side) is True and stored.get(side) is not True for side in VIEWS)
 
 
 def _sets_capacity(value: object) -> bool:
@@ -416,7 +438,10 @@ def judge_settings(
     (the chain) is `not_editable` and never laid over. While `FEATURE_CAPACITY` is off a draft
     that caps a Seat other than as stored is `capacity` `feature_disabled` (Story 5.15); a
     capacity stored before the flag went off is kept (sent back unchanged or left out) and judged
-    as stored, so it never blocks another setting. None or `{}` clears it."""
+    as stored, so it never blocks another setting. None or `{}` clears it. Information visibility
+    follows the same rule while `FEATURE_INFO_VISIBILITY` is off (Story 5.16): a draft that
+    switches on a view that is off as stored is `info_visibility` `feature_disabled`; switching a
+    view off is always allowed."""
     base = stored.model_dump(mode="json")
     problems: dict[str, SettingProblem] = {
         key: _problem("not_editable", key) for key in draft if key not in EDITABLE_SETTINGS
@@ -426,6 +451,10 @@ def judge_settings(
     sent = draft.get("capacity")
     if not flag and _sets_capacity(sent) and sent != stored_capacity:
         problems["capacity"] = _problem("feature_disabled", "capacity")
+    views_flag = info_visibility_enabled()
+    views = draft.get("info_visibility")
+    if not views_flag and _shows_a_new_neighbour(views, base["info_visibility"]):
+        problems["info_visibility"] = _problem("feature_disabled", "info_visibility")
     data = {**base, **{key: value for key, value in draft.items() if key not in problems}}
     # Top-level settings that do not parse: judged at their stored values, their rules unsaid.
     unreadable: set[str] = set()
@@ -446,7 +475,11 @@ def judge_settings(
     else:
         judged = settings
     enabled = flag or judged.capacity == stored.capacity
-    for found in validate(judged, capacity_enabled=enabled):
+    # With the flag off, views stored earlier may stay or go off; only a new one is refused.
+    views_enabled = views_flag or not _shows_a_new_neighbour(
+        judged.info_visibility.model_dump(), stored.info_visibility.model_dump()
+    )
+    for found in validate(judged, capacity_enabled=enabled, info_visibility_enabled=views_enabled):
         if found.field not in problems and found.field.split(".")[0] not in unreadable:
             problems[found.field] = _problem(found.code, found.field, found.minimum, found.maximum)
     risky = [
@@ -723,6 +756,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         calibrated_settings=GameSettings(),
         lab_hours=[_lab_hour_out(lab, now) for lab in labs],
         capacity_enabled=capacity_enabled(),
+        info_visibility_enabled=info_visibility_enabled(),
     )
 
 
@@ -933,14 +967,15 @@ def _settings_to_store(
     row: Mapping[str, Any], draft: Mapping[str, Any], *, locked: bool
 ) -> GameSettings | None:
     """The Game settings to store from a draft, or None when they do not change. Raises
-    `FeatureDisabled` for a capacity while its flag is off, `SessionLocked` for a change once
-    locked and `InvalidSettings` for a draft the engine refuses. An unchanged draft is never
-    judged, so a locked session can be saved as it stands."""
+    `FeatureDisabled` for a capacity or a view while its flag is off, `SessionLocked` for a
+    change once locked and `InvalidSettings` for a draft the engine refuses. An unchanged draft
+    is never judged, so a locked session can be saved as it stands."""
     stored = GameSettings.model_validate(row["game_settings"])
     settings, problems, _ = judge_settings(stored, draft)
     disabled = {key: p.code for key, p in problems.items() if p.code == "feature_disabled"}
     if disabled:
-        # A capacity that differs from the stored one is a change: once locked, that answer wins.
+        # A capacity or view that differs from the stored one is a change: once locked, that
+        # answer wins.
         if locked:
             raise SessionLocked({"game_settings": "locked"})
         raise FeatureDisabled(disabled)

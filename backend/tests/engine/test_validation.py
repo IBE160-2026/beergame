@@ -504,3 +504,23 @@ def test_warnings_read_every_pattern():
     assert NOISY.peak == 10 and NOISY.first_change_week == 5 and NOISY.starting_level == 4
     assert RANDOM.peak == 6 and RANDOM.first_change_week is None and RANDOM.starting_level == 4
     assert demand_change_reaches_retailer(GameSettings(demand=RANDOM, demand_seed=1)) is None
+
+
+# --- Information visibility (Story 5.16, cut list) --------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "views", [{"upstream": True}, {"downstream": True}, {"upstream": True, "downstream": True}]
+)
+def test_a_view_is_refused_while_the_flag_is_off(views):
+    settings = GameSettings(info_visibility=views)
+    for errors in (validate(settings), validate(settings, info_visibility_enabled=False)):
+        assert codes(errors) == [("info_visibility_disabled", "info_visibility")]
+    assert validate(settings, info_visibility_enabled=True) == ()
+    # It changes no arithmetic, so it raises no warning.
+    assert warnings(settings) == warnings(GameSettings())
+
+
+def test_every_view_off_passes_whatever_the_flag():
+    settings = GameSettings(info_visibility={"upstream": False, "downstream": False})
+    assert validate(settings) == validate(settings, info_visibility_enabled=True) == ()

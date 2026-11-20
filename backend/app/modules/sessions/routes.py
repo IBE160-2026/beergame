@@ -142,6 +142,11 @@ async def save_class_session(
     capped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a
     non-empty capacity answers 422 `feature_disabled` (`{"capacity": "feature_disabled"}`).
 
+    `game_settings.info_visibility` (Story 5.16) is `{upstream, downstream}`, two booleans that
+    let each Seat see its neighbour's inventory and backlog; anything else is `info_visibility`
+    `invalid`. While `FEATURE_INFO_VISIBILITY` is off a view switched on answers 422
+    `feature_disabled` (`{"info_visibility": "feature_disabled"}`).
+
     `obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,
     FR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit
     under 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once
