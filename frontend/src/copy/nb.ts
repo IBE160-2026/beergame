@@ -1519,6 +1519,20 @@ export const nb = {
         costSvg: "Graf over Kost per uke, lagerkostnad nederst og restordrekostnad øverst. Tallene står i raden Kost, kr.",
         costAxisSvg: "Akse for Kost per uke, i kroner.",
       },
+      /** Kjedebånd (Story 6.9, DESIGN.md → Kjedebånd, UX-DR14, UX-DR73). The labels («Ordre inn
+       * 8», «Din ordre», «Levering 4», «Sendt 4», «Lager 12», «Restordre 13», «På vei 16») and the
+       * end labels «Produksjon» and «Kundene» are the spine's; the rest is [ASSUMPTION] draft copy. */
+      band: {
+        production: "Produksjon",
+        customers: "Kundene",
+        order: "Din ordre",
+        labelled: (term: string, value: string) => `${term} ${value}`,
+        /** Read after «På vei 16» when units are overdue: «På vei 16, av dem 7 uten kjent uke».
+         * [ASSUMPTION] */
+        overdue: (value: string) => `av dem ${value} uten kjent uke`,
+        /** The SVG `<title>` (AD-18). [ASSUMPTION] */
+        svg: "Kjedebånd: din del av kjeden. Ordre går mot venstre, varer mot høyre.",
+      },
     },
   },
 

@@ -23,6 +23,17 @@ as hand-made SVG here.
 | Line with area (Netto lager, Posisjon) | `renderToStaticMarkup(<LineChart width={300} height={100}>…)` gives `<div class="recharts-wrapper" …></div>` with no `<svg>`: nothing to print | Hand-made SVG (`net-graph.tsx`, d3-scale, d3-shape); passes both checks |
 | Stacked bars (Kost per uke) | `<BarChart width={300} height={60}>` renders the same empty wrapper on the server | Hand-made SVG (`cost-bars.tsx`); passes both checks |
 | Axis labels in the sticky column | — (not a Recharts type) | Hand-made SVG (`axis-labels.tsx`) |
+| Kjedebånd (Story 6.9) | — (a flow diagram, not a Recharts type) | Hand-made SVG (`chain-band.tsx`), laid out by the pure `chain-band-layout.ts`; one-Seat variant only, the four-Role variant comes with Story 9.5 |
+
+## Kjedebånd scale and labels
+
+`bandLayout` sets one factor for the pipe and the stock bars (DESIGN.md's 1.4 and 0.82 px per unit
+as maxima) from the band width alone, so a worst Uke of 80 units on the pipe plus the overdue box
+fits and a game keeps one scale at a given width; a Uke that needs more is drawn smaller still.
+Labels are placed from an upper-bound width estimate (`textWidth`); one with no room wraps under
+the band on its own side. `modules/games/chain-band.test.ts` lays out every Uke of a Classic game
+for all four Roles at 320 and 360 px (and 200 % text), and `e2e/chain-band.spec.ts` holds the
+estimate to the rendered font.
 
 Recharts is therefore not a dependency. Recharts 3 builds its chart in client effects, so a
 server-rendered print page holds an empty box, which fails the PDF check before alignment can be

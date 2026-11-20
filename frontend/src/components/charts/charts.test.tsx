@@ -4,6 +4,7 @@ import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { ChainBand } from "./chain-band";
 import { CostBars } from "./cost-bars";
 import { NetGraph, type NetPoint } from "./net-graph";
 import { costAxisTop, netDomain, netTicks, spreadLabels } from "./scales";
@@ -129,6 +130,59 @@ describe("CostBars", () => {
     expect(only!.top).toBeGreaterThanOrEqual(y(80));
   });
 });
+
+describe("ChainBand", () => {
+  const band = (extra: Partial<Parameters<typeof ChainBand>[0]> = {}) =>
+    renderToStaticMarkup(
+      <ChainBand
+        width={358}
+        fontSize={13}
+        inventory={0}
+        backlog={13}
+        slots={[4, 4, 8]}
+        overdue={0}
+        title="Kjedebånd"
+        labels={LABELS}
+        {...extra}
+      />,
+    );
+
+  it("renders on the server with a <title>, the node, a red bar below and a box per known arrival", () => {
+    const html = band();
+    expect(html).toMatch(/^<svg [^>]*width="358"[^>]*data-chart="band" data-variant="seat"/);
+    expect(html).toContain("<title>Kjedebånd</title>");
+    expect(html.match(/data-mark="arrival"/g)).toHaveLength(3);
+    expect(html).toMatch(/data-mark="backlog"[^>]*fill="#B5423A"/);
+    expect(html).not.toContain('data-mark="stock"');
+    expect(html).not.toContain('data-mark="overdue"');
+    for (const text of ["Distributør", "Detaljist", "Din ordre", "Ordre inn 8", "Levering 4", "Sendt 4", "Restordre 13", "På vei 16"]) {
+      expect(html).toContain(`>${text}</text>`);
+    }
+  });
+
+  it("draws stock as a blue bar and overdue units as a dashed box with their number", () => {
+    const html = band({ inventory: 12, backlog: 0, overdue: 7, labels: { ...LABELS, stock: ["Lager 12"], overdue: "7" } });
+    expect(html).toMatch(/data-mark="stock"[^>]*fill="#2B6CA3"/);
+    expect(html).toMatch(/data-mark="overdue"><rect [^>]*stroke-dasharray="3 2"/);
+    expect(html).toContain('data-label="overdue"');
+  });
+
+  it("paints from the theme tokens, never with classes or CSS variables", () => {
+    expect(band()).not.toMatch(/class=|var\(--/);
+  });
+});
+
+const LABELS = {
+  upstream: "Distributør",
+  downstream: "Detaljist",
+  order: "Din ordre",
+  incoming: "Ordre inn 8",
+  delivery: "Levering 4",
+  shipped: "Sendt 4",
+  stock: ["Restordre 13"],
+  supplyLine: "På vei 16",
+  overdue: null,
+};
 
 describe("the chart module (AD-18)", () => {
   it("is the only code that imports a chart library", () => {

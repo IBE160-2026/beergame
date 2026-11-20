@@ -13,6 +13,7 @@ import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { roleName } from "@/modules/sessions/sessions";
 
 import { type MyGame, myGameKey, type PlayEnvelope, playKey, useMyGame, usePlay } from "./api";
+import { ChainBandView } from "./chain-band-view";
 import { GameAction } from "./game-action";
 import { gameTitle, holderText } from "./home";
 import { ROWS } from "./week-table";
@@ -27,9 +28,9 @@ const LINE = "text-body-phone lg:text-body";
  * right), the week table from the play envelope (`/api/me/games/{id}/play`), a Lenke to «Regler
  * før første ordre» and «Setene», each Seat's Role and who holds it in words («KI-spiller» for
  * every AI player). From 1024 px the table stands left and the rest in a right column. Never the
- * number of Weeks. Later stories add the graph, Kjedebånd, Ordrefelt and Setestatus. A game that
- * has not started, or that this Student may not play before the briefing and Starting task, shows
- * its next action (briefing, «Start spillet» or the not-ready line); a finished one says so. The
+ * number of Weeks. Over the table the Seat's own link stands as the Kjedebånd (Story 6.9). Later
+ * stories add the Ordrefelt and Setestatus. A game that has not started, or that this Student may
+ * not play before the briefing and Starting task, shows its next action (briefing, «Start spillet» or the not-ready line); a finished one says so. The
  * page follows the game's `game:` events (`topics.ts`). Another Student's game shows the
  * permission-denied page.
  */
@@ -113,6 +114,8 @@ function Running({ game, envelope }: { game: MyGame; envelope: PlayEnvelope }) {
   return (
     <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12">
       <div className="min-w-0">
+        {/* Reading and focus order: Topplinje, Kjedebånd, Graf over tabell, the rest (FR-73). */}
+        <ChainBandView state={envelope.seat_state} seatRoles={game.seats.map((seat) => seat.role)} />
         <WeekTable state={envelope.seat_state} />
       </div>
       <div>

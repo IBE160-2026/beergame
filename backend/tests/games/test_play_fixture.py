@@ -33,7 +33,8 @@ ORDERS = {
 }
 
 
-def wholesaler_in_week(week: int) -> SeatState:
+def _game_until(week: int):
+    """The fixture game's opened Weeks 1..`week` and the Order maps of Weeks 1..`week` - 1."""
     settings = GameSettings()
     states = [initial_state(settings)]
     orders: list[dict[str, int]] = []
@@ -45,7 +46,16 @@ def wholesaler_in_week(week: int) -> SeatState:
             placed = {role: ORDERS[role][after] for role in settings.roles}
         orders.append(placed)
         states.append(advance(settings, states[-1], placed))
-    return build_seat_state(settings, states, orders, "wholesaler")
+    return settings, states, orders
+
+
+def seat_in_week(role: str, week: int) -> SeatState:
+    settings, states, orders = _game_until(week)
+    return build_seat_state(settings, states, orders, role)
+
+
+def wholesaler_in_week(week: int) -> SeatState:
+    return seat_in_week("wholesaler", week)
 
 
 @pytest.mark.parametrize("week", [1, 3, 11, 14, 30])
@@ -81,3 +91,38 @@ def test_the_landing_demodata_is_the_engines_guided_week():
     stored = json.loads(LANDING.read_text(encoding="utf-8"))
     assert stored == landing_demo_seat()
     assert SeatState.model_validate(stored["seat_state"]) == wholesaler_in_week(4)
+
+
+# The Kjedebånd's scale test (Story 6.9, UX-DR15): every Uke of the fixture game for all four
+# Roles, with only the `seat_state` fields the band draws. One object per line; to regenerate,
+# write `chain_band_classic()` with one `json.dumps(item, ensure_ascii=False)` per line.
+CHAIN_BAND = FIXTURES / "chain-band-classic.json"
+LAST_WEEK = GameSettings().guided_weeks + len(ORDERS["retailer"]) + 1
+BAND_FIELDS = (
+    "role",
+    "week",
+    "incoming_order",
+    "incoming_delivery",
+    "shipped",
+    "inventory",
+    "backlog",
+    "supply_line",
+    "supply_line_slots",
+    "overdue",
+)
+
+
+def chain_band_classic() -> list[dict]:
+    settings, states, orders = _game_until(LAST_WEEK)
+    found = []
+    for role in settings.roles:
+        for week in range(1, LAST_WEEK + 1):
+            state = build_seat_state(settings, states[:week], orders[: week - 1], role)
+            dumped = state.model_dump(mode="json")
+            found.append({field: dumped[field] for field in BAND_FIELDS})
+    return found
+
+
+def test_the_chain_band_fixture_is_every_week_of_the_engines_game():
+    stored = json.loads(CHAIN_BAND.read_text(encoding="utf-8"))
+    assert stored == chain_band_classic()
