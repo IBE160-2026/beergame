@@ -327,7 +327,7 @@ function Preview({
           {allocation.opened ? copy.openedSeats : copy.emptySeats}
         </p>
         {withoutSeatLine(allocation) ? (
-          <p className="mt-2 max-w-prose text-body-phone text-ink">{withoutSeatLine(allocation)}</p>
+          <p className="mt-2 max-w-prose text-body-phone text-ink lg:text-body">{withoutSeatLine(allocation)}</p>
         ) : allocation.missing_count > 0 ? (
           <p className="mt-2 max-w-prose text-body-phone text-ink">
             {copy.missing(allocation.missing_count)}
