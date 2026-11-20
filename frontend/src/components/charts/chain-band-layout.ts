@@ -61,6 +61,8 @@ export type BandInput = {
   /** The known arrivals' quantities, soonest first (`supply_line_slots`). */
   slots: readonly number[];
   overdue: number;
+  /** A typed Order not yet confirmed (Story 6.11): one more box, last on the pipe. */
+  typed?: number;
   labels: BandLabels;
 };
 
@@ -106,6 +108,8 @@ export type BandLayout = {
   stockBar: Box | null;
   backlogBar: Box | null;
   boxes: Box[];
+  /** The typed Order's box, after the known arrivals; null when none is typed or it is 0. */
+  typedBox: Box | null;
   overdueBox: Box | null;
   labels: PlacedLabel[];
 };
@@ -144,12 +148,13 @@ type Wanted = {
 };
 
 export function bandLayout(input: BandInput): BandLayout {
-  const { width, fontSize: f, inventory, backlog, slots, overdue, labels } = input;
+  const { width, fontSize: f, inventory, backlog, slots, overdue, typed = 0, labels } = input;
   // The node in the middle: the left half holds the pipe, the right the way out.
   const nodeX = Math.round(width / 2 - NODE_W / 2);
   const nodeRight = nodeX + NODE_W;
   const overdueRoom = overdue > 0 ? OVERDUE_W + BOX_GAP : 0;
-  const shown = slots.filter((quantity) => quantity > 0);
+  // The typed Order is drawn as the last box, at the same scale as the known ones.
+  const shown = [...slots, typed].filter((quantity) => quantity > 0);
   const gaps = Math.max(0, shown.length - 1) * BOX_GAP;
   // The pipe's room: from the left end to the arrowhead at the node.
   const room = Math.max(0, nodeX - HEAD - PAD);
@@ -182,6 +187,7 @@ export function bandLayout(input: BandInput): BandLayout {
     boxes.push({ x: cursor - w, y: goodsY - BOX_H / 2, width: w, height: BOX_H });
     cursor -= w + BOX_GAP;
   }
+  const typedBox = typed > 0 ? boxes.pop()! : null;
   // Overdue units have no known Uke: their box stands apart at the far end of the pipe.
   const overdueBox = overdue > 0 ? { x: PAD, y: goodsY - BOX_H / 2, width: OVERDUE_W, height: BOX_H } : null;
 
@@ -274,6 +280,7 @@ export function bandLayout(input: BandInput): BandLayout {
     stockBar: inventory > 0 ? { x: nodeX + 3, y: goodsY - stockH, width: NODE_W - 6, height: stockH } : null,
     backlogBar: backlog > 0 ? { x: nodeX + 3, y: goodsY, width: NODE_W - 6, height: backlogH } : null,
     boxes,
+    typedBox,
     overdueBox,
     labels: placed,
   };

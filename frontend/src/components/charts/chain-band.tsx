@@ -70,6 +70,19 @@ export function ChainBand({ title, variant = "seat", ...input }: ChainBandProps)
           strokeWidth={1}
         />
       ))}
+      {band.typedBox ? (
+        // The just-typed Order: a 1.5 px `ink` border (DESIGN.md → Kjedebånd).
+        <rect
+          data-mark="typed"
+          x={band.typedBox.x}
+          y={band.typedBox.y}
+          width={band.typedBox.width}
+          height={band.typedBox.height}
+          fill={colour("paper")}
+          stroke={ink}
+          strokeWidth={1.5}
+        />
+      ) : null}
       {band.overdueBox ? <Overdue box={band.overdueBox} /> : null}
       {band.labels.map((label) => (
         <text

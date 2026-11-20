@@ -101,6 +101,31 @@ describe("cellFor", () => {
     }
   });
 
+  it("writes a typed Order at nå and in Levering at its arrival Uke, nothing else (Story 6.11)", () => {
+    const typed = { order: 24, arrivalWeek: 15 };
+    expect(cellFor(state, "order", 11, undefined, typed)).toEqual({ kind: "order-typed", text: "24" });
+    expect(cellFor(state, "incomingDelivery", 15, undefined, typed)).toEqual({ kind: "arrival-typed", text: "24", known: null });
+    expect(cellFor(state, "incomingDelivery", 14, undefined, typed)).toEqual({ kind: "arrival", text: "8" });
+    // A known arrival in the same Uke stays written before it.
+    expect(cellFor(state, "incomingDelivery", 14, undefined, { order: 3, arrivalWeek: 14 })).toEqual({
+      kind: "arrival-typed",
+      text: "3",
+      known: "8",
+    });
+    // Posisjon and cost at nå do not change while typing.
+    expect(cellFor(state, "position", 11, undefined, typed)).toEqual({ kind: "plain", text: `${MINUS}4` });
+    expect(cellFor(state, "cost", 11, undefined, typed)).toEqual({ kind: "plain", text: "20" });
+    // An arrival past nå + 4 (longer delays) has no column: only nå shows the typed Order.
+    const late = { order: 24, arrivalWeek: 17 };
+    expect(cellFor(state, "order", 11, undefined, late)).toEqual({ kind: "order-typed", text: "24" });
+    for (const column of weekColumns(11)) {
+      expect(cellFor(state, "incomingDelivery", column.week, undefined, late).kind).not.toBe("arrival-typed");
+    }
+    // A placed Order wins over a typed one.
+    expect(cellFor(state, "order", 11, 4, typed)).toEqual({ kind: "order-placed", text: "4" });
+    expect(cellFor(state, "incomingDelivery", 15, 4, typed)).toEqual({ kind: "empty" });
+  });
+
   it("has the phone's rows, with Sendt and På vei for the laptop only", () => {
     expect(ROWS.filter((r) => !r.laptopOnly).map((r) => r.label)).toEqual([
       "Ordre inn",

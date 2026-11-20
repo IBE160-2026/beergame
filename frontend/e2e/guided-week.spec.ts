@@ -70,6 +70,9 @@ for (const width of [320, 360, 1440]) {
         return [style.backgroundColor, style.color];
       });
       expect(look).toEqual(["rgb(242, 245, 248)", "rgb(94, 111, 130)"]);
+      // Not a text box to the pointer either (Issue 128).
+      await expect(field).toHaveCSS("cursor", "default");
+      await expect(field).toHaveCSS("caret-color", "rgba(0, 0, 0, 0)");
       // The fixed Order also stands in Din ordre at nå, not the empty dashed cell.
       const orderRow = page.locator('tr[data-row="order"]');
       await expect(orderRow.getByText(copy.table.noOrderYet)).toHaveCount(0);
@@ -88,11 +91,11 @@ for (const width of [320, 360, 1440]) {
   });
 }
 
-test("Uke 11, past the Guided Weeks: no Veiledet uke field and no view", async ({ page }) => {
+test("Uke 11, past the Guided Weeks: no Veiledet uke field and no view (the editable field is order-field.spec.ts)", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
   const viewed = await openPlay(page, week11);
   await expect(page.locator('svg[data-chart="band"]')).toHaveCount(1);
-  await expect(page.locator("[data-order-field]")).toHaveCount(0);
+  await expect(page.locator('[data-order-field="guided"]')).toHaveCount(0);
   await expect(page.getByText(copy.order.guided)).toHaveCount(0);
   expect(viewed).toEqual([]);
 });

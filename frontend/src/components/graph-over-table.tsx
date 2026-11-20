@@ -93,6 +93,9 @@ type Measured = {
 
 const EMPTY: Measured = { fields: {}, nowLeft: null };
 
+/** The join line's ends, from the table wrapper's top left. */
+type Join = { x1: number; y1: number; x2: number; y2: number };
+
 function fixedSizes(fields: readonly GraphField[], variants: readonly Variant[], fixed: FixedLayout): Measured {
   const sizes: Record<string, FieldSize> = {};
   let nowLeft: number | null = null;
@@ -129,6 +132,7 @@ export function GraphOverTable({
   labelledBy,
   swipe,
   footer,
+  joinKey,
 }: {
   /** The region's accessible name («Graf og tabell»). */
   label: string;
@@ -144,12 +148,19 @@ export function GraphOverTable({
   swipe?: string;
   /** A line under the region, beside «Sveip» (a key). */
   footer?: ReactNode;
+  /**
+   * Draws a thin `ink` line from the top right of the cell marked `data-join="from"` to the bottom
+   * left of the element marked `data-join="to"` (the typed Order at nå and its arrival, Story 6.11).
+   * It changes whenever this key does; without a key there is no line.
+   */
+  joinKey?: string;
 }) {
   const region = useRef<HTMLDivElement>(null);
   const wrapper = useRef<HTMLDivElement>(null);
   const variants = variantsOf(columns);
   const [measured, setMeasured] = useState<Measured>(EMPTY);
   const [earlierHidden, setEarlierHidden] = useState(false);
+  const [join, setJoin] = useState<Join | null>(null);
   const shown = fixed ? fixedSizes(fields, variants, fixed) : measured;
   const nowWeek = columns.find((column) => column.when === "now")?.week;
   const columnKey = columns.map((column) => `${column.week}${column.phone ? "p" : ""}`).join(",");
@@ -192,6 +203,24 @@ export function GraphOverTable({
     // `variants` follows `columnKey`; listing it would measure again on every render.
   }, [fixed, nowWeek, columnKey]);
 
+  const measureJoin = useCallback(() => {
+    const box = wrapper.current;
+    const from = box?.querySelector<HTMLElement>("[data-join=from]");
+    const to = box?.querySelector<HTMLElement>("[data-join=to]");
+    let next: Join | null = null;
+    if (box && from && to && joinKey !== undefined && from.getClientRects().length > 0 && to.getClientRects().length > 0) {
+      const origin = box.getBoundingClientRect();
+      const a = from.getBoundingClientRect();
+      const b = to.getBoundingClientRect();
+      next = { x1: a.right - origin.left, y1: a.top - origin.top, x2: b.left - origin.left, y2: b.bottom - origin.top };
+    }
+    setJoin((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next));
+  }, [joinKey]);
+
+  useLayoutEffect(() => {
+    measureJoin();
+  }, [measureJoin]);
+
   const update = useCallback(() => {
     const element = region.current;
     if (element) setEarlierHidden(element.scrollLeft > 1);
@@ -224,6 +253,7 @@ export function GraphOverTable({
     let size = `${element.clientWidth}x${element.scrollWidth}x${table.offsetHeight}`;
     const observer = new ResizeObserver(() => {
       measure();
+      measureJoin();
       const now = `${element.clientWidth}x${element.scrollWidth}x${table.offsetHeight}`;
       if (now !== size) {
         size = now;
@@ -233,7 +263,7 @@ export function GraphOverTable({
     observer.observe(element);
     observer.observe(table);
     return () => observer.disconnect();
-  }, [measure, toNow]);
+  }, [measure, measureJoin, toNow]);
 
   const tint = (nowLeft: number | null): CSSProperties | undefined =>
     nowLeft === null
@@ -306,6 +336,17 @@ export function GraphOverTable({
               className="pointer-events-none absolute top-0 bottom-0 z-[5] w-0 border-l-[1.4px] border-ink"
               style={{ left: shown.nowLeft - 0.7 }}
             />
+          ) : null}
+          {join ? (
+            <svg
+              aria-hidden="true"
+              data-join-line=""
+              className="pointer-events-none absolute top-0 left-0 z-[5] overflow-visible"
+              width={1}
+              height={1}
+            >
+              <line x1={join.x1} y1={join.y1} x2={join.x2} y2={join.y2} stroke="var(--color-ink)" strokeWidth={1} />
+            </svg>
           ) : null}
         </div>
       </div>

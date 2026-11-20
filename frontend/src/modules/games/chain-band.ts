@@ -44,29 +44,32 @@ export function bandEnds(role: Role, seatRoles: readonly Role[]): { upstream: st
 }
 
 /** Every label of the band, from the api's numbers as they came (AD-10). For the Detaljist,
- * «Ordre inn» is the customers' number of this Uke only (FR-14). */
-export function bandLabels(state: BandState, ends: { upstream: string; downstream: string }): BandLabels {
+ * «Ordre inn» is the customers' number of this Uke only (FR-14). A typed Order (Story 6.11) reads
+ * «Din ordre 24» and «På vei 16 + 24»: the two numbers side by side, never summed. */
+export function bandLabels(state: BandState, ends: { upstream: string; downstream: string }, typed?: number): BandLabels {
+  const supplyLine = labelled(terms.supplyLine, state.supply_line);
   return {
     ...ends,
-    order: copy.order,
+    order: typed === undefined ? copy.order : labelled(copy.order, typed),
     incoming: labelled(terms.incomingOrder, state.incoming_order),
     delivery: labelled(terms.incomingDelivery, state.incoming_delivery),
     shipped: labelled(terms.unitsShipped, state.shipped),
     stock: stockLabels(state),
-    supplyLine: labelled(terms.supplyLine, state.supply_line),
+    supplyLine: typed === undefined ? supplyLine : copy.withTyped(supplyLine, formatNumber(typed)),
     overdue: state.overdue > 0 ? formatNumber(state.overdue) : null,
   };
 }
 
 /** The band as one sentence for screen readers: «Ordre inn 8, Levering 4, Sendt 4, Restordre 13,
- * På vei 16» (NFR-6, UX-DR14). */
-export function bandSentence(state: BandState): string {
+ * På vei 16» (NFR-6, UX-DR14). With a typed Order it ends «På vei 16 pluss 24» (Story 6.11). */
+export function bandSentence(state: BandState, typed?: number): string {
   const supply = labelled(terms.supplyLine, state.supply_line);
+  const supplyPart = state.overdue > 0 ? `${supply}, ${copy.overdue(formatNumber(state.overdue))}` : supply;
   return [
     labelled(terms.incomingOrder, state.incoming_order),
     labelled(terms.incomingDelivery, state.incoming_delivery),
     labelled(terms.unitsShipped, state.shipped),
     ...stockLabels(state),
-    state.overdue > 0 ? `${supply}, ${copy.overdue(formatNumber(state.overdue))}` : supply,
+    typed === undefined ? supplyPart : copy.withTypedRead(state.overdue > 0 ? `${supplyPart},` : supplyPart, formatNumber(typed)),
   ].join(", ");
 }

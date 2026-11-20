@@ -2,17 +2,34 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { nb } from "@/copy/nb";
+import { formatNumber } from "@/lib/number-format";
+import { orderPreview } from "@/lib/preview";
 
 import { OrderField } from "./order-field";
+import { lastOrder, orderError, parseOrder, stepOrder } from "./order-input";
+import week11 from "./fixtures/play-week-11.json";
 
 const copy = nb.games.play.order;
+const NONE = () => undefined;
+const free = { guided: false, order: null, viewed: false } as const;
+
+function render(text: string, extra: Partial<Parameters<typeof OrderField>[0]> = {}) {
+  const parsed = parseOrder(text, 999);
+  const preview =
+    parsed.kind === "valid" ? orderPreview({ order_arrival_week: 15, supply_line_base: 16, position_base: -4 }, parsed.value) : null;
+  return renderToStaticMarkup(
+    <OrderField week={11} turn={free} max={999} lastOrder={8} text={text} onText={NONE} preview={preview} {...extra} />,
+  );
+}
 
 describe("Ordrefelt, Veiledet uke (Story 6.10)", () => {
-  it("shows the fixed Order read-only with the reason and no button", () => {
-    const html = renderToStaticMarkup(<OrderField week={2} turn={{ guided: true, order: 4, viewed: false }} />);
-    expect(html).toContain(copy.label(2));
+  it("shows the fixed Order read-only with the reason, no button and no text cursor (Issue 128)", () => {
+    const html = renderToStaticMarkup(
+      <OrderField week={2} turn={{ guided: true, order: 4, viewed: false }} max={999} text="" onText={NONE} preview={null} />,
+    );
     expect(html).toContain("Din ordre for Uke 2");
     expect(html).toMatch(/<input[^>]*readonly[^>]*value="4"/i);
+    expect(html).toMatch(/<input[^>]*cursor-default caret-transparent/);
     expect(html).toContain(copy.guided);
     expect(html).not.toContain("<button");
   });
@@ -21,8 +38,99 @@ describe("Ordrefelt, Veiledet uke (Story 6.10)", () => {
     expect(copy.guided).not.toMatch(/\d/);
     expect(copy.guided.toLowerCase()).not.toContain("igjen");
   });
+});
 
-  it("renders nothing outside a Guided Week until Story 6.11", () => {
-    expect(renderToStaticMarkup(<OrderField week={11} turn={{ guided: false, order: null, viewed: false }} />)).toBe("");
+describe("Ordrefelt, typing an Order (Story 6.11)", () => {
+  it("empty: the label, a numeric text field, the help line tied to it, last Uke's Order and an unavailable button", () => {
+    const html = render("");
+    expect(html).toContain(copy.label(11));
+    expect(html).toMatch(/<input[^>]*type="text"[^>]*inputMode="numeric"[^>]*pattern="\[0-9\]\*"/);
+    expect(html).toContain(`placeholder="${copy.placeholder}"`);
+    const help = html.match(/<p id="([^"]+)"[^>]*>Hele tall fra 0 til 999\.<\/p>/);
+    expect(help).not.toBeNull();
+    expect(html).toMatch(new RegExp(`aria-describedby="${help![1]}"`));
+    expect(html).toContain(copy.last("8"));
+    expect(html).toMatch(/<button[^>]*aria-disabled="true"[^>]*>Bekreft ordre<\/button>/);
+    // − cannot act on an empty field; + can.
+    expect(html).toMatch(/<button[^>]*aria-label="Én færre"[^>]*aria-disabled="true"/);
+    expect(html).not.toMatch(/<button[^>]*aria-label="Én flere"[^>]*aria-disabled="true"/);
+    expect(html).not.toContain("aria-invalid");
+  });
+
+  it("valid: «Bekreft ordre på 24» under where it arrives; no last-Uke line", () => {
+    const html = render("24");
+    expect(html).toContain(copy.arrives(15));
+    expect(html).toMatch(/<button[^>]*>Bekreft ordre på 24<\/button>/);
+    expect(html).not.toMatch(/aria-disabled="true"[^>]*>Bekreft/);
+    expect(html).not.toContain(copy.last("8"));
+    expect(html).toContain("border-ink");
+  });
+
+  it("0 is a valid Order", () => {
+    expect(render("0")).toMatch(/>Bekreft ordre på 0<\/button>/);
+  });
+
+  it.each(["2a", "2,5", "2.5", "-1", "2 4", " 4"])("«%s» is not a whole number", (text) => {
+    const html = render(text);
+    expect(html).toContain(copy.invalid("999"));
+    expect(html).toContain('aria-invalid="true"');
+    expect(html).toContain("border-restordre");
+    expect(html).toMatch(/aria-disabled="true"[^>]*>Bekreft ordre<\/button>/);
+    expect(html).not.toContain(copy.arrives(15));
+  });
+
+  it("too large: «1000 er mer enn 999 …»", () => {
+    const html = render("1000");
+    expect(html).toContain(copy.tooLarge(formatNumber(1000), "999"));
+    expect(html).toContain('aria-invalid="true"');
+  });
+
+  it("no number is suggested anywhere (UX-DR78)", () => {
+    expect(render("")).toMatch(/<input[^>]*value=""/);
+  });
+
+  it("a placed Order outside the Guided Weeks shows read-only with no Veiledet uke line", () => {
+    const html = render("", { turn: { guided: false, order: 12, viewed: false } });
+    expect(html).toMatch(/<input[^>]*readonly[^>]*value="12"/i);
+    expect(html).not.toContain(copy.guided);
+    expect(html).not.toContain("<button");
+  });
+});
+
+describe("order-input rules", () => {
+  it("parses whole numbers from 0 to max", () => {
+    expect(parseOrder("", 10)).toEqual({ kind: "empty" });
+    expect(parseOrder("007", 10)).toEqual({ kind: "valid", value: 7 });
+    expect(parseOrder("10", 10)).toEqual({ kind: "valid", value: 10 });
+    expect(parseOrder("011", 10)).toEqual({ kind: "too-large", digits: "11" });
+    expect(parseOrder("1e3", 10)).toEqual({ kind: "invalid" });
+    expect(parseOrder("+3", 10)).toEqual({ kind: "invalid" });
+  });
+
+  it("formats the too-large reason, even past safe integers", () => {
+    expect(orderError(parseOrder("1200", 999), 999)).toBe(copy.tooLarge(formatNumber(1200), "999"));
+    expect(orderError(parseOrder("99999999999999999999", 999), 999)).toContain("99999999999999999999 er mer enn 999");
+  });
+
+  it("«Sist Uke bestilte du n.» takes the Uke before nå; in the first free Uke the last fixed Order", () => {
+    expect(lastOrder(week11.seat_state.history)).toBe(8);
+    // Uke 5 follows the four Guided Weeks: the history ends with the fixed Order 4.
+    expect(lastOrder(week11.seat_state.history.slice(0, 4))).toBe(4);
+    expect(lastOrder([])).toBeUndefined();
+  });
+
+  it("− and +: limits and steps", () => {
+    const at = (text: string, d: -1 | 1) => stepOrder(parseOrder(text, 999), 999, d);
+    expect(at("", 1)).toBe(1);
+    expect(at("", -1)).toBeNull();
+    expect(at("0", -1)).toBeNull();
+    expect(at("0", 1)).toBe(1);
+    expect(at("999", 1)).toBeNull();
+    expect(at("999", -1)).toBe(998);
+    expect(at("1500", -1)).toBe(999);
+    expect(at("1500", 1)).toBeNull();
+    expect(at("2a", 1)).toBeNull();
+    expect(at("2a", -1)).toBeNull();
+    expect(stepOrder(parseOrder("", 0), 0, 1)).toBeNull();
   });
 });

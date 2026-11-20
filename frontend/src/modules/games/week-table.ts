@@ -76,7 +76,14 @@ export type Cell =
   /** Din ordre at nå before an Order is typed: an empty dashed cell. */
   | { kind: "order-empty" }
   /** Din ordre at nå with an Order already placed (a Veiledet uke): the number, in nå's weight. */
-  | { kind: "order-placed"; text: string };
+  | { kind: "order-placed"; text: string }
+  /** Din ordre at nå with a valid typed Order not yet confirmed (Story 6.11): the same block. */
+  | { kind: "order-typed"; text: string }
+  /** The typed Order in Levering at its arrival Uke, after any known arrival there. */
+  | { kind: "arrival-typed"; text: string; known: string | null };
+
+/** A valid typed Order and the Uke it arrives in (`lib/preview.ts`). */
+export type TypedOrder = { order: number; arrivalWeek: number };
 
 type Values = {
   incoming_order: number;
@@ -154,8 +161,10 @@ export function graphSeries(state: SeatState): GraphSeries {
 }
 
 /** What the cell of `row` in Uke `week` shows. `nowOrder` is an Order already placed at nå (a
- * Veiledet uke's fixed Order, as the Landing shows it); without it nå's Din ordre is empty. */
-export function cellFor(state: SeatState, row: RowKey, week: number, nowOrder?: number): Cell {
+ * Veiledet uke's fixed Order, as the Landing shows it); without it nå's Din ordre is empty, or
+ * holds `typed`, the valid typed Order, which also stands in Levering at its arrival Uke. */
+export function cellFor(state: SeatState, row: RowKey, week: number, nowOrder?: number, typed?: TypedOrder): Cell {
+  const preview = nowOrder === undefined ? typed : undefined;
   if (week < state.week) {
     const past = state.history[week - 1];
     if (!past) return { kind: "empty" };
@@ -164,13 +173,17 @@ export function cellFor(state: SeatState, row: RowKey, week: number, nowOrder?: 
     return known(past, row);
   }
   if (week === state.week) {
-    if (row === "order") return nowOrder === undefined ? { kind: "order-empty" } : { kind: "order-placed", text: formatNumber(nowOrder) };
+    if (row === "order") {
+      if (nowOrder !== undefined) return { kind: "order-placed", text: formatNumber(nowOrder) };
+      return preview ? { kind: "order-typed", text: formatNumber(preview.order) } : { kind: "order-empty" };
+    }
     if (row === "cost") return { kind: "plain", text: formatNumber(state.week_cost, { narrow: true }) };
     return known(state, row);
   }
   if (row !== "incomingDelivery") return { kind: "empty" };
   // The engine gives at most one slot per arrival Uke; were there more, each is written, never summed.
   const arriving = state.supply_line_slots.filter((slot) => slot.arrival_week === week);
-  if (arriving.length === 0) return { kind: "empty" };
-  return { kind: "arrival", text: arriving.map((slot) => formatNumber(slot.quantity)).join(" + ") };
+  const due = arriving.length === 0 ? null : arriving.map((slot) => formatNumber(slot.quantity)).join(" + ");
+  if (preview && preview.arrivalWeek === week) return { kind: "arrival-typed", text: formatNumber(preview.order), known: due };
+  return due === null ? { kind: "empty" } : { kind: "arrival", text: due };
 }

@@ -6,6 +6,7 @@ import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 import { formatNumber } from "@/lib/number-format";
 import { usePageState } from "@/lib/page-state";
+import { orderPreview } from "@/lib/preview";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { HOME_LINK, HOME_PATH, rulesPath } from "@/modules/identity/homes";
@@ -16,6 +17,7 @@ import { type MyGame, myGameKey, type PlayEnvelope, playKey, useMyGame, usePlay,
 import { ChainBandView } from "./chain-band-view";
 import { GameAction } from "./game-action";
 import { OrderField } from "./order-field";
+import { lastOrder, parseOrder } from "./order-input";
 import { gameTitle, holderText } from "./home";
 import { ROWS } from "./week-table";
 import { WeekTable } from "./week-table-view";
@@ -31,8 +33,9 @@ const LINE = "text-body-phone lg:text-body";
  * every AI player). From 1024 px the table stands left and the rest in a right column. Never the
  * number of Weeks. Over the table the Seat's own link stands as the Kjedebånd (Story 6.9). In a
  * Veiledet uke the Ordrefelt shows the fixed Order read-only, and the page tells the api once that
- * the Student has the Week on screen, which counts as their Order there (Story 6.10). Later
- * stories add the editable Ordrefelt and Setestatus. A game that has not started, or that this Student may
+ * the Student has the Week on screen, which counts as their Order there (Story 6.10). After them
+ * the Student types the Order, previewed in the table and the Kjedebånd (Story 6.11); later
+ * stories send it and add Setestatus. A game that has not started, or that this Student may
  * not play before the briefing and Starting task, shows its next action (briefing, «Start spillet» or the not-ready line); a finished one says so. The
  * page follows the game's `game:` events (`topics.ts`). Another Student's game shows the
  * permission-denied page.
@@ -115,17 +118,34 @@ function Topplinje({ game, envelope }: { game: MyGame; envelope: PlayEnvelope })
 
 function Running({ game, envelope }: { game: MyGame; envelope: PlayEnvelope }) {
   useGuidedView(game.id, envelope);
+  const state = envelope.seat_state;
+  // The typed Order belongs to its game and Uke: a new Uke starts empty (Story 6.12 keeps drafts).
+  const [typed, setTyped] = useState({ game: game.id, week: state.week, text: "" });
+  const text = typed.game === game.id && typed.week === state.week ? typed.text : "";
+  const editable = !envelope.turn.guided && envelope.turn.order == null;
+  const parsed = parseOrder(text, state.max_order);
+  // The live preview (Story 6.11, AD-10): only for a valid value on an editable field.
+  const preview = editable && parsed.kind === "valid" ? orderPreview(state.preview, parsed.value) : null;
   return (
     <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12">
       <div className="min-w-0">
         {/* Reading and focus order: Topplinje, Kjedebånd, Graf over tabell, the rest (FR-73). */}
-        <ChainBandView state={envelope.seat_state} seatRoles={game.seats.map((seat) => seat.role)} />
-        {/* A placed Order (a Veiledet uke's fixed Order) stands in Din ordre at nå. */}
-        <WeekTable state={envelope.seat_state} nowOrder={envelope.turn.order ?? undefined} />
+        <ChainBandView state={state} seatRoles={game.seats.map((seat) => seat.role)} typed={preview?.order} />
+        {/* A placed Order (a Veiledet uke's fixed Order) stands in Din ordre at nå; a typed one
+            there and at its arrival Uke. */}
+        <WeekTable state={state} nowOrder={envelope.turn.order ?? undefined} typed={preview ?? undefined} />
       </div>
       <div>
         {/* The Ordrefelt follows the table on phone and tops the right column on laptop. */}
-        <OrderField week={envelope.seat_state.week} turn={envelope.turn} />
+        <OrderField
+          week={state.week}
+          turn={envelope.turn}
+          max={state.max_order}
+          lastOrder={lastOrder(state.history)}
+          text={text}
+          onText={(next) => setTyped({ game: game.id, week: state.week, text: next })}
+          preview={preview}
+        />
         <PageLink href={rulesPath(game.id)}>{nb.games.briefing.title}</PageLink>
         <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
         <Seats game={game} />

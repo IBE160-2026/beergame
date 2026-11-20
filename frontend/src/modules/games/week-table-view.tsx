@@ -12,7 +12,17 @@ import { formatNumber } from "@/lib/number-format";
 import { cn } from "@/lib/utils";
 
 import type { SeatState } from "./api";
-import { type Cell, cellFor, type Column, type GraphSeries, graphSeries, type NetStep, ROWS, weekColumns } from "./week-table";
+import {
+  type Cell,
+  cellFor,
+  type Column,
+  type GraphSeries,
+  graphSeries,
+  type NetStep,
+  ROWS,
+  type TypedOrder,
+  weekColumns,
+} from "./week-table";
 
 const copy = nb.games.play.table;
 const graphCopy = nb.games.play.graph;
@@ -165,6 +175,7 @@ export function WeekTable({
   state,
   fixed,
   nowOrder,
+  typed,
   labelledBy,
   wide = false,
 }: {
@@ -172,6 +183,9 @@ export function WeekTable({
   fixed?: FixedLayout;
   /** An Order already placed at nå (a Veiledet uke's fixed Order), written in Din ordre. */
   nowOrder?: number;
+  /** A valid typed Order not yet confirmed (Story 6.11): written at nå and at its arrival Uke,
+   * joined by a thin line. Ignored when `nowOrder` is given. */
+  typed?: TypedOrder;
   /** The id of the element that names the table (the Landing's caption). */
   labelledBy?: string;
   /** Wider week columns from 1024 px (see `WEEK_COL_WIDE`). */
@@ -190,6 +204,7 @@ export function WeekTable({
       fixed={fixed}
       labelledBy={labelledBy}
       swipe={copy.swipe}
+      joinKey={typed && nowOrder === undefined ? `${typed.order}@${typed.arrivalWeek}` : undefined}
       footer={
         <p className="mt-1 text-caption text-ink-secondary">
           <span aria-hidden="true" className="mr-1 inline-block h-[0.9em] w-[1.2em] border border-ink align-[-0.1em]" />
@@ -231,7 +246,7 @@ export function WeekTable({
             <WeekCell
               key={column.week}
               column={column}
-              cell={cellFor(state, row.key, column.week, nowOrder)}
+              cell={cellFor(state, row.key, column.week, nowOrder, typed)}
               weekCol={weekCol}
               style={weekCell}
             />
@@ -269,6 +284,29 @@ function WeekCell({ column, cell, weekCol, style }: { column: Column; cell: Cell
         // DESIGN.md → Graf over tabell: the Din ordre cell for nå is an `ink` block with a `paper` number.
         <td style={style} className={cn(base, NET_CELL, "bg-ink font-bold text-paper")}>
           {cell.text}
+        </td>
+      );
+    case "order-typed":
+      return (
+        <td data-join="from" style={style} className={cn(base, NET_CELL, "bg-ink font-bold text-paper")}>
+          {cell.text}
+          <span className="sr-only">, {copy.typed}</span>
+        </td>
+      );
+    case "arrival-typed":
+      return (
+        <td style={style} className={base}>
+          {cell.known === null ? null : (
+            <>
+              <span className="inline-block min-w-[1.3em] border border-ink leading-tight">{cell.known}</span>
+              <span className="sr-only">, {copy.arrival}, </span>
+            </>
+          )}
+          {/* The typed Order's arrival: a 1.5 px `ink` box, the number bold (`05-spill.png`). */}
+          <span data-join="to" className="inline-block min-w-[1.3em] border-[1.5px] border-ink font-bold leading-tight">
+            {cell.text}
+          </span>
+          <span className="sr-only">, {copy.typed}</span>
         </td>
       );
     case "order-empty":

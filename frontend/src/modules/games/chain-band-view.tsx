@@ -19,8 +19,11 @@ type Size = { width: number; fontSize: number };
 export function ChainBandView({
   state,
   seatRoles,
+  typed,
 }: {
   state: BandState;
+  /** A valid typed Order not yet confirmed (Story 6.11): a new box last on the pipe. */
+  typed?: number;
   /** The game's Seats' Roles, Fabrikk first (UX-DR73), for the neighbour at each end. */
   seatRoles: readonly components["schemas"]["Role"][];
 }) {
@@ -43,7 +46,7 @@ export function ChainBandView({
   const slots = state.supply_line_slots.map((slot) => slot.quantity);
   return (
     <div data-chain-band="" className="-mx-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] mb-4 max-w-[28rem] lg:mx-0">
-      <p className="sr-only">{bandSentence(state)}</p>
+      <p className="sr-only">{bandSentence(state, typed)}</p>
       <div ref={box} aria-hidden="true" className="min-h-[6em] text-caption">
         {size && size.width > 0 ? (
           <ChainBand
@@ -53,7 +56,8 @@ export function ChainBandView({
             backlog={state.backlog}
             slots={slots}
             overdue={state.overdue}
-            labels={bandLabels(state, bandEnds(state.role, seatRoles))}
+            typed={typed}
+            labels={bandLabels(state, bandEnds(state.role, seatRoles), typed)}
             title={nb.games.play.band.svg}
           />
         ) : null}

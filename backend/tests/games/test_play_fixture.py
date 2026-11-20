@@ -134,3 +134,53 @@ def chain_band_classic() -> list[dict]:
 def test_the_chain_band_fixture_is_every_week_of_the_engines_game():
     stored = json.loads(CHAIN_BAND.read_text(encoding="utf-8"))
     assert stored == chain_band_classic()
+
+
+# The Order preview's check (Story 6.11, AD-10): `frontend/src/lib/preview.ts` is the product's only
+# client arithmetic and is tested in Vitest against these engine values. For every Seat and Week of
+# two golden-trace games (Classic delays and 3/3/3), the preview coefficients the play envelope
+# carries, the Order the trace placed, and what the engine showed the next Week. One object per
+# line; to regenerate, write `preview_golden()` with one `json.dumps(item)` per line.
+GOLDEN = Path(__file__).resolve().parents[1] / "engine" / "golden"
+PREVIEW_GOLDEN = FIXTURES / "preview-golden.json"
+PREVIEW_TRACES = ("classic-step-pass-through.json", "delays-3-3-3-backlog.json")
+NEXT_FIELDS = (
+    "supply_line",
+    "incoming_delivery",
+    "position",
+    "incoming_order",
+    "supply_line_slots",
+)
+
+
+def preview_golden() -> list[dict]:
+    found = []
+    for name in PREVIEW_TRACES:
+        golden = json.loads((GOLDEN / name).read_text(encoding="utf-8"))
+        settings = GameSettings.model_validate(golden["settings"])
+        states = [initial_state(settings)]
+        for orders in golden["orders"]:
+            states.append(advance(settings, states[-1], orders))
+        placed = golden["orders"]
+        for role in settings.roles:
+            # The last Order ends the game: its next Week never opens.
+            for week in range(1, len(placed)):
+                now = build_seat_state(settings, states[:week], placed[: week - 1], role)
+                after = build_seat_state(settings, states[: week + 1], placed[:week], role)
+                dumped = after.model_dump(mode="json")
+                found.append(
+                    {
+                        "trace": name,
+                        "role": role,
+                        "week": week,
+                        "preview": now.preview.model_dump(mode="json"),
+                        "order": placed[week - 1][role],
+                        "next": {field: dumped[field] for field in NEXT_FIELDS},
+                    }
+                )
+    return found
+
+
+def test_the_preview_fixture_is_the_engines_golden_games():
+    stored = json.loads(PREVIEW_GOLDEN.read_text(encoding="utf-8"))
+    assert stored == preview_golden()

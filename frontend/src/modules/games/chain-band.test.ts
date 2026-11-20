@@ -14,7 +14,7 @@ const SEAT_ROLES = ["factory", "distributor", "wholesaler", "retailer"] as const
 const WIDTHS = [288, 328];
 const FONTS = [13, 26];
 
-function layout(state: BandState, width: number, fontSize: number) {
+function layout(state: BandState, width: number, fontSize: number, typed?: number) {
   return bandLayout({
     width,
     fontSize,
@@ -22,7 +22,8 @@ function layout(state: BandState, width: number, fontSize: number) {
     backlog: state.backlog,
     slots: state.supply_line_slots.map((slot) => slot.quantity),
     overdue: state.overdue,
-    labels: bandLabels(state, bandEnds(state.role, SEAT_ROLES)),
+    typed,
+    labels: bandLabels(state, bandEnds(state.role, SEAT_ROLES), typed),
   });
 }
 
@@ -37,8 +38,8 @@ function overlaps(a: Rect, b: Rect) {
   return Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
 }
 
-function problems(state: BandState, width: number, fontSize: number): string[] {
-  const band = layout(state, width, fontSize);
+function problems(state: BandState, width: number, fontSize: number, typed?: number): string[] {
+  const band = layout(state, width, fontSize, typed);
   const found: string[] = [];
   const inside = (r: Rect, what: string) => {
     if (r.left < -0.01 || r.right > width + 0.01 || r.top < -0.01 || r.bottom > band.height + 0.01) found.push(`${what} leaves the band`);
@@ -48,14 +49,14 @@ function problems(state: BandState, width: number, fontSize: number): string[] {
     inside(box, label.text);
     for (const other of boxes.slice(i + 1)) if (overlaps(box, other.box)) found.push(`${label.text} overlaps ${other.label.text}`);
   });
-  const marks = [...band.boxes, ...(band.overdueBox ? [band.overdueBox] : []), band.node];
+  const marks = [...band.boxes, ...(band.typedBox ? [band.typedBox] : []), ...(band.overdueBox ? [band.overdueBox] : []), band.node];
   for (const mark of marks) {
     const r = { left: mark.x, right: mark.x + mark.width, top: mark.y, bottom: mark.y + mark.height };
     inside(r, "a mark");
     for (const { label, box } of boxes) if (overlaps(r, box)) found.push(`${label.text} covers a mark`);
   }
   // Every box on the pipe stays left of the node.
-  for (const box of band.boxes) if (box.x + box.width > band.node.x) found.push("a box runs into the node");
+  for (const box of [...band.boxes, ...(band.typedBox ? [band.typedBox] : [])]) if (box.x + box.width > band.node.x) found.push("a box runs into the node");
   return found;
 }
 
@@ -181,10 +182,33 @@ describe("the Kjedebånd's content", () => {
     expect(layout({ ...state, overdue: 0 }, 328, 13).overdueBox).toBeNull();
   });
 
+  it("fits every Uke with a typed Order of 24 at 288 px and 200 % text (Story 6.11)", () => {
+    const found = STATES.flatMap((state) => problems(state, 288, 26, 24).map((p) => `${state.role} Uke ${state.week}: ${p}`));
+    expect(found).toEqual([]);
+  });
+
+  it("draws a typed Order as the last box on the pipe and writes it beside På vei (Story 6.11)", () => {
+    const state = STATES.find((s) => s.role === "wholesaler" && s.week === 11)!;
+    const band = layout(state, 328, 13, 24);
+    expect(band.boxes).toHaveLength(layout(state, 328, 13).boxes.length);
+    expect(band.typedBox).not.toBeNull();
+    expect(band.typedBox!.x).toBeLessThan(Math.min(...band.boxes.map((b) => b.x)));
+    expect(band.typedBox!.width).toBeCloseTo(24 * band.pipeUnit);
+    const text = (key: string) => band.labels.find((l) => l.key === key)!.text;
+    expect(text("order")).toBe("Din ordre 24");
+    expect(text("supplyLine")).toBe("På vei 16 + 24");
+    // 0 is an Order with no box; nothing typed keeps «Din ordre» without a number.
+    expect(layout(state, 328, 13, 0).typedBox).toBeNull();
+    expect(layout(state, 328, 13).labels.find((l) => l.key === "order")!.text).toBe("Din ordre");
+  });
+
   it("reads as one sentence", () => {
     const state = { ...at("wholesaler", 11), incoming_order: 8, incoming_delivery: 4, shipped: 4, inventory: 0, backlog: 13, supply_line: 16, overdue: 0 };
     expect(bandSentence(state)).toBe("Ordre inn 8, Levering 4, Sendt 4, Restordre 13, På vei 16");
     expect(bandSentence({ ...state, overdue: 7, supply_line: 23 })).toBe("Ordre inn 8, Levering 4, Sendt 4, Restordre 13, På vei 23, av dem 7 uten kjent uke");
+    // With a typed Order it ends «På vei 16 pluss 24» (Story 6.11).
+    expect(bandSentence(state, 24)).toBe("Ordre inn 8, Levering 4, Sendt 4, Restordre 13, På vei 16 pluss 24");
+    expect(bandSentence({ ...state, overdue: 7, supply_line: 23 }, 24)).toMatch(/uten kjent uke, pluss 24$/);
   });
 
   it("estimates a label's width from its letters", () => {

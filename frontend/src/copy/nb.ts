@@ -1485,6 +1485,20 @@ export const nb = {
       order: {
         label: (week: number) => `Din ordre for Uke ${week}`,
         guided: "Veiledet uke. Ordren er fast og legges inn automatisk.",
+        /** The editable states (Story 6.11, EXPERIENCE.md → Ordrefelt). Every string is the
+         * spine's except `stepped`, which is [ASSUMPTION] draft copy. */
+        placeholder: "Antall enheter",
+        help: (max: string) => `Hele tall fra 0 til ${max}.`,
+        last: (order: string) => `Sist Uke bestilte du ${order}.`,
+        invalid: (max: string) => `Skriv et helt tall fra 0 til ${max}.`,
+        tooLarge: (value: string, max: string) => `${value} er mer enn ${max}. Skriv et helt tall fra 0 til ${max}.`,
+        fewer: "Én færre",
+        more: "Én flere",
+        /** Announced politely after − or +: «24 enheter». [ASSUMPTION] */
+        stepped: (value: string) => `${value} enheter`,
+        confirm: "Bekreft ordre",
+        confirmOn: (value: string) => `Bekreft ordre på ${value}`,
+        arrives: (week: number) => `Kommer fram om lag Uke ${week}. Kan ikke endres etter at du har bekreftet.`,
       },
       /** The week table (Story 6.6, DESIGN.md → Graf over tabell, UX-DR17, UX-DR18). The region
        * name, «Sveip for tidligere uker», «Din ordre» and «Kost, kr» are the spine's; the label for
@@ -1498,6 +1512,9 @@ export const nb = {
         arrival: "bestilt, ikke garantert",
         /** Read in the empty Din ordre cell at nå. [ASSUMPTION] */
         noOrderYet: "ingen ordre ennå",
+        /** Read with the typed Order's two cells, Din ordre at nå and its arrival in Levering:
+         * «24, din ordre, ikke bekreftet» (Story 6.11). [ASSUMPTION] */
+        typed: "din ordre, ikke bekreftet",
         /** The visible key under the table. [ASSUMPTION] */
         arrivalKey: "Tall i ramme: bestilt, ikke garantert.",
       },
@@ -1534,6 +1551,10 @@ export const nb = {
         customers: "Kundene",
         order: "Din ordre",
         labelled: (term: string, value: string) => `${term} ${value}`,
+        /** With a typed Order (Story 6.11, UX-DR14): «På vei 16 + 24» drawn, «På vei 16 pluss 24»
+         * read. */
+        withTyped: (label: string, typed: string) => `${label} + ${typed}`,
+        withTypedRead: (label: string, typed: string) => `${label} pluss ${typed}`,
         /** Read after «På vei 16» when units are overdue: «På vei 16, av dem 7 uten kjent uke».
          * [ASSUMPTION] */
         overdue: (value: string) => `av dem ${value} uten kjent uke`,
