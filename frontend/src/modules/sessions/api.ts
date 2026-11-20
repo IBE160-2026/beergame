@@ -173,6 +173,16 @@ export function openAllocation(sessionId: string) {
   );
 }
 
+/** «Bekreft fordeling»: commits the draft shown, by its id and revision (Story 5.9). */
+export function confirmAllocation(sessionId: string, draftId: string, revision: number) {
+  return request(() =>
+    api.POST("/api/class-sessions/{session_id}/allocation/confirm", {
+      params: { path: { session_id: sessionId } },
+      body: { draft_id: draftId, revision },
+    }),
+  );
+}
+
 /** «Kjør fordeling på nytt»: a new draft under a new id; nobody is told (Story 5.8). */
 export function redrawAllocation(sessionId: string) {
   return request(() =>

@@ -77,13 +77,24 @@ async def staff_sessions(
     session: AsyncSession, user: authz.Principal, class_ids: list[uuid.UUID]
 ) -> list[RowMapping]:
     """The sessions of these Classes that `user` is staff of (`authz.classes_visible_to`), with
-    their numbers and dates, oldest first."""
+    their numbers, dates and whether their allocation is confirmed (`confirmed`),
+    oldest first."""
+    confirmed = (
+        select(allocation_drafts.c.id)
+        .where(
+            allocation_drafts.c.class_session_id == _numbered.c.id,
+            allocation_drafts.c.confirmed_at.is_not(None),
+        )
+        .exists()
+        .label("confirmed")
+    )
     result = await session.execute(
         select(
             _numbered.c.id,
             _numbered.c.class_id,
             _numbered.c.number,
             *(_numbered.c[name] for name in DATE_NAMES),
+            confirmed,
         )
         .where(
             _numbered.c.class_id.in_(authz.classes_visible_to(user)),
@@ -199,6 +210,15 @@ async def delete_draft(session: AsyncSession, class_session_id: uuid.UUID) -> No
     """Removes the Class session's draft, if any."""
     await session.execute(
         delete(allocation_drafts).where(allocation_drafts.c.class_session_id == class_session_id)
+    )
+
+
+async def update_draft(session: AsyncSession, class_session_id: uuid.UUID, **values: Any) -> None:
+    """Changes the Class session's draft in place, under the same id (Story 5.9)."""
+    await session.execute(
+        update(allocation_drafts)
+        .where(allocation_drafts.c.class_session_id == class_session_id)
+        .values(**values)
     )
 
 

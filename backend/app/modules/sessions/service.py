@@ -43,7 +43,13 @@ The allocation (Story 5.8, FR-20) is a stored draft, one per Class session: open
 «Fordeling» block draws one from the registered Students with a fresh seed through the pure
 `allocation.allocate` when none is stored, and «Kjør fordeling på nytt» replaces it under a new id.
 The preview always shows the stored draft, with names resolved at read time
-(`classes.service.student_names`); no Game, Seat or notice exists until Story 5.9 confirms it.
+(`classes.service.student_names`); no Game, Seat or notice exists until it is confirmed.
+
+«Bekreft fordeling» (Story 5.9) commits the draft the Lecturer is looking at, by id and revision,
+through `games.commands` in one transaction: one Class game per group with no settings (its
+snapshot comes at the lock) and one `student` Seat per Student, then a digest notice per Student
+(`ALLOCATION_NOTICE`, mail read at send time by `allocation_mail_context`). A confirmed allocation
+is never drawn again. The Lærerhjem names the unlocked sessions whose allocation is not confirmed.
 
 Every mutation passes one guard, `_writable`, which asks `classes.service.is_writable` inside the
 mutation's transaction and raises `classes.service.ClassArchived` (409 `class_archived`) for an
@@ -78,6 +84,8 @@ from app.engine.settings import (
     warnings,
 )
 from app.modules.classes import service as classes
+from app.modules.games import commands as games_commands
+from app.modules.games import service as games_service
 from app.modules.players import service as players
 from app.modules.sessions import allocation, repo
 from app.modules.sessions.models import (
@@ -90,6 +98,7 @@ from app.modules.sessions.models import (
 from app.modules.sessions.schemas import (
     AiDescriptionsOut,
     AiMode,
+    AllocationConfirmIn,
     AllocationDraftOut,
     AllocationGameOut,
     AllocationOut,
@@ -117,6 +126,7 @@ from app.modules.sessions.schemas import (
     SettingsCheckOut,
     SettingWarning,
     WaitingClass,
+    WaitingReason,
 )
 from app.platform import auth, authz, events, notify
 from app.platform.config import get_settings
@@ -167,6 +177,20 @@ class SessionLocked(_FieldsError):
     """A setting was changed on a locked Class session (409 `session_locked`)."""
 
     code = "session_locked"
+
+
+class AllocationChanged(_FieldsError):
+    """The draft confirmed is not the Class session's current one (409 `allocation_changed`):
+    `{"draft": "changed"}` when another draw or edit replaced it, `{"draft":
+    "students_removed"}` when this confirm took out Students no longer on the Roster."""
+
+    code = "allocation_changed"
+
+
+class AllocationConfirmed(_FieldsError):
+    """The allocation is confirmed, so it is never drawn again (409 `allocation_confirmed`)."""
+
+    code = "allocation_confirmed"
 
 
 class DeadlinePassed(_FieldsError):
@@ -921,8 +945,10 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
 
 async def lecturer_overview(user: authz.Principal) -> LecturerOverviewOut:
     """The Lærerhjem's «Venter» and «Neste frist» (UX-DR56, AD-12) over the Classes `user` is
-    staff of and that are not archived: per Class the sessions that still lack a date, and the
-    next date across all of them. Empty when there is no Class session."""
+    staff of and that are not archived: per Class the sessions that still lack a date or, until
+    their lock and once the Class has a registered Student, a confirmed allocation (Story 5.9),
+    and the next date across all of them. Empty
+    when there is no Class session."""
     active = [item for item in (await classes.list_classes(user)).items if not item.archived]
     if not active:
         return LecturerOverviewOut(waiting=[], next_date=None)
@@ -932,10 +958,26 @@ async def lecturer_overview(user: authz.Principal) -> LecturerOverviewOut:
     now = auth.utcnow()
     waiting: dict[uuid.UUID, list[SessionRef]] = {}
     upcoming: list[tuple[datetime, int, Mapping[str, Any]]] = []
+    # A Class with no registered Student has nobody to allocate yet: nothing waits for a confirm.
+    with_students = {
+        class_id
+        for class_id in {row["class_id"] for row in rows}
+        if await classes.registered_students(class_id)
+    }
     for row in rows:
+        lacks: list[WaitingReason] = []
         if any(row[name] is None for name in DATE_NAMES):
+            lacks.append("dates")
+        # Once locked the lock allocates by itself (Story 5.11): nothing is left to confirm.
+        if (
+            row["class_id"] in with_students
+            and not row["confirmed"]
+            and not is_locked(row, now=now)
+        ):
+            lacks.append("allocation")
+        if lacks:
             waiting.setdefault(row["class_id"], []).append(
-                SessionRef(id=row["id"], number=row["number"])
+                SessionRef(id=row["id"], number=row["number"], lacks=lacks)
             )
         upcoming += [
             (row[name], index, row)
@@ -1231,7 +1273,9 @@ async def _allocation_out(class_id: uuid.UUID, draft: Mapping[str, Any] | None) 
     """The block's state: the registered Students now, and the stored draft with its names."""
     registered = await classes.registered_students(class_id)
     if draft is None:
-        return AllocationOut(registered_count=len(registered), missing_count=0, draft=None)
+        return AllocationOut(
+            registered_count=len(registered), missing_count=0, draft=None, confirmed=False
+        )
     placed = [
         allocation.Seat(uuid.UUID(a["user_id"]), a["game_number"], Role(a["role"]))
         for a in draft["assignments"]
@@ -1244,6 +1288,7 @@ async def _allocation_out(class_id: uuid.UUID, draft: Mapping[str, Any] | None) 
     return AllocationOut(
         registered_count=len(registered),
         missing_count=sum(1 for student in registered if student not in in_draft),
+        confirmed=draft["confirmed_at"] is not None,
         draft=AllocationDraftOut(
             id=draft["id"],
             revision=draft["revision"],
@@ -1307,6 +1352,15 @@ async def draw_allocation(
                 error_code=refused.code,
             )
             raise refused
+        if draft is not None and draft["confirmed_at"] is not None and again:
+            # Confirmed: only move and swap remain (Story 5.10).
+            confirmed = AllocationConfirmed({"allocation": "confirmed"})
+            log.info(
+                "allocation_refused",
+                class_session_id=str(session_id),
+                error_code=confirmed.code,
+            )
+            raise confirmed
         if draft is not None and not again:
             pass  # The stored draft, never recomputed.
         elif not students:
@@ -1346,3 +1400,156 @@ async def draw_allocation(
                 games=seats[-1].game_number,
             )
     return await _allocation_out(row["class_id"], draft)
+
+
+# Confirming the allocation (Story 5.9, FR-20, FR-7, AD-2, AD-4, AD-9).
+
+ALLOCATION_NOTICE = "allocation_confirmed"
+"""The notice kind each allocated Student gets when the allocation is confirmed, `digest`
+(Story 5.9, AD-9). Its mail names no game or Role: a Student sees those from the Start date."""
+
+
+def _without(assignments: list[Mapping[str, Any]], kept: set[str]) -> list[dict[str, Any]]:
+    """The assignments of the Students in `kept`, with the games left empty dropped and the rest
+    numbered again from 1 in their order, so «Spill N» stays contiguous."""
+    left = [dict(a) for a in assignments if a["user_id"] in kept]
+    numbers = {n: i for i, n in enumerate(sorted({a["game_number"] for a in left}), start=1)}
+    return [{**a, "game_number": numbers[a["game_number"]]} for a in left]
+
+
+async def confirm_allocation(
+    user: authz.Principal, session_id: uuid.UUID, wanted: AllocationConfirmIn, *, now: datetime
+) -> AllocationOut | None:
+    """«Bekreft fordeling»: commits the stored draft the Lecturer is looking at, and nothing else.
+
+    Under the Class session's row lock, in one transaction: one Class game per group through
+    `games.commands.create` (purpose `class`, the session id and game number, no settings) and
+    one Seat per Student through `games.commands.assign_seat` (`student` with the id), the draft
+    marked confirmed, one `ALLOCATION_NOTICE` per Student and `session:<id>`. Empty Seats stay
+    free until the lock gives them AI players (Story 5.12).
+
+    Raises `SessionLocked` once locked, and `AllocationChanged` when `wanted` is not the current
+    draft id and revision (nothing committed) or when Students of the draft have left the Roster
+    since: those Seats are freed in the draft (its revision raised, emptied games dropped, none
+    left: no draft) and that is committed instead, for a new press. A second confirm of the
+    confirmed draft changes nothing. Raises `ClassArchived`; None when the User may not manage
+    the Class."""
+    row = await _managed_session(user, session_id)
+    if row is None:
+        return None
+    registered = {str(student) for student in await classes.registered_students(row["class_id"])}
+    refused: AllocationChanged | None = None
+    async with get_sessionmaker().begin() as s:
+        await _writable(s, row["class_id"])
+        row = await repo.session_row(s, session_id, lock=True)
+        if row is None:
+            return None
+        draft = await repo.draft_of(s, session_id)
+        if is_locked(row, now=now):
+            refused_lock = SessionLocked({"allocation": "locked"})
+            _confirm_refused(session_id, refused_lock.code)
+            raise refused_lock
+        if draft is None or (draft["id"], draft["revision"]) != (wanted.draft_id, wanted.revision):
+            changed = AllocationChanged({"draft": "changed"})
+            _confirm_refused(session_id, changed.code)
+            raise changed
+        assignments = draft["assignments"]
+        kept = _without(assignments, registered)
+        if draft["confirmed_at"] is not None:
+            pass  # Confirmed already: the same answer, no second set of Games.
+        elif len(kept) != len(assignments):
+            if kept:
+                await repo.update_draft(
+                    s, session_id, assignments=kept, revision=draft["revision"] + 1
+                )
+            else:
+                await repo.delete_draft(s, session_id)
+            await events.emit(s, "session", str(session_id))
+            refused = AllocationChanged({"draft": "students_removed"})
+            log.info(
+                "allocation_students_removed",
+                class_session_id=str(session_id),
+                removed=len(assignments) - len(kept),
+            )
+        else:
+            await _commit_allocation(s, session_id, draft, user.id, now)
+        draft = await repo.draft_of(s, session_id)
+    if refused is not None:
+        _confirm_refused(session_id, refused.code)
+        raise refused
+    return await _allocation_out(row["class_id"], draft)
+
+
+def _confirm_refused(session_id: uuid.UUID, code: str) -> None:
+    log.info("allocation_confirm_refused", class_session_id=str(session_id), error_code=code)
+
+
+async def _commit_allocation(
+    s: AsyncSession,
+    session_id: uuid.UUID,
+    draft: Mapping[str, Any],
+    confirmed_by: uuid.UUID,
+    now: datetime,
+) -> None:
+    """The Games, Seats, mark, notices and event of a confirmation, in the caller's transaction."""
+    by_game: dict[int, list[Mapping[str, Any]]] = {}
+    for assignment in draft["assignments"]:
+        by_game.setdefault(assignment["game_number"], []).append(assignment)
+    for number in sorted(by_game):
+        game_id = await games_commands.create(
+            games_service.Purpose.CLASS,
+            class_session_id=session_id,
+            game_number=number,
+            within=s,
+        )
+        for assignment in by_game[number]:
+            await games_commands.assign_seat(
+                game_id,
+                assignment["role"],
+                games_service.OccupantKind.STUDENT,
+                user_id=assignment["user_id"],
+                within=s,
+            )
+    await repo.update_draft(s, session_id, confirmed_at=now, confirmed_by=confirmed_by)
+    await events.emit(s, "session", str(session_id))
+    for assignment in draft["assignments"]:
+        student = uuid.UUID(assignment["user_id"])
+        await notify.enqueue(
+            s,
+            student,
+            ALLOCATION_NOTICE,
+            f"{ALLOCATION_NOTICE}:{draft['id']}:{student}",
+            ref=session_id,
+        )
+    log.info(
+        "allocation_confirmed",
+        class_session_id=str(session_id),
+        draft_id=str(draft["id"]),
+        games=len(by_game),
+        students=len(draft["assignments"]),
+    )
+
+
+async def allocation_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of an `ALLOCATION_NOTICE`, for `messaging` at send time (Story 5.9,
+    AD-9): the Class's name. None, so the notice is left out, when the Class session is gone, its
+    allocation is not confirmed or no longer holds the User, the Class is archived, or the User is
+    no longer a registered Student of it."""
+    if ref is None:
+        return None
+    row = await repo.session_row(session, ref)
+    if row is None:
+        return None
+    draft = await repo.draft_of(session, ref)
+    if draft is None or draft["confirmed_at"] is None:
+        return None
+    if str(user_id) not in {a["user_id"] for a in draft["assignments"]}:
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None or label.archived:
+        return None
+    if user_id not in await classes.registered_students(row["class_id"]):
+        return None
+    return {"class_name": label.name}

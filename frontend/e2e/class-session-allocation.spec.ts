@@ -84,10 +84,12 @@ test("opening «Fordeling» draws a draft, shows it, and running it again replac
   await expect(heading(lecturer, 2)).toBeVisible();
   expect((await storedAllocation(lecturer, id)).draft!.id).toBe(first.id);
 
-  // «Kjør fordeling på nytt» is secondary; it stores a new draft and tells nobody.
+  // «Kjør fordeling på nytt» is secondary; it stores a new draft and tells nobody. «Bekreft
+  // fordeling» is the primary button while the panel is open (Story 5.9).
   const redraw = lecturer.getByRole("button", { name: a.redraw });
   await expect(redraw).toHaveClass(/bg-paper/);
-  await expect(lecturer.getByRole("button", { name: copy.save })).toHaveClass(/bg-ink/);
+  await expect(lecturer.getByRole("button", { name: a.confirm })).toHaveClass(/bg-ink/);
+  await expect(lecturer.getByRole("button", { name: copy.save })).toHaveClass(/bg-paper/);
   await redraw.click();
   await expect(lecturer.getByRole("status").filter({ hasText: a.redrawn })).toBeVisible();
   const again = (await storedAllocation(lecturer, id)).draft!;
@@ -171,6 +173,7 @@ function hundredGames(): Allocation {
   return {
     registered_count: 397,
     missing_count: 0,
+    confirmed: false,
     draft: {
       id: "00000000-0000-0000-0000-00000000aaaa",
       revision: 1,
@@ -225,3 +228,89 @@ for (const vp of SIZES) {
     });
   });
 }
+
+test("«Bekreft fordeling» commits the draft shown and closes to the confirmed line", async ({
+  browser,
+  lecturerSession,
+}) => {
+  const lecturer = await lecturerPage(browser, lecturerSession, { width: 1440, height: 900 });
+  const { id } = await sessionWithStudents(lecturer, 5);
+  await lecturer.goto(`/klasseokter/${id}`);
+  await opener(lecturer).click();
+  await expect(heading(lecturer, 2)).toBeFocused();
+  const confirm = lecturer.getByRole("button", { name: a.confirm });
+  await expect(confirm).toHaveAccessibleDescription(a.noticeLine);
+  await confirm.click();
+  // The panel closes to the state line, which takes focus; «Lagre Klasseøkt» is primary again.
+  const state = lecturer.getByText(a.confirmed, { exact: true });
+  await expect(state).toBeFocused();
+  await expect(lecturer.getByRole("button", { name: copy.save })).toHaveClass(/bg-ink/);
+  const stored = await storedAllocation(lecturer, id);
+  expect(stored.confirmed).toBe(true);
+  // Opened again it shows the confirmed draft, with neither a new draw nor a second confirm.
+  await opener(lecturer).click();
+  await expect(heading(lecturer, 2)).toBeFocused();
+  await expect(lecturer.getByText(gameLine(stored.draft!.games[0]))).toBeVisible();
+  await expect(lecturer.getByRole("button", { name: a.redraw })).toHaveCount(0);
+  await expect(lecturer.getByRole("button", { name: a.confirm })).toHaveCount(0);
+  await expect(lecturer.getByRole("button", { name: copy.save })).toHaveClass(/bg-ink/);
+  // Back inside the app, the Lærerhjem names what this session still lacks: its dates, not its
+  // allocation (the cached «Venter» was read again).
+  const klassName = (await (await lecturer.request.get(`/api/class-sessions/${id}`)).json()).class_name as string;
+  await lecturer.getByRole("link", { name: nb.homes.lecturerHome }).click();
+  await expect(lecturer.getByRole("link", { name: copy.home.lacks(klassName, 1, ["dates"]) })).toBeVisible();
+  await lecturer.context().close();
+});
+
+test("a draft drawn again meanwhile is shown, not confirmed", async ({ browser, lecturerSession }) => {
+  const lecturer = await lecturerPage(browser, lecturerSession, { width: 1440, height: 900 });
+  const { id } = await sessionWithStudents(lecturer, 6);
+  await lecturer.goto(`/klasseokter/${id}`);
+  await opener(lecturer).click();
+  await expect(heading(lecturer, 2)).toBeFocused();
+  // A co-owner runs it again in another tab.
+  const redrawn = await lecturer.request.post(`/api/class-sessions/${id}/allocation/redraw`, { headers: CSRF });
+  const current = ((await redrawn.json()) as Allocation).draft!;
+  const confirm = lecturer.getByRole("button", { name: a.confirm });
+  await confirm.click();
+  await expect(lecturer.getByRole("main").getByRole("alert")).toHaveText(a.changed);
+  await expect(lecturer.getByText(gameLine(current.games[0]))).toBeVisible();
+  expect((await storedAllocation(lecturer, id)).confirmed).toBe(false);
+  // The next press confirms what is now shown.
+  await confirm.click();
+  await expect(lecturer.getByText(a.confirmed, { exact: true })).toBeFocused();
+  expect((await storedAllocation(lecturer, id)).draft!.id).toBe(current.id);
+  await lecturer.context().close();
+});
+
+test("a removed Student's cell reads apart, and the selected frame is 1 px until the keyboard focuses it", async ({
+  browser,
+  lecturerSession,
+}) => {
+  const lecturer = await lecturerPage(browser, lecturerSession, { width: 1280, height: 800 });
+  const { id } = await sessionWithStudents(lecturer, 0);
+  const body = hundredGames();
+  body.draft!.games = body.draft!.games.slice(0, 3);
+  body.draft!.games[0].seats[1] = { ...body.draft!.games[0].seats[1], name: null };
+  await lecturer.route(`**/api/class-sessions/${id}/allocation`, (route) => route.fulfill({ json: body }));
+  await lecturer.goto(`/klasseokter/${id}`);
+  await opener(lecturer).click();
+  await expect(heading(lecturer, 3)).toBeFocused();
+  const removed = lecturer.locator("svg rect[data-seat='removed']");
+  await expect(removed).toHaveCount(1);
+  await expect(removed).toHaveAttribute("stroke-dasharray", "3 2");
+  await expect(removed).toHaveAttribute("fill", "var(--color-paper)");
+  await expect(lecturer.locator("svg rect[data-seat='student']").first()).toHaveAttribute(
+    "fill",
+    "var(--color-bar-base)",
+  );
+  await expect(lecturer.getByText(a.removed, { exact: false })).toBeVisible();
+  // A click selects with the 1 px frame; the keyboard shows the 3 px focus ring.
+  await columns(lecturer).nth(1).click();
+  const frame = lecturer.locator("svg rect[data-frame]");
+  await expect(frame).toHaveAttribute("stroke-width", "1");
+  await lecturer.keyboard.press("ArrowRight");
+  await expect(columns(lecturer).nth(2)).toBeFocused();
+  await expect(frame).toHaveAttribute("stroke-width", "3");
+  await lecturer.context().close();
+});

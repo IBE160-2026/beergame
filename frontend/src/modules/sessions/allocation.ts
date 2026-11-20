@@ -12,6 +12,21 @@ export function holderName(seat: AllocationSeat): string {
   return seat.name ?? copy.removed;
 }
 
+/** How the chart draws a Seat: a filled cell for a Student, an outlined one for an empty Seat (an
+ * AI player gets it), and a dashed outline for a Student removed from the Klasse since the draw,
+ * whose Seat the confirmation will free (Story 5.9, issue 106). */
+export type SeatMark = "student" | "empty" | "removed";
+
+export function seatMark(seat: AllocationSeat): SeatMark {
+  if (seat.user_id == null) return "empty";
+  return seat.name == null ? "removed" : "student";
+}
+
+/** Why «Bekreft fordeling» committed nothing (409 `allocation_changed`), by its `fields.draft`. */
+export function changedReason(fields: Readonly<Record<string, unknown>> | undefined): string {
+  return fields?.draft === "students_removed" ? copy.studentsRemoved : copy.changed;
+}
+
 /** A game's four Seats in the order the line reads them: Detaljist first, as the customer sees the
  * chain («Ida, Detaljist. Sara, Grossist. …»); the api lists Fabrikk first, as the chart draws it. */
 export function seatsInReadingOrder(game: AllocationGame): AllocationSeat[] {

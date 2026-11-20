@@ -155,3 +155,20 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   `POST …/allocation/redraw` replaces it under a new id. With no registered Student nothing is
   stored. Once locked both answer 409 `session_locked`; an archived Class 409 `class_archived`.
 - A draw emits `session:<id>` only: no Game, Seat or notice exists before Story 5.9 confirms it.
+
+## Confirming the allocation (Story 5.9)
+
+- `POST …/allocation/confirm` with `{draft_id, revision}` commits the draft the Lecturer is looking
+  at under the Class session's row lock, in one transaction: one Class game per group through
+  `games.commands.create` (purpose `class`, the session id and game number, no settings; the
+  snapshot comes at the lock) and one `student` Seat per Student through `games.commands.assign_seat`
+  (`within=` the transaction). Empty Seats stay free until the lock. The draft gets `confirmed_at`
+  and `confirmed_by` (migration 0038), each Student an `allocation_confirmed` digest notice (ids
+  only; the mail names the Class, never the game or Role), and the staff `session:<id>`.
+- 409 `allocation_changed` commits no Game: `{"draft": "changed"}` for another id or revision,
+  `{"draft": "students_removed"}` when Students left the Roster since the preview; their Seats are
+  then taken out of the draft (emptied games dropped, the rest numbered from 1, revision + 1; with
+  nobody left the draft is removed). A second confirm of the confirmed draft changes nothing. Once
+  locked 409 `session_locked`; a redraw of a confirmed allocation 409 `allocation_confirmed`.
+- The Lærerhjem's «Venter» names each session by what it lacks (`lacks`: `dates`, `allocation`); a
+  session lacks its allocation until it is confirmed or the session is locked.

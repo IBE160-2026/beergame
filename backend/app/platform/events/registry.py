@@ -34,6 +34,11 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # An allocation draft drawn or drawn again (Story 5.8): the staff read the session again;
         # no Student is told before the confirmation.
         "sessions.draw_allocation": frozenset({"session"}),
+        # The allocation confirmed (Story 5.9): its Class games are created and seated through
+        # `games.commands` in the same transaction (`game:<id>`), the staff read the session
+        # again, and each Student's allocation notice emits `user:<id>`. A confirm that only
+        # takes removed Students out of the draft emits `session` alone.
+        "sessions.confirm_allocation": frozenset({"game", "session", "user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

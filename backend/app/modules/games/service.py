@@ -109,27 +109,47 @@ async def get_game(game_id: str) -> GameOverview | None:
         version=game["version"],
         demand_seed=game["demand_seed"],
         rules_version=game["rules_version"],
-        settings=GameSettings.model_validate(game["settings"]),
-        session_runtime=SessionRuntime.model_validate(game["session_runtime"]),
+        settings=_or_none(GameSettings, game["settings"]),
+        session_runtime=_or_none(SessionRuntime, game["session_runtime"]),
+        class_session_id=_text_or_none(game["class_session_id"]),
+        game_number=game["game_number"],
         seats=tuple(
             SeatOverview(
                 id=str(seat["id"]),
                 role=seat["role"],
                 occupant_kind=seat["occupant_kind"],
                 policy_id=seat["policy_id"],
+                user_id=_text_or_none(seat["user_id"]),
             )
             for seat in seats
         ),
     )
 
 
-def scope_of(purpose: Purpose | str, runtime: SessionRuntime) -> ai_budget.BudgetScope | None:
+def _or_none[T: (GameSettings, SessionRuntime)](model: type[T], value: object) -> T | None:
+    return None if value is None else model.model_validate(value)
+
+
+def _text_or_none(value: object) -> str | None:
+    return None if value is None else str(value)
+
+
+def scope_of(
+    purpose: Purpose | str,
+    runtime: SessionRuntime | None,
+    class_session_id: uuid.UUID | str | None = None,
+) -> ai_budget.BudgetScope | None:
     """The one rule for which budget a Game's LLM calls are charged to (AD-6, AD-22), with the
-    Effort level the Game froze. A simulation Game charges its model config's evaluation budget;
-    a later Game purpose adds its own answer here (and to `games_charged_to`). None for a Game
-    with no model config."""
-    if runtime.model_config_id is None:
+    Effort level the Game froze. A Game of a Class session charges that Class session's budget,
+    the row Story 5.1 created (Story 5.9); a simulation Game charges its model config's
+    evaluation budget. A later Game purpose adds its own answer here (and to
+    `games_charged_to`). None for a Game with no model config, or no snapshot yet."""
+    if runtime is None or runtime.model_config_id is None:
         return None
+    if class_session_id is not None:
+        return ai_budget.BudgetScope.class_session(
+            class_session_id, effort_level=runtime.effort_level
+        )
     if Purpose(purpose) is Purpose.SIMULATION:
         return ai_budget.BudgetScope.evaluation(
             runtime.model_config_id, effort_level=runtime.effort_level
@@ -142,16 +162,20 @@ async def budget_scope(game_id: str) -> ai_budget.BudgetScope | None:
     game = await get_game(game_id)
     if game is None:
         return None
-    return scope_of(game.purpose, game.session_runtime)
+    return scope_of(game.purpose, game.session_runtime, game.class_session_id)
 
 
 async def games_charged_to(scope: ai_budget.BudgetScope) -> list[str]:
     """The id of every running Game whose LLM calls are charged to `scope` (the inverse of
-    `scope_of`), oldest first. A Class session scope has no Games until Epic 5."""
-    if scope.kind != "evaluation":
-        return []
+    `scope_of`), oldest first: a Class session's running Class games, or the running simulation
+    Games of an evaluation budget's model config."""
     async with get_sessionmaker()() as session:
-        found = await repo.running_games_of_config(session, Purpose.SIMULATION.value, scope.id)
+        if scope.kind == "class_session":
+            found = await repo.running_games_of_session(session, scope.id)
+        elif scope.kind == "evaluation":
+            found = await repo.running_games_of_config(session, Purpose.SIMULATION.value, scope.id)
+        else:
+            found = []
     return [str(game_id) for game_id in found]
 
 

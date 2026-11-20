@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { gameLine, holderName, nextGame, ticks } from "./allocation";
+import { nb } from "@/copy/nb";
+
+import { changedReason, gameLine, holderName, nextGame, seatMark, ticks } from "./allocation";
 import type { AllocationGame } from "./api";
 
 const game: AllocationGame = {
@@ -39,5 +41,28 @@ describe("the allocation preview (Story 5.8)", () => {
     expect(nextGame("Home", 4, 5)).toBe(1);
     expect(nextGame("End", 2, 5)).toBe(5);
     expect(nextGame("Enter", 2, 5)).toBeNull();
+  });
+});
+
+describe("confirming the allocation (Story 5.9)", () => {
+  it("marks a removed Student apart from a seated one and an empty Seat (issue 106)", () => {
+    expect(game.seats.map(seatMark)).toEqual(["empty", "removed", "student", "student"]);
+  });
+
+  it("says why a confirm committed nothing", () => {
+    expect(changedReason({ draft: "students_removed" })).toBe(
+      "En eller flere studenter er ikke lenger i Klassen. Plassene deres er nå tomme. Se over fordelingen og bekreft igjen.",
+    );
+    expect(changedReason({ draft: "changed" })).toBe(
+      "Fordelingen er endret siden du åpnet den. Se over den nye og bekreft igjen.",
+    );
+    expect(changedReason(undefined)).toBe(changedReason({ draft: "changed" }));
+  });
+
+  it("names what a Class session lacks on the Lærerhjem", () => {
+    const lacks = nb.sessions.home.lacks;
+    expect(lacks("k", 2, ["dates", "allocation"])).toBe("k: Klasseøkt 2 mangler datoer og bekreftet fordeling");
+    expect(lacks("k", 1, ["allocation"])).toBe("k: Klasseøkt 1 mangler bekreftet fordeling");
+    expect(lacks("k", 1, ["dates"])).toBe("k: Klasseøkt 1 mangler datoer");
   });
 });

@@ -30,6 +30,9 @@ function countWord(count: number): string {
  * a Student sees game, Role and Seats from the Start date (founder decision 2026-11-12). */
 const START_DATE_LINE = "Du får Rolle og spill på startdatoen.";
 
+/** What a Class session on the Lærerhjem still lacks, in words (Stories 5.2, 5.9). */
+const LACKS = { dates: "datoer", allocation: "bekreftet fordeling" } as const;
+
 export const nb = {
   product: {
     name: "ØL-spillet",
@@ -1047,10 +1050,23 @@ export const nb = {
       noticeLine: "Ingen får beskjed før du bekrefter.",
       failed: "Fordelingen kunne ikke hentes. Prøv igjen.",
       locked: "Klasseøkten har startet. Fordelingen kan ikke trekkes på nytt.",
+      // Story 5.9: «Bekreft fordeling» and «Fordelingen er bekreftet.» are EXPERIENCE.md's own; the
+      // rest is [ASSUMPTION] draft copy.
+      confirm: "Bekreft fordeling",
+      confirming: "Bekrefter …",
+      confirmed: "Fordelingen er bekreftet.",
+      changed: "Fordelingen er endret siden du åpnet den. Se over den nye og bekreft igjen.",
+      studentsRemoved:
+        "En eller flere studenter er ikke lenger i Klassen. Plassene deres er nå tomme. Se over fordelingen og bekreft igjen.",
+      confirmFailed: "Fordelingen ble ikke bekreftet. Prøv igjen.",
+      confirmLocked: "Klasseøkten har startet. Fordelingen kan ikke bekreftes lenger.",
+      redrawConfirmed: "Fordelingen er bekreftet og kan ikke trekkes på nytt.",
     },
-    /** The Lærerhjem's «Venter» and «Neste frist» (Story 5.2, UX-DR56). [ASSUMPTION] */
+    /** The Lærerhjem's «Venter» and «Neste frist» (Stories 5.2, 5.9, UX-DR56). [ASSUMPTION] */
     home: {
-      lacksDates: (className: string, number: number) => `${className}: Klasseøkt ${number} mangler datoer`,
+      /** «class-of-1994: Klasseøkt 2 mangler datoer og bekreftet fordeling». */
+      lacks: (className: string, number: number, what: readonly ("dates" | "allocation")[]) =>
+        `${className}: Klasseøkt ${number} mangler ${what.map((item) => LACKS[item]).join(" og ")}`,
       nextDate: (dateName: string, number: number, className: string) =>
         `${dateName}, Klasseøkt ${number}, ${className}`,
     },

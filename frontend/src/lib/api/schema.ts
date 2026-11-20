@@ -582,6 +582,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/allocation/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Allocation
+         * @description «Bekreft fordeling» (Story 5.9, FR-20): commits the draft named by `draft_id` and
+         *     `revision`, and nothing else: one Class game per group and one Seat per Student, and each
+         *     Student is told through the day's digest mail. Pressing it again changes nothing.
+         *
+         *     409 `allocation_changed` commits no Game: `{"draft": "changed"}` when the draft is no longer
+         *     the current one (drawn again or changed), `{"draft": "students_removed"}` when Students in it
+         *     have left the Roster, whose Seats the draft now leaves free under a raised revision. 409
+         *     `session_locked` (`{"allocation": "locked"}`) once the Start date has passed; 409
+         *     `class_archived` for an archived Class.
+         */
+        post: operations["confirmAllocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/allocation/redraw": {
         parameters: {
             query?: never;
@@ -594,7 +622,8 @@ export interface paths {
         /**
          * Redraw Allocation
          * @description «Kjør fordeling på nytt»: a new seed and a new draft under a new id, revision 1. The
-         *     refusals are those of opening it.
+         *     refusals are those of opening it, and 409 `allocation_confirmed` (`{"allocation":
+         *     "confirmed"}`) once the allocation is confirmed.
          */
         post: operations["redrawAllocation"];
         delete?: never;
@@ -1349,6 +1378,19 @@ export interface components {
          */
         AiMode: "llm" | "rule_based";
         /**
+         * AllocationConfirmIn
+         * @description «Bekreft fordeling» (Story 5.9): the draft the Lecturer is looking at.
+         */
+        AllocationConfirmIn: {
+            /**
+             * Draft Id
+             * Format: uuid
+             */
+            draft_id: string;
+            /** Revision */
+            revision: number;
+        };
+        /**
          * AllocationDraftOut
          * @description The stored draft (Story 5.8, FR-20): what the preview shows, never a recomputation.
          *     Story 5.9 confirms it by `id` and `revision`.
@@ -1385,6 +1427,8 @@ export interface components {
          *     registered after it was drawn), and the draft, None until one is drawn.
          */
         AllocationOut: {
+            /** Confirmed */
+            confirmed: boolean;
             draft: components["schemas"]["AllocationDraftOut"] | null;
             /** Missing Count */
             missing_count: number;
@@ -2596,6 +2640,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Lacks */
+            lacks: ("dates" | "allocation")[];
             /** Number */
             number: number;
         };
@@ -2798,7 +2844,7 @@ export interface components {
         };
         /**
          * WaitingClass
-         * @description A Class with Class sessions that still lack a date.
+         * @description A Class with Class sessions that still lack a date or a confirmed allocation.
          */
         WaitingClass: {
             /**
@@ -4384,6 +4430,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirmAllocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AllocationConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllocationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

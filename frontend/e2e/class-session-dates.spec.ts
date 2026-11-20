@@ -109,10 +109,11 @@ test("the Lærerhjem names the session that lacks dates and the next date", asyn
   const klass = await freshClass(lecturer);
   const sessionId = await newSession(lecturer, klass.id);
   await lecturer.goto("/laererhjem");
-  const lacks = lecturer.getByRole("link", { name: copy.home.lacksDates(klass.name, 1) });
+  const lacks = lecturer.getByRole("link", { name: copy.home.lacks(klass.name, 1, ["dates"]) });
   await expect(lacks).toBeVisible();
   await expect(lecturer.getByText(nb.classes.home.noDeadline)).toBeVisible();
 
+  // A Class with no registered Student has no allocation to confirm (Story 5.9).
   await saveDates(lecturer, sessionId);
   await lecturer.reload();
   await expect(lecturer.getByText(nb.classes.home.nothingWaiting)).toBeVisible();
@@ -127,7 +128,7 @@ test("dates saved on the Klasseøkt show on the Lærerhjem at once, without a re
   const klass = await freshClass(lecturer);
   await newSession(lecturer, klass.id);
   await lecturer.goto("/laererhjem");
-  await lecturer.getByRole("link", { name: copy.home.lacksDates(klass.name, 1) }).click();
+  await lecturer.getByRole("link", { name: copy.home.lacks(klass.name, 1, ["dates"]) }).click();
   await lecturer.getByLabel(dates.names.start_at, { exact: true }).fill(osloInput(3, 10));
   await lecturer.getByLabel(dates.names.play_deadline, { exact: true }).fill(osloInput(17, 23));
   await lecturer.getByLabel(dates.names.debrief_deadline, { exact: true }).fill(osloInput(20, 23));

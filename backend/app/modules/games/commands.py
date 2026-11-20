@@ -12,7 +12,8 @@ complete moves on one Week per transaction and none is left complete but open (A
 
 import secrets
 import uuid
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import AsyncIterator, Iterable, Mapping, Sequence
+from contextlib import asynccontextmanager
 from datetime import datetime
 
 import structlog
@@ -42,7 +43,9 @@ from app.engine import advance as engine_advance
 from app.engine import rules as engine_rules
 from app.engine.demand import new_seed
 from app.engine.scripted import REGISTRY
+from app.engine.settings import ROLES
 from app.modules.games import repo, rules
+from app.modules.games.models import SNAPSHOT_COLUMNS
 from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, policy
 from app.modules.games.schemas import (
     DecidedBy,
@@ -75,8 +78,10 @@ __all__ = [
 
 log = structlog.get_logger(__name__)
 
-ASSIGNABLE = frozenset({OccupantKind.RULE_BASED, OccupantKind.SCRIPTED, OccupantKind.LLM})
-"""Occupant kinds `assign_seat` takes; `student` comes with Epic 5."""
+ASSIGNABLE = frozenset(
+    {OccupantKind.RULE_BASED, OccupantKind.SCRIPTED, OccupantKind.LLM, OccupantKind.STUDENT}
+)
+"""Occupant kinds `assign_seat` takes; `student` where the purpose's policy allows it (5.9)."""
 
 DEFAULT_PLAY_GUARD_SET = "placeholder-0"
 """The Play guard parameter set a new Game freezes when the caller names none (FR-79). A new
@@ -183,57 +188,146 @@ def _frozen_play_guard(runtime: SessionRuntime) -> play_guard.PlayGuardParams | 
 
 
 async def _commit_change(session: AsyncSession, game_id: uuid.UUID) -> int:
-    """Lock the Game row, raise its version and announce it; the caller's transaction commits."""
-    await repo.lock_game(session, game_id)
+    """Lock the Game row, raise its version and announce it; the caller's transaction commits.
+    A Game the Lecturer overview lists also announces its Class session (AD-8, AD-13)."""
+    game = await repo.lock_game(session, game_id)
     version = await repo.bump_version(session, game_id)
     await events.emit(session, "game", str(game_id), version)
+    if (
+        game is not None
+        and game["class_session_id"] is not None
+        and _policy(game["purpose"]).lecturer_overview
+    ):
+        await events.emit(session, "session", str(game["class_session_id"]))
     return version
+
+
+@asynccontextmanager
+async def _transaction(within: AsyncSession | None) -> AsyncIterator[AsyncSession]:
+    """The command's own transaction, or the caller's (`within`), which commits it."""
+    if within is not None:
+        yield within
+        return
+    async with get_sessionmaker().begin() as session:
+        yield session
+
+
+def _class_session(
+    game_policy: GamePolicy, class_session_id: uuid.UUID | str | None, game_number: int | None
+) -> uuid.UUID | None:
+    """The Class session of a new Game: given with its game number exactly when the purpose's
+    Games belong to one."""
+    if not game_policy.class_session_game:
+        if class_session_id is not None or game_number is not None:
+            raise CommandError(
+                "class_session_not_allowed", "a Game of this purpose has no Class session", 422
+            )
+        return None
+    if class_session_id is None or type(game_number) is not int or game_number < 1:
+        raise CommandError(
+            "class_session_required",
+            "a Game of this purpose needs its Class session and a game number from 1",
+            422,
+        )
+    try:
+        return uuid.UUID(str(class_session_id))
+    except ValueError:
+        raise CommandError(
+            "class_session_required", "the Class session id is not an id", 422
+        ) from None
 
 
 async def create(
     purpose: Purpose | str,
-    settings: GameSettings,
+    settings: GameSettings | None = None,
     demand_pattern: DemandPattern | None = None,
     seed: int | None = None,
     *,
-    rule_based_params: str = rule_based.DEFAULT_SET_ID,
+    rule_based_params: str | None = None,
     model_config_id: str | None = None,
     effort_level: str | None = None,
-    play_guard_params: str = DEFAULT_PLAY_GUARD_SET,
+    play_guard_params: str | None = None,
     batch_id: str | None = None,
+    class_session_id: uuid.UUID | str | None = None,
+    game_number: int | None = None,
+    within: AsyncSession | None = None,
 ) -> str:
-    """Store a `not_started` Game with one free Seat per Role and its frozen snapshot (AD-4).
+    """Store a `not_started` Game with one free Seat per Role.
 
-    `demand_pattern` and `seed` replace the ones in `settings`; with no seed anywhere a new one
-    is drawn. `model_config_id` and one of that config's Effort levels (default: its first) are
-    frozen into the `SessionRuntime` for the Game's LLM players (AD-22, FR-78), and the config
-    is marked referenced, so it can never change. The Play guard parameter set
-    `play_guard_params` is frozen too (FR-79). `batch_id` puts the Game in a stored simulation
-    batch (Story 2.11); an unknown one is refused (`batch_not_found`). Returns the Game id.
+    A purpose whose policy takes the snapshot at creation needs `settings`
+    (`settings_required`) and freezes them now (AD-4): `demand_pattern` and `seed` replace the
+    ones in `settings`; with no seed anywhere a new one is drawn. `model_config_id` and one of
+    that config's Effort levels (default: its first) are frozen into the `SessionRuntime` for the
+    Game's LLM players (AD-22, FR-78), and the config is marked referenced, so it can never
+    change. The Rule-based and Play guard parameter sets (default: today's) are frozen too
+    (FR-79). A purpose that takes it at the lock (Class games, Story 5.9) takes none of these
+    (`settings_not_allowed`), stores no snapshot and gets the Classic Roles' Seats.
+
+    A purpose whose Games belong to a Class session needs `class_session_id` and `game_number`
+    (unique together); others refuse them. `batch_id` puts the Game in a stored simulation batch
+    (Story 2.11); an unknown one is refused (`batch_not_found`). `within` is the caller's
+    transaction, which commits the Game with its own work (`sessions.confirm_allocation`).
+    Returns the Game id.
     """
-    _policy(purpose)
-    effective = _effective_settings(settings, demand_pattern, seed)
-    params = _rule_based_params(rule_based_params)
-    guard = _play_guard_params(play_guard_params)
-    if effort_level is not None and model_config_id is None:
-        raise CommandError("model_config_required", "an Effort level needs a model config", 422)
+    game_policy = _policy(purpose)
+    class_session = _class_session(game_policy, class_session_id, game_number)
     batch_uuid = _batch_uuid(batch_id)
+    snapshot_given = (
+        settings,
+        demand_pattern,
+        seed,
+        model_config_id,
+        effort_level,
+        rule_based_params,
+        play_guard_params,
+        batch_id,  # a simulation batch freezes its Games' snapshot at creation
+    )
+    if game_policy.snapshot == "at_lock":
+        if any(value is not None for value in snapshot_given):
+            raise CommandError(
+                "settings_not_allowed",
+                "a Game of this purpose takes its snapshot at its Class session's lock",
+                422,
+            )
+        values: dict[str, object] = dict.fromkeys(SNAPSHOT_COLUMNS)
+        roles = [role.value for role in ROLES]
+    else:
+        if settings is None:
+            raise CommandError("settings_required", "a Game of this purpose needs settings", 422)
+        effective = _effective_settings(settings, demand_pattern, seed)
+        params = _rule_based_params(
+            rule_based.DEFAULT_SET_ID if rule_based_params is None else rule_based_params
+        )
+        guard = _play_guard_params(
+            DEFAULT_PLAY_GUARD_SET if play_guard_params is None else play_guard_params
+        )
+        if effort_level is not None and model_config_id is None:
+            raise CommandError("model_config_required", "an Effort level needs a model config", 422)
+        roles = [role.value for role in effective.roles]
     game_id = uuid.uuid7()
-    async with get_sessionmaker().begin() as session:
+    async with _transaction(within) as session:
         if batch_uuid is not None and await repo.get_batch(session, batch_uuid) is None:
             raise CommandError("batch_not_found", f"no simulation batch {batch_id!r}", 422)
-        level = None
-        if model_config_id is not None:
-            model_config_id, level = await _model_config(session, model_config_id, effort_level)
-        runtime = SessionRuntime(
-            ai_mode="rule_based" if model_config_id is None else "llm",
-            rule_based_params=params.id,
-            rule_based_params_version=params.version,
-            model_config_id=model_config_id,
-            effort_level=level,
-            play_guard_params=guard.id,
-            play_guard_params_version=guard.version,
-        )
+        if game_policy.snapshot == "at_creation":
+            level = None
+            if model_config_id is not None:
+                model_config_id, level = await _model_config(session, model_config_id, effort_level)
+            runtime = SessionRuntime(
+                ai_mode="rule_based" if model_config_id is None else "llm",
+                rule_based_params=params.id,
+                rule_based_params_version=params.version,
+                model_config_id=model_config_id,
+                effort_level=level,
+                play_guard_params=guard.id,
+                play_guard_params_version=guard.version,
+            )
+            values = {
+                "settings": effective.model_dump(mode="json"),
+                "demand_series": list(demand_series(effective)),
+                "demand_seed": effective.demand_seed,
+                "rules_version": RULES_VERSION,
+                "session_runtime": runtime.model_dump(mode="json"),
+            }
         await repo.insert_game(
             session,
             {
@@ -241,18 +335,17 @@ async def create(
                 "purpose": Purpose(purpose).value,
                 "lifecycle": Lifecycle.NOT_STARTED.value,
                 "version": 0,
-                "settings": effective.model_dump(mode="json"),
-                "demand_series": list(demand_series(effective)),
-                "demand_seed": effective.demand_seed,
-                "rules_version": RULES_VERSION,
-                "session_runtime": runtime.model_dump(mode="json"),
+                **values,
                 "batch_id": batch_uuid,
+                "class_session_id": class_session,
+                "game_number": game_number if class_session is not None else None,
             },
         )
-        await repo.insert_seats(session, game_id, [role.value for role in effective.roles])
+        await repo.insert_seats(session, game_id, roles)
         await _commit_change(session, game_id)
     log.info("game_created", game_id=str(game_id))
-    await _settle(str(game_id))
+    if within is None:
+        await _settle(str(game_id))
     return str(game_id)
 
 
@@ -292,8 +385,10 @@ def _occupant(
         occupant = OccupantKind(kind)
     except ValueError:
         occupant = None
-    if occupant not in ASSIGNABLE or (
-        occupant is OccupantKind.SCRIPTED and not game_policy.scripted_occupants
+    if (
+        occupant not in ASSIGNABLE
+        or (occupant is OccupantKind.SCRIPTED and not game_policy.scripted_occupants)
+        or (occupant is OccupantKind.STUDENT and not game_policy.student_occupants)
     ):
         raise CommandError(
             "occupant_kind_not_allowed", f"a Seat of this Game cannot be given {kind!r}", 422
@@ -312,28 +407,61 @@ def _occupant(
     return occupant, policy_id
 
 
+def _student(occupant: OccupantKind, user_id: uuid.UUID | str | None) -> uuid.UUID | None:
+    """The Student's id: given exactly for a `student` occupant."""
+    if occupant is not OccupantKind.STUDENT:
+        if user_id is not None:
+            raise CommandError(
+                "user_id_not_allowed", "only a student occupant takes a user id", 422
+            )
+        return None
+    if user_id is not None:
+        try:
+            return uuid.UUID(str(user_id))
+        except ValueError:
+            pass
+    raise CommandError("user_id_required", "a student occupant needs the Student's id", 422)
+
+
 async def assign_seat(
-    game_id: str, role: Role | str, occupant_kind: OccupantKind | str, policy_id: str | None = None
+    game_id: str,
+    role: Role | str,
+    occupant_kind: OccupantKind | str,
+    policy_id: str | None = None,
+    *,
+    user_id: uuid.UUID | str | None = None,
+    within: AsyncSession | None = None,
 ) -> str:
     """Give the free Seat of `role` its first occupant (`from_week` 1, reason `initial`):
-    `rule_based`, `scripted` (with a policy id) or `llm`, which needs a Game whose
-    `SessionRuntime` holds a model config (`model_config_required`).
+    `rule_based`, `scripted` (with a policy id), `llm`, which needs a Game whose
+    `SessionRuntime` holds a model config (`model_config_required`; `game_not_ready` before its
+    snapshot), or `student` with the Student's `user_id` (Story 5.9), where the purpose's policy
+    allows Students. A Student holds at most one Seat per Class session
+    (`student_already_seated`); the caller that seats a Class session's Students holds that
+    session's lock, so two of them never race.
 
-    Returns the occupancy row id. An occupied Seat answers `seat_occupied`.
+    Returns the occupancy row id. An occupied Seat answers `seat_occupied`. `within` is the
+    caller's transaction, which commits the Seat with its own work.
     """
     game_uuid = _game_uuid(game_id)
-    async with get_sessionmaker().begin() as session:
+    async with _transaction(within) as session:
         game = await repo.lock_game(session, game_uuid)
         if game is None:
             raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
         occupant, policy_id = _occupant(str(occupant_kind), policy_id, _policy(game["purpose"]))
-        runtime = SessionRuntime.model_validate(game["session_runtime"])
-        if occupant is OccupantKind.LLM and runtime.model_config_id is None:
-            raise CommandError(
-                "model_config_required",
-                "an LLM player needs a Game created with a model config",
-                422,
-            )
+        student = _student(occupant, user_id)
+        if occupant is OccupantKind.LLM:
+            if game["session_runtime"] is None:
+                raise CommandError(
+                    "game_not_ready", "the Game gets its AI players with its snapshot", 409
+                )
+            runtime = SessionRuntime.model_validate(game["session_runtime"])
+            if runtime.model_config_id is None:
+                raise CommandError(
+                    "model_config_required",
+                    "an LLM player needs a Game created with a model config",
+                    422,
+                )
         if game["lifecycle"] != Lifecycle.NOT_STARTED:
             raise CommandError(
                 "game_already_started", "Seats get their first occupant before the start", 409
@@ -343,14 +471,27 @@ async def assign_seat(
             raise CommandError("unknown_role", f"the Game has no Seat for {role!r}", 422)
         if await repo.has_occupant(session, seat["id"]):
             raise CommandError("seat_occupied", f"the {role} Seat already has an occupant", 409)
+        if (
+            student is not None
+            and game["class_session_id"] is not None
+            and await repo.student_seated(session, game["class_session_id"], student)
+        ):
+            raise CommandError(
+                "student_already_seated",
+                "the Student already holds a Seat in this Class session",
+                409,
+            )
         reason = OccupancyReason.INITIAL
         if occupant is OccupantKind.LLM and await _cost_limited(session, game):
             # The scope reached the players' cost limit: no new LLM player (FR-69, AD-5).
             occupant, reason = OccupantKind.RULE_BASED, OccupancyReason.COST_LIMIT
-        occupancy_id = await _append_initial(session, seat["id"], occupant, policy_id, reason)
+        occupancy_id = await _append_initial(
+            session, seat["id"], occupant, policy_id, reason, user_id=student
+        )
         await _commit_change(session, game_uuid)
     log.info("seat_assigned", game_id=game_id, seat_id=str(seat["id"]))
-    await _settle(game_id)
+    if within is None:
+        await _settle(game_id)
     return str(occupancy_id)
 
 
@@ -360,6 +501,8 @@ async def _append_initial(
     occupant: OccupantKind,
     policy_id: str | None,
     reason: OccupancyReason = OccupancyReason.INITIAL,
+    *,
+    user_id: uuid.UUID | None = None,
 ) -> uuid.UUID:
     """Append an occupancy row from Week 1 (reason `initial`, or `cost_limit` for an LLM
     player the cost limit turned into a Rule-based one before the Game started)."""
@@ -373,6 +516,7 @@ async def _append_initial(
             "occupant_kind": occupant.value,
             "policy_id": policy_id,
             "reason": reason.value,
+            "user_id": user_id,
         },
     )
     return occupancy_id
@@ -381,8 +525,10 @@ async def _append_initial(
 async def _cost_limited(session: AsyncSession, game: Mapping[str, object]) -> bool:
     """Whether the budget the Game charges has reached the players' cost limit
     (`players_exhausted_at`, FR-69): from then on no Seat of it gets an LLM player."""
+    if game["session_runtime"] is None:
+        return False
     runtime = SessionRuntime.model_validate(game["session_runtime"])
-    scope = scope_of(str(game["purpose"]), runtime)
+    scope = scope_of(str(game["purpose"]), runtime, game["class_session_id"])
     if scope is None:
         return False
     state = await ai_budget.state(scope, session=session)
@@ -547,6 +693,12 @@ async def start(game_id: str) -> int:
             raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
         if game["lifecycle"] != Lifecycle.NOT_STARTED:
             raise CommandError("game_already_started", "the Game has already started", 409)
+        if game["settings"] is None:
+            raise CommandError(
+                "game_not_ready",
+                "the Game has no settings snapshot yet (it comes at the lock)",
+                409,
+            )
         settings, params = _snapshot(game)
         seat_rows = await repo.seats_with_occupant(session, game_uuid)
         llm_seats = [s for s in seat_rows if s["occupant_kind"] == OccupantKind.LLM]

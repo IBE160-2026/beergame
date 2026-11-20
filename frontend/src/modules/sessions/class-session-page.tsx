@@ -114,6 +114,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   const [saved, setSaved] = useState(false);
   // A Lab hour form is open (Story 5.6): its save is the primary button meanwhile.
   const [labFormOpen, setLabFormOpen] = useState(false);
+  // «Bekreft fordeling» shows in the open allocation panel (Story 5.9): it is the primary button then.
+  const [confirmShown, setConfirmShown] = useState(false);
   // KI-modus, Innsatsnivå and Debrief-modus as chosen; sent with «Lagre Klasseøkt» (Story 5.5).
   const [choices, setChoices] = useState<ChoicesDraft>(() => choicesOf(item));
   const choosing = item.can_manage && !item.locked;
@@ -291,7 +293,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           {item.play_time_warning ? (
             <p className="mt-3 text-body-phone text-ink lg:text-body">{copy.dates.playTimeShort(settings.weeks)}</p>
           ) : null}
-          <AllocationBlock item={item} />
+          <AllocationBlock item={item} onConfirmShown={setConfirmShown} />
         </section>
       </div>
       <Choices
@@ -304,7 +306,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       />
       {item.can_manage ? (
         <SaveRow
-          secondary={labFormOpen}
+          secondary={labFormOpen || confirmShown}
           pending={action.isPending}
           errorMessage={action.errorMessage}
           saved={saved && !action.isError}
@@ -560,7 +562,8 @@ function AiDescriptions({ item }: { item: ClassSession }) {
 }
 
 /** «Lagre Klasseøkt», the screen's primary button, secondary while an in-place form with its own
- * primary is open (Story 5.6). A failure keeps focus and values. */
+ * primary is open (Story 5.6) or «Bekreft fordeling» shows (Story 5.9). A failure keeps focus and
+ * values. */
 function SaveRow({
   secondary,
   pending,

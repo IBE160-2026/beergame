@@ -134,6 +134,14 @@ allocation_drafts = Table(
     Column("assignments", JSONB, nullable=False),
     Column("drawn_by", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
     Column("drawn_at", DateTime(timezone=True), nullable=False),
+    # Set when the Lecturer confirms this draft (Story 5.9); its Class games exist from then on.
+    Column("confirmed_at", DateTime(timezone=True), nullable=True),
+    Column(
+        "confirmed_by",
+        Uuid,
+        ForeignKey("users.id", ondelete="SET NULL", name="fk_allocation_drafts_confirmed_by"),
+        nullable=True,
+    ),
     CheckConstraint("revision >= 1", name="ck_allocation_drafts_revision"),
     UniqueConstraint("class_session_id", name="uq_allocation_drafts_class_session"),
 )

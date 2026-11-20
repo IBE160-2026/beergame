@@ -118,6 +118,8 @@ class SeatOverview(BaseModel):
     occupant_kind: OccupantKind | None
     """The current occupant; None while the Seat is free."""
     policy_id: str | None
+    user_id: str | None = None
+    """The Student of a `student` occupant (Story 5.9); None for every other occupant."""
 
 
 class GameOverview(BaseModel):
@@ -129,11 +131,15 @@ class GameOverview(BaseModel):
     purpose: Purpose
     lifecycle: Lifecycle
     version: int
-    demand_seed: int
-    rules_version: int
-    settings: GameSettings
-    """The Game's frozen settings (AD-4)."""
-    session_runtime: SessionRuntime
+    demand_seed: int | None
+    rules_version: int | None
+    settings: GameSettings | None
+    """The Game's frozen settings (AD-4); None, like the rest of the snapshot, on a Game whose
+    policy takes it at the lock and that has not got it yet."""
+    session_runtime: SessionRuntime | None
+    class_session_id: str | None = None
+    """The Class session of a Class game (Story 5.9), with its `game_number` in it."""
+    game_number: int | None = None
     seats: tuple[SeatOverview, ...]
 
 

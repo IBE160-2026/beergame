@@ -280,13 +280,19 @@ class EnrolledSessionListOut(BaseModel):
     items: list[EnrolledSessionOut]
 
 
+WaitingReason = Literal["dates", "allocation"]
+
+
 class SessionRef(BaseModel):
     id: uuid.UUID
     number: int
+    lacks: list[WaitingReason]
+    """What the Class session still waits for: a date (Story 5.2), a confirmed allocation before
+    its lock (Story 5.9), or both, in that order."""
 
 
 class WaitingClass(BaseModel):
-    """A Class with Class sessions that still lack a date."""
+    """A Class with Class sessions that still lack a date or a confirmed allocation."""
 
     class_id: uuid.UUID
     class_name: str
@@ -344,3 +350,15 @@ class AllocationOut(BaseModel):
     registered_count: int
     missing_count: int
     draft: AllocationDraftOut | None
+    confirmed: bool
+    """The Lecturer confirmed the draft (Story 5.9): its Class games exist, and only move and
+    swap remain (Story 5.10)."""
+
+
+class AllocationConfirmIn(BaseModel):
+    """«Bekreft fordeling» (Story 5.9): the draft the Lecturer is looking at."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    draft_id: uuid.UUID
+    revision: StrictInt

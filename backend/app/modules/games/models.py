@@ -37,6 +37,10 @@ def _in(column: str, values: type[StrEnum]) -> str:
     return f"{column} IN ({', '.join(repr(value.value) for value in values)})"
 
 
+SNAPSHOT_COLUMNS = ("settings", "demand_series", "demand_seed", "rules_version", "session_runtime")
+SNAPSHOT_TOGETHER = f"num_nulls({', '.join(SNAPSHOT_COLUMNS)}) IN (0, {len(SNAPSHOT_COLUMNS)})"
+
+
 simulation_batches = Table(
     "simulation_batches",
     metadata,
@@ -60,11 +64,17 @@ games = Table(
     Column("purpose", Text, nullable=False),
     Column("lifecycle", Text, nullable=False),
     Column("version", Integer, nullable=False),
-    Column("settings", JSONB, nullable=False),
-    Column("demand_series", JSONB, nullable=False),
-    Column("demand_seed", BigInteger, nullable=False),
-    Column("rules_version", Integer, nullable=False),
-    Column("session_runtime", JSONB, nullable=False),
+    # The frozen snapshot (AD-4): all five set together, or all NULL on a Game whose policy takes
+    # it at the lock and that has not got it yet (Story 5.9).
+    Column("settings", JSONB(none_as_null=True), nullable=True),
+    Column("demand_series", JSONB(none_as_null=True), nullable=True),
+    Column("demand_seed", BigInteger, nullable=True),
+    Column("rules_version", Integer, nullable=True),
+    Column("session_runtime", JSONB(none_as_null=True), nullable=True),
+    # The Class session and its game number (Story 5.9), on Class games only. No foreign key:
+    # `games` sits below `sessions`, which owns the Class session.
+    Column("class_session_id", Uuid, nullable=True),
+    Column("game_number", Integer, nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     # The simulation batch the Game was played in (Story 2.11); None for every other Game.
     Column(
@@ -77,6 +87,12 @@ games = Table(
     CheckConstraint(_in("purpose", Purpose), name="ck_games_purpose"),
     CheckConstraint(_in("lifecycle", Lifecycle), name="ck_games_lifecycle"),
     CheckConstraint("version >= 0", name="ck_games_version"),
+    CheckConstraint(SNAPSHOT_TOGETHER, name="ck_games_snapshot"),
+    CheckConstraint(
+        "(class_session_id IS NULL) = (game_number IS NULL)", name="ck_games_class_session"
+    ),
+    CheckConstraint("game_number >= 1", name="ck_games_game_number"),
+    UniqueConstraint("class_session_id", "game_number", name="uq_games_class_session_number"),
 )
 
 seats = Table(
@@ -101,7 +117,13 @@ seat_occupancy = Table(
     Column("policy_id", Text, nullable=True),
     Column("reason", Text, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    # The Student of a `student` occupant (Story 5.9): the id only, never a name (AD-14). No
+    # foreign key: the rows are append-only, so a removed User could not be set NULL here.
+    Column("user_id", Uuid, nullable=True),
     CheckConstraint("from_week >= 1", name="ck_seat_occupancy_from_week"),
+    CheckConstraint(
+        "occupant_kind = 'student' OR user_id IS NULL", name="ck_seat_occupancy_user_student"
+    ),
     CheckConstraint(_in("occupant_kind", OccupantKind), name="ck_seat_occupancy_kind"),
     CheckConstraint(_in("reason", OccupancyReason), name="ck_seat_occupancy_reason"),
 )

@@ -3,6 +3,7 @@
 import asyncio
 import sys
 import types
+import uuid
 from decimal import Decimal
 
 import psycopg
@@ -268,6 +269,8 @@ async def test_every_stored_rules_version_has_a_package(games_db):
     await finished_game(games_db)
     game_id = await commands.create("simulation", GameSettings(weeks=8), seed=3)
     await commands.start(game_id)
+    # A Class game has no rules version until its lock (Story 5.9): it names no missing package.
+    await commands.create("class", class_session_id=uuid.uuid7(), game_number=1)
     assert await service.rules_versions_without_package() == ()
 
 

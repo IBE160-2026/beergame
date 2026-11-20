@@ -101,12 +101,23 @@ async def _obligatory_context(
     return await sessions.obligatory_mail_context(session, user_id, ref, now)
 
 
+ALLOCATION_KIND = "allocation_confirmed"
+"""`sessions.service.ALLOCATION_NOTICE` (Story 5.9), named here for the same reason."""
+
+
+async def _allocation_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.allocation_mail_context(session, user_id, ref, now)
+
+
 KINDS: Mapping[str, Delivery] = MappingProxyType(
     {
         **{
             kind: Delivery(DIGEST, kind, context=_lab_hour_context(kind)) for kind in LAB_HOUR_KINDS
         },
         OBLIGATORY_KIND: Delivery(DIGEST, OBLIGATORY_KIND, context=_obligatory_context),
+        ALLOCATION_KIND: Delivery(DIGEST, ALLOCATION_KIND, context=_allocation_context),
         identity.PASSWORD_RESET: Delivery(
             IMMEDIATE, "password_reset", context=identity.password_reset_mail_context
         ),
@@ -121,8 +132,8 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
     }
 )
 """The product's kinds: `password_reset` (Story 3.6), `invitation` (Story 3.7),
-`manual_registration` (Story 4.8), the Lab hour notices (Story 5.6, digest) and the obligatory
-notice (Story 5.7, digest)."""
+`manual_registration` (Story 4.8), the Lab hour notices (Story 5.6, digest), the obligatory
+notice (Story 5.7, digest) and the allocation notice (Story 5.9, digest)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

@@ -13,7 +13,8 @@ Demand pattern and seed to both and the staff's read of the series,
 save and the offered levels, AI player descriptions and provider flag to the read. Story 5.6 adds
 the Lab hours, `/api/class-sessions/{id}/lab-hours[/{lab_hour_id}]`, saved on their own. Story
 5.7 adds the obligatory mark, its required share and the Inactivity limit to the save. Story 5.8
-adds the allocation draft, `/api/class-sessions/{id}/allocation[/redraw]`."""
+adds the allocation draft, `/api/class-sessions/{id}/allocation[/redraw]`, and Story 5.9 its
+confirmation, `/api/class-sessions/{id}/allocation/confirm`."""
 
 import uuid
 from typing import Annotated
@@ -23,6 +24,7 @@ from fastapi.responses import JSONResponse, Response
 
 from app.modules.sessions import service
 from app.modules.sessions.schemas import (
+    AllocationConfirmIn,
     AllocationOut,
     ClassSessionListOut,
     ClassSessionOut,
@@ -288,6 +290,10 @@ async def _draw(user: authz.Principal, session_id: str, *, again: bool) -> Respo
         drawn = await service.draw_allocation(user, _id(session_id), now=auth.utcnow(), again=again)
     except service.SessionLocked as refused:
         return error_response(409, refused.code, "The Class session has started.", refused.fields)
+    except service.AllocationConfirmed as refused:
+        return error_response(
+            409, refused.code, "The allocation is confirmed; it is not drawn again.", refused.fields
+        )
     if drawn is None:
         raise authz.Forbidden
     return JSONResponse(drawn.model_dump(mode="json"))
@@ -323,8 +329,42 @@ async def redraw_allocation(
     user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
 ) -> Response:
     """«Kjør fordeling på nytt»: a new seed and a new draft under a new id, revision 1. The
-    refusals are those of opening it."""
+    refusals are those of opening it, and 409 `allocation_confirmed` (`{"allocation":
+    "confirmed"}`) once the allocation is confirmed."""
     return await _draw(user, session_id, again=True)
+
+
+@router.post(
+    "/class-sessions/{session_id}/allocation/confirm",
+    response_model=AllocationOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="confirmAllocation",
+)
+async def confirm_allocation(
+    session_id: str,
+    body: AllocationConfirmIn,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """«Bekreft fordeling» (Story 5.9, FR-20): commits the draft named by `draft_id` and
+    `revision`, and nothing else: one Class game per group and one Seat per Student, and each
+    Student is told through the day's digest mail. Pressing it again changes nothing.
+
+    409 `allocation_changed` commits no Game: `{"draft": "changed"}` when the draft is no longer
+    the current one (drawn again or changed), `{"draft": "students_removed"}` when Students in it
+    have left the Roster, whose Seats the draft now leaves free under a raised revision. 409
+    `session_locked` (`{"allocation": "locked"}`) once the Start date has passed; 409
+    `class_archived` for an archived Class."""
+    try:
+        confirmed = await service.confirm_allocation(user, _id(session_id), body, now=auth.utcnow())
+    except service.SessionLocked as refused:
+        return error_response(409, refused.code, "The Class session has started.", refused.fields)
+    except service.AllocationChanged as refused:
+        return error_response(
+            409, refused.code, "The allocation is not the one confirmed.", refused.fields
+        )
+    if confirmed is None:
+        raise authz.Forbidden
+    return JSONResponse(confirmed.model_dump(mode="json"))
 
 
 @router.post(

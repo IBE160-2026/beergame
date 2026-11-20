@@ -206,7 +206,12 @@ async def test_with_no_registered_student_nothing_is_drawn(klass, emitted):
     emitted.clear()
     for response in (await read(session_id), await open_(session_id), await redraw(session_id)):
         assert response.status_code == 200
-        assert response.json() == {"registered_count": 0, "missing_count": 0, "draft": None}
+        assert response.json() == {
+            "registered_count": 0,
+            "missing_count": 0,
+            "draft": None,
+            "confirmed": False,
+        }
     assert emitted == []
     assert rows(
         "SELECT count(*) FROM allocation_drafts WHERE class_session_id = %s", session_id
@@ -221,7 +226,12 @@ async def test_a_redraw_after_every_student_left_removes_the_draft(klass, emitte
     # Until then the stale draft is still read, so it can be seen and cleared.
     assert (await read(session_id)).json()["draft"] is not None
     emitted.clear()
-    empty = {"registered_count": 0, "missing_count": 0, "draft": None}
+    empty = {
+        "registered_count": 0,
+        "missing_count": 0,
+        "draft": None,
+        "confirmed": False,
+    }
     assert (await redraw(session_id)).json() == empty
     assert emitted == [("session", session_id)]
     assert (await read(session_id)).json() == empty

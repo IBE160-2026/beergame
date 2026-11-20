@@ -281,7 +281,8 @@ async def test_the_lecturer_home_names_what_waits_and_the_next_date(klass, monke
         {
             "class_id": klass,
             "class_name": "class-of-1994",
-            "sessions": [{"id": second, "number": 2}],
+            # With no registered Student nothing waits for a confirmed allocation (Story 5.9).
+            "sessions": [{"id": second, "number": 2, "lacks": ["dates"]}],
         }
     ]
     assert (body["next_date"]["kind"], body["next_date"]["session_id"]) == ("start", first)

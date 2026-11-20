@@ -12,7 +12,7 @@ const copy = nb.sessions;
 
 /**
  * The Lærerhjem's «Venter» and «Neste frist» (Story 5.2, UX-DR56): per Class the Class sessions
- * that still lack a date, each a Lenke to its Klasseøkt, and the next date across the User's
+ * that still lack a date or a confirmed allocation (Story 5.9), each a Lenke to its Klasseøkt, and the next date across the User's
  * Class sessions with its name and time in Europe/Oslo. Fetched when the Lærerhjem opens; with no
  * Class session, or while it loads or failed, the parts keep their empty lines.
  */
@@ -33,7 +33,7 @@ export function LecturerHomeSessions() {
                 klass.sessions.map((session) => (
                   <li key={session.id}>
                     <Link href={classSessionPath(session.id)} standalone className="[overflow-wrap:anywhere]">
-                      {copy.home.lacksDates(klass.class_name, session.number)}
+                      {copy.home.lacks(klass.class_name, session.number, session.lacks)}
                     </Link>
                   </li>
                 )),

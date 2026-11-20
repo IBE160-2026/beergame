@@ -191,6 +191,27 @@
         "title": "AiMode",
         "type": "string"
       },
+      "AllocationConfirmIn": {
+        "additionalProperties": false,
+        "description": "«Bekreft fordeling» (Story 5.9): the draft the Lecturer is looking at.",
+        "properties": {
+          "draft_id": {
+            "format": "uuid",
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "draft_id",
+          "revision"
+        ],
+        "title": "AllocationConfirmIn",
+        "type": "object"
+      },
       "AllocationDraftOut": {
         "description": "The stored draft (Story 5.8, FR-20): what the preview shows, never a recomputation.\nStory 5.9 confirms it by `id` and `revision`.",
         "properties": {
@@ -250,6 +271,10 @@
       "AllocationOut": {
         "description": "The «Fordeling» block: the registered Students now, those of them not in the draft (they\nregistered after it was drawn), and the draft, None until one is drawn.",
         "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
           "draft": {
             "anyOf": [
               {
@@ -272,7 +297,8 @@
         "required": [
           "registered_count",
           "missing_count",
-          "draft"
+          "draft",
+          "confirmed"
         ],
         "title": "AllocationOut",
         "type": "object"
@@ -3005,6 +3031,17 @@
             "title": "Id",
             "type": "string"
           },
+          "lacks": {
+            "items": {
+              "enum": [
+                "dates",
+                "allocation"
+              ],
+              "type": "string"
+            },
+            "title": "Lacks",
+            "type": "array"
+          },
           "number": {
             "title": "Number",
             "type": "integer"
@@ -3012,7 +3049,8 @@
         },
         "required": [
           "id",
-          "number"
+          "number",
+          "lacks"
         ],
         "title": "SessionRef",
         "type": "object"
@@ -3454,7 +3492,7 @@
         "type": "object"
       },
       "WaitingClass": {
-        "description": "A Class with Class sessions that still lack a date.",
+        "description": "A Class with Class sessions that still lack a date or a confirmed allocation.",
         "properties": {
           "class_id": {
             "format": "uuid",
@@ -5598,9 +5636,92 @@
         ]
       }
     },
+    "/api/class-sessions/{session_id}/allocation/confirm": {
+      "post": {
+        "description": "«Bekreft fordeling» (Story 5.9, FR-20): commits the draft named by `draft_id` and\n`revision`, and nothing else: one Class game per group and one Seat per Student, and each\nStudent is told through the day's digest mail. Pressing it again changes nothing.\n\n409 `allocation_changed` commits no Game: `{\"draft\": \"changed\"}` when the draft is no longer\nthe current one (drawn again or changed), `{\"draft\": \"students_removed\"}` when Students in it\nhave left the Roster, whose Seats the draft now leaves free under a raised revision. 409\n`session_locked` (`{\"allocation\": \"locked\"}`) once the Start date has passed; 409\n`class_archived` for an archived Class.",
+        "operationId": "confirmAllocation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllocationConfirmIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllocationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Confirm Allocation",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/class-sessions/{session_id}/allocation/redraw": {
       "post": {
-        "description": "«Kjør fordeling på nytt»: a new seed and a new draft under a new id, revision 1. The\nrefusals are those of opening it.",
+        "description": "«Kjør fordeling på nytt»: a new seed and a new draft under a new id, revision 1. The\nrefusals are those of opening it, and 409 `allocation_confirmed` (`{\"allocation\":\n\"confirmed\"}`) once the allocation is confirmed.",
         "operationId": "redrawAllocation",
         "parameters": [
           {
