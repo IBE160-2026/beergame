@@ -183,12 +183,14 @@ export function DateLine({
         })}
         {labs.map((lab) => {
           const top = labTop(axis, lab.tier);
+          // At an edge the label lines up with its square's edge, not its centre.
+          const lx = lab.anchor === "start" ? lab.x - SQUARE / 2 : lab.anchor === "end" ? lab.x + SQUARE / 2 : lab.x;
           return (
             <g key={`lab-label-${lab.id}`}>
-              <text x={lab.x} y={top} textAnchor={lab.anchor} fontSize={FONT} fill="var(--color-ink)" {...halo}>
+              <text x={lx} y={top} textAnchor={lab.anchor} fontSize={FONT} fill="var(--color-ink)" {...halo}>
                 {lab.day}
               </text>
-              <text x={lab.x} y={top + LINE} textAnchor={lab.anchor} fontSize={FONT} fill="var(--color-ink-secondary)" {...halo}>
+              <text x={lx} y={top + LINE} textAnchor={lab.anchor} fontSize={FONT} fill="var(--color-ink-secondary)" {...halo}>
                 {lab.time}
               </text>
             </g>
