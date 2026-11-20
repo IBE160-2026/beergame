@@ -40,6 +40,16 @@ export function gameLine(game: AllocationGame): string {
     .join(" ");
 }
 
+/** An opened Class game's state (Story 5.12), «Ikke startet.»; "" before the games are open. */
+export function gameState(game: AllocationGame): string {
+  return game.lifecycle ? copy.lifecycle[game.lifecycle] : "";
+}
+
+/** The game's whole line for a screen reader: its Seats, then its state when open. */
+export function gameLabel(game: AllocationGame): string {
+  return [copy.game(game.number) + ":", gameLine(game), gameState(game)].filter(Boolean).join(" ");
+}
+
 /** The numbers under the chart: the first game, the selected one and the last, each once. The
  * first or last is left out when it would sit within `minGap` columns of the selected one, so
  * narrow columns never draw two numbers on top of each other. */

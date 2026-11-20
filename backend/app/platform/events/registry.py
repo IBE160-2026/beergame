@@ -16,6 +16,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A Student moved or two swapped before the start (Story 5.10): only Class games take
         # Students, so their Class session hears of it, and each moved Student's pages reload.
         "games.move_seat": frozenset({"game", "session", "user"}),
+        # A Class game gets its Class session's snapshot and AI players at the lock (Story 5.12):
+        # the Class session hears of it, and each Student who held a Seat reads it again.
+        "games.set_snapshot": frozenset({"game", "session", "user"}),
         # A notice to a User (Story 3.5, AD-9); a notice addressed by reference emits nothing.
         "notify.enqueue": frozenset({"user"}),
         # A role the Admin grants or revokes (Story 3.9): the User's open pages reload it.
@@ -47,8 +50,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # transaction (`game`, `session`, `user`) and each moved Student's notice emits `user`.
         "sessions.move_allocation": frozenset({"game", "session", "user"}),
         # The Start-date lock (Story 5.11): the staff read the session again; a lock refused for
-        # a missing provider key tells each owner and Admin once, which emits `user`.
-        "sessions.lock": frozenset({"session", "user"}),
+        # a missing provider key tells each owner and Admin once, which emits `user`. With no
+        # confirmed allocation the lock allocates and seats the Students (`game`, Story 5.12).
+        "sessions.lock": frozenset({"game", "session", "user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

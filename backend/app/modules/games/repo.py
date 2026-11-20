@@ -164,6 +164,71 @@ async def class_game_ids(
     return {number: game_id for number, game_id in result.all()}
 
 
+async def set_snapshot(session: AsyncSession, game_id: uuid.UUID, values: dict[str, Any]) -> None:
+    """Store the five snapshot columns of a Game that had none (Story 5.12)."""
+    await session.execute(update(games).where(games.c.id == game_id).values(**values))
+
+
+async def class_sessions_awaiting_snapshot(session: AsyncSession) -> list[uuid.UUID]:
+    """The Class sessions with a `not_started` Game that has no snapshot yet (Story 5.12)."""
+    result = await session.execute(
+        select(games.c.class_session_id)
+        .where(
+            games.c.class_session_id.is_not(None),
+            games.c.settings.is_(None),
+            games.c.lifecycle == "not_started",
+        )
+        .distinct()
+        .order_by(games.c.class_session_id)
+    )
+    return list(result.scalars())
+
+
+async def class_games(session: AsyncSession, class_session_id: uuid.UUID) -> list[RowMapping]:
+    """The Class session's Games by game number: id, number, lifecycle and whether the snapshot is
+    stored (Story 5.12)."""
+    result = await session.execute(
+        select(
+            games.c.id,
+            games.c.game_number,
+            games.c.lifecycle,
+            games.c.settings.is_not(None).label("has_snapshot"),
+        )
+        .where(games.c.class_session_id == class_session_id)
+        .order_by(games.c.game_number)
+    )
+    return list(result.mappings())
+
+
+async def class_session_seats(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> list[RowMapping]:
+    """Every Seat of the Class session's Games in one read, by Game and chain order, with its
+    latest occupancy row (None when free), as `seats_with_occupant` gives one Game's (5.12)."""
+    session_seats = (
+        select(seats.c.id)
+        .join(games, games.c.id == seats.c.game_id)
+        .where(games.c.class_session_id == class_session_id)
+    )
+    latest = _latest_occupancy(seat_occupancy.c.seat_id.in_(session_seats))
+    result = await session.execute(
+        select(
+            seats.c.game_id,
+            seats.c.role,
+            latest.c.occupant_kind,
+            latest.c.user_id,
+        )
+        .select_from(
+            seats.join(games, games.c.id == seats.c.game_id).outerjoin(
+                latest, latest.c.seat_id == seats.c.id
+            )
+        )
+        .where(games.c.class_session_id == class_session_id)
+        .order_by(seats.c.game_id, seats.c.position)
+    )
+    return list(result.mappings())
+
+
 async def set_lifecycle(session: AsyncSession, game_id: uuid.UUID, lifecycle: str) -> None:
     await session.execute(update(games).where(games.c.id == game_id).values(lifecycle=lifecycle))
 

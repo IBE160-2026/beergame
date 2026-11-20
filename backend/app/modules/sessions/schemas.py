@@ -9,6 +9,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
 
 from app.engine import GameSettings
 from app.engine.settings import Role
+from app.modules.games.service import Lifecycle
 
 
 class AiMode(StrEnum):
@@ -334,6 +335,8 @@ class AllocationGameOut(BaseModel):
 
     number: int
     seats: list[AllocationSeatOut]
+    lifecycle: Lifecycle | None = None
+    """The Class game's lifecycle once the games are open (Story 5.12); None before."""
 
 
 class AllocationDraftOut(BaseModel):
@@ -358,6 +361,9 @@ class AllocationOut(BaseModel):
     swap remain (Story 5.10)."""
     confirmed_at: datetime | None
     """When the draft was confirmed, for «Fordelingen er bekreftet {dato}.» (Issue #107)."""
+    opened: bool = False
+    """Every Class game has its snapshot and AI players (Story 5.12): the games then list the
+    Seats as the Class games hold them, each with its `lifecycle`."""
 
 
 class AllocationConfirmIn(BaseModel):

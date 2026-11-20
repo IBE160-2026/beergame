@@ -15,7 +15,9 @@ import { LINK_BUTTON } from "@/modules/classes/roster-entry-forms";
 
 import {
   changedReason,
+  gameLabel,
   gameLine,
+  gameState,
   holderName,
   invalidMoveReason,
   movedLine,
@@ -53,7 +55,9 @@ const copy = nb.sessions.allocation;
  * bekreftet.», which takes focus. A confirmed allocation is not drawn again, and the open panel
  * says when it was confirmed (issue 107). Until the lock a Lecturer moves a Student to a free Seat
  * or swaps two from the selected game's Seats (Story 5.10), before and after the confirmation. An
- * Assistant lecturer, or anyone once the session is locked, reads the stored draft only.
+ * Assistant lecturer, or anyone once the session is locked, reads the stored draft only. Once the
+ * lock has opened the Class games (Story 5.12, `opened`), the api lists them as their Seats hold
+ * them, with «KI-spiller» in every other Seat, and each game's line ends with its state.
  */
 export function AllocationBlock({
   item,
@@ -144,7 +148,13 @@ export function AllocationBlock({
         ) : null
       ) : (
         <p ref={stateRef} tabIndex={-1} className="mt-2 text-body-phone text-ink focus:outline-none lg:text-body">
-          {confirmed ? copy.confirmed : nobody && draft === null ? copy.nobody : copy.notConfirmed}
+          {allocation.opened
+            ? copy.opened
+            : confirmed
+              ? copy.confirmed
+              : nobody && draft === null
+                ? copy.nobody
+                : copy.notConfirmed}
         </p>
       )}
       {openable ? (
@@ -291,13 +301,25 @@ function Preview({
         <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-headline text-ink focus:outline-none">
           {copy.heading(games.length)}
         </h2>
+        {allocation.opened ? (
+          <p className="mt-2 max-w-prose text-body-phone font-semibold text-ink lg:text-body">{copy.opened}</p>
+        ) : null}
         {confirmedAt ? (
-          <p className="mt-2 max-w-prose text-body-phone font-semibold text-ink lg:text-body">
+          <p
+            className={cn(
+              "max-w-prose text-body-phone lg:text-body",
+              allocation.opened ? "text-ink-secondary" : "mt-2 font-semibold text-ink",
+            )}
+          >
             {copy.confirmedOn(confirmedAt.day, confirmedAt.time)}
           </p>
         ) : null}
-        <p className="mt-2 max-w-prose text-body-phone text-ink-secondary">{copy.lead(students)}</p>
-        <p className="max-w-prose text-body-phone text-ink-secondary">{copy.emptySeats}</p>
+        <p className="mt-2 max-w-prose text-body-phone text-ink-secondary">
+          {allocation.opened ? copy.openedLead(students, games.length) : copy.lead(students)}
+        </p>
+        <p className="max-w-prose text-body-phone text-ink-secondary">
+          {allocation.opened ? copy.openedSeats : copy.emptySeats}
+        </p>
         {allocation.missing_count > 0 ? (
           <p className="mt-2 max-w-prose text-body-phone text-ink">
             {copy.missing(allocation.missing_count)}
@@ -347,6 +369,7 @@ function Preview({
             <p className="text-body-phone text-ink lg:text-body">
               <span className="mr-3 font-semibold">{copy.game(shown.number)}</span>
               {gameLine(shown)}
+              <GameState game={shown} />
             </p>
           )}
         </>
@@ -356,6 +379,7 @@ function Preview({
             <li key={game.number} className="text-body-phone text-ink lg:text-body">
               <span className="mr-3 font-semibold">{copy.game(game.number)}</span>
               {gameLine(game)}
+              <GameState game={game} />
             </li>
           ))}
         </ol>
@@ -410,6 +434,12 @@ function Preview({
       </p>
     </div>
   );
+}
+
+/** An opened Class game's state, set apart from the last Seat it follows (Story 5.12). */
+function GameState({ game }: { game: AllocationGame }) {
+  const state = gameState(game);
+  return state ? <span className="ml-3 whitespace-nowrap text-ink-secondary">{state}</span> : null;
 }
 
 const seatKey = (game: number, role: string) => `${game}:${role}`;
@@ -603,7 +633,7 @@ function AllocationChart({
             role="button"
             tabIndex={isSelected ? 0 : -1}
             aria-pressed={isSelected}
-            aria-label={`${copy.game(game.number)}: ${gameLine(game)}`}
+            aria-label={gameLabel(game)}
             className="cursor-pointer outline-none"
             onClick={() => onSelect(game.number)}
             onKeyDown={move}

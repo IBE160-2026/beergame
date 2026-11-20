@@ -71,8 +71,12 @@ __all__ = [
     "SimulationBatch",
     "TurnOverview",
     "ViewError",
+    "ClassGame",
+    "ClassGameSeat",
     "budget_scope",
     "class_game_ids",
+    "class_games",
+    "class_sessions_awaiting_snapshot",
     "complete_running_games",
     "create_batch",
     "games_charged_to",
@@ -99,6 +103,49 @@ async def class_game_ids(session: AsyncSession, class_session_id: uuid.UUID) -> 
     5.10)."""
     found = await repo.class_game_ids(session, class_session_id)
     return {number: str(game_id) for number, game_id in found.items()}
+
+
+@dataclass(frozen=True)
+class ClassGameSeat:
+    role: str
+    occupant_kind: str | None
+    user_id: uuid.UUID | None
+
+
+@dataclass(frozen=True)
+class ClassGame:
+    """A Class game as the Klasseøkt lists it (Story 5.12): its Seats in chain order."""
+
+    id: uuid.UUID
+    number: int
+    lifecycle: str
+    has_snapshot: bool
+    seats: tuple[ClassGameSeat, ...]
+
+
+async def class_games(session: AsyncSession, class_session_id: uuid.UUID) -> list[ClassGame]:
+    """The Class session's Games by number with each Seat's current occupant, read in the
+    caller's transaction (Story 5.12)."""
+    seats: dict[uuid.UUID, list[ClassGameSeat]] = {}
+    for seat in await repo.class_session_seats(session, class_session_id):
+        seats.setdefault(seat["game_id"], []).append(
+            ClassGameSeat(seat["role"], seat["occupant_kind"], seat["user_id"])
+        )
+    return [
+        ClassGame(
+            id=game["id"],
+            number=game["game_number"],
+            lifecycle=game["lifecycle"],
+            has_snapshot=game["has_snapshot"],
+            seats=tuple(seats.get(game["id"], ())),
+        )
+        for game in await repo.class_games(session, class_session_id)
+    ]
+
+
+async def class_sessions_awaiting_snapshot(session: AsyncSession) -> list[uuid.UUID]:
+    """The Class sessions with a Game that is `not_started` and has no snapshot (Story 5.12)."""
+    return await repo.class_sessions_awaiting_snapshot(session)
 
 
 async def get_game(game_id: str) -> GameOverview | None:

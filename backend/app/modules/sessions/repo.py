@@ -210,6 +210,16 @@ async def due_locks(session: AsyncSession, now: datetime) -> list[uuid.UUID]:
     return list(result.scalars())
 
 
+async def locked_ids(session: AsyncSession, ids: list[uuid.UUID]) -> list[uuid.UUID]:
+    """Those of `ids` that are locked Class sessions (Story 5.12)."""
+    result = await session.execute(
+        select(class_sessions.c.id).where(
+            class_sessions.c.id.in_(ids), class_sessions.c.locked_at.is_not(None)
+        )
+    )
+    return list(result.scalars())
+
+
 async def set_locked(
     session: AsyncSession, session_id: uuid.UUID, *, locked_at: datetime, snapshot: dict[str, Any]
 ) -> None:

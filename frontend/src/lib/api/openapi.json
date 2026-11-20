@@ -249,6 +249,16 @@
       "AllocationGameOut": {
         "description": "One Class game of the draft: its number and its four Seats, Fabrikk first.",
         "properties": {
+          "lifecycle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Lifecycle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "number": {
             "title": "Number",
             "type": "integer"
@@ -339,6 +349,11 @@
           "missing_count": {
             "title": "Missing Count",
             "type": "integer"
+          },
+          "opened": {
+            "default": false,
+            "title": "Opened",
+            "type": "boolean"
           },
           "registered_count": {
             "title": "Registered Count",
@@ -2276,6 +2291,16 @@
         ],
         "title": "LecturerOverviewOut",
         "type": "object"
+      },
+      "Lifecycle": {
+        "enum": [
+          "not_started",
+          "running",
+          "playing_out",
+          "finished"
+        ],
+        "title": "Lifecycle",
+        "type": "string"
       },
       "LoginIn": {
         "properties": {

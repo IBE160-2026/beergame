@@ -102,8 +102,73 @@ test("locked before the Startdato (an early start), the Startdato stands as text
   await expect(dates.getByRole("button", { name: copy.lock.save })).toBeVisible();
 });
 
+/** The «Fordeling» answer once the lock has opened the Class games (Story 5.12): two games, each
+ * Seat a Student or an AI player (no user id), all not started. Pinned against the real api by
+ * `backend/tests/sessions/test_open_games.py`. */
+function openedAllocation() {
+  const roles = ["factory", "distributor", "wholesaler", "retailer"] as const;
+  const holders = [
+    ["Ida Berg", "Sara Lie", "Mikkel Dahl", "Jonas Aas"],
+    [null, "Nora Holm", "Emil Sand", null],
+  ];
+  const games = holders.map((names, g) => ({
+    number: g + 1,
+    lifecycle: "not_started" as const,
+    seats: roles.map((role, r) => ({
+      role,
+      user_id: names[r] ? `00000000-0000-0000-0000-0000000000${g}${r}` : null,
+      name: names[r],
+    })),
+  }));
+  return {
+    registered_count: 6,
+    missing_count: 0,
+    confirmed: true,
+    confirmed_at: new Date().toISOString(),
+    opened: true,
+    draft: { id: "00000000-0000-0000-0000-00000000aaaa", revision: 1, drawn_at: new Date().toISOString(), games },
+  };
+}
+
+async function opened(lecturer: Page, id: string) {
+  await locked(lecturer, id, { locked_at: new Date().toISOString(), passed_dates: ["start_at"] });
+  await lecturer.route(`**/api/class-sessions/${id}/allocation`, (route) =>
+    route.request().method() === "GET" ? route.fulfill({ json: openedAllocation() }) : route.fallback(),
+  );
+}
+
+test("once opened, «Fordeling» lists every Class game with its Seats, all not started", async ({ page, browser }) => {
+  const lecturer = await freshLecturer(page, browser);
+  const { id } = await datedSession(lecturer);
+  await opened(lecturer, id);
+  await lecturer.goto(`/klasseokter/${id}`);
+  const allocation = copy.allocation;
+  await expect(lecturer.getByText(allocation.opened)).toBeVisible();
+  await lecturer.getByRole("button", { name: allocation.open }).click();
+  await expect(lecturer.getByRole("heading", { name: allocation.heading(2) })).toBeFocused();
+  await expect(lecturer.getByText(allocation.openedLead(6, 2))).toBeVisible();
+  await expect(lecturer.getByText(allocation.openedSeats)).toBeVisible();
+  // Read-only: no move, no redraw, no confirm.
+  await expect(lecturer.getByRole("button", { name: allocation.pickShort })).toHaveCount(0);
+  await expect(lecturer.getByRole("button", { name: allocation.confirm })).toHaveCount(0);
+  await lecturer.getByText(allocation.list, { exact: true }).click();
+  const items = lecturer.getByRole("list", { name: allocation.heading(2) }).getByRole("listitem");
+  await expect(items).toHaveCount(2);
+  await expect(items.nth(0)).toContainText(
+    "Jonas Aas, Detaljist. Mikkel Dahl, Grossist. Sara Lie, Distributør. Ida Berg, Fabrikk.",
+  );
+  await expect(items.nth(1)).toContainText("KI-spiller, Detaljist.");
+  await expect(items.nth(1)).toContainText("KI-spiller, Fabrikk.");
+  // Each game's state stands apart from its last Seat.
+  for (const item of [items.nth(0), items.nth(1)]) {
+    await expect(item.getByText(allocation.lifecycle.not_started, { exact: true })).toBeVisible();
+  }
+  await expect(lecturer.getByText(allocation.opened)).toHaveCount(1);
+});
+
 const SIZES = [
   { name: "320 px", width: 320, height: 640, phone: true },
+  { name: "360 px", width: 360, height: 740, phone: true },
   { name: "1440 px", width: 1440, height: 900, phone: false },
 ];
 
@@ -117,6 +182,16 @@ for (const vp of SIZES) {
       await locked(lecturer, id, { locked_at: lockedAt, passed_dates: ["start_at"] });
       await lecturer.goto(`/klasseokter/${id}`);
       await expect(lecturer.getByRole("button", { name: copy.lock.save })).toBeVisible();
+      await expectAccessible(lecturer, vp.phone);
+    });
+
+    test("the opened «Fordeling» passes axe", async ({ page, browser }) => {
+      const lecturer = await freshLecturer(page, browser);
+      const { id } = await datedSession(lecturer);
+      await opened(lecturer, id);
+      await lecturer.goto(`/klasseokter/${id}`);
+      await lecturer.getByRole("button", { name: copy.allocation.open }).click();
+      await expect(lecturer.getByText(copy.allocation.openedSeats)).toBeVisible();
       await expectAccessible(lecturer, vp.phone);
     });
   });

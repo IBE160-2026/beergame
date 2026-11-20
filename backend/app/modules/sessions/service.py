@@ -57,7 +57,9 @@ At the Start date the sweep's `sessions.lock` (Story 5.11) locks the Class sessi
 `lock`, which Epic 8 also calls to start early: one transaction sets `locked_at` and stores the
 frozen snapshot of `build_snapshot`, with the pins of every provider registered through
 `register_pin_provider`. With LLM players and no usable provider key the lock is refused, the
-owners and the Admins are told once, and the next sweep tries again.
+owners and the Admins are told once, and the next sweep tries again. With no confirmed allocation
+the lock allocates first, and after it `open_games` gives every Class game the snapshot and its AI
+players through `games.commands.set_snapshot` (Story 5.12).
 
 Every mutation passes one guard, `_writable`, which asks `classes.service.is_writable` inside the
 mutation's transaction and raises `classes.service.ClassArchived` (409 `class_archived`) for an
@@ -1308,8 +1310,16 @@ SEAT_ORDER: tuple[Role, ...] = tuple(reversed(ROLES))
 """The Seats of a Class game as the preview lists them: Fabrikk first, Detaljist last."""
 
 
-async def _allocation_out(class_id: uuid.UUID, draft: Mapping[str, Any] | None) -> AllocationOut:
-    """The block's state: the registered Students now, and the stored draft with its names."""
+async def _allocation_out(
+    class_id: uuid.UUID,
+    draft: Mapping[str, Any] | None,
+    opened: list[games_service.ClassGame] | None = None,
+) -> AllocationOut:
+    """The block's state: the registered Students now, and the stored draft with its names. Once
+    the Class games are open (`opened`, Story 5.12) their games are the Class games as their
+    Seats hold them, with their lifecycle, so an AI player shows where a Student was removed."""
+    if opened and draft is not None:
+        return await _opened_out(class_id, draft, opened)
     registered = await classes.registered_students(class_id)
     if draft is None:
         return AllocationOut(
@@ -1355,15 +1365,64 @@ async def _allocation_out(class_id: uuid.UUID, draft: Mapping[str, Any] | None) 
     )
 
 
+async def _opened_out(
+    class_id: uuid.UUID, draft: Mapping[str, Any], opened: list[games_service.ClassGame]
+) -> AllocationOut:
+    registered = await classes.registered_students(class_id)
+    held = {
+        seat.user_id
+        for game in opened
+        for seat in game.seats
+        if seat.occupant_kind == games_service.OccupantKind.STUDENT and seat.user_id is not None
+    }
+    names = await classes.student_names(class_id, sorted(held))
+    out: list[AllocationGameOut] = []
+    for game in opened:
+        by_role = {seat.role: seat for seat in game.seats}
+        seats = []
+        for role in SEAT_ORDER:
+            seat = by_role.get(role.value)
+            student = (
+                seat.user_id
+                if seat is not None and seat.occupant_kind == games_service.OccupantKind.STUDENT
+                else None
+            )
+            seats.append(
+                AllocationSeatOut(
+                    role=role,
+                    user_id=student,
+                    name=names.get(student) if student is not None else None,
+                )
+            )
+        out.append(AllocationGameOut(number=game.number, seats=seats, lifecycle=game.lifecycle))
+    return AllocationOut(
+        registered_count=len(registered),
+        missing_count=sum(1 for student in registered if student not in held),
+        confirmed=draft["confirmed_at"] is not None,
+        confirmed_at=draft["confirmed_at"],
+        opened=True,
+        draft=AllocationDraftOut(
+            id=draft["id"], revision=draft["revision"], drawn_at=draft["drawn_at"], games=out
+        ),
+    )
+
+
 async def allocation_of(user: authz.Principal, session_id: uuid.UUID) -> AllocationOut | None:
-    """The «Fordeling» block as stored, for the Class's staff (Assistant lecturers too). None
-    when the User may not read the Class."""
+    """The «Fordeling» block as stored, for the Class's staff (Assistant lecturers too). Once the
+    Class games are open (Story 5.12) it lists them as their Seats hold them. None when the User
+    may not read the Class."""
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, session_id)
-        draft = await repo.draft_of(s, session_id) if row else None
     if row is None or await _class_for(user, row["class_id"], "class_sessions.read") is None:
         return None
-    return await _allocation_out(row["class_id"], draft)
+    opened: list[games_service.ClassGame] | None = None
+    async with get_sessionmaker().begin() as s:
+        draft = await repo.draft_of(s, session_id)
+        if row["snapshot"] is not None:
+            found = await games_service.class_games(s, session_id)
+            if found and all(game.has_snapshot for game in found):
+                opened = found
+    return await _allocation_out(row["class_id"], draft, opened)
 
 
 async def draw_allocation(
@@ -1532,10 +1591,11 @@ async def _commit_allocation(
     s: AsyncSession,
     session_id: uuid.UUID,
     draft: Mapping[str, Any],
-    confirmed_by: uuid.UUID,
+    confirmed_by: uuid.UUID | None,
     now: datetime,
 ) -> None:
-    """The Games, Seats, mark, notices and event of a confirmation, in the caller's transaction."""
+    """The Games, Seats, mark, notices and event of a confirmation, in the caller's transaction;
+    `confirmed_by` is None when the lock allocated (Story 5.12)."""
     by_game: dict[int, list[Mapping[str, Any]]] = {}
     for assignment in draft["assignments"]:
         by_game.setdefault(assignment["game_number"], []).append(assignment)
@@ -1791,45 +1851,138 @@ async def lock(class_session_id: uuid.UUID, *, now: datetime | None = None) -> b
     """Lock the Class session now, whatever its Start date (the sweep at the Start date, Epic 8
     when the Lecturer starts early): in one transaction under the session's row lock, set
     `locked_at`, store `build_snapshot`, mark the model config referenced (LLM players) and emit
-    `session:<id>`. True when this call locked it; False when it was locked already or does not
-    exist. With LLM players whose provider may not answer here it raises `ProviderKeyMissing`
-    and stores nothing; it never falls back to Rule-based players (AD-17)."""
+    `session:<id>`. When no allocation is confirmed, the same transaction first allocates the
+    registered Students at random and commits that as «Bekreft fordeling» would (Story 5.12,
+    FR-20), unless the Class is archived. After it commits, `open_games` gives every Class game
+    the snapshot, also when the session was locked already, so an open cut short is finished.
+
+    True when this call locked it; False when it was locked already or does not exist. With LLM
+    players whose provider may not answer here it raises `ProviderKeyMissing` and stores
+    nothing; it never falls back to Rule-based players (AD-17)."""
     now = now or auth.utcnow()
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, class_session_id, lock=True)
-        if row is None or row["locked_at"] is not None:
+        if row is None:
             return False
-        llm = row["ai_mode"] == AiMode.llm.value
-        if llm:
-            found = await config.get(row["model_config_id"], session=s)
-            if found is None or not config.may_answer(found):
-                raise ProviderKeyMissing
-        snapshot = await build_snapshot(row, session=s)
-        if llm:
-            await config.mark_referenced(row["model_config_id"], session=s)
-        await repo.set_locked(s, class_session_id, locked_at=now, snapshot=snapshot)
-        await events.emit(s, "session", str(class_session_id))
-    log.info(
-        "class_session_locked",
-        class_session_id=str(class_session_id),
-        ai_mode=row["ai_mode"],
-        model_config_id=str(row["model_config_id"]) if llm else None,
-        pins=sorted(snapshot["session_runtime"]["pins"] or {}),
+        locked_before = row["locked_at"] is not None
+        if not locked_before:
+            llm = row["ai_mode"] == AiMode.llm.value
+            if llm:
+                found = await config.get(row["model_config_id"], session=s)
+                if found is None or not config.may_answer(found):
+                    raise ProviderKeyMissing
+            snapshot = await build_snapshot(row, session=s)
+            if llm:
+                await config.mark_referenced(row["model_config_id"], session=s)
+            allocated = await _allocate_at_lock(s, row, now)
+            await repo.set_locked(s, class_session_id, locked_at=now, snapshot=snapshot)
+            await events.emit(s, "session", str(class_session_id))
+    if not locked_before:
+        log.info(
+            "class_session_locked",
+            class_session_id=str(class_session_id),
+            ai_mode=row["ai_mode"],
+            model_config_id=str(row["model_config_id"]) if llm else None,
+            pins=sorted(snapshot["session_runtime"]["pins"] or {}),
+            allocated=allocated,
+        )
+    await open_games(class_session_id)
+    return not locked_before
+
+
+async def _allocate_at_lock(s: AsyncSession, row: Mapping[str, Any], now: datetime) -> int:
+    """With no confirmed allocation at the lock: the registered Students allocated at random with
+    `allocation.allocate` and a fresh seed, stored as a new draft (drawn by nobody) and committed
+    by `_commit_allocation` in the lock's transaction, notices included (Story 5.12, FR-20). An
+    unconfirmed draft is replaced. Nothing for an archived Class or with no registered Student.
+    Returns how many Students were seated."""
+    draft = await repo.draft_of(s, row["id"])
+    if draft is not None and draft["confirmed_at"] is not None:
+        return 0
+    if not await classes.is_writable(row["class_id"], session=s):
+        return 0
+    students = await classes.registered_students(row["class_id"])
+    if not students:
+        if draft is not None:  # a preview of Students who have all left: nothing to show
+            await repo.delete_draft(s, row["id"])
+        return 0
+    seed = allocation.draw_seed()
+    seats = allocation.allocate(students, seed)
+    await repo.replace_draft(
+        s,
+        row["id"],
+        id=uuid.uuid7(),
+        revision=1,
+        seed=seed,
+        assignments=[
+            {"user_id": str(seat.user_id), "game_number": seat.game_number, "role": seat.role.value}
+            for seat in seats
+        ],
+        drawn_by=None,
+        drawn_at=now,
     )
-    return True
+    draft = await repo.draft_of(s, row["id"])
+    if draft is None:  # stored just above, in this transaction
+        raise RuntimeError("the allocation drawn at the lock was not stored")
+    await _commit_allocation(s, row["id"], draft, None, now)
+    return len(seats)
+
+
+async def open_games(class_session_id: uuid.UUID) -> int:
+    """Give each Class game of a locked Class session that has no snapshot the session's frozen
+    one through `games.commands.set_snapshot`, one Game per transaction, by game number (Story
+    5.12, AD-2, AD-4). A Seat whose Student is no longer a registered Student of the Class gets
+    an AI player too (FR-7). A Game that has its snapshot is never changed, so a call after one
+    that stopped half way finishes the rest. A Game whose open fails is logged and left for the
+    next sweep (`due_locks` returns its session), so it never fails the lock that committed before
+    it. Returns how many Games were opened now."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, class_session_id)
+        if row is None or row["snapshot"] is None:
+            return 0
+        waiting = [
+            g for g in await games_service.class_games(s, class_session_id) if not g.has_snapshot
+        ]
+    if not waiting:
+        return 0
+    registered = await classes.registered_students(row["class_id"])
+    opened = failed = 0
+    for game in waiting:
+        try:
+            if await games_commands.set_snapshot(
+                str(game.id), row["snapshot"], keep_students=registered
+            ):
+                opened += 1
+        except Exception as exc:  # the type only: one Game's failure leaves the others to open
+            failed += 1
+            log.error(
+                "class_game_open_failed",
+                class_session_id=str(class_session_id),
+                game_id=str(game.id),
+                exc_type=type(exc).__name__,
+            )
+    log.info(
+        "class_games_opened", class_session_id=str(class_session_id), games=opened, failed=failed
+    )
+    return opened
 
 
 async def due_locks(now: datetime) -> list[uuid.UUID]:
     """The sweep's `sessions.lock` finder (AD-9): the Class sessions whose Start date has passed
-    and that are not locked, by id."""
+    and that are not locked, and the locked ones with a Class game still waiting for its
+    snapshot (an open cut short, Story 5.12), by id."""
     async with get_sessionmaker().begin() as s:
-        return await repo.due_locks(s, now)
+        due = await repo.due_locks(s, now)
+        waiting = await games_service.class_sessions_awaiting_snapshot(s)
+        unfinished = await repo.locked_ids(s, waiting) if waiting else []
+    return sorted({*due, *unfinished})
 
 
 async def lock_due(class_session_id: object, now: datetime) -> bool:
     """The sweep's `sessions.lock` action, one Class session per transaction with its id only
-    (AD-9). A refusal for a missing provider key tells each owner of the Class and each Admin
-    once, and the next minute's sweep tries again."""
+    (AD-9): it locks the session and opens its Class games, or finishes opening them. A refusal
+    for a missing provider key tells each owner of the Class and each Admin once, and the next
+    minute's sweep tries again."""
     assert isinstance(class_session_id, uuid.UUID)
     try:
         return await lock(class_session_id, now=now)

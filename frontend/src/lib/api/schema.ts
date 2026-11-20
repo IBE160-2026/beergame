@@ -1447,6 +1447,7 @@ export interface components {
          * @description One Class game of the draft: its number and its four Seats, Fabrikk first.
          */
         AllocationGameOut: {
+            lifecycle?: components["schemas"]["Lifecycle"] | null;
             /** Number */
             number: number;
             /** Seats */
@@ -1486,6 +1487,11 @@ export interface components {
             draft: components["schemas"]["AllocationDraftOut"] | null;
             /** Missing Count */
             missing_count: number;
+            /**
+             * Opened
+             * @default false
+             */
+            opened: boolean;
             /** Registered Count */
             registered_count: number;
         };
@@ -2321,6 +2327,11 @@ export interface components {
             /** Waiting */
             waiting: components["schemas"]["WaitingClass"][];
         };
+        /**
+         * Lifecycle
+         * @enum {string}
+         */
+        Lifecycle: "not_started" | "running" | "playing_out" | "finished";
         /** LoginIn */
         LoginIn: {
             /** Email */

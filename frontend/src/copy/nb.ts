@@ -1110,6 +1110,19 @@ export const nb = {
       moveLastStudent: "Spillet ville stått uten studenter. Bytt med en student i stedet.",
       moveInvalid: "Det setet kan ikke brukes. Velg et annet.",
       moveStarted: "Spillet har startet. Ingen kan flyttes inn eller ut av det.",
+      // Story 5.12: [ASSUMPTION] draft copy. The Class games are open on the frozen settings.
+      opened: "Klassespillene er klare. Ingen av spillene har startet ennå.",
+      /** «6 studenter i 2 Klassespill. Hver søyle er ett spill, hver rad en Rolle.» */
+      openedLead: (students: number, games: number) =>
+        `${students} ${students === 1 ? "student" : "studenter"} i ${games} Klassespill. Hver søyle er ett spill, hver rad en Rolle.`,
+      openedSeats: "Tomme seter er fylt med KI-spillere.",
+      /** A Class game's state, shown apart after its Seats. */
+      lifecycle: {
+        not_started: "Ikke startet.",
+        running: "I gang.",
+        playing_out: "Spilles ferdig.",
+        finished: "Ferdig.",
+      },
     },
     /** The Lærerhjem's «Venter» and «Neste frist» (Stories 5.2, 5.9, UX-DR56). [ASSUMPTION] */
     home: {

@@ -211,3 +211,20 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
 - `is_locked` is true from `locked_at` as well as from a passed Start date. The read adds
   `locked_at`.
 - The sweep also runs `identity.purge_expired_roster_uploads` each minute.
+
+## Opening the Class games (Story 5.12)
+
+- With no confirmed allocation, the lock's own transaction first draws one from the registered
+  Students (`allocation.allocate`, fresh seed, a new draft with `drawn_by` NULL, an unconfirmed
+  preview replaced) and commits it as «Bekreft fordeling» does (`confirmed_by` NULL, the
+  allocation notices). Not for an archived Class, and not with no registered Student.
+- After the lock commits, `service.open_games` hands the session's `snapshot` to each Class game
+  without one through `games.commands.set_snapshot`, one Game per transaction, by game number.
+  That command fills every free Seat, and every Seat of a Student no longer registered, with the
+  AI mode's player (`llm` or `rule_based`, reason `initial`) in the same transaction. A Game that
+  has its snapshot is never changed.
+- `lock` runs `open_games` also when the session was locked already, and `due_locks` also returns
+  locked sessions with a Class game still waiting, so an open cut short is finished next minute.
+- `GET …/allocation` answers `opened: true` once every Class game has its snapshot; its games are
+  then the Class games as their Seats hold them (a Student, or none for «KI-spiller») with each
+  game's `lifecycle`.

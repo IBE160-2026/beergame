@@ -212,6 +212,7 @@ async def test_with_no_registered_student_nothing_is_drawn(klass, emitted):
             "draft": None,
             "confirmed": False,
             "confirmed_at": None,
+            "opened": False,
         }
     assert emitted == []
     assert rows(
@@ -233,6 +234,7 @@ async def test_a_redraw_after_every_student_left_removes_the_draft(klass, emitte
         "draft": None,
         "confirmed": False,
         "confirmed_at": None,
+        "opened": False,
     }
     assert (await redraw(session_id)).json() == empty
     assert emitted == [("session", session_id)]

@@ -90,6 +90,16 @@ async def _run_move_seat() -> str:
     return game_id
 
 
+async def _run_set_snapshot() -> str:
+    """A Class game takes a snapshot; its three free Seats get Rule-based players (Story 5.12)."""
+    from tests.games.test_set_snapshot import snapshot
+
+    game_id = await commands.create("class", class_session_id=uuid.uuid7(), game_number=1)
+    await commands.assign_seat(game_id, "retailer", "student", user_id=uuid.uuid7())
+    await commands.set_snapshot(game_id, snapshot(), keep_students=[])
+    return game_id
+
+
 RUNNERS = {
     "create": _run_create,
     "assign_seat": _run_assign_seat,
@@ -99,6 +109,7 @@ RUNNERS = {
     "advance": _run_advance,
     "switch_to_rule_based": _run_switch_to_rule_based,
     "move_seat": _run_move_seat,
+    "set_snapshot": _run_set_snapshot,
 }
 """How to run each command once; a command added without a runner fails the test below."""
 
@@ -116,6 +127,7 @@ def test_every_command_is_exported_and_registered():
             "advance",
             "switch_to_rule_based",
             "move_seat",
+            "set_snapshot",
         }
         == set(RUNNERS)
     )
@@ -131,10 +143,10 @@ async def test_each_command_emits_exactly_its_registered_topics(games_db):
         with listening(games_db) as events:
             game_id = await runner()
             received = events.drain()
-        if name == "move_seat":
-            # A Class game (its Class session hears of each command): only the move's events.
+        if name in ("move_seat", "set_snapshot"):
+            # A Class game (its Class session hears of each command): only this command's events.
             received = received[4:]
-            assert {item["topic"] for item in received} == COMMAND_TOPICS["games.move_seat"]
+            assert {item["topic"] for item in received} == COMMAND_TOPICS[f"games.{name}"]
             assert {item["id"] for item in received if item["topic"] == "game"} == {game_id}
             continue
         if name != "create":

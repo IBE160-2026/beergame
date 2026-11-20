@@ -12,7 +12,7 @@ complete moves on one Week per transaction and none is left complete but open (A
 
 import secrets
 import uuid
-from collections.abc import AsyncIterator, Iterable, Mapping, Sequence
+from collections.abc import AsyncIterator, Collection, Iterable, Mapping, Sequence
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
@@ -75,6 +75,7 @@ __all__ = [
     "finish",
     "move_seat",
     "place_order",
+    "set_snapshot",
     "start",
     "switch_to_rule_based",
 ]
@@ -461,6 +462,7 @@ async def assign_seat(
     policy_id: str | None = None,
     *,
     user_id: uuid.UUID | str | None = None,
+    replace: bool = False,
     within: AsyncSession | None = None,
 ) -> str:
     """Give the free Seat of `role` its first occupant (`from_week` 1, reason `initial`):
@@ -471,7 +473,9 @@ async def assign_seat(
     (`student_already_seated`); the caller that seats a Class session's Students holds that
     session's lock, so two of them never race.
 
-    Returns the occupancy row id. An occupied Seat answers `seat_occupied`. `within` is the
+    Returns the occupancy row id. An occupied Seat answers `seat_occupied`, unless `replace` is
+    given (Story 5.12): then the new occupant is appended after the Seat's current one, whose row
+    stays in the history (AD-5). Either way only a `not_started` Game takes it. `within` is the
     caller's transaction, which commits the Seat with its own work.
     """
     game_uuid = _game_uuid(game_id)
@@ -481,49 +485,152 @@ async def assign_seat(
             raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
         occupant, policy_id = _occupant(str(occupant_kind), policy_id, _policy(game["purpose"]))
         student = _student(occupant, user_id)
-        if occupant is OccupantKind.LLM:
-            if game["session_runtime"] is None:
-                raise CommandError(
-                    "game_not_ready", "the Game gets its AI players with its snapshot", 409
-                )
-            runtime = SessionRuntime.model_validate(game["session_runtime"])
-            if runtime.model_config_id is None:
-                raise CommandError(
-                    "model_config_required",
-                    "an LLM player needs a Game created with a model config",
-                    422,
-                )
-        if game["lifecycle"] != Lifecycle.NOT_STARTED:
-            raise CommandError(
-                "game_already_started", "Seats get their first occupant before the start", 409
-            )
-        seat = await repo.seat_by_role(session, game_uuid, str(role))
-        if seat is None:
-            raise CommandError("unknown_role", f"the Game has no Seat for {role!r}", 422)
-        if await repo.has_occupant(session, seat["id"]):
-            raise CommandError("seat_occupied", f"the {role} Seat already has an occupant", 409)
-        if (
-            student is not None
-            and game["class_session_id"] is not None
-            and await repo.student_seated(session, game["class_session_id"], student)
-        ):
-            raise CommandError(
-                "student_already_seated",
-                "the Student already holds a Seat in this Class session",
-                409,
-            )
-        reason = OccupancyReason.INITIAL
-        if occupant is OccupantKind.LLM and await _cost_limited(session, game):
-            # The scope reached the players' cost limit: no new LLM player (FR-69, AD-5).
-            occupant, reason = OccupantKind.RULE_BASED, OccupancyReason.COST_LIMIT
-        occupancy_id = await _append_initial(
-            session, seat["id"], occupant, policy_id, reason, user_id=student
+        seat_id, occupancy_id = await _assign(
+            session, game, role, occupant, policy_id, student, replace=replace
         )
         await _commit_change(session, game_uuid)
-    log.info("seat_assigned", game_id=game_id, seat_id=str(seat["id"]))
+    log.info("seat_assigned", game_id=game_id, seat_id=str(seat_id), replace=replace)
     if within is None:
         await _settle(game_id)
     return str(occupancy_id)
+
+
+async def _assign(
+    session: AsyncSession,
+    game: Mapping[str, Any],
+    role: Role | str,
+    occupant: OccupantKind,
+    policy_id: str | None,
+    student: uuid.UUID | None,
+    *,
+    replace: bool,
+) -> tuple[uuid.UUID, uuid.UUID]:
+    """`assign_seat`'s checks and its one appended row, in the caller's locked transaction; also
+    how `set_snapshot` gives a Seat its AI player. Returns the Seat id and the occupancy row id."""
+    if occupant is OccupantKind.LLM:
+        if game["session_runtime"] is None:
+            raise CommandError(
+                "game_not_ready", "the Game gets its AI players with its snapshot", 409
+            )
+        runtime = SessionRuntime.model_validate(game["session_runtime"])
+        if runtime.model_config_id is None:
+            raise CommandError(
+                "model_config_required",
+                "an LLM player needs a Game created with a model config",
+                422,
+            )
+    if game["lifecycle"] != Lifecycle.NOT_STARTED:
+        raise CommandError(
+            "game_already_started", "Seats get their first occupant before the start", 409
+        )
+    seat = await repo.seat_by_role(session, game["id"], str(role))
+    if seat is None:
+        raise CommandError("unknown_role", f"the Game has no Seat for {role!r}", 422)
+    if not replace and await repo.has_occupant(session, seat["id"]):
+        raise CommandError("seat_occupied", f"the {role} Seat already has an occupant", 409)
+    if (
+        student is not None
+        and game["class_session_id"] is not None
+        and await repo.student_seated(session, game["class_session_id"], student)
+    ):
+        raise CommandError(
+            "student_already_seated",
+            "the Student already holds a Seat in this Class session",
+            409,
+        )
+    reason = OccupancyReason.INITIAL
+    if occupant is OccupantKind.LLM and await _cost_limited(session, game):
+        # The scope reached the players' cost limit: no new LLM player (FR-69, AD-5).
+        occupant, reason = OccupantKind.RULE_BASED, OccupancyReason.COST_LIMIT
+    occupancy_id = await _append_initial(
+        session, seat["id"], occupant, policy_id, reason, user_id=student
+    )
+    return seat["id"], occupancy_id
+
+
+async def set_snapshot(
+    game_id: str,
+    snapshot: Mapping[str, Any],
+    *,
+    keep_students: Collection[uuid.UUID],
+) -> bool:
+    """Give a Game that takes its snapshot at the lock (a Class game) its Class session's frozen
+    snapshot (Story 5.12, AD-4): the five `SNAPSHOT_COLUMNS` as `sessions.build_snapshot` made
+    them. In the same transaction, under the Game row lock, every free Seat, and every Seat whose
+    Student is not in `keep_students` (removed from the Roster since the allocation), gets the AI
+    player the snapshot's AI mode gives, `llm` with a model config and `rule_based` without,
+    reason `initial`, through `assign_seat`'s own code with `replace` (FR-30, FR-7, AD-5). So
+    `start` never fills a Seat with a Rule-based player against the AI mode. That code keeps its
+    one exception: once the budget reached the players' cost limit, an LLM player is Rule-based
+    with reason `cost_limit` (FR-69).
+
+    The version rises once with `game:<id>` (and `session:<id>`), and every Student who held a
+    Seat gets `user:<id>`. A Game that has its snapshot already is left as it is: False, nothing
+    written. Refuses `game_not_found`, `snapshot_not_allowed` (a purpose that freezes at
+    creation) and `invalid_snapshot`. Returns True when it stored the snapshot."""
+    game_uuid = _game_uuid(game_id)
+    values = _checked_snapshot(snapshot)
+    ai = (
+        OccupantKind.LLM
+        if SessionRuntime.model_validate(values["session_runtime"]).model_config_id is not None
+        else OccupantKind.RULE_BASED
+    )
+    async with get_sessionmaker().begin() as session:
+        game = await repo.lock_game(session, game_uuid)
+        if game is None:
+            raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
+        game_policy = _policy(game["purpose"])
+        if game_policy.snapshot != "at_lock":
+            raise CommandError(
+                "snapshot_not_allowed", "a Game of this purpose froze its snapshot at creation", 422
+            )
+        if game["settings"] is not None:
+            return False
+        await repo.set_snapshot(session, game_uuid, values)
+        game = {**game, **values}
+        kept = {uuid.UUID(str(student)) for student in keep_students}
+        seated: list[uuid.UUID] = []
+        replaced = 0
+        for seat in await repo.seats_with_occupant(session, game_uuid):
+            holder = seat["user_id"]
+            if seat["occupant_kind"] == OccupantKind.STUDENT:
+                seated.append(holder)
+                if holder in kept:
+                    continue
+                replaced += 1
+            elif seat["occupant_kind"] is not None:
+                continue
+            await _assign(session, game, seat["role"], ai, None, None, replace=True)
+        await _commit_change(session, game_uuid)
+        for student in seated:
+            await events.emit(session, "user", str(student))
+    log.info(
+        "game_snapshot_set",
+        game_id=game_id,
+        ai_player=ai.value,
+        students=len(seated) - replaced,
+        removed_students=replaced,
+    )
+    return True
+
+
+def _checked_snapshot(snapshot: Mapping[str, Any]) -> dict[str, Any]:
+    """The snapshot's five columns, refused (`invalid_snapshot`) unless they reproduce: the
+    settings validate, the demand series is theirs, and the runtime is a `SessionRuntime`."""
+    if set(snapshot) != set(SNAPSHOT_COLUMNS):
+        raise CommandError("invalid_snapshot", "a snapshot has exactly the snapshot columns", 422)
+    try:
+        settings = GameSettings.model_validate(snapshot["settings"])
+        SessionRuntime.model_validate(snapshot["session_runtime"])
+    except ValidationError:
+        raise CommandError("invalid_snapshot", "the snapshot does not validate", 422) from None
+    if (
+        list(demand_series(settings)) != list(snapshot["demand_series"])
+        or snapshot["demand_seed"] != settings.demand_seed
+        or not engine_rules.has_version(snapshot["rules_version"])
+    ):
+        raise CommandError("invalid_snapshot", "the snapshot does not reproduce", 422)
+    return {column: snapshot[column] for column in SNAPSHOT_COLUMNS}
 
 
 async def move_seat(

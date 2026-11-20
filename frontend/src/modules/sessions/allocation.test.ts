@@ -4,7 +4,9 @@ import { nb } from "@/copy/nb";
 
 import {
   changedReason,
+  gameLabel,
   gameLine,
+  gameState,
   holderName,
   invalidMoveReason,
   movedLine,
@@ -32,6 +34,16 @@ describe("the allocation preview (Story 5.8)", () => {
       "Ida, Detaljist. Sara, Grossist. Ikke lenger i Klassen, Distributør. KI-spiller, Fabrikk.",
     );
     expect(holderName(game.seats[0])).toBe("KI-spiller");
+  });
+
+  it("says an opened Class game's state apart from its Seats (Story 5.12)", () => {
+    const opened = { ...game, lifecycle: "not_started" as const };
+    expect(gameLine(opened)).toBe(gameLine(game));
+    expect(gameState(opened)).toBe("Ikke startet.");
+    expect(gameState(game)).toBe("");
+    expect(gameLabel(opened)).toBe(`Spill ${game.number}: ${gameLine(game)} Ikke startet.`);
+    expect(gameLabel(game)).toBe(`Spill ${game.number}: ${gameLine(game)}`);
+    expect(gameState({ ...game, lifecycle: "playing_out" })).toBe("Spilles ferdig.");
   });
 
   it("ticks the first, selected and last game once each", () => {
