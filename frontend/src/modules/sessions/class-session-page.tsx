@@ -267,6 +267,10 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   );
 }
 
+/** On a wide screen each segment is as wide as its label, as in mockup 03; on a phone the
+ * segments share the row. */
+const CONTENT_SIZED = "lg:[&_label]:flex-none";
+
 /**
  * KI-modus, Debrief-modus and Obligatorisk (Story 5.5, FR-15, FR-16, FR-78, UX-DR48, UX-DR49). The
  * first two are Valgknapper while the session is unlocked and the User may change it; «Innsatsnivå»
@@ -299,6 +303,7 @@ function Choices({
         {editable ? (
           <SegmentedChoice
             name="ai-mode"
+            className={CONTENT_SIZED}
             legend={c.aiMode}
             options={[
               {
@@ -350,6 +355,7 @@ function Choices({
         {editable ? (
           <SegmentedChoice
             name="debrief-mode"
+            className={CONTENT_SIZED}
             legend={c.debriefMode}
             options={[
               { value: "group", label: c.group },
@@ -398,6 +404,7 @@ function EffortLevels({
     <div className="mt-6">
       <SegmentedChoice
         name="effort-level"
+        className={CONTENT_SIZED}
         legend={copy.choices.effortLevel}
         options={levels.map((level, i) => ({
           value: level.name,
