@@ -1156,3 +1156,25 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 ### Åpne punkter
 - Issue 102: beslutninger i Story 5.4.
 - Issue #98 lukkes; alle tre punktene er løst.
+
+## Story 5.5: Velge KI-modus, effort-nivå og debrief-modus (2026-11-20)
+
+### Oppgave
+Bygge Story 5.5 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-5-choose-ai-mode-effort-level-debrief-mode.md`.
+- **Commit 4550567:** migrasjon 0034 `effort_level`, valg av KI-modus, effort-nivå og debrief-modus med effektlinjer, beskrivelser av KI-spillerne og Visningsbryter.
+- **Avbrudd:** byggeagenten leverte før gjennomgangen var ferdig og ble sendt tilbake.
+- **Tester:**
+  - backend: 2393 tester (63 s);
+  - frontend: Vitest 406, typecheck, bygg og Playwright 216.
+- **Gjennomgang:** 33 funn, 2 middels. Begge er rettet.
+- **Visuell kontroll:** 16 skjermbilder i `screenshots/5.5/`. Ett avvik er rettet (3a56c65). Den låste visningen tas i 5.11.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 103: beslutninger i Story 5.5.
