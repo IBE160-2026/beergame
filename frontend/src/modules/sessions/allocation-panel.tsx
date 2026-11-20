@@ -331,20 +331,25 @@ function AllocationChart({
                 />
               ),
             )}
-            {isSelected ? (
-              <rect
-                x={x(index) - 2}
-                y={y(0) - 3}
-                width={cell + 4}
-                height={y(roles.length) - ROW_GAP - y(0) + 6}
-                fill="none"
-                stroke="var(--color-ink)"
-                strokeWidth={focused ? 3 : 1.5}
-              />
-            ) : null}
           </g>
         );
       })}
+      {/* The frame is drawn over every column, so the next column's cells never cover its edge. */}
+      {games.map((game, index) =>
+        game.number === selected ? (
+          <rect
+            key="selected"
+            x={x(index) - 2}
+            y={y(0) - 3}
+            width={cell + 4}
+            height={y(roles.length) - ROW_GAP - y(0) + 6}
+            fill="none"
+            stroke="var(--color-ink)"
+            strokeWidth={focused ? 3 : 1.5}
+            pointerEvents="none"
+          />
+        ) : null,
+      )}
       {ticks(games.length, selected, Math.ceil(28 / pitch)).map((number) => (
         <text
           key={number}
