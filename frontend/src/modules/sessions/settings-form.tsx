@@ -441,23 +441,22 @@ function DemandSeries({ item }: { item: ClassSession }) {
 function ReadOnlyRows({ item, warnings }: { item: ClassSession; warnings: Readonly<Record<string, string[]>> }) {
   const rows = settingRows(item.game_settings, item.inactivity_limit_hours, item.capacity_enabled);
   const capped = item.capacity_enabled && cappedRoles(item.game_settings).length > 0;
-  return (
-    <>
-      <RowList rows={rows} warnings={warnings} errors={{}} />
-      {/* A capacity is set (Story 5.15): what a capped Seat means, and that Students are told. */}
-      {capped ? <p className="mt-2 text-body-phone text-ink-secondary">{copy.edit.capacity.help}</p> : null}
-    </>
-  );
+  // A capacity is set (Story 5.15): what a capped Seat means, and that Students are told, under
+  // its own row rather than under the list.
+  const help: Record<string, string[]> = capped ? { capacity: [copy.edit.capacity.help] } : {};
+  return <RowList rows={rows} warnings={warnings} errors={{}} help={help} />;
 }
 
 function RowList({
   rows,
   warnings,
   errors,
+  help = {},
 }: {
   rows: readonly SettingRow[];
   warnings: Readonly<Record<string, string[]>>;
   errors: Readonly<Record<string, string[]>>;
+  help?: Readonly<Record<string, string[]>>;
 }) {
   return (
     <dl className="mt-4">
@@ -475,6 +474,11 @@ function RowList({
           ))}
           {(warnings[row.key] ?? []).map((text, index) => (
             <dd key={`warning-${index}`} className="mt-1 basis-full text-body-phone text-ink">
+              {text}
+            </dd>
+          ))}
+          {(help[row.key] ?? []).map((text, index) => (
+            <dd key={`help-${index}`} className="mt-1 basis-full text-body-phone text-ink-secondary">
               {text}
             </dd>
           ))}
