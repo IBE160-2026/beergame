@@ -228,3 +228,30 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
 - `GET …/allocation` answers `opened: true` once every Class game has its snapshot; its games are
   then the Class games as their Seats hold them (a Student, or none for «KI-spiller») with each
   game's `lifecycle`.
+
+## Late registrants and removed Students (Story 5.13)
+
+- Two more sweep due actions, after `sessions.lock` (the removal first, so a late registrant can
+  take the Seat it frees in the same minute), one Student per transaction with
+  `(class_session_id, user_id)` only. `classes` imports nothing from here.
+- `sessions.seat_late_registrant` (`service.late_registrants` → `seat_late_registrant`): a
+  registered Student without a Seat in a Class session whose allocation is confirmed. Before the
+  lock: a random free Role of a random Class game with a free Seat, or, when every Seat is taken,
+  a new Class game (next number, no settings) whose other Seats get AI players at the open. After
+  the lock: a random Seat an AI player holds in an opened Class game that has not started,
+  through `games.commands.assign_seat` with `replace` (the AI row stays). A game that started
+  meanwhile refuses under its row lock and is skipped. Between the Start date and the open
+  nobody is seated. The draft gains the Seat (revision + 1), the Student gets the
+  `allocation_confirmed` notice keyed by that revision, they and the game's other Students get
+  `user:<id>`, the staff `session:<id>`. The finder returns only Students it can seat now, so
+  no item fails or repeats each minute; it still reads the Class games and the Roster of every
+  confirmed session that is not locked or has an opened game not started.
+- `sessions.replace_removed_student` (`service.removed_students` → `replace_removed_student`):
+  once locked, a Student no longer registered who holds a Seat in an opened Class game that has
+  not started; the Seat gets the AI mode's player (`llm` with a model config in the snapshot,
+  else `rule_based`, reason `initial`). Before the lock the open does it (Story 5.12). A game
+  that has started is left for the Lecturer's Takeover (Epic 8).
+- Neither acts for an archived Class, an unconfirmed allocation or a Student already handled.
+- `service.students_without_seat(class_session_id)`: the registered Students holding no Seat in
+  the session's Class games (Epic 13's make-up). Once locked, `GET …/allocation` names them in
+  `without_seat`; a removed Student's Seat in a started game keeps its id with no name.

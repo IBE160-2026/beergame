@@ -358,6 +358,14 @@
           "registered_count": {
             "title": "Registered Count",
             "type": "integer"
+          },
+          "without_seat": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AllocationStudentOut"
+            },
+            "title": "Without Seat",
+            "type": "array"
           }
         },
         "required": [
@@ -406,6 +414,26 @@
           "name"
         ],
         "title": "AllocationSeatOut",
+        "type": "object"
+      },
+      "AllocationStudentOut": {
+        "description": "A registered Student without a Seat (Story 5.13).",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "name"
+        ],
+        "title": "AllocationStudentOut",
         "type": "object"
       },
       "AuditActor": {

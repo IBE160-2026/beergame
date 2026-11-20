@@ -220,6 +220,24 @@ async def locked_ids(session: AsyncSession, ids: list[uuid.UUID]) -> list[uuid.U
     return list(result.scalars())
 
 
+async def confirmed_sessions(session: AsyncSession) -> list[RowMapping]:
+    """The Class sessions whose allocation is confirmed (Story 5.13), by id: id, Class, Start
+    date, `locked_at` and `snapshot`, what the late-seating finders judge."""
+    result = await session.execute(
+        select(
+            class_sessions.c.id,
+            class_sessions.c.class_id,
+            class_sessions.c.start_at,
+            class_sessions.c.locked_at,
+            class_sessions.c.snapshot,
+        )
+        .join(allocation_drafts, allocation_drafts.c.class_session_id == class_sessions.c.id)
+        .where(allocation_drafts.c.confirmed_at.is_not(None))
+        .order_by(class_sessions.c.id)
+    )
+    return list(result.mappings())
+
+
 async def set_locked(
     session: AsyncSession, session_id: uuid.UUID, *, locked_at: datetime, snapshot: dict[str, Any]
 ) -> None:

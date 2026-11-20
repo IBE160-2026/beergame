@@ -184,6 +184,21 @@ async def class_sessions_awaiting_snapshot(session: AsyncSession) -> list[uuid.U
     return list(result.scalars())
 
 
+async def class_sessions_with_unstarted_games(session: AsyncSession) -> list[uuid.UUID]:
+    """The Class sessions with a `not_started` Game that has its snapshot (Story 5.13)."""
+    result = await session.execute(
+        select(games.c.class_session_id)
+        .where(
+            games.c.class_session_id.is_not(None),
+            games.c.settings.is_not(None),
+            games.c.lifecycle == "not_started",
+        )
+        .distinct()
+        .order_by(games.c.class_session_id)
+    )
+    return list(result.scalars())
+
+
 async def class_games(session: AsyncSession, class_session_id: uuid.UUID) -> list[RowMapping]:
     """The Class session's Games by game number: id, number, lifecycle and whether the snapshot is
     stored (Story 5.12)."""

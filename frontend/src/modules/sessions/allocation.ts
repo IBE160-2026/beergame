@@ -1,6 +1,6 @@
 import { nb } from "@/copy/nb";
 
-import type { AllocationGame, AllocationSeat } from "./api";
+import type { Allocation, AllocationGame, AllocationSeat } from "./api";
 import { roleName } from "./sessions";
 
 const copy = nb.sessions.allocation;
@@ -112,4 +112,11 @@ export function movedLine(picked: SeatAt, target: SeatAt): string {
 /** Why a move was refused (422 `invalid_move`), by its `fields`. */
 export function invalidMoveReason(fields: Readonly<Record<string, unknown>> | undefined): string {
   return fields?.from === "last_student" ? copy.moveLastStudent : copy.moveInvalid;
+}
+
+/** After the lock, the registered Students no Class game could seat, in one line (Story 5.13);
+ * "" when there are none. */
+export function withoutSeatLine(allocation: Allocation): string {
+  const names = allocation.without_seat.map((student) => student.name);
+  return names.length > 0 ? copy.withoutSeat(names) : "";
 }

@@ -27,6 +27,7 @@ import {
   seatMark,
   targetLabel,
   ticks,
+  withoutSeatLine,
 } from "./allocation";
 import {
   type Allocation,
@@ -57,7 +58,9 @@ const copy = nb.sessions.allocation;
  * or swaps two from the selected game's Seats (Story 5.10), before and after the confirmation. An
  * Assistant lecturer, or anyone once the session is locked, reads the stored draft only. Once the
  * lock has opened the Class games (Story 5.12, `opened`), the api lists them as their Seats hold
- * them, with «KI-spiller» in every other Seat, and each game's line ends with its state.
+ * them, with «KI-spiller» in every other Seat, and each game's line ends with its state. Once
+ * locked, the block and the panel name the registered Students no Class game could seat (Story
+ * 5.13); a late registrant is otherwise seated by the sweep within a minute.
  */
 export function AllocationBlock({
   item,
@@ -157,6 +160,9 @@ export function AllocationBlock({
                 : copy.notConfirmed}
         </p>
       )}
+      {allocation && withoutSeatLine(allocation) ? (
+        <p className="mt-2 max-w-prose text-body-phone text-ink lg:text-body">{withoutSeatLine(allocation)}</p>
+      ) : null}
       {openable ? (
         <button
           ref={openerRef}
@@ -320,7 +326,9 @@ function Preview({
         <p className="max-w-prose text-body-phone text-ink-secondary lg:text-body">
           {allocation.opened ? copy.openedSeats : copy.emptySeats}
         </p>
-        {allocation.missing_count > 0 ? (
+        {withoutSeatLine(allocation) ? (
+          <p className="mt-2 max-w-prose text-body-phone text-ink">{withoutSeatLine(allocation)}</p>
+        ) : allocation.missing_count > 0 ? (
           <p className="mt-2 max-w-prose text-body-phone text-ink">
             {copy.missing(allocation.missing_count)}
             {canDraw ? ` ${copy.missingRedraw}` : null}

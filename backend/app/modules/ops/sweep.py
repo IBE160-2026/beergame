@@ -64,6 +64,20 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # expired Roster staging rows on time rather than only when the next upload looks (AD-14).
     DueAction("sessions.lock", sessions.due_locks, sessions.lock_due),
     DueAction("identity.purge_expired_roster_uploads", _roster_purge_due, _purge_roster_uploads),
+    # Story 5.13: give an AI player the Seat of a removed Student in a Class game that has not
+    # started, and seat each Student who registered after the allocation was confirmed (FR-7,
+    # FR-20). After `sessions.lock`, so games opened this minute count, and the removal first, so
+    # a late registrant can take the Seat it frees in the same minute.
+    DueAction(
+        "sessions.replace_removed_student",
+        sessions.removed_students,
+        sessions.replace_removed_student_due,
+    ),
+    DueAction(
+        "sessions.seat_late_registrant",
+        sessions.late_registrants,
+        sessions.seat_late_registrant_due,
+    ),
 )
 
 

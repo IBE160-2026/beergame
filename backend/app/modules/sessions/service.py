@@ -115,6 +115,7 @@ from app.modules.sessions.schemas import (
     AllocationMoveIn,
     AllocationOut,
     AllocationSeatOut,
+    AllocationStudentOut,
     ClassSessionListItem,
     ClassSessionListOut,
     ClassSessionOut,
@@ -1409,8 +1410,9 @@ async def _opened_out(
 
 async def allocation_of(user: authz.Principal, session_id: uuid.UUID) -> AllocationOut | None:
     """The «Fordeling» block as stored, for the Class's staff (Assistant lecturers too). Once the
-    Class games are open (Story 5.12) it lists them as their Seats hold them. None when the User
-    may not read the Class."""
+    Class games are open (Story 5.12) it lists them as their Seats hold them, and once locked it
+    names the registered Students without a Seat (Story 5.13). None when the User may not read
+    the Class."""
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, session_id)
     if row is None or await _class_for(user, row["class_id"], "class_sessions.read") is None:
@@ -1422,7 +1424,18 @@ async def allocation_of(user: authz.Principal, session_id: uuid.UUID) -> Allocat
             found = await games_service.class_games(s, session_id)
             if found and all(game.has_snapshot for game in found):
                 opened = found
-    return await _allocation_out(row["class_id"], draft, opened)
+    out = await _allocation_out(row["class_id"], draft, opened)
+    if row["locked_at"] is not None:
+        # Story 5.13: who no Class game could seat, named for the Lecturer.
+        without = await students_without_seat(session_id)
+        names = await classes.student_names(row["class_id"], without)
+        # A Student removed between the two reads has no name now: no longer one to list.
+        out.without_seat = [
+            AllocationStudentOut(user_id=student, name=names[student])
+            for student in without
+            if student in names
+        ]
+    return out
 
 
 async def draw_allocation(
@@ -2033,3 +2046,285 @@ async def lock_refused_mail_context(
         "class_name": label.name,
         "session_number": await repo.number_of(session, ref, row["class_id"]),
     }
+
+
+# Late registrants and removed Students (Story 5.13, FR-7, FR-20, AD-2, AD-5, AD-8, AD-9).
+
+_rng = secrets.SystemRandom()
+"""Where a late registrant is seated: a random game with a free Seat, a random Role in it."""
+
+AI_KINDS = frozenset({games_service.OccupantKind.LLM, games_service.OccupantKind.RULE_BASED})
+
+
+def _students_of(game: games_service.ClassGame) -> list[uuid.UUID]:
+    return [
+        seat.user_id
+        for seat in game.seats
+        if seat.occupant_kind == games_service.OccupantKind.STUDENT and seat.user_id is not None
+    ]
+
+
+def _seated(games: list[games_service.ClassGame]) -> set[uuid.UUID]:
+    return {student for game in games for student in _students_of(game)}
+
+
+def _open_seats(game: games_service.ClassGame, *, locked: bool) -> list[str]:
+    """The Roles a late registrant may take in the Class game: before the lock its free Seats,
+    after it the Seats an AI player holds in a game that has its snapshot. Only `not_started`."""
+    if game.lifecycle != games_service.Lifecycle.NOT_STARTED:
+        return []
+    if not locked:
+        return [seat.role for seat in game.seats if seat.occupant_kind is None]
+    if not game.has_snapshot:
+        return []
+    return [seat.role for seat in game.seats if seat.occupant_kind in AI_KINDS]
+
+
+async def students_without_seat(class_session_id: uuid.UUID) -> list[uuid.UUID]:
+    """The registered Students of the Class session's Class who hold no Seat in its Class games,
+    sorted (Story 5.13): after the lock, those no not-started game could seat, for the make-up of
+    Epic 13. Before an allocation is confirmed that is every registered Student."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, class_session_id)
+        if row is None:
+            return []
+        seated = _seated(await games_service.class_games(s, class_session_id))
+    registered = await classes.registered_students(row["class_id"])
+    return sorted(student for student in registered if student not in seated)
+
+
+async def _seating_candidates(
+    now: datetime,
+) -> list[tuple[Mapping[str, Any], list[games_service.ClassGame], set[uuid.UUID]]]:
+    """Each confirmed Class session of a Class that is not archived where a Seat may still change
+    hands: not locked, or locked with an opened game that has not started. With its Class games
+    and its registered Students now."""
+    async with get_sessionmaker().begin() as s:
+        sessions = await repo.confirmed_sessions(s)
+        unstarted = set(await games_service.class_sessions_with_unstarted_games(s))
+    found = []
+    for row in sessions:
+        if is_locked(row, now=now) and row["id"] not in unstarted:
+            continue
+        if not await classes.is_writable(row["class_id"]):
+            continue
+        async with get_sessionmaker().begin() as s:
+            games = await games_service.class_games(s, row["id"])
+        registered = set(await classes.registered_students(row["class_id"]))
+        found.append((row, games, registered))
+    return found
+
+
+async def late_registrants(now: datetime) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """The sweep's `sessions.seat_late_registrant` finder (AD-9): `(class_session_id, user_id)` of
+    each registered Student without a Seat in a confirmed Class session that can still seat them:
+    before the lock always (a free Seat or a new Class game), after it only while an opened game
+    that has not started has a Seat an AI player holds."""
+    due: list[tuple[uuid.UUID, uuid.UUID]] = []
+    for row, games, registered in await _seating_candidates(now):
+        locked = is_locked(row, now=now)
+        if locked and not any(_open_seats(game, locked=True) for game in games):
+            continue
+        seated = _seated(games)
+        due.extend((row["id"], student) for student in sorted(registered - seated))
+    return due
+
+
+async def removed_students(now: datetime) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """The sweep's `sessions.replace_removed_student` finder (AD-9): `(class_session_id, user_id)`
+    of each Student no longer registered who holds a Seat in an opened Class game that has not
+    started, in a locked Class session. Before the lock the open does it (Story 5.12)."""
+    due: list[tuple[uuid.UUID, uuid.UUID]] = []
+    for row, games, registered in await _seating_candidates(now):
+        if row["locked_at"] is None:
+            continue
+        held = {
+            student
+            for game in games
+            if game.has_snapshot and game.lifecycle == games_service.Lifecycle.NOT_STARTED
+            for student in _students_of(game)
+        }
+        due.extend((row["id"], student) for student in sorted(held - registered))
+    return due
+
+
+def _item(item: object) -> tuple[uuid.UUID, uuid.UUID]:
+    if not isinstance(item, tuple) or len(item) != 2:
+        raise TypeError("a late-seating item is (class_session_id, user_id)")
+    class_session_id, user_id = item
+    if not isinstance(class_session_id, uuid.UUID) or not isinstance(user_id, uuid.UUID):
+        raise TypeError("a late-seating item holds two ids")
+    return class_session_id, user_id
+
+
+async def seat_late_registrant_due(item: object, now: datetime) -> bool:
+    """The sweep's `sessions.seat_late_registrant` action: one Student per transaction, ids
+    only."""
+    class_session_id, user_id = _item(item)
+    return await seat_late_registrant(class_session_id, user_id, now=now)
+
+
+async def replace_removed_student_due(item: object, now: datetime) -> bool:
+    """The sweep's `sessions.replace_removed_student` action: one Student per transaction, ids
+    only."""
+    class_session_id, user_id = _item(item)
+    return await replace_removed_student(class_session_id, user_id)
+
+
+async def _tell_users(s: AsyncSession, students: set[uuid.UUID]) -> None:
+    for student in sorted(students):
+        await events.emit(s, "user", str(student))
+
+
+async def seat_late_registrant(
+    class_session_id: uuid.UUID, user_id: uuid.UUID, *, now: datetime | None = None
+) -> bool:
+    """Seat a Student who registered after the allocation was confirmed (Story 5.13, FR-20), in
+    one transaction under the Class session's row lock.
+
+    Before the lock: a random free Role of a random Class game with a free Seat, through
+    `games.commands.assign_seat`; when every Seat is taken a new Class game (the next number, no
+    settings) through `games.commands.create`, whose other Seats get AI players at the lock. After
+    the lock: a random Seat an AI player holds in a random opened Class game that has not started,
+    through `assign_seat` with `replace` (the AI player's row stays, AD-5). A game that started
+    meanwhile refuses under its row lock and the next one is tried; with none left the Student
+    stays without a Seat (`students_without_seat`).
+
+    The draft gains the Seat under a new revision, the Student gets the allocation notice, they and
+    the game's other Students get `user:<id>` and the staff `session:<id>`. Nothing (False) for a
+    Student who is seated or not registered, an allocation that is not confirmed or an archived
+    Class: the sweep may call it again at any time."""
+    now = now or auth.utcnow()
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, class_session_id, lock=True)
+        if row is None or not await classes.is_writable(row["class_id"], session=s):
+            return False
+        draft = await repo.draft_of(s, class_session_id)
+        if draft is None or draft["confirmed_at"] is None:
+            return False
+        if user_id not in await classes.registered_students(row["class_id"]):
+            return False
+        if await games_service.student_seated(s, class_session_id, user_id):
+            return False
+        locked = is_locked(row, now=now)
+        games = await games_service.class_games(s, class_session_id)
+        candidates = [game for game in games if _open_seats(game, locked=locked)]
+        _rng.shuffle(candidates)
+        placed: tuple[games_service.ClassGame | None, int, str] | None = None
+        for game in candidates:
+            role = _rng.choice(_open_seats(game, locked=locked))
+            try:
+                await games_commands.assign_seat(
+                    str(game.id),
+                    role,
+                    games_service.OccupantKind.STUDENT,
+                    user_id=user_id,
+                    replace=locked,
+                    within=s,
+                )
+            except games_commands.CommandError as refused:
+                if refused.code != "game_already_started":
+                    raise
+                continue  # it started since it was read: its Seats are never given away
+            placed = (game, game.number, role)
+            break
+        if placed is None:
+            if locked:
+                log.info(
+                    "late_registrant_without_seat",
+                    class_session_id=str(class_session_id),
+                    user_id=str(user_id),
+                )
+                return False
+            number = max((game.number for game in games), default=0) + 1
+            role = _rng.choice([r.value for r in ROLES])
+            game_id = await games_commands.create(
+                games_service.Purpose.CLASS,
+                class_session_id=class_session_id,
+                game_number=number,
+                within=s,
+            )
+            await games_commands.assign_seat(
+                game_id, role, games_service.OccupantKind.STUDENT, user_id=user_id, within=s
+            )
+            placed = (None, number, role)
+        game, number, role = placed
+        assignments = [dict(a) for a in draft["assignments"] if a["user_id"] != str(user_id)]
+        assignments.append({"user_id": str(user_id), "game_number": number, "role": role})
+        assignments.sort(key=lambda a: (a["game_number"], SEAT_ORDER.index(Role(a["role"]))))
+        revision = draft["revision"] + 1
+        await repo.update_draft(s, class_session_id, assignments=assignments, revision=revision)
+        await notify.enqueue(
+            s,
+            user_id,
+            ALLOCATION_NOTICE,
+            f"{ALLOCATION_NOTICE}:{draft['id']}:{revision}:{user_id}",
+            ref=class_session_id,
+        )
+        await _tell_users(s, {user_id, *(_students_of(game) if game is not None else [])})
+        await events.emit(s, "session", str(class_session_id))
+    log.info(
+        "late_registrant_seated",
+        class_session_id=str(class_session_id),
+        game_number=number,
+        new_game=game is None,
+        replaced_ai=locked,
+    )
+    return True
+
+
+async def replace_removed_student(class_session_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    """Give each Seat a Student removed from the Roster holds in an opened Class game that has not
+    started the AI player the session's AI mode gives (Story 5.13, FR-7): `llm` with a model
+    config in the snapshot, else `rule_based`, reason `initial`, through
+    `games.commands.assign_seat` with `replace` (the Student's row stays, AD-5), in one
+    transaction under the Class session's row lock. A game that has started is left as it is (the
+    Lecturer's Takeover, Epic 8). The removed Student and the game's other Students get
+    `user:<id>`, the staff `session:<id>`. Nothing (False) before the lock, for a registered
+    Student or an archived Class."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, class_session_id, lock=True)
+        if row is None or row["locked_at"] is None:
+            return False
+        if not await classes.is_writable(row["class_id"], session=s):
+            return False
+        if user_id in await classes.registered_students(row["class_id"]):
+            return False
+        runtime = games_service.SessionRuntime.model_validate(row["snapshot"]["session_runtime"])
+        ai = (
+            games_service.OccupantKind.LLM
+            if runtime.model_config_id is not None
+            else games_service.OccupantKind.RULE_BASED
+        )
+        told: set[uuid.UUID] = set()
+        replaced = 0
+        for game in await games_service.class_games(s, class_session_id):
+            if not game.has_snapshot or game.lifecycle != games_service.Lifecycle.NOT_STARTED:
+                continue
+            for seat in game.seats:
+                if (
+                    seat.occupant_kind != games_service.OccupantKind.STUDENT
+                    or seat.user_id != user_id
+                ):
+                    continue
+                try:
+                    await games_commands.assign_seat(
+                        str(game.id), seat.role, ai, replace=True, within=s
+                    )
+                except games_commands.CommandError as refused:
+                    if refused.code != "game_already_started":
+                        raise
+                    continue
+                replaced += 1
+                told |= set(_students_of(game))
+        if not replaced:
+            return False
+        await _tell_users(s, told)
+        await events.emit(s, "session", str(class_session_id))
+    log.info(
+        "removed_student_replaced",
+        class_session_id=str(class_session_id),
+        ai_player=ai.value,
+        seats=replaced,
+    )
+    return True

@@ -192,6 +192,7 @@ function hundredGames(): Allocation {
     confirmed: false,
     confirmed_at: null,
     opened: false,
+    without_seat: [],
     draft: {
       id: "00000000-0000-0000-0000-00000000aaaa",
       revision: 1,

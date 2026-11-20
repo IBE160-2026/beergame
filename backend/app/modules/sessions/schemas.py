@@ -330,6 +330,13 @@ class AllocationSeatOut(BaseModel):
     name: str | None
 
 
+class AllocationStudentOut(BaseModel):
+    """A registered Student without a Seat (Story 5.13)."""
+
+    user_id: uuid.UUID
+    name: str
+
+
 class AllocationGameOut(BaseModel):
     """One Class game of the draft: its number and its four Seats, Fabrikk first."""
 
@@ -364,6 +371,9 @@ class AllocationOut(BaseModel):
     opened: bool = False
     """Every Class game has its snapshot and AI players (Story 5.12): the games then list the
     Seats as the Class games hold them, each with its `lifecycle`."""
+    without_seat: list[AllocationStudentOut] = []
+    """Once the session is locked: the registered Students no Class game could seat (Story
+    5.13), by name. Empty before the lock, when a late registrant is seated within a minute."""
 
 
 class AllocationConfirmIn(BaseModel):

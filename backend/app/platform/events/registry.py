@@ -53,6 +53,12 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # a missing provider key tells each owner and Admin once, which emits `user`. With no
         # confirmed allocation the lock allocates and seats the Students (`game`, Story 5.12).
         "sessions.lock": frozenset({"game", "session", "user"}),
+        # A late registrant seated, or a removed Student's Seat given to an AI player (Story
+        # 5.13): the Seat changes through `games.assign_seat` (`game`), the staff read the
+        # session again, and the Students of that game (and the one seated, with the allocation
+        # notice) reload their pages.
+        "sessions.seat_late_registrant": frozenset({"game", "session", "user"}),
+        "sessions.replace_removed_student": frozenset({"game", "session", "user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

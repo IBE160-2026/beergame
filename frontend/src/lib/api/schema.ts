@@ -1494,6 +1494,11 @@ export interface components {
             opened: boolean;
             /** Registered Count */
             registered_count: number;
+            /**
+             * Without Seat
+             * @default []
+             */
+            without_seat: components["schemas"]["AllocationStudentOut"][];
         };
         /**
          * AllocationSeatOut
@@ -1507,6 +1512,19 @@ export interface components {
             role: components["schemas"]["Role"];
             /** User Id */
             user_id: string | null;
+        };
+        /**
+         * AllocationStudentOut
+         * @description A registered Student without a Seat (Story 5.13).
+         */
+        AllocationStudentOut: {
+            /** Name */
+            name: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
         };
         /**
          * AuditActor

@@ -198,6 +198,7 @@ async def test_with_every_student_removed_the_draft_goes(klass):
         "confirmed": False,
         "confirmed_at": None,
         "opened": False,
+        "without_seat": [],
     }
     assert counts()[0] == 0
 

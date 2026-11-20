@@ -213,6 +213,7 @@ async def test_with_no_registered_student_nothing_is_drawn(klass, emitted):
             "confirmed": False,
             "confirmed_at": None,
             "opened": False,
+            "without_seat": [],
         }
     assert emitted == []
     assert rows(
@@ -235,6 +236,7 @@ async def test_a_redraw_after_every_student_left_removes_the_draft(klass, emitte
         "confirmed": False,
         "confirmed_at": None,
         "opened": False,
+        "without_seat": [],
     }
     assert (await redraw(session_id)).json() == empty
     assert emitted == [("session", session_id)]
@@ -257,6 +259,8 @@ async def test_a_late_registrant_is_counted_missing_and_a_removed_student_loses_
     )
     body = (await read(session_id)).json()
     assert (body["registered_count"], body["missing_count"]) == (3, 1)
+    # Before the lock nobody is listed as without a Seat (Story 5.13).
+    assert body["without_seat"] == []
     assert body["draft"]["id"] == drawn["draft"]["id"]
     seats = {seat["user_id"]: seat["name"] for seat in body["draft"]["games"][0]["seats"]}
     assert str(first[0]) in seats and seats[str(first[0])] is None

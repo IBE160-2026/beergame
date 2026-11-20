@@ -1116,6 +1116,10 @@ export const nb = {
       openedLead: (students: number, games: number) =>
         `${students} ${students === 1 ? "student" : "studenter"} i ${games} Klassespill. Hver søyle er ett spill, hver rad en Rolle.`,
       openedSeats: "Tomme seter er fylt med KI-spillere.",
+      // Story 5.13: [ASSUMPTION] draft copy. After the lock, Students no Class game could seat.
+      /** «2 registrerte studenter har ikke sete: Ida Hansen, Sara Berg.» */
+      withoutSeat: (names: readonly string[]) =>
+        `${names.length} ${names.length === 1 ? "registrert student har" : "registrerte studenter har"} ikke sete: ${names.join(", ")}.`,
       /** A Class game's state, shown apart after its Seats. */
       lifecycle: {
         not_started: "Ikke startet.",

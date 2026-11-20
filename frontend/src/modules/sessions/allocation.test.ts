@@ -15,8 +15,9 @@ import {
   seatMark,
   targetLabel,
   ticks,
+  withoutSeatLine,
 } from "./allocation";
-import type { AllocationGame } from "./api";
+import type { Allocation, AllocationGame } from "./api";
 
 const game: AllocationGame = {
   number: 17,
@@ -106,5 +107,33 @@ describe("moving and swapping (Story 5.10)", () => {
     expect(movedLine(ida, free)).toBe("Ida er flyttet til Fabrikk i Spill 4.");
     expect(invalidMoveReason({ from: "last_student" })).toBe(nb.sessions.allocation.moveLastStudent);
     expect(invalidMoveReason({ to: "same" })).toBe(nb.sessions.allocation.moveInvalid);
+  });
+});
+
+describe("Students without a Seat after the lock (Story 5.13)", () => {
+  const base: Allocation = {
+    registered_count: 6,
+    missing_count: 0,
+    draft: null,
+    confirmed: true,
+    confirmed_at: null,
+    opened: true,
+    without_seat: [],
+  };
+
+  it("names them in one line, and says nothing when every Student is seated", () => {
+    expect(withoutSeatLine(base)).toBe("");
+    expect(withoutSeatLine({ ...base, without_seat: [{ user_id: "a", name: "Ida Hansen" }] })).toBe(
+      "1 registrert student har ikke sete: Ida Hansen.",
+    );
+    expect(
+      withoutSeatLine({
+        ...base,
+        without_seat: [
+          { user_id: "a", name: "Ida Hansen" },
+          { user_id: "b", name: "Sara Berg" },
+        ],
+      }),
+    ).toBe("2 registrerte studenter har ikke sete: Ida Hansen, Sara Berg.");
   });
 });

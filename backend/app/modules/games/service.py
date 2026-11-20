@@ -77,10 +77,12 @@ __all__ = [
     "class_game_ids",
     "class_games",
     "class_sessions_awaiting_snapshot",
+    "class_sessions_with_unstarted_games",
     "complete_running_games",
     "create_batch",
     "games_charged_to",
     "scope_of",
+    "student_seated",
     "decision_log",
     "finished_game_ids",
     "game_summary",
@@ -146,6 +148,20 @@ async def class_games(session: AsyncSession, class_session_id: uuid.UUID) -> lis
 async def class_sessions_awaiting_snapshot(session: AsyncSession) -> list[uuid.UUID]:
     """The Class sessions with a Game that is `not_started` and has no snapshot (Story 5.12)."""
     return await repo.class_sessions_awaiting_snapshot(session)
+
+
+async def class_sessions_with_unstarted_games(session: AsyncSession) -> list[uuid.UUID]:
+    """The Class sessions with a Game that has its snapshot and is `not_started`: where a late
+    registrant can still take an AI player's Seat, or a removed Student's Seat can go to one
+    (Story 5.13)."""
+    return await repo.class_sessions_with_unstarted_games(session)
+
+
+async def student_seated(
+    session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> bool:
+    """Whether the Student holds a Seat in a Game of the Class session now (Story 5.13)."""
+    return await repo.student_seated(session, class_session_id, user_id)
 
 
 async def get_game(game_id: str) -> GameOverview | None:
