@@ -1558,3 +1558,29 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 120: beslutninger i Story 6.2.
+
+## Story 6.3: Gjøre startoppgaven (2026-11-20)
+
+### Oppgave
+Bygge Story 6.3 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-3-do-the-starting-task.md`.
+- **Commit 4a5c3a7:**
+  - modulene `content` og `tests`, migrasjon 0046 og `score_sum`;
+  - tre ruter for startoppgaven og siden `/spill/{id}/startoppgave`;
+  - komponenten `column-item`.
+- **Tester:**
+  - backend: 2628 tester;
+  - frontend: Vitest 480 og bygg;
+  - Playwright: 305 tester med 2 arbeidere;
+  - én ny test tar 1,1 s.
+- **Gjennomgang:** 55 funn. 2 middels grupper ble rettet.
+- **Visuell kontroll:** 19 skjermbilder i `screenshots/6.3/`. Ingen klare avvik; tre punkter er samlet til avslutningen av epicet.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 121: beslutninger i Story 6.3.
