@@ -1435,3 +1435,28 @@ Bygge med `bmad-build-auto` etter samme mønster som 5.15, gjøre en visuell kon
 
 ### Åpne punkter
 - Issue 114: beslutninger i Story 5.16.
+
+## Story 5.17: La studentene velge klassespill og plass (kuttliste, `FEATURE_STUDENT_CHOICE`) (2026-11-20)
+
+### Oppgave
+Bygge Story 5.17 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-17-let-students-choose-class-game-and-seat.md`.
+- **Commit 441ffb8:**
+  - «Fordelingsmåte» for faglæreren, med migrasjon 0042;
+  - siden «Velg spill og sete» for studentene og lenken på Hjem;
+  - et nytt steg i sveipet for studenter som registrerer seg sent.
+- **Tester:**
+  - backend: 2606 tester;
+  - frontend: Vitest 452, typecheck og bygg;
+  - Playwright: den nye filen passerer 6/6. 7 andre tester feilet under last og passerte ved ny kjøring.
+- **Gjennomgang:** 48 funn, 16 grupper rettet og 1 utsatt. Byggeagenten anbefaler en oppfølgende gjennomgang.
+- **Visuell kontroll:** 20 skjermbilder i `screenshots/5.17/`. To avvik er rettet (a42b1d3).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 115: beslutninger i Story 5.17.
