@@ -1324,3 +1324,28 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 109: beslutninger og utsatte punkter i Story 5.11.
+
+## Story 5.12: Åpne klassespillene på det frosne øyeblikksbildet (2026-11-20)
+
+### Oppgave
+Bygge Story 5.12 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en kort visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-12-open-class-games-on-frozen-snapshot.md`.
+- **Commit 7e011a7:**
+  - `set_snapshot`, og KI-spillere på ledige plasser;
+  - automatisk fordeling ved låsing;
+  - fullføring av åpninger i sveipet;
+  - lista over åpnede spill i «Fordeling».
+- **Tester:**
+  - backend: 2518 tester;
+  - frontend: Vitest 432, typecheck, bygg og Playwright 262.
+- **Gjennomgang:** 46 funn, 13 rettet og 2 utsatt. Byggeagenten anbefaler en oppfølgende gjennomgang.
+- **Visuell kontroll:** 8 skjermbilder i `screenshots/5.12/`. Ett avvik er rettet (0d21d83).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 110: beslutninger og utsatte punkter i Story 5.12.
