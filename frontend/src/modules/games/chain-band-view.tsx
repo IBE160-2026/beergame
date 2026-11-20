@@ -42,7 +42,7 @@ export function ChainBandView({
 
   const slots = state.supply_line_slots.map((slot) => slot.quantity);
   return (
-    <div data-chain-band="" className="-mx-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] mb-4 lg:mx-0 lg:max-w-[28rem]">
+    <div data-chain-band="" className="-mx-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] mb-4 max-w-[28rem] lg:mx-0">
       <p className="sr-only">{bandSentence(state)}</p>
       <div ref={box} aria-hidden="true" className="min-h-[6em] text-caption">
         {size && size.width > 0 ? (
