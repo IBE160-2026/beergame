@@ -1629,3 +1629,27 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 123: beslutninger i Story 6.5, og en merknad om hvordan et helt spill kan kjøres i de siste reisene.
+
+## Story 6.6: Se uka til plassen min i uketabellen (2026-11-20)
+
+### Oppgave
+Bygge Story 6.6 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-6-see-my-seat-week-in-week-table.md`.
+- **Commit 1243a70:**
+  - `GET /api/me/games/{id}/play`, og Netto lager i motoren (`SeatState` v2);
+  - Topplinja og uketabellen på `/spill/{id}`, med oppsett for telefon, nettbrett og laptop.
+- **Tester:**
+  - backend: 2674 tester (65 s), og dekningen av motoren er 100 %;
+  - frontend: Vitest 504 og bygg;
+  - Playwright: 330 tester med 2 arbeidere.
+- **Gjennomgang:** 33 lave funn. 11 ble rettet.
+- **Visuell kontroll:** 24 skjermbilder i `screenshots/6.6/`. Tre avvik er rettet (94d50db).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 124: beslutninger i Story 6.6.
