@@ -6,6 +6,7 @@ import { type KeyboardEvent, type RefObject, useEffect, useId, useRef, useState 
 import { ActionError } from "@/components/action-error";
 import { Button } from "@/components/button";
 import { ScrollRegion } from "@/components/scroll-region";
+import { SegmentedChoice } from "@/components/segmented-choice";
 import { ViewToggle } from "@/components/view-toggle";
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
@@ -20,6 +21,7 @@ import {
   gameState,
   holderName,
   invalidMoveReason,
+  isChoosing,
   movedLine,
   nextGame,
   pickLabel,
@@ -32,6 +34,7 @@ import {
 import {
   type Allocation,
   type AllocationGame,
+  type AllocationMethod,
   allocationKey,
   type ClassSession,
   confirmAllocation,
@@ -61,12 +64,22 @@ const copy = nb.sessions.allocation;
  * them, with «KI-spiller» in every other Seat, and each game's line ends with its state. Once
  * locked, the block and the panel name the registered Students no Class game could seat (Story
  * 5.13); a late registrant is otherwise seated by the sweep within a minute.
+ *
+ * With `FEATURE_STUDENT_CHOICE` (Story 5.17) the block offers the allocation method as Valgknapper
+ * until an allocation is confirmed; the choice (`method`) takes effect on «Lagre Klasseøkt». Once
+ * Student choice is saved the block says the Students choose, and the panel shows the Class games
+ * as their Seats hold them, read-only, with every empty Seat «Ledig».
  */
 export function AllocationBlock({
   item,
+  method = item.allocation_method,
+  onMethodChange,
   onConfirmShown,
 }: {
   item: ClassSession;
+  /** The allocation method as chosen on the screen, saved with «Lagre Klasseøkt». */
+  method?: AllocationMethod;
+  onMethodChange?: (method: AllocationMethod) => void;
   onConfirmShown?: (shown: boolean) => void;
 }) {
   const queryClient = useQueryClient();
@@ -78,9 +91,22 @@ export function AllocationBlock({
   const stateRef = useRef<HTMLParagraphElement>(null);
   const allocation = found.data;
   const confirmed = allocation?.confirmed ?? false;
+  const choosing = isChoosing(allocation);
+  // Student choice chosen on the screen, not yet saved: nothing is drawn meanwhile.
+  const choicePending = method === "student_choice" && item.allocation_method !== "student_choice";
   // Drawing and confirming end with the confirmation; moving and swapping last until the lock.
-  const canDraw = item.can_manage && !item.locked && !confirmed;
-  const canMove = item.can_manage && !item.locked;
+  // With Student choice the Students take the Seats themselves (Story 5.17).
+  const studentChoice = item.allocation_method === "student_choice";
+  const canDraw = item.can_manage && !item.locked && !confirmed && !studentChoice;
+  const canMove = item.can_manage && !item.locked && !studentChoice;
+  // Shown once the block is read, so a confirmed allocation never flashes the choice.
+  const methodShown =
+    allocation !== undefined &&
+    item.student_choice_enabled &&
+    item.can_manage &&
+    !item.locked &&
+    !studentChoice &&
+    !confirmed;
   const confirmShown = open && allocation?.draft != null && canDraw;
   useEffect(() => {
     onConfirmShown?.(confirmShown);
@@ -105,7 +131,8 @@ export function AllocationBlock({
   const draft = allocation?.draft ?? null;
   const nobody = allocation !== undefined && allocation.registered_count === 0;
   // A draft stored before every Student left can still be seen, and cleared by a new draw.
-  const openable = allocation !== undefined && (draft !== null || (!nobody && canDraw));
+  const openable =
+    allocation !== undefined && !choicePending && (draft !== null || (!nobody && canDraw));
   // A redraw with nobody left removes the draft: the panel closes to the block.
   useEffect(() => {
     if (open && allocation !== undefined && draft === null) {
@@ -153,13 +180,37 @@ export function AllocationBlock({
         <p ref={stateRef} tabIndex={-1} className="mt-2 text-body-phone text-ink focus:outline-none lg:text-body">
           {allocation.opened
             ? copy.opened
-            : confirmed
-              ? copy.confirmed
-              : nobody && draft === null
-                ? copy.nobody
-                : copy.notConfirmed}
+            : choosing
+              ? copy.choiceState
+              : confirmed
+                ? copy.confirmed
+                : nobody && draft === null
+                  ? copy.nobody
+                  : copy.notConfirmed}
         </p>
       )}
+      {methodShown && onMethodChange ? (
+        <div className="mt-4">
+          <SegmentedChoice<AllocationMethod>
+            name="allocation-method"
+            className="lg:[&_label]:flex-none"
+            legend={copy.method}
+            options={[
+              { value: "random", label: copy.methodRandom },
+              { value: "student_choice", label: copy.methodChoice },
+            ]}
+            value={method}
+            onChange={onMethodChange}
+            describedBy={`${ids}-method`}
+          />
+          <p id={`${ids}-method`} className="mt-2 max-w-prose text-body-phone text-ink-secondary">
+            {method === "student_choice" ? copy.methodChoiceHelp : copy.methodRandomHelp}
+          </p>
+          {choicePending ? (
+            <p className="mt-2 max-w-prose text-body-phone text-ink lg:text-body">{copy.methodChoicePending}</p>
+          ) : null}
+        </div>
+      ) : null}
       {allocation && withoutSeatLine(allocation) ? (
         <p className="mt-2 max-w-prose text-body-phone text-ink lg:text-body">{withoutSeatLine(allocation)}</p>
       ) : null}
@@ -215,6 +266,7 @@ function Preview({
   const [selected, setSelected] = useState(1);
   const [result, setResult] = useState("");
   const shown = games.find((game) => game.number === selected) ?? games[0];
+  const choosing = isChoosing(allocation);
   const students = games.reduce((sum, game) => sum + game.seats.filter((seat) => seat.user_id != null).length, 0);
   const redraw = useAction({
     mutationFn: () => redrawAllocation(item.id),
@@ -321,7 +373,11 @@ function Preview({
           </p>
         ) : null}
         <p className="mt-2 max-w-prose text-body-phone text-ink-secondary lg:text-body">
-          {allocation.opened ? copy.openedLead(students, games.length) : copy.lead(students)}
+          {allocation.opened
+            ? copy.openedLead(students, games.length)
+            : choosing
+              ? copy.choiceLead(students)
+              : copy.lead(students)}
         </p>
         <p className="max-w-prose text-body-phone text-ink-secondary lg:text-body">
           {allocation.opened ? copy.openedSeats : copy.emptySeats}
@@ -330,7 +386,7 @@ function Preview({
           <p className="mt-2 max-w-prose text-body-phone text-ink lg:text-body">{withoutSeatLine(allocation)}</p>
         ) : allocation.missing_count > 0 ? (
           <p className="mt-2 max-w-prose text-body-phone text-ink">
-            {copy.missing(allocation.missing_count)}
+            {choosing ? copy.choiceMissing(allocation.missing_count) : copy.missing(allocation.missing_count)}
             {canDraw ? ` ${copy.missingRedraw}` : null}
           </p>
         ) : null}
@@ -352,7 +408,7 @@ function Preview({
             {copy.chartLabel}
           </p>
           <ScrollRegion labelledBy={`${ids}-chart`}>
-            <AllocationChart games={games} selected={shown.number} onSelect={setSelected} />
+            <AllocationChart games={games} selected={shown.number} onSelect={setSelected} choosing={choosing} />
           </ScrollRegion>
           {canMove ? (
             <SeatList
@@ -376,7 +432,7 @@ function Preview({
           ) : (
             <p className="text-body-phone text-ink lg:text-body">
               <span className="mr-3 font-semibold">{copy.game(shown.number)}</span>
-              {gameLine(shown)}
+              {gameLine(shown, choosing)}
               <GameState game={shown} />
             </p>
           )}
@@ -386,7 +442,7 @@ function Preview({
           {games.map((game) => (
             <li key={game.number} className="text-body-phone text-ink lg:text-body">
               <span className="mr-3 font-semibold">{copy.game(game.number)}</span>
-              {gameLine(game)}
+              {gameLine(game, choosing)}
               <GameState game={game} />
             </li>
           ))}
@@ -590,10 +646,13 @@ function AllocationChart({
   games,
   selected,
   onSelect,
+  choosing = false,
 }: {
   games: AllocationGame[];
   selected: number;
   onSelect: (number: number) => void;
+  /** Students choose (Story 5.17): an empty Seat is named «Ledig». */
+  choosing?: boolean;
 }) {
   const refs = useRef(new Map<number, SVGGElement>());
   const [focused, setFocused] = useState(false);
@@ -641,7 +700,7 @@ function AllocationChart({
             role="button"
             tabIndex={isSelected ? 0 : -1}
             aria-pressed={isSelected}
-            aria-label={gameLabel(game)}
+            aria-label={gameLabel(game, choosing)}
             className="cursor-pointer outline-none"
             onClick={() => onSelect(game.number)}
             onKeyDown={move}

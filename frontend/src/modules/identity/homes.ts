@@ -41,6 +41,9 @@ export const classStaffPath = (id: string) => `${classPath(id)}/faglaerere`;
 /** A Class session's Klasseøkt screen (Story 5.1). */
 export const classSessionPath = (id: string) => `/klasseokter/${encodeURIComponent(id)}`;
 
+/** A Student's «Velg spill og sete» in a Class session with Student choice (Story 5.17). */
+export const seatChoicePath = (id: string) => `${classSessionPath(id)}/velg-sete`;
+
 /** The link that leads to each home («Til Lærerhjem» …). */
 export const HOME_LINK: Record<Home, string> = {
   adminArea: nb.navigation.toAdminArea,

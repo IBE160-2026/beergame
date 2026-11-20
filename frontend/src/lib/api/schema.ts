@@ -551,6 +551,14 @@ export interface paths {
          *     under 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once
          *     locked a changed one answers 409 `session_locked`. Switching the mark on tells each
          *     registered Student through the day's digest mail.
+         *
+         *     `allocation_method` (Story 5.17, FR-21), left out, keeps the method. `student_choice` creates
+         *     empty Class games for the registered Students and tells each of them through the day's digest
+         *     mail that they may choose a Class game and a Seat. A changed method answers 422
+         *     `feature_disabled` (`{"allocation_method": "feature_disabled"}`) for Student choice while
+         *     `FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409
+         *     `allocation_confirmed` (`{"allocation_method": "confirmed"}`) once an allocation is confirmed:
+         *     Student choice is final once saved.
          */
         put: operations["saveClassSession"];
         post?: never;
@@ -1316,6 +1324,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/class-sessions/{session_id}/seat-choice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Seat Choice
+         * @description «Velg spill og sete» (Story 5.17, FR-21, UX-DR62): the Class session's Class games, each
+         *     Seat free, held by a Student (named) or, after the lock, by an AI player, and the reader's own
+         *     Seat. 404 `not_found` while `FEATURE_STUDENT_CHOICE` is off, for a session that does not use
+         *     Student choice, and for a User who is not a registered Student of its Class (AD-17).
+         */
+        get: operations["getSeatChoice"];
+        /**
+         * Take Seat
+         * @description «Ta setet Grossist i Spill 17» (Story 5.17, FR-21): the Student takes the free Seat, or
+         *     moves to it from the Seat they hold, in one request; their own Seat again changes nothing.
+         *     409 `seat_taken` (`{"seat": "taken"}`) when another occupant holds it, 422 `invalid_seat`
+         *     (`{"seat": "unknown"}`) for a game or Role the session does not have, 409 `session_locked`
+         *     (`{"seat": "locked"}`) once locked, 409 `class_archived` for an archived Class; nothing changes
+         *     then. Not found as the read.
+         */
+        put: operations["takeSeat"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1494,6 +1534,12 @@ export interface components {
             /** Confirmed At */
             confirmed_at: string | null;
             draft: components["schemas"]["AllocationDraftOut"] | null;
+            /**
+             * Method
+             * @default random
+             * @enum {string}
+             */
+            method: "random" | "student_choice";
             /** Missing Count */
             missing_count: number;
             /**
@@ -1726,6 +1772,12 @@ export interface components {
         ClassSessionOut: {
             ai_descriptions: components["schemas"]["AiDescriptionsOut"];
             ai_mode: components["schemas"]["AiMode"];
+            /**
+             * Allocation Method
+             * @default random
+             * @enum {string}
+             */
+            allocation_method: "random" | "student_choice";
             calibrated_settings: components["schemas"]["GameSettings"];
             /** Can Manage */
             can_manage: boolean;
@@ -1790,6 +1842,11 @@ export interface components {
             settings_warnings: components["schemas"]["SettingWarning"][];
             /** Start At */
             start_at: string | null;
+            /**
+             * Student Choice Enabled
+             * @default false
+             */
+            student_choice_enabled: boolean;
             /** Test Deadline */
             test_deadline: string | null;
         };
@@ -1804,6 +1861,8 @@ export interface components {
          */
         ClassSessionSaveIn: {
             ai_mode: components["schemas"]["AiMode"];
+            /** Allocation Method */
+            allocation_method?: ("random" | "student_choice") | null;
             dates?: components["schemas"]["DatesIn"] | null;
             debrief_mode?: components["schemas"]["DebriefMode"] | null;
             /** Effort Level */
@@ -1979,6 +2038,7 @@ export interface components {
             class_name: string;
             /** Debrief Deadline */
             debrief_deadline: string | null;
+            drawn_seat?: components["schemas"]["SeatRef"] | null;
             /**
              * Id
              * Format: uuid
@@ -1993,6 +2053,11 @@ export interface components {
             obligatory: boolean;
             /** Play Deadline */
             play_deadline: string | null;
+            /**
+             * Seat Choice Open
+             * @default false
+             */
+            seat_choice_open: boolean;
             /** Start At */
             start_at: string | null;
             /** Test Deadline */
@@ -2751,6 +2816,75 @@ export interface components {
             suggested_count: number;
             /** Valid Count */
             valid_count: number;
+        };
+        /** SeatChoiceGameOut */
+        SeatChoiceGameOut: {
+            /** Number */
+            number: number;
+            /** Seats */
+            seats: components["schemas"]["SeatChoiceSeatOut"][];
+        };
+        /**
+         * SeatChoiceIn
+         * @description «Ta setet …»: the Seat the Student takes. Anything that names no Seat of the Class
+         *     session's games answers 422 `invalid_seat`.
+         */
+        SeatChoiceIn: {
+            /** Game Number */
+            game_number: number;
+            /** Role */
+            role: string;
+        };
+        /**
+         * SeatChoiceOut
+         * @description «Velg spill og sete» (Story 5.17): the Class session's Class games with their Seats, and
+         *     the reader's own Seat. Never the Game settings, the number of Weeks or the demand.
+         */
+        SeatChoiceOut: {
+            /** Class Name */
+            class_name: string;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Drawn */
+            drawn: boolean;
+            /** Games */
+            games: components["schemas"]["SeatChoiceGameOut"][];
+            my_seat: components["schemas"]["SeatRef"] | null;
+            /** Number */
+            number: number;
+            /** Open */
+            open: boolean;
+            /** Start At */
+            start_at: string | null;
+        };
+        /**
+         * SeatChoiceSeatOut
+         * @description One Seat as «Velg spill og sete» lists it: free, a Student (named now; None once removed
+         *     from the Class) or, after the lock, an AI player. `mine` marks the reader's own Seat.
+         */
+        SeatChoiceSeatOut: {
+            /**
+             * Holder
+             * @enum {string}
+             */
+            holder: "free" | "student" | "ai";
+            /** Mine */
+            mine: boolean;
+            /** Name */
+            name: string | null;
+            role: components["schemas"]["Role"];
+        };
+        /**
+         * SeatRef
+         * @description A Seat named by its Class game's number and its Role: «Grossist i Spill 17».
+         */
+        SeatRef: {
+            /** Game Number */
+            game_number: number;
+            role: components["schemas"]["Role"];
         };
         /** SessionOut */
         SessionOut: {
@@ -6450,6 +6584,117 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getSeatChoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatChoiceOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    takeSeat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeatChoiceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatChoiceOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

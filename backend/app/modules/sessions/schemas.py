@@ -37,6 +37,10 @@ Testfrist (FR-18)."""
 DeadlineName = Literal["play_deadline", "debrief_deadline", "test_deadline"]
 """The three deadlines a Student is reminded of 24 hours ahead (Story 5.14)."""
 
+AllocationMethod = Literal["random", "student_choice"]
+"""How the Students get their Seats (Story 5.17, FR-20, FR-21): drawn at random by the Lecturer
+(Stories 5.8 to 5.13), or taken by each Student before the Start date."""
+
 DateKind = Literal["start", "play", "debrief", "test"]
 """A date by what it is, for «Neste frist»."""
 
@@ -213,6 +217,12 @@ class ClassSessionOut(BaseModel):
     """`FEATURE_INFO_VISIBILITY` (Story 5.16, AD-17): the Klasseøkt offers Information
     visibility. Off, the screen shows nothing about it and the api refuses a view switched on
     (`feature_disabled`)."""
+    allocation_method: AllocationMethod = "random"
+    """How the Students get their Seats (Story 5.17). `student_choice` is final once saved."""
+    student_choice_enabled: bool = False
+    """`FEATURE_STUDENT_CHOICE` (Story 5.17, AD-17): the Klasseøkt offers Student choice. Off, the
+    screen shows no allocation-method choice and the api refuses Student choice
+    (`feature_disabled`)."""
 
 
 class ClassSessionListItem(BaseModel):
@@ -262,11 +272,21 @@ class ClassSessionSaveIn(BaseModel):
     holds."""
     inactivity_limit_hours: StrictInt | None = Field(None, ge=-100_000, le=8760)
     """Whole hours; the service answers `below_minimum` under 20. At most a year (a guard)."""
+    allocation_method: AllocationMethod | None = None
+    """Story 5.17: `student_choice` opens the Students' choice of a Class game and a Seat; left
+    out, the method stays."""
 
 
 class NextDeadline(BaseModel):
     kind: DateKind
     at: datetime
+
+
+class SeatRef(BaseModel):
+    """A Seat named by its Class game's number and its Role: «Grossist i Spill 17»."""
+
+    game_number: int
+    role: Role
 
 
 class EnrolledSessionOut(BaseModel):
@@ -288,6 +308,12 @@ class EnrolledSessionOut(BaseModel):
     obligatory: bool
     lab_hours: list[EnrolledLabHourOut]
     """The Lab hours that have not ended and were not removed, by start (Story 5.6)."""
+    seat_choice_open: bool = False
+    """Story 5.17: the Student may choose a Class game and a Seat now («Velg spill og sete»):
+    `FEATURE_STUDENT_CHOICE` is on, the session uses Student choice and is not locked."""
+    drawn_seat: SeatRef | None = None
+    """Story 5.17: once locked, the Seat the draw gave this Student because they chose none
+    («Du fikk et sete ved trekning: Grossist i Spill 17.»); None otherwise and with the flag off."""
 
 
 class EnrolledSessionListOut(BaseModel):
@@ -381,6 +407,10 @@ class AllocationOut(BaseModel):
     opened: bool = False
     """Every Class game has its snapshot and AI players (Story 5.12): the games then list the
     Seats as the Class games hold them, each with its `lifecycle`."""
+    method: AllocationMethod = "random"
+    """Story 5.17: with `student_choice` the games are the Class games as their Seats hold them,
+    from the save on, empty ones included; `missing_count` is the registered Students without a
+    Seat. Nothing is drawn, confirmed or moved from the panel then."""
     without_seat: list[AllocationStudentOut] = []
     """Once the session is locked: the registered Students no Class game could seat (Story
     5.13), by name. Empty before the lock, when a late registrant is seated within a minute."""
@@ -408,3 +438,51 @@ class AllocationMoveIn(BaseModel):
     from_role: Role
     to_game: StrictInt
     to_role: Role
+
+
+# Student choice (Story 5.17, FR-21, UX-DR62).
+
+
+class SeatChoiceIn(BaseModel):
+    """«Ta setet …»: the Seat the Student takes. Anything that names no Seat of the Class
+    session's games answers 422 `invalid_seat`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    game_number: StrictInt = Field(ge=-1_000_000, le=1_000_000)
+    role: str = Field(max_length=32)
+
+
+SeatHolder = Literal["free", "student", "ai"]
+
+
+class SeatChoiceSeatOut(BaseModel):
+    """One Seat as «Velg spill og sete» lists it: free, a Student (named now; None once removed
+    from the Class) or, after the lock, an AI player. `mine` marks the reader's own Seat."""
+
+    role: Role
+    holder: SeatHolder
+    name: str | None
+    mine: bool
+
+
+class SeatChoiceGameOut(BaseModel):
+    number: int
+    seats: list[SeatChoiceSeatOut]
+    """Fabrikk first, Detaljist last, as every Seat list of the Klasseøkt."""
+
+
+class SeatChoiceOut(BaseModel):
+    """«Velg spill og sete» (Story 5.17): the Class session's Class games with their Seats, and
+    the reader's own Seat. Never the Game settings, the number of Weeks or the demand."""
+
+    class_session_id: uuid.UUID
+    class_name: str
+    number: int
+    start_at: datetime | None
+    open: bool
+    """The Student may take or change a Seat: the session is not locked."""
+    my_seat: SeatRef | None
+    drawn: bool
+    """The Student's Seat came from the draw at the lock, not from their own choice."""
+    games: list[SeatChoiceGameOut]

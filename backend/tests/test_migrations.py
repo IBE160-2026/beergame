@@ -68,7 +68,7 @@ PRE_SESSION_TABLES = (
     | ROSTER_TABLES
 )
 HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES
-HEAD = "0041"  # 0041 stores the deadline reminders of a Class session (Story 5.14)
+HEAD = "0042"  # 0042 adds the allocation method of a Class session (Story 5.17)
 
 
 def reset_schema(url: str) -> None:
@@ -734,14 +734,15 @@ def test_0036_backfills_80_keeps_the_share_in_range_and_its_downgrade_drops_it(
     assert current_version(migrations_database) == HEAD
 
 
-def test_0037_to_0041_keep_drafts_class_games_free_seats_the_lock_and_reminders(
+def test_0037_to_0042_keep_drafts_class_games_free_seats_the_lock_reminders_and_method(
     migrations_database,
 ):
     """0037 (Story 5.8): one current draft per Class session, its revision from 1. 0038 (Story
     5.9): a Game's snapshot is all there or all NULL, a Class game has its session and a unique
     number, and only a `student` occupant has a user id. 0039 (Story 5.10): a free-Seat row has
     no occupant kind and the reason `moved`. 0040 (Story 5.11): a Class session's `locked_at` and
-    `snapshot` are set together. 0041 (Story 5.14): one reminder per deadline and time."""
+    `snapshot` are set together. 0041 (Story 5.14): one reminder per deadline and time. 0042
+    (Story 5.17): the allocation method is `random` or `student_choice`."""
     reset_schema(migrations_database)
     cfg = config(migrations_database)
     command.upgrade(cfg, "head")
@@ -770,6 +771,10 @@ def test_0037_to_0041_keep_drafts_class_games_free_seats_the_lock_and_reminders(
     reminders = constraints("deadline_reminders")
     assert "'test_deadline'" in reminders["ck_deadline_reminders_deadline"]
     assert "deadline, deadline_at)" in reminders["uq_deadline_reminders_deadline"]
+    method = constraints("class_sessions")["ck_class_sessions_allocation_method"]
+    assert "'student_choice'" in method
+    command.downgrade(cfg, "0041")
+    assert "ck_class_sessions_allocation_method" not in constraints("class_sessions")
     command.downgrade(cfg, "0040")
     assert "deadline_reminders" not in tables(migrations_database)
     command.downgrade(cfg, "0039")

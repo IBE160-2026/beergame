@@ -87,6 +87,8 @@ async def enrolled_sessions(session: AsyncSession, user: authz.Principal) -> lis
             _numbered.c.number,
             _numbered.c.obligatory,
             *(_numbered.c[name] for name in DATE_NAMES),
+            _numbered.c.locked_at,
+            _numbered.c.allocation_method,
         )
         .where(_numbered.c.class_id.in_(authz.classes_enrolled_by(user)))
         .order_by(_numbered.c.class_id, _numbered.c.id)
@@ -199,10 +201,13 @@ async def save(
     obligatory: bool,
     required_share_percent: int,
     inactivity_limit_hours: int,
+    allocation_method: str | None = None,
 ) -> None:
     values: dict[str, Any] = {**(dates or {})}
     if game_settings is not None:
         values["game_settings"] = game_settings
+    if allocation_method is not None:
+        values["allocation_method"] = allocation_method
     await session.execute(
         update(class_sessions)
         .where(class_sessions.c.id == session_id)
@@ -251,9 +256,29 @@ async def confirmed_sessions(session: AsyncSession) -> list[RowMapping]:
             class_sessions.c.start_at,
             class_sessions.c.locked_at,
             class_sessions.c.snapshot,
+            class_sessions.c.allocation_method,
         )
         .join(allocation_drafts, allocation_drafts.c.class_session_id == class_sessions.c.id)
         .where(allocation_drafts.c.confirmed_at.is_not(None))
+        .order_by(class_sessions.c.id)
+    )
+    return list(result.mappings())
+
+
+async def open_student_choice_sessions(session: AsyncSession) -> list[RowMapping]:
+    """The Class sessions with Student choice that are not locked (Story 5.17), by id: id, Class,
+    Start date and `locked_at`, what the sweep's `sessions.offer_student_choice` judges."""
+    result = await session.execute(
+        select(
+            class_sessions.c.id,
+            class_sessions.c.class_id,
+            class_sessions.c.start_at,
+            class_sessions.c.locked_at,
+        )
+        .where(
+            class_sessions.c.allocation_method == "student_choice",
+            class_sessions.c.locked_at.is_(None),
+        )
         .order_by(class_sessions.c.id)
     )
     return list(result.mappings())
@@ -275,6 +300,18 @@ async def draft_of(session: AsyncSession, class_session_id: uuid.UUID) -> RowMap
         select(allocation_drafts).where(allocation_drafts.c.class_session_id == class_session_id)
     )
     return result.mappings().one_or_none()
+
+
+async def drafts_of(
+    session: AsyncSession, class_session_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, RowMapping]:
+    """The current drafts of these Class sessions, by session id (Story 5.17)."""
+    if not class_session_ids:
+        return {}
+    result = await session.execute(
+        select(allocation_drafts).where(allocation_drafts.c.class_session_id.in_(class_session_ids))
+    )
+    return {row["class_session_id"]: row for row in result.mappings()}
 
 
 async def delete_draft(session: AsyncSession, class_session_id: uuid.UUID) -> None:

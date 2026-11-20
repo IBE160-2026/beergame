@@ -118,6 +118,7 @@ describe("Students without a Seat after the lock (Story 5.13)", () => {
     confirmed: true,
     confirmed_at: null,
     opened: true,
+    method: "random",
     without_seat: [],
   };
 

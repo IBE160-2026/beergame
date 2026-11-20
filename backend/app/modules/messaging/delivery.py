@@ -111,6 +111,16 @@ async def _allocation_context(
     return await sessions.allocation_mail_context(session, user_id, ref, now)
 
 
+STUDENT_CHOICE_KIND = "student_choice_open"
+"""`sessions.service.STUDENT_CHOICE_NOTICE` (Story 5.17), named here for the same reason."""
+
+
+async def _student_choice_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.student_choice_mail_context(session, user_id, ref, now)
+
+
 LOCK_REFUSED_KIND = "class_session_lock_refused"
 """`sessions.service.LOCK_REFUSED_NOTICE` (Story 5.11), named here for the same reason."""
 
@@ -138,6 +148,7 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         },
         OBLIGATORY_KIND: Delivery(DIGEST, OBLIGATORY_KIND, context=_obligatory_context),
         ALLOCATION_KIND: Delivery(DIGEST, ALLOCATION_KIND, context=_allocation_context),
+        STUDENT_CHOICE_KIND: Delivery(DIGEST, STUDENT_CHOICE_KIND, context=_student_choice_context),
         DEADLINE_REMINDER_KIND: Delivery(
             DIGEST, DEADLINE_REMINDER_KIND, context=_deadline_reminder_context
         ),
@@ -158,7 +169,8 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
 )
 """The product's kinds: `password_reset` (Story 3.6), `invitation` (Story 3.7),
 `manual_registration` (Story 4.8), the Lab hour notices (Story 5.6, digest), the obligatory
-notice (Story 5.7, digest), the allocation notice (Story 5.9, digest), the refused lock
+notice (Story 5.7, digest), the allocation notice (Story 5.9, digest), the Student choice notice
+(Story 5.17, digest), the refused lock
 (Story 5.11, immediate) and the deadline reminder (Story 5.14, digest)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(

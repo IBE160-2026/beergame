@@ -1177,6 +1177,67 @@ export const nb = {
         playing_out: "Spilles ferdig.",
         finished: "Ferdig.",
       },
+      // Story 5.17 (cut list, FEATURE_STUDENT_CHOICE): [ASSUMPTION] draft copy. The allocation
+      // method as Valgknapper, saved with «Lagre Klasseøkt», and the block once Students choose.
+      method: "Fordelingsmåte",
+      methodRandom: "Tilfeldig",
+      methodChoice: "Studentene velger",
+      methodRandomHelp: "Du trekker og bekrefter fordelingen her.",
+      methodChoiceHelp:
+        "Studentene velger spill og sete selv før startdatoen. Den som ikke har valgt da, får et sete ved trekning. Fordelingsmåten kan ikke endres etter at den er lagret.",
+      methodChoicePending: "Lagre Klasseøkt for å åpne valget. Studentene får beskjed på e-post.",
+      methodConfirmed: "Fordelingen er bekreftet. Fordelingsmåten kan ikke endres lenger.",
+      choiceState: "Studentene velger spill og sete selv.",
+      /** «3 studenter har valgt sete. Hver søyle er ett spill, hver rad en Rolle.» */
+      choiceLead: (students: number) =>
+        `${students} ${students === 1 ? "student har" : "studenter har"} valgt sete. Hver søyle er ett spill, hver rad en Rolle.`,
+      /** «2 registrerte studenter har ikke valgt ennå. De får et sete ved trekning på startdatoen.» */
+      choiceMissing: (count: number) =>
+        `${count} ${count === 1 ? "registrert student har" : "registrerte studenter har"} ikke valgt ennå. De får et sete ved trekning på startdatoen.`,
+      freeSeat: "Ledig",
+    },
+    /** «Velg spill og sete» (Story 5.17, UX-DR62). «Grossist, ledig», «Ta setet Grossist i Spill
+     * 17», «Setet ble tatt av en annen. Velg et annet.» and «Du fikk et sete ved trekning:
+     * Grossist i Spill 17.» are the epic's own; the rest is [ASSUMPTION] draft copy. */
+    seatChoice: {
+      title: "Velg spill og sete",
+      /** «class-of-1994, Klasseøkt 1». */
+      session: (className: string, number: number) => `${className}, Klasseøkt ${number}`,
+      /** «Velg før startdatoen ti. 24. nov. kl. 10:00. Du kan bytte til et annet ledig sete fram til da.» */
+      before: (day: string, time: string) =>
+        `Velg før startdatoen ${day} kl. ${time}. Du kan bytte til et annet ledig sete fram til da.`,
+      beforeNoDate: "Velg før startdatoen. Du kan bytte til et annet ledig sete fram til da.",
+      /** «Ditt sete: Grossist i Spill 17.» */
+      mine: (role: string, game: number) => `Ditt sete: ${role} i Spill ${game}.`,
+      none: "Du har ikke valgt sete ennå.",
+      /** «Spill 17». */
+      game: (number: number) => `Spill ${number}`,
+      /** How many of a game's Seats are free: «2 ledige», «1 ledig», «Fullt». */
+      freeCount: (count: number) => (count === 0 ? "Fullt" : `${count} ${count === 1 ? "ledig" : "ledige"}`),
+      /** «Grossist, ledig». */
+      free: (role: string) => `${role}, ledig`,
+      /** «Grossist, Ida Hansen». */
+      held: (role: string, name: string) => `${role}, ${name}`,
+      /** «Grossist, ditt sete». */
+      own: (role: string) => `${role}, ditt sete`,
+      /** The visible mark on a free Seat's button; its name is «Grossist, ledig». */
+      pick: "Velg",
+      /** Under «Ta setet …» for a Student who holds a Seat: «Du gir fra deg Grossist i Spill 1.» */
+      leaves: (role: string, game: number) => `Du gir fra deg ${role} i Spill ${game}.`,
+      removed: "Ikke lenger i Klassen",
+      aiPlayer: "KI-spiller",
+      /** «Ta setet Grossist i Spill 17». */
+      take: (role: string, game: number) => `Ta setet ${role} i Spill ${game}`,
+      taking: "Tar setet …",
+      conflict: "Setet ble tatt av en annen. Velg et annet.",
+      failed: "Setet ble ikke tatt. Prøv igjen.",
+      invalid: "Det setet finnes ikke lenger. Velg et annet.",
+      closed: "Klasseøkten har startet. Setet kan ikke byttes lenger.",
+      /** «Du fikk et sete ved trekning: Grossist i Spill 17.» */
+      drawn: (role: string, game: number) => `Du fikk et sete ved trekning: ${role} i Spill ${game}.`,
+      /** The Lenke on Hjem while the choice is open. */
+      open: "Velg spill og sete",
+      openLine: "Du velger spill og sete selv før startdatoen.",
     },
     /** The Lærerhjem's «Venter» and «Neste frist» (Stories 5.2, 5.9, UX-DR56). [ASSUMPTION] */
     home: {

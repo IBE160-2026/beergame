@@ -6,9 +6,10 @@ import { roleName } from "./sessions";
 const copy = nb.sessions.allocation;
 
 /** Who holds a Seat, in words: the Student's name, «KI-spiller» for an empty Seat, or «Ikke
- * lenger i Klassen» for a Student removed since the draw (Story 5.8). */
-export function holderName(seat: AllocationSeat): string {
-  if (seat.user_id == null) return copy.aiPlayer;
+ * lenger i Klassen» for a Student removed since the draw (Story 5.8). While Students choose
+ * (`choosing`, Story 5.17) an empty Seat is «Ledig»: it may still be taken. */
+export function holderName(seat: AllocationSeat, choosing = false): string {
+  if (seat.user_id == null) return choosing ? copy.freeSeat : copy.aiPlayer;
   return seat.name ?? copy.removed;
 }
 
@@ -34,9 +35,9 @@ export function seatsInReadingOrder(game: AllocationGame): AllocationSeat[] {
 }
 
 /** «Ida, Detaljist. Sara, Grossist. Mikkel, Distributør. KI-spiller, Fabrikk.» */
-export function gameLine(game: AllocationGame): string {
+export function gameLine(game: AllocationGame, choosing = false): string {
   return seatsInReadingOrder(game)
-    .map((seat) => `${copy.seat(holderName(seat), roleName(seat.role))}.`)
+    .map((seat) => `${copy.seat(holderName(seat, choosing), roleName(seat.role))}.`)
     .join(" ");
 }
 
@@ -46,8 +47,14 @@ export function gameState(game: AllocationGame): string {
 }
 
 /** The game's whole line for a screen reader: its Seats, then its state when open. */
-export function gameLabel(game: AllocationGame): string {
-  return [copy.game(game.number) + ":", gameLine(game), gameState(game)].filter(Boolean).join(" ");
+export function gameLabel(game: AllocationGame, choosing = false): string {
+  return [copy.game(game.number) + ":", gameLine(game, choosing), gameState(game)].filter(Boolean).join(" ");
+}
+
+/** Whether the block shows a Student choice the Students are still making (Story 5.17): its empty
+ * Seats read «Ledig», and nothing is drawn, confirmed or moved from the panel. */
+export function isChoosing(allocation: Allocation | undefined): boolean {
+  return allocation?.method === "student_choice" && !allocation.opened;
 }
 
 /** The numbers under the chart: the first game, the selected one and the last, each once. The

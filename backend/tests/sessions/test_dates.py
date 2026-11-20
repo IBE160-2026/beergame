@@ -254,6 +254,8 @@ async def test_the_student_reads_dates_and_the_next_deadline_never_the_settings(
         "next_deadline",
         "obligatory",
         "lab_hours",  # Story 5.6
+        "seat_choice_open",  # Story 5.17
+        "drawn_seat",
     }
     assert (item["id"], item["class_name"], item["number"]) == (session_id, "class-of-1994", 1)
     assert item["next_deadline"]["kind"] == "play"

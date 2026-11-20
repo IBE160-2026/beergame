@@ -55,8 +55,9 @@ export type SettingsDraftBody = Record<string, unknown>;
  * Obligatorisk with its required share (Story 5.7). */
 export type ChoicesBody = Pick<
   ClassSessionSaveIn,
-  "ai_mode" | "effort_level" | "debrief_mode" | "obligatory" | "required_share_percent"
+  "ai_mode" | "effort_level" | "debrief_mode" | "obligatory" | "required_share_percent" | "allocation_method"
 >;
+export type AllocationMethod = ClassSession["allocation_method"];
 type ClassSessionSaveIn = components["schemas"]["ClassSessionSaveIn"];
 
 /** «Lagre Klasseøkt»: saves the Class session as it stands, with its choices (Stories 5.5, 5.7),
@@ -199,6 +200,47 @@ export function moveInAllocation(sessionId: string, draftId: string, revision: n
     api.POST("/api/class-sessions/{session_id}/allocation/move", {
       params: { path: { session_id: sessionId } },
       body: { draft_id: draftId, revision, ...move },
+    }),
+  );
+}
+
+export type EnrolledSession = components["schemas"]["EnrolledSessionOut"];
+export type SeatChoice = components["schemas"]["SeatChoiceOut"];
+export type SeatChoiceGame = components["schemas"]["SeatChoiceGameOut"];
+export type SeatChoiceSeat = components["schemas"]["SeatChoiceSeatOut"];
+
+/** The Student's Class sessions (Story 5.2): Hjem reads Student choice from it (Story 5.17). */
+export const enrolledSessionsKey = ["class-sessions", "enrolled"] as const;
+
+export function useEnrolledSessions() {
+  return useQuery({
+    queryKey: enrolledSessionsKey,
+    queryFn: () => request(() => api.GET("/api/me/class-sessions")),
+    retry: false,
+  });
+}
+
+/** «Velg spill og sete» (Story 5.17): fetched when the screen opens and after each own action;
+ * refetching on `user:<id>` comes with Story 6.4's topic map. */
+export const seatChoiceKey = (id: string) => ["class-sessions", "seat-choice", id] as const;
+
+export function useSeatChoice(sessionId: string) {
+  return useQuery({
+    queryKey: seatChoiceKey(sessionId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/me/class-sessions/{session_id}/seat-choice", { params: { path: { session_id: sessionId } } }),
+      ),
+    retry: false,
+  });
+}
+
+/** «Ta setet …»: takes the free Seat, or moves the Student to it (Story 5.17). */
+export function takeSeat(sessionId: string, gameNumber: number, role: string) {
+  return request(() =>
+    api.PUT("/api/me/class-sessions/{session_id}/seat-choice", {
+      params: { path: { session_id: sessionId } },
+      body: { game_number: gameNumber, role },
     }),
   );
 }

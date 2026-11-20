@@ -213,6 +213,7 @@ async def test_with_no_registered_student_nothing_is_drawn(klass, emitted):
             "confirmed": False,
             "confirmed_at": None,
             "opened": False,
+            "method": "random",  # Story 5.17
             "without_seat": [],
         }
     assert emitted == []
@@ -236,6 +237,7 @@ async def test_a_redraw_after_every_student_left_removes_the_draft(klass, emitte
         "confirmed": False,
         "confirmed_at": None,
         "opened": False,
+        "method": "random",  # Story 5.17
         "without_seat": [],
     }
     assert (await redraw(session_id)).json() == empty

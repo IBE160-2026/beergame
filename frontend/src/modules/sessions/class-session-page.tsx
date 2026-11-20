@@ -20,6 +20,7 @@ import { PageShell } from "@/modules/identity/page-shell";
 import { LINK_BUTTON } from "@/modules/classes/roster-entry-forms";
 
 import {
+  allocationKey,
   checkClassSessionSettings,
   type ClassSession,
   classSessionKey,
@@ -37,6 +38,7 @@ import {
   descriptionBlocks,
   effectLine,
   levelLabel,
+  methodBody,
   withAiMode,
 } from "./choices";
 import { DateFields } from "./date-fields";
@@ -127,6 +129,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   // KI-modus, Innsatsnivå and Debrief-modus as chosen; sent with «Lagre Klasseøkt» (Story 5.5).
   const [choices, setChoices] = useState<ChoicesDraft>(() => choicesOf(item));
   const choosing = item.can_manage && !item.locked;
+  // The allocation method as chosen (Story 5.17); a change to Student choice is sent on save.
+  const [method, setMethod] = useState(item.allocation_method);
   // «Andel uker som kreves» and «Ventetid før KI tar over» (Story 5.7): their reasons show once the
   // field is left or «Lagre Klasseøkt» pressed.
   const [shareChecked, setShareChecked] = useState(false);
@@ -147,7 +151,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
         return await saveClassSession(
           item.id,
           // Once locked the choices stand as stored; the api refuses any change.
-          choosing ? choicesBody(choices) : { ai_mode: item.ai_mode },
+          choosing ? { ...choicesBody(choices), ...methodBody(method, item) } : { ai_mode: item.ai_mode },
           datesBody(inputs),
           settingsOpen ? settingsBody(draft, item.game_settings.roles) : undefined,
           settingsOpen ? Number(inactivity.trim()) : undefined,
@@ -169,13 +173,19 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       feature_disabled: copy.edit.featureDisabled,
       invalid_effort_level: copy.choices.effortRefused,
       invalid_session_values: copy.choices.valuesRefused,
+      allocation_confirmed: copy.allocation.methodConfirmed,
     },
     onSuccess: (result) => {
       queryClient.setQueryData(classSessionKey(item.id), result);
       void queryClient.invalidateQueries({ queryKey: classSessionsKey(item.class_id), exact: true });
       void queryClient.invalidateQueries({ queryKey: lecturerHomeKey, exact: true });
+      // Student choice saved (Story 5.17): the block now lists the empty Class games.
+      if (result.allocation_method !== item.allocation_method) {
+        void queryClient.invalidateQueries({ queryKey: allocationKey(item.id), exact: true });
+      }
       setInputs(inputsOf(result));
       setChoices(choicesOf(result));
+      setMethod(result.allocation_method);
       setTestTouched(result.test_deadline != null);
       setShareChecked(false);
       setInactivity(String(result.inactivity_limit_hours));
@@ -342,7 +352,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           ) : null}
           {/* Locked, «Lagre frister» saves only these fields, so it sits under them. */}
           {saveShown && item.locked ? saveRow : null}
-          <AllocationBlock item={item} onConfirmShown={setConfirmShown} />
+          <AllocationBlock item={item} method={method} onMethodChange={setMethod} onConfirmShown={setConfirmShown} />
         </section>
       </div>
       <Choices

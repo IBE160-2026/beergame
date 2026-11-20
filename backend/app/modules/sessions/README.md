@@ -295,3 +295,33 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   the User is no longer registered. Template `kinds/deadline_reminder.{txt,html}.j2` (draft copy).
 - A Student who registers after a reminder went out gets none for that deadline. Reminders go out
   whether or not the session is locked.
+
+## Student choice (Story 5.17, cut list)
+
+- `class_sessions.allocation_method` (migration 0042): `random` (Stories 5.8 to 5.13, the default)
+  or `student_choice`. «Lagre Klasseøkt» takes `allocation_method`; left out it stays. A change to
+  `student_choice` answers 422 `feature_disabled` while `FEATURE_STUDENT_CHOICE` is off, 409
+  `session_locked` once locked and 409 `allocation_confirmed` once an allocation is confirmed, so
+  Student choice is final once saved. `ClassSessionOut` carries `allocation_method` and
+  `student_choice_enabled` (the flag).
+- Saving it, in one transaction: a confirmed draft with no Seat replaces any preview (the
+  Lærerhjem, the lock and Story 5.13 then see a confirmed allocation), `ceil(registered / 4)`
+  empty Class games through `games.commands.create`, and one `student_choice_open` digest notice
+  per registered Student (key per session and User; mail read at send time by
+  `student_choice_mail_context`, left out once locked). The draft mirrors the Seats from then on;
+  a Seat the lock or Story 5.13 drew is marked `drawn` in it.
+- `GET|PUT /api/me/class-sessions/{id}/seat-choice` («Velg spill og sete», `read_enrolled`): 404
+  `not_found` while the flag is off, for a random session and for anyone not a registered Student
+  of its Class. The PUT takes `{game_number, role}` under the session's row lock: a free Seat
+  through `assign_seat`, or a move through `move_seat` for a Student who holds one; 409
+  `seat_taken`, 422 `invalid_seat`, 409 `session_locked`. Each change emits `user:<id>` for every
+  registered Student and `session:<id>`.
+- The sweep's `sessions.offer_student_choice` (after the late registrants): each registered
+  Student of an unlocked Student-choice session without the notice gets it, with more empty Class
+  games while the registered and seated Students outnumber the Seats. Story 5.13 seats nobody in
+  such a session before the lock. Nothing is offered while the flag is off.
+- The lock draws each registered Student without a Seat into a random free Seat (a new Class game
+  when none is free), with the allocation notice; the open then fills the rest with AI players.
+  `GET /api/me/class-sessions` carries `seat_choice_open` and, once locked, `drawn_seat`.
+- `GET …/allocation` answers `method`; with Student choice its games are the Class games as their
+  Seats hold them from the save on, empty ones included.

@@ -119,6 +119,7 @@ from app.modules.sessions.schemas import (
     AllocationConfirmIn,
     AllocationDraftOut,
     AllocationGameOut,
+    AllocationMethod,
     AllocationMoveIn,
     AllocationOut,
     AllocationSeatOut,
@@ -142,6 +143,11 @@ from app.modules.sessions.schemas import (
     NextDate,
     NextDeadline,
     OfferedEffortLevelOut,
+    SeatChoiceGameOut,
+    SeatChoiceIn,
+    SeatChoiceOut,
+    SeatChoiceSeatOut,
+    SeatRef,
     SessionRef,
     SettingProblem,
     SettingsCheckOut,
@@ -274,10 +280,23 @@ class LabHourEnded(Exception):
     code = "lab_hour_ended"
 
 
+class SeatTaken(_FieldsError):
+    """Another occupant holds the Seat a Student asked for (409 `seat_taken`, Story 5.17)."""
+
+    code = "seat_taken"
+
+
+class InvalidSeat(_FieldsError):
+    """The request names no Seat of the Class session's games (422 `invalid_seat`)."""
+
+    code = "invalid_seat"
+
+
 class FeatureDisabled(_FieldsError):
     """A cut-list setting was sent while its flag is off (422 `feature_disabled`, AD-17): a
     non-empty `capacity` while `FEATURE_CAPACITY` is off (Story 5.15), or a view of
-    `info_visibility` switched on while `FEATURE_INFO_VISIBILITY` is off (Story 5.16)."""
+    `info_visibility` switched on while `FEATURE_INFO_VISIBILITY` is off (Story 5.16), or Student
+    choice while `FEATURE_STUDENT_CHOICE` is off (Story 5.17)."""
 
     code = "feature_disabled"
 
@@ -757,6 +776,8 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         lab_hours=[_lab_hour_out(lab, now) for lab in labs],
         capacity_enabled=capacity_enabled(),
         info_visibility_enabled=info_visibility_enabled(),
+        allocation_method=row["allocation_method"],
+        student_choice_enabled=student_choice_enabled(),
     )
 
 
@@ -790,6 +811,7 @@ async def save_session(
     obligatory: bool | None = None,
     required_share_percent: int | None = None,
     inactivity_limit_hours: int | None = None,
+    allocation_method: AllocationMethod | None = None,
 ) -> ClassSessionOut | None:
     """«Lagre Klasseøkt»: saves the Class session as it stands and emits `session:<id>`. LLM
     players on a Class session with no model config take the active default and its budget row
@@ -804,12 +826,16 @@ async def save_session(
     100 or limit under 20 raises `InvalidSessionValues`, and switching the mark on enqueues one
     `OBLIGATORY_NOTICE` per registered Student. Once locked, a changed AI mode, Effort level,
     Debrief mode, Game settings, obligatory mark, share or Inactivity limit raise
-    `SessionLocked`. None when the User may not manage the Class; raises `ClassArchived`."""
+    `SessionLocked`. `allocation_method` (Story 5.17), None, keeps the method; a change to
+    `student_choice` is judged by `_judge_method` and opens the choice (`_open_student_choice`).
+    None when the User may not manage the Class; raises `ClassArchived`."""
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, session_id)
     if row is None or await _class_for(user, row["class_id"], "class_sessions.manage") is None:
         return None
-    needs_students = dates is not None or obligatory is True
+    needs_students = (
+        dates is not None or obligatory is True or allocation_method == "student_choice"
+    )
     students = await classes.registered_students(row["class_id"]) if needs_students else []
     async with get_sessionmaker().begin() as s:
         await _writable(s, row["class_id"])
@@ -839,7 +865,11 @@ async def save_session(
             if inactivity_limit_hours is None
             else inactivity_limit_hours
         )
+        method: AllocationMethod = allocation_method or row["allocation_method"]
+        switching = method != row["allocation_method"]
         try:
+            if switching:
+                await _judge_method(s, row, method, locked=locked)
             if locked:
                 refused = {
                     name: "locked"
@@ -916,7 +946,10 @@ async def save_session(
             obligatory=marked,
             required_share_percent=share,
             inactivity_limit_hours=limit,
+            allocation_method=method if switching else None,
         )
+        if switching and method == "student_choice":
+            await _open_student_choice(s, session_id, user.id, students, now)
         await events.emit(s, "session", str(session_id))
         if changed:
             for student in students:
@@ -940,6 +973,7 @@ async def save_session(
         settings_changed=new_settings is not None,
         obligatory_switched_on=switched_on,
         students_told=len(students) if switched_on else 0,
+        student_choice_opened=switching,
     )
     if changed and locked:
         # After the start a moved deadline holds for the whole Class session (FR-18).
@@ -1040,12 +1074,27 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
     """The Class sessions of the Classes `user` is a Student in (FR-18, FR-19, AD-3, AD-12): the
     dates, the User's own deadlines and the next one that applies, and the Lab hours that have
     not ended. Never the Game settings, the number of Weeks or the demand. What Epic 6's Hjem
-    shows as «Neste frist» and «Labtimer»."""
+    shows as «Neste frist» and «Labtimer». With `FEATURE_STUDENT_CHOICE` on, a session with
+    Student choice says whether the choice is open and, once locked, the Seat the draw gave the
+    Student (Story 5.17)."""
     names = {item.id: item.name for item in (await classes.enrolled_classes(user)).items}
     now = auth.utcnow()
+    choice = student_choice_enabled()
     async with get_sessionmaker().begin() as s:
         rows = await repo.enrolled_sessions(s, user)
         labs = await repo.lab_hours_of(s, [row["id"] for row in rows], ending_after=now)
+        drafts = (
+            await repo.drafts_of(
+                s,
+                [
+                    row["id"]
+                    for row in rows
+                    if row["allocation_method"] == "student_choice" and is_locked(row, now=now)
+                ],
+            )
+            if choice
+            else {}
+        )
     upcoming: dict[uuid.UUID, list[EnrolledLabHourOut]] = {}
     for lab in labs:
         upcoming.setdefault(lab["class_session_id"], []).append(
@@ -1067,6 +1116,10 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                 next_deadline=_next_deadline(user, row, now),
                 obligatory=row["obligatory"],
                 lab_hours=upcoming.get(row["id"], []),
+                seat_choice_open=choice
+                and row["allocation_method"] == "student_choice"
+                and not is_locked(row, now=now),
+                drawn_seat=_drawn_seat(drafts.get(row["id"]), user.id),
             )
             for row in rows
             if row["class_id"] in names
@@ -1456,8 +1509,15 @@ async def _allocation_out(
 
 
 async def _opened_out(
-    class_id: uuid.UUID, draft: Mapping[str, Any], opened: list[games_service.ClassGame]
+    class_id: uuid.UUID,
+    draft: Mapping[str, Any],
+    opened: list[games_service.ClassGame],
+    *,
+    is_open: bool = True,
+    method: AllocationMethod = "random",
 ) -> AllocationOut:
+    """The Class games as their Seats hold them: once opened (Story 5.12), or, with Student choice
+    (Story 5.17), from the save on (`is_open` False: no lifecycle, the games not yet open)."""
     registered = await classes.registered_students(class_id)
     held = {
         seat.user_id
@@ -1484,17 +1544,39 @@ async def _opened_out(
                     name=names.get(student) if student is not None else None,
                 )
             )
-        out.append(AllocationGameOut(number=game.number, seats=seats, lifecycle=game.lifecycle))
+        out.append(
+            AllocationGameOut(
+                number=game.number, seats=seats, lifecycle=game.lifecycle if is_open else None
+            )
+        )
     return AllocationOut(
         registered_count=len(registered),
         missing_count=sum(1 for student in registered if student not in held),
         confirmed=draft["confirmed_at"] is not None,
         confirmed_at=draft["confirmed_at"],
-        opened=True,
+        opened=is_open,
+        method=method,
         draft=AllocationDraftOut(
             id=draft["id"], revision=draft["revision"], drawn_at=draft["drawn_at"], games=out
         ),
     )
+
+
+async def _out_for(
+    row: Mapping[str, Any],
+    draft: Mapping[str, Any] | None,
+    opened: list[games_service.ClassGame] | None = None,
+) -> AllocationOut:
+    """The block's state for the Class session `row`: with Student choice (Story 5.17) the Class
+    games as their Seats hold them from the save on, else `_allocation_out`."""
+    method: AllocationMethod = row["allocation_method"]
+    if method == "student_choice" and draft is not None and not opened:
+        async with get_sessionmaker().begin() as s:
+            games = await games_service.class_games(s, row["id"])
+        return await _opened_out(row["class_id"], draft, games, is_open=False, method=method)
+    out = await _allocation_out(row["class_id"], draft, opened)
+    out.method = method
+    return out
 
 
 async def allocation_of(user: authz.Principal, session_id: uuid.UUID) -> AllocationOut | None:
@@ -1513,7 +1595,7 @@ async def allocation_of(user: authz.Principal, session_id: uuid.UUID) -> Allocat
             found = await games_service.class_games(s, session_id)
             if found and all(game.has_snapshot for game in found):
                 opened = found
-    out = await _allocation_out(row["class_id"], draft, opened)
+    out = await _out_for(row, draft, opened)
     if row["locked_at"] is not None:
         # Story 5.13: who no Class game could seat, named for the Lecturer.
         without = await students_without_seat(session_id)
@@ -1604,7 +1686,7 @@ async def draw_allocation(
                 students=len(students),
                 games=seats[-1].game_number,
             )
-    return await _allocation_out(row["class_id"], draft)
+    return await _out_for(row, draft)
 
 
 # Confirming the allocation (Story 5.9, FR-20, FR-7, AD-2, AD-4, AD-9).
@@ -1682,7 +1764,7 @@ async def confirm_allocation(
     if refused is not None:
         _confirm_refused(session_id, refused.code)
         raise refused
-    return await _allocation_out(row["class_id"], draft)
+    return await _out_for(row, draft)
 
 
 def _confirm_refused(session_id: uuid.UUID, code: str) -> None:
@@ -1806,6 +1888,9 @@ async def move_allocation(
             draft = await repo.draft_of(s, session_id)
             if is_locked(row, now=now):
                 raise SessionLocked({"allocation": "locked"})
+            if row["allocation_method"] == "student_choice":
+                # Story 5.17: the Students take and change their Seats themselves.
+                raise AllocationConfirmed({"allocation": "student_choice"})
             if draft is None or (draft["id"], draft["revision"]) != (
                 wanted.draft_id,
                 wanted.revision,
@@ -1836,7 +1921,13 @@ async def move_allocation(
                         ref=session_id,
                     )
             draft = await repo.draft_of(s, session_id)
-    except (SessionLocked, AllocationChanged, InvalidMove, SeatCommandRefused) as refused:
+    except (
+        SessionLocked,
+        AllocationChanged,
+        AllocationConfirmed,
+        InvalidMove,
+        SeatCommandRefused,
+    ) as refused:
         log.info(
             "allocation_move_refused", class_session_id=str(session_id), error_code=refused.code
         )
@@ -1848,7 +1939,7 @@ async def move_allocation(
         swapped=len(students) == 2,
         confirmed=draft["confirmed_at"] is not None,
     )
-    return await _allocation_out(row["class_id"], draft)
+    return await _out_for(row, draft)
 
 
 async def allocation_mail_context(
@@ -1997,7 +2088,10 @@ async def _allocate_at_lock(s: AsyncSession, row: Mapping[str, Any], now: dateti
     `allocation.allocate` and a fresh seed, stored as a new draft (drawn by nobody) and committed
     by `_commit_allocation` in the lock's transaction, notices included (Story 5.12, FR-20). An
     unconfirmed draft is replaced. Nothing for an archived Class or with no registered Student.
-    Returns how many Students were seated."""
+    Returns how many Students were seated. With Student choice the Students who chose no Seat are
+    drawn into free Seats instead (`_draw_at_lock`, Story 5.17)."""
+    if row["allocation_method"] == "student_choice":
+        return await _draw_at_lock(s, row, now)
     draft = await repo.draft_of(s, row["id"])
     if draft is not None and draft["confirmed_at"] is not None:
         return 0
@@ -2212,6 +2306,8 @@ async def late_registrants(now: datetime) -> list[tuple[uuid.UUID, uuid.UUID]]:
     due: list[tuple[uuid.UUID, uuid.UUID]] = []
     for row, games, registered in await _seating_candidates(now):
         locked = is_locked(row, now=now)
+        if not locked and row["allocation_method"] == "student_choice":
+            continue  # Story 5.17: they choose a Seat themselves until the lock draws one.
         if locked and not any(_open_seats(game, locked=True) for game in games):
             continue
         seated = _seated(games)
@@ -2296,6 +2392,9 @@ async def seat_late_registrant(
         if await games_service.student_seated(s, class_session_id, user_id):
             return False
         locked = is_locked(row, now=now)
+        choosing = row["allocation_method"] == "student_choice"
+        if choosing and not locked:
+            return False  # Story 5.17: the Student chooses until the lock draws a Seat.
         games = await games_service.class_games(s, class_session_id)
         candidates = [game for game in games if _open_seats(game, locked=locked)]
         _rng.shuffle(candidates)
@@ -2339,7 +2438,15 @@ async def seat_late_registrant(
             placed = (None, number, role)
         game, number, role = placed
         assignments = [dict(a) for a in draft["assignments"] if a["user_id"] != str(user_id)]
-        assignments.append({"user_id": str(user_id), "game_number": number, "role": role})
+        assignments.append(
+            {
+                "user_id": str(user_id),
+                "game_number": number,
+                "role": role,
+                # With Student choice a Seat the Student did not choose is a drawn one (5.17).
+                **({"drawn": True} if choosing else {}),
+            }
+        )
         assignments.sort(key=lambda a: (a["game_number"], SEAT_ORDER.index(Role(a["role"]))))
         revision = draft["revision"] + 1
         await repo.update_draft(s, class_session_id, assignments=assignments, revision=revision)
@@ -2538,3 +2645,434 @@ async def deadline_reminder_mail_context(
         "at": at.astimezone(OSLO),
         "obligatory": row["obligatory"],
     }
+
+
+# Student choice (Story 5.17, FR-21, AD-2, AD-4, AD-8, AD-9, AD-17, UX-DR62).
+
+STUDENT_CHOICE_NOTICE = "student_choice_open"
+"""The notice kind each registered Student gets once when they may choose a Class game and a
+Seat, `digest` (Story 5.17, AD-9). Its mail reads the session at send time
+(`student_choice_mail_context`)."""
+
+
+def student_choice_enabled() -> bool:
+    """`FEATURE_STUDENT_CHOICE` (AD-17): whether the Klasseøkt offers Student choice and the
+    Students' «Velg spill og sete» route answers."""
+    return get_settings().feature_student_choice
+
+
+def _choice_key(class_session_id: uuid.UUID, user_id: uuid.UUID) -> str:
+    return f"{STUDENT_CHOICE_NOTICE}:{class_session_id}:{user_id}"
+
+
+async def _judge_method(
+    s: AsyncSession, row: Mapping[str, Any], method: AllocationMethod, *, locked: bool
+) -> None:
+    """A changed allocation method (Story 5.17): `FeatureDisabled` for Student choice while
+    `FEATURE_STUDENT_CHOICE` is off, `SessionLocked` once locked, and `AllocationConfirmed` once
+    an allocation is confirmed, Student choice's own included (it is final once saved)."""
+    if method == "student_choice" and not student_choice_enabled():
+        raise FeatureDisabled({"allocation_method": "feature_disabled"})
+    if locked:
+        raise SessionLocked({"allocation_method": "locked"})
+    draft = await repo.draft_of(s, row["id"])
+    if draft is not None and draft["confirmed_at"] is not None:
+        raise AllocationConfirmed({"allocation_method": "confirmed"})
+
+
+async def _ensure_games(
+    s: AsyncSession,
+    class_session_id: uuid.UUID,
+    games: list[games_service.ClassGame],
+    registered: list[uuid.UUID],
+) -> int:
+    """Create empty Class games (no settings; the snapshot comes at the lock) through
+    `games.commands.create` until there are four Seats for every Student who holds a Seat or is
+    registered. Returns how many were created."""
+    need = len(_seated(games) | set(registered))
+    count = len(games)
+    number = max((game.number for game in games), default=0)
+    added = 0
+    while count * len(ROLES) < need:
+        number += 1
+        count += 1
+        added += 1
+        await games_commands.create(
+            games_service.Purpose.CLASS,
+            class_session_id=class_session_id,
+            game_number=number,
+            within=s,
+        )
+    return added
+
+
+async def _open_student_choice(
+    s: AsyncSession,
+    class_session_id: uuid.UUID,
+    by: uuid.UUID,
+    students: list[uuid.UUID],
+    now: datetime,
+) -> None:
+    """Saving Student choice, in the save's transaction: a confirmed draft with no Seat replaces
+    any preview (so the Lærerhjem, the lock and Story 5.13 see a confirmed allocation), empty Class
+    games for every registered Student, and one `STUDENT_CHOICE_NOTICE` per Student, which emits
+    `user:<id>`."""
+    await repo.replace_draft(
+        s,
+        class_session_id,
+        id=uuid.uuid7(),
+        revision=1,
+        seed=allocation.draw_seed(),
+        assignments=[],
+        drawn_by=by,
+        drawn_at=now,
+        confirmed_at=now,
+        confirmed_by=by,
+    )
+    games = await _ensure_games(s, class_session_id, [], students)
+    for student in students:
+        await notify.enqueue(
+            s,
+            student,
+            STUDENT_CHOICE_NOTICE,
+            _choice_key(class_session_id, student),
+            ref=class_session_id,
+        )
+    log.info(
+        "student_choice_opened",
+        class_session_id=str(class_session_id),
+        games=games,
+        students=len(students),
+    )
+
+
+def _drawn_seat(draft: Mapping[str, Any] | None, user_id: uuid.UUID) -> SeatRef | None:
+    """The Seat the draw gave `user_id` (an assignment marked `drawn`), or None."""
+    if draft is None:
+        return None
+    for a in draft["assignments"]:
+        if a["user_id"] == str(user_id) and a.get("drawn"):
+            return SeatRef(game_number=a["game_number"], role=Role(a["role"]))
+    return None
+
+
+async def _draw_at_lock(s: AsyncSession, row: Mapping[str, Any], now: datetime) -> int:
+    """The lock of a Class session with Student choice, in its transaction: each registered
+    Student without a Seat takes a random free Seat of a Class game that has not started, or of
+    a new Class game when none is free, through `games.commands.assign_seat`; the draft gains
+    each Seat marked `drawn` under one new revision, and each such Student gets the allocation
+    notice (FR-21). The open then gives every other free Seat its AI player. Nothing for an
+    archived Class. Returns how many Students were drawn."""
+    draft = await repo.draft_of(s, row["id"])
+    if draft is None or not await classes.is_writable(row["class_id"], session=s):
+        return 0
+    registered = await classes.registered_students(row["class_id"])
+    games = await games_service.class_games(s, row["id"])
+    seated = _seated(games)
+    waiting = [student for student in registered if student not in seated]
+    if not waiting:
+        return 0
+    free = [
+        (str(game.id), game.number, role)
+        for game in games
+        for role in _open_seats(game, locked=False)
+    ]
+    _rng.shuffle(free)
+    number = max((game.number for game in games), default=0)
+    _rng.shuffle(waiting)
+    assignments = [dict(a) for a in draft["assignments"]]
+    for student in waiting:
+        if not free:
+            number += 1
+            game_id = await games_commands.create(
+                games_service.Purpose.CLASS,
+                class_session_id=row["id"],
+                game_number=number,
+                within=s,
+            )
+            roles = [role.value for role in ROLES]
+            _rng.shuffle(roles)
+            free = [(game_id, number, role) for role in roles]
+        game_id, game_number, role = free.pop()
+        await games_commands.assign_seat(
+            game_id, role, games_service.OccupantKind.STUDENT, user_id=student, within=s
+        )
+        assignments.append(
+            {"user_id": str(student), "game_number": game_number, "role": role, "drawn": True}
+        )
+    assignments.sort(key=lambda a: (a["game_number"], SEAT_ORDER.index(Role(a["role"]))))
+    revision = draft["revision"] + 1
+    await repo.update_draft(s, row["id"], assignments=assignments, revision=revision)
+    for student in waiting:
+        await notify.enqueue(
+            s,
+            student,
+            ALLOCATION_NOTICE,
+            f"{ALLOCATION_NOTICE}:{draft['id']}:{revision}:{student}",
+            ref=row["id"],
+        )
+    log.info("student_choice_drawn", class_session_id=str(row["id"]), students=len(waiting))
+    return len(waiting)
+
+
+async def _choice_session(user: authz.Principal, session_id: uuid.UUID) -> Mapping[str, Any] | None:
+    """The Class session whose «Velg spill og sete» `user` may open: `FEATURE_STUDENT_CHOICE` on,
+    the session uses Student choice and the User is a registered Student of its Class. None
+    otherwise, which the route answers as not found."""
+    if not student_choice_enabled():
+        return None
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, session_id)
+    if row is None or row["allocation_method"] != "student_choice":
+        return None
+    if user.id not in await classes.registered_students(row["class_id"]):
+        return None
+    return row
+
+
+async def _seat_choice_out(
+    user_id: uuid.UUID, row: Mapping[str, Any], *, now: datetime
+) -> SeatChoiceOut:
+    async with get_sessionmaker().begin() as s:
+        games = await games_service.class_games(s, row["id"])
+        draft = await repo.draft_of(s, row["id"])
+        number = await repo.number_of(s, row["id"], row["class_id"])
+        label = await classes.label_of_class(s, row["class_id"])
+    names = await classes.student_names(row["class_id"], sorted(_seated(games)))
+    mine: SeatRef | None = None
+    out: list[SeatChoiceGameOut] = []
+    for game in games:
+        by_role = {seat.role: seat for seat in game.seats}
+        seats: list[SeatChoiceSeatOut] = []
+        for role in SEAT_ORDER:
+            seat = by_role.get(role.value)
+            kind = seat.occupant_kind if seat is not None else None
+            student = (
+                seat.user_id
+                if seat is not None and kind == games_service.OccupantKind.STUDENT
+                else None
+            )
+            if student is not None and student == user_id:
+                mine = SeatRef(game_number=game.number, role=role)
+            seats.append(
+                SeatChoiceSeatOut(
+                    role=role,
+                    holder="free" if kind is None else "ai" if student is None else "student",
+                    name=names.get(student) if student is not None else None,
+                    mine=student is not None and student == user_id,
+                )
+            )
+        out.append(SeatChoiceGameOut(number=game.number, seats=seats))
+    drawn = _drawn_seat(draft, user_id)
+    return SeatChoiceOut(
+        class_session_id=row["id"],
+        class_name=label.name if label is not None else "",
+        number=number,
+        start_at=row["start_at"],
+        open=not is_locked(row, now=now),
+        my_seat=mine,
+        drawn=drawn is not None and drawn == mine,
+        games=out,
+    )
+
+
+async def seat_choice(
+    user: authz.Principal, session_id: uuid.UUID, *, now: datetime
+) -> SeatChoiceOut | None:
+    """«Velg spill og sete» (Story 5.17, UX-DR62): the Class session's Class games, each Seat
+    free, a Student's (named now) or, after the lock, an AI player's, and the reader's own Seat.
+    None (not found) unless `_choice_session` lets the User open it."""
+    row = await _choice_session(user, session_id)
+    if row is None:
+        return None
+    return await _seat_choice_out(user.id, row, now=now)
+
+
+async def take_seat(
+    user: authz.Principal, session_id: uuid.UUID, wanted: SeatChoiceIn, *, now: datetime
+) -> SeatChoiceOut | None:
+    """«Ta setet Grossist i Spill 17» (Story 5.17, FR-21): under the Class session's row lock, in
+    one transaction, the Student takes the free Seat through `games.commands.assign_seat`, or,
+    holding a Seat already, moves to it through `games.commands.move_seat`; a Student holds one
+    Seat per Class session. The draft mirrors the Seats under a new revision, every registered
+    Student (who can still choose) gets `user:<id>` and the staff `session:<id>`. Their own Seat
+    again changes nothing.
+
+    Raises `SessionLocked` once locked, `InvalidSeat` for a game or Role the session does not
+    have and `SeatTaken` when another occupant holds the Seat (a second press of the same free
+    Seat waits on the row lock and gets this); nothing is committed then. Raises `ClassArchived`;
+    None (not found) unless `_choice_session` lets the User open it."""
+    row = await _choice_session(user, session_id)
+    if row is None:
+        return None
+    registered = await classes.registered_students(row["class_id"])
+    held: tuple[games_service.ClassGame, games_service.ClassGameSeat] | None = None
+    unchanged = False
+    try:
+        async with get_sessionmaker().begin() as s:
+            await _writable(s, row["class_id"])
+            locked_row = await repo.session_row(s, session_id, lock=True)
+            if locked_row is None:
+                return None
+            row = locked_row
+            if is_locked(row, now=now):
+                raise SessionLocked({"seat": "locked"})
+            games = await games_service.class_games(s, session_id)
+            game = next((g for g in games if g.number == wanted.game_number), None)
+            target = (
+                next((seat for seat in game.seats if seat.role == wanted.role), None)
+                if game is not None
+                else None
+            )
+            if game is None or target is None:
+                raise InvalidSeat({"seat": "unknown"})
+            held = next(
+                (
+                    (g, seat)
+                    for g in games
+                    for seat in g.seats
+                    if seat.occupant_kind == games_service.OccupantKind.STUDENT
+                    and seat.user_id == user.id
+                ),
+                None,
+            )
+            if held is not None and (held[0].number, held[1].role) == (game.number, target.role):
+                unchanged = True
+            else:
+                unchanged = False
+                if target.occupant_kind is not None:
+                    raise SeatTaken({"seat": "taken"})
+                try:
+                    if held is None:
+                        await games_commands.assign_seat(
+                            str(game.id),
+                            target.role,
+                            games_service.OccupantKind.STUDENT,
+                            user_id=user.id,
+                            within=s,
+                        )
+                    else:
+                        await games_commands.move_seat(
+                            str(held[0].id), held[1].role, str(game.id), target.role, within=s
+                        )
+                except games_commands.CommandError as refused:
+                    if refused.code in {"seat_occupied", "student_already_seated"}:
+                        raise SeatTaken({"seat": "taken"}) from None
+                    raise
+                draft = await repo.draft_of(s, session_id)
+                if draft is not None:
+                    assignments = [
+                        dict(a) for a in draft["assignments"] if a["user_id"] != str(user.id)
+                    ]
+                    assignments.append(
+                        {"user_id": str(user.id), "game_number": game.number, "role": target.role}
+                    )
+                    assignments.sort(
+                        key=lambda a: (a["game_number"], SEAT_ORDER.index(Role(a["role"])))
+                    )
+                    await repo.update_draft(
+                        s, session_id, assignments=assignments, revision=draft["revision"] + 1
+                    )
+                await _tell_users(s, {*registered, user.id})
+                await events.emit(s, "session", str(session_id))
+    except (SessionLocked, InvalidSeat, SeatTaken) as refused:
+        log.info("seat_choice_refused", class_session_id=str(session_id), error_code=refused.code)
+        raise
+    if not unchanged:
+        log.info(
+            "seat_chosen",
+            class_session_id=str(session_id),
+            game_number=wanted.game_number,
+            moved=held is not None,
+        )
+    return await _seat_choice_out(user.id, row, now=now)
+
+
+async def student_choice_offers(now: datetime) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """The sweep's `sessions.offer_student_choice` finder (AD-9): `(class_session_id, user_id)` of
+    each registered Student of a Class session with Student choice, not locked and of a Class
+    that is not archived, who has not had the `STUDENT_CHOICE_NOTICE` (a Student who registered
+    after the save). Nothing while `FEATURE_STUDENT_CHOICE` is off: the lock draws them a Seat."""
+    if not student_choice_enabled():
+        return []
+    async with get_sessionmaker().begin() as s:
+        sessions = await repo.open_student_choice_sessions(s)
+    due: list[tuple[uuid.UUID, uuid.UUID]] = []
+    for row in sessions:
+        if is_locked(row, now=now) or not await classes.is_writable(row["class_id"]):
+            continue
+        registered = sorted(await classes.registered_students(row["class_id"]))
+        keys = {_choice_key(row["id"], student): student for student in registered}
+        async with get_sessionmaker().begin() as s:
+            used = await notify.used_keys(s, list(keys))
+        due.extend((row["id"], student) for key, student in keys.items() if key not in used)
+    return due
+
+
+async def offer_student_choice_due(item: object, now: datetime) -> bool:
+    """The sweep's `sessions.offer_student_choice` action: one Student per transaction, ids
+    only."""
+    class_session_id, user_id = _item(item)
+    return await offer_student_choice(class_session_id, user_id, now=now)
+
+
+async def offer_student_choice(
+    class_session_id: uuid.UUID, user_id: uuid.UUID, *, now: datetime | None = None
+) -> bool:
+    """A Student who registered after Student choice was saved (Story 5.17): under the Class
+    session's row lock, more empty Class games when the registered and seated Students outnumber
+    the Seats, and the `STUDENT_CHOICE_NOTICE`, once. New games tell every registered Student
+    (`user:<id>`) and the staff (`session:<id>`). False when nothing was done: not Student choice,
+    locked, archived, the Student not registered or told already."""
+    now = now or auth.utcnow()
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, class_session_id, lock=True)
+        if row is None or row["allocation_method"] != "student_choice":
+            return False
+        if is_locked(row, now=now) or not await classes.is_writable(row["class_id"], session=s):
+            return False
+        registered = await classes.registered_students(row["class_id"])
+        if user_id not in registered:
+            return False
+        games = await games_service.class_games(s, class_session_id)
+        added = await _ensure_games(s, class_session_id, games, registered)
+        told = await notify.enqueue(
+            s,
+            user_id,
+            STUDENT_CHOICE_NOTICE,
+            _choice_key(class_session_id, user_id),
+            ref=class_session_id,
+        )
+        if added:
+            await _tell_users(s, set(registered))
+            await events.emit(s, "session", str(class_session_id))
+    if added or told:
+        log.info(
+            "student_choice_offered",
+            class_session_id=str(class_session_id),
+            games_added=added,
+            told=told,
+        )
+    return bool(added or told)
+
+
+async def student_choice_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `STUDENT_CHOICE_NOTICE`, for `messaging` at send time (Story
+    5.17, AD-9): the Class's name and the Start date in Europe/Oslo (None while unset). None, so
+    the notice is left out, when `FEATURE_STUDENT_CHOICE` is off (the route answers not found),
+    the session is gone, no longer uses Student choice, is locked, the Class is archived or the
+    User is no longer a registered Student of it."""
+    if ref is None or not student_choice_enabled():
+        return None
+    row = await repo.session_row(session, ref)
+    if row is None or row["allocation_method"] != "student_choice" or is_locked(row, now=now):
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None or label.archived:
+        return None
+    if user_id not in await classes.registered_students(row["class_id"]):
+        return None
+    start = row["start_at"]
+    return {"class_name": label.name, "start_at": start.astimezone(OSLO) if start else None}

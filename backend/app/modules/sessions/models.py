@@ -58,7 +58,14 @@ class_sessions = Table(
     # (`service.build_snapshot`). Both set together, by `service.lock` only.
     Column("locked_at", DateTime(timezone=True), nullable=True),
     Column("snapshot", JSONB(none_as_null=True), nullable=True),
+    # How the Students get their Seats (Story 5.17, FR-21): `random` (Stories 5.8 to 5.13) or
+    # `student_choice`, final once saved.
+    Column("allocation_method", Text, nullable=False, server_default="random"),
     CheckConstraint("(locked_at IS NULL) = (snapshot IS NULL)", name="ck_class_sessions_lock"),
+    CheckConstraint(
+        "allocation_method IN ('random', 'student_choice')",
+        name="ck_class_sessions_allocation_method",
+    ),
     CheckConstraint("ai_mode IN ('llm', 'rule_based')", name="ck_class_sessions_ai_mode"),
     CheckConstraint("debrief_mode IN ('group', 'personal')", name="ck_class_sessions_debrief_mode"),
     CheckConstraint(

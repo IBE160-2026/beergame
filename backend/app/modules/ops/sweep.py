@@ -78,6 +78,13 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
         sessions.late_registrants,
         sessions.seat_late_registrant_due,
     ),
+    # Story 5.17: tell each Student who registered after Student choice was saved that they may
+    # choose, with more empty Class games when the Seats run short (FR-21).
+    DueAction(
+        "sessions.offer_student_choice",
+        sessions.student_choice_offers,
+        sessions.offer_student_choice_due,
+    ),
     # Story 5.14: remind every Student of a Play, Debrief or Test deadline 24 hours ahead, once
     # per deadline time (FR-18). The reminders join the next minute's digest claim.
     DueAction(

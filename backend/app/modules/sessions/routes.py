@@ -15,7 +15,8 @@ the Lab hours, `/api/class-sessions/{id}/lab-hours[/{lab_hour_id}]`, saved on th
 5.7 adds the obligatory mark, its required share and the Inactivity limit to the save. Story 5.8
 adds the allocation draft, `/api/class-sessions/{id}/allocation[/redraw]`, and Story 5.9 its
 confirmation, `/api/class-sessions/{id}/allocation/confirm`, and Story 5.10 moving and swapping
-Students in it, `/api/class-sessions/{id}/allocation/move`."""
+Students in it, `/api/class-sessions/{id}/allocation/move`. Story 5.17 adds the allocation method
+to the save and the Student's «Velg spill og sete», `/api/me/class-sessions/{id}/seat-choice`."""
 
 import uuid
 from typing import Annotated
@@ -36,6 +37,8 @@ from app.modules.sessions.schemas import (
     LabHourIn,
     LabHourOut,
     LecturerOverviewOut,
+    SeatChoiceIn,
+    SeatChoiceOut,
     SettingsCheckIn,
     SettingsCheckOut,
 )
@@ -151,7 +154,15 @@ async def save_class_session(
     FR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit
     under 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once
     locked a changed one answers 409 `session_locked`. Switching the mark on tells each
-    registered Student through the day's digest mail."""
+    registered Student through the day's digest mail.
+
+    `allocation_method` (Story 5.17, FR-21), left out, keeps the method. `student_choice` creates
+    empty Class games for the registered Students and tells each of them through the day's digest
+    mail that they may choose a Class game and a Seat. A changed method answers 422
+    `feature_disabled` (`{"allocation_method": "feature_disabled"}`) for Student choice while
+    `FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409
+    `allocation_confirmed` (`{"allocation_method": "confirmed"}`) once an allocation is confirmed:
+    Student choice is final once saved."""
     try:
         saved = await service.save_session(
             user,
@@ -165,6 +176,7 @@ async def save_class_session(
             obligatory=body.obligatory,
             required_share_percent=body.required_share_percent,
             inactivity_limit_hours=body.inactivity_limit_hours,
+            allocation_method=body.allocation_method,
         )
     except service.InvalidSettings as refused:
         return error_response(
@@ -189,7 +201,11 @@ async def save_class_session(
         )
     except service.FeatureDisabled as refused:
         return error_response(422, refused.code, "This setting is switched off.", refused.fields)
-    except (service.DeadlinePassed, service.SessionLocked) as refused:
+    except (
+        service.DeadlinePassed,
+        service.SessionLocked,
+        service.AllocationConfirmed,
+    ) as refused:
         return error_response(409, refused.code, "This can no longer change.", refused.fields)
     if saved is None:
         raise authz.Forbidden
@@ -402,7 +418,9 @@ async def move_in_allocation(
     `{"from": "empty"}` or `{"from": "last_student"}`; 409 `session_locked` (`{"allocation":
     "locked"}`) once the Start date has passed; 409 `class_archived` for an archived Class.
     A confirmed allocation's Games refusing the move answer the command's code (such as 409
-    `game_already_started`). Nothing is committed on any refusal."""
+    `game_already_started`). A session with Student choice (Story 5.17) answers 409
+    `allocation_confirmed` (`{"allocation": "student_choice"}`). Nothing is committed on any
+    refusal."""
     try:
         moved = await service.move_allocation(user, _id(session_id), body, now=auth.utcnow())
     except service.SessionLocked as refused:
@@ -416,6 +434,10 @@ async def move_in_allocation(
     except service.SeatCommandRefused as refused:
         return error_response(
             refused.status, refused.code, "The Class games refused the move.", refused.fields
+        )
+    except service.AllocationConfirmed as refused:
+        return error_response(
+            409, refused.code, "The Students choose their own Seats.", refused.fields
         )
     if moved is None:
         raise authz.Forbidden
@@ -493,3 +515,75 @@ async def lecturer_home_class_sessions(
     (UX-DR56)."""
     found = await service.lecturer_overview(user)
     return JSONResponse(found.model_dump(mode="json"))
+
+
+NOT_FOUND = "not_found"
+
+
+def _no_seat_choice() -> Response:
+    return error_response(404, NOT_FOUND, "No such Student choice.")
+
+
+def _choice_id(value: str) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(value)
+    except ValueError:
+        return None
+
+
+@router.get(
+    "/me/class-sessions/{session_id}/seat-choice",
+    response_model=SeatChoiceOut,
+    responses=documented(401, 404),
+    operation_id="getSeatChoice",
+)
+async def get_seat_choice(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.read_enrolled"))],
+) -> Response:
+    """«Velg spill og sete» (Story 5.17, FR-21, UX-DR62): the Class session's Class games, each
+    Seat free, held by a Student (named) or, after the lock, by an AI player, and the reader's own
+    Seat. 404 `not_found` while `FEATURE_STUDENT_CHOICE` is off, for a session that does not use
+    Student choice, and for a User who is not a registered Student of its Class (AD-17)."""
+    found_id = _choice_id(session_id)
+    found = (
+        await service.seat_choice(user, found_id, now=auth.utcnow())
+        if found_id is not None
+        else None
+    )
+    if found is None:
+        return _no_seat_choice()
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.put(
+    "/me/class-sessions/{session_id}/seat-choice",
+    response_model=SeatChoiceOut,
+    responses=documented(401, 404, 409, 422),
+    operation_id="takeSeat",
+)
+async def take_seat(
+    session_id: str,
+    body: SeatChoiceIn,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.read_enrolled"))],
+) -> Response:
+    """«Ta setet Grossist i Spill 17» (Story 5.17, FR-21): the Student takes the free Seat, or
+    moves to it from the Seat they hold, in one request; their own Seat again changes nothing.
+    409 `seat_taken` (`{"seat": "taken"}`) when another occupant holds it, 422 `invalid_seat`
+    (`{"seat": "unknown"}`) for a game or Role the session does not have, 409 `session_locked`
+    (`{"seat": "locked"}`) once locked, 409 `class_archived` for an archived Class; nothing changes
+    then. Not found as the read."""
+    found_id = _choice_id(session_id)
+    try:
+        taken = (
+            await service.take_seat(user, found_id, body, now=auth.utcnow())
+            if found_id is not None
+            else None
+        )
+    except service.InvalidSeat as refused:
+        return error_response(422, refused.code, "No such Seat.", refused.fields)
+    except (service.SeatTaken, service.SessionLocked) as refused:
+        return error_response(409, refused.code, "The Seat cannot be taken.", refused.fields)
+    if taken is None:
+        return _no_seat_choice()
+    return JSONResponse(taken.model_dump(mode="json"))

@@ -1,0 +1,3 @@
+{# The Students may choose a Class game and a Seat (Story 5.17, FR-21), a digest kind. #}
+{% import "kinds/_deadline.j2" as d %}
+<p style="margin:0;">I Klassen {{ class_name }} velger du selv spill og sete{% if start_at %} før startdatoen {{ d.when(start_at) }}{% else %} før startdatoen{% endif %}. Logg inn og velg under Hjem. Har du ikke valgt da, får du et sete ved trekning.</p>

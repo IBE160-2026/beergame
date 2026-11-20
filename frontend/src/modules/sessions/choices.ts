@@ -120,3 +120,15 @@ export function descriptionBlocks(text: string): DescriptionBlock[] {
   }
   return blocks;
 }
+
+/** The allocation method as «Lagre Klasseøkt» sends it (Story 5.17): only a change to Student
+ * choice, which opens the Students' choice; nothing otherwise, so the stored method stays and a
+ * screen without `FEATURE_STUDENT_CHOICE` never sends one. */
+export function methodBody(
+  method: ClassSession["allocation_method"],
+  item: Pick<ClassSession, "allocation_method">,
+): { allocation_method?: "student_choice" } {
+  return method === "student_choice" && item.allocation_method !== "student_choice"
+    ? { allocation_method: "student_choice" }
+    : {};
+}

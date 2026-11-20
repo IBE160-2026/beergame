@@ -61,6 +61,14 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "sessions.replace_removed_student": frozenset({"game", "session", "user"}),
         # A deadline reminder (Story 5.14): one notice per Student, which emits `user`.
         "sessions.send_deadline_reminder": frozenset({"user"}),
+        # Student choice (Story 5.17). A save that opens it creates the empty Class games
+        # (`game`), the staff read the session again and each registered Student's notice emits
+        # `user`. A Seat taken or changed (`games.assign_seat`/`move_seat`) tells every Student
+        # who can still choose and the staff. A late registrant's offer tells them, and, when it
+        # adds Class games, every registered Student and the staff.
+        "sessions.open_student_choice": frozenset({"game", "session", "user"}),
+        "sessions.choose_seat": frozenset({"game", "session", "user"}),
+        "sessions.offer_student_choice": frozenset({"game", "session", "user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add
