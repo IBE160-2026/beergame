@@ -1460,3 +1460,25 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 115: beslutninger i Story 5.17.
+
+## Story 5.18: Lage en klasseøkt fra en tidligere økt (kuttliste, `FEATURE_RERUN`) (2026-11-20)
+
+### Oppgave
+Bygge Story 5.18, den siste storyen i Epic 5, etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-18-create-class-session-from-earlier-one.md`.
+- **Commit 5f35b1c:** to nye ruter bak flagget, migrasjon 0043, et panel for å velge kilde på klassesiden, og en merknad på den nye Klasseøkta.
+- **Tester:**
+  - backend: 2621 tester (81 s);
+  - frontend: Vitest 456, typecheck og bygg;
+  - Playwright: 271 passerte. 7 feilet under last og passerte ved ny kjøring.
+- **Gjennomgang:** 40 funn, 1 middels. 14 ble rettet.
+- **Visuell kontroll:** 14 skjermbilder i `screenshots/5.18/`. Ingen klare avvik.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 116: beslutninger i Story 5.18.
