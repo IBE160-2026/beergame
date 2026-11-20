@@ -60,9 +60,24 @@ const isFirst = (item: Registration) => item.status === "not_invited";
  */
 export function RegistrationStatus({ classId, readOnly = false }: { classId: string; readOnly?: boolean }) {
   const found = useRegistrations(classId);
+  // The last row result, kept here: removing the last address empties the list and the list view
+  // with it, but the confirmation still shows (Issue #97).
+  const [lastNotice, setLastNotice] = useState<string | null>(null);
   if (found.isPending) return null;
   const data = found.data;
-  if (data && data.items.length === 0) return null;
+  if (data && data.items.length === 0) {
+    if (!lastNotice) return null;
+    return (
+      <section aria-labelledby="registration-title" className="mt-10">
+        <h2 id="registration-title" className="text-headline text-ink">
+          {copy.title}
+        </h2>
+        <div className="mt-4">
+          <EmptiedNotice text={lastNotice} onClear={() => setLastNotice(null)} />
+        </div>
+      </section>
+    );
+  }
   return (
     <section aria-labelledby="registration-title" className="mt-10">
       <h2 id="registration-title" className="text-headline text-ink">
@@ -74,16 +89,35 @@ export function RegistrationStatus({ classId, readOnly = false }: { classId: str
             {copy.failed}
           </p>
         ) : (
-          <StatusView classId={classId} data={data} readOnly={readOnly} />
+          <StatusView classId={classId} data={data} readOnly={readOnly} onNotice={setLastNotice} />
         )}
       </div>
     </section>
   );
 }
 
+/** The confirmation of the removal that emptied the list: it takes focus as the row result does,
+ * and goes when another area of the page opens a form. */
+function EmptiedNotice({ text, onClear }: { text: string; onClear: () => void }) {
+  const line = useRef<HTMLParagraphElement>(null);
+  useEffect(() => line.current?.focus(), []);
+  useFormArea("status", onClear);
+  return <EntryResult text={text} ref={line} />;
+}
+
 /** `readOnly`: an Assistant lecturer reads the list (Story 4.9) and gets no reminder or row
  * action, which the api would refuse. */
-function StatusView({ classId, data, readOnly }: { classId: string; data: Registrations; readOnly: boolean }) {
+function StatusView({
+  classId,
+  data,
+  readOnly,
+  onNotice,
+}: {
+  classId: string;
+  data: Registrations;
+  readOnly: boolean;
+  onNotice: (text: string | null) => void;
+}) {
   const queryClient = useQueryClient();
   const [target, setTarget] = useState<Target | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
@@ -168,6 +202,7 @@ function StatusView({ classId, data, readOnly }: { classId: string; data: Regist
   const rowDone = (text: string) => {
     setRowAction(null);
     setNotice(text);
+    onNotice(text);
     setFocusNotice(true);
   };
   const rowPanel = (action: RowAction) =>

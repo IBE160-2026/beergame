@@ -14,5 +14,9 @@ export default defineConfig({
     baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:8080",
     trace: "retain-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // The browser as a Norwegian user has it (GitHub issue 100): Norwegian locale, Oslo time. After
+  // the device, which brings its own locale.
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"], locale: "nb-NO", timezoneId: "Europe/Oslo" } },
+  ],
 });

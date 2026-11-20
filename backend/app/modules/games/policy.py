@@ -29,6 +29,14 @@ class GamePolicy(BaseModel):
     """`settings`: Guided Weeks are the Game settings' `guided_weeks`."""
     scripted_occupants: bool
     """Whether a Seat may be held by a scripted policy (AD-22)."""
+    snapshot: Literal["at_creation", "at_lock"]
+    """When the Game takes its settings snapshot (AD-4): `at_creation`, from the settings
+    `games.commands.create` is given; `at_lock`, from its Class session's lock (Story 5.12), so
+    `create` takes no settings and `start` answers `game_not_ready` until the snapshot exists."""
+    student_occupants: bool
+    """Whether a Seat may be held by a Student (`student` occupant with a `user_id`, AD-5)."""
+    class_session_game: bool
+    """Whether the Game belongs to a Class session: created with its id and a game number."""
 
 
 POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
@@ -40,6 +48,22 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             lecturer_overview=False,
             guided_weeks="settings",
             scripted_occupants=True,
+            snapshot="at_creation",
+            student_occupants=False,
+            class_session_game=False,
+        ),
+        # A Class game (Story 5.9): created when the allocation is confirmed, its snapshot taken
+        # at the Class session's lock.
+        Purpose.CLASS: GamePolicy(
+            inactivity_takeover=True,
+            pause=True,
+            play_deadline_playout=True,
+            lecturer_overview=True,
+            guided_weeks="settings",
+            scripted_occupants=False,
+            snapshot="at_lock",
+            student_occupants=True,
+            class_session_game=True,
         ),
     }
 )

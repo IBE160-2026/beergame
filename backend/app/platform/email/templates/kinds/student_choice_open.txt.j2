@@ -1,0 +1,6 @@
+{# The Students may choose a Class game and a Seat (Story 5.17, FR-21), a digest kind. `class_name`
+   and `start_at` (Europe/Oslo, or None) come from `sessions.service.student_choice_mail_context`
+   at send time. Draft copy. #}
+{% import "kinds/_deadline.j2" as d %}
+{% set subject = "Velg spill og sete" %}
+I Klassen {{ class_name }} velger du selv spill og sete{% if start_at %} før startdatoen {{ d.when(start_at) }}{% else %} før startdatoen{% endif %}. Logg inn og velg under Hjem. Har du ikke valgt da, får du et sete ved trekning.

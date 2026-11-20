@@ -163,6 +163,288 @@
         "title": "AddressProblem",
         "type": "string"
       },
+      "AiDescriptionsOut": {
+        "description": "The plain-language Norwegian description of each AI player type, from\n`players.service.describe` (FR-33): Markdown with a title line, paragraphs and `- ` lists.",
+        "properties": {
+          "llm": {
+            "title": "Llm",
+            "type": "string"
+          },
+          "rule_based": {
+            "title": "Rule Based",
+            "type": "string"
+          }
+        },
+        "required": [
+          "llm",
+          "rule_based"
+        ],
+        "title": "AiDescriptionsOut",
+        "type": "object"
+      },
+      "AiMode": {
+        "description": "Who holds the AI Seats of the Class session's games (FR-15).",
+        "enum": [
+          "llm",
+          "rule_based"
+        ],
+        "title": "AiMode",
+        "type": "string"
+      },
+      "AllocationConfirmIn": {
+        "additionalProperties": false,
+        "description": "«Bekreft fordeling» (Story 5.9): the draft the Lecturer is looking at.",
+        "properties": {
+          "draft_id": {
+            "format": "uuid",
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "draft_id",
+          "revision"
+        ],
+        "title": "AllocationConfirmIn",
+        "type": "object"
+      },
+      "AllocationDraftOut": {
+        "description": "The stored draft (Story 5.8, FR-20): what the preview shows, never a recomputation.\nStory 5.9 confirms it by `id` and `revision`.",
+        "properties": {
+          "drawn_at": {
+            "format": "date-time",
+            "title": "Drawn At",
+            "type": "string"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/AllocationGameOut"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "drawn_at",
+          "games"
+        ],
+        "title": "AllocationDraftOut",
+        "type": "object"
+      },
+      "AllocationGameOut": {
+        "description": "One Class game of the draft: its number and its four Seats, Fabrikk first.",
+        "properties": {
+          "lifecycle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Lifecycle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/AllocationSeatOut"
+            },
+            "title": "Seats",
+            "type": "array"
+          }
+        },
+        "required": [
+          "number",
+          "seats"
+        ],
+        "title": "AllocationGameOut",
+        "type": "object"
+      },
+      "AllocationMoveIn": {
+        "additionalProperties": false,
+        "description": "Move or swap in the allocation (Story 5.10): the draft the Lecturer is looking at, the\nSeat of the Student who moves, and the Seat they move to. A Student in that Seat takes the\nfirst Seat (a swap).",
+        "properties": {
+          "draft_id": {
+            "format": "uuid",
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "from_game": {
+            "title": "From Game",
+            "type": "integer"
+          },
+          "from_role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "to_game": {
+            "title": "To Game",
+            "type": "integer"
+          },
+          "to_role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "draft_id",
+          "revision",
+          "from_game",
+          "from_role",
+          "to_game",
+          "to_role"
+        ],
+        "title": "AllocationMoveIn",
+        "type": "object"
+      },
+      "AllocationOut": {
+        "description": "The «Fordeling» block: the registered Students now, those of them not in the draft (they\nregistered after it was drawn), and the draft, None until one is drawn.",
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "draft": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AllocationDraftOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "method": {
+            "default": "random",
+            "enum": [
+              "random",
+              "student_choice"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "missing_count": {
+            "title": "Missing Count",
+            "type": "integer"
+          },
+          "opened": {
+            "default": false,
+            "title": "Opened",
+            "type": "boolean"
+          },
+          "registered_count": {
+            "title": "Registered Count",
+            "type": "integer"
+          },
+          "without_seat": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AllocationStudentOut"
+            },
+            "title": "Without Seat",
+            "type": "array"
+          }
+        },
+        "required": [
+          "registered_count",
+          "missing_count",
+          "draft",
+          "confirmed",
+          "confirmed_at"
+        ],
+        "title": "AllocationOut",
+        "type": "object"
+      },
+      "AllocationSeatOut": {
+        "description": "One Seat of a Class game in the draft (Story 5.8). `user_id` None is an empty Seat (an AI\nplayer at the lock). `name` is resolved now through `classes.service.student_names`; None\nwith a `user_id` means the Student is no longer in the Class.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "role",
+          "user_id",
+          "name"
+        ],
+        "title": "AllocationSeatOut",
+        "type": "object"
+      },
+      "AllocationStudentOut": {
+        "description": "A registered Student without a Seat (Story 5.13).",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "name"
+        ],
+        "title": "AllocationStudentOut",
+        "type": "object"
+      },
       "AuditActor": {
         "description": "An actor of the log for the filter: a User with their name, or the system (both null).",
         "properties": {
@@ -526,6 +808,789 @@
         "title": "ClassOut",
         "type": "object"
       },
+      "ClassSessionListItem": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "saved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved At"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "created_at",
+          "saved_at"
+        ],
+        "title": "ClassSessionListItem",
+        "type": "object"
+      },
+      "ClassSessionListOut": {
+        "description": "The Class sessions of one Class, newest first. No paging: a Class has a handful.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClassSessionListItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "rerun_enabled": {
+            "default": false,
+            "title": "Rerun Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ClassSessionListOut",
+        "type": "object"
+      },
+      "ClassSessionOut": {
+        "description": "One Class session as its Class's staff read it.",
+        "properties": {
+          "ai_descriptions": {
+            "$ref": "#/components/schemas/AiDescriptionsOut"
+          },
+          "ai_mode": {
+            "$ref": "#/components/schemas/AiMode"
+          },
+          "allocation_method": {
+            "default": "random",
+            "enum": [
+              "random",
+              "student_choice"
+            ],
+            "title": "Allocation Method",
+            "type": "string"
+          },
+          "calibrated_settings": {
+            "$ref": "#/components/schemas/GameSettings"
+          },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "capacity_enabled": {
+            "title": "Capacity Enabled",
+            "type": "boolean"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "copied_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CopiedFromOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "debrief_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debrief Deadline"
+          },
+          "debrief_mode": {
+            "$ref": "#/components/schemas/DebriefMode"
+          },
+          "effort_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort Level"
+          },
+          "effort_level_replaced": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReplacedLevelOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "effort_levels": {
+            "items": {
+              "$ref": "#/components/schemas/OfferedEffortLevelOut"
+            },
+            "title": "Effort Levels",
+            "type": "array"
+          },
+          "game_settings": {
+            "$ref": "#/components/schemas/GameSettings"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "inactivity_limit_hours": {
+            "title": "Inactivity Limit Hours",
+            "type": "integer"
+          },
+          "info_visibility_enabled": {
+            "title": "Info Visibility Enabled",
+            "type": "boolean"
+          },
+          "is_classic": {
+            "title": "Is Classic",
+            "type": "boolean"
+          },
+          "lab_hours": {
+            "items": {
+              "$ref": "#/components/schemas/LabHourOut"
+            },
+            "title": "Lab Hours",
+            "type": "array"
+          },
+          "llm_unavailable": {
+            "anyOf": [
+              {
+                "const": "no_default_model",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Unavailable"
+          },
+          "lock_refused": {
+            "default": false,
+            "title": "Lock Refused",
+            "type": "boolean"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "locked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked At"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "obligatory": {
+            "title": "Obligatory",
+            "type": "boolean"
+          },
+          "passed_dates": {
+            "items": {
+              "enum": [
+                "start_at",
+                "play_deadline",
+                "debrief_deadline",
+                "test_deadline"
+              ],
+              "type": "string"
+            },
+            "title": "Passed Dates",
+            "type": "array"
+          },
+          "play_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Play Deadline"
+          },
+          "play_time_warning": {
+            "title": "Play Time Warning",
+            "type": "boolean"
+          },
+          "provider_unavailable": {
+            "title": "Provider Unavailable",
+            "type": "boolean"
+          },
+          "required_share_percent": {
+            "title": "Required Share Percent",
+            "type": "integer"
+          },
+          "saved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved At"
+          },
+          "settings_warnings": {
+            "items": {
+              "$ref": "#/components/schemas/SettingWarning"
+            },
+            "title": "Settings Warnings",
+            "type": "array"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "student_choice_enabled": {
+            "default": false,
+            "title": "Student Choice Enabled",
+            "type": "boolean"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          }
+        },
+        "required": [
+          "id",
+          "class_id",
+          "class_name",
+          "number",
+          "game_settings",
+          "is_classic",
+          "ai_mode",
+          "debrief_mode",
+          "inactivity_limit_hours",
+          "obligatory",
+          "required_share_percent",
+          "llm_unavailable",
+          "effort_level",
+          "effort_levels",
+          "ai_descriptions",
+          "provider_unavailable",
+          "saved_at",
+          "created_at",
+          "can_manage",
+          "start_at",
+          "play_deadline",
+          "debrief_deadline",
+          "test_deadline",
+          "locked",
+          "passed_dates",
+          "play_time_warning",
+          "settings_warnings",
+          "calibrated_settings",
+          "lab_hours",
+          "capacity_enabled",
+          "info_visibility_enabled"
+        ],
+        "title": "ClassSessionOut",
+        "type": "object"
+      },
+      "ClassSessionSaveIn": {
+        "additionalProperties": false,
+        "description": "«Lagre Klasseøkt». The screen sends the AI mode, Effort level and Debrief mode as chosen\n(Story 5.5), the four dates (Story 5.2) and the Game settings (Story 5.3) with the Demand\npattern and its seed (Story 5.4), and the obligatory mark, its required share and the\nInactivity limit (Story 5.7); a field left out keeps its value. `game_settings` is laid over\nthe stored settings, so a setting left out keeps its value. With Rule-based players no Effort\nlevel is in force, and a sent one is ignored.",
+        "properties": {
+          "ai_mode": {
+            "$ref": "#/components/schemas/AiMode"
+          },
+          "allocation_method": {
+            "anyOf": [
+              {
+                "enum": [
+                  "random",
+                  "student_choice"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allocation Method"
+          },
+          "dates": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DatesIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "debrief_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DebriefMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "effort_level": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort Level"
+          },
+          "game_settings": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Settings"
+          },
+          "inactivity_limit_hours": {
+            "anyOf": [
+              {
+                "maximum": 8760.0,
+                "minimum": -100000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactivity Limit Hours"
+          },
+          "obligatory": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Obligatory"
+          },
+          "required_share_percent": {
+            "anyOf": [
+              {
+                "maximum": 1000.0,
+                "minimum": -1000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Share Percent"
+          }
+        },
+        "required": [
+          "ai_mode"
+        ],
+        "title": "ClassSessionSaveIn",
+        "type": "object"
+      },
+      "CopiedFromOut": {
+        "description": "The source of a copied Class session, as the Klasseøkt names it.",
+        "properties": {
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "class_name",
+          "number"
+        ],
+        "title": "CopiedFromOut",
+        "type": "object"
+      },
+      "CopyIn": {
+        "additionalProperties": false,
+        "description": "«Lag kopi» (Story 5.18, FR-66): the Class session to copy, and whether to keep its demand\nseed (a fresh one is drawn otherwise).",
+        "properties": {
+          "keep_seed": {
+            "default": false,
+            "title": "Keep Seed",
+            "type": "boolean"
+          },
+          "source_id": {
+            "maxLength": 64,
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id"
+        ],
+        "title": "CopyIn",
+        "type": "object"
+      },
+      "CopySourceListOut": {
+        "description": "The Class sessions a rerun may copy, newest first. No paging: a Lecturer has a handful.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CopySourceOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CopySourceListOut",
+        "type": "object"
+      },
+      "CopySourceOut": {
+        "description": "A Class session the Lecturer may copy: one of a Class they are staff of.",
+        "properties": {
+          "archived": {
+            "title": "Archived",
+            "type": "boolean"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          }
+        },
+        "required": [
+          "id",
+          "class_id",
+          "class_name",
+          "number",
+          "start_at",
+          "archived"
+        ],
+        "title": "CopySourceOut",
+        "type": "object"
+      },
+      "DatesIn": {
+        "additionalProperties": false,
+        "description": "The four dates as the Lecturer set them, each an instant with its offset or None.",
+        "properties": {
+          "debrief_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debrief Deadline"
+          },
+          "play_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Play Deadline"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          }
+        },
+        "required": [
+          "start_at",
+          "play_deadline",
+          "debrief_deadline",
+          "test_deadline"
+        ],
+        "title": "DatesIn",
+        "type": "object"
+      },
+      "DebriefMode": {
+        "description": "How the Debrief is held (FR-16): the four of a Class game together, or each alone.",
+        "enum": [
+          "group",
+          "personal"
+        ],
+        "title": "DebriefMode",
+        "type": "string"
+      },
+      "DemandFixed": {
+        "additionalProperties": false,
+        "description": "A fixed series: `values[w - 1]` is the demand in Week w.",
+        "properties": {
+          "kind": {
+            "const": "fixed",
+            "title": "Kind",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "minItems": 1,
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "values"
+        ],
+        "title": "DemandFixed",
+        "type": "object"
+      },
+      "DemandRandom": {
+        "additionalProperties": false,
+        "description": "Discrete uniform demand over `mean - spread` to `mean + spread`, never below 0.",
+        "properties": {
+          "kind": {
+            "const": "random",
+            "title": "Kind",
+            "type": "string"
+          },
+          "mean": {
+            "minimum": 0.0,
+            "title": "Mean",
+            "type": "integer"
+          },
+          "spread": {
+            "title": "Spread",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "mean",
+          "spread"
+        ],
+        "title": "DemandRandom",
+        "type": "object"
+      },
+      "DemandSeriesOut": {
+        "description": "The customer demand of Weeks 1 to the last, as the engine materialises it from the stored\nDemand pattern and seed (Story 5.4, FR-13): `demand[w - 1]` is the demand in Week w. For the\nClass's staff only; no Student-facing answer carries it (AD-3).",
+        "properties": {
+          "demand": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Demand",
+            "type": "array"
+          }
+        },
+        "required": [
+          "demand"
+        ],
+        "title": "DemandSeriesOut",
+        "type": "object"
+      },
+      "DemandStep": {
+        "additionalProperties": false,
+        "description": "Customer demand `start` until `change_week`, then `new_level` from that Week on.",
+        "properties": {
+          "change_week": {
+            "minimum": 1.0,
+            "title": "Change Week",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "step",
+            "title": "Kind",
+            "type": "string"
+          },
+          "new_level": {
+            "minimum": 0.0,
+            "title": "New Level",
+            "type": "integer"
+          },
+          "start": {
+            "minimum": 0.0,
+            "title": "Start",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start",
+          "new_level",
+          "change_week",
+          "kind"
+        ],
+        "title": "DemandStep",
+        "type": "object"
+      },
+      "DemandStepNoise": {
+        "additionalProperties": false,
+        "description": "A step in the mean with discrete uniform noise of `spread` around it.",
+        "properties": {
+          "change_week": {
+            "minimum": 1.0,
+            "title": "Change Week",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "step+noise",
+            "title": "Kind",
+            "type": "string"
+          },
+          "new_level": {
+            "minimum": 0.0,
+            "title": "New Level",
+            "type": "integer"
+          },
+          "spread": {
+            "title": "Spread",
+            "type": "integer"
+          },
+          "start": {
+            "minimum": 0.0,
+            "title": "Start",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start",
+          "new_level",
+          "change_week",
+          "kind",
+          "spread"
+        ],
+        "title": "DemandStepNoise",
+        "type": "object"
+      },
       "EnrolledClassListOut": {
         "description": "The Classes the User is a Student in, by name. No paging: a Student has a handful.",
         "properties": {
@@ -575,6 +1640,176 @@
         "title": "EnrolledClassOut",
         "type": "object"
       },
+      "EnrolledLabHourOut": {
+        "description": "An upcoming Lab hour as a Student reads it (Story 5.6, FR-19), for Epic 6's Hjem.",
+        "properties": {
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "place": {
+            "title": "Place",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "starts_at",
+          "ends_at",
+          "place"
+        ],
+        "title": "EnrolledLabHourOut",
+        "type": "object"
+      },
+      "EnrolledSessionListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EnrolledSessionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "EnrolledSessionListOut",
+        "type": "object"
+      },
+      "EnrolledSessionOut": {
+        "description": "A Class session as its Student reads it (Story 5.2, FR-18, AD-3): the dates and the next\ndeadline that applies. Never the Game settings, the number of Weeks or the demand.",
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "debrief_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debrief Deadline"
+          },
+          "drawn_seat": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeatRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "lab_hours": {
+            "items": {
+              "$ref": "#/components/schemas/EnrolledLabHourOut"
+            },
+            "title": "Lab Hours",
+            "type": "array"
+          },
+          "next_deadline": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NextDeadline"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "obligatory": {
+            "title": "Obligatory",
+            "type": "boolean"
+          },
+          "play_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Play Deadline"
+          },
+          "seat_choice_open": {
+            "default": false,
+            "title": "Seat Choice Open",
+            "type": "boolean"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          }
+        },
+        "required": [
+          "id",
+          "class_id",
+          "class_name",
+          "number",
+          "start_at",
+          "play_deadline",
+          "debrief_deadline",
+          "test_deadline",
+          "next_deadline",
+          "obligatory",
+          "lab_hours"
+        ],
+        "title": "EnrolledSessionOut",
+        "type": "object"
+      },
       "ErrorBody": {
         "properties": {
           "code": {
@@ -610,6 +1845,167 @@
         "title": "ErrorEnvelope",
         "type": "object"
       },
+      "GameSettings": {
+        "additionalProperties": false,
+        "description": "Everything that defines a Game's arithmetic. `GameSettings()` is the Classic game.",
+        "properties": {
+          "backorder_cost": {
+            "default": "1.00",
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/Role"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "demand": {
+            "default": {
+              "change_week": 5,
+              "kind": "step",
+              "new_level": 8,
+              "start": 4
+            },
+            "discriminator": {
+              "mapping": {
+                "fixed": "#/components/schemas/DemandFixed",
+                "random": "#/components/schemas/DemandRandom",
+                "step": "#/components/schemas/DemandStep",
+                "step+noise": "#/components/schemas/DemandStepNoise"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DemandFixed"
+              },
+              {
+                "$ref": "#/components/schemas/DemandStep"
+              },
+              {
+                "$ref": "#/components/schemas/DemandRandom"
+              },
+              {
+                "$ref": "#/components/schemas/DemandStepNoise"
+              }
+            ],
+            "title": "Demand"
+          },
+          "demand_seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Demand Seed"
+          },
+          "guided_weeks": {
+            "default": 4,
+            "minimum": 0.0,
+            "title": "Guided Weeks",
+            "type": "integer"
+          },
+          "holding_cost": {
+            "default": "0.50",
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "info_visibility": {
+            "$ref": "#/components/schemas/InfoVisibility",
+            "default": {
+              "downstream": false,
+              "upstream": false
+            }
+          },
+          "max_order": {
+            "default": 999,
+            "minimum": 0.0,
+            "title": "Max Order",
+            "type": "integer"
+          },
+          "order_delay": {
+            "default": 2,
+            "minimum": 1.0,
+            "title": "Order Delay",
+            "type": "integer"
+          },
+          "production_delay": {
+            "default": 2,
+            "minimum": 1.0,
+            "title": "Production Delay",
+            "type": "integer"
+          },
+          "roles": {
+            "default": [
+              "retailer",
+              "wholesaler",
+              "distributor",
+              "factory"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "schema_version": {
+            "default": 2,
+            "enum": [
+              1,
+              2
+            ],
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "shipping_delay": {
+            "default": 2,
+            "minimum": 1.0,
+            "title": "Shipping Delay",
+            "type": "integer"
+          },
+          "starting_backlog": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Starting Backlog",
+            "type": "integer"
+          },
+          "starting_inventory": {
+            "default": 12,
+            "minimum": 0.0,
+            "title": "Starting Inventory",
+            "type": "integer"
+          },
+          "supply_line": {
+            "default": 4,
+            "minimum": 0.0,
+            "title": "Supply Line",
+            "type": "integer"
+          },
+          "weeks": {
+            "default": 36,
+            "minimum": 1.0,
+            "title": "Weeks",
+            "type": "integer"
+          }
+        },
+        "title": "GameSettings",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -621,6 +2017,24 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "InfoVisibility": {
+        "additionalProperties": false,
+        "description": "Information visibility (cut list, FR-83): which neighbour each Seat sees, with its current\ninventory and backlog. Both views off by default; the Factory has no upstream neighbour and\nthe Retailer no downstream one, so their view on that side shows nothing.",
+        "properties": {
+          "downstream": {
+            "default": false,
+            "title": "Downstream",
+            "type": "boolean"
+          },
+          "upstream": {
+            "default": false,
+            "title": "Upstream",
+            "type": "boolean"
+          }
+        },
+        "title": "InfoVisibility",
         "type": "object"
       },
       "InstitutionChoice": {
@@ -1046,6 +2460,109 @@
         "title": "InvitationTokenIn",
         "type": "object"
       },
+      "LabHourIn": {
+        "additionalProperties": false,
+        "description": "A Lab hour as the Lecturer adds or changes it (Story 5.6, FR-19): its start and end as\ninstants with their offset, and its place. The service judges the rules (`invalid_lab_hour`),\nso a blank or long place gets its reason rather than a schema error.",
+        "properties": {
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "place": {
+            "maxLength": 1000,
+            "title": "Place",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "starts_at",
+          "ends_at",
+          "place"
+        ],
+        "title": "LabHourIn",
+        "type": "object"
+      },
+      "LabHourOut": {
+        "description": "A Lab hour as the Class's staff read it, UTC; the web app shows it in Europe/Oslo.",
+        "properties": {
+          "ended": {
+            "title": "Ended",
+            "type": "boolean"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "place": {
+            "title": "Place",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "starts_at",
+          "ends_at",
+          "place",
+          "ended"
+        ],
+        "title": "LabHourOut",
+        "type": "object"
+      },
+      "LecturerOverviewOut": {
+        "description": "The Lærerhjem's «Venter» and «Neste frist» (Story 5.2, UX-DR56): over the User's Classes\nthat are not archived.",
+        "properties": {
+          "next_date": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NextDate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "waiting": {
+            "items": {
+              "$ref": "#/components/schemas/WaitingClass"
+            },
+            "title": "Waiting",
+            "type": "array"
+          }
+        },
+        "required": [
+          "waiting",
+          "next_date"
+        ],
+        "title": "LecturerOverviewOut",
+        "type": "object"
+      },
+      "Lifecycle": {
+        "enum": [
+          "not_started",
+          "running",
+          "playing_out",
+          "finished"
+        ],
+        "title": "Lifecycle",
+        "type": "string"
+      },
       "LoginIn": {
         "properties": {
           "email": {
@@ -1128,6 +2645,145 @@
           "password"
         ],
         "title": "NewPasswordIn",
+        "type": "object"
+      },
+      "NextDate": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "start",
+              "play",
+              "debrief",
+              "test"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "at",
+          "session_id",
+          "number",
+          "class_id",
+          "class_name"
+        ],
+        "title": "NextDate",
+        "type": "object"
+      },
+      "NextDeadline": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "start",
+              "play",
+              "debrief",
+              "test"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "at"
+        ],
+        "title": "NextDeadline",
+        "type": "object"
+      },
+      "OfferedEffortLevelOut": {
+        "description": "An Effort level the Class session may use (Story 5.5, FR-78), as the model config holds it\nand `ai.config.offered_effort_levels` offers it: nothing here is written by `sessions`.",
+        "properties": {
+          "cost_per_game_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Per Game Usd"
+          },
+          "default": {
+            "title": "Default",
+            "type": "boolean"
+          },
+          "effect": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effect"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "time_per_order_median_s": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Per Order Median S"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "effect",
+          "default",
+          "time_per_order_median_s",
+          "cost_per_game_usd"
+        ],
+        "title": "OfferedEffortLevelOut",
         "type": "object"
       },
       "PasswordResetIn": {
@@ -1322,6 +2978,32 @@
         "title": "ReminderOut",
         "type": "object"
       },
+      "ReplacedLevelOut": {
+        "description": "An Effort level of the source the new model config does not offer: its name, and the\nsource config's Norwegian label (None: show `name`).",
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label"
+        ],
+        "title": "ReplacedLevelOut",
+        "type": "object"
+      },
       "ResetCheckOut": {
         "description": "A usable reset link: its address, and whether the account has no password yet (a manually\nregistered Student, Story 4.8), so «Nytt passord» words it as a first password.",
         "properties": {
@@ -1368,6 +3050,16 @@
         ],
         "title": "ResetTokenIn",
         "type": "object"
+      },
+      "Role": {
+        "enum": [
+          "retailer",
+          "wholesaler",
+          "distributor",
+          "factory"
+        ],
+        "title": "Role",
+        "type": "string"
       },
       "RoleIn": {
         "description": "The account role an Admin grants (Story 3.9).",
@@ -1696,6 +3388,175 @@
         "title": "RosterUploadOut",
         "type": "object"
       },
+      "SeatChoiceGameOut": {
+        "properties": {
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/SeatChoiceSeatOut"
+            },
+            "title": "Seats",
+            "type": "array"
+          }
+        },
+        "required": [
+          "number",
+          "seats"
+        ],
+        "title": "SeatChoiceGameOut",
+        "type": "object"
+      },
+      "SeatChoiceIn": {
+        "additionalProperties": false,
+        "description": "«Ta setet …»: the Seat the Student takes. Anything that names no Seat of the Class\nsession's games answers 422 `invalid_seat`.",
+        "properties": {
+          "game_number": {
+            "maximum": 1000000.0,
+            "minimum": -1000000.0,
+            "title": "Game Number",
+            "type": "integer"
+          },
+          "role": {
+            "maxLength": 32,
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game_number",
+          "role"
+        ],
+        "title": "SeatChoiceIn",
+        "type": "object"
+      },
+      "SeatChoiceOut": {
+        "description": "«Velg spill og sete» (Story 5.17): the Class session's Class games with their Seats, and\nthe reader's own Seat. Never the Game settings, the number of Weeks or the demand.",
+        "properties": {
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "drawn": {
+            "title": "Drawn",
+            "type": "boolean"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/SeatChoiceGameOut"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "my_seat": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeatRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "class_name",
+          "number",
+          "start_at",
+          "open",
+          "my_seat",
+          "drawn",
+          "games"
+        ],
+        "title": "SeatChoiceOut",
+        "type": "object"
+      },
+      "SeatChoiceSeatOut": {
+        "description": "One Seat as «Velg spill og sete» lists it: free, a Student (named now; None once removed\nfrom the Class) or, after the lock, an AI player. `mine` marks the reader's own Seat.",
+        "properties": {
+          "holder": {
+            "enum": [
+              "free",
+              "student",
+              "ai"
+            ],
+            "title": "Holder",
+            "type": "string"
+          },
+          "mine": {
+            "title": "Mine",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role",
+          "holder",
+          "name",
+          "mine"
+        ],
+        "title": "SeatChoiceSeatOut",
+        "type": "object"
+      },
+      "SeatRef": {
+        "description": "A Seat named by its Class game's number and its Role: «Grossist i Spill 17».",
+        "properties": {
+          "game_number": {
+            "title": "Game Number",
+            "type": "integer"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "game_number",
+          "role"
+        ],
+        "title": "SeatRef",
+        "type": "object"
+      },
       "SessionOut": {
         "properties": {
           "user": {
@@ -1708,6 +3569,37 @@
         "title": "SessionOut",
         "type": "object"
       },
+      "SessionRef": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "lacks": {
+            "items": {
+              "enum": [
+                "dates",
+                "allocation"
+              ],
+              "type": "string"
+            },
+            "title": "Lacks",
+            "type": "array"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "lacks"
+        ],
+        "title": "SessionRef",
+        "type": "object"
+      },
       "SessionRole": {
         "description": "The roles a session carries (`UserOut.roles`): the account roles, and `assistant` while the\nUser is Assistant lecturer of at least one Class (Story 4.9). `assistant` is read from the\nClass staff on every request, never stored or granted by the Admin.",
         "enum": [
@@ -1717,6 +3609,124 @@
         ],
         "title": "SessionRole",
         "type": "string"
+      },
+      "SettingProblem": {
+        "description": "Why one Game setting is refused (Story 5.3, FR-12): the engine's stable code and the range\nthat applies, its bounds as decimal strings («1», «100.00»), or None when the rule has none.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "decimal_places": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decimal Places"
+          },
+          "maximum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum"
+          },
+          "minimum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum"
+          }
+        },
+        "required": [
+          "code",
+          "minimum",
+          "maximum",
+          "decimal_places"
+        ],
+        "title": "SettingProblem",
+        "type": "object"
+      },
+      "SettingWarning": {
+        "description": "A legal but unusual Game setting (FR-12): the engine's code, the setting it stands under,\nand the numbers behind it as decimal strings. It never blocks a save.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "code",
+          "field",
+          "values"
+        ],
+        "title": "SettingWarning",
+        "type": "object"
+      },
+      "SettingsCheckIn": {
+        "additionalProperties": false,
+        "description": "A draft of the Game settings to judge without saving: the editable settings, laid\nover the stored settings. Values are sent as typed, so the engine judges them all.",
+        "properties": {
+          "game_settings": {
+            "additionalProperties": true,
+            "title": "Game Settings",
+            "type": "object"
+          }
+        },
+        "required": [
+          "game_settings"
+        ],
+        "title": "SettingsCheckIn",
+        "type": "object"
+      },
+      "SettingsCheckOut": {
+        "description": "What the engine says of a draft (FR-12): the errors by setting, which block a save, and the\nwarnings, which do not.",
+        "properties": {
+          "errors": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SettingProblem"
+            },
+            "title": "Errors",
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/SettingWarning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "errors",
+          "warnings"
+        ],
+        "title": "SettingsCheckOut",
+        "type": "object"
       },
       "StaffAssistant": {
         "description": "An Assistant of the Class: `active` (staff, `user_id` set), or an Invitation not yet\naccepted (`invitation_id` set): `invited` with its last valid day, or `expired`.",
@@ -2024,6 +4034,34 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WaitingClass": {
+        "description": "A Class with Class sessions that still lack a date or a confirmed allocation.",
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/SessionRef"
+            },
+            "title": "Sessions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "class_id",
+          "class_name",
+          "sessions"
+        ],
+        "title": "WaitingClass",
         "type": "object"
       }
     }
@@ -3865,6 +5903,927 @@
         ]
       }
     },
+    "/api/class-sessions/{session_id}": {
+      "get": {
+        "description": "One Class session, for the Klasseøkt screen. Its Class's Assistant lecturers read it too.",
+        "operationId": "getClassSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Class Session",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "put": {
+        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level` and `debrief_mode` (FR-16, FR-78), left out, keep their values. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).\n\n`game_settings.capacity` (Story 5.15) is `{role: units}` or null: one Role or every Role\ncapped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a\nnon-empty capacity answers 422 `feature_disabled` (`{\"capacity\": \"feature_disabled\"}`).\n\n`game_settings.info_visibility` (Story 5.16) is `{upstream, downstream}`, two booleans that\nlet each Seat see its neighbour's inventory and backlog; anything else is `info_visibility`\n`invalid`. While `FEATURE_INFO_VISIBILITY` is off a view switched on answers 422\n`feature_disabled` (`{\"info_visibility\": \"feature_disabled\"}`).\n\n`obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,\nFR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit\nunder 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once\nlocked a changed one answers 409 `session_locked`. Switching the mark on tells each\nregistered Student through the day's digest mail.\n\n`allocation_method` (Story 5.17, FR-21), left out, keeps the method. `student_choice` creates\nempty Class games for the registered Students and tells each of them through the day's digest\nmail that they may choose a Class game and a Seat. A changed method answers 422\n`feature_disabled` (`{\"allocation_method\": \"feature_disabled\"}`) for Student choice while\n`FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409\n`allocation_confirmed` (`{\"allocation_method\": \"confirmed\"}`) once an allocation is confirmed:\nStudent choice is final once saved.",
+        "operationId": "saveClassSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassSessionSaveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Save Class Session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/allocation": {
+      "get": {
+        "description": "The «Fordeling» block (Story 5.8, FR-20): the registered Students, those not in the draft,\nand the stored draft (None until one is drawn) with the Students' names read now. For the\nClass's staff, Assistant lecturers too.",
+        "operationId": "getAllocation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllocationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Allocation",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "post": {
+        "description": "Opening «Fordeling»: the stored draft unchanged, or, when none is stored, a draft drawn at\nrandom from the registered Students in groups of four with a random Role each. With no\nregistered Student nothing is stored. No Game or Seat is created and no Student is told.\nOnce the Start date has passed a stored draft is still returned, and a draw answers 409\n`session_locked` (`{\"allocation\": \"locked\"}`). An archived Class answers 409\n`class_archived`.",
+        "operationId": "openAllocation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllocationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Allocation",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/allocation/confirm": {
+      "post": {
+        "description": "«Bekreft fordeling» (Story 5.9, FR-20): commits the draft named by `draft_id` and\n`revision`, and nothing else: one Class game per group and one Seat per Student, and each\nStudent is told through the day's digest mail. Pressing it again changes nothing.\n\n409 `allocation_changed` commits no Game: `{\"draft\": \"changed\"}` when the draft is no longer\nthe current one (drawn again or changed), `{\"draft\": \"students_removed\"}` when Students in it\nhave left the Roster, whose Seats the draft now leaves free under a raised revision. 409\n`session_locked` (`{\"allocation\": \"locked\"}`) once the Start date has passed; 409\n`class_archived` for an archived Class.",
+        "operationId": "confirmAllocation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllocationConfirmIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllocationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Confirm Allocation",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/allocation/move": {
+      "post": {
+        "description": "Move a Student to a free Seat, or swap two (Story 5.10, FR-20), in the draft named by\n`draft_id` and `revision`: the Student of `from_game`/`from_role` takes\n`to_game`/`to_role`, and a Student there takes the first Seat. The draft keeps its id and\nits revision rises by one. Once the allocation is confirmed the Class games change in the\nsame transaction and the Students who moved are told through the day's digest mail.\n\n409 `allocation_changed` (`{\"draft\": \"changed\"}`) when the draft is no longer the current\none; 422 `invalid_move` with `fields` `{\"to\": \"same\"}`, `{\"from\"|\"to\": \"unknown\"}`,\n`{\"from\": \"empty\"}` or `{\"from\": \"last_student\"}`; 409 `session_locked` (`{\"allocation\":\n\"locked\"}`) once the Start date has passed; 409 `class_archived` for an archived Class.\nA confirmed allocation's Games refusing the move answer the command's code (such as 409\n`game_already_started`). A session with Student choice (Story 5.17) answers 409\n`allocation_confirmed` (`{\"allocation\": \"student_choice\"}`). Nothing is committed on any\nrefusal.",
+        "operationId": "moveInAllocation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllocationMoveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllocationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Move In Allocation",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/allocation/redraw": {
+      "post": {
+        "description": "«Kjør fordeling på nytt»: a new seed and a new draft under a new id, revision 1. The\nrefusals are those of opening it, and 409 `allocation_confirmed` (`{\"allocation\":\n\"confirmed\"}`) once the allocation is confirmed.",
+        "operationId": "redrawAllocation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllocationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Redraw Allocation",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/demand-series": {
+      "get": {
+        "description": "The customer demand Week by Week, materialised by the engine from the stored Demand\npattern and seed (FR-13, AD-1). For the Class's staff; the same settings and seed always give\nthe same series.",
+        "operationId": "getClassSessionDemandSeries",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandSeriesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Class Session Demand Series",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/lab-hours": {
+      "post": {
+        "description": "«Legg til Labtime» (Story 5.6, FR-19): stores the Lab hour at once and tells each\nregistered Student through the day's digest mail. The Start-date lock does not apply.\n\nA refusal is 422 `invalid_lab_hour` with `fields`: `place` `required` or `too_long` (over 120\ncharacters); `ends_at` `not_after_start`, `too_long` (over 12 hours after the start) or\n`past`. Times count to the whole minute.",
+        "operationId": "addLabHour",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabHourIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabHourOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Add Lab Hour",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/lab-hours/{lab_hour_id}": {
+      "delete": {
+        "description": "Removes a Lab hour and tells each registered Student it is cancelled. A Lab hour that has\nended answers 409 `lab_hour_ended`.",
+        "operationId": "removeLabHour",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "lab_hour_id",
+            "required": true,
+            "schema": {
+              "title": "Lab Hour Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Lab Hour",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "put": {
+        "description": "Changes a Lab hour and tells each registered Student; unchanged values tell nobody. A Lab\nhour that has ended answers 409 `lab_hour_ended`; the other refusals are those of adding one\n(422 `invalid_lab_hour`).",
+        "operationId": "changeLabHour",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "lab_hour_id",
+            "required": true,
+            "schema": {
+              "title": "Lab Hour Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabHourIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabHourOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Change Lab Hour",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/settings-check": {
+      "post": {
+        "description": "The engine's errors and warnings on a draft of the Game settings, as the Lecturer leaves a\nfield (FR-12, AD-1). Stores nothing. Once locked it answers 409 `session_locked`.",
+        "operationId": "checkClassSessionSettings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsCheckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsCheckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Class Session Settings",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/classes": {
       "get": {
         "description": "The Classes the User is staff of, by name: «Klassene dine» on the Lærerhjem.",
@@ -4237,6 +7196,286 @@
         "summary": "Archive Class",
         "tags": [
           "classes"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/class-sessions": {
+      "get": {
+        "description": "The Class's sessions, newest first, for the Klasse page.",
+        "operationId": "listClassSessions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassSessionListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Class Sessions",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "post": {
+        "description": "«Lag Klasseøkt»: a Class session filled in with the Classic defaults (FR-11). When no model\nconfig is pinned as the default, it gets Rule-based players and `llm_unavailable` says why.",
+        "operationId": "createClassSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Class Session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/class-sessions/copy": {
+      "post": {
+        "description": "«Lag kopi» (Story 5.18, FR-66): a new Class session in this Class with the Game settings,\nAI mode, Effort level, Debrief mode and Inactivity limit of `source_id`, a session of any Class\nthe User is staff of. It takes the active default model config; an Effort level that config\ndoes not offer becomes its default (`effort_level_replaced`). Dates, Lab hours, the Roster, the\nallocation and the obligatory mark are not copied; a fresh demand seed is drawn unless\n`keep_seed`. A source the User may not read answers 403 `forbidden`; copied settings the engine\nrefuses 422 `invalid_settings`; while `FEATURE_RERUN` is off 422 `feature_disabled`\n(`{\"rerun\": \"feature_disabled\"}`).",
+        "operationId": "copyClassSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Copy Class Session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/class-sessions/copy-sources": {
+      "get": {
+        "description": "The Class sessions a Faglærer may copy into this Class (Story 5.18, FR-66, AD-12): every\nsession of every Class they are staff of, archived Classes included, newest first. While\n`FEATURE_RERUN` is off it answers 422 `feature_disabled` (`{\"rerun\": \"feature_disabled\"}`).",
+        "operationId": "listClassSessionCopySources",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopySourceListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "List Copy Sources",
+        "tags": [
+          "sessions"
         ]
       }
     },
@@ -5468,6 +8707,224 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/api/lecturer-home/class-sessions": {
+      "get": {
+        "description": "The Lærerhjem's «Venter» and «Neste frist» over the User's Classes that are not archived\n(UX-DR56).",
+        "operationId": "lecturerHomeClassSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LecturerOverviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "Lecturer Home Class Sessions",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/class-sessions": {
+      "get": {
+        "description": "The Class sessions of the Classes the User is a Student in: dates and the next deadline,\nnever the Game settings (FR-18). Empty for a User who is no Student.",
+        "operationId": "listMyClassSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrolledSessionListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "summary": "List My Class Sessions",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/seat-choice": {
+      "get": {
+        "description": "«Velg spill og sete» (Story 5.17, FR-21, UX-DR62): the Class session's Class games, each\nSeat free, held by a Student (named) or, after the lock, by an AI player, and the reader's own\nSeat. 404 `not_found` while `FEATURE_STUDENT_CHOICE` is off, for a session that does not use\nStudent choice, and for a User who is not a registered Student of its Class (AD-17).",
+        "operationId": "getSeatChoice",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeatChoiceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Seat Choice",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "put": {
+        "description": "«Ta setet Grossist i Spill 17» (Story 5.17, FR-21): the Student takes the free Seat, or\nmoves to it from the Seat they hold, in one request; their own Seat again changes nothing.\n409 `seat_taken` (`{\"seat\": \"taken\"}`) when another occupant holds it, 422 `invalid_seat`\n(`{\"seat\": \"unknown\"}`) for a game or Role the session does not have, 409 `session_locked`\n(`{\"seat\": \"locked\"}`) once locked, 409 `class_archived` for an archived Class; nothing changes\nthen. Not found as the read.",
+        "operationId": "takeSeat",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeatChoiceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeatChoiceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Take Seat",
+        "tags": [
+          "sessions"
+        ]
       }
     }
   }

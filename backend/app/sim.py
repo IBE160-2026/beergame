@@ -364,7 +364,14 @@ def _settings_check(args: argparse.Namespace, parser: argparse.ArgumentParser) -
         errors = _invalid(exc)
         found: tuple[SettingsWarning, ...] = ()
     else:
-        errors = list(validate(settings, capacity_enabled=get_settings().feature_capacity))
+        flags = get_settings()
+        errors = list(
+            validate(
+                settings,
+                capacity_enabled=flags.feature_capacity,
+                info_visibility_enabled=flags.feature_info_visibility,
+            )
+        )
         found = warnings(settings)
     for error in errors:
         print(f"error {error.code} {error.field}: {error.message}{_allowed(error)}")

@@ -79,6 +79,13 @@ class EffortLevel(_Spec):
     `max_tokens`; with the prices it bounds the cost each attempt reserves (Story 2.8). The
     default is a placeholder until the prototype (issue #8)."""
     placeholder: bool = True
+    label: str | None = Field(None, min_length=1, max_length=40)
+    """The level's name as the Klasseøkt shows it, in Norwegian bokmål (Story 5.5). None: the
+    screen shows `name`."""
+    effect: str | None = Field(None, min_length=1, max_length=200)
+    """One line on the level's effect on speed and cost, in Norwegian bokmål, shown beside the
+    level on the Klasseøkt (FR-78, Story 5.5). A placeholder until the prototype (issues #8, #9);
+    None for configs stored before the field existed."""
 
 
 RESERVED_PARAMS = frozenset(
@@ -734,6 +741,15 @@ async def measurements(
 def _counts(measurement: EffortMeasurement, app_env: str) -> bool:
     """A real measurement always counts; a mock one only where the mock may answer."""
     return not measurement.mock or app_env in MOCK_ENVS
+
+
+def may_answer(found: ModelConfig) -> bool:
+    """Whether a model may answer for this config in this environment: the mock where it may,
+    else the real endpoint with its key set (AD-17). False in production for the mock config or
+    a provider whose key is not set; `sessions.lock` refuses then (`provider_key_missing`)."""
+    from app.ai import adapters  # imports this module
+
+    return adapters.availability(found.spec, get_settings().app_env).kind != "refused"
 
 
 async def offered_effort_levels(

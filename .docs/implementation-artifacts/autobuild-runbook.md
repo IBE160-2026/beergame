@@ -53,6 +53,15 @@ The orchestrator session follows this file when it builds the stories without a 
 - Issues are public: no secrets, no names of other projects, no personal data.
 - Ask nobody. The founder is not watching. Decide, record the decision in an issue, and go on.
 
+## Lessons from Epics 1–4 (2026-11-19)
+
+- Sub-agents run in the background here. Tell the builder to implement in its own context. Review sub-agents may be cut off; then resume the builder and have it read their results from the transcripts.
+- Give every builder: folders `backend/`/`frontend/`, the OpenRouter decision, no human in the loop, fast tests (targeted while working, full suites once), never drop `olspillet_test*`, never compare DB time with host time (Issue #63), step 1 in about 10 minutes, compose builds as `timeout 900 docker compose up -d --build --wait …`, and `docker compose rm -sf <services>` afterwards with `postgres` left running.
+- Test logins (`APP_ENV=local`, password `olspillet-demo`): `admin@`, `faglaerer@`, `admin-faglaerer@`, `assistent@`, `student@`, `student2@`…`student8@example.com`. The demo Class is «class-of-1994». Never archive or change it in tests or visual checks; create fresh data.
+- The visual check runs the whole Vitest suite (under 2 s) and `lint:colours`, not only the touched files. Clear UX defects it finds go to the next story on the same page, or to the end-of-epic review.
+- At the end of each epic: one follow-up review agent (late patches, collected UX items, races), one e2e stabilisation pass, then the PR.
+- The OpenRouter key in `.env` is blocked for agents by the safety filter. Stories that need a real call are built against the mock and set to `review` with the exact commands (Issues #56, #60).
+
 ## Done
 
 The goal is reached when every story outside the skip list is `done`, `review` or (after three attempts) `blocked`, every epic is merged to `main` with CI green, and a final log section lists the `review` and `blocked` stories with their issues.

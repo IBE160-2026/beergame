@@ -458,27 +458,30 @@ def test_week_complete_is_true_only_when_every_turn_has_an_order():
 
 
 async def test_play_to_end_matches_the_engine_only_game(games_db):
-    """Four Rule-based players through the commands give the engine-only Orders and costs."""
-    game_id = await started()
+    """Four Rule-based players through the commands give the engine-only Orders and costs. A
+    12-Week Game: past the Guided Weeks and the demand step; `test_sim.py` compares a whole
+    Classic Game with the engine-only trace."""
+    settings = SETTINGS.model_copy(update={"weeks": 12})
+    game_id = await started(weeks=settings.weeks)
     await play_to_end(game_id)
     rule = rule_based.parse_params(
         read_parameter_set("rule_based", rule_based.DEFAULT_SET_ID), rule_based.DEFAULT_SET_ID
     )
-    states = [initial_state(SETTINGS)]
+    states = [initial_state(settings)]
     orders: list[dict] = []
     expected = []
     while not states[-1].finished:
         state = states[-1]
-        if state.week <= SETTINGS.guided_weeks:
-            placed = dict.fromkeys(ROLES, guided_order(SETTINGS))
+        if state.week <= settings.guided_weeks:
+            placed = dict.fromkeys(ROLES, guided_order(settings))
         else:
             placed = {
-                r: rule_based.order(SETTINGS, seat_view(SETTINGS, states, orders, r), rule)
+                r: rule_based.order(settings, seat_view(settings, states, orders, r), rule)
                 for r in ROLES
             }
         expected += [(state.week, r, placed[r], state.seat(r).cost) for r in ROLES]
         orders.append(placed)
-        states.append(advance(SETTINGS, state, placed))
+        states.append(advance(settings, state, placed))
     log = await service.decision_log(game_id)
     assert [(r.week, r.role, r.order, r.state_seen.week_cost) for r in log] == expected
     assert {r.decided_by for r in log if r.week > 4} == {"rule_based"}

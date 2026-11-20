@@ -53,6 +53,9 @@ class OccupancyReason(StrEnum):
     GUARD_SWITCH = "guard_switch"
     COST_LIMIT = "cost_limit"
     PLAYOUT = "playout"
+    MOVED = "moved"
+    """The Seat was freed before the start: its Student moved to another Seat (Story 5.10). The
+    row has no occupant kind; it is the only reason such a row has."""
 
 
 class DecidedBy(StrEnum):
@@ -100,6 +103,13 @@ class SessionRuntime(BaseModel):
     """Id of the Play guard parameter set the Game froze (FR-79); None only on Games created
     before Story 2.10, for which the guard does not run."""
     play_guard_params_version: int | None = None
+    inactivity_limit_hours: int | None = None
+    """The Class session's Inactivity limit the lock froze (Story 5.11); None on other Games."""
+    prompt_versions: dict[str, int] | None = None
+    """The prompt version per purpose of `model_config_id`, frozen with it (Story 5.11)."""
+    pins: dict[str, Any] | None = None
+    """The open map of pinned content versions and further runtime fields that the Class
+    session's lock fills from its registered pin providers (Story 5.11, AD-23)."""
 
     @model_validator(mode="after")
     def _config_and_level(self) -> SessionRuntime:
@@ -118,6 +128,8 @@ class SeatOverview(BaseModel):
     occupant_kind: OccupantKind | None
     """The current occupant; None while the Seat is free."""
     policy_id: str | None
+    user_id: str | None = None
+    """The Student of a `student` occupant (Story 5.9); None for every other occupant."""
 
 
 class GameOverview(BaseModel):
@@ -129,11 +141,15 @@ class GameOverview(BaseModel):
     purpose: Purpose
     lifecycle: Lifecycle
     version: int
-    demand_seed: int
-    rules_version: int
-    settings: GameSettings
-    """The Game's frozen settings (AD-4)."""
-    session_runtime: SessionRuntime
+    demand_seed: int | None
+    rules_version: int | None
+    settings: GameSettings | None
+    """The Game's frozen settings (AD-4); None, like the rest of the snapshot, on a Game whose
+    policy takes it at the lock and that has not got it yet."""
+    session_runtime: SessionRuntime | None
+    class_session_id: str | None = None
+    """The Class session of a Class game (Story 5.9), with its `game_number` in it."""
+    game_number: int | None = None
     seats: tuple[SeatOverview, ...]
 
 
@@ -276,7 +292,8 @@ class OccupancyRow(BaseModel):
     role: str
     seat_id: str
     from_week: int
-    occupant_kind: OccupantKind
+    occupant_kind: OccupantKind | None
+    """None: the Seat is free from `from_week` on (reason `moved`, Story 5.10)."""
     policy_id: str | None
     reason: OccupancyReason
 

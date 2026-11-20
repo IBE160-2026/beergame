@@ -1,6 +1,7 @@
 """SQL for the games tables. Writers here are called only from `games.commands`."""
 
 import uuid
+from collections.abc import Sequence
 from typing import Any
 
 from sqlalchemy import RowMapping, func, select, update
@@ -64,10 +65,16 @@ async def seat(session: AsyncSession, game_id: uuid.UUID, seat_id: uuid.UUID) ->
 
 
 async def has_occupant(session: AsyncSession, seat_id: uuid.UUID) -> bool:
+    """Whether the Seat has an occupant now: a latest occupancy row with an occupant kind. A
+    Seat with no row, or whose latest row freed it (Story 5.10), is free."""
     result = await session.execute(
-        select(seat_occupancy.c.id).where(seat_occupancy.c.seat_id == seat_id).limit(1)
+        select(seat_occupancy.c.occupant_kind)
+        .where(seat_occupancy.c.seat_id == seat_id)
+        .order_by(seat_occupancy.c.id.desc())
+        .limit(1)
     )
-    return result.first() is not None
+    row = result.first()
+    return row is not None and row[0] is not None
 
 
 async def append_occupancy(session: AsyncSession, values: dict[str, Any]) -> None:
@@ -81,21 +88,160 @@ async def get_game(session: AsyncSession, game_id: uuid.UUID) -> RowMapping | No
 
 async def seats_with_occupant(session: AsyncSession, game_id: uuid.UUID) -> list[RowMapping]:
     """Each Seat of the Game in chain order, with its latest occupancy row (None when free)."""
-    latest = (
+    latest = _latest_occupancy()
+    result = await session.execute(
+        select(
+            seats.c.id,
+            seats.c.role,
+            latest.c.occupant_kind,
+            latest.c.policy_id,
+            latest.c.user_id,
+        )
+        .select_from(seats.outerjoin(latest, latest.c.seat_id == seats.c.id))
+        .where(seats.c.game_id == game_id)
+        .order_by(seats.c.position)
+    )
+    return list(result.mappings())
+
+
+def _latest_occupancy(*where: Any) -> Any:
+    """Each Seat's latest occupancy row (by UUIDv7 id): its current occupant; `where` narrows
+    the occupancy rows read."""
+    return (
         select(
             seat_occupancy.c.seat_id,
             seat_occupancy.c.occupant_kind,
             seat_occupancy.c.policy_id,
+            seat_occupancy.c.user_id,
         )
+        .where(*where)
         .ext(distinct_on(seat_occupancy.c.seat_id))
         .order_by(seat_occupancy.c.seat_id, seat_occupancy.c.id.desc())
         .subquery()
     )
+
+
+async def student_seated(
+    session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> bool:
+    """Whether the Student holds a Seat in a Game of the Class session now (Story 5.9)."""
+    return await student_seat_count(session, class_session_id, user_id) > 0
+
+
+async def student_seat_count(
+    session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> int:
+    """How many Seats the Student holds in the Games of the Class session now (Stories 5.9,
+    5.10). Only the occupancy rows of that session's Seats are read."""
+    session_seats = (
+        select(seats.c.id)
+        .join(games, games.c.id == seats.c.game_id)
+        .where(games.c.class_session_id == class_session_id)
+    )
+    latest = _latest_occupancy(seat_occupancy.c.seat_id.in_(session_seats))
     result = await session.execute(
-        select(seats.c.id, seats.c.role, latest.c.occupant_kind, latest.c.policy_id)
-        .select_from(seats.outerjoin(latest, latest.c.seat_id == seats.c.id))
-        .where(seats.c.game_id == game_id)
-        .order_by(seats.c.position)
+        select(func.count())
+        .select_from(
+            seats.join(latest, latest.c.seat_id == seats.c.id).join(
+                games, games.c.id == seats.c.game_id
+            )
+        )
+        .where(
+            games.c.class_session_id == class_session_id,
+            latest.c.occupant_kind == "student",
+            latest.c.user_id == user_id,
+        )
+    )
+    return int(result.scalar_one())
+
+
+async def class_game_ids(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> dict[int, uuid.UUID]:
+    """The Class session's Games by game number (Story 5.10)."""
+    result = await session.execute(
+        select(games.c.game_number, games.c.id).where(games.c.class_session_id == class_session_id)
+    )
+    return {number: game_id for number, game_id in result.all()}
+
+
+async def set_snapshot(session: AsyncSession, game_id: uuid.UUID, values: dict[str, Any]) -> None:
+    """Store the five snapshot columns of a Game that had none (Story 5.12)."""
+    await session.execute(update(games).where(games.c.id == game_id).values(**values))
+
+
+async def class_sessions_awaiting_snapshot(session: AsyncSession) -> list[uuid.UUID]:
+    """The Class sessions with a `not_started` Game that has no snapshot yet (Story 5.12)."""
+    result = await session.execute(
+        select(games.c.class_session_id)
+        .where(
+            games.c.class_session_id.is_not(None),
+            games.c.settings.is_(None),
+            games.c.lifecycle == "not_started",
+        )
+        .distinct()
+        .order_by(games.c.class_session_id)
+    )
+    return list(result.scalars())
+
+
+async def class_sessions_with_unstarted_games(session: AsyncSession) -> list[uuid.UUID]:
+    """The Class sessions with a `not_started` Game that has its snapshot (Story 5.13)."""
+    result = await session.execute(
+        select(games.c.class_session_id)
+        .where(
+            games.c.class_session_id.is_not(None),
+            games.c.settings.is_not(None),
+            games.c.lifecycle == "not_started",
+        )
+        .distinct()
+        .order_by(games.c.class_session_id)
+    )
+    return list(result.scalars())
+
+
+async def class_games(
+    session: AsyncSession, class_session_ids: Sequence[uuid.UUID]
+) -> list[RowMapping]:
+    """The Games of these Class sessions by session and game number: id, session, number,
+    lifecycle and whether the snapshot is stored (Story 5.12). One read for many sessions, so the
+    sweep's finders do not ask once per session."""
+    result = await session.execute(
+        select(
+            games.c.id,
+            games.c.class_session_id,
+            games.c.game_number,
+            games.c.lifecycle,
+            games.c.settings.is_not(None).label("has_snapshot"),
+        )
+        .where(games.c.class_session_id.in_(list(class_session_ids)))
+        .order_by(games.c.class_session_id, games.c.game_number)
+    )
+    return list(result.mappings())
+
+
+async def class_session_seats(
+    session: AsyncSession, class_session_ids: Sequence[uuid.UUID]
+) -> list[RowMapping]:
+    """Every Seat of these Class sessions' Games in one read, by Game and chain order, with its
+    latest occupancy row (None when free), as `seats_with_occupant` gives one Game's (5.12)."""
+    in_sessions = games.c.class_session_id.in_(list(class_session_ids))
+    session_seats = select(seats.c.id).join(games, games.c.id == seats.c.game_id).where(in_sessions)
+    latest = _latest_occupancy(seat_occupancy.c.seat_id.in_(session_seats))
+    result = await session.execute(
+        select(
+            seats.c.game_id,
+            seats.c.role,
+            latest.c.occupant_kind,
+            latest.c.user_id,
+        )
+        .select_from(
+            seats.join(games, games.c.id == seats.c.game_id).outerjoin(
+                latest, latest.c.seat_id == seats.c.id
+            )
+        )
+        .where(in_sessions)
+        .order_by(seats.c.game_id, seats.c.position)
     )
     return list(result.mappings())
 
@@ -338,10 +484,25 @@ async def running_games_of_config(
     return list(result.scalars())
 
 
-async def stored_rules_versions(session: AsyncSession) -> list[int]:
-    """Every distinct `rules_version` stored on a Game."""
+async def running_games_of_session(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """The id of every running Game of the Class session, oldest first."""
     result = await session.execute(
-        select(games.c.rules_version).distinct().order_by(games.c.rules_version)
+        select(games.c.id)
+        .where(games.c.lifecycle == "running", games.c.class_session_id == class_session_id)
+        .order_by(games.c.id)
+    )
+    return list(result.scalars())
+
+
+async def stored_rules_versions(session: AsyncSession) -> list[int]:
+    """Every distinct `rules_version` stored on a Game that has its snapshot."""
+    result = await session.execute(
+        select(games.c.rules_version)
+        .where(games.c.rules_version.is_not(None))
+        .distinct()
+        .order_by(games.c.rules_version)
     )
     return list(result.scalars())
 

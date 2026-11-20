@@ -30,6 +30,9 @@ function countWord(count: number): string {
  * a Student sees game, Role and Seats from the Start date (founder decision 2026-11-12). */
 const START_DATE_LINE = "Du får Rolle og spill på startdatoen.";
 
+/** What a Class session on the Lærerhjem still lacks, in words (Stories 5.2, 5.9). */
+const LACKS = { dates: "datoer", allocation: "bekreftet fordeling" } as const;
+
 export const nb = {
   product: {
     name: "ØL-spillet",
@@ -686,6 +689,601 @@ export const nb = {
         "november",
         "desember",
       ],
+    },
+  },
+
+  /** The Klasseøkt (Story 5.1, FR-11, UX-DR48). The page title, «Alt er fylt ut med
+   * standardene.», «Spillinnstillinger: Klassisk», the delay-sources line, «Kjeden ved start»,
+   * «Varer mot høyre, ordre mot venstre», «Lagre Klasseøkt», «Du kan lagre uten å endre noe.»,
+   * the setting labels and the KI-modus and Debrief-modus names are EXPERIENCE.md's and mockup
+   * 03's own; the rest is [ASSUMPTION] draft copy. */
+  sessions: {
+    title: (className: string) => `Klasseøkt for ${className}`,
+    crumb: "Klasseøkt",
+    defaults: "Alt er fylt ut med standardene.",
+    settingsTitle: "Spillinnstillinger: Klassisk",
+    // [ASSUMPTION] the heading once a setting differs from Classic (Story 5.3 adds its line).
+    settingsTitleChanged: "Spillinnstillinger",
+    delaySources: "Kildene er uenige om forsinkelsene. Dette er produktets standard, og du kan endre den.",
+    settings: {
+      startingInventory: "Startlager",
+      supplyLine: "I hvert ledd ved start",
+      orderDelay: "Ordreforsinkelse",
+      shippingDelay: "Fraktforsinkelse",
+      productionDelay: "Produksjonsforsinkelse",
+      holdingCost: "Lagerkost",
+      backorderCost: "Restordrekost",
+      weeks: "Antall uker",
+      demand: "Etterspørsel",
+      // [ASSUMPTION] Story 5.4: the seed of a pattern that draws, under «Etterspørsel».
+      seed: "Frø",
+      guidedWeeks: "Veiledede uker",
+      inactivityLimit: "Inaktivitetsgrense",
+      // [ASSUMPTION] Story 5.3: the two settings the list did not show before.
+      startingBacklog: "Startrestordre",
+      maxOrder: "Største ordre",
+      // [ASSUMPTION] Story 5.15 (cut list, FEATURE_CAPACITY): the most a Role can ship per Week.
+      capacity: "Kapasitet",
+      // [ASSUMPTION] Story 5.16 (cut list, FEATURE_INFO_VISIBILITY): EXPERIENCE.md's draft name.
+      infoVisibility: "Synlige naboer",
+    },
+    /** Changing the Game settings (Story 5.3, FR-12, UX-DR48). [ASSUMPTION] draft copy. The api
+     * judges every value; these lines only word its codes. Numbers arrive formatted. */
+    edit: {
+      open: "Endre spillinnstillinger",
+      cancel: "Avbryt endringene",
+      // Under the field: one value holds for all four Roles.
+      perRole: "Gjelder hvert ledd.",
+      costHint: "Kroner per enhet per uke, med komma.",
+      guidedHint: "Antall uker fra Uke 1 med veiledning.",
+      // Story 5.7 (EXPERIENCE.md → Klasseøkt, «Ventetid før KI tar over», UX-DR49).
+      inactivityHint: "Minst 20 timer. Kortere ventetid kan bare gjelde spill som er i rommet i en Labtime.",
+      inactivityError: "Skriv et helt antall timer, 20 eller mer.",
+      refused: "Spillinnstillingene ble ikke lagret. Se feltene.",
+      errors: {
+        outOfRange: (min: string, max: string) => `Må være fra ${min} til ${max}.`,
+        wholeNumber: (min: string, max: string) => `Skriv et helt tall fra ${min} til ${max}.`,
+        amount: (min: string, max: string) => `Skriv et beløp fra ${min} til ${max}, med komma.`,
+        decimals: (places: number, min: string, max: string) =>
+          `Bruk høyst ${places} desimaler, fra ${min} til ${max}.`,
+        guidedBeforeChange: (min: string, max: string) =>
+          `Veiledningen må slutte før etterspørselen endres. Velg fra ${min} til ${max}.`,
+        guidedLeaveWeeks: (min: string, max: string) =>
+          `Det må være uker igjen å spille etter veiledningen. Velg fra ${min} til ${max}.`,
+        inventoryAndBacklog: "Et ledd kan ikke starte med både lager og restordre. Sett ett av dem til 0.",
+        demandChangeOutside: (min: string, max: string) =>
+          `Etterspørselen må endres i en uke fra ${min} til ${max}. Velg en tidligere uke eller flere uker i Antall uker.`,
+        // [ASSUMPTION] Story 5.4: the Demand pattern's own rules.
+        fixedLength: (count: string) => `Skriv ett helt tall per uke, ${count} tall i alt.`,
+        seedRequired: "Skriv et frø, et helt tall.",
+        pattern: "Velg et mønster og fyll ut feltene.",
+        notEditable: "Denne innstillingen kan ikke endres her.",
+        other: "Verdien er ikke tillatt.",
+      },
+      /** Never blocking; the word «Advarsel» carries it, not the colour. */
+      warnings: {
+        supplyLine: (supply: string, start: string) =>
+          `Advarsel: ${supply} i hvert ledd er ikke det samme som etterspørselen ved start (${start}), så kjeden starter ikke i balanse.`,
+        backorder: (backorder: string, holding: string) =>
+          `Advarsel: Restordrekost (${backorder}) er ikke høyere enn Lagerkost (${holding}). Da koster det ikke mer å gå tom enn å ha varer på lager.`,
+        maxOrder: (max: string, threshold: string, peak: string) =>
+          `Advarsel: Største ordre (${max}) er under ${threshold}. Med etterspørsel opp til ${peak} kan grensen stoppe vanlige ordre.`,
+        weeks: (arrival: string, weeks: string) =>
+          `Advarsel: Endringen i etterspørselen når Detaljisten tidligst i Uke ${arrival}, etter siste uke (${weeks}).`,
+        // [ASSUMPTION] Story 5.15: one line however many Roles are capped.
+        capacity: (capacity: string, peak: string) =>
+          `Advarsel: Kapasiteten (${capacity} per uke) er under den høyeste etterspørselen (${peak}). Et ledd med kapasitet holder ikke følge når etterspørselen er høyest.`,
+        other: "Advarsel: Uvanlig verdi.",
+      },
+      /** A shipping capacity (Story 5.15, cut list, FEATURE_CAPACITY, FR-12). [ASSUMPTION] draft
+       * copy. The api judges the value; the briefing wording is Story 6.22's. */
+      capacity: {
+        legend: "Kapasitet",
+        off: "Nei, ingen grense",
+        on: "Ja, begrens hvor mye som kan sendes per uke",
+        scope: "Gjelder",
+        all: "Alle ledd",
+        one: "Ett ledd",
+        role: "Ledd",
+        units: "Enheter per uke",
+        unitsHint: "Et helt tall over 0.",
+        help: "Et ledd med kapasitet kan ha lager og restordre samtidig. Studentene får vite kapasiteten i briefingen.",
+        disabled: "Kapasitet er slått av i denne installasjonen.",
+      },
+      /** Information visibility (Story 5.16, cut list, FEATURE_INFO_VISIBILITY, FR-83, UX-DR12).
+       * [ASSUMPTION] draft copy. Showing the numbers on the play screen is Story 6.21's. */
+      infoVisibility: {
+        legend: "Synlige naboer",
+        upstream: "Leddet oppstrøms",
+        downstream: "Leddet nedstrøms",
+        upstreamOn: "Ja, vis lager og restordre hos leddet du bestiller fra",
+        downstreamOn: "Ja, vis lager og restordre hos leddet som bestiller fra deg",
+        off: "Nei",
+        help:
+          "Gjelder alle Klassespill i Klasseøkten, også KI-spillerne. Tallene er naboleddets lager og restordre slik de står i uken. " +
+          "Fabrikken har ingen nabo oppstrøms, og Detaljisten ingen nedstrøms. Det er ikke vist at innstillingen gir bedre læring eller lavere kost.",
+        disabled: "Synlige naboer er slått av i denne installasjonen.",
+      },
+      // [ASSUMPTION] Story 5.16: a save refused because a cut-list setting is switched off.
+      featureDisabled: "En av innstillingene er slått av i denne installasjonen. Ingenting ble lagret.",
+      // [ASSUMPTION] GitHub issue 114: the save line when the reason stands at the field.
+      notSaved: "Ikke lagret.",
+      /** The Demand pattern and its seed (Story 5.4, FR-13). [ASSUMPTION] draft copy. */
+      demand: {
+        legend: "Etterspørsel",
+        pattern: "Mønster",
+        kinds: {
+          fixed: "Fast serie",
+          step: "Trinn",
+          random: "Tilfeldig",
+          "step+noise": "Trinn med tilfeldig variasjon",
+        },
+        values: "Etterspørsel per uke",
+        valuesHint: "Ett helt tall per uke fra Uke 1, skilt med mellomrom eller komma og mellomrom.",
+        start: "Startnivå",
+        newLevel: "Nytt nivå",
+        changeWeek: "Endres fra uke",
+        mean: "Snitt",
+        spread: "Spredning",
+        spreadHint: "Hver uke trekkes et helt tall opp til så mye over eller under, aldri under 0.",
+        seed: "Frø",
+        seedHint:
+          "Samme frø gir samme etterspørsel i alle Klassespill. Serveren trakk et frø da Klasseøkten ble laget; du kan beholde det eller skrive et annet helt tall.",
+      },
+      /** The series Week by Week, for the Lecturer (Story 5.4). [ASSUMPTION] */
+      series: {
+        show: "Vis etterspørselen uke for uke",
+        hide: "Skjul etterspørselen uke for uke",
+        caption: "Etterspørselen uke for uke",
+        week: "Uke",
+        demand: "Etterspørsel",
+        loading: "Henter etterspørselen …",
+        failed: "Etterspørselen kunne ikke hentes. Prøv igjen.",
+      },
+      /** Shown once a setting differs from Classic (FR-12), from the values the api returned. */
+      calibrated: (v: {
+        inventory: string;
+        slot: string;
+        order: string;
+        shipping: string;
+        production: string;
+        holding: string;
+        backorder: string;
+        weeks: string;
+      }) =>
+        `Debrief-oppgavene og kontrollen av KI-spillerne er kalibrert for Klassisk: Startlager ${v.inventory}, ${v.slot} i hvert ledd, ` +
+        `forsinkelser ${v.order}, ${v.shipping} og ${v.production} uker, Lagerkost ${v.holding}, Restordrekost ${v.backorder} og ${v.weeks} uker.`,
+    },
+    values: {
+      units: (count: number) => `${count} ${count === 1 ? "enhet" : "enheter"}`,
+      weeks: (count: number) => `${count} ${count === 1 ? "uke" : "uker"}`,
+      /** A cost rate, decimal comma already applied: «0,50 per enhet per uke». */
+      cost: (rate: string) => `${rate} per enhet per uke`,
+      /** The step pattern: «4, så 8 fra Uke 5». */
+      step: (start: number, next: number, week: number) => `${start}, så ${next} fra Uke ${week}`,
+      // [ASSUMPTION] Story 5.4: the other Demand patterns in words.
+      stepNoise: (start: number, next: number, week: number, spread: number) =>
+        `${start}, så ${next} fra Uke ${week}, ± ${spread} tilfeldig`,
+      random: (mean: number, spread: number) => `Tilfeldig, ${mean} ± ${spread}`,
+      fixed: (weeks: number) => `Fast serie over ${weeks} ${weeks === 1 ? "uke" : "uker"}`,
+      guidedWeeks: (count: number) => (count === 0 ? "Ingen" : count === 1 ? "1" : `1–${count}`),
+      inactivityLimit: (hours: number) => `${hours} t, så KI overtar`,
+      // [ASSUMPTION] Story 5.15: the capacity in the settings list.
+      capacityNone: "Ingen",
+      capacityAll: (units: number) => `${units} per uke for alle ledd`,
+      capacityRoles: (units: string, roles: string) => `${units} per uke for ${roles}`,
+      // [ASSUMPTION] Story 5.16: Information visibility in the settings list.
+      infoVisibilityNone: "Av",
+      infoVisibilityUpstream: "Leddet oppstrøms",
+      infoVisibilityDownstream: "Leddet nedstrøms",
+      infoVisibilityBoth: "Begge naboene",
+    },
+    chain: {
+      title: "Kjeden ved start",
+      caption: "Varer mot høyre, ordre mot venstre",
+      customers: "Kundene",
+      /** The demand in two short lines under «Kundene», as mockup 03 («4, så 8» / «fra Uke 5»,
+       * Issue #98). [ASSUMPTION] the lines of the other patterns. */
+      customerLines: {
+        step: (start: number, next: number, week: number) => [`${start}, så ${next}`, `fra Uke ${week}`] as const,
+        stepNoise: (start: number, next: number, week: number, spread: number) =>
+          [`${start}, så ${next} ± ${spread}`, `fra Uke ${week}`] as const,
+        random: (mean: number, spread: number) => [`${mean} ± ${spread}`, "tilfeldig"] as const,
+        fixed: (weeks: number) => ["Fast serie", `${weeks} ${weeks === 1 ? "uke" : "uker"}`] as const,
+      },
+      inventory: (units: number) => `Lager ${units}`,
+      // [ASSUMPTION] Story 5.15: under a capped Role in the diagram, and the sentence in its text.
+      capped: (units: number) => `Maks ${units}`,
+      cappedText: (role: string, units: number) => `${role} kan sende høyst ${units} per uke.`,
+      delay: (weeks: number) => `${weeks} ${weeks === 1 ? "uke" : "uker"}`,
+      /** The diagram's text: the same values as sentences, also read by screen readers. */
+      text: (v: {
+        roles: string;
+        inventory: number;
+        slot: number;
+        shipping: number;
+        production: number;
+        order: number;
+        demand: string;
+      }) =>
+        `${v.roles} starter med Lager ${v.inventory} hver. Hver boks på røret er ${v.slot} ${v.slot === 1 ? "enhet" : "enheter"}. ` +
+        `Frakt mellom leddene tar ${v.shipping} ${v.shipping === 1 ? "uke" : "uker"}, og produksjon inn til Fabrikk tar ${v.production} ${v.production === 1 ? "uke" : "uker"}. ` +
+        `Prikkene er ordre på vei, ${v.order} ${v.order === 1 ? "uke" : "uker"}. Kundenes etterspørsel: ${v.demand}. Studentene ser ikke kundene under spillet.`,
+      /** «Fabrikk, Distributør, Grossist og Detaljist». */
+      list: (names: readonly string[]) =>
+        names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} og ${names[names.length - 1]}`,
+    },
+    choices: {
+      aiMode: "KI-modus",
+      llm: "LLM-spillere",
+      ruleBased: "Regelbaserte spillere",
+      debriefMode: "Debrief-modus",
+      group: "Gruppedebrief",
+      personal: "Personlig debrief",
+      obligatory: "Obligatorisk",
+      obligatoryYes: "Ja, står i emneplanen",
+      // [ASSUMPTION]
+      obligatoryNo: "Nei",
+      // Mockup 03, under the Bryter while it is on (Story 5.7).
+      obligatoryHelp: "Studentene ser at øvelsen er obligatorisk.",
+      // [ASSUMPTION] draft copy of Story 5.7, not in the spine: the required share of Weeks.
+      share: "Andel uker som kreves",
+      shareHint: "Et helt tall fra 1 til 100 %.",
+      shareError: "Skriv et helt tall fra 1 til 100.",
+      shareValue: (percent: number) => `Andel uker som kreves: ${percent} %`,
+      // [ASSUMPTION] the alert line of a save the api refused for the share or the Ventetid.
+      valuesRefused: "Klasseøkten ble ikke lagret. Se feltene.",
+      // [ASSUMPTION] FR-15: no model config is pinned as the default.
+      llmUnavailable:
+        "LLM-spillere kan ikke velges før en Admin har valgt en standardmodell. Til da får Klasseøkten regelbaserte spillere.",
+      // Story 5.5 (EXPERIENCE.md → KI-modus setup).
+      aiScope: "Gjelder alle KI-spillere i Klassespill og Replay.",
+      // [ASSUMPTION] the disclosures with each AI player type's description (FR-33).
+      aboutLlm: "Slik bestiller LLM-spillerne",
+      aboutRuleBased: "Slik bestiller de regelbaserte spillerne",
+      effortLevel: "Innsatsnivå",
+      // [ASSUMPTION] a level whose config has no effect line and no measurement with figures.
+      effectUnknown: "Virkningen på fart og kostnad er ikke målt ennå.",
+      // [ASSUMPTION] the measured effect of a level: median time per Order, cost per game.
+      effectMeasured: (seconds: string, cost: string) => `Ca. ${seconds} s per ordre, ${cost} USD per spill.`,
+      effectSeconds: (seconds: string) => `Ca. ${seconds} s per ordre.`,
+      effectCost: (cost: string) => `${cost} USD per spill.`,
+      // [ASSUMPTION] AD-17: LLM players chosen, but the provider of the session's model has no key.
+      providerUnavailable:
+        "Klasseøkten kan ikke starte med LLM-spillere før KI-leverandøren er satt opp. Be en Admin ordne det før startdatoen, eller velg regelbaserte spillere.",
+      // Mockup 03 for Gruppedebrief; [ASSUMPTION] for Personlig debrief.
+      groupHelp: "De fire i spillet går gjennom det sammen.",
+      personalHelp: "Hver student går gjennom det alene.",
+      // [ASSUMPTION] the save of a level the model config no longer offers (`invalid_effort_level`).
+      effortRefused: "Innsatsnivået kan ikke velges lenger. Last siden på nytt og velg et annet.",
+    },
+    save: "Lagre Klasseøkt",
+    saving: "Lagrer …",
+    saveHint: "Du kan lagre uten å endre noe.",
+    // [ASSUMPTION]
+    saved: "Klasseøkten er lagret.",
+    /** The locked Klasseøkt (Story 5.11, FR-18, GitHub issue 103). [ASSUMPTION] draft copy. */
+    lock: {
+      /** Under the title once the lock has frozen the session; `when` as «ti. 24. nov. kl. 10:00». */
+      lockedAt: (when: string) =>
+        `Låst ${when}. Spillinnstillinger, etterspørsel, KI-modus, Innsatsnivå, Debrief-modus, Obligatorisk og ventetid er frosset.`,
+      /** The Start date has passed but the lock has not run yet (each minute) or was refused. */
+      pending: "Startdatoen er passert. Spillinnstillinger, etterspørsel, KI-modus, Innsatsnivå, Debrief-modus, Obligatorisk og ventetid kan ikke endres.",
+      // [ASSUMPTION] GitHub issue 109: the lock was refused, LLM players and no provider key.
+      refused:
+        "Klasseøkten kan ikke starte: KI-leverandøren for LLM-spillerne er ikke satt opp. Be en Admin ordne det. Låsen prøves igjen hvert minutt.",
+      open: "Frister som ikke er passert, og Labtimer, kan fortsatt endres.",
+      labHoursOpen: "Labtimer kan fortsatt endres.",
+      save: "Lagre frister",
+      saveHint: "Bare frister som ikke er passert, blir lagret.",
+      saved: "Fristene er lagret.",
+    },
+    // [ASSUMPTION] the save of LLM players refused (`llm_unavailable`).
+    llmRefused: "LLM-spillere kan ikke velges ennå. Be en Admin velge en standardmodell.",
+    // [ASSUMPTION] above the Klasseøkt an Assistant lecturer reads.
+    assistantLead: "Du er Assistent i Klassen. Du ser Klasseøkten, men Faglærerne endrer den.",
+    /** The Klasse page's list (Story 5.1). [ASSUMPTION] */
+    list: {
+      title: "Klasseøkter",
+      empty: "Ingen Klasseøkter ennå.",
+      create: "Lag Klasseøkt",
+      creating: "Lager …",
+      createFailed: "Klasseøkten ble ikke laget. Prøv igjen.",
+      /** «Klasseøkt 2, opprettet 19. nov. 2026 kl. 10:00»: the running number keeps two sessions
+       * created in the same minute apart (Issue #98). */
+      item: (number: number, created: string) => `Klasseøkt ${number}, opprettet ${created}`,
+      saved: "Lagret",
+      unsaved: "Ikke lagret ennå",
+      /** [ASSUMPTION] draft copy: a Class session made from an earlier one (Story 5.18, cut list,
+       * FR-66). No IA row names the entry; it sits by «Lag Klasseøkt» on the Klasse page. */
+      rerun: {
+        open: "Lag fra en tidligere Klasseøkt",
+        title: "Lag fra en tidligere Klasseøkt",
+        source: "Klasseøkt å kopiere",
+        group: (className: string, archived: boolean) => `${className}${archived ? " (arkivert)" : ""}`,
+        option: (number: number, start: string) => `Klasseøkt ${number}, ${start}`,
+        started: (date: string) => `start ${date}`,
+        noStart: "uten startdato",
+        keepSeed: "Etterspørsel uke for uke",
+        keepSeedOn: "Den samme som i Klasseøkten du kopierer",
+        keepSeedOff: "Ny, med samme mønster",
+        keepSeedHelp: "Mønsteret kopieres alltid. Tallene uke for uke blir like bare om du velger den samme.",
+        copied: "Spillinnstillinger, KI-modus, Innsatsnivå, Debrief-modus og Inaktivitetsgrense kopieres.",
+        notCopied: "Datoer, Labtimer, Klasselisten, Fordeling og Obligatorisk kopieres ikke.",
+        submit: "Lag kopi",
+        submitting: "Lager kopi …",
+        cancel: "Avbryt",
+        none: "Du har ingen tidligere Klasseøkter.",
+        loadFailed: "Klasseøktene kunne ikke hentes. Prøv igjen.",
+        failed: "Kopien ble ikke laget. Prøv igjen.",
+        refused: "Innstillingene i den gamle Klasseøkten godtas ikke lenger. Lag en ny Klasseøkt i stedet.",
+      },
+    },
+    /** [ASSUMPTION] draft copy: what the Klasseøkt says of a copy until it is first saved (Story
+     * 5.18, FR-66, FR-78). */
+    copied: {
+      from: (number: number, className: string) => `Kopiert fra Klasseøkt ${number} i ${className}.`,
+      levelReplaced: (old: string, now: string) =>
+        `Innsatsnivået ${old} finnes ikke for den nye modellen. Klasseøkten bruker standardnivået ${now}.`,
+    },
+    /** The four dates and the Datolinje (Story 5.2, FR-18, UX-DR51). «Datoer», «Startdato»,
+     * «Spillfrist», «Debrieffrist» and «Testfrist» are EXPERIENCE.md's and mockup 03's own; the
+     * rest is [ASSUMPTION] draft copy. */
+    dates: {
+      title: "Datoer",
+      names: {
+        start_at: "Startdato",
+        play_deadline: "Spillfrist",
+        debrief_deadline: "Debrieffrist",
+        test_deadline: "Testfrist",
+      },
+      // [ASSUMPTION]
+      none: "Ingen datoer ennå.",
+      // [ASSUMPTION]
+      timeZone: "Tidene er norsk tid.",
+      // [ASSUMPTION] under the Testfrist while it is the prefilled value.
+      testPrefilled: "Fylt ut 7 dager etter Debrieffristen. Du kan endre den.",
+      // [ASSUMPTION] beside a date that has passed and no longer moves.
+      passed: "Passert. Datoen kan ikke flyttes.",
+      // [ASSUMPTION] Story 5.11: a date that can no longer change, as text: «ti. 24. nov. kl. 10:00».
+      dateText: (day: string, time: string) => `${day} kl. ${time}`,
+      // [ASSUMPTION] a date not set, shown as text.
+      notSet: "Ikke satt",
+      // [ASSUMPTION] Story 5.11: the Startdato of a session locked before it (an early start).
+      lockedStart: "Klasseøkten er låst. Startdatoen kan ikke flyttes.",
+      /** A date on the Datolinje: «ti. 24. nov.». */
+      day: (weekday: string, day: number, month: string) => `${weekday} ${day}. ${month}`,
+      weekdays: ["sø.", "ma.", "ti.", "on.", "to.", "fr.", "lø."],
+      /** The reason under a date the API refused. [ASSUMPTION] */
+      errors: {
+        order: (earlier: string) => `Må komme etter ${earlier}.`,
+        before: (later: string) => `Må komme før ${later}.`,
+        past: "Velg et tidspunkt fram i tid.",
+        passed: "Datoen er passert og kan ikke flyttes.",
+        required: "Klasseøkten har startet. Datoen kan ikke tas bort.",
+        // [ASSUMPTION] GitHub issue 100: a field the browser holds half-typed; nothing is sent.
+        incomplete: "Datoen og klokkeslettet er ikke fylt ut helt.",
+      },
+      // [ASSUMPTION] the alert line of a save refused for its dates.
+      refused: "Datoene ble ikke lagret. Se feltene.",
+      // [ASSUMPTION] a setting changed after the Start date (`session_locked`).
+      locked: "Klasseøkten har startet. Innstillingene kan ikke endres lenger.",
+      // [ASSUMPTION] FR-18: the warning that never blocks.
+      playTimeShort: (weeks: number) =>
+        `Det er kort tid mellom Startdato og Spillfrist for ${weeks} uker. Du kan likevel lagre.`,
+    },
+    /** Lab hours on the Datolinje (Story 5.6, FR-19, UX-DR51). «Labtime», «Legg til Labtime» and
+     * the legend are EXPERIENCE.md's and mockup 03's own; the rest is [ASSUMPTION] draft copy. */
+    labHours: {
+      title: "Labtimer",
+      add: "Legg til Labtime",
+      /** «Blå firkant: Labtime, Datalab A2.»; `places` already joined. */
+      legend: (places: string) => `Blå firkant: Labtime, ${places}.`,
+      none: "Ingen Labtimer ennå.",
+      /** A square in the Datolinje's text: «Labtime to. 26. nov. 14:15». */
+      markLabel: "Labtime",
+      /** One Lab hour: «to. 26. nov. 14:15–16:00, Datalab A2». */
+      item: (day: string, start: string, end: string, place: string) => `${day} ${start}–${end}, ${place}`,
+      ended: "ferdig",
+      edit: "Endre",
+      editLabel: (item: string) => `Endre Labtime ${item}`,
+      addTitle: "Ny Labtime",
+      editTitle: "Endre Labtime",
+      date: "Dato",
+      start: "Start",
+      end: "Slutt",
+      place: "Sted",
+      placeHint: "For eksempel Datalab A2.",
+      consequence: "Studentene får beskjed på e-post.",
+      saveAdd: "Lagre Labtime",
+      saveEdit: "Lagre endringen",
+      remove: "Fjern Labtimen",
+      cancel: "Avbryt",
+      saving: "Lagrer …",
+      removing: "Fjerner …",
+      added: "Labtimen er lagt til.",
+      changed: "Labtimen er endret.",
+      removed: "Labtimen er fjernet.",
+      errors: {
+        dateMissing: "Velg en dato.",
+        dateIncomplete: "Datoen er ikke fylt ut helt.",
+        timeMissing: "Skriv et klokkeslett.",
+        timeIncomplete: "Klokkeslettet er ikke fylt ut helt.",
+        endNotAfterStart: "Slutt må være etter start.",
+        tooLong: "En Labtime kan vare høyst 12 timer.",
+        past: "Labtimen er allerede over. Velg et senere tidspunkt.",
+        placeMissing: "Skriv hvor Labtimen er.",
+        placeTooLong: "Skriv høyst 120 tegn.",
+      },
+      refused: "Labtimen ble ikke lagret. Se feltene.",
+      hasEnded: "Labtimen er over og kan ikke endres lenger.",
+    },
+    /** The block «Fordeling» and its Fordelingsforhåndsvisning (Story 5.8, FR-20, UX-DR50). The
+     * heading form, «Tomme seter får KI-spiller.», «Vis som liste», «Kjør fordeling på nytt» and
+     * «Ikke bekreftet.» are EXPERIENCE.md's and mockup 03's own; the rest is [ASSUMPTION] draft copy. */
+    allocation: {
+      title: "Fordeling",
+      notConfirmed: "Ikke bekreftet.",
+      nobody: "Ingen registrerte studenter å fordele ennå.",
+      open: "Se fordelingen",
+      opening: "Henter fordelingen …",
+      close: "Lukk",
+      /** «Fordeling: 60 Klassespill à 4». */
+      heading: (games: number) => `Fordeling: ${games} Klassespill à 4`,
+      /** «240 studenter fordeles tilfeldig. Hver søyle er ett spill, hver rad en Rolle.» */
+      lead: (students: number) =>
+        `${students} ${students === 1 ? "student" : "studenter"} fordeles tilfeldig. Hver søyle er ett spill, hver rad en Rolle.`,
+      emptySeats: "Tomme seter får KI-spiller.",
+      missing: (count: number) =>
+        `${count} ${count === 1 ? "registrert student er" : "registrerte studenter er"} ikke med.`,
+      missingRedraw: "Kjør fordeling på nytt for å ta dem med.",
+      view: "Visning",
+      chart: "Diagram",
+      list: "Vis som liste",
+      /** The chart's name, for its scroll region. */
+      chartLabel: "Fordelingen, ett spill per søyle",
+      /** «Spill 17». */
+      game: (number: number) => `Spill ${number}`,
+      /** One Seat in the game's line: «Ida, Detaljist». */
+      seat: (name: string, role: string) => `${name}, ${role}`,
+      aiPlayer: "KI-spiller",
+      removed: "Ikke lenger i Klassen",
+      redraw: "Kjør fordeling på nytt",
+      redrawing: "Trekker …",
+      redrawn: "Fordelingen er trukket på nytt.",
+      noticeLine: "Ingen får beskjed før du bekrefter.",
+      failed: "Fordelingen kunne ikke hentes. Prøv igjen.",
+      locked: "Klasseøkten har startet. Fordelingen kan ikke trekkes på nytt.",
+      // Story 5.9: «Bekreft fordeling» and «Fordelingen er bekreftet.» are EXPERIENCE.md's own; the
+      // rest is [ASSUMPTION] draft copy.
+      confirm: "Bekreft fordeling",
+      confirming: "Bekrefter …",
+      confirmed: "Fordelingen er bekreftet.",
+      changed: "Fordelingen er endret siden du åpnet den. Se over den nye og bekreft igjen.",
+      studentsRemoved:
+        "En eller flere studenter er ikke lenger i Klassen. Plassene deres er nå tomme. Se over fordelingen og bekreft igjen.",
+      confirmFailed: "Fordelingen ble ikke bekreftet. Prøv igjen.",
+      confirmLocked: "Klasseøkten har startet. Fordelingen kan ikke bekreftes lenger.",
+      redrawConfirmed: "Fordelingen er bekreftet og kan ikke trekkes på nytt.",
+      // Issue 107 and Story 5.10: [ASSUMPTION] draft copy, except «Fordelingen er bekreftet».
+      /** «Fordelingen er bekreftet ti. 24. nov. kl. 10:00.» in the open panel. */
+      confirmedOn: (day: string, time: string) => `Fordelingen er bekreftet ${day} kl. ${time}.`,
+      movedNotice: "De som flyttes eller byttes, får beskjed på e-post.",
+      /** The selected game's Seats, where Students are moved and swapped: «Seter i Spill 3». */
+      seatsHeading: (game: number) => `Seter i Spill ${game}`,
+      /** «Flytt eller bytt Ida, Detaljist i Spill 3». */
+      pick: (name: string, role: string, game: number) => `Flytt eller bytt ${name}, ${role} i Spill ${game}`,
+      cancelPick: "Avbryt flyttingen",
+      /** The buttons' visible text; each starts its full accessible name below. */
+      pickShort: "Flytt eller bytt",
+      swapShort: "Bytt",
+      moveShort: "Flytt",
+      /** Said once a Student is picked, and kept while another game is chosen. */
+      picked: (name: string, role: string, game: number) =>
+        `${name}, ${role} i Spill ${game}, skal flyttes. Velg et spill i diagrammet og så et sete.`,
+      /** «Bytt Ida (Detaljist, Spill 3) med Sara (Grossist, Spill 5)». */
+      swapWith: (name: string, role: string, game: number, other: string, otherRole: string, otherGame: number) =>
+        `Bytt ${name} (${role}, Spill ${game}) med ${other} (${otherRole}, Spill ${otherGame})`,
+      /** «Flytt Ida (Detaljist, Spill 3) til ledig sete: Grossist i Spill 5». */
+      moveTo: (name: string, role: string, game: number, toRole: string, toGame: number) =>
+        `Flytt ${name} (${role}, Spill ${game}) til ledig sete: ${toRole} i Spill ${toGame}`,
+      /** «Ida er flyttet til Grossist i Spill 5.» */
+      moved: (name: string, role: string, game: number) => `${name} er flyttet til ${role} i Spill ${game}.`,
+      swapped: (name: string, other: string) => `${name} og ${other} har byttet plass.`,
+      moving: "Flytter …",
+      moveFailed: "Flyttingen ble ikke lagret. Prøv igjen.",
+      moveLocked: "Klasseøkten har startet. Ingen kan flyttes lenger.",
+      moveLastStudent: "Spillet ville stått uten studenter. Bytt med en student i stedet.",
+      moveInvalid: "Det setet kan ikke brukes. Velg et annet.",
+      moveStarted: "Spillet har startet. Ingen kan flyttes inn eller ut av det.",
+      // Story 5.12: [ASSUMPTION] draft copy. The Class games are open on the frozen settings.
+      opened: "Klassespillene er klare. Ingen av spillene har startet ennå.",
+      /** «6 studenter i 2 Klassespill. Hver søyle er ett spill, hver rad en Rolle.» */
+      openedLead: (students: number, games: number) =>
+        `${students} ${students === 1 ? "student" : "studenter"} i ${games} Klassespill. Hver søyle er ett spill, hver rad en Rolle.`,
+      openedSeats: "Tomme seter er fylt med KI-spillere.",
+      // Story 5.13: [ASSUMPTION] draft copy. After the lock, Students no Class game could seat.
+      /** «2 registrerte studenter har ikke sete: Ida Hansen, Sara Berg.» */
+      withoutSeat: (names: readonly string[]) =>
+        `${names.length} ${names.length === 1 ? "registrert student har" : "registrerte studenter har"} ikke sete: ${names.join(", ")}.`,
+      /** A Class game's state, shown apart after its Seats. */
+      lifecycle: {
+        not_started: "Ikke startet.",
+        running: "I gang.",
+        playing_out: "Spilles ferdig.",
+        finished: "Ferdig.",
+      },
+      // Story 5.17 (cut list, FEATURE_STUDENT_CHOICE): [ASSUMPTION] draft copy. The allocation
+      // method as Valgknapper, saved with «Lagre Klasseøkt», and the block once Students choose.
+      method: "Fordelingsmåte",
+      methodRandom: "Tilfeldig",
+      methodChoice: "Studentene velger",
+      methodRandomHelp: "Du trekker og bekrefter fordelingen her.",
+      methodChoiceHelp:
+        "Studentene velger spill og sete selv før startdatoen. Den som ikke har valgt da, får et sete ved trekning. Fordelingsmåten kan ikke endres etter at den er lagret.",
+      methodChoicePending: "Lagre Klasseøkt for å åpne valget. Studentene får beskjed på e-post.",
+      methodConfirmed: "Fordelingen er bekreftet. Fordelingsmåten kan ikke endres lenger.",
+      choiceState: "Studentene velger spill og sete selv.",
+      // GitHub issue 115: what fills the empty Seats at the lock while Students choose.
+      choiceEmptySeats: "På startdatoen trekkes studenter som ikke har valgt, inn i ledige seter først. Seter som da er tomme, får KI-spiller.",
+      /** «3 studenter har valgt sete. Hver søyle er ett spill, hver rad en Rolle.» */
+      choiceLead: (students: number) =>
+        `${students} ${students === 1 ? "student har" : "studenter har"} valgt sete. Hver søyle er ett spill, hver rad en Rolle.`,
+      /** «2 registrerte studenter har ikke valgt ennå. De får et sete ved trekning på startdatoen.» */
+      choiceMissing: (count: number) =>
+        `${count} ${count === 1 ? "registrert student har" : "registrerte studenter har"} ikke valgt ennå. De får et sete ved trekning på startdatoen.`,
+      freeSeat: "Ledig",
+    },
+    /** «Velg spill og sete» (Story 5.17, UX-DR62). «Grossist, ledig», «Ta setet Grossist i Spill
+     * 17», «Setet ble tatt av en annen. Velg et annet.» and «Du fikk et sete ved trekning:
+     * Grossist i Spill 17.» are the epic's own; the rest is [ASSUMPTION] draft copy. */
+    seatChoice: {
+      title: "Velg spill og sete",
+      /** «class-of-1994, Klasseøkt 1». */
+      session: (className: string, number: number) => `${className}, Klasseøkt ${number}`,
+      /** «Velg før startdatoen ti. 24. nov. kl. 10:00. Du kan bytte til et annet ledig sete fram til da.» */
+      before: (day: string, time: string) =>
+        `Velg før startdatoen ${day} kl. ${time}. Du kan bytte til et annet ledig sete fram til da.`,
+      beforeNoDate: "Velg før startdatoen. Du kan bytte til et annet ledig sete fram til da.",
+      /** «Ditt sete: Grossist i Spill 17.» */
+      mine: (role: string, game: number) => `Ditt sete: ${role} i Spill ${game}.`,
+      none: "Du har ikke valgt sete ennå.",
+      /** «Spill 17». */
+      game: (number: number) => `Spill ${number}`,
+      /** How many of a game's Seats are free: «2 ledige», «1 ledig», «Fullt». */
+      freeCount: (count: number) => (count === 0 ? "Fullt" : `${count} ${count === 1 ? "ledig" : "ledige"}`),
+      /** «Grossist, ledig». */
+      free: (role: string) => `${role}, ledig`,
+      /** «Grossist, Ida Hansen». */
+      held: (role: string, name: string) => `${role}, ${name}`,
+      /** «Grossist, ditt sete». */
+      own: (role: string) => `${role}, ditt sete`,
+      /** The visible mark on a free Seat's button; its name is «Grossist, ledig». */
+      pick: "Velg",
+      /** Under «Ta setet …» for a Student who holds a Seat: «Du gir fra deg Grossist i Spill 1.» */
+      leaves: (role: string, game: number) => `Du gir fra deg ${role} i Spill ${game}.`,
+      removed: "Ikke lenger i Klassen",
+      aiPlayer: "KI-spiller",
+      /** «Ta setet Grossist i Spill 17». */
+      take: (role: string, game: number) => `Ta setet ${role} i Spill ${game}`,
+      taking: "Tar setet …",
+      conflict: "Setet ble tatt av en annen. Velg et annet.",
+      failed: "Setet ble ikke tatt. Prøv igjen.",
+      invalid: "Det setet finnes ikke lenger. Velg et annet.",
+      closed: "Klasseøkten har startet. Setet kan ikke byttes lenger.",
+      /** «Du fikk et sete ved trekning: Grossist i Spill 17.» */
+      drawn: (role: string, game: number) => `Du fikk et sete ved trekning: ${role} i Spill ${game}.`,
+      /** The Lenke on Hjem while the choice is open. */
+      open: "Velg spill og sete",
+      openLine: "Du velger spill og sete selv før startdatoen.",
+    },
+    /** The Lærerhjem's «Venter» and «Neste frist» (Stories 5.2, 5.9, UX-DR56). [ASSUMPTION] */
+    home: {
+      /** «class-of-1994: Klasseøkt 2 mangler datoer og bekreftet fordeling». */
+      lacks: (className: string, number: number, what: readonly ("dates" | "allocation")[]) =>
+        `${className}: Klasseøkt ${number} mangler ${what.map((item) => LACKS[item]).join(" og ")}`,
+      nextDate: (dateName: string, number: number, className: string) =>
+        `${dateName}, Klasseøkt ${number}, ${className}`,
     },
   },
 

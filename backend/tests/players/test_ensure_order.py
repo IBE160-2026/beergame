@@ -71,7 +71,8 @@ async def student_orders(game_id: str, role: str, until_week: int) -> None:
 
 
 async def test_start_plays_a_game_of_four_rule_based_players_one_week_per_transaction(games_db):
-    game_id = await created(games_db)
+    weeks, guided = SHORT["weeks"], SHORT["guided_weeks"]
+    game_id = await created(games_db, **SHORT)
     commits: list[bool] = []
     sync_engine = get_engine().sync_engine
 
@@ -86,19 +87,19 @@ async def test_start_plays_a_game_of_four_rule_based_players_one_week_per_transa
     finally:
         event.remove(sync_engine, "commit", commit)
     assert lifecycle(games_db, game_id) == "finished"
-    # `start`, then 35 advances that open a Week and one that finishes the Game.
-    assert len(commits) == 1 + 36
-    assert [item["version"] for item in received] == list(range(2, 2 + 37))
-    weeks = query(
+    # `start`, then an advance per Week that opens the next one and one that finishes the Game.
+    assert len(commits) == 1 + weeks
+    assert [item["version"] for item in received] == list(range(2, 2 + weeks + 1))
+    stored = query(
         games_db,
         "SELECT week, finished FROM game_weeks WHERE game_id = %s ORDER BY week, finished",
         (game_id,),
     )
-    assert weeks == [(w, False) for w in range(1, 37)] + [(36, True)]
+    assert stored == [(w, False) for w in range(1, weeks + 1)] + [(weeks, True)]
     rows = log(games_db, game_id)
-    assert len(rows) == 36 * 4
-    assert all(row[3] == "guided" for row in rows if row[0] <= 4)
-    assert all(row[3] == "rule_based" and row[2] == row[6] for row in rows if row[0] > 4)
+    assert len(rows) == weeks * 4
+    assert all(row[3] == "guided" for row in rows if row[0] <= guided)
+    assert all(row[3] == "rule_based" and row[2] == row[6] for row in rows if row[0] > guided)
 
 
 async def test_advance_finishes_a_game_stopped_between_two_advances(games_db, monkeypatch):

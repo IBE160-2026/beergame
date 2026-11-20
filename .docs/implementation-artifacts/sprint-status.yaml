@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-19-2026 05:46
+last_updated: 11-20-2026 10:52
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -84,7 +84,7 @@ development_status:
   3-15-reach-the-product-in-production: backlog
   epic-3-retrospective: optional
 
-  epic-4: in-progress
+  epic-4: done
   4-1-create-a-class-from-the-lærerhjem: done
   4-2-upload-a-roster-file-and-pick-the-e-mail-column: done
   4-3-see-invalid-rows-and-paste-addresses-instead: done
@@ -97,25 +97,25 @@ development_status:
   4-10-archive-a-class: done
   epic-4-retrospective: optional
 
-  epic-5: backlog
-  5-1-create-a-class-session-with-the-classic-defaults: backlog
-  5-2-set-the-four-dates-on-the-datolinje: backlog
-  5-3-change-game-settings-with-range-errors-and-warnings: backlog
-  5-4-choose-a-demand-pattern-and-its-seed: backlog
-  5-5-choose-ai-mode-effort-level-and-debrief-mode: backlog
-  5-6-add-lab-hours: backlog
-  5-7-mark-the-class-session-obligatory-and-set-the-inactivity-lim: backlog
-  5-8-preview-a-random-allocation-and-run-it-again: backlog
-  5-9-confirm-the-allocation-i-am-looking-at: backlog
-  5-10-move-or-swap-students-in-the-allocation: backlog
-  5-11-lock-the-class-session-at-the-start-date: backlog
-  5-12-open-the-class-games-on-the-frozen-snapshot: backlog
-  5-13-seat-students-who-register-after-the-allocation: backlog
-  5-14-remind-students-24-hours-before-each-deadline: backlog
-  5-15-set-a-shipping-capacity-cut-list-feature_capacity: backlog
-  5-16-set-information-visibility-cut-list-feature_info_visibility: backlog
-  5-17-let-students-choose-a-class-game-and-a-seat-cut-list-feature: backlog
-  5-18-create-a-class-session-from-an-earlier-one-cut-list-feature_: backlog
+  epic-5: in-progress
+  5-1-create-a-class-session-with-the-classic-defaults: done
+  5-2-set-the-four-dates-on-the-datolinje: done
+  5-3-change-game-settings-with-range-errors-and-warnings: done
+  5-4-choose-a-demand-pattern-and-its-seed: done
+  5-5-choose-ai-mode-effort-level-and-debrief-mode: done
+  5-6-add-lab-hours: done
+  5-7-mark-the-class-session-obligatory-and-set-the-inactivity-lim: done
+  5-8-preview-a-random-allocation-and-run-it-again: done
+  5-9-confirm-the-allocation-i-am-looking-at: done
+  5-10-move-or-swap-students-in-the-allocation: done
+  5-11-lock-the-class-session-at-the-start-date: done
+  5-12-open-the-class-games-on-the-frozen-snapshot: done
+  5-13-seat-students-who-register-after-the-allocation: done
+  5-14-remind-students-24-hours-before-each-deadline: done
+  5-15-set-a-shipping-capacity-cut-list-feature_capacity: done
+  5-16-set-information-visibility-cut-list-feature_info_visibility: done
+  5-17-let-students-choose-a-class-game-and-a-seat-cut-list-feature: done
+  5-18-create-a-class-session-from-an-earlier-one-cut-list-feature_: done
   epic-5-retrospective: optional
 
   epic-6: backlog

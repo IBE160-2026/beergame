@@ -110,6 +110,19 @@ def test_an_effort_level_needs_both_time_values(missing):
         ),
         ({"prompts": {"Player": 1}}, [("string_pattern_mismatch", "prompts.Player.[key]")]),
         ({"surprise": 1}, [("extra_forbidden", "surprise")]),
+        # The Klasseøkt's name and effect line of a level stay short (Story 5.5).
+        *(
+            (
+                {"effort_levels": [{**MOCK["effort_levels"][0], key: value}]},
+                [(code, f"effort_levels.0.{key}")],
+            )
+            for key, value, code in (
+                ("label", "", "string_too_short"),
+                ("label", "x" * 41, "string_too_long"),
+                ("effect", "", "string_too_short"),
+                ("effect", "x" * 201, "string_too_long"),
+            )
+        ),
         ({"credential_env": "OPENROUTER_API_KEY"}, [("credential_env_unused", "credential_env")]),
         (
             {"provider": "openai_compatible", "endpoint": "http://x"},
@@ -172,6 +185,9 @@ async def test_add_stores_one_row_with_every_field(ai_db):
             "order_time_budget_s": 8.0,
             "max_output_tokens": 4096,
             "placeholder": True,
+            # The Klasseøkt's name and effect line of the level (Story 5.5).
+            "label": "Standard",
+            "effect": "Testmodell: svarer straks og koster ingenting.",
         }
     ]
     assert await config.get(row.id) == row

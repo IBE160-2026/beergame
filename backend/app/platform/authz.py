@@ -85,6 +85,13 @@ POLICIES: dict[str, frozenset[str]] = {
     "classes.create": frozenset({LECTURER}),
     "classes.read": frozenset({LECTURER, ASSISTANT}),
     "classes.manage": frozenset({LECTURER}),
+    # A Class's sessions (Story 5.1): its owners create and save them, its Assistant lecturers
+    # read them. Held to the User's staff role in the Class (`CLASS_STAFF_ROLES`).
+    "class_sessions.read": frozenset({LECTURER, ASSISTANT}),
+    "class_sessions.manage": frozenset({LECTURER}),
+    # The Class sessions of the Classes a User is a Student in, with their dates (Story 5.2): any
+    # User, held to `classes_enrolled_by`.
+    "class_sessions.read_enrolled": frozenset({ANY_USER}),
     # The Classes a User is a Student in (Story 4.5): any User, held to `classes_enrolled_by`.
     "classes.read_enrolled": frozenset({ANY_USER}),
     # The own session.
@@ -104,6 +111,8 @@ ASSISTANT_STAFF = "assistant"
 CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "classes.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "classes.manage": frozenset({OWNER}),
+    "class_sessions.read": frozenset({OWNER, ASSISTANT_STAFF}),
+    "class_sessions.manage": frozenset({OWNER}),
 }
 """Class action → the staff roles in the Class that may do it. Later stories add theirs."""
 

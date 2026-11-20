@@ -503,6 +503,280 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Class Session
+         * @description One Class session, for the Klasseøkt screen. Its Class's Assistant lecturers read it too.
+         */
+        get: operations["getClassSession"];
+        /**
+         * Save Class Session
+         * @description «Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config
+         *     is pinned as the default answer 409 `llm_unavailable`, and nothing changes.
+         *
+         *     With `dates` the four dates are replaced (FR-18). `fields` names each date in question:
+         *     422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for
+         *     the earlier one when only it changed, `required` once locked), 409 `deadline_passed`
+         *     (`passed`). Dates count to the whole minute.
+         *
+         *     `effort_level` and `debrief_mode` (FR-16, FR-78), left out, keep their values. With LLM
+         *     players a changed Effort level the model config does not offer answers 422
+         *     `invalid_effort_level` (`{"effort_level": "not_offered"}`); with Rule-based players no level
+         *     is in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,
+         *     Effort level or Debrief mode answers 409 `session_locked`, `fields` naming each.
+         *
+         *     With `game_settings` (the editable settings, laid over the stored ones; `demand` and
+         *     `demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with
+         *     `fields` mapping each setting (`demand.<field>` inside the Demand pattern) to
+         *     `{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409
+         *     `session_locked` (`{"game_settings": "locked"}`).
+         *
+         *     `game_settings.capacity` (Story 5.15) is `{role: units}` or null: one Role or every Role
+         *     capped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a
+         *     non-empty capacity answers 422 `feature_disabled` (`{"capacity": "feature_disabled"}`).
+         *
+         *     `game_settings.info_visibility` (Story 5.16) is `{upstream, downstream}`, two booleans that
+         *     let each Seat see its neighbour's inventory and backlog; anything else is `info_visibility`
+         *     `invalid`. While `FEATURE_INFO_VISIBILITY` is off a view switched on answers 422
+         *     `feature_disabled` (`{"info_visibility": "feature_disabled"}`).
+         *
+         *     `obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,
+         *     FR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit
+         *     under 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once
+         *     locked a changed one answers 409 `session_locked`. Switching the mark on tells each
+         *     registered Student through the day's digest mail.
+         *
+         *     `allocation_method` (Story 5.17, FR-21), left out, keeps the method. `student_choice` creates
+         *     empty Class games for the registered Students and tells each of them through the day's digest
+         *     mail that they may choose a Class game and a Seat. A changed method answers 422
+         *     `feature_disabled` (`{"allocation_method": "feature_disabled"}`) for Student choice while
+         *     `FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409
+         *     `allocation_confirmed` (`{"allocation_method": "confirmed"}`) once an allocation is confirmed:
+         *     Student choice is final once saved.
+         */
+        put: operations["saveClassSession"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/allocation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Allocation
+         * @description The «Fordeling» block (Story 5.8, FR-20): the registered Students, those not in the draft,
+         *     and the stored draft (None until one is drawn) with the Students' names read now. For the
+         *     Class's staff, Assistant lecturers too.
+         */
+        get: operations["getAllocation"];
+        put?: never;
+        /**
+         * Open Allocation
+         * @description Opening «Fordeling»: the stored draft unchanged, or, when none is stored, a draft drawn at
+         *     random from the registered Students in groups of four with a random Role each. With no
+         *     registered Student nothing is stored. No Game or Seat is created and no Student is told.
+         *     Once the Start date has passed a stored draft is still returned, and a draw answers 409
+         *     `session_locked` (`{"allocation": "locked"}`). An archived Class answers 409
+         *     `class_archived`.
+         */
+        post: operations["openAllocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/allocation/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Allocation
+         * @description «Bekreft fordeling» (Story 5.9, FR-20): commits the draft named by `draft_id` and
+         *     `revision`, and nothing else: one Class game per group and one Seat per Student, and each
+         *     Student is told through the day's digest mail. Pressing it again changes nothing.
+         *
+         *     409 `allocation_changed` commits no Game: `{"draft": "changed"}` when the draft is no longer
+         *     the current one (drawn again or changed), `{"draft": "students_removed"}` when Students in it
+         *     have left the Roster, whose Seats the draft now leaves free under a raised revision. 409
+         *     `session_locked` (`{"allocation": "locked"}`) once the Start date has passed; 409
+         *     `class_archived` for an archived Class.
+         */
+        post: operations["confirmAllocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/allocation/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move In Allocation
+         * @description Move a Student to a free Seat, or swap two (Story 5.10, FR-20), in the draft named by
+         *     `draft_id` and `revision`: the Student of `from_game`/`from_role` takes
+         *     `to_game`/`to_role`, and a Student there takes the first Seat. The draft keeps its id and
+         *     its revision rises by one. Once the allocation is confirmed the Class games change in the
+         *     same transaction and the Students who moved are told through the day's digest mail.
+         *
+         *     409 `allocation_changed` (`{"draft": "changed"}`) when the draft is no longer the current
+         *     one; 422 `invalid_move` with `fields` `{"to": "same"}`, `{"from"|"to": "unknown"}`,
+         *     `{"from": "empty"}` or `{"from": "last_student"}`; 409 `session_locked` (`{"allocation":
+         *     "locked"}`) once the Start date has passed; 409 `class_archived` for an archived Class.
+         *     A confirmed allocation's Games refusing the move answer the command's code (such as 409
+         *     `game_already_started`). A session with Student choice (Story 5.17) answers 409
+         *     `allocation_confirmed` (`{"allocation": "student_choice"}`). Nothing is committed on any
+         *     refusal.
+         */
+        post: operations["moveInAllocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/allocation/redraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redraw Allocation
+         * @description «Kjør fordeling på nytt»: a new seed and a new draft under a new id, revision 1. The
+         *     refusals are those of opening it, and 409 `allocation_confirmed` (`{"allocation":
+         *     "confirmed"}`) once the allocation is confirmed.
+         */
+        post: operations["redrawAllocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/demand-series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Class Session Demand Series
+         * @description The customer demand Week by Week, materialised by the engine from the stored Demand
+         *     pattern and seed (FR-13, AD-1). For the Class's staff; the same settings and seed always give
+         *     the same series.
+         */
+        get: operations["getClassSessionDemandSeries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/lab-hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Lab Hour
+         * @description «Legg til Labtime» (Story 5.6, FR-19): stores the Lab hour at once and tells each
+         *     registered Student through the day's digest mail. The Start-date lock does not apply.
+         *
+         *     A refusal is 422 `invalid_lab_hour` with `fields`: `place` `required` or `too_long` (over 120
+         *     characters); `ends_at` `not_after_start`, `too_long` (over 12 hours after the start) or
+         *     `past`. Times count to the whole minute.
+         */
+        post: operations["addLabHour"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/lab-hours/{lab_hour_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change Lab Hour
+         * @description Changes a Lab hour and tells each registered Student; unchanged values tell nobody. A Lab
+         *     hour that has ended answers 409 `lab_hour_ended`; the other refusals are those of adding one
+         *     (422 `invalid_lab_hour`).
+         */
+        put: operations["changeLabHour"];
+        post?: never;
+        /**
+         * Remove Lab Hour
+         * @description Removes a Lab hour and tells each registered Student it is cancelled. A Lab hour that has
+         *     ended answers 409 `lab_hour_ended`.
+         */
+        delete: operations["removeLabHour"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/settings-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Class Session Settings
+         * @description The engine's errors and warnings on a draft of the Game settings, as the Lecturer leaves a
+         *     field (FR-12, AD-1). Stores nothing. Once locked it answers 409 `session_locked`.
+         */
+        post: operations["checkClassSessionSettings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/classes": {
         parameters: {
             query?: never;
@@ -628,6 +902,80 @@ export interface paths {
          *     it is archived already.
          */
         post: operations["archiveClass"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/{class_id}/class-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Class Sessions
+         * @description The Class's sessions, newest first, for the Klasse page.
+         */
+        get: operations["listClassSessions"];
+        put?: never;
+        /**
+         * Create Class Session
+         * @description «Lag Klasseøkt»: a Class session filled in with the Classic defaults (FR-11). When no model
+         *     config is pinned as the default, it gets Rule-based players and `llm_unavailable` says why.
+         */
+        post: operations["createClassSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/{class_id}/class-sessions/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy Class Session
+         * @description «Lag kopi» (Story 5.18, FR-66): a new Class session in this Class with the Game settings,
+         *     AI mode, Effort level, Debrief mode and Inactivity limit of `source_id`, a session of any Class
+         *     the User is staff of. It takes the active default model config; an Effort level that config
+         *     does not offer becomes its default (`effort_level_replaced`). Dates, Lab hours, the Roster, the
+         *     allocation and the obligatory mark are not copied; a fresh demand seed is drawn unless
+         *     `keep_seed`. A source the User may not read answers 403 `forbidden`; copied settings the engine
+         *     refuses 422 `invalid_settings`; while `FEATURE_RERUN` is off 422 `feature_disabled`
+         *     (`{"rerun": "feature_disabled"}`).
+         */
+        post: operations["copyClassSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/{class_id}/class-sessions/copy-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Copy Sources
+         * @description The Class sessions a Faglærer may copy into this Class (Story 5.18, FR-66, AD-12): every
+         *     session of every Class they are staff of, archived Classes included, newest first. While
+         *     `FEATURE_RERUN` is off it answers 422 `feature_disabled` (`{"rerun": "feature_disabled"}`).
+         */
+        get: operations["listClassSessionCopySources"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -985,6 +1333,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/lecturer-home/class-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lecturer Home Class Sessions
+         * @description The Lærerhjem's «Venter» and «Neste frist» over the User's Classes that are not archived
+         *     (UX-DR56).
+         */
+        get: operations["lecturerHomeClassSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/class-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Class Sessions
+         * @description The Class sessions of the Classes the User is a Student in: dates and the next deadline,
+         *     never the Game settings (FR-18). Empty for a User who is no Student.
+         */
+        get: operations["listMyClassSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/class-sessions/{session_id}/seat-choice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Seat Choice
+         * @description «Velg spill og sete» (Story 5.17, FR-21, UX-DR62): the Class session's Class games, each
+         *     Seat free, held by a Student (named) or, after the lock, by an AI player, and the reader's own
+         *     Seat. 404 `not_found` while `FEATURE_STUDENT_CHOICE` is off, for a session that does not use
+         *     Student choice, and for a User who is not a registered Student of its Class (AD-17).
+         */
+        get: operations["getSeatChoice"];
+        /**
+         * Take Seat
+         * @description «Ta setet Grossist i Spill 17» (Story 5.17, FR-21): the Student takes the free Seat, or
+         *     moves to it from the Seat they hold, in one request; their own Seat again changes nothing.
+         *     409 `seat_taken` (`{"seat": "taken"}`) when another occupant holds it, 422 `invalid_seat`
+         *     (`{"seat": "unknown"}`) for a game or Role the session does not have, 409 `session_locked`
+         *     (`{"seat": "locked"}`) once locked, 409 `class_archived` for an archived Class; nothing changes
+         *     then. Not found as the read.
+         */
+        put: operations["takeSeat"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1069,6 +1491,147 @@ export interface components {
          * @enum {string}
          */
         AddressProblem: "empty" | "whitespace" | "missing_at" | "two_at" | "missing_name" | "missing_domain";
+        /**
+         * AiDescriptionsOut
+         * @description The plain-language Norwegian description of each AI player type, from
+         *     `players.service.describe` (FR-33): Markdown with a title line, paragraphs and `- ` lists.
+         */
+        AiDescriptionsOut: {
+            /** Llm */
+            llm: string;
+            /** Rule Based */
+            rule_based: string;
+        };
+        /**
+         * AiMode
+         * @description Who holds the AI Seats of the Class session's games (FR-15).
+         * @enum {string}
+         */
+        AiMode: "llm" | "rule_based";
+        /**
+         * AllocationConfirmIn
+         * @description «Bekreft fordeling» (Story 5.9): the draft the Lecturer is looking at.
+         */
+        AllocationConfirmIn: {
+            /**
+             * Draft Id
+             * Format: uuid
+             */
+            draft_id: string;
+            /** Revision */
+            revision: number;
+        };
+        /**
+         * AllocationDraftOut
+         * @description The stored draft (Story 5.8, FR-20): what the preview shows, never a recomputation.
+         *     Story 5.9 confirms it by `id` and `revision`.
+         */
+        AllocationDraftOut: {
+            /**
+             * Drawn At
+             * Format: date-time
+             */
+            drawn_at: string;
+            /** Games */
+            games: components["schemas"]["AllocationGameOut"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Revision */
+            revision: number;
+        };
+        /**
+         * AllocationGameOut
+         * @description One Class game of the draft: its number and its four Seats, Fabrikk first.
+         */
+        AllocationGameOut: {
+            lifecycle?: components["schemas"]["Lifecycle"] | null;
+            /** Number */
+            number: number;
+            /** Seats */
+            seats: components["schemas"]["AllocationSeatOut"][];
+        };
+        /**
+         * AllocationMoveIn
+         * @description Move or swap in the allocation (Story 5.10): the draft the Lecturer is looking at, the
+         *     Seat of the Student who moves, and the Seat they move to. A Student in that Seat takes the
+         *     first Seat (a swap).
+         */
+        AllocationMoveIn: {
+            /**
+             * Draft Id
+             * Format: uuid
+             */
+            draft_id: string;
+            /** From Game */
+            from_game: number;
+            from_role: components["schemas"]["Role"];
+            /** Revision */
+            revision: number;
+            /** To Game */
+            to_game: number;
+            to_role: components["schemas"]["Role"];
+        };
+        /**
+         * AllocationOut
+         * @description The «Fordeling» block: the registered Students now, those of them not in the draft (they
+         *     registered after it was drawn), and the draft, None until one is drawn.
+         */
+        AllocationOut: {
+            /** Confirmed */
+            confirmed: boolean;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            draft: components["schemas"]["AllocationDraftOut"] | null;
+            /**
+             * Method
+             * @default random
+             * @enum {string}
+             */
+            method: "random" | "student_choice";
+            /** Missing Count */
+            missing_count: number;
+            /**
+             * Opened
+             * @default false
+             */
+            opened: boolean;
+            /** Registered Count */
+            registered_count: number;
+            /**
+             * Without Seat
+             * @default []
+             */
+            without_seat: components["schemas"]["AllocationStudentOut"][];
+        };
+        /**
+         * AllocationSeatOut
+         * @description One Seat of a Class game in the draft (Story 5.8). `user_id` None is an empty Seat (an AI
+         *     player at the lock). `name` is resolved now through `classes.service.student_names`; None
+         *     with a `user_id` means the Student is no longer in the Class.
+         */
+        AllocationSeatOut: {
+            /** Name */
+            name: string | null;
+            role: components["schemas"]["Role"];
+            /** User Id */
+            user_id: string | null;
+        };
+        /**
+         * AllocationStudentOut
+         * @description A registered Student without a Seat (Story 5.13).
+         */
+        AllocationStudentOut: {
+            /** Name */
+            name: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
         /**
          * AuditActor
          * @description An actor of the log for the filter: a User with their name, or the system (both null).
@@ -1228,6 +1791,311 @@ export interface components {
             roster_count: number;
             staff_role: components["schemas"]["StaffRole"];
         };
+        /** ClassSessionListItem */
+        ClassSessionListItem: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Number */
+            number: number;
+            /** Saved At */
+            saved_at: string | null;
+        };
+        /**
+         * ClassSessionListOut
+         * @description The Class sessions of one Class, newest first. No paging: a Class has a handful.
+         */
+        ClassSessionListOut: {
+            /** Items */
+            items: components["schemas"]["ClassSessionListItem"][];
+            /**
+             * Rerun Enabled
+             * @default false
+             */
+            rerun_enabled: boolean;
+        };
+        /**
+         * ClassSessionOut
+         * @description One Class session as its Class's staff read it.
+         */
+        ClassSessionOut: {
+            ai_descriptions: components["schemas"]["AiDescriptionsOut"];
+            ai_mode: components["schemas"]["AiMode"];
+            /**
+             * Allocation Method
+             * @default random
+             * @enum {string}
+             */
+            allocation_method: "random" | "student_choice";
+            calibrated_settings: components["schemas"]["GameSettings"];
+            /** Can Manage */
+            can_manage: boolean;
+            /** Capacity Enabled */
+            capacity_enabled: boolean;
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            copied_from?: components["schemas"]["CopiedFromOut"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Debrief Deadline */
+            debrief_deadline: string | null;
+            debrief_mode: components["schemas"]["DebriefMode"];
+            /** Effort Level */
+            effort_level: string | null;
+            effort_level_replaced?: components["schemas"]["ReplacedLevelOut"] | null;
+            /** Effort Levels */
+            effort_levels: components["schemas"]["OfferedEffortLevelOut"][];
+            game_settings: components["schemas"]["GameSettings"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Inactivity Limit Hours */
+            inactivity_limit_hours: number;
+            /** Info Visibility Enabled */
+            info_visibility_enabled: boolean;
+            /** Is Classic */
+            is_classic: boolean;
+            /** Lab Hours */
+            lab_hours: components["schemas"]["LabHourOut"][];
+            /** Llm Unavailable */
+            llm_unavailable: "no_default_model" | null;
+            /**
+             * Lock Refused
+             * @default false
+             */
+            lock_refused: boolean;
+            /** Locked */
+            locked: boolean;
+            /** Locked At */
+            locked_at?: string | null;
+            /** Number */
+            number: number;
+            /** Obligatory */
+            obligatory: boolean;
+            /** Passed Dates */
+            passed_dates: ("start_at" | "play_deadline" | "debrief_deadline" | "test_deadline")[];
+            /** Play Deadline */
+            play_deadline: string | null;
+            /** Play Time Warning */
+            play_time_warning: boolean;
+            /** Provider Unavailable */
+            provider_unavailable: boolean;
+            /** Required Share Percent */
+            required_share_percent: number;
+            /** Saved At */
+            saved_at: string | null;
+            /** Settings Warnings */
+            settings_warnings: components["schemas"]["SettingWarning"][];
+            /** Start At */
+            start_at: string | null;
+            /**
+             * Student Choice Enabled
+             * @default false
+             */
+            student_choice_enabled: boolean;
+            /** Test Deadline */
+            test_deadline: string | null;
+        };
+        /**
+         * ClassSessionSaveIn
+         * @description «Lagre Klasseøkt». The screen sends the AI mode, Effort level and Debrief mode as chosen
+         *     (Story 5.5), the four dates (Story 5.2) and the Game settings (Story 5.3) with the Demand
+         *     pattern and its seed (Story 5.4), and the obligatory mark, its required share and the
+         *     Inactivity limit (Story 5.7); a field left out keeps its value. `game_settings` is laid over
+         *     the stored settings, so a setting left out keeps its value. With Rule-based players no Effort
+         *     level is in force, and a sent one is ignored.
+         */
+        ClassSessionSaveIn: {
+            ai_mode: components["schemas"]["AiMode"];
+            /** Allocation Method */
+            allocation_method?: ("random" | "student_choice") | null;
+            dates?: components["schemas"]["DatesIn"] | null;
+            debrief_mode?: components["schemas"]["DebriefMode"] | null;
+            /** Effort Level */
+            effort_level?: string | null;
+            /** Game Settings */
+            game_settings?: {
+                [key: string]: unknown;
+            } | null;
+            /** Inactivity Limit Hours */
+            inactivity_limit_hours?: number | null;
+            /** Obligatory */
+            obligatory?: boolean | null;
+            /** Required Share Percent */
+            required_share_percent?: number | null;
+        };
+        /**
+         * CopiedFromOut
+         * @description The source of a copied Class session, as the Klasseøkt names it.
+         */
+        CopiedFromOut: {
+            /** Class Name */
+            class_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Number */
+            number: number;
+        };
+        /**
+         * CopyIn
+         * @description «Lag kopi» (Story 5.18, FR-66): the Class session to copy, and whether to keep its demand
+         *     seed (a fresh one is drawn otherwise).
+         */
+        CopyIn: {
+            /**
+             * Keep Seed
+             * @default false
+             */
+            keep_seed: boolean;
+            /** Source Id */
+            source_id: string;
+        };
+        /**
+         * CopySourceListOut
+         * @description The Class sessions a rerun may copy, newest first. No paging: a Lecturer has a handful.
+         */
+        CopySourceListOut: {
+            /** Items */
+            items: components["schemas"]["CopySourceOut"][];
+        };
+        /**
+         * CopySourceOut
+         * @description A Class session the Lecturer may copy: one of a Class they are staff of.
+         */
+        CopySourceOut: {
+            /** Archived */
+            archived: boolean;
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Number */
+            number: number;
+            /** Start At */
+            start_at: string | null;
+        };
+        /**
+         * DatesIn
+         * @description The four dates as the Lecturer set them, each an instant with its offset or None.
+         */
+        DatesIn: {
+            /** Debrief Deadline */
+            debrief_deadline: string | null;
+            /** Play Deadline */
+            play_deadline: string | null;
+            /** Start At */
+            start_at: string | null;
+            /** Test Deadline */
+            test_deadline: string | null;
+        };
+        /**
+         * DebriefMode
+         * @description How the Debrief is held (FR-16): the four of a Class game together, or each alone.
+         * @enum {string}
+         */
+        DebriefMode: "group" | "personal";
+        /**
+         * DemandFixed
+         * @description A fixed series: `values[w - 1]` is the demand in Week w.
+         */
+        DemandFixed: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "fixed";
+            /** Values */
+            values: number[];
+        };
+        /**
+         * DemandRandom
+         * @description Discrete uniform demand over `mean - spread` to `mean + spread`, never below 0.
+         */
+        DemandRandom: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "random";
+            /** Mean */
+            mean: number;
+            /** Spread */
+            spread: number;
+        };
+        /**
+         * DemandSeriesOut
+         * @description The customer demand of Weeks 1 to the last, as the engine materialises it from the stored
+         *     Demand pattern and seed (Story 5.4, FR-13): `demand[w - 1]` is the demand in Week w. For the
+         *     Class's staff only; no Student-facing answer carries it (AD-3).
+         */
+        DemandSeriesOut: {
+            /** Demand */
+            demand: number[];
+        };
+        /**
+         * DemandStep
+         * @description Customer demand `start` until `change_week`, then `new_level` from that Week on.
+         */
+        DemandStep: {
+            /** Change Week */
+            change_week: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "step";
+            /** New Level */
+            new_level: number;
+            /** Start */
+            start: number;
+        };
+        /**
+         * DemandStepNoise
+         * @description A step in the mean with discrete uniform noise of `spread` around it.
+         */
+        DemandStepNoise: {
+            /** Change Week */
+            change_week: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "step+noise";
+            /** New Level */
+            new_level: number;
+            /** Spread */
+            spread: number;
+            /** Start */
+            start: number;
+        };
         /**
          * EnrolledClassListOut
          * @description The Classes the User is a Student in, by name. No paging: a Student has a handful.
@@ -1251,6 +2119,74 @@ export interface components {
             /** Name */
             name: string;
         };
+        /**
+         * EnrolledLabHourOut
+         * @description An upcoming Lab hour as a Student reads it (Story 5.6, FR-19), for Epic 6's Hjem.
+         */
+        EnrolledLabHourOut: {
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Place */
+            place: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+        };
+        /** EnrolledSessionListOut */
+        EnrolledSessionListOut: {
+            /** Items */
+            items: components["schemas"]["EnrolledSessionOut"][];
+        };
+        /**
+         * EnrolledSessionOut
+         * @description A Class session as its Student reads it (Story 5.2, FR-18, AD-3): the dates and the next
+         *     deadline that applies. Never the Game settings, the number of Weeks or the demand.
+         */
+        EnrolledSessionOut: {
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /** Debrief Deadline */
+            debrief_deadline: string | null;
+            drawn_seat?: components["schemas"]["SeatRef"] | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Lab Hours */
+            lab_hours: components["schemas"]["EnrolledLabHourOut"][];
+            next_deadline: components["schemas"]["NextDeadline"] | null;
+            /** Number */
+            number: number;
+            /** Obligatory */
+            obligatory: boolean;
+            /** Play Deadline */
+            play_deadline: string | null;
+            /**
+             * Seat Choice Open
+             * @default false
+             */
+            seat_choice_open: boolean;
+            /** Start At */
+            start_at: string | null;
+            /** Test Deadline */
+            test_deadline: string | null;
+        };
         /** ErrorBody */
         ErrorBody: {
             /** Code */
@@ -1266,10 +2202,128 @@ export interface components {
         ErrorEnvelope: {
             error: components["schemas"]["ErrorBody"];
         };
+        /**
+         * GameSettings
+         * @description Everything that defines a Game's arithmetic. `GameSettings()` is the Classic game.
+         */
+        GameSettings: {
+            /**
+             * Backorder Cost
+             * @default 1.00
+             */
+            backorder_cost: string;
+            /** Capacity */
+            capacity?: {
+                [key: string]: number;
+            } | null;
+            /**
+             * Demand
+             * @default {
+             *       "change_week": 5,
+             *       "kind": "step",
+             *       "new_level": 8,
+             *       "start": 4
+             *     }
+             */
+            demand: components["schemas"]["DemandFixed"] | components["schemas"]["DemandStep"] | components["schemas"]["DemandRandom"] | components["schemas"]["DemandStepNoise"];
+            /** Demand Seed */
+            demand_seed?: number | null;
+            /**
+             * Guided Weeks
+             * @default 4
+             */
+            guided_weeks: number;
+            /**
+             * Holding Cost
+             * @default 0.50
+             */
+            holding_cost: string;
+            /**
+             * @default {
+             *       "downstream": false,
+             *       "upstream": false
+             *     }
+             */
+            info_visibility: components["schemas"]["InfoVisibility"];
+            /**
+             * Max Order
+             * @default 999
+             */
+            max_order: number;
+            /**
+             * Order Delay
+             * @default 2
+             */
+            order_delay: number;
+            /**
+             * Production Delay
+             * @default 2
+             */
+            production_delay: number;
+            /**
+             * Roles
+             * @default [
+             *       "retailer",
+             *       "wholesaler",
+             *       "distributor",
+             *       "factory"
+             *     ]
+             */
+            roles: components["schemas"]["Role"][];
+            /**
+             * Schema Version
+             * @default 2
+             * @enum {integer}
+             */
+            schema_version: 1 | 2;
+            /**
+             * Shipping Delay
+             * @default 2
+             */
+            shipping_delay: number;
+            /**
+             * Starting Backlog
+             * @default 0
+             */
+            starting_backlog: number;
+            /**
+             * Starting Inventory
+             * @default 12
+             */
+            starting_inventory: number;
+            /**
+             * Supply Line
+             * @default 4
+             */
+            supply_line: number;
+            /**
+             * Weeks
+             * @default 36
+             */
+            weeks: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * InfoVisibility
+         * @description Information visibility (cut list, FR-83): which neighbour each Seat sees, with its current
+         *     inventory and backlog. Both views off by default; the Factory has no upstream neighbour and
+         *     the Retailer no downstream one, so their view on that side shows nothing.
+         */
+        InfoVisibility: {
+            /**
+             * Downstream
+             * @default false
+             */
+            downstream: boolean;
+            /**
+             * Upstream
+             * @default false
+             */
+            upstream: boolean;
         };
         /** InstitutionChoice */
         InstitutionChoice: {
@@ -1463,6 +2517,66 @@ export interface components {
             /** Token */
             token: string;
         };
+        /**
+         * LabHourIn
+         * @description A Lab hour as the Lecturer adds or changes it (Story 5.6, FR-19): its start and end as
+         *     instants with their offset, and its place. The service judges the rules (`invalid_lab_hour`),
+         *     so a blank or long place gets its reason rather than a schema error.
+         */
+        LabHourIn: {
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Place */
+            place: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+        };
+        /**
+         * LabHourOut
+         * @description A Lab hour as the Class's staff read it, UTC; the web app shows it in Europe/Oslo.
+         */
+        LabHourOut: {
+            /** Ended */
+            ended: boolean;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Place */
+            place: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+        };
+        /**
+         * LecturerOverviewOut
+         * @description The Lærerhjem's «Venter» and «Neste frist» (Story 5.2, UX-DR56): over the User's Classes
+         *     that are not archived.
+         */
+        LecturerOverviewOut: {
+            next_date: components["schemas"]["NextDate"] | null;
+            /** Waiting */
+            waiting: components["schemas"]["WaitingClass"][];
+        };
+        /**
+         * Lifecycle
+         * @enum {string}
+         */
+        Lifecycle: "not_started" | "running" | "playing_out" | "finished";
         /** LoginIn */
         LoginIn: {
             /** Email */
@@ -1494,6 +2608,65 @@ export interface components {
             password: string;
             /** Token */
             token: string;
+        };
+        /** NextDate */
+        NextDate: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "start" | "play" | "debrief" | "test";
+            /** Number */
+            number: number;
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+        };
+        /** NextDeadline */
+        NextDeadline: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "start" | "play" | "debrief" | "test";
+        };
+        /**
+         * OfferedEffortLevelOut
+         * @description An Effort level the Class session may use (Story 5.5, FR-78), as the model config holds it
+         *     and `ai.config.offered_effort_levels` offers it: nothing here is written by `sessions`.
+         */
+        OfferedEffortLevelOut: {
+            /** Cost Per Game Usd */
+            cost_per_game_usd: string | null;
+            /** Default */
+            default: boolean;
+            /** Effect */
+            effect: string | null;
+            /** Label */
+            label: string | null;
+            /** Name */
+            name: string;
+            /** Time Per Order Median S */
+            time_per_order_median_s: string | null;
         };
         /** PasswordResetIn */
         PasswordResetIn: {
@@ -1595,6 +2768,17 @@ export interface components {
             valid_days: number;
         };
         /**
+         * ReplacedLevelOut
+         * @description An Effort level of the source the new model config does not offer: its name, and the
+         *     source config's Norwegian label (None: show `name`).
+         */
+        ReplacedLevelOut: {
+            /** Label */
+            label: string | null;
+            /** Name */
+            name: string;
+        };
+        /**
          * ResetCheckOut
          * @description A usable reset link: its address, and whether the account has no password yet (a manually
          *     registered Student, Story 4.8), so «Nytt passord» words it as a first password.
@@ -1621,6 +2805,11 @@ export interface components {
             /** Token */
             token: string;
         };
+        /**
+         * Role
+         * @enum {string}
+         */
+        Role: "retailer" | "wholesaler" | "distributor" | "factory";
         /**
          * RoleIn
          * @description The account role an Admin grants (Story 3.9).
@@ -1763,9 +2952,90 @@ export interface components {
             /** Valid Count */
             valid_count: number;
         };
+        /** SeatChoiceGameOut */
+        SeatChoiceGameOut: {
+            /** Number */
+            number: number;
+            /** Seats */
+            seats: components["schemas"]["SeatChoiceSeatOut"][];
+        };
+        /**
+         * SeatChoiceIn
+         * @description «Ta setet …»: the Seat the Student takes. Anything that names no Seat of the Class
+         *     session's games answers 422 `invalid_seat`.
+         */
+        SeatChoiceIn: {
+            /** Game Number */
+            game_number: number;
+            /** Role */
+            role: string;
+        };
+        /**
+         * SeatChoiceOut
+         * @description «Velg spill og sete» (Story 5.17): the Class session's Class games with their Seats, and
+         *     the reader's own Seat. Never the Game settings, the number of Weeks or the demand.
+         */
+        SeatChoiceOut: {
+            /** Class Name */
+            class_name: string;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Drawn */
+            drawn: boolean;
+            /** Games */
+            games: components["schemas"]["SeatChoiceGameOut"][];
+            my_seat: components["schemas"]["SeatRef"] | null;
+            /** Number */
+            number: number;
+            /** Open */
+            open: boolean;
+            /** Start At */
+            start_at: string | null;
+        };
+        /**
+         * SeatChoiceSeatOut
+         * @description One Seat as «Velg spill og sete» lists it: free, a Student (named now; None once removed
+         *     from the Class) or, after the lock, an AI player. `mine` marks the reader's own Seat.
+         */
+        SeatChoiceSeatOut: {
+            /**
+             * Holder
+             * @enum {string}
+             */
+            holder: "free" | "student" | "ai";
+            /** Mine */
+            mine: boolean;
+            /** Name */
+            name: string | null;
+            role: components["schemas"]["Role"];
+        };
+        /**
+         * SeatRef
+         * @description A Seat named by its Class game's number and its Role: «Grossist i Spill 17».
+         */
+        SeatRef: {
+            /** Game Number */
+            game_number: number;
+            role: components["schemas"]["Role"];
+        };
         /** SessionOut */
         SessionOut: {
             user: components["schemas"]["UserOut"];
+        };
+        /** SessionRef */
+        SessionRef: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Lacks */
+            lacks: ("dates" | "allocation")[];
+            /** Number */
+            number: number;
         };
         /**
          * SessionRole
@@ -1775,6 +3045,60 @@ export interface components {
          * @enum {string}
          */
         SessionRole: "admin" | "lecturer" | "assistant";
+        /**
+         * SettingProblem
+         * @description Why one Game setting is refused (Story 5.3, FR-12): the engine's stable code and the range
+         *     that applies, its bounds as decimal strings («1», «100.00»), or None when the rule has none.
+         */
+        SettingProblem: {
+            /** Code */
+            code: string;
+            /** Decimal Places */
+            decimal_places: number | null;
+            /** Maximum */
+            maximum: string | null;
+            /** Minimum */
+            minimum: string | null;
+        };
+        /**
+         * SettingWarning
+         * @description A legal but unusual Game setting (FR-12): the engine's code, the setting it stands under,
+         *     and the numbers behind it as decimal strings. It never blocks a save.
+         */
+        SettingWarning: {
+            /** Code */
+            code: string;
+            /** Field */
+            field: string;
+            /** Values */
+            values: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * SettingsCheckIn
+         * @description A draft of the Game settings to judge without saving: the editable settings, laid
+         *     over the stored settings. Values are sent as typed, so the engine judges them all.
+         */
+        SettingsCheckIn: {
+            /** Game Settings */
+            game_settings: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * SettingsCheckOut
+         * @description What the engine says of a draft (FR-12): the errors by setting, which block a save, and the
+         *     warnings, which do not.
+         */
+        SettingsCheckOut: {
+            /** Errors */
+            errors: {
+                [key: string]: components["schemas"]["SettingProblem"];
+            };
+            /** Warnings */
+            warnings: components["schemas"]["SettingWarning"][];
+        };
         /**
          * StaffAssistant
          * @description An Assistant of the Class: `active` (staff, `user_id` set), or an Invitation not yet
@@ -1909,6 +3233,21 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /**
+         * WaitingClass
+         * @description A Class with Class sessions that still lack a date or a confirmed allocation.
+         */
+        WaitingClass: {
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /** Sessions */
+            sessions: components["schemas"]["SessionRef"][];
         };
     };
     responses: never;
@@ -3269,6 +4608,708 @@ export interface operations {
             };
         };
     };
+    getClassSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSessionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    saveClassSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClassSessionSaveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSessionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getAllocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllocationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    openAllocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllocationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirmAllocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AllocationConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllocationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    moveInAllocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AllocationMoveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllocationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    redrawAllocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllocationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getClassSessionDemandSeries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemandSeriesOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    addLabHour: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabHourIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabHourOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    changeLabHour: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                lab_hour_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabHourIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabHourOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    removeLabHour: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                lab_hour_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    checkClassSessionSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsCheckIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsCheckOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     listClasses: {
         parameters: {
             query?: never;
@@ -3577,6 +5618,224 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listClassSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSessionListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    createClassSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSessionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    copyClassSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSessionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listClassSessionCopySources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopySourceListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -4509,6 +6768,184 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    lecturerHomeClassSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LecturerOverviewOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listMyClassSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrolledSessionListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getSeatChoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatChoiceOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    takeSeat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeatChoiceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatChoiceOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

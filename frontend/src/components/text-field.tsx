@@ -7,22 +7,38 @@ import { cn } from "@/lib/utils";
  * state the field has a `restordre` border, and the reason sits directly under the field. The
  * reason is tied to the field by `aria-describedby`, so it is read when the field takes focus.
  * Colour is never the only cue. A `hint` (a rule the value must meet) sits under the field in
- * `ink-secondary` and is read with it too.
+ * `ink-secondary` and is read with it too. `notes` (a warning that never blocks) sit under it all
+ * in `ink`, each its own line, read with the field; their words carry them, not a colour.
  */
 export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "id"> & {
   id: string;
   label: string;
   error?: string;
   hint?: string;
+  notes?: readonly string[];
   /** Classes for the input alone, e.g. a narrow field whose hint and error keep the full width. */
   inputClassName?: string;
+  /** The reason is announced as it appears (`role="alert"`), for a rule checked on leaving the
+   * field (UX-DR49). */
+  errorAlert?: boolean;
   ref?: Ref<HTMLInputElement>;
 };
 
-export function TextField({ id, label, error, hint, className, inputClassName, ...props }: TextFieldProps) {
+export function TextField({
+  id,
+  label,
+  error,
+  hint,
+  notes = [],
+  className,
+  inputClassName,
+  errorAlert,
+  ...props
+}: TextFieldProps) {
   const errorId = `${id}-error`;
   const hintId = `${id}-hint`;
-  const describedBy = [hint ? hintId : "", error ? errorId : ""].filter(Boolean).join(" ") || undefined;
+  const noteIds = notes.map((_, index) => `${id}-note-${index}`);
+  const describedBy = [hint ? hintId : "", error ? errorId : "", ...noteIds].filter(Boolean).join(" ") || undefined;
   return (
     <div className={cn("flex flex-col gap-field-gap", className)}>
       <label htmlFor={id} className="text-label text-ink">
@@ -44,10 +60,15 @@ export function TextField({ id, label, error, hint, className, inputClassName, .
         </p>
       ) : null}
       {error ? (
-        <p id={errorId} className="text-body-phone text-restordre">
+        <p id={errorId} role={errorAlert ? "alert" : undefined} className="text-body-phone text-restordre">
           {error}
         </p>
       ) : null}
+      {notes.map((note, index) => (
+        <p key={noteIds[index]} id={noteIds[index]} className="text-body-phone text-ink">
+          {note}
+        </p>
+      ))}
     </div>
   );
 }

@@ -12,6 +12,7 @@ from app.engine import (
     demand_series,
 )
 from app.modules.games import commands, service
+from app.platform.config import get_settings
 from tests.games.helpers import counts, listening, play_to_end, query
 
 
@@ -46,7 +47,7 @@ async def test_create_freezes_the_snapshot(games_db):
     )
     expected = GameSettings(demand_seed=123)
     assert settings == expected.model_dump(mode="json")
-    assert settings["schema_version"] == 1
+    assert settings["schema_version"] == 2
     assert settings["holding_cost"] == "0.50"
     assert GameSettings.model_validate(settings) == expected
     assert series == list(demand_series(expected))
@@ -62,6 +63,10 @@ async def test_create_freezes_the_snapshot(games_db):
         "effort_level": None,
         "play_guard_params": "placeholder-0",
         "play_guard_params_version": 1,
+        # Frozen by a Class session's lock only (Story 5.11).
+        "inactivity_limit_hours": None,
+        "prompt_versions": None,
+        "pins": None,
     }
 
 
@@ -222,7 +227,7 @@ async def test_an_invalid_parameter_set_stores_nothing(games_db, monkeypatch):
     assert counts(games_db) == (0, 0, 0)
 
 
-@pytest.mark.parametrize("purpose", ["class", "replay", "makeup", "lecturer_test", "party"])
+@pytest.mark.parametrize("purpose", ["replay", "makeup", "lecturer_test", "party"])
 async def test_purposes_without_a_policy_cannot_be_created_yet(games_db, purpose):
     with pytest.raises(commands.CommandError) as caught:
         await commands.create(purpose, GameSettings(), seed=1)
@@ -287,7 +292,8 @@ async def test_capacity_out_of_range_is_an_engine_error(games_db, monkeypatch):
 
 async def test_a_capped_game_is_stored_played_and_verified(games_db, monkeypatch):
     monkeypatch.setenv("FEATURE_CAPACITY", "true")
-    game_id = await commands.create("simulation", GameSettings(capacity={"wholesaler": 6}), seed=3)
+    settings = GameSettings(capacity={"wholesaler": 6}, weeks=12)  # past the step to 8 a Week
+    game_id = await commands.create("simulation", settings, seed=3)
     ((settings,),) = query(games_db, "SELECT settings FROM games WHERE id = %s", (game_id,))
     assert settings["capacity"] == {"wholesaler": 6}
     await commands.start(game_id)
@@ -298,7 +304,7 @@ async def test_a_capped_game_is_stored_played_and_verified(games_db, monkeypatch
         "ON s.id = w.seat_id WHERE w.game_id = %s AND s.role = 'wholesaler'",
         (game_id,),
     )
-    assert len(shipped) == 36 and max(value for (value,) in shipped) <= 6
+    assert len(shipped) == 12 and max(value for (value,) in shipped) <= 6
     check = await service.verify_finished(game_id)
     assert check.ok, check.violations
 
@@ -310,3 +316,21 @@ async def test_a_capacity_that_is_not_a_whole_number_is_invalid(games_db):
     assert (caught.value.code, caught.value.status) == ("invalid_settings", 422)
     assert caught.value.fields == {"capacity.retailer": "invalid"}
     assert counts(games_db) == (0, 0, 0)
+
+
+async def test_information_visibility_is_refused_when_its_flag_is_off(games_db, monkeypatch):
+    # Story 5.16: the engine gate fails closed, so a simulation Game obeys the flag as well.
+    monkeypatch.setenv("FEATURE_INFO_VISIBILITY", "false")
+    views = GameSettings(info_visibility={"upstream": True})
+    with pytest.raises(commands.CommandError) as caught:
+        await commands.create("simulation", views, seed=1)
+    assert (caught.value.code, caught.value.fields) == (
+        "invalid_settings",
+        {"info_visibility": "info_visibility_disabled"},
+    )
+    assert counts(games_db) == (0, 0, 0)
+    monkeypatch.setenv("FEATURE_INFO_VISIBILITY", "true")
+    get_settings.cache_clear()
+    game_id = await commands.create("simulation", views, seed=1)
+    ((settings,),) = query(games_db, "SELECT settings FROM games WHERE id = %s", (game_id,))
+    assert settings["info_visibility"] == {"upstream": True, "downstream": False}

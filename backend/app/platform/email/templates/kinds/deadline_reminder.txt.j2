@@ -1,0 +1,6 @@
+{# A deadline is at most 24 hours away (Story 5.14, FR-18), a digest kind. `class_name`, `deadline`
+   (`play`, `debrief`, `test`), `at` (Europe/Oslo) and `obligatory` come from
+   `sessions.service.deadline_reminder_mail_context` at send time. Draft copy. #}
+{% import "kinds/_deadline.j2" as d %}
+{% set subject = "Påminnelse om frist" %}
+{{ d.name(deadline) }} i Klassen {{ class_name }} er {{ d.when(at) }}.{% if obligatory %} Øvelsen er obligatorisk.{% endif %}

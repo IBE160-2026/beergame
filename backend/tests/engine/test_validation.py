@@ -163,13 +163,16 @@ def test_out_of_range_beats_precision():
 def test_guided_weeks_must_end_before_the_demand_change():
     (error,) = validate(GameSettings(guided_weeks=5))
     assert (error.code, error.field) == ("guided_weeks_not_before_demand_change", "guided_weeks")
-    assert error.minimum is None and error.maximum is None and error.placeholder is None
+    # The allowed range travels with the error (Story 5.3): up to the Week before the change.
+    assert (error.minimum, error.maximum, error.placeholder) == (0, 4, False)
     assert validate(GameSettings(guided_weeks=4)) == ()
 
 
 def test_guided_weeks_must_leave_weeks_to_play():
     settings = GameSettings(weeks=4, guided_weeks=4, demand=FLAT)
     assert codes(validate(settings)) == [("guided_weeks_leave_no_weeks_to_play", "guided_weeks")]
+    (error,) = validate(settings)
+    assert (error.minimum, error.maximum, error.placeholder) == (0, 3, False)
     assert validate(GameSettings(weeks=5, guided_weeks=4, demand=FLAT)) == ()
     # Also with a demand step after the Game, which Story 1.4 reports on its own field.
     assert codes(validate(GameSettings(weeks=4, guided_weeks=4))) == [
@@ -184,6 +187,8 @@ def test_when_both_guided_rules_fail_only_the_first_is_reported():
         ("demand_change_week_outside_game", "demand.change_week"),
         ("guided_weeks_not_before_demand_change", "guided_weeks"),
     ]
+    # The range it states satisfies both rules: up to the Week before the last.
+    assert validate(settings)[1].maximum == 3
 
 
 def test_flat_demand_has_no_change_week_rule_and_no_arrival_warning():
@@ -499,3 +504,23 @@ def test_warnings_read_every_pattern():
     assert NOISY.peak == 10 and NOISY.first_change_week == 5 and NOISY.starting_level == 4
     assert RANDOM.peak == 6 and RANDOM.first_change_week is None and RANDOM.starting_level == 4
     assert demand_change_reaches_retailer(GameSettings(demand=RANDOM, demand_seed=1)) is None
+
+
+# --- Information visibility (Story 5.16, cut list) --------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "views", [{"upstream": True}, {"downstream": True}, {"upstream": True, "downstream": True}]
+)
+def test_a_view_is_refused_while_the_flag_is_off(views):
+    settings = GameSettings(info_visibility=views)
+    for errors in (validate(settings), validate(settings, info_visibility_enabled=False)):
+        assert codes(errors) == [("info_visibility_disabled", "info_visibility")]
+    assert validate(settings, info_visibility_enabled=True) == ()
+    # It changes no arithmetic, so it raises no warning.
+    assert warnings(settings) == warnings(GameSettings())
+
+
+def test_every_view_off_passes_whatever_the_flag():
+    settings = GameSettings(info_visibility={"upstream": False, "downstream": False})
+    assert validate(settings) == validate(settings, info_visibility_enabled=True) == ()

@@ -1,4 +1,4 @@
-import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
+import { type APIRequestContext, type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../../src/copy/nb";
 
@@ -100,9 +100,12 @@ export function demoContext(browser: Browser, role: DemoRole): Promise<BrowserCo
 
 export type DevMail = { subject: string; text: string; html: string; sent_at: string };
 
+/** Whatever reads the dev mailbox: a page or a browser context. */
+type Mailbox = { request: APIRequestContext };
+
 /** The newest mail sent to `email`, from the local dev mailbox (Story 3.6), or null. Locally every
  * mail is the `[email:mock]` sender, which logs ids only; this route renders the mail again. */
-export async function latestMail(page: Page, email: string): Promise<DevMail | null> {
+export async function latestMail(page: Mailbox, email: string): Promise<DevMail | null> {
   const response = await page.request.get("/api/dev/mailbox/latest", { params: { to: email } });
   if (response.status() === 404) return null;
   expect(response.status()).toBe(200);
@@ -111,7 +114,7 @@ export async function latestMail(page: Page, email: string): Promise<DevMail | n
 
 /** Wait for a mail to `email` newer than `before` (the newest mail before the action, or null)
  * and return it. Compares only the worker's own send times, never with this machine's clock. */
-export async function nextMail(page: Page, email: string, before: DevMail | null): Promise<DevMail> {
+export async function nextMail(page: Mailbox, email: string, before: DevMail | null): Promise<DevMail> {
   let mail: DevMail | null = null;
   await expect
     .poll(

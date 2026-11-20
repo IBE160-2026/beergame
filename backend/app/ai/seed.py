@@ -38,6 +38,8 @@ MOCK_SPEC: dict[str, object] = {
             "attempt_timeout_s": 4,
             "order_time_budget_s": 8,
             "placeholder": True,
+            "label": "Standard",
+            "effect": "Testmodell: svarer straks og koster ingenting.",
         }
     ],
 }

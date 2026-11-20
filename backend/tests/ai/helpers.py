@@ -5,10 +5,8 @@ import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import psycopg
-
 from app.ai import ratelimit
-from tests.conftest import libpq_dsn
+from tests.conftest import kept_connection
 
 CONFIGS = Path(__file__).resolve().parents[2] / "ai-configs"
 MOCK = json.loads((CONFIGS / "mock.json").read_text(encoding="utf-8"))
@@ -24,8 +22,7 @@ def mock_config(**changes: object) -> dict:
 
 
 def query(url: str, sql: str, params: tuple = ()) -> list[tuple]:
-    with psycopg.connect(libpq_dsn(url)) as conn:
-        return conn.execute(sql, params).fetchall()
+    return kept_connection(url).execute(sql, params).fetchall()
 
 
 ROOMY_BUDGET_S = 600

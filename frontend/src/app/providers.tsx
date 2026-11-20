@@ -28,7 +28,10 @@ export function Providers({ children }: { children: ReactNode }) {
           onApiError(error);
           // The Class was archived while its page was open (Story 4.10): every Class read is read
           // again, so the page turns read-only.
-          if (errorCode(error) === "class_archived") void client.invalidateQueries({ queryKey: ["classes"] });
+          if (errorCode(error) === "class_archived") {
+            void client.invalidateQueries({ queryKey: ["classes"] });
+            void client.invalidateQueries({ queryKey: ["class-sessions"] }); // Story 5.1
+          }
         },
       }),
       defaultOptions: {

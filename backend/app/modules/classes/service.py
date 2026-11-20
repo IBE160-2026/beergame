@@ -223,6 +223,15 @@ async def is_writable(class_id: uuid.UUID, session: AsyncSession | None = None) 
     return state is None
 
 
+async def writable_class_ids(class_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+    """Those of `class_ids` that take changes now, in one read and without a lock: for the sweep's
+    finders, whose actions ask `is_writable` again under their own lock."""
+    if not class_ids:
+        return set()
+    async with get_sessionmaker().begin() as s:
+        return await repo.active_class_ids(s, class_ids)
+
+
 CLASS_ARCHIVED = "class.archived"
 
 
@@ -609,6 +618,30 @@ async def registered_students(class_id: uuid.UUID) -> list[uuid.UUID]:
     through an Invitation or by hand, and not removed. An address unregistered after its
     Invitation expired, a bounced or a removed one is never among them."""
     return await identity.registered_users(class_id)
+
+
+async def registered_students_of(class_ids: list[uuid.UUID]) -> dict[uuid.UUID, set[uuid.UUID]]:
+    """`registered_students` of many Classes in one read, by Class id; a Class with no Student is
+    left out. For the sweep's finders."""
+    return await identity.registered_users_of(class_ids)
+
+
+async def student_names(class_id: uuid.UUID, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """The scope helper by which Epic 5 names the Students of an allocation at read time
+    (Story 5.8, AD-12, AD-14): the names of those of `user_ids` who are Students in the Class now.
+    An id that is no longer one (removed from the Roster) or never was is left out. The caller has
+    checked that the User may read the Class."""
+    return await identity.student_names(class_id, user_ids)
+
+
+async def owners_of(session: AsyncSession, class_id: uuid.UUID) -> list[uuid.UUID]:
+    """The ids of the Class's owners and co-owners (Story 5.11: who is told that a Class session
+    cannot lock). Assistant lecturers are not among them."""
+    return sorted(
+        row["user_id"]
+        for row in await repo.staff_of(session, class_id)
+        if row["role"] == StaffRole.owner.value
+    )
 
 
 async def label_of_class(session: AsyncSession, class_id: uuid.UUID) -> identity.ClassLabel | None:

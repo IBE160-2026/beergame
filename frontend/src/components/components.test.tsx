@@ -10,8 +10,48 @@ import { Breadcrumb } from "./breadcrumb";
 import { Button, guardUnavailable } from "./button";
 import { ConnectionNotice } from "./connection-notice";
 import { SegmentedChoice } from "./segmented-choice";
+import { Switch } from "./switch";
+import { ViewToggle } from "./view-toggle";
 import { LoadingNote, Skeleton } from "./skeleton";
 import { TextField } from "./text-field";
+
+describe("Switch", () => {
+  const render = (checked: boolean) =>
+    renderToStaticMarkup(
+      <Switch id="s" checked={checked} onChange={() => {}} labelledBy="heading">
+        {checked ? "Ja, står i emneplanen" : "Nei"}
+      </Switch>,
+    );
+
+  it("is a native button exposed as a switch, named by its heading and its state text", () => {
+    const html = render(true);
+    expect(html).toContain('type="button"');
+    expect(html).toContain('role="switch"');
+    expect(html).toContain('aria-checked="true"');
+    expect(html).toContain('aria-labelledby="heading s-text"');
+    expect(html).toContain('id="s-text"');
+    expect(html).toContain("Ja, står i emneplanen");
+    expect(render(false)).toContain('aria-checked="false"');
+  });
+
+  it("fills the track in ink with the knob at the right when on, and moves the knob when off", () => {
+    const on = render(true);
+    for (const cls of ["rounded-full", "bg-ink", "bg-paper", "left-[calc(100%-1.5rem)]", "min-h-tap-target-min"]) {
+      expect(on).toContain(cls);
+    }
+    const off = render(false);
+    expect(off).toContain("border-ink-muted");
+    expect(off).toContain("left-1");
+    expect(off).not.toContain("left-[calc(100%-1.5rem)]");
+  });
+
+  it("toggles through onChange", () => {
+    const onChange = vi.fn();
+    const element = Switch({ id: "s", checked: false, onChange, labelledBy: "h", children: "Nei" });
+    (element.props as { onClick: () => void }).onClick();
+    expect(onChange).toHaveBeenCalledWith(true);
+  });
+});
 
 describe("Button", () => {
   it("renders an unavailable button with aria-disabled and never the native disabled", () => {
@@ -109,6 +149,12 @@ describe("TextField", () => {
     expect(html).toMatch(/<p id="email-error" class="[^"]*text-restordre[^"]*">Mangler @<\/p>/);
     expect(html).toContain("aria-invalid:border-restordre");
   });
+
+  it("ties a hint, a reason and each note to the field, notes last and in ink (Story 5.3)", () => {
+    const html = renderToStaticMarkup(<TextField id="x" label="L" hint="h" error="e" notes={["n1", "n2"]} />);
+    expect(html).toContain('aria-describedby="x-hint x-error x-note-0 x-note-1"');
+    expect(html).toMatch(/<p id="x-note-1" class="[^"]*text-ink[^"]*">n2<\/p>/);
+  });
 });
 
 describe("Skeleton", () => {
@@ -178,5 +224,64 @@ describe("SegmentedChoice", () => {
   it("checks exactly the chosen option", () => {
     expect(html.match(/checked=""/g)).toHaveLength(1);
     expect(html).toMatch(/checked="" value="admin"/);
+  });
+
+  it("marks an unavailable option aria-disabled with its reason and never chooses it", () => {
+    const chosen: string[] = [];
+    const element = SegmentedChoice({
+      name: "ai",
+      legend: "KI-modus",
+      options: [
+        { value: "llm", label: "LLM-spillere", unavailable: true, describedBy: "why" },
+        { value: "rule_based", label: "Regelbaserte spillere" },
+      ],
+      value: "rule_based",
+      onChange: (value) => chosen.push(value),
+      describedBy: "scope",
+    });
+    const markup = renderToStaticMarkup(element);
+    expect(markup).toMatch(/^<fieldset[^>]*aria-describedby="scope"/);
+    const llm = markup.match(/<input[^>]*value="llm"[^>]*>/)?.[0] ?? "";
+    expect(llm).toContain('aria-disabled="true"');
+    expect(llm).toContain('aria-describedby="why"');
+    expect(markup).toMatch(/bg-future-tint[^"]*text-ink-muted/);
+    expect(markup.match(/aria-disabled/g)).toHaveLength(1);
+    // The radios' change handlers, in option order: the unavailable one does nothing.
+    const radios = collectRadios(element);
+    radios[0]?.props.onChange();
+    radios[1]?.props.onChange();
+    expect(chosen).toEqual(["rule_based"]);
+  });
+});
+
+/** The radio inputs of a rendered SegmentedChoice tree, in order. */
+function collectRadios(node: unknown): { props: { onChange: () => void } }[] {
+  if (!node || typeof node !== "object") return [];
+  if (Array.isArray(node)) return node.flatMap(collectRadios);
+  const element = node as { type?: unknown; props?: { type?: string; children?: unknown; onChange?: () => void } };
+  if (element.type === "input" && element.props?.type === "radio") {
+    return [element as { props: { onChange: () => void } }];
+  }
+  return collectRadios(element.props?.children);
+}
+
+describe("ViewToggle", () => {
+  it("is two Valgknapper segments named by its legend", () => {
+    const html = renderToStaticMarkup(
+      <ViewToggle
+        name="view"
+        legend="Vis fordelingen"
+        options={[
+          { value: "diagram", label: "Diagram" },
+          { value: "list", label: "Liste" },
+        ]}
+        value="list"
+        onChange={() => {}}
+      />,
+    );
+    expect(html).toMatch(/^<fieldset[^>]*><legend[^>]*>Vis fordelingen<\/legend>/);
+    expect(html.match(/type="radio"/g)).toHaveLength(2);
+    expect(html).toMatch(/checked="" value="list"/);
+    expect(html).toMatch(/min-h-control-height-phone/);
   });
 });

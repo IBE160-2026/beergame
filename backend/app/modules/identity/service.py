@@ -222,6 +222,12 @@ async def mail_recipient(session: AsyncSession, user_id: uuid.UUID) -> email.Rec
     return email.Recipient(email=row["email"], name=row["name"])
 
 
+async def active_admins(session: AsyncSession) -> list[uuid.UUID]:
+    """The ids of the active Admins, for a notice every Admin needs (Story 5.11: a Class session
+    that cannot lock because its AI provider has no key)."""
+    return await repo.active_holders(session, AccountRole.admin.value)
+
+
 async def user_id_for_email(session: AsyncSession, address: str) -> uuid.UUID | None:
     """The id of the User with this e-mail, or None. For the local dev mailbox only."""
     row = await repo.user_by_email(session, normalise_email(address))
@@ -2062,8 +2068,28 @@ async def class_roster(class_id: uuid.UUID, *, now: datetime) -> list[RosterFact
 async def registered_users(class_id: uuid.UUID) -> list[uuid.UUID]:
     """The Users who are Students in the Class: registered through an Invitation or by hand,
     and not removed (FR-9). An address unregistered after its Invitation expired is not one."""
+    return sorted((await registered_users_of([class_id])).get(class_id, set()))
+
+
+async def registered_users_of(class_ids: list[uuid.UUID]) -> dict[uuid.UUID, set[uuid.UUID]]:
+    """`registered_users` of many Classes in one read, by Class id; a Class with no Student is
+    left out."""
+    found: dict[uuid.UUID, set[uuid.UUID]] = {}
+    if not class_ids:
+        return found
     async with get_sessionmaker().begin() as s:
-        return await repo.registered_user_ids(s, class_id, [r.value for r in REGISTERED])
+        rows = await repo.registered_user_ids(s, class_ids, [r.value for r in REGISTERED])
+    for row in rows:
+        found.setdefault(row["class_id"], set()).add(row["user_id"])
+    return found
+
+
+async def student_names(class_id: uuid.UUID, ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """The names of those of `ids` who are Students in the Class now (registered, not removed),
+    by User id; any other id is left out (AD-12)."""
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.student_names(s, class_id, [r.value for r in REGISTERED], ids)
+    return {row["id"]: row["name"] for row in rows}
 
 
 async def send_entry_reminders(

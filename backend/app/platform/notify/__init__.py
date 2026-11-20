@@ -151,6 +151,17 @@ async def enqueue(
     return True
 
 
+async def used_keys(session: AsyncSession, dedupe_keys: Sequence[str]) -> set[str]:
+    """Those of `dedupe_keys` a notice was enqueued under already, so a sweep finds only the
+    Users it has not told yet (Story 5.17)."""
+    if not dedupe_keys:
+        return set()
+    result = await session.execute(
+        select(notices.c.dedupe_key).where(notices.c.dedupe_key.in_(list(dedupe_keys)))
+    )
+    return set(result.scalars())
+
+
 async def enqueue_by_ref(
     session: AsyncSession, kind: str, items: Sequence[tuple[str, uuid.UUID]]
 ) -> int:

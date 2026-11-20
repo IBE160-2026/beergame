@@ -1,0 +1,6 @@
+{# Shared by the Lab hour kinds (Story 5.6): «torsdag 26. november kl. 14:15–16:00», Europe/Oslo. #}
+{% macro when(starts_at, ends_at) -%}
+{%- set weekdays = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag"] -%}
+{%- set months = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember"] -%}
+{{ weekdays[starts_at.weekday()] }} {{ starts_at.day }}. {{ months[starts_at.month - 1] }} kl. {{ starts_at.strftime("%H:%M") }}–{{ ends_at.strftime("%H:%M") }}
+{%- endmacro %}

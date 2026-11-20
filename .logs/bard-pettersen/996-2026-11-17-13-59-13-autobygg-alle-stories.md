@@ -1034,3 +1034,480 @@ Gjøre `epic-4` klar for PR: samlet gjennomgang, rette vranglåser og UX-punkter
 ### Åpne punkter
 - Issue #94: ett tvilsomt funn (et kolonnevalg som er underveis når en ny fil lastes opp).
 - Issue #95: to trege e2e-filer (opptil 28 s).
+
+## Stopp etter Epic 4: status for kjøringen (2026-11-19)
+
+### Oppgave
+Brukeren ba om stopp når Epic 4 var ferdig, for å kjøre compact og fortsette i et nytt kontekstvindu.
+
+### Plan
+Merge Epic 4 når CI er grønn, lage `epic-5` fra den nye `main` med statusen «epic-4: done», og stoppe før Story 5.1.
+
+### Resultat
+- Epic 1–4 er merget til `main` (PR #49, #65, #83, #96) med grønn CI. `epic-1` til `epic-4` står som `done`.
+- `epic-5` er laget fra `main`. Story 5.1 står fortsatt i `backlog`. Neste økt starter der, etter kjøreboka.
+- Story 3.15 står i `backlog` etter kjøreboka, fordi den krever produksjonskontoer.
+
+**Stories i `review`:**
+- Story 2.7: prøve mot OpenRouter med nøkkelen i `.env`. Sikkerhetsfilteret stoppet agentenes bruk av nøkkelen. Issue #56.
+- Story 2.11: ekte måling av modell og effort-nivå. Samme årsak. Issue #60.
+
+**Stories i `blocked`:** ingen.
+
+**For neste økt:**
+- Malene for byggeagenter ligger i scratchpad og kan forsvinne. Det viktige står i kjøreboka: ingen human in the loop, raske tester, mappene `backend/` og `frontend/`, OpenRouter med `deepseek/deepseek-v4.1-flash-1017`, og visuell kontroll per skjermstory.
+- Erfaringer: byggeagenten implementerer selv. Gjennomgangsagenter blir noen ganger avbrutt, og da må byggeagenten sendes tilbake for å lese resultatene fra transkriptene. Compose-bygg kjøres med `timeout 900 … --wait`. Den visuelle kontrollen kjører hele Vitest-pakken. Tester må ikke avhenge av gamle lokale data.
+- Testbrukere (passord `olspillet-demo`): `admin@`, `faglaerer@`, `admin-faglaerer@`, `assistent@`, `student@` og `student2`…`student8@example.com`. Demoklassen er «class-of-1994».
+
+### Åpne punkter
+- Issue #56 og #60: prøve og måling mot OpenRouter (grunnleggeren).
+- Issue #95: to trege e2e-filer, bør tas før Epic 5.
+- Issue #94: ett tvilsomt funn i 4.3.
+- Issue #31: tekstgjennomgang av alle [ASSUMPTION]-tekster.
+
+## Story 5.1: Lage klasseøkt med Classic-standardene (2026-11-19)
+
+### Oppgave
+Bygge Story 5.1 etter kjøreboka. Faglæreren lager en klasseøkt fra klassesiden, og økta fylles med Classic-standardene.
+
+### Plan
+Før storyen: gjøre testpakkene raskere og løse Issue #95. Deretter bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Testfart:** backend-pakken gikk fra 98,6 s til 56,8 s, og hele Playwright-pakken fra 86 s til 77 s. Commits 072297b og 10090f6. Issue #95 er lukket.
+- **Spec:** `.docs/implementation-artifacts/spec-5-1-create-class-session-classic-defaults.md`.
+- **Commits:**
+  - 19c85f0: ny modul `sessions`, migrasjon 0032 `class_sessions`, skjermen `/klasseokter/{id}` og lista på klassesiden;
+  - 3623044: visuelle rettinger (merkelapper på 13 px, likt radbrudd på mobil).
+- **Tester:** 2296 backend-tester (56 s), 372 Vitest-tester, 182 Playwright-tester, typecheck, copy-sjekk, fargelint og bygg.
+- **Gjennomgang:** fire gjennomgangsagenter fant 40 punkter. 12 ble rettet, og resten ble avvist med begrunnelse i specen.
+- **Skjermbilder:** `screenshots/5.1/`, 14 bilder.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 99: beslutninger i Story 5.1.
+- Issue #98: visuelle avvik (rulling i kjeden på mobil, etterspørselen under «Kundene», like merkelapper). Rettes i 5.2.
+- Issue #97: ingen bekreftelse når siste adresse fjernes (Epic 4). Tas i avslutningen av Epic 5.
+
+## Story 5.2: Sette de fire datoene på datolinja (2026-11-19)
+
+### Oppgave
+Bygge Story 5.2 etter kjøreboka, og rette avvik (a) og (b) fra Issue #98 på samme skjerm.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-2-set-four-dates-on-datolinje.md`.
+- **Commit e0c80d8:**
+  - migrasjon 0033 med de fire datoene, og reglene for rekkefølge og passerte datoer i API-et;
+  - datolinja og `GET /api/me/class-sessions`;
+  - «Venter» og «Neste frist» på Lærerhjemmet;
+  - kanter som toner ut når innholdet ruller, og løpenummer i merkelappene.
+- **Tester:** 2315 backend-tester (57 s), Vitest, typecheck, bygg og 193 Playwright-tester.
+- **Gjennomgang:** 31 punkter, 4 middels. De middels er rettet.
+- **Visuell kontroll:** 19 skjermbilder i `screenshots/5.2/`. Ingen klare avvik.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 100: beslutninger og visuelle vurderinger i 5.2. Et halvveis utfylt datofelt tømmer datoen; det tas i avslutningen av Epic 5.
+- Issue #98: etterspørselen under «Kundene» står igjen, og tas i 5.4.
+
+## Story 5.3: Endre spillinnstillinger med feil og advarsler for verdiområder (2026-11-19)
+
+### Oppgave
+Bygge Story 5.3 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-3-change-game-settings-range-errors-warnings.md`.
+- **Commit 0cc0bcc:** lagring av spillinnstillinger med motorens validering, ruten `settings-check`, redigering av de elleve innstillingene med feil og advarsler, kalibreringslinje og felles tallformat.
+- **Avbrudd:** byggeagenten stoppet midt i gjennomgangen og ble sendt tilbake for å fullføre.
+- **Tester:**
+  - backend: 2347 tester (60 s);
+  - frontend: Vitest 391, typecheck, bygg og Playwright 200/200.
+- **Gjennomgang:** 33 funn, 6 middels. De middels er rettet.
+- **Visuell kontroll:** 14 skjermbilder i `screenshots/5.3/`. Ingen klare avvik; to punkter er samlet til avslutningen av epicet.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 101: beslutninger i Story 5.3.
+
+## Story 5.4: Velge etterspørselsmønster og frø (2026-11-20)
+
+### Oppgave
+Bygge Story 5.4 etter kjøreboka, og vise etterspørselen under «Kundene» (siste punkt i Issue #98).
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-4-choose-demand-pattern-and-seed.md`.
+- **Commit 4a1875c:** `demand` og `demand_seed` i lagring og sjekk, ruten `demand-series`, delen «Etterspørsel» med fire mønstre og frø, tabell uke for uke, og etterspørselen i kjeden.
+- **Tester:**
+  - backend: 2376 tester (58 s);
+  - frontend: Vitest 398, typecheck, bygg og Playwright 207.
+- **Gjennomgang:** 36 funn, 4 middels. De middels er rettet.
+- **Visuell kontroll:** 24 skjermbilder i `screenshots/5.4/`. Ingen klare avvik; to punkter er samlet til avslutningen av epicet.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 102: beslutninger i Story 5.4.
+- Issue #98 lukkes; alle tre punktene er løst.
+
+## Story 5.5: Velge KI-modus, effort-nivå og debrief-modus (2026-11-20)
+
+### Oppgave
+Bygge Story 5.5 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-5-choose-ai-mode-effort-level-debrief-mode.md`.
+- **Commit 4550567:** migrasjon 0034 `effort_level`, valg av KI-modus, effort-nivå og debrief-modus med effektlinjer, beskrivelser av KI-spillerne og Visningsbryter.
+- **Avbrudd:** byggeagenten leverte før gjennomgangen var ferdig og ble sendt tilbake.
+- **Tester:**
+  - backend: 2393 tester (63 s);
+  - frontend: Vitest 406, typecheck, bygg og Playwright 216.
+- **Gjennomgang:** 33 funn, 2 middels. Begge er rettet.
+- **Visuell kontroll:** 16 skjermbilder i `screenshots/5.5/`. Ett avvik er rettet (3a56c65). Den låste visningen tas i 5.11.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 103: beslutninger i Story 5.5.
+
+## Story 5.6: Legge til labtimer (2026-11-20)
+
+### Oppgave
+Bygge Story 5.6 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-6-add-lab-hours.md`.
+- **Commit 3e79579:** migrasjon 0035 `lab_hours`, ruter for å legge til, endre og fjerne, melding i den daglige oppsummeringsmailen, labtimer på datolinja med forklaring og liste.
+- **Tester:**
+  - backend: 2412 tester;
+  - frontend: Vitest 414, typecheck, bygg og Playwright 224.
+- **Gjennomgang:** 38 punkter. Det middels punktet (fokus etter «Avbryt») er rettet.
+- **Visuell kontroll:** 20 skjermbilder i `screenshots/5.6/`. Ett avvik er rettet (795a5a9).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 104: beslutninger i Story 5.6.
+
+## Story 5.7: Merke klasseøkta som obligatorisk og sette inaktivitetsgrensen (2026-11-20)
+
+### Oppgave
+Bygge Story 5.7 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-7-mark-obligatory-set-inactivity-limit.md`.
+- **Commit 2b26dc8:**
+  - bryteren «Obligatorisk» og andelen uker som kreves (migrasjon 0036);
+  - feltet «Ventetid før KI tar over»;
+  - melding i den daglige oppsummeringsmailen.
+- **Tester:**
+  - backend: 2435 tester (63 s);
+  - frontend: Vitest 422, typecheck, bygg og Playwright 234;
+  - migrasjonstesten tar 1,7 s, på linje med de andre migrasjonstestene.
+- **Gjennomgang:** 35 funn, 1 middels. Det middels er rettet.
+- **Visuell kontroll:** 18 skjermbilder i `screenshots/5.7/`. Ingen avvik.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 105: beslutninger i Story 5.7.
+
+## Story 5.8: Forhåndsvise en tilfeldig fordeling og kjøre den på nytt (2026-11-20)
+
+### Oppgave
+Bygge Story 5.8 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-8-preview-random-allocation-run-again.md`.
+- **Commit c3d31a0:**
+  - fordelingsfunksjonen og migrasjon 0037 `allocation_drafts`;
+  - ruter for å lese, åpne og trekke på nytt;
+  - blokken «Fordeling» med SVG-diagram og listevisning.
+- **Tester:**
+  - backend: 2462 tester (62 s);
+  - frontend: Vitest 425, typecheck, bygg og Playwright 242.
+- **Gjennomgang:** 28 funn, 3 middels. Alle er rettet.
+- **Visuell kontroll:** 26 skjermbilder i `screenshots/5.8/`. Ett avvik er rettet (94678f6), to små punkter går til 5.9.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 106: beslutninger i Story 5.8.
+
+## Story 5.9: Bekrefte fordelingen jeg ser på (2026-11-20)
+
+### Oppgave
+Bygge Story 5.9 etter kjøreboka, og rette de to punktene fra Issue #106 i fordelingspanelet.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-9-confirm-allocation-i-am-looking-at.md`.
+- **Commit ebd5057:**
+  - «Bekreft fordeling» med kontroll av revisjon;
+  - klassespill og plasser (migrasjon 0038) og mail;
+  - fordelinger som mangler, på Lærerhjemmet;
+  - stiplet celle for fjernede studenter og ramme på 1 px.
+- **Avbrudd:** byggeagenten ble sendt tilbake én gang, fordi gjennomgangsagentene stoppet.
+- **Tester:**
+  - backend: 2482 tester;
+  - frontend: Vitest 428, typecheck, bygg og Playwright 245.
+- **Gjennomgang:** 31 funn, 2 middels. Begge er rettet.
+- **Visuell kontroll:** 22 skjermbilder i `screenshots/5.9/`. To avvik er rettet (f73ecd8).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 107: beslutninger i Story 5.9.
+
+## Story 5.10: Flytte eller bytte studenter i fordelingen (2026-11-20)
+
+### Oppgave
+Bygge Story 5.10 etter kjøreboka, og la en bekreftet fordeling vise at den er bekreftet (Issue #107).
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-10-move-or-swap-students-in-allocation.md`.
+- **Commit 5f4bf07:**
+  - flytte og bytte, før og etter bekreftelse, med `move_seat` og migrasjon 0039;
+  - plasslister i panelet;
+  - bekreftelseslinja.
+- **Tester:**
+  - backend: 2501 tester;
+  - frontend: Vitest 430, typecheck, bygg og Playwright 252.
+- **Gjennomgang:** 30 funn, 2 middels. Begge er rettet.
+- **Visuell kontroll:** 22 skjermbilder i `screenshots/5.10/`. Ett avvik er rettet (9b68c2c).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 108: beslutninger i Story 5.10.
+
+## Story 5.11: Låse klasseøkta på startdatoen (2026-11-20)
+
+### Oppgave
+Bygge Story 5.11 etter kjøreboka, og rette den låste visningen fra Issue #103.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-11-lock-class-session-at-start-date.md`.
+- **Commit 1dd6b0f:**
+  - låsing i sveipet, med et frosset øyeblikksbilde (migrasjon 0040);
+  - avvisning og melding når nøkkelen mangler;
+  - låst visning som tekst.
+- **Avbrudd:** steg 1 tok rundt én time før byggeagenten fikk en statusforespørsel.
+- **Tester:**
+  - backend: 2510 tester;
+  - frontend: Vitest, typecheck og bygg;
+  - Playwright: 256 passerte og 1 feilet under last; den passerer når den kjøres alene.
+- **Gjennomgang:** 50 funn. 11 ble rettet og 3 er utsatt. Byggeagenten anbefaler en oppfølgende gjennomgang.
+- **Visuell kontroll:** 12 skjermbilder i `screenshots/5.11/`. Ingen klare avvik.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 109: beslutninger og utsatte punkter i Story 5.11.
+
+## Story 5.12: Åpne klassespillene på det frosne øyeblikksbildet (2026-11-20)
+
+### Oppgave
+Bygge Story 5.12 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en kort visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-12-open-class-games-on-frozen-snapshot.md`.
+- **Commit 7e011a7:**
+  - `set_snapshot`, og KI-spillere på ledige plasser;
+  - automatisk fordeling ved låsing;
+  - fullføring av åpninger i sveipet;
+  - lista over åpnede spill i «Fordeling».
+- **Tester:**
+  - backend: 2518 tester;
+  - frontend: Vitest 432, typecheck, bygg og Playwright 262.
+- **Gjennomgang:** 46 funn, 13 rettet og 2 utsatt. Byggeagenten anbefaler en oppfølgende gjennomgang.
+- **Visuell kontroll:** 8 skjermbilder i `screenshots/5.12/`. Ett avvik er rettet (0d21d83).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 110: beslutninger og utsatte punkter i Story 5.12.
+
+## Story 5.13: Gi plass til studenter som registrerer seg etter fordelingen (2026-11-20)
+
+### Oppgave
+Bygge Story 5.13 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en kort visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-13-seat-students-who-register-after-allocation.md`.
+- **Commit a558089:** to nye handlinger i sveipet (plass til nye studenter og erstatning for fjernede studenter), `students_without_seat` og linja i «Fordeling».
+- **Tester:**
+  - backend: 2538 tester;
+  - frontend: Vitest 433, typecheck, bygg og Playwright 263.
+- **Gjennomgang:** 34 lave funn. 9 ble rettet.
+- **Visuell kontroll:** 8 skjermbilder i `screenshots/5.13/`. Ett avvik er rettet (accb50d).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 111: beslutninger i Story 5.13.
+
+## Story 5.14: Minne studentene på hver frist 24 timer før (2026-11-20)
+
+### Oppgave
+Bygge Story 5.14 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`. Ingen visuell kontroll, fordi `frontend/` ikke endres.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-14-remind-students-24-hours-before-each-deadline.md`.
+- **Commit 8c3e9d7:** `sessions.send_deadline_reminder` i sveipet, migrasjon 0041 `deadline_reminders` og mailmalen for påminnelsen.
+- **Tester:** 2551 backend-tester (rundt 71 s), ruff og copy-sjekken.
+- **Gjennomgang:** 21 lave funn. 4 ble rettet.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 112: beslutninger i Story 5.14.
+- Backend-pakken har vokst til rundt 71 s. Den måles igjen i avslutningen av Epic 5.
+
+## Story 5.15: Sette transportkapasitet (kuttliste, `FEATURE_CAPACITY`) (2026-11-20)
+
+### Oppgave
+Bygge Story 5.15 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-15-set-shipping-capacity.md`.
+- **Commit afe6439:** kapasitet som spillinnstilling bak flagget, `capacity_enabled` i API-et, bryteren «Kapasitet» og «Maks N» i kjeden.
+- **Avbrudd:**
+  - steg 1 tok rundt 30 minutter før byggeagenten fikk en statusforespørsel;
+  - byggeagenten leverte under gjennomgangen og ble sendt tilbake.
+- **Tester:**
+  - backend: 2562 tester;
+  - frontend: Vitest 441, typecheck, bygg og Playwright 265/265.
+- **Gjennomgang:** 30 funn, 7 middels. Fire problemer ble rettet.
+- **Visuell kontroll:** 12 skjermbilder i `screenshots/5.15/`. Ett avvik er rettet (1dc73ce).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 113: beslutninger i Story 5.15.
+
+## Story 5.16: Sette informasjonssynlighet (kuttliste, `FEATURE_INFO_VISIBILITY`) (2026-11-20)
+
+### Oppgave
+Bygge Story 5.16 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto` etter samme mønster som 5.15, gjøre en visuell kontroll og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-16-set-information-visibility.md`.
+- **Commit 79ad488:** `info_visibility` i innstillingene (`schema_version` 2) og «Synlige naboer» med to brytere bak flagget.
+- **Tester:**
+  - backend: 2591 tester, og dekningen av motoren er 100 %;
+  - frontend: Vitest 445, typecheck og bygg;
+  - Playwright: 267/267 i én kjøring. I neste kjøring fikk 12 tester tidsavbrudd rett etter bygget, og de passerte ved ny kjøring.
+- **Gjennomgang:** 28 funn. Det middels funnet er rettet.
+- **Visuell kontroll:** 10 skjermbilder i `screenshots/5.16/`. Ett avvik er rettet (d065411).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 114: beslutninger i Story 5.16.
+
+## Story 5.17: La studentene velge klassespill og plass (kuttliste, `FEATURE_STUDENT_CHOICE`) (2026-11-20)
+
+### Oppgave
+Bygge Story 5.17 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-17-let-students-choose-class-game-and-seat.md`.
+- **Commit 441ffb8:**
+  - «Fordelingsmåte» for faglæreren, med migrasjon 0042;
+  - siden «Velg spill og sete» for studentene og lenken på Hjem;
+  - et nytt steg i sveipet for studenter som registrerer seg sent.
+- **Tester:**
+  - backend: 2606 tester;
+  - frontend: Vitest 452, typecheck og bygg;
+  - Playwright: den nye filen passerer 6/6. 7 andre tester feilet under last og passerte ved ny kjøring.
+- **Gjennomgang:** 48 funn, 16 grupper rettet og 1 utsatt. Byggeagenten anbefaler en oppfølgende gjennomgang.
+- **Visuell kontroll:** 20 skjermbilder i `screenshots/5.17/`. To avvik er rettet (a42b1d3).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 115: beslutninger i Story 5.17.
+
+## Story 5.18: Lage en klasseøkt fra en tidligere økt (kuttliste, `FEATURE_RERUN`) (2026-11-20)
+
+### Oppgave
+Bygge Story 5.18, den siste storyen i Epic 5, etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-18-create-class-session-from-earlier-one.md`.
+- **Commit 5f35b1c:** to nye ruter bak flagget, migrasjon 0043, et panel for å velge kilde på klassesiden, og en merknad på den nye Klasseøkta.
+- **Tester:**
+  - backend: 2621 tester (81 s);
+  - frontend: Vitest 456, typecheck og bygg;
+  - Playwright: 271 passerte. 7 feilet under last og passerte ved ny kjøring.
+- **Gjennomgang:** 40 funn, 1 middels. 14 ble rettet.
+- **Visuell kontroll:** 14 skjermbilder i `screenshots/5.18/`. Ingen klare avvik.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 116: beslutninger i Story 5.18.
+
+## Avslutning av Epic 5 (2026-11-20)
+
+### Oppgave
+Avslutte Epic 5 etter kjøreboka: én oppfølgende gjennomgang, én stabilisering av e2e, og deretter PR og merge.
+
+### Plan
+1. Gjennomgå 5.11, 5.12 og 5.17 på tvers av storyene, siden specene deres anbefalte det, og rette de samlede UX-punktene.
+2. Stabilisere e2e under last og gjøre backend-pakken raskere.
+3. Lage en PR mot `main`.
+
+### Resultat
+- **Oppfølgende gjennomgang:** commits 6e91bd5, ce5a46e, 3e6ba26 og 841a79a.
+  - Låsen sjekker startdatoen på nytt etter at raden er låst.
+  - Låsen kan bruke plassen til en student som valgte og så ble fjernet.
+  - En avvist lås lagres og vises til faglæreren (migrasjon 0044). Arkiverte økter prøves ikke lenger hvert minutt.
+  - UX-punktene fra Issue #97, #100–#102, #109 og #114–#116 er rettet, og issuene er lukket.
+- **Stabilisering:** commits 354a1ff og 5c00c0c.
+  - Sveipet blokkerte mailkøen i 10–20 s hvert minutt. Oppslagene leser nå samlet, og tiden gikk fra 6,3 s til 0,17 s.
+  - Restretting av Issue #97, og fokus flyttes etter at elementet finnes.
+  - Den lange filterlista i admin-audit er kortet ned i testene.
+  - Funnet en produksjonsfeil: upsert av tilgangsforespørsler feilet med en generisk plan. Rettet, med en regresjonstest.
+  - Backend-pakken gikk fra rundt 80 s til 60 s.
+  - E2e med CI-kommandoen passerte 280/280 to ganger på rad rett etter bygget.
+
+### Åpne punkter
+- Issue #117: to punkter som er avgjort til senere (spill som aldri åpnes, og spill med bare KI-spillere når studentene velger).
+- Issue #56 og #60: Story 2.7 og 2.11 står i `review`.
+- Issue #31: tekstgjennomgang av alle [ASSUMPTION]-tekster.

@@ -1,0 +1,5 @@
+{# A Lab hour was added (Story 5.6, FR-19), a digest kind. `class_name`, `starts_at` and `ends_at`
+   (Europe/Oslo) and `place` come from `sessions.service.lab_hour_mail_context` at send time. #}
+{% import "kinds/_lab_hour.j2" as lab %}
+{% set subject = "Ny Labtime" %}
+Ny Labtime i Klassen {{ class_name }}: {{ lab.when(starts_at, ends_at) }}, {{ place }}.

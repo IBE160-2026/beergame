@@ -1,0 +1,9 @@
+{# Shared by the deadline reminder (Story 5.14): «Spillfristen» and «torsdag 26. november kl. 14:15», Europe/Oslo. #}
+{% macro name(deadline) -%}
+{{ {"play": "Spillfristen", "debrief": "Debrieffristen", "test": "Testfristen"}[deadline] }}
+{%- endmacro %}
+{% macro when(at) -%}
+{%- set weekdays = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag"] -%}
+{%- set months = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember"] -%}
+{{ weekdays[at.weekday()] }} {{ at.day }}. {{ months[at.month - 1] }} kl. {{ at.strftime("%H:%M") }}
+{%- endmacro %}

@@ -1,8 +1,11 @@
 """What other modules may use from `games`. Writes go through `games.commands` only."""
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget as ai_budget
 from app.engine import GameSettings
@@ -69,11 +72,19 @@ __all__ = [
     "SimulationBatch",
     "TurnOverview",
     "ViewError",
+    "ClassGame",
+    "ClassGameSeat",
     "budget_scope",
+    "class_game_ids",
+    "class_games",
+    "class_games_of",
+    "class_sessions_awaiting_snapshot",
+    "class_sessions_with_unstarted_games",
     "complete_running_games",
     "create_batch",
     "games_charged_to",
     "scope_of",
+    "student_seated",
     "decision_log",
     "finished_game_ids",
     "game_summary",
@@ -89,6 +100,82 @@ __all__ = [
     "seat_state",
     "verify_finished",
 ]
+
+
+async def class_game_ids(session: AsyncSession, class_session_id: uuid.UUID) -> dict[int, str]:
+    """The Class session's Games by game number, read in the caller's transaction (Story
+    5.10)."""
+    found = await repo.class_game_ids(session, class_session_id)
+    return {number: str(game_id) for number, game_id in found.items()}
+
+
+@dataclass(frozen=True)
+class ClassGameSeat:
+    role: str
+    occupant_kind: str | None
+    user_id: uuid.UUID | None
+
+
+@dataclass(frozen=True)
+class ClassGame:
+    """A Class game as the Klasseøkt lists it (Story 5.12): its Seats in chain order."""
+
+    id: uuid.UUID
+    number: int
+    lifecycle: str
+    has_snapshot: bool
+    seats: tuple[ClassGameSeat, ...]
+
+
+async def class_games(session: AsyncSession, class_session_id: uuid.UUID) -> list[ClassGame]:
+    """The Class session's Games by number with each Seat's current occupant, read in the
+    caller's transaction (Story 5.12)."""
+    return (await class_games_of(session, [class_session_id])).get(class_session_id, [])
+
+
+async def class_games_of(
+    session: AsyncSession, class_session_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, list[ClassGame]]:
+    """`class_games` of many Class sessions in two reads, by session id; a session with no Game
+    is left out. For the sweep's finders, which judge every confirmed session each minute."""
+    if not class_session_ids:
+        return {}
+    seats: dict[uuid.UUID, list[ClassGameSeat]] = {}
+    for seat in await repo.class_session_seats(session, class_session_ids):
+        seats.setdefault(seat["game_id"], []).append(
+            ClassGameSeat(seat["role"], seat["occupant_kind"], seat["user_id"])
+        )
+    found: dict[uuid.UUID, list[ClassGame]] = {}
+    for game in await repo.class_games(session, class_session_ids):
+        found.setdefault(game["class_session_id"], []).append(
+            ClassGame(
+                id=game["id"],
+                number=game["game_number"],
+                lifecycle=game["lifecycle"],
+                has_snapshot=game["has_snapshot"],
+                seats=tuple(seats.get(game["id"], ())),
+            )
+        )
+    return found
+
+
+async def class_sessions_awaiting_snapshot(session: AsyncSession) -> list[uuid.UUID]:
+    """The Class sessions with a Game that is `not_started` and has no snapshot (Story 5.12)."""
+    return await repo.class_sessions_awaiting_snapshot(session)
+
+
+async def class_sessions_with_unstarted_games(session: AsyncSession) -> list[uuid.UUID]:
+    """The Class sessions with a Game that has its snapshot and is `not_started`: where a late
+    registrant can still take an AI player's Seat, or a removed Student's Seat can go to one
+    (Story 5.13)."""
+    return await repo.class_sessions_with_unstarted_games(session)
+
+
+async def student_seated(
+    session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> bool:
+    """Whether the Student holds a Seat in a Game of the Class session now (Story 5.13)."""
+    return await repo.student_seated(session, class_session_id, user_id)
 
 
 async def get_game(game_id: str) -> GameOverview | None:
@@ -109,27 +196,47 @@ async def get_game(game_id: str) -> GameOverview | None:
         version=game["version"],
         demand_seed=game["demand_seed"],
         rules_version=game["rules_version"],
-        settings=GameSettings.model_validate(game["settings"]),
-        session_runtime=SessionRuntime.model_validate(game["session_runtime"]),
+        settings=_or_none(GameSettings, game["settings"]),
+        session_runtime=_or_none(SessionRuntime, game["session_runtime"]),
+        class_session_id=_text_or_none(game["class_session_id"]),
+        game_number=game["game_number"],
         seats=tuple(
             SeatOverview(
                 id=str(seat["id"]),
                 role=seat["role"],
                 occupant_kind=seat["occupant_kind"],
                 policy_id=seat["policy_id"],
+                user_id=_text_or_none(seat["user_id"]),
             )
             for seat in seats
         ),
     )
 
 
-def scope_of(purpose: Purpose | str, runtime: SessionRuntime) -> ai_budget.BudgetScope | None:
+def _or_none[T: (GameSettings, SessionRuntime)](model: type[T], value: object) -> T | None:
+    return None if value is None else model.model_validate(value)
+
+
+def _text_or_none(value: object) -> str | None:
+    return None if value is None else str(value)
+
+
+def scope_of(
+    purpose: Purpose | str,
+    runtime: SessionRuntime | None,
+    class_session_id: uuid.UUID | str | None = None,
+) -> ai_budget.BudgetScope | None:
     """The one rule for which budget a Game's LLM calls are charged to (AD-6, AD-22), with the
-    Effort level the Game froze. A simulation Game charges its model config's evaluation budget;
-    a later Game purpose adds its own answer here (and to `games_charged_to`). None for a Game
-    with no model config."""
-    if runtime.model_config_id is None:
+    Effort level the Game froze. A Game of a Class session charges that Class session's budget,
+    the row Story 5.1 created (Story 5.9); a simulation Game charges its model config's
+    evaluation budget. A later Game purpose adds its own answer here (and to
+    `games_charged_to`). None for a Game with no model config, or no snapshot yet."""
+    if runtime is None or runtime.model_config_id is None:
         return None
+    if class_session_id is not None:
+        return ai_budget.BudgetScope.class_session(
+            class_session_id, effort_level=runtime.effort_level
+        )
     if Purpose(purpose) is Purpose.SIMULATION:
         return ai_budget.BudgetScope.evaluation(
             runtime.model_config_id, effort_level=runtime.effort_level
@@ -142,16 +249,20 @@ async def budget_scope(game_id: str) -> ai_budget.BudgetScope | None:
     game = await get_game(game_id)
     if game is None:
         return None
-    return scope_of(game.purpose, game.session_runtime)
+    return scope_of(game.purpose, game.session_runtime, game.class_session_id)
 
 
 async def games_charged_to(scope: ai_budget.BudgetScope) -> list[str]:
     """The id of every running Game whose LLM calls are charged to `scope` (the inverse of
-    `scope_of`), oldest first. A Class session scope has no Games until Epic 5."""
-    if scope.kind != "evaluation":
-        return []
+    `scope_of`), oldest first: a Class session's running Class games, or the running simulation
+    Games of an evaluation budget's model config."""
     async with get_sessionmaker()() as session:
-        found = await repo.running_games_of_config(session, Purpose.SIMULATION.value, scope.id)
+        if scope.kind == "class_session":
+            found = await repo.running_games_of_session(session, scope.id)
+        elif scope.kind == "evaluation":
+            found = await repo.running_games_of_config(session, Purpose.SIMULATION.value, scope.id)
+        else:
+            found = []
     return [str(game_id) for game_id in found]
 
 

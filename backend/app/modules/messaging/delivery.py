@@ -32,6 +32,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # `classes.service` registers with `identity` at import (Story 4.4), also in the worker.
 from app.modules.classes import service as classes  # noqa: F401
 from app.modules.identity import service as identity
+
+# `sessions.service` imports `classes.service`, which imports `messaging.service` and so this
+# module: its attributes are read when a mail is composed, never at import (Story 5.6).
+from app.modules.sessions import service as sessions
 from app.platform.config import Settings, get_settings
 from app.platform.email import Recipient
 
@@ -73,8 +77,83 @@ class Delivery:
             raise ValueError("a kind by reference gets its variables from its ref resolver")
 
 
+LAB_HOUR_KINDS = ("lab_hour_added", "lab_hour_changed", "lab_hour_cancelled")
+"""`sessions.service.LAB_HOUR_KINDS`, named here because that module may still be loading when
+this one is (a test keeps the two equal)."""
+
+
+def _lab_hour_context(kind: str) -> ContextResolver:
+    async def resolve(
+        session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+    ) -> Mapping[str, object] | None:
+        return await sessions.lab_hour_mail_context(kind, session, user_id, ref, now)
+
+    return resolve
+
+
+OBLIGATORY_KIND = "class_session_obligatory"
+"""`sessions.service.OBLIGATORY_NOTICE` (Story 5.7), named here for the same reason."""
+
+
+async def _obligatory_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.obligatory_mail_context(session, user_id, ref, now)
+
+
+ALLOCATION_KIND = "allocation_confirmed"
+"""`sessions.service.ALLOCATION_NOTICE` (Story 5.9), named here for the same reason."""
+
+
+async def _allocation_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.allocation_mail_context(session, user_id, ref, now)
+
+
+STUDENT_CHOICE_KIND = "student_choice_open"
+"""`sessions.service.STUDENT_CHOICE_NOTICE` (Story 5.17), named here for the same reason."""
+
+
+async def _student_choice_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.student_choice_mail_context(session, user_id, ref, now)
+
+
+LOCK_REFUSED_KIND = "class_session_lock_refused"
+"""`sessions.service.LOCK_REFUSED_NOTICE` (Story 5.11), named here for the same reason."""
+
+
+async def _lock_refused_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.lock_refused_mail_context(session, user_id, ref, now)
+
+
+DEADLINE_REMINDER_KIND = "deadline_reminder"
+"""`sessions.service.DEADLINE_REMINDER_NOTICE` (Story 5.14), named here for the same reason."""
+
+
+async def _deadline_reminder_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.deadline_reminder_mail_context(session, user_id, ref, now)
+
+
 KINDS: Mapping[str, Delivery] = MappingProxyType(
     {
+        **{
+            kind: Delivery(DIGEST, kind, context=_lab_hour_context(kind)) for kind in LAB_HOUR_KINDS
+        },
+        OBLIGATORY_KIND: Delivery(DIGEST, OBLIGATORY_KIND, context=_obligatory_context),
+        ALLOCATION_KIND: Delivery(DIGEST, ALLOCATION_KIND, context=_allocation_context),
+        STUDENT_CHOICE_KIND: Delivery(DIGEST, STUDENT_CHOICE_KIND, context=_student_choice_context),
+        DEADLINE_REMINDER_KIND: Delivery(
+            DIGEST, DEADLINE_REMINDER_KIND, context=_deadline_reminder_context
+        ),
+        # Immediate: the Start date has passed and the Class games wait for the lock.
+        LOCK_REFUSED_KIND: Delivery(IMMEDIATE, LOCK_REFUSED_KIND, context=_lock_refused_context),
         identity.PASSWORD_RESET: Delivery(
             IMMEDIATE, "password_reset", context=identity.password_reset_mail_context
         ),
@@ -88,8 +167,11 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         ),
     }
 )
-"""The product's kinds: `password_reset` (Story 3.6), `invitation` (Story 3.7) and
-`manual_registration` (Story 4.8)."""
+"""The product's kinds: `password_reset` (Story 3.6), `invitation` (Story 3.7),
+`manual_registration` (Story 4.8), the Lab hour notices (Story 5.6, digest), the obligatory
+notice (Story 5.7, digest), the allocation notice (Story 5.9, digest), the Student choice notice
+(Story 5.17, digest), the refused lock
+(Story 5.11, immediate) and the deadline reminder (Story 5.14, digest)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

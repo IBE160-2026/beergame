@@ -47,12 +47,10 @@ async def bounce(address: str, bounce_class: str) -> None:
 
 
 def execute(sql: str, *params) -> None:
-    import psycopg
 
-    from tests.conftest import TEST_DATABASE_URL, libpq_dsn
+    from tests.conftest import TEST_DATABASE_URL, kept_connection
 
-    with psycopg.connect(libpq_dsn(TEST_DATABASE_URL), autocommit=True) as conn:
-        conn.execute(sql, params)
+    kept_connection(TEST_DATABASE_URL).execute(sql, params)
 
 
 def accept(address: str) -> None:
