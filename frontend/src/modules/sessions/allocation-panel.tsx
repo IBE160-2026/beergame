@@ -359,7 +359,8 @@ function AllocationChart({
   const roles = games[0]?.seats.map((seat) => seat.role) ?? [];
   const height = TOP + roles.length * (ROW + ROW_GAP) + TICKS;
   const width = LABEL + games.length * pitch + 16;
-  const x = (index: number) => LABEL + index * pitch + (pitch - cell) / 2;
+  // Whole pixels, so the 1 px outlines and the frame below fall on the pixel grid and stay `ink`.
+  const x = (index: number) => LABEL + index * pitch + Math.floor((pitch - cell) / 2);
   const y = (row: number) => TOP + row * (ROW + ROW_GAP);
   const move = (event: KeyboardEvent<SVGGElement>) => {
     const next = nextGame(event.key, selected, games.length);
@@ -444,10 +445,11 @@ function AllocationChart({
         game.number === selected ? (
           <rect
             key="selected"
-            x={x(index) - 2}
-            y={y(0) - 3}
-            width={cell + 4}
-            height={y(roles.length) - ROW_GAP - y(0) + 6}
+            // Odd stroke widths centred on a half pixel, so the line is crisp, not a grey blur.
+            x={x(index) - 1.5}
+            y={y(0) - 2.5}
+            width={cell + 3}
+            height={y(roles.length) - ROW_GAP - y(0) + 5}
             fill="none"
             stroke="var(--color-ink)"
             // 1 px as DESIGN.md frames a selection; 3 px, the focus ring, while the keyboard is on it.

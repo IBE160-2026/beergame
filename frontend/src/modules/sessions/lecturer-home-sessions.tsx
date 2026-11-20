@@ -28,7 +28,8 @@ export function LecturerHomeSessions() {
           <dd className="mt-1 text-body-phone text-ink-secondary lg:text-body">{home.nothingWaiting}</dd>
         ) : (
           <dd className="mt-1">
-            <ul className="flex flex-col">
+            {/* The gap keeps a line that wraps apart from the next session's. */}
+            <ul className="flex flex-col gap-2">
               {waiting.flatMap((klass) =>
                 klass.sessions.map((session) => (
                   <li key={session.id}>
