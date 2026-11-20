@@ -59,6 +59,8 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # notice) reload their pages.
         "sessions.seat_late_registrant": frozenset({"game", "session", "user"}),
         "sessions.replace_removed_student": frozenset({"game", "session", "user"}),
+        # A deadline reminder (Story 5.14): one notice per Student, which emits `user`.
+        "sessions.send_deadline_reminder": frozenset({"user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

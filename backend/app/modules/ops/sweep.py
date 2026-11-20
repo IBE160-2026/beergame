@@ -78,6 +78,13 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
         sessions.late_registrants,
         sessions.seat_late_registrant_due,
     ),
+    # Story 5.14: remind every Student of a Play, Debrief or Test deadline 24 hours ahead, once
+    # per deadline time (FR-18). The reminders join the next minute's digest claim.
+    DueAction(
+        "sessions.send_deadline_reminder",
+        sessions.due_deadline_reminders,
+        sessions.send_deadline_reminder_due,
+    ),
 )
 
 

@@ -121,6 +121,16 @@ async def _lock_refused_context(
     return await sessions.lock_refused_mail_context(session, user_id, ref, now)
 
 
+DEADLINE_REMINDER_KIND = "deadline_reminder"
+"""`sessions.service.DEADLINE_REMINDER_NOTICE` (Story 5.14), named here for the same reason."""
+
+
+async def _deadline_reminder_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.deadline_reminder_mail_context(session, user_id, ref, now)
+
+
 KINDS: Mapping[str, Delivery] = MappingProxyType(
     {
         **{
@@ -128,6 +138,9 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         },
         OBLIGATORY_KIND: Delivery(DIGEST, OBLIGATORY_KIND, context=_obligatory_context),
         ALLOCATION_KIND: Delivery(DIGEST, ALLOCATION_KIND, context=_allocation_context),
+        DEADLINE_REMINDER_KIND: Delivery(
+            DIGEST, DEADLINE_REMINDER_KIND, context=_deadline_reminder_context
+        ),
         # Immediate: the Start date has passed and the Class games wait for the lock.
         LOCK_REFUSED_KIND: Delivery(IMMEDIATE, LOCK_REFUSED_KIND, context=_lock_refused_context),
         identity.PASSWORD_RESET: Delivery(
@@ -145,8 +158,8 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
 )
 """The product's kinds: `password_reset` (Story 3.6), `invitation` (Story 3.7),
 `manual_registration` (Story 4.8), the Lab hour notices (Story 5.6, digest), the obligatory
-notice (Story 5.7, digest), the allocation notice (Story 5.9, digest) and the refused lock
-(Story 5.11, immediate)."""
+notice (Story 5.7, digest), the allocation notice (Story 5.9, digest), the refused lock
+(Story 5.11, immediate) and the deadline reminder (Story 5.14, digest)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

@@ -152,3 +152,33 @@ allocation_drafts = Table(
 )
 """The Class session's current allocation draft (Story 5.8, FR-20): what the preview shows and
 what Story 5.9 confirms by id and revision. Never recomputed from the Roster."""
+
+DEADLINE_NAMES = DATE_NAMES[1:]
+"""The three deadlines a Student is reminded of (Story 5.14): Spillfrist, Debrieffrist and
+Testfrist."""
+
+deadline_reminders = Table(
+    "deadline_reminders",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("deadline", Text, nullable=False),
+    # The deadline's time when it was reminded: a moved deadline has a new time and a new row.
+    Column("deadline_at", DateTime(timezone=True), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        "deadline IN ('play_deadline', 'debrief_deadline', 'test_deadline')",
+        name="ck_deadline_reminders_deadline",
+    ),
+    UniqueConstraint(
+        "class_session_id", "deadline", "deadline_at", name="uq_deadline_reminders_deadline"
+    ),
+)
+"""One row per deadline time the Students were reminded of, 24 hours ahead (Story 5.14, FR-18):
+what the sweep's `sessions.send_deadline_reminder` finder skips, and the `ref` of each
+`deadline_reminder` notice. Ids and times only (AD-14)."""

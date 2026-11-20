@@ -34,6 +34,9 @@ DateName = Literal["start_at", "play_deadline", "debrief_deadline", "test_deadli
 """The four dates of a Class session in their order: Startdato, Spillfrist, Debrieffrist and
 Testfrist (FR-18)."""
 
+DeadlineName = Literal["play_deadline", "debrief_deadline", "test_deadline"]
+"""The three deadlines a Student is reminded of 24 hours ahead (Story 5.14)."""
+
 DateKind = Literal["start", "play", "debrief", "test"]
 """A date by what it is, for «Neste frist»."""
 

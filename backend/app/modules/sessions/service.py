@@ -61,6 +61,11 @@ owners and the Admins are told once, and the next sweep tries again. With no con
 the lock allocates first, and after it `open_games` gives every Class game the snapshot and its AI
 players through `games.commands.set_snapshot` (Story 5.12).
 
+24 hours before each Play, Debrief and Test deadline the sweep's `sessions.send_deadline_reminder`
+(Story 5.14) records a `deadline_reminders` row for that deadline time and enqueues a digest
+notice (`DEADLINE_REMINDER_NOTICE`) per Student of `reminder_recipients`; the mail is read at send
+time by `deadline_reminder_mail_context`. A moved deadline has a new time and a new reminder.
+
 Every mutation passes one guard, `_writable`, which asks `classes.service.is_writable` inside the
 mutation's transaction and raises `classes.service.ClassArchived` (409 `class_archived`) for an
 archived Class. Who may do what is `platform/authz`'s: `class_sessions.read`,
@@ -101,6 +106,7 @@ from app.modules.players import service as players
 from app.modules.sessions import allocation, repo
 from app.modules.sessions.models import (
     DATE_NAMES,
+    DEADLINE_NAMES,
     MAX_REQUIRED_SHARE_PERCENT,
     MIN_INACTIVITY_LIMIT_HOURS,
     MIN_REQUIRED_SHARE_PERCENT,
@@ -122,6 +128,7 @@ from app.modules.sessions.schemas import (
     DateKind,
     DateName,
     DatesIn,
+    DeadlineName,
     DebriefMode,
     DemandSeriesOut,
     EnrolledLabHourOut,
@@ -2328,3 +2335,124 @@ async def replace_removed_student(class_session_id: uuid.UUID, user_id: uuid.UUI
         seats=replaced,
     )
     return True
+
+
+# Deadline reminders (Story 5.14, FR-18, FR-17, FR-72, AD-9, AD-14, AD-19).
+
+DEADLINE_REMINDER_NOTICE = "deadline_reminder"
+"""The notice kind each Student gets 24 hours before a Play, Debrief or Test deadline, `digest`
+(Story 5.14, AD-9). Its `ref` is the `deadline_reminders` row."""
+
+REMINDER_AHEAD = timedelta(hours=24)
+"""How long before a deadline its reminder is enqueued."""
+
+
+async def reminder_recipients(
+    class_session_id: uuid.UUID, deadline: DeadlineName
+) -> list[uuid.UUID]:
+    """Who is reminded of `deadline` (Story 5.14): for now every registered Student of the
+    Class session's Class, sorted. The one place the recipients are chosen; Epic 11 leaves out a
+    Student with an extension and Epic 13 one who has done the step (`progress.has_step`)."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, class_session_id)
+    if row is None:
+        return []
+    return sorted(await classes.registered_students(row["class_id"]))
+
+
+async def due_deadline_reminders(now: datetime) -> list[tuple[uuid.UUID, DeadlineName]]:
+    """The sweep's `sessions.send_deadline_reminder` finder (AD-9): `(class_session_id,
+    deadline)` of each deadline at most 24 hours ahead with no reminder at its current time, in
+    a Class that is not archived."""
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.due_deadlines(s, now, now + REMINDER_AHEAD)
+    due: list[tuple[uuid.UUID, DeadlineName]] = []
+    writable: dict[uuid.UUID, bool] = {}
+    for row in rows:
+        if row["class_id"] not in writable:
+            writable[row["class_id"]] = await classes.is_writable(row["class_id"])
+        if writable[row["class_id"]]:
+            due.append((row["id"], row["deadline"]))
+    return due
+
+
+async def send_deadline_reminder_due(item: object, now: datetime) -> bool:
+    """The sweep's `sessions.send_deadline_reminder` action: one deadline per transaction, with
+    the session id and the deadline's name only."""
+    if not isinstance(item, tuple) or len(item) != 2:
+        raise TypeError("a reminder item is (class_session_id, deadline)")
+    class_session_id, deadline = item
+    if not isinstance(class_session_id, uuid.UUID) or deadline not in DEADLINE_NAMES:
+        raise TypeError("a reminder item holds a session id and a deadline name")
+    return await send_deadline_reminder(class_session_id, deadline, now=now)
+
+
+async def send_deadline_reminder(
+    class_session_id: uuid.UUID, deadline: DeadlineName, *, now: datetime
+) -> bool:
+    """Remind the Students of `deadline` once per deadline time (Story 5.14, FR-18): under the
+    Class session's row lock, when the deadline is set, has not passed and is at most 24 hours
+    away, record the reminder and enqueue one `DEADLINE_REMINDER_NOTICE` per Student of
+    `reminder_recipients`, keyed by session, deadline kind, deadline time and User. Returns False,
+    changing nothing, when there is nothing to remind of now or it was reminded before."""
+    if deadline not in DEADLINE_NAMES:
+        raise ValueError(f"not a deadline: {deadline!r}")
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, class_session_id, lock=True)
+        if row is None:
+            return False
+        at = row[deadline]
+        if at is None or not now < at <= now + REMINDER_AHEAD:
+            return False
+        if not await classes.is_writable(row["class_id"], session=s):
+            return False
+        reminder_id = await repo.insert_reminder(
+            s, class_session_id=class_session_id, deadline=deadline, deadline_at=at, now=now
+        )
+        if reminder_id is None:
+            return False
+        # Read once the reminder is recorded, so a Student registered until now is among them.
+        recipients = await reminder_recipients(class_session_id, deadline)
+        kind = DATE_KINDS[deadline]
+        for user_id in recipients:
+            key = f"{DEADLINE_REMINDER_NOTICE}:{class_session_id}:{kind}:{at.isoformat()}:{user_id}"
+            await notify.enqueue(s, user_id, DEADLINE_REMINDER_NOTICE, key, ref=reminder_id)
+    log.info(
+        "deadline_reminder_sent",
+        class_session_id=str(class_session_id),
+        deadline=kind,
+        students=len(recipients),
+    )
+    return True
+
+
+async def deadline_reminder_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `DEADLINE_REMINDER_NOTICE`, for `messaging` at send time
+    (Story 5.14, AD-9): the Class's name, the deadline (`play`, `debrief`, `test`), its time in
+    Europe/Oslo and whether the session is obligatory. None, so the notice is left out, when the
+    reminder or session is gone, the deadline has moved from the reminded time or passed, the
+    Class is archived, or the User is no longer a registered Student of it."""
+    if ref is None:
+        return None
+    reminder = await repo.reminder_row(session, ref)
+    if reminder is None:
+        return None
+    row = await repo.session_row(session, reminder["class_session_id"])
+    if row is None:
+        return None
+    at = row[reminder["deadline"]]
+    if at is None or at != reminder["deadline_at"] or at <= now:
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None or label.archived:
+        return None
+    if user_id not in await classes.registered_students(row["class_id"]):
+        return None
+    return {
+        "class_name": label.name,
+        "deadline": DATE_KINDS[reminder["deadline"]],
+        "at": at.astimezone(OSLO),
+        "obligatory": row["obligatory"],
+    }

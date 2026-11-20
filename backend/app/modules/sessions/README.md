@@ -255,3 +255,25 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
 - `service.students_without_seat(class_session_id)`: the registered Students holding no Seat in
   the session's Class games (Epic 13's make-up). Once locked, `GET …/allocation` names them in
   `without_seat`; a removed Student's Seat in a started game keeps its id with no name.
+
+## Deadline reminders (Story 5.14)
+
+- `deadline_reminders` (migration 0041): one row per deadline time the Students were reminded
+  of, unique on `(class_session_id, deadline, deadline_at)`. Ids and times only.
+- The sweep's last due action, `sessions.send_deadline_reminder`
+  (`service.due_deadline_reminders` → `send_deadline_reminder(class_session_id, deadline, now=)`),
+  takes `(class_session_id, deadline)` for each Play, Debrief or Test deadline at most 24 hours
+  ahead (`now < at <= now + 24 h`) with no row at its current time, in a Class that is not
+  archived. Under the session's row lock it records the row and enqueues one `deadline_reminder`
+  notice per Student of `reminder_recipients`, keyed
+  `deadline_reminder:{session}:{play|debrief|test}:{deadline time}:{user}` with the row as `ref`.
+  A second sweep finds nothing. A moved deadline has a new time, so it is reminded again.
+- `service.reminder_recipients(class_session_id, deadline)`: every registered Student of the
+  Class, sorted. The one place recipients are chosen; Epic 11 (extensions) and Epic 13
+  (`progress.has_step`) narrow it without changing the sweep.
+- The kind is `digest` in `messaging.delivery`; `deadline_reminder_mail_context` reads at send
+  time the Class's name, the deadline, its Europe/Oslo time and the obligatory mark, and drops the
+  notice when the deadline moved from the reminded time or has passed, the Class is archived or
+  the User is no longer registered. Template `kinds/deadline_reminder.{txt,html}.j2` (draft copy).
+- A Student who registers after a reminder went out gets none for that deadline. Reminders go out
+  whether or not the session is locked.

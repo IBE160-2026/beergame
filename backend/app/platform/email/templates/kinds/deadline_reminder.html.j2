@@ -1,0 +1,3 @@
+{# A deadline is at most 24 hours away (Story 5.14, FR-18), a digest kind. #}
+{% import "kinds/_deadline.j2" as d %}
+<p style="margin:0;">{{ d.name(deadline) }} i Klassen {{ class_name }} er {{ d.when(at) }}.{% if obligatory %} Øvelsen er obligatorisk.{% endif %}</p>

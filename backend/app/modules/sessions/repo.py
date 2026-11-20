@@ -5,10 +5,31 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import RowMapping, delete, func, insert, select, update
+from sqlalchemy import (
+    Integer,
+    RowMapping,
+    Text,
+    and_,
+    delete,
+    exists,
+    func,
+    insert,
+    literal,
+    select,
+    union_all,
+    update,
+)
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.sessions.models import DATE_NAMES, allocation_drafts, class_sessions, lab_hours
+from app.modules.sessions.models import (
+    DATE_NAMES,
+    DEADLINE_NAMES,
+    allocation_drafts,
+    class_sessions,
+    deadline_reminders,
+    lab_hours,
+)
 from app.platform import authz
 
 _number = (
@@ -279,3 +300,62 @@ async def replace_draft(session: AsyncSession, class_session_id: uuid.UUID, **va
     await session.execute(
         insert(allocation_drafts).values(class_session_id=class_session_id, **values)
     )
+
+
+async def due_deadlines(session: AsyncSession, now: datetime, until: datetime) -> list[RowMapping]:
+    """The deadlines in `(now, until]` with no reminder at their current time (Story 5.14): `id`,
+    `class_id` and `deadline` (the column name), by session id and deadline order."""
+    parts = []
+    for order, name in enumerate(DEADLINE_NAMES):
+        column = class_sessions.c[name]
+        reminded = exists().where(
+            deadline_reminders.c.class_session_id == class_sessions.c.id,
+            deadline_reminders.c.deadline == name,
+            deadline_reminders.c.deadline_at == column,
+        )
+        parts.append(
+            select(
+                class_sessions.c.id,
+                class_sessions.c.class_id,
+                literal(name, Text).label("deadline"),
+                literal(order, Integer).label("place"),
+            ).where(and_(column > now, column <= until, ~reminded))
+        )
+    query = union_all(*parts).subquery()
+    result = await session.execute(
+        select(query.c.id, query.c.class_id, query.c.deadline).order_by(query.c.id, query.c.place)
+    )
+    return list(result.mappings())
+
+
+async def insert_reminder(
+    session: AsyncSession,
+    *,
+    class_session_id: uuid.UUID,
+    deadline: str,
+    deadline_at: datetime,
+    now: datetime,
+) -> uuid.UUID | None:
+    """Records the reminder of `deadline` at `deadline_at` and returns its id, or None when that
+    deadline time was reminded before (Story 5.14)."""
+    result = await session.execute(
+        pg_insert(deadline_reminders)
+        .values(
+            id=uuid.uuid7(),
+            class_session_id=class_session_id,
+            deadline=deadline,
+            deadline_at=deadline_at,
+            created_at=now,
+        )
+        .on_conflict_do_nothing(constraint="uq_deadline_reminders_deadline")
+        .returning(deadline_reminders.c.id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def reminder_row(session: AsyncSession, reminder_id: uuid.UUID) -> RowMapping | None:
+    """The deadline reminder, or None (Story 5.14)."""
+    result = await session.execute(
+        select(deadline_reminders).where(deadline_reminders.c.id == reminder_id)
+    )
+    return result.mappings().one_or_none()
