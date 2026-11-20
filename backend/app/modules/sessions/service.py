@@ -127,6 +127,9 @@ from app.modules.sessions.schemas import (
     ClassSessionListItem,
     ClassSessionListOut,
     ClassSessionOut,
+    CopiedFromOut,
+    CopySourceListOut,
+    CopySourceOut,
     DateKind,
     DateName,
     DatesIn,
@@ -143,6 +146,7 @@ from app.modules.sessions.schemas import (
     NextDate,
     NextDeadline,
     OfferedEffortLevelOut,
+    ReplacedLevelOut,
     SeatChoiceGameOut,
     SeatChoiceIn,
     SeatChoiceOut,
@@ -296,7 +300,8 @@ class FeatureDisabled(_FieldsError):
     """A cut-list setting was sent while its flag is off (422 `feature_disabled`, AD-17): a
     non-empty `capacity` while `FEATURE_CAPACITY` is off (Story 5.15), or a view of
     `info_visibility` switched on while `FEATURE_INFO_VISIBILITY` is off (Story 5.16), or Student
-    choice while `FEATURE_STUDENT_CHOICE` is off (Story 5.17)."""
+    choice while `FEATURE_STUDENT_CHOICE` is off (Story 5.17), or a copy while `FEATURE_RERUN`
+    is off (Story 5.18)."""
 
     code = "feature_disabled"
 
@@ -741,6 +746,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
     llm = row["ai_mode"] == AiMode.llm.value
     settings = GameSettings.model_validate(row["game_settings"])
     now = auth.utcnow()
+    copied_from, effort_level_replaced = await _copy_notes(user, row)
     return ClassSessionOut(
         id=row["id"],
         class_id=row["class_id"],
@@ -778,6 +784,8 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         info_visibility_enabled=info_visibility_enabled(),
         allocation_method=row["allocation_method"],
         student_choice_enabled=student_choice_enabled(),
+        copied_from=copied_from,
+        effort_level_replaced=effort_level_replaced,
     )
 
 
@@ -794,7 +802,8 @@ async def list_sessions(user: authz.Principal, class_id: uuid.UUID) -> ClassSess
                 id=r["id"], number=r["number"], created_at=r["created_at"], saved_at=r["saved_at"]
             )
             for r in rows
-        ]
+        ],
+        rerun_enabled=rerun_enabled(),
     )
 
 
@@ -3076,3 +3085,186 @@ async def student_choice_mail_context(
         return None
     start = row["start_at"]
     return {"class_name": label.name, "start_at": start.astimezone(OSLO) if start else None}
+
+
+# Rerun (Story 5.18, FR-66, FR-78, AD-4, AD-6, AD-12, AD-17).
+
+RERUN_DISABLED = {"rerun": "feature_disabled"}
+
+
+def rerun_enabled() -> bool:
+    """`FEATURE_RERUN` (AD-17): whether a Class session may be made from an earlier one."""
+    return get_settings().feature_rerun
+
+
+async def copy_sources(user: authz.Principal, class_id: uuid.UUID) -> CopySourceListOut | None:
+    """The Class sessions `user` may copy into the Class: every session of every Class they are
+    staff of (`authz.classes_visible_to`), archived Classes included, newest first. Raises
+    `FeatureDisabled` while `FEATURE_RERUN` is off; None when the User may not manage the Class."""
+    if not rerun_enabled():
+        raise FeatureDisabled(dict(RERUN_DISABLED))
+    if await _class_for(user, class_id, "class_sessions.manage") is None:
+        return None
+    visible = {item.id: item for item in (await classes.list_classes(user)).items}
+    async with get_sessionmaker().begin() as s:
+        rows = await repo.copy_sources(s, user, list(visible))
+    return CopySourceListOut(
+        items=[
+            CopySourceOut(
+                id=row["id"],
+                class_id=row["class_id"],
+                class_name=visible[row["class_id"]].name,
+                number=row["number"],
+                start_at=row["start_at"],
+                archived=visible[row["class_id"]].archived,
+            )
+            for row in rows
+        ]
+    )
+
+
+def _copied_settings(source: Mapping[str, Any], *, keep_seed: bool) -> GameSettings:
+    """The source's editable `GameSettings` (never its locked snapshot, AD-4) with a fresh demand
+    seed unless `keep_seed`; a capacity or a view whose flag is off now is left out. The engine
+    judges the result again and `InvalidSettings` is raised when it refuses it (FR-12)."""
+    stored = GameSettings.model_validate(source["game_settings"])
+    update: dict[str, Any] = {}
+    if not keep_seed:
+        update["demand_seed"] = new_seed(secrets.token_bytes(16))
+    if not capacity_enabled():
+        update["capacity"] = None
+    if not info_visibility_enabled():
+        update["info_visibility"] = GameSettings().info_visibility
+    copied = stored.model_copy(update=update)
+    errors = validate(
+        copied,
+        capacity_enabled=capacity_enabled(),
+        info_visibility_enabled=info_visibility_enabled(),
+    )
+    if errors:
+        raise InvalidSettings(
+            {e.field: _problem(e.code, e.field, e.minimum, e.maximum) for e in errors}
+        )
+    return copied
+
+
+async def copy_from(
+    user: authz.Principal,
+    source_id: uuid.UUID,
+    target_class_id: uuid.UUID,
+    *,
+    now: datetime,
+    keep_seed: bool = False,
+) -> ClassSessionOut | None:
+    """A new Class session in `target_class_id` made from an earlier one (FR-66), in one
+    transaction as «Lag Klasseøkt»: the source's Game settings (`_copied_settings`), AI mode,
+    Debrief mode and Inactivity limit; the active default model config with its budget row, never
+    the source's (AD-6). With LLM players the source's Effort level is kept when that config
+    offers it, else the config's default is taken and the source's level is stored as
+    `effort_level_replaced` (FR-78); with no active default the copy gets Rule-based players, as
+    «Lag Klasseøkt» does. Dates, Lab hours, the Roster, the allocation and the obligatory mark
+    with its share are not copied. Raises `FeatureDisabled` while `FEATURE_RERUN` is off,
+    `InvalidSettings`, `ClassArchived`; None when the User may not manage the target Class or may
+    not read the source. It copies the settings of Epic 5 only; the later stories that own more
+    session settings (FR-66) add theirs here."""
+    if not rerun_enabled():
+        raise FeatureDisabled(dict(RERUN_DISABLED))
+    if await _class_for(user, target_class_id, "class_sessions.manage") is None:
+        return None
+    async with get_sessionmaker().begin() as s:
+        source = await repo.session_row(s, source_id)
+    if source is None or await _class_for(user, source["class_id"], "class_sessions.read") is None:
+        return None
+    session_id = uuid.uuid7()
+    replaced: str | None = None
+    async with get_sessionmaker().begin() as s:
+        await _writable(s, target_class_id)
+        # Read again in this transaction, under a share lock: the copy is of the settings as they
+        # stand now, and a source gone meanwhile gives the same answer as one never there.
+        source = await repo.session_row(s, source_id, share=True)
+        if source is None:
+            return None
+        try:
+            settings = _copied_settings(source, keep_seed=keep_seed)
+        except InvalidSettings as refused:
+            log.info(
+                "class_session_copy_refused",
+                source_id=str(source_id),
+                error_code=refused.code,
+                fields=sorted(refused.problems),
+            )
+            raise
+        default = await config.active_default(session=s)
+        offered = await config.offered_effort_levels(default.id, session=s) if default else []
+        llm = source["ai_mode"] == AiMode.llm.value and default is not None
+        level: str | None = None
+        if llm:
+            wanted = source["effort_level"]
+            if wanted is not None and wanted in {o.name for o in offered}:
+                level = wanted
+            else:
+                # `active_default` only returns a config that offers a level.
+                level = offered[0].name if offered else None
+                replaced = wanted
+        await repo.insert_session(
+            s,
+            id=session_id,
+            class_id=target_class_id,
+            game_settings=settings.model_dump(mode="json"),
+            ai_mode=(AiMode.llm if llm else AiMode.rule_based).value,
+            debrief_mode=source["debrief_mode"],
+            inactivity_limit_hours=source["inactivity_limit_hours"],
+            obligatory=DEFAULT_OBLIGATORY,
+            required_share_percent=get_settings().completion_default_share_percent,
+            model_config_id=default.id if default else None,
+            effort_level=level,
+            created_by=user.id,
+            created_at=now,
+            copied_from=source_id,
+            effort_level_replaced=replaced,
+        )
+        if default is not None:
+            await budget.set_budget(budget.BudgetScope.class_session(session_id), session=s)
+        await events.emit(s, "session", str(session_id))
+    log.info(
+        "class_session_copied",
+        class_session_id=str(session_id),
+        source_id=str(source_id),
+        class_id=str(target_class_id),
+        model_config_id=str(default.id) if default else None,
+        seed_kept=keep_seed,
+        effort_level_replaced=replaced is not None,
+    )
+    return await get_session(user, session_id)
+
+
+async def _copy_notes(
+    user: authz.Principal, row: Mapping[str, Any]
+) -> tuple[CopiedFromOut | None, ReplacedLevelOut | None]:
+    """What the Klasseøkt says of a copy: its source, when the User may still read it, and the
+    source's Effort level the new config did not offer, with the source config's label."""
+    source_id = row["copied_from"]
+    replaced_name = row["effort_level_replaced"]
+    if source_id is None and replaced_name is None:
+        return None, None
+    source = None
+    number = 0
+    if source_id is not None:
+        async with get_sessionmaker().begin() as s:
+            source = await repo.session_row(s, source_id)
+            if source is not None:
+                number = await repo.number_of(s, source_id, source["class_id"])
+    copied = None
+    if source is not None:
+        found = await _class_for(user, source["class_id"], "class_sessions.read")
+        if found is not None:
+            copied = CopiedFromOut(id=source_id, class_name=found.name, number=number)
+    replaced = None
+    if replaced_name is not None:
+        label = None
+        if source is not None and source["model_config_id"] is not None:
+            old = await config.get(source["model_config_id"])
+            spec = old.effort_level(replaced_name) if old else None
+            label = spec.label if spec else None
+        replaced = ReplacedLevelOut(name=replaced_name, label=label)
+    return copied, replaced

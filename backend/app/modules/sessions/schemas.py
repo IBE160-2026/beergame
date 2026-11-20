@@ -147,6 +147,22 @@ class EnrolledLabHourOut(BaseModel):
     place: str
 
 
+class CopiedFromOut(BaseModel):
+    """The source of a copied Class session, as the Klasseøkt names it."""
+
+    id: uuid.UUID
+    class_name: str
+    number: int
+
+
+class ReplacedLevelOut(BaseModel):
+    """An Effort level of the source the new model config does not offer: its name, and the
+    source config's Norwegian label (None: show `name`)."""
+
+    name: str
+    label: str | None
+
+
 class ClassSessionOut(BaseModel):
     """One Class session as its Class's staff read it."""
 
@@ -223,6 +239,42 @@ class ClassSessionOut(BaseModel):
     """`FEATURE_STUDENT_CHOICE` (Story 5.17, AD-17): the Klasseøkt offers Student choice. Off, the
     screen shows no allocation-method choice and the api refuses Student choice
     (`feature_disabled`)."""
+    copied_from: CopiedFromOut | None = None
+    """The Class session this one was copied from (Story 5.18); None for one made with «Lag
+    Klasseøkt», and when the source is gone or the User may no longer read it."""
+    effort_level_replaced: ReplacedLevelOut | None = None
+    """The source's Effort level when the new model config did not offer it, so the copy took
+    that config's default (Story 5.18, FR-78)."""
+
+
+class CopyIn(BaseModel):
+    """«Lag kopi» (Story 5.18, FR-66): the Class session to copy, and whether to keep its demand
+    seed (a fresh one is drawn otherwise)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: str = Field(max_length=64)
+    """A Class session id; one that is not an id answers 403 `forbidden` like any other the User
+    may not reach (FR-5)."""
+    keep_seed: bool = False
+
+
+class CopySourceOut(BaseModel):
+    """A Class session the Lecturer may copy: one of a Class they are staff of."""
+
+    id: uuid.UUID
+    class_id: uuid.UUID
+    class_name: str
+    number: int
+    start_at: datetime | None
+    archived: bool
+    """Its Class is archived (Story 4.10); it may still be copied."""
+
+
+class CopySourceListOut(BaseModel):
+    """The Class sessions a rerun may copy, newest first. No paging: a Lecturer has a handful."""
+
+    items: list[CopySourceOut]
 
 
 class ClassSessionListItem(BaseModel):
@@ -237,6 +289,10 @@ class ClassSessionListOut(BaseModel):
     """The Class sessions of one Class, newest first. No paging: a Class has a handful."""
 
     items: list[ClassSessionListItem]
+    rerun_enabled: bool = False
+    """`FEATURE_RERUN` (Story 5.18, AD-17): the Klasse page offers «Lag fra en tidligere
+    Klasseøkt». Off, the page shows no copy option and the copy routes answer
+    `feature_disabled`."""
 
 
 class DatesIn(BaseModel):

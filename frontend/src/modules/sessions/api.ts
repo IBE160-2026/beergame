@@ -244,3 +244,30 @@ export function takeSeat(sessionId: string, gameNumber: number, role: string) {
     }),
   );
 }
+
+export type CopySource = components["schemas"]["CopySourceOut"];
+
+/** The Class sessions a rerun may copy into the Class (Story 5.18), fetched when the panel opens. */
+export const copySourcesKey = (classId: string) => ["class-sessions", "copy-sources", classId] as const;
+
+export function useCopySources(classId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: copySourcesKey(classId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/classes/{class_id}/class-sessions/copy-sources", { params: { path: { class_id: classId } } }),
+      ),
+    enabled,
+    retry: false,
+  });
+}
+
+/** «Lag kopi»: a new Class session in the Class with the source's settings (Story 5.18). */
+export function copyClassSession(classId: string, sourceId: string, keepSeed: boolean) {
+  return request(() =>
+    api.POST("/api/classes/{class_id}/class-sessions/copy", {
+      params: { path: { class_id: classId } },
+      body: { source_id: sourceId, keep_seed: keepSeed },
+    }),
+  );
+}

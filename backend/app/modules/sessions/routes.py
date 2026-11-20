@@ -16,7 +16,9 @@ the Lab hours, `/api/class-sessions/{id}/lab-hours[/{lab_hour_id}]`, saved on th
 adds the allocation draft, `/api/class-sessions/{id}/allocation[/redraw]`, and Story 5.9 its
 confirmation, `/api/class-sessions/{id}/allocation/confirm`, and Story 5.10 moving and swapping
 Students in it, `/api/class-sessions/{id}/allocation/move`. Story 5.17 adds the allocation method
-to the save and the Student's «Velg spill og sete», `/api/me/class-sessions/{id}/seat-choice`."""
+to the save and the Student's «Velg spill og sete», `/api/me/class-sessions/{id}/seat-choice`.
+Story 5.18 adds making one from an earlier one, `/api/classes/{class_id}/class-sessions/copy`
+with its sources `…/copy-sources`."""
 
 import uuid
 from typing import Annotated
@@ -32,6 +34,8 @@ from app.modules.sessions.schemas import (
     ClassSessionListOut,
     ClassSessionOut,
     ClassSessionSaveIn,
+    CopyIn,
+    CopySourceListOut,
     DemandSeriesOut,
     EnrolledSessionListOut,
     LabHourIn,
@@ -71,6 +75,69 @@ async def create_class_session(
     """«Lag Klasseøkt»: a Class session filled in with the Classic defaults (FR-11). When no model
     config is pinned as the default, it gets Rule-based players and `llm_unavailable` says why."""
     created = await service.create_session(user, _id(class_id), now=auth.utcnow())
+    if created is None:
+        raise authz.Forbidden
+    return JSONResponse(created.model_dump(mode="json"), status_code=201)
+
+
+RERUN_OFF = "Making a Class session from an earlier one is switched off."
+
+
+@router.get(
+    "/classes/{class_id}/class-sessions/copy-sources",
+    response_model=CopySourceListOut,
+    responses=documented(401, 403, 422),
+    operation_id="listClassSessionCopySources",
+)
+async def list_copy_sources(
+    class_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """The Class sessions a Faglærer may copy into this Class (Story 5.18, FR-66, AD-12): every
+    session of every Class they are staff of, archived Classes included, newest first. While
+    `FEATURE_RERUN` is off it answers 422 `feature_disabled` (`{"rerun": "feature_disabled"}`)."""
+    try:
+        found = await service.copy_sources(user, _id(class_id))
+    except service.FeatureDisabled as refused:
+        return error_response(422, refused.code, RERUN_OFF, refused.fields)
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
+    "/classes/{class_id}/class-sessions/copy",
+    status_code=201,
+    response_model=ClassSessionOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="copyClassSession",
+)
+async def copy_class_session(
+    class_id: str,
+    body: CopyIn,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """«Lag kopi» (Story 5.18, FR-66): a new Class session in this Class with the Game settings,
+    AI mode, Effort level, Debrief mode and Inactivity limit of `source_id`, a session of any Class
+    the User is staff of. It takes the active default model config; an Effort level that config
+    does not offer becomes its default (`effort_level_replaced`). Dates, Lab hours, the Roster, the
+    allocation and the obligatory mark are not copied; a fresh demand seed is drawn unless
+    `keep_seed`. A source the User may not read answers 403 `forbidden`; copied settings the engine
+    refuses 422 `invalid_settings`; while `FEATURE_RERUN` is off 422 `feature_disabled`
+    (`{"rerun": "feature_disabled"}`)."""
+    try:
+        created = await service.copy_from(
+            user, _id(body.source_id), _id(class_id), now=auth.utcnow(), keep_seed=body.keep_seed
+        )
+    except service.FeatureDisabled as refused:
+        return error_response(422, refused.code, RERUN_OFF, refused.fields)
+    except service.InvalidSettings as refused:
+        return error_response(
+            422,
+            refused.code,
+            "The Game settings break the engine's rules.",
+            {field: problem.model_dump() for field, problem in refused.problems.items()},
+        )
     if created is None:
         raise authz.Forbidden
     return JSONResponse(created.model_dump(mode="json"), status_code=201)

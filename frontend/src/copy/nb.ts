@@ -991,6 +991,37 @@ export const nb = {
       item: (number: number, created: string) => `Klasseøkt ${number}, opprettet ${created}`,
       saved: "Lagret",
       unsaved: "Ikke lagret ennå",
+      /** [ASSUMPTION] draft copy: a Class session made from an earlier one (Story 5.18, cut list,
+       * FR-66). No IA row names the entry; it sits by «Lag Klasseøkt» on the Klasse page. */
+      rerun: {
+        open: "Lag fra en tidligere Klasseøkt",
+        title: "Lag fra en tidligere Klasseøkt",
+        source: "Klasseøkt å kopiere",
+        group: (className: string, archived: boolean) => `${className}${archived ? " (arkivert)" : ""}`,
+        option: (number: number, start: string) => `Klasseøkt ${number}, ${start}`,
+        started: (date: string) => `start ${date}`,
+        noStart: "uten startdato",
+        keepSeed: "Etterspørsel uke for uke",
+        keepSeedOn: "Den samme som i Klasseøkten du kopierer",
+        keepSeedOff: "Ny, med samme mønster",
+        keepSeedHelp: "Mønsteret kopieres alltid. Tallene uke for uke blir like bare om du velger den samme.",
+        copied: "Spillinnstillinger, KI-modus, Innsatsnivå, Debrief-modus og Inaktivitetsgrense kopieres.",
+        notCopied: "Datoer, Labtimer, Klasselisten, Fordeling og Obligatorisk kopieres ikke.",
+        submit: "Lag kopi",
+        submitting: "Lager kopi …",
+        cancel: "Avbryt",
+        none: "Du har ingen tidligere Klasseøkter.",
+        loadFailed: "Klasseøktene kunne ikke hentes. Prøv igjen.",
+        failed: "Kopien ble ikke laget. Prøv igjen.",
+        refused: "Innstillingene i den gamle Klasseøkten godtas ikke lenger. Lag en ny Klasseøkt i stedet.",
+      },
+    },
+    /** [ASSUMPTION] draft copy: what the Klasseøkt says of a copy until it is first saved (Story
+     * 5.18, FR-66, FR-78). */
+    copied: {
+      from: (number: number, className: string) => `Kopiert fra Klasseøkt ${number} i ${className}.`,
+      levelReplaced: (old: string, now: string) =>
+        `Innsatsnivået ${old} finnes ikke for den nye modellen. Klasseøkten bruker standardnivået ${now}.`,
     },
     /** The four dates and the Datolinje (Story 5.2, FR-18, UX-DR51). «Datoer», «Startdato»,
      * «Spillfrist», «Debrieffrist» and «Testfrist» are EXPERIENCE.md's and mockup 03's own; the

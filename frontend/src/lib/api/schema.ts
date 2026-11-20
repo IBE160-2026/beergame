@@ -649,7 +649,9 @@ export interface paths {
          *     `{"from": "empty"}` or `{"from": "last_student"}`; 409 `session_locked` (`{"allocation":
          *     "locked"}`) once the Start date has passed; 409 `class_archived` for an archived Class.
          *     A confirmed allocation's Games refusing the move answer the command's code (such as 409
-         *     `game_already_started`). Nothing is committed on any refusal.
+         *     `game_already_started`). A session with Student choice (Story 5.17) answers 409
+         *     `allocation_confirmed` (`{"allocation": "student_choice"}`). Nothing is committed on any
+         *     refusal.
          */
         post: operations["moveInAllocation"];
         delete?: never;
@@ -925,6 +927,55 @@ export interface paths {
          *     config is pinned as the default, it gets Rule-based players and `llm_unavailable` says why.
          */
         post: operations["createClassSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/{class_id}/class-sessions/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy Class Session
+         * @description «Lag kopi» (Story 5.18, FR-66): a new Class session in this Class with the Game settings,
+         *     AI mode, Effort level, Debrief mode and Inactivity limit of `source_id`, a session of any Class
+         *     the User is staff of. It takes the active default model config; an Effort level that config
+         *     does not offer becomes its default (`effort_level_replaced`). Dates, Lab hours, the Roster, the
+         *     allocation and the obligatory mark are not copied; a fresh demand seed is drawn unless
+         *     `keep_seed`. A source the User may not read answers 403 `forbidden`; copied settings the engine
+         *     refuses 422 `invalid_settings`; while `FEATURE_RERUN` is off 422 `feature_disabled`
+         *     (`{"rerun": "feature_disabled"}`).
+         */
+        post: operations["copyClassSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/classes/{class_id}/class-sessions/copy-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Copy Sources
+         * @description The Class sessions a Faglærer may copy into this Class (Story 5.18, FR-66, AD-12): every
+         *     session of every Class they are staff of, archived Classes included, newest first. While
+         *     `FEATURE_RERUN` is off it answers 422 `feature_disabled` (`{"rerun": "feature_disabled"}`).
+         */
+        get: operations["listClassSessionCopySources"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1764,6 +1815,11 @@ export interface components {
         ClassSessionListOut: {
             /** Items */
             items: components["schemas"]["ClassSessionListItem"][];
+            /**
+             * Rerun Enabled
+             * @default false
+             */
+            rerun_enabled: boolean;
         };
         /**
          * ClassSessionOut
@@ -1790,6 +1846,7 @@ export interface components {
             class_id: string;
             /** Class Name */
             class_name: string;
+            copied_from?: components["schemas"]["CopiedFromOut"] | null;
             /**
              * Created At
              * Format: date-time
@@ -1800,6 +1857,7 @@ export interface components {
             debrief_mode: components["schemas"]["DebriefMode"];
             /** Effort Level */
             effort_level: string | null;
+            effort_level_replaced?: components["schemas"]["ReplacedLevelOut"] | null;
             /** Effort Levels */
             effort_levels: components["schemas"]["OfferedEffortLevelOut"][];
             game_settings: components["schemas"]["GameSettings"];
@@ -1877,6 +1935,67 @@ export interface components {
             obligatory?: boolean | null;
             /** Required Share Percent */
             required_share_percent?: number | null;
+        };
+        /**
+         * CopiedFromOut
+         * @description The source of a copied Class session, as the Klasseøkt names it.
+         */
+        CopiedFromOut: {
+            /** Class Name */
+            class_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Number */
+            number: number;
+        };
+        /**
+         * CopyIn
+         * @description «Lag kopi» (Story 5.18, FR-66): the Class session to copy, and whether to keep its demand
+         *     seed (a fresh one is drawn otherwise).
+         */
+        CopyIn: {
+            /**
+             * Keep Seed
+             * @default false
+             */
+            keep_seed: boolean;
+            /** Source Id */
+            source_id: string;
+        };
+        /**
+         * CopySourceListOut
+         * @description The Class sessions a rerun may copy, newest first. No paging: a Lecturer has a handful.
+         */
+        CopySourceListOut: {
+            /** Items */
+            items: components["schemas"]["CopySourceOut"][];
+        };
+        /**
+         * CopySourceOut
+         * @description A Class session the Lecturer may copy: one of a Class they are staff of.
+         */
+        CopySourceOut: {
+            /** Archived */
+            archived: boolean;
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Number */
+            number: number;
+            /** Start At */
+            start_at: string | null;
         };
         /**
          * DatesIn
@@ -2642,6 +2761,17 @@ export interface components {
             sent: number;
             /** Valid Days */
             valid_days: number;
+        };
+        /**
+         * ReplacedLevelOut
+         * @description An Effort level of the source the new model config does not offer: its name, and the
+         *     source config's Norwegian label (None: show `name`).
+         */
+        ReplacedLevelOut: {
+            /** Label */
+            label: string | null;
+            /** Name */
+            name: string;
         };
         /**
          * ResetCheckOut
@@ -5590,6 +5720,117 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    copyClassSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSessionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listClassSessionCopySources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopySourceListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

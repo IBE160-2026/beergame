@@ -31,6 +31,7 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # that changes a date also tells each registered Student of the Class (Story 5.2), and
         # one that marks it obligatory enqueues a notice per Student, which emits `user` (5.7).
         "sessions.create": frozenset({"session"}),
+        "sessions.copy_from": frozenset({"session"}),
         "sessions.save": frozenset({"session", "user"}),
         # A Lab hour added, changed or removed (Story 5.6): the staff read the session again, and
         # each registered Student's notice emits `user:<id>`.

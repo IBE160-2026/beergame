@@ -855,6 +855,11 @@
             },
             "title": "Items",
             "type": "array"
+          },
+          "rerun_enabled": {
+            "default": false,
+            "title": "Rerun Enabled",
+            "type": "boolean"
           }
         },
         "required": [
@@ -901,6 +906,16 @@
             "title": "Class Name",
             "type": "string"
           },
+          "copied_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CopiedFromOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -931,6 +946,16 @@
               }
             ],
             "title": "Effort Level"
+          },
+          "effort_level_replaced": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReplacedLevelOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "effort_levels": {
             "items": {
@@ -1233,6 +1258,118 @@
           "ai_mode"
         ],
         "title": "ClassSessionSaveIn",
+        "type": "object"
+      },
+      "CopiedFromOut": {
+        "description": "The source of a copied Class session, as the Klasseøkt names it.",
+        "properties": {
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "class_name",
+          "number"
+        ],
+        "title": "CopiedFromOut",
+        "type": "object"
+      },
+      "CopyIn": {
+        "additionalProperties": false,
+        "description": "«Lag kopi» (Story 5.18, FR-66): the Class session to copy, and whether to keep its demand\nseed (a fresh one is drawn otherwise).",
+        "properties": {
+          "keep_seed": {
+            "default": false,
+            "title": "Keep Seed",
+            "type": "boolean"
+          },
+          "source_id": {
+            "maxLength": 64,
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id"
+        ],
+        "title": "CopyIn",
+        "type": "object"
+      },
+      "CopySourceListOut": {
+        "description": "The Class sessions a rerun may copy, newest first. No paging: a Lecturer has a handful.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CopySourceOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CopySourceListOut",
+        "type": "object"
+      },
+      "CopySourceOut": {
+        "description": "A Class session the Lecturer may copy: one of a Class they are staff of.",
+        "properties": {
+          "archived": {
+            "title": "Archived",
+            "type": "boolean"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          }
+        },
+        "required": [
+          "id",
+          "class_id",
+          "class_name",
+          "number",
+          "start_at",
+          "archived"
+        ],
+        "title": "CopySourceOut",
         "type": "object"
       },
       "DatesIn": {
@@ -2834,6 +2971,32 @@
           "left_out"
         ],
         "title": "ReminderOut",
+        "type": "object"
+      },
+      "ReplacedLevelOut": {
+        "description": "An Effort level of the source the new model config does not offer: its name, and the\nsource config's Norwegian label (None: show `name`).",
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label"
+        ],
+        "title": "ReplacedLevelOut",
         "type": "object"
       },
       "ResetCheckOut": {
@@ -6098,7 +6261,7 @@
     },
     "/api/class-sessions/{session_id}/allocation/move": {
       "post": {
-        "description": "Move a Student to a free Seat, or swap two (Story 5.10, FR-20), in the draft named by\n`draft_id` and `revision`: the Student of `from_game`/`from_role` takes\n`to_game`/`to_role`, and a Student there takes the first Seat. The draft keeps its id and\nits revision rises by one. Once the allocation is confirmed the Class games change in the\nsame transaction and the Students who moved are told through the day's digest mail.\n\n409 `allocation_changed` (`{\"draft\": \"changed\"}`) when the draft is no longer the current\none; 422 `invalid_move` with `fields` `{\"to\": \"same\"}`, `{\"from\"|\"to\": \"unknown\"}`,\n`{\"from\": \"empty\"}` or `{\"from\": \"last_student\"}`; 409 `session_locked` (`{\"allocation\":\n\"locked\"}`) once the Start date has passed; 409 `class_archived` for an archived Class.\nA confirmed allocation's Games refusing the move answer the command's code (such as 409\n`game_already_started`). Nothing is committed on any refusal.",
+        "description": "Move a Student to a free Seat, or swap two (Story 5.10, FR-20), in the draft named by\n`draft_id` and `revision`: the Student of `from_game`/`from_role` takes\n`to_game`/`to_role`, and a Student there takes the first Seat. The draft keeps its id and\nits revision rises by one. Once the allocation is confirmed the Class games change in the\nsame transaction and the Students who moved are told through the day's digest mail.\n\n409 `allocation_changed` (`{\"draft\": \"changed\"}`) when the draft is no longer the current\none; 422 `invalid_move` with `fields` `{\"to\": \"same\"}`, `{\"from\"|\"to\": \"unknown\"}`,\n`{\"from\": \"empty\"}` or `{\"from\": \"last_student\"}`; 409 `session_locked` (`{\"allocation\":\n\"locked\"}`) once the Start date has passed; 409 `class_archived` for an archived Class.\nA confirmed allocation's Games refusing the move answer the command's code (such as 409\n`game_already_started`). A session with Student choice (Story 5.17) answers 409\n`allocation_confirmed` (`{\"allocation\": \"student_choice\"}`). Nothing is committed on any\nrefusal.",
         "operationId": "moveInAllocation",
         "parameters": [
           {
@@ -7160,6 +7323,152 @@
           }
         },
         "summary": "Create Class Session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/class-sessions/copy": {
+      "post": {
+        "description": "«Lag kopi» (Story 5.18, FR-66): a new Class session in this Class with the Game settings,\nAI mode, Effort level, Debrief mode and Inactivity limit of `source_id`, a session of any Class\nthe User is staff of. It takes the active default model config; an Effort level that config\ndoes not offer becomes its default (`effort_level_replaced`). Dates, Lab hours, the Roster, the\nallocation and the obligatory mark are not copied; a fresh demand seed is drawn unless\n`keep_seed`. A source the User may not read answers 403 `forbidden`; copied settings the engine\nrefuses 422 `invalid_settings`; while `FEATURE_RERUN` is off 422 `feature_disabled`\n(`{\"rerun\": \"feature_disabled\"}`).",
+        "operationId": "copyClassSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Copy Class Session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/classes/{class_id}/class-sessions/copy-sources": {
+      "get": {
+        "description": "The Class sessions a Faglærer may copy into this Class (Story 5.18, FR-66, AD-12): every\nsession of every Class they are staff of, archived Classes included, newest first. While\n`FEATURE_RERUN` is off it answers 422 `feature_disabled` (`{\"rerun\": \"feature_disabled\"}`).",
+        "operationId": "listClassSessionCopySources",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopySourceListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "List Copy Sources",
         "tags": [
           "sessions"
         ]

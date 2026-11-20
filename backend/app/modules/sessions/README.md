@@ -325,3 +325,28 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   `GET /api/me/class-sessions` carries `seat_choice_open` and, once locked, `drawn_seat`.
 - `GET …/allocation` answers `method`; with Student choice its games are the Class games as their
   Seats hold them from the save on, empty ones included.
+
+## Rerun (Story 5.18, cut list)
+
+- `GET /api/classes/{class_id}/class-sessions/copy-sources` (`class_sessions.manage` on the
+  Class): every Class session of every Class the User is staff of (`authz.classes_visible_to`),
+  archived Classes included, newest first, with Class name, number, Start date and `archived`.
+- `POST /api/classes/{class_id}/class-sessions/copy` `{source_id, keep_seed}` («Lag kopi»):
+  `service.copy_from` makes a new Class session in the Class, in one transaction as «Lag
+  Klasseøkt»: the source's stored `game_settings` (never its snapshot) with a fresh demand seed
+  unless `keep_seed`, its AI mode, Debrief mode and Inactivity limit; the active default model
+  config with its budget row, never the source's. With LLM players the source's Effort level is
+  kept when the new config offers it, else the config's default is taken and the source's level
+  is stored in `effort_level_replaced` (migration 0043); with no active default the copy gets
+  Rule-based players. A capacity or a view whose flag is off now is left out, and the engine
+  judges the result again (422 `invalid_settings`). Not copied: dates, Lab hours, the Roster, the
+  allocation (method `random`, no draft), the obligatory mark and its share. `copied_from` names
+  the source (SET NULL when it goes).
+- A source the User may not read, or an id that names nothing, answers 403 `forbidden`; an
+  archived target 409 `class_archived`. While `FEATURE_RERUN` is off both routes answer 422
+  `feature_disabled` (`{"rerun": "feature_disabled"}`) and `ClassSessionListOut.rerun_enabled`
+  is false.
+- `ClassSessionOut` carries `copied_from` (`{id, class_name, number}`, null once the source is
+  gone or no longer readable) and `effort_level_replaced` (`{name, label}`, the label from the
+  source's config). `copy_from` copies Epic 5's settings only; the later stories that own more
+  session settings add theirs to it.

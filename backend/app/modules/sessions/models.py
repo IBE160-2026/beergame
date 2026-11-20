@@ -61,6 +61,16 @@ class_sessions = Table(
     # How the Students get their Seats (Story 5.17, FR-21): `random` (Stories 5.8 to 5.13) or
     # `student_choice`, final once saved.
     Column("allocation_method", Text, nullable=False, server_default="random"),
+    # The Class session this one was copied from (Story 5.18, FR-66); NULL otherwise, and once
+    # that session is gone.
+    Column(
+        "copied_from",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="SET NULL", name="fk_class_sessions_copied_from"),
+        nullable=True,
+    ),
+    # The source's Effort level when the new model config did not offer it (Story 5.18, FR-78).
+    Column("effort_level_replaced", Text, nullable=True),
     CheckConstraint("(locked_at IS NULL) = (snapshot IS NULL)", name="ck_class_sessions_lock"),
     CheckConstraint(
         "allocation_method IN ('random', 'student_choice')",

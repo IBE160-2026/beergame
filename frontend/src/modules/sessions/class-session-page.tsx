@@ -54,6 +54,7 @@ import {
 } from "./dates";
 import { LabHours } from "./lab-hours-panel";
 import { inactivityProblem, shareProblem, valueErrorsOf } from "./obligatory";
+import { copyLines } from "./rerun";
 import { calibratedText, draftOf, problemsOf, type SettingProblem, settingsBody, warningsBySetting } from "./settings";
 import { SettingsBlock } from "./settings-form";
 
@@ -259,6 +260,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   // Locked (Story 5.11, GitHub issue 103): what is frozen stands as text, and the only save is the
   // deadlines', while one can still move.
   const deadlinesOpen = datesEditable(item);
+  const copied = copyLines(item);
   const saveShown = item.can_manage && (!item.locked || deadlinesOpen);
   const saveRow = (
     <SaveRow
@@ -291,6 +293,15 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
               {deadlinesOpen ? copy.lock.open : copy.lock.labHoursOpen}
             </p>
           ) : null}
+        </div>
+      ) : copied.length > 0 ? (
+        // A copy names its source until it is first saved (Story 5.18).
+        <div className="mt-2 max-w-3xl">
+          {copied.map((line) => (
+            <p key={line} className="text-body-phone text-ink lg:text-body">
+              {line}
+            </p>
+          ))}
         </div>
       ) : item.is_classic ? (
         <p className="mt-2 text-body-phone text-ink-secondary lg:text-body">{copy.defaults}</p>

@@ -47,12 +47,15 @@ async def insert_session(session: AsyncSession, **values: Any) -> None:
 
 
 async def session_row(
-    session: AsyncSession, session_id: uuid.UUID, *, lock: bool = False
+    session: AsyncSession, session_id: uuid.UUID, *, lock: bool = False, share: bool = False
 ) -> RowMapping | None:
-    """The Class session, or None; with `lock` its row is locked until the transaction ends."""
+    """The Class session, or None; with `lock` its row is locked until the transaction ends, with
+    `share` it is share-locked (it cannot change or go, others may still read it)."""
     query = select(class_sessions).where(class_sessions.c.id == session_id)
     if lock:
         query = query.with_for_update()
+    elif share:
+        query = query.with_for_update(read=True)
     return (await session.execute(query)).mappings().one_or_none()
 
 
@@ -125,6 +128,22 @@ async def staff_sessions(
             _numbered.c.class_id.in_(class_ids),
         )
         .order_by(_numbered.c.class_id, _numbered.c.id)
+    )
+    return list(result.mappings())
+
+
+async def copy_sources(
+    session: AsyncSession, user: authz.Principal, class_ids: list[uuid.UUID]
+) -> list[RowMapping]:
+    """The sessions of these Classes that `user` is staff of (`authz.classes_visible_to`), with
+    their numbers and Start dates, newest first: what a rerun may copy (Story 5.18, AD-12)."""
+    result = await session.execute(
+        select(_numbered.c.id, _numbered.c.class_id, _numbered.c.number, _numbered.c.start_at)
+        .where(
+            _numbered.c.class_id.in_(authz.classes_visible_to(user)),
+            _numbered.c.class_id.in_(class_ids),
+        )
+        .order_by(_numbered.c.id.desc())
     )
     return list(result.mappings())
 
