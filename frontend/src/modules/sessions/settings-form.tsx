@@ -372,7 +372,8 @@ function CapacityFields({
                 value={capacity.role}
                 onChange={(event) => choose({ ...capacity, role: event.target.value as CapacityDraft["role"] })}
               >
-                {roles.map((role) => (
+                {/* Fabrikk first, the one Seat order everywhere (GitHub issue 115). */}
+                {[...roles].reverse().map((role) => (
                   <option key={role} value={role}>
                     {roleName(role)}
                   </option>

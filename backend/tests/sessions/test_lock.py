@@ -93,6 +93,16 @@ async def test_two_sweeps_over_a_due_session_lock_it_once(klass, emitted):
     assert body["locked_at"].startswith((START + MINUTE).isoformat()[:16])
 
 
+async def test_the_sweeps_lock_judges_the_start_date_again_under_the_row_lock(klass):
+    """Follow-up review: a Start date moved later after the finder listed the session (a worker
+    clock ahead of the api's) is not locked at the old date; `lock` itself still locks early."""
+    session_id = await dated(klass)
+    assert await service.lock_due(uuid.UUID(session_id), START - MINUTE) is False
+    assert locked(session_id) == (None, None)
+    assert await service.lock_due(uuid.UUID(session_id), START + MINUTE) is True
+    assert locked(session_id)[0] == START + MINUTE
+
+
 async def test_llm_players_freeze_the_model_config_its_level_and_prompt_versions(klass, two_levels):
     session_id = await dated(klass, "llm")
     assert (await sweep.run(START + MINUTE))["sessions.lock"] == 1

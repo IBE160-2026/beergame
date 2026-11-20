@@ -62,10 +62,11 @@ export function customerLines(demand: GameSettings["demand"]): readonly [string,
 
 export type SettingRow = { key: string; label: string; value: string };
 
-/** The capped Roles with their capacity, downstream first as the api orders the chain (Story 5.15). */
+/** The capped Roles with their capacity, Fabrikk first as the chain is drawn: the one Seat order
+ * everywhere (Story 5.15, GitHub issue 115). */
 export function cappedRoles(settings: GameSettings): [Role, number][] {
   const capacity = settings.capacity ?? {};
-  return settings.roles.flatMap((role) => {
+  return upstreamFirst(settings).flatMap((role) => {
     const units = capacity[role];
     return units === undefined ? [] : [[role, units] as [Role, number]];
   });

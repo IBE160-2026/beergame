@@ -342,6 +342,26 @@ async def test_the_lock_adds_a_class_game_when_no_seat_is_free(klass, monkeypatc
     assert [n for n, _ in seat_of(session_id, late)] == [2]
 
 
+async def test_the_lock_draws_into_the_seat_of_a_student_who_left(klass, monkeypatch):
+    """Follow-up review: a Seat chosen by a Student removed from the Class since is free to the
+    draw, so nobody is drawn into a new game of AI players while it goes to an AI player."""
+    flag(monkeypatch, True)
+    session_id, seated = await choosing(klass, 4)
+    for i, role in enumerate(ROLES):
+        assert (await take(session_id, email(i), 1, role)).status_code == 200
+    gone = seated[0]
+    execute("UPDATE roster_entries SET removed_at = %s WHERE user_id = %s", NOW, gone)
+    late = await student_of(klass, "sen@x.no")
+    flag(monkeypatch, False)  # no offer, so no new game before the lock
+    assert (await sweep.run(START + MINUTE))["sessions.lock"] == 1
+    assert [g[1] for g in games_of(session_id)] == [1]
+    assert seat_of(session_id, late) == [(1, "factory")]
+    assert seat_of(session_id, gone) == []
+    _, _, assignments = draft_row(session_id)
+    assert str(gone) not in {a["user_id"] for a in assignments}
+    assert {a["user_id"] for a in assignments if a.get("drawn")} == {str(late)}
+
+
 async def test_before_the_lock_a_late_registrant_is_not_seated_by_the_draw(klass, monkeypatch):
     flag(monkeypatch, True)
     session_id, _ = await choosing(klass, 2)

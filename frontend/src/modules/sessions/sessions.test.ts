@@ -116,7 +116,8 @@ describe("the shipping capacity in words (Story 5.15)", () => {
     expect(value(undefined)).toBe("Ingen");
     expect(value({ retailer: 6 })).toBe("6 per uke for Detaljist");
     expect(value({ retailer: 6, wholesaler: 6, distributor: 6, factory: 6 })).toBe("6 per uke for alle ledd");
-    expect(value({ retailer: 6, factory: 9 })).toBe("6 per uke for Detaljist; 9 per uke for Fabrikk");
+    // Fabrikk first, the one Seat order everywhere (Issue #115).
+    expect(value({ retailer: 6, factory: 9 })).toBe("9 per uke for Fabrikk; 6 per uke for Detaljist");
   });
 
   it("names the capped Role in the chain's text while the flag is on", () => {

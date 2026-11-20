@@ -2050,7 +2050,9 @@ async def build_snapshot(
     }
 
 
-async def lock(class_session_id: uuid.UUID, *, now: datetime | None = None) -> bool:
+async def lock(
+    class_session_id: uuid.UUID, *, now: datetime | None = None, due_only: bool = False
+) -> bool:
     """Lock the Class session now, whatever its Start date (the sweep at the Start date, Epic 8
     when the Lecturer starts early): in one transaction under the session's row lock, set
     `locked_at`, store `build_snapshot`, mark the model config referenced (LLM players) and emit
@@ -2061,13 +2063,19 @@ async def lock(class_session_id: uuid.UUID, *, now: datetime | None = None) -> b
 
     True when this call locked it; False when it was locked already or does not exist. With LLM
     players whose provider may not answer here it raises `ProviderKeyMissing` and stores
-    nothing; it never falls back to Rule-based players (AD-17)."""
+    nothing; it never falls back to Rule-based players (AD-17).
+
+    `due_only` (the sweep): the Start date is judged again under the row lock, so a Start date
+    moved later, or cleared, after the finder listed the session is not locked at the old one
+    (follow-up review of Story 5.11). Such a call locks nothing and opens nothing."""
     now = now or auth.utcnow()
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, class_session_id, lock=True)
         if row is None:
             return False
         locked_before = row["locked_at"] is not None
+        if due_only and not locked_before and (row["start_at"] is None or row["start_at"] > now):
+            return False
         if not locked_before:
             llm = row["ai_mode"] == AiMode.llm.value
             if llm:
@@ -2199,7 +2207,7 @@ async def lock_due(class_session_id: object, now: datetime) -> bool:
     minute's sweep tries again."""
     assert isinstance(class_session_id, uuid.UUID)
     try:
-        return await lock(class_session_id, now=now)
+        return await lock(class_session_id, now=now, due_only=True)
     except ProviderKeyMissing:
         told = await _tell_lock_refused(class_session_id, now)
         log.warning(
@@ -2794,10 +2802,25 @@ async def _draw_at_lock(s: AsyncSession, row: Mapping[str, Any], now: datetime) 
     waiting = [student for student in registered if student not in seated]
     if not waiting:
         return 0
+    # A Seat a Student chose and then left the Class with is free to the draw too: the open would
+    # give it an AI player anyway (follow-up review of Story 5.17). It is taken with `replace`.
+    kept = set(registered)
+    left = {
+        (str(game.id), seat.role): seat.user_id
+        for game in games
+        if game.lifecycle == games_service.Lifecycle.NOT_STARTED
+        for seat in game.seats
+        if seat.occupant_kind == games_service.OccupantKind.STUDENT
+        and seat.user_id is not None
+        and seat.user_id not in kept
+    }
     free = [
         (str(game.id), game.number, role)
         for game in games
         for role in _open_seats(game, locked=False)
+    ] + [
+        (game_id, next(g.number for g in games if str(g.id) == game_id), role)
+        for game_id, role in left
     ]
     _rng.shuffle(free)
     number = max((game.number for game in games), default=0)
@@ -2816,9 +2839,21 @@ async def _draw_at_lock(s: AsyncSession, row: Mapping[str, Any], now: datetime) 
             _rng.shuffle(roles)
             free = [(game_id, number, role) for role in roles]
         game_id, game_number, role = free.pop()
+        gone = left.get((game_id, role))
         await games_commands.assign_seat(
-            game_id, role, games_service.OccupantKind.STUDENT, user_id=student, within=s
+            game_id,
+            role,
+            games_service.OccupantKind.STUDENT,
+            user_id=student,
+            replace=gone is not None,
+            within=s,
         )
+        if gone is not None:
+            assignments = [
+                a
+                for a in assignments
+                if not (a["user_id"] == str(gone) and a["game_number"] == game_number)
+            ]
         assignments.append(
             {"user_id": str(student), "game_number": game_number, "role": role, "drawn": True}
         )
