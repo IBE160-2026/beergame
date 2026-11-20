@@ -1700,6 +1700,9 @@ export const nb = {
     loading: "Laster …",
     offline: "Frakoblet. Det du har skrevet, er tatt vare på på denne enheten.",
     reconnected: "Tilkoblet igjen.",
+    /** Story 6.4: the event stream missed its heartbeat, so the page may not show the latest
+     * changes; followed by «Sist oppdatert 21:14». [ASSUMPTION] */
+    stale: "Siden oppdateres ikke av seg selv akkurat nå.",
     pageError: "Siden kunne ikke lastes.",
     retry: "Prøv igjen",
     /** «Sist oppdatert 21:14»: the time live values were last read. */

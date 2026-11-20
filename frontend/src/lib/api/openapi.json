@@ -9080,6 +9080,40 @@
         ]
       }
     },
+    "/api/events": {
+      "get": {
+        "description": "The live event stream (AD-8): `ready`, then `{topic, id, version}` for each change the\nUser may see, and `heartbeat` every 15 s. 401 without a valid session.",
+        "operationId": "streamEvents",
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "itemSchema": {
+                  "properties": {
+                    "data": {
+                      "type": "string"
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "retry": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stream Events"
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "health_api_health_get",

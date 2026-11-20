@@ -32,6 +32,9 @@ modules ask `can(user, action, resource)`, they never compare roles themselves.
 - Games (Story 6.1): `own_seat(user, game)` is the scope of a Student's own Class games, the
   Games in which they hold or have held a Seat. `games.read_own` is open to every logged-in User;
   the scope decides.
+- Events (Story 6.4): `class_sessions_staffed_by(user)` and `class_games_staffed_by(user)` give the
+  `session:` and `game:` topics of a User's Class staff roles; with `own_seat` they decide what
+  `GET /api/events` forwards.
 
 This module imports no `app.modules` code.
 """
@@ -105,6 +108,8 @@ POLICIES: dict[str, frozenset[str]] = {
     "starting_task.answer_own": frozenset({ANY_USER}),
     # The own session.
     "session.read": frozenset({ANY_USER}),
+    # The live event stream (Story 6.4, AD-8): any User; the scope decides which topics it sends.
+    "events.read": frozenset({ANY_USER}),
     # FR-5: no account role grants these. Epic 4+ adds the Class-scoped grants.
     "student_answers.read": frozenset(),
     "ai_assessments.read": frozenset(),
@@ -193,6 +198,26 @@ def own_seat(user: Principal | uuid.UUID, game: uuid.UUID | None = None) -> Sele
     return query
 
 
+_class_sessions = table("class_sessions", column("id"), column("class_id"))
+_games = table("games", column("id"), column("class_session_id"))
+"""`sessions.class_sessions` and `games.games` by name only, for the staff event scope."""
+
+
+def class_sessions_staffed_by(user: Principal | uuid.UUID) -> Select:
+    """The ids of the Class sessions of the Classes `user` is staff of (Story 6.4, AD-8): the
+    `session:<id>` topics their event stream forwards. A Student is never staff, so never gets
+    one."""
+    return select(_class_sessions.c.id).where(
+        _class_sessions.c.class_id.in_(classes_visible_to(user))
+    )
+
+
+def class_games_staffed_by(user: Principal | uuid.UUID) -> Select:
+    """The ids of the Class games of those Class sessions (Story 6.4, AD-8): with `own_seat`, the
+    `game:<id>` topics a User's event stream forwards."""
+    return select(_games.c.id).where(_games.c.class_session_id.in_(class_sessions_staffed_by(user)))
+
+
 PrincipalLoader = Callable[[uuid.UUID, int], Awaitable[Principal | None]]
 """`(user_id, session_version)` → the active User, or None when the User is gone, deactivated, or
 the session is older than the User's session version."""
@@ -203,6 +228,14 @@ def register_principal_loader(loader: PrincipalLoader) -> None:
     """Called once by `create_app()` with `identity.service.load_user`."""
     global _loader
     _loader = loader
+
+
+async def load_principal(user_id: uuid.UUID, session_version: int) -> Principal | None:
+    """The active User through the registered loader, or None: what a long-lived request (the
+    event stream, Story 6.4) asks again when the User may have been deactivated meanwhile."""
+    if _loader is None:  # pragma: no cover - create_app() always registers it
+        raise RuntimeError("no principal loader registered")
+    return await _loader(user_id, session_version)
 
 
 async def current_principal(request: Request) -> Principal:

@@ -1,6 +1,7 @@
 "use client";
 
 import { nb } from "@/copy/nb";
+import { useLive } from "@/lib/api/live";
 import { formatClock, useConnection } from "@/lib/connection";
 
 /**
@@ -52,8 +53,9 @@ export function ConnectionNotice({
 
 /**
  * The Tilkoblingslinje a page shows: offline first, then a page error (with «Prøv igjen»), then
- * «Tilkoblet igjen.» for 5 s after the connection returns. `updatedAt` is when the page's live
- * values were last read; it shows while offline.
+ * live values gone stale (no heartbeat from the event stream, Story 6.4) with the time they were
+ * last known current, then «Tilkoblet igjen.» for 5 s after the connection or the stream returns.
+ * `updatedAt` is when the page's live values were last read; it shows while offline.
  */
 export function ConnectionLine({
   pageError = false,
@@ -65,8 +67,10 @@ export function ConnectionLine({
   updatedAt?: number;
 }) {
   const connection = useConnection();
+  const live = useLive();
   if (connection === "offline") return <ConnectionNotice message={nb.system.offline} updatedAt={updatedAt} />;
   if (pageError) return <ConnectionNotice message={nb.system.pageError} onRetry={onRetry} />;
-  if (connection === "reconnected") return <ConnectionNotice message={nb.system.reconnected} />;
+  if (live.status === "stale") return <ConnectionNotice message={nb.system.stale} updatedAt={live.lastBeat} />;
+  if (connection === "reconnected" || live.recovered) return <ConnectionNotice message={nb.system.reconnected} />;
   return <ConnectionNotice />;
 }

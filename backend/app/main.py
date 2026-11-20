@@ -22,6 +22,8 @@ from app.platform import audit, auth, authz, db
 from app.platform.auth import CsrfMiddleware
 from app.platform.config import get_settings
 from app.platform.errors import error_response
+from app.platform.events import stream as event_stream
+from app.platform.events.hub import hub as event_hub
 from app.platform.logging import RequestLogMiddleware, configure_logging
 
 log = structlog.get_logger("app.main")
@@ -52,6 +54,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         # AD-17: the first Admin's Invitation, for each listed address with no account yet.
         await identity_service.ensure_bootstrap_invitations(auth.utcnow())
     yield
+    await event_hub.close()  # every open event stream ends (Story 6.4)
     await db.dispose()
 
 
@@ -93,6 +96,7 @@ def create_app() -> FastAPI:
         redoc_url=None,
     )
     app.include_router(router)
+    app.include_router(event_stream.router)  # the live event stream (Story 6.4, AD-8)
     app.include_router(identity_routes.router)
     app.include_router(identity_routes.admin_router)
     app.include_router(admin_routes.router)
