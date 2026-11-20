@@ -1366,7 +1366,7 @@ export const nb = {
         title: "Målet",
         text: "Dere skal få lavest mulig totalkostnad for hele kjeden, ikke bare for ditt eget sete.",
         rates: (holding: string, backorder: string) =>
-          `Hver enhet på lager koster ${holding} kr per uke. Hver enhet i restordre koster ${backorder} kr per uke.`,
+          `Hver enhet på lager koster ${holding} kr per uke. Hver enhet i restordre koster ${backorder} kr per uke.`,
       },
       week: {
         title: "Slik går en uke",
@@ -1426,7 +1426,7 @@ export const nb = {
         /** «Denne uka: 13 enheter i restordre, hver til 1,00 kr. Lager 0 gir ingen lagerkostnad.» No
          * product: the web app computes no cost (AD-1). */
         cost: (backlog: number, inventory: number, rate: string) =>
-          `Denne uka: ${backlog} enheter i restordre, hver til ${rate} kr. Lager ${inventory} gir ingen lagerkostnad.`,
+          `Denne uka: ${backlog} enheter i restordre, hver til ${rate} kr. Lager ${inventory} gir ingen lagerkostnad.`,
         demoData: "Demodata",
       },
       /** Back to Hjem until Story 6.3 opens the Startoppgave from here. */

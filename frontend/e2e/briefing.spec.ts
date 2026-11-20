@@ -102,7 +102,7 @@ for (const vp of VIEWPORTS) {
       ]);
       await expect(main.getByRole("heading", { level: 3 })).toHaveCount(0);
       await expect(main.getByText(copy.goal.text)).toBeVisible();
-      await expect(main.getByText(/^Hver enhet på lager koster 0,50 kr per uke\./)).toBeVisible();
+      await expect(main.getByText(/^Hver enhet på lager koster 0,50\skr per uke\./)).toBeVisible();
       await expect(main.getByText(copy.week.same)).toBeVisible();
       await expect(main.getByText(copy.week.ship)).toBeVisible();
       await expect(main.getByText("Ordren din kommer fram til Distributøren to uker etter at du la den inn.")).toBeVisible();
@@ -121,7 +121,7 @@ for (const vp of VIEWPORTS) {
       ]);
       await expect(main.getByText(copy.example.demoData, { exact: true })).toBeVisible();
       await expect(table.getByRole("cell", { name: "13", exact: true })).toBeVisible();
-      await expect(main.getByText(/^Denne uka: 13 enheter i restordre, hver til 1,00 kr\./)).toBeVisible();
+      await expect(main.getByText(/^Denne uka: 13 enheter i restordre, hver til 1,00\skr\./)).toBeVisible();
       // «enheter», never the word for beer.
       const text = (await main.innerText()).toLowerCase();
       expect(text).toContain("enheter");

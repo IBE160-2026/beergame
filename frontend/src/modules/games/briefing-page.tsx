@@ -113,7 +113,7 @@ function WorkedWeek({ costLine }: { costLine: string }) {
   const ex = copy.example;
   return (
     <figure className="m-0">
-      <table className="w-full border-collapse text-left text-table-cell text-ink lg:text-table-cell-laptop">
+      <table className="w-full border-collapse text-left text-table-cell leading-snug text-ink lg:text-table-cell-laptop">
         <caption className="mb-2 text-left text-label font-semibold text-ink">{ex.caption}</caption>
         <thead>
           <tr className="border-b border-axis">
@@ -135,7 +135,7 @@ function WorkedWeek({ costLine }: { costLine: string }) {
                 {row.term}
               </th>
               <td className="py-2 pr-3 text-right font-bold tabular-nums lining-nums">{row.value}</td>
-              <td className="py-2 leading-snug text-ink-secondary">{row.meaning}</td>
+              <td className="py-2 text-ink-secondary">{row.meaning}</td>
             </tr>
           ))}
         </tbody>

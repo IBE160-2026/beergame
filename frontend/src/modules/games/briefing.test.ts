@@ -40,10 +40,10 @@ describe("briefing", () => {
 
   it("writes the game's own rates in Norwegian", () => {
     expect(ratesLine({ holding_cost: "0.75", backorder_cost: "2" })).toBe(
-      "Hver enhet på lager koster 0,75 kr per uke. Hver enhet i restordre koster 2,00 kr per uke.",
+      "Hver enhet på lager koster 0,75 kr per uke. Hver enhet i restordre koster 2,00 kr per uke.",
     );
     expect(exampleCostLine({ backorder_cost: "2" })).toBe(
-      "Denne uka: 13 enheter i restordre, hver til 2,00 kr. Lager 0 gir ingen lagerkostnad.",
+      "Denne uka: 13 enheter i restordre, hver til 2,00 kr. Lager 0 gir ingen lagerkostnad.",
     );
   });
 
