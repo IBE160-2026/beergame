@@ -2,7 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 
 import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
-import { myGameKey, startingTaskKey } from "@/modules/games/api";
+import { myGameKey, playKey, startingTaskKey } from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
 import {
   allocationKey,
@@ -37,6 +37,7 @@ const ALL = [
   classSessionsKey("c1"),
   myGameKey("g1"),
   startingTaskKey("g1"),
+  playKey("g1"),
   myGameKey("g2"),
 ] as const;
 
@@ -52,6 +53,7 @@ describe("topicKeys", () => {
       // `classesKey` is ["classes"]: the Class detail and list pages read again too.
       myGameKey("g1"),
       startingTaskKey("g1"),
+      playKey("g1"),
       myGameKey("g2"),
     ]);
   });
@@ -65,8 +67,12 @@ describe("topicKeys", () => {
     ]);
   });
 
-  it("maps game:<id> to that game and what hangs under it", () => {
-    expect(invalidated({ topic: "game", id: "g1", version: 4 }, ALL)).toEqual([myGameKey("g1"), startingTaskKey("g1")]);
+  it("maps game:<id> to that game and what hangs under it, the play envelope too", () => {
+    expect(invalidated({ topic: "game", id: "g1", version: 4 }, ALL)).toEqual([
+      myGameKey("g1"),
+      startingTaskKey("g1"),
+      playKey("g1"),
+    ]);
   });
 
   it("maps an unknown topic to nothing", () => {

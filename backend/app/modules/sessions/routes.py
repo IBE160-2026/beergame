@@ -42,6 +42,7 @@ from app.modules.sessions.schemas import (
     LabHourIn,
     LabHourOut,
     LecturerOverviewOut,
+    PlayOut,
     SeatChoiceIn,
     SeatChoiceOut,
     SettingsCheckIn,
@@ -585,6 +586,30 @@ async def get_my_game(
     date. Any other game, one that does not exist and an id that is not one all answer the same
     403 `forbidden`, which never says whether the game exists (FR-5)."""
     found = await service.student_game_of(user, game_id)
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/me/games/{game_id}/play",
+    response_model=PlayOut,
+    responses=documented(401, 403, 409),
+    operation_id="getMyGamePlay",
+)
+async def get_my_game_play(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.read_own"))],
+) -> Response:
+    """The play screen's one envelope (Story 6.6, AD-3): `seat_state`, what the Student's own Seat
+    sees in the open Week (numbers and Roles only), `table_status`, who sits where, and the
+    server's clock. Never the number of Weeks, future demand, another Seat's numbers or a
+    reference Order (FR-14, FR-23). 409 `game_not_running` before the start and after the end;
+    any other game answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.student_play_of(user, game_id)
+    except service.GameNotRunning:
+        return error_response(409, "game_not_running", "The game is not running.")
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))

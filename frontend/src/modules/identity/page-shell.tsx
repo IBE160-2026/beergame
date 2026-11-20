@@ -25,6 +25,8 @@ export function PageShell({
   onRetry,
   updatedAt,
   crumbs,
+  header,
+  skeleton,
   children,
 }: {
   user?: SessionUser;
@@ -34,6 +36,10 @@ export function PageShell({
   phase?: PagePhase;
   onRetry?: () => void;
   updatedAt?: number;
+  /** Stands in for the plain h1 (the play screen's Topplinje); `title` still names the tab. */
+  header?: ReactNode;
+  /** The Skjelett's rows and columns, when the page's real table is known (UX-DR58). */
+  skeleton?: { rows: number; columns: number };
   children?: ReactNode;
 }) {
   const ready = phase === "ready";
@@ -48,7 +54,7 @@ export function PageShell({
         <ConnectionLine pageError={phase === "failed"} onRetry={onRetry} updatedAt={updatedAt} />
         {phase === "loading" || phase === "slow" ? (
           <>
-            <Skeleton />
+            <Skeleton rows={skeleton?.rows} columns={skeleton?.columns} />
             <LoadingNote visible={phase === "slow"} />
           </>
         ) : null}
@@ -57,7 +63,8 @@ export function PageShell({
             <Breadcrumb items={crumbs} />
           </div>
         ) : null}
-        {ready && title ? <h1 className="text-title-phone text-ink [overflow-wrap:break-word] lg:text-title-page">{title}</h1> : null}
+        {ready && header ? header : null}
+        {ready && title && !header ? <h1 className="text-title-phone text-ink [overflow-wrap:break-word] lg:text-title-page">{title}</h1> : null}
         {ready ? children : null}
       </main>
     </div>

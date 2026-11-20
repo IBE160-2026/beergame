@@ -150,6 +150,7 @@ from app.modules.sessions.schemas import (
     NextDate,
     NextDeadline,
     OfferedEffortLevelOut,
+    PlayOut,
     ReplacedLevelOut,
     SeatChoiceGameOut,
     SeatChoiceIn,
@@ -163,6 +164,7 @@ from app.modules.sessions.schemas import (
     StepOut,
     StudentGameOut,
     TableSeatOut,
+    TableStatusOut,
     WaitingClass,
     WaitingReason,
 )
@@ -1277,6 +1279,42 @@ async def student_game_of(user: authz.Principal, game_id: str) -> StudentGameOut
         found, row = own
         done = await progress.steps_of(s, user.id, [row["id"]])
         return await _game_out(s, user.id, found, row, done.get(row["id"], set()))
+
+
+class GameNotRunning(Exception):
+    """The play screen's envelope asked for a game that is not running (Story 6.6)."""
+
+
+async def student_play_of(user: authz.Principal, game_id: str) -> PlayOut | None:
+    """The play screen's envelope (Story 6.6, AD-3) for the Student's own Class game, under
+    `student_game_of`'s checks (None for every other id alike): what the Student's own Seat sees
+    in the open Week, `games.views.seat_state` and nothing else about the numbers, and who sits
+    where, `games.views.table_status`. Raises `GameNotRunning` unless the game is running (or
+    playing out)."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+        if own is None:
+            return None
+        found, row = own
+        play = await games_service.play_status(s, found.game_id)
+        if play.status != "running":
+            raise GameNotRunning
+        table = await games_service.table_status(
+            s, found.game_id, user.id, _names_in(row["class_id"])
+        )
+        state = await games_service.seat_state(str(found.game_id), found.role, play.week)
+        now = await games_service.database_now(s)
+    return PlayOut(
+        seat_state=state,
+        table_status=TableStatusOut(
+            seats=[
+                TableSeatOut(role=seat.role, holder=seat.holder, name=seat.name, mine=seat.mine)
+                for seat in table.seats
+            ]
+        ),
+        server_now=now,
+        next_change_at=None,
+    )
 
 
 class StartRefused(Exception):

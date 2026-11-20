@@ -89,6 +89,7 @@ __all__ = [
     "class_sessions_with_unstarted_games",
     "complete_running_games",
     "create_batch",
+    "database_now",
     "games_charged_to",
     "scope_of",
     "own_game",
@@ -247,6 +248,11 @@ async def play_status(session: AsyncSession, game_id: uuid.UUID) -> PlayStatus:
     if lifecycle in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT):
         return PlayStatus("running", await repo.open_week(session, game_id))
     raise ValueError(f"unknown lifecycle {lifecycle!r}")
+
+
+async def database_now(session: AsyncSession) -> datetime:
+    """The database clock at this statement: the clock every stored time is on (AD-20)."""
+    return await repo.clock_now(session)
 
 
 async def own_game(

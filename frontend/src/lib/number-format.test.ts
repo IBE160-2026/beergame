@@ -20,6 +20,23 @@ describe("formatNumber (UX-DR5)", () => {
     expect(formatNumber("100.00", { decimals: 2 })).toBe("100,00");
   });
 
+  it("writes kroner to two decimals with «kr» after a no-break space", () => {
+    expect(formatNumber("68.0000", { kroner: true })).toBe("68,00 kr");
+    expect(formatNumber("2266", { kroner: true })).toBe(`2${GROUP}266,00 kr`);
+    expect(formatNumber("-3.505", { kroner: true })).toBe(`${MINUS}3,51 kr`);
+    expect(formatNumber(0, { kroner: true })).toBe("0,00 kr");
+  });
+
+  it("drops the zero decimals in a narrow cell", () => {
+    expect(formatNumber("6.0000", { narrow: true })).toBe("6");
+    expect(formatNumber("6.5000", { narrow: true })).toBe("6,5");
+    expect(formatNumber("0.2500", { narrow: true })).toBe("0,25");
+    expect(formatNumber("-13.00", { narrow: true })).toBe(`${MINUS}13`);
+    expect(formatNumber("1234.0", { narrow: true })).toBe(`1${GROUP}234`);
+    expect(formatNumber("-0.00", { narrow: true })).toBe("0");
+    expect(formatNumber(12, { narrow: true })).toBe("12");
+  });
+
   it("writes no minus on zero and leaves text that is no number as it is", () => {
     expect(formatNumber("-0.00")).toBe("0,00");
     expect(formatNumber("abc")).toBe("abc");

@@ -166,9 +166,12 @@ class SeatState(SeatView):
     names, no number of Weeks, no future demand and no other Seat's state beyond the
     `neighbour_numbers` that Information visibility allows (empty until Story 5.16 / 7.x).
     Every number comes from `engine.seat_view` and `engine.seat_detail`; engine functions that
-    take a `SeatView` accept this model as it is."""
+    take a `SeatView` accept this model as it is.
 
-    schema_version: Literal[1] = 1
+    Version 2 (Story 6.6) adds `net_inventory` to the Week and to each `history` row, for the
+    play screen's Netto lager; a stored version-1 state reads as version 2."""
+
+    schema_version: Literal[2] = 2
     week: _Week
     incoming_order: _Count
     """This Week's incoming order; customer demand for the Retailer."""
@@ -178,6 +181,8 @@ class SeatState(SeatView):
     """Units ordered and not received, arrives soonest first, with their arrival Weeks."""
     overdue: _Count
     """Units the upstream Seat received an Order for but has not shipped yet."""
+    net_inventory: int
+    """Netto lager: inventory minus backlog."""
     position: int
     """Posisjon: inventory minus backlog plus the supply line."""
     cost_lines: tuple[CostLine, ...]
@@ -189,6 +194,33 @@ class SeatState(SeatView):
     min_order: _Count
     max_order: _Count
     preview: OrderPreview
+
+    @model_validator(mode="before")
+    @classmethod
+    def _upgrade_version_1(cls, data: Any) -> Any:
+        """A state stored as version 1 (a Decision log row's `state_seen` written before Story
+        6.6) reads as version 2: its `net_inventory`, on the Week and on each `history` row, is
+        the inventory minus the backlog it already holds. A version-1 object never held
+        `net_inventory`, so one that does is refused."""
+        if not isinstance(data, dict) or data.get("schema_version") != 1:
+            return data
+        if type(data["schema_version"]) is not int:
+            raise ValueError("schema_version must be a whole number")
+
+        def upgraded(values: Any) -> Any:
+            if not isinstance(values, dict):
+                return values
+            if "net_inventory" in values:
+                raise ValueError("schema_version 1 has no net_inventory")
+            inventory, backlog = values.get("inventory"), values.get("backlog")
+            if type(inventory) is not int or type(backlog) is not int:
+                return values  # incomplete or malformed: the field checks name what is wrong
+            return {**values, "net_inventory": inventory - backlog}
+
+        found = {**upgraded(data), "schema_version": 2}
+        if isinstance(data.get("history"), (list, tuple)):
+            found["history"] = [upgraded(row) for row in data["history"]]
+        return found
 
 
 class TurnOverview(BaseModel):

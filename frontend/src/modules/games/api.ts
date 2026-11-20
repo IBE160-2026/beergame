@@ -21,6 +21,23 @@ export function useMyGame(gameId: string) {
   });
 }
 
+/** The play screen's one envelope (Story 6.6): the Student's own Seat in the open Week
+ * (`seat_state`), who sits where (`table_status`) and the server's clock. */
+export type PlayEnvelope = components["schemas"]["PlayOut"];
+export type SeatState = PlayEnvelope["seat_state"];
+
+export const playKey = (id: string) => ["games", "mine", id, "play"] as const;
+
+/** `/api/me/games/{id}/play`, asked only while the game runs (`enabled`). */
+export function usePlay(gameId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: playKey(gameId),
+    queryFn: () => request(() => api.GET("/api/me/games/{game_id}/play", { params: { path: { game_id: gameId } } })),
+    enabled,
+    retry: false,
+  });
+}
+
 /** The Startoppgave (Story 6.3): the items in order, answered ones with their result. */
 export const startingTaskKey = (id: string) => ["games", "mine", id, "starting-task"] as const;
 

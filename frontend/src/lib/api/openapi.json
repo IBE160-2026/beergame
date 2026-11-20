@@ -1411,6 +1411,41 @@
         "title": "CopySourceOut",
         "type": "object"
       },
+      "CostLine": {
+        "additionalProperties": false,
+        "description": "One part of this Week's cost: units on the end-of-Week balance times the rate.",
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "holding",
+              "backorder"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "string"
+          },
+          "units": {
+            "minimum": 0.0,
+            "title": "Units",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "units",
+          "rate",
+          "amount"
+        ],
+        "title": "CostLine",
+        "type": "object"
+      },
       "DatesIn": {
         "additionalProperties": false,
         "description": "The four dates as the Lecturer set them, each an instant with its offset or None.",
@@ -2780,6 +2815,41 @@
         "title": "ManualRegistrationIn",
         "type": "object"
       },
+      "NeighbourNumber": {
+        "additionalProperties": false,
+        "description": "One number about a neighbouring Seat, labelled with its Role and the Week it refers to.",
+        "properties": {
+          "quantity": {
+            "enum": [
+              "inventory",
+              "backlog"
+            ],
+            "title": "Quantity",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "value": {
+            "minimum": 0.0,
+            "title": "Value",
+            "type": "integer"
+          },
+          "week": {
+            "minimum": 1.0,
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "role",
+          "week",
+          "quantity",
+          "value"
+        ],
+        "title": "NeighbourNumber",
+        "type": "object"
+      },
       "NewPasswordIn": {
         "properties": {
           "password": {
@@ -2940,6 +3010,33 @@
         "title": "OfferedEffortLevelOut",
         "type": "object"
       },
+      "OrderPreview": {
+        "additionalProperties": false,
+        "description": "Coefficients for the live Order preview (AD-10): with a typed Order x, the supply line\nbecomes `supply_line_base + x` and the position `position_base + x`; the Order reaches\ninventory in `order_arrival_week` if the upstream Seat ships it in full.",
+        "properties": {
+          "order_arrival_week": {
+            "minimum": 1.0,
+            "title": "Order Arrival Week",
+            "type": "integer"
+          },
+          "position_base": {
+            "title": "Position Base",
+            "type": "integer"
+          },
+          "supply_line_base": {
+            "minimum": 0.0,
+            "title": "Supply Line Base",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "order_arrival_week",
+          "supply_line_base",
+          "position_base"
+        ],
+        "title": "OrderPreview",
+        "type": "object"
+      },
       "PasswordResetIn": {
         "properties": {
           "email": {
@@ -2952,6 +3049,42 @@
           "email"
         ],
         "title": "PasswordResetIn",
+        "type": "object"
+      },
+      "PlayOut": {
+        "description": "The play screen's one envelope (Story 6.6, AD-3): what the Student's own Seat sees in the\nopen Week (`seat_state`, numbers and Roles only) and who sits where (`table_status`), with\nthe server's clock. Never the number of Weeks, future demand, another Seat's numbers or a\nreference Order (FR-14, FR-23).",
+        "properties": {
+          "next_change_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Change At"
+          },
+          "seat_state": {
+            "$ref": "#/components/schemas/SeatState"
+          },
+          "server_now": {
+            "format": "date-time",
+            "title": "Server Now",
+            "type": "string"
+          },
+          "table_status": {
+            "$ref": "#/components/schemas/TableStatusOut"
+          }
+        },
+        "required": [
+          "seat_state",
+          "table_status",
+          "server_now",
+          "next_change_at"
+        ],
+        "title": "PlayOut",
         "type": "object"
       },
       "RegistrationOut": {
@@ -3711,6 +3844,161 @@
         "title": "SeatRef",
         "type": "object"
       },
+      "SeatState": {
+        "additionalProperties": false,
+        "description": "What one Seat sees in one opened Week: the single information boundary (AD-3, FR-23).\n\nThe play screen, the LLM player's prompt and the Decision log (`state_seen`) all read this\nmodel, and a field is added here, never beside it. It holds numbers and Roles only: no\nnames, no number of Weeks, no future demand and no other Seat's state beyond the\n`neighbour_numbers` that Information visibility allows (empty until Story 5.16 / 7.x).\nEvery number comes from `engine.seat_view` and `engine.seat_detail`; engine functions that\ntake a `SeatView` accept this model as it is.\n\nVersion 2 (Story 6.6) adds `net_inventory` to the Week and to each `history` row, for the\nplay screen's Netto lager; a stored version-1 state reads as version 2.",
+        "properties": {
+          "backlog": {
+            "minimum": 0.0,
+            "title": "Backlog",
+            "type": "integer"
+          },
+          "cost_lines": {
+            "items": {
+              "$ref": "#/components/schemas/CostLine"
+            },
+            "title": "Cost Lines",
+            "type": "array"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/WeekValues"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "incoming_delivery": {
+            "minimum": 0.0,
+            "title": "Incoming Delivery",
+            "type": "integer"
+          },
+          "incoming_order": {
+            "minimum": 0.0,
+            "title": "Incoming Order",
+            "type": "integer"
+          },
+          "incoming_orders": {
+            "items": {
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "minItems": 1,
+            "title": "Incoming Orders",
+            "type": "array"
+          },
+          "inventory": {
+            "minimum": 0.0,
+            "title": "Inventory",
+            "type": "integer"
+          },
+          "max_order": {
+            "minimum": 0.0,
+            "title": "Max Order",
+            "type": "integer"
+          },
+          "min_order": {
+            "minimum": 0.0,
+            "title": "Min Order",
+            "type": "integer"
+          },
+          "neighbour_numbers": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/NeighbourNumber"
+            },
+            "title": "Neighbour Numbers",
+            "type": "array"
+          },
+          "net_inventory": {
+            "title": "Net Inventory",
+            "type": "integer"
+          },
+          "order_history": {
+            "items": {
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Order History",
+            "type": "array"
+          },
+          "overdue": {
+            "minimum": 0.0,
+            "title": "Overdue",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "preview": {
+            "$ref": "#/components/schemas/OrderPreview"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "schema_version": {
+            "const": 2,
+            "default": 2,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "shipped": {
+            "minimum": 0.0,
+            "title": "Shipped",
+            "type": "integer"
+          },
+          "supply_line": {
+            "minimum": 0.0,
+            "title": "Supply Line",
+            "type": "integer"
+          },
+          "supply_line_slots": {
+            "items": {
+              "$ref": "#/components/schemas/SupplyLineSlot"
+            },
+            "title": "Supply Line Slots",
+            "type": "array"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "week": {
+            "minimum": 1.0,
+            "title": "Week",
+            "type": "integer"
+          },
+          "week_cost": {
+            "title": "Week Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "inventory",
+          "backlog",
+          "incoming_orders",
+          "supply_line",
+          "order_history",
+          "week",
+          "incoming_order",
+          "incoming_delivery",
+          "shipped",
+          "supply_line_slots",
+          "overdue",
+          "net_inventory",
+          "position",
+          "cost_lines",
+          "week_cost",
+          "total_cost",
+          "history",
+          "min_order",
+          "max_order",
+          "preview"
+        ],
+        "title": "SeatState",
+        "type": "object"
+      },
       "SessionOut": {
         "properties": {
           "user": {
@@ -4246,6 +4534,38 @@
         "title": "SumTermOut",
         "type": "object"
       },
+      "SupplyLineSlot": {
+        "additionalProperties": false,
+        "description": "Units the Seat has ordered and not received, with the Week they can reach inventory.\n\n`ordered`: an Order the upstream Seat (or production, for the last Role) has not received\nyet; its arrival Week assumes the upstream Seat ships it in full. `in_transit` (shipping)\nand `in_production` (last Role) are goods on their way.",
+        "properties": {
+          "arrival_week": {
+            "minimum": 1.0,
+            "title": "Arrival Week",
+            "type": "integer"
+          },
+          "quantity": {
+            "minimum": 0.0,
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "stage": {
+            "enum": [
+              "ordered",
+              "in_transit",
+              "in_production"
+            ],
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "quantity",
+          "arrival_week"
+        ],
+        "title": "SupplyLineSlot",
+        "type": "object"
+      },
       "TableSeatOut": {
         "description": "A Seat of the Student's Class game (Story 6.1, FR-22, FR-34): its Role and who holds it,\na Student by name, any AI player as «KI-spiller» (`ai`, never which kind), or free.",
         "properties": {
@@ -4284,6 +4604,23 @@
           "mine"
         ],
         "title": "TableSeatOut",
+        "type": "object"
+      },
+      "TableStatusOut": {
+        "description": "Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers.",
+        "properties": {
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/TableSeatOut"
+            },
+            "title": "Seats",
+            "type": "array"
+          }
+        },
+        "required": [
+          "seats"
+        ],
+        "title": "TableStatusOut",
         "type": "object"
       },
       "UploadRow": {
@@ -4472,6 +4809,79 @@
           "sessions"
         ],
         "title": "WaitingClass",
+        "type": "object"
+      },
+      "WeekValues": {
+        "additionalProperties": false,
+        "description": "One earlier Week of the Seat, as it stood when its Order was placed.",
+        "properties": {
+          "backlog": {
+            "minimum": 0.0,
+            "title": "Backlog",
+            "type": "integer"
+          },
+          "cost": {
+            "title": "Cost",
+            "type": "string"
+          },
+          "incoming_delivery": {
+            "minimum": 0.0,
+            "title": "Incoming Delivery",
+            "type": "integer"
+          },
+          "incoming_order": {
+            "minimum": 0.0,
+            "title": "Incoming Order",
+            "type": "integer"
+          },
+          "inventory": {
+            "minimum": 0.0,
+            "title": "Inventory",
+            "type": "integer"
+          },
+          "net_inventory": {
+            "title": "Net Inventory",
+            "type": "integer"
+          },
+          "order": {
+            "minimum": 0.0,
+            "title": "Order",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "shipped": {
+            "minimum": 0.0,
+            "title": "Shipped",
+            "type": "integer"
+          },
+          "supply_line": {
+            "minimum": 0.0,
+            "title": "Supply Line",
+            "type": "integer"
+          },
+          "week": {
+            "minimum": 1.0,
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "incoming_order",
+          "incoming_delivery",
+          "shipped",
+          "inventory",
+          "backlog",
+          "net_inventory",
+          "supply_line",
+          "position",
+          "cost",
+          "order"
+        ],
+        "title": "WeekValues",
         "type": "object"
       }
     }
@@ -9429,6 +9839,79 @@
           }
         },
         "summary": "Get My Game",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/play": {
+      "get": {
+        "description": "The play screen's one envelope (Story 6.6, AD-3): `seat_state`, what the Student's own Seat\nsees in the open Week (numbers and Roles only), `table_status`, who sits where, and the\nserver's clock. Never the number of Weeks, future demand, another Seat's numbers or a\nreference Order (FR-14, FR-23). 409 `game_not_running` before the start and after the end;\nany other game answers 403 `forbidden` (FR-5).",
+        "operationId": "getMyGamePlay",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Game Play",
         "tags": [
           "sessions"
         ]

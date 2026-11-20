@@ -1,0 +1,244 @@
+{
+  "seat_state": {
+    "role": "wholesaler",
+    "inventory": 0,
+    "backlog": 20,
+    "incoming_orders": [
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      8,
+      12,
+      12,
+      10,
+      10
+    ],
+    "supply_line": 16,
+    "order_history": [
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      8
+    ],
+    "neighbour_numbers": [],
+    "schema_version": 2,
+    "week": 11,
+    "incoming_order": 10,
+    "incoming_delivery": 4,
+    "shipped": 4,
+    "supply_line_slots": [
+      {
+        "stage": "in_transit",
+        "quantity": 4,
+        "arrival_week": 12
+      },
+      {
+        "stage": "in_transit",
+        "quantity": 4,
+        "arrival_week": 13
+      },
+      {
+        "stage": "ordered",
+        "quantity": 8,
+        "arrival_week": 14
+      }
+    ],
+    "overdue": 0,
+    "net_inventory": -20,
+    "position": -4,
+    "cost_lines": [
+      {
+        "kind": "holding",
+        "units": 0,
+        "rate": "0.50",
+        "amount": "0.00"
+      },
+      {
+        "kind": "backorder",
+        "units": 20,
+        "rate": "1.00",
+        "amount": "20.00"
+      }
+    ],
+    "week_cost": "20.00",
+    "total_cost": "82.00",
+    "history": [
+      {
+        "week": 1,
+        "incoming_order": 4,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 12,
+        "backlog": 0,
+        "net_inventory": 12,
+        "supply_line": 12,
+        "position": 24,
+        "cost": "6.00",
+        "order": 4
+      },
+      {
+        "week": 2,
+        "incoming_order": 4,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 12,
+        "backlog": 0,
+        "net_inventory": 12,
+        "supply_line": 12,
+        "position": 24,
+        "cost": "6.00",
+        "order": 4
+      },
+      {
+        "week": 3,
+        "incoming_order": 4,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 12,
+        "backlog": 0,
+        "net_inventory": 12,
+        "supply_line": 12,
+        "position": 24,
+        "cost": "6.00",
+        "order": 4
+      },
+      {
+        "week": 4,
+        "incoming_order": 4,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 12,
+        "backlog": 0,
+        "net_inventory": 12,
+        "supply_line": 12,
+        "position": 24,
+        "cost": "6.00",
+        "order": 4
+      },
+      {
+        "week": 5,
+        "incoming_order": 4,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 12,
+        "backlog": 0,
+        "net_inventory": 12,
+        "supply_line": 12,
+        "position": 24,
+        "cost": "6.00",
+        "order": 4
+      },
+      {
+        "week": 6,
+        "incoming_order": 4,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 12,
+        "backlog": 0,
+        "net_inventory": 12,
+        "supply_line": 12,
+        "position": 24,
+        "cost": "6.00",
+        "order": 4
+      },
+      {
+        "week": 7,
+        "incoming_order": 8,
+        "incoming_delivery": 4,
+        "shipped": 8,
+        "inventory": 8,
+        "backlog": 0,
+        "net_inventory": 8,
+        "supply_line": 12,
+        "position": 20,
+        "cost": "4.00",
+        "order": 4
+      },
+      {
+        "week": 8,
+        "incoming_order": 12,
+        "incoming_delivery": 4,
+        "shipped": 12,
+        "inventory": 0,
+        "backlog": 0,
+        "net_inventory": 0,
+        "supply_line": 12,
+        "position": 12,
+        "cost": "0.00",
+        "order": 4
+      },
+      {
+        "week": 9,
+        "incoming_order": 12,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 0,
+        "backlog": 8,
+        "net_inventory": -8,
+        "supply_line": 12,
+        "position": 4,
+        "cost": "8.00",
+        "order": 4
+      },
+      {
+        "week": 10,
+        "incoming_order": 10,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 0,
+        "backlog": 14,
+        "net_inventory": -14,
+        "supply_line": 12,
+        "position": -2,
+        "cost": "14.00",
+        "order": 8
+      }
+    ],
+    "min_order": 0,
+    "max_order": 999,
+    "preview": {
+      "order_arrival_week": 15,
+      "supply_line_base": 16,
+      "position_base": -4
+    }
+  },
+  "table_status": {
+    "seats": [
+      {
+        "role": "factory",
+        "holder": "ai",
+        "name": null,
+        "mine": false
+      },
+      {
+        "role": "distributor",
+        "holder": "student",
+        "name": "Jonas Berg",
+        "mine": false
+      },
+      {
+        "role": "wholesaler",
+        "holder": "student",
+        "name": "Demo Student",
+        "mine": true
+      },
+      {
+        "role": "retailer",
+        "holder": "ai",
+        "name": null,
+        "mine": false
+      }
+    ]
+  },
+  "server_now": "2026-11-20T12:00:00Z",
+  "next_change_at": null
+}

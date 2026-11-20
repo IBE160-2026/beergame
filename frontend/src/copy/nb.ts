@@ -1481,6 +1481,21 @@ export const nb = {
       week: (week: number) => `Uke ${week}`,
       roleGame: (role: string, number: number) => `${role}, Spill ${number}`,
       finished: "Spillet er ferdig.",
+      /** The week table (Story 6.6, DESIGN.md → Graf over tabell, UX-DR17, UX-DR18). The region
+       * name, «Sveip for tidligere uker», «Din ordre» and «Kost, kr» are the spine's; the label for
+       * known arrivals is [ASSUMPTION] draft copy (EXPERIENCE.md gives no string). */
+      table: {
+        region: "Graf og tabell",
+        swipe: "Sveip for tidligere uker",
+        order: "Din ordre",
+        cost: "Kost, kr",
+        /** Read with a known arrival's cell: «4, bestilt, ikke garantert». [ASSUMPTION] */
+        arrival: "bestilt, ikke garantert",
+        /** Read in the empty Din ordre cell at nå. [ASSUMPTION] */
+        noOrderYet: "ingen ordre ennå",
+        /** The visible key under the table. [ASSUMPTION] */
+        arrivalKey: "Tall i ramme: bestilt, ikke garantert.",
+      },
     },
   },
 

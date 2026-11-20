@@ -1,6 +1,8 @@
 import { type Browser, expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
+import week1 from "../src/modules/games/fixtures/play-week-1.json";
+import week11 from "../src/modules/games/fixtures/play-week-11.json";
 import { DEMO_PASSWORD, loginByApi } from "./support/auth";
 import { expectAccessible, freshClass, lecturerPage, test } from "./support/classes";
 
@@ -76,6 +78,10 @@ async function withGame(page: Page, state: State, refusal?: { status: number; co
     await route.fulfill({ response, json: { items: [item] } });
   });
   await page.route(`**/api/me/games/${GAME_ID}`, (route) => route.fulfill({ json: game(state) }));
+  // The play envelope (Story 6.6) of the running game, in its open Week: Uke 1 or Uke 11.
+  await page.route(`**/api/me/games/${GAME_ID}/play`, (route) =>
+    route.fulfill({ json: state.week === 11 ? week11 : week1 }),
+  );
   await page.route(`**/api/me/games/${GAME_ID}/start`, (route) => {
     presses.push(1);
     if (refusal) {
@@ -155,13 +161,13 @@ test("a refused start says why beside the button and stays on Hjem", async ({ pa
 test("a running game's play route and Hjem lead to its open Week", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
   await loginByApi(page, "student");
-  await withGame(page, { status: "running", week: 3 });
+  await withGame(page, { status: "running", week: 11 });
   await page.goto("/hjem");
   const main = page.getByRole("main");
-  const toWeek = main.getByRole("link", { name: start.toWeek(3) });
+  const toWeek = main.getByRole("link", { name: start.toWeek(11) });
   await expect(toWeek).toHaveClass(/(^|\s)bg-ink(\s|$)/);
   await toWeek.click();
-  await expect(main.getByRole("heading", { level: 1 })).toHaveText(play.week(3));
+  await expect(main.getByRole("heading", { level: 1 })).toHaveText(play.week(11));
 });
 
 test("a running game this Student has not been briefed on shows «Les reglene» on the play route", async ({ page }) => {

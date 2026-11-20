@@ -274,7 +274,8 @@ def test_detail_agrees_with_the_pipelines_in_every_week(
             assert arrivals == sorted(arrivals) and min(arrivals, default=week + 1) > week
             upstream_backlog = 0 if role == last else states[week - 1].seats[index + 1].backlog
             assert detail.overdue == upstream_backlog
-            assert detail.position == seat.inventory - seat.backlog + view.supply_line
+            assert detail.net_inventory == seat.inventory - seat.backlog
+            assert detail.position == detail.net_inventory + view.supply_line
             assert detail.preview.supply_line_base == view.supply_line
             assert detail.preview.position_base == detail.position
             goods = production_delay if role == last else shipping_delay
@@ -285,6 +286,7 @@ def test_detail_agrees_with_the_pipelines_in_every_week(
             assert [row.week for row in detail.history] == list(range(1, week))
             for row, earlier in zip(detail.history, states[: week - 1], strict=True):
                 assert row.inventory == earlier.seat(role).inventory
+                assert row.net_inventory == row.inventory - row.backlog
                 assert row.cost == earlier.seat(role).cost
                 past = seat_detail(settings, states[: row.week], orders[: row.week - 1], role)
                 assert (row.supply_line, row.position) == (

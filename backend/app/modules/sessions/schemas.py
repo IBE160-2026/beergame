@@ -10,7 +10,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
 
 from app.engine import GameSettings
 from app.engine.settings import Role
-from app.modules.games.service import Lifecycle
+from app.modules.games.service import Lifecycle, SeatState
 
 
 class AiMode(StrEnum):
@@ -397,6 +397,28 @@ class StudentGameOut(BaseModel):
     `running` (also while it plays out), or `finished`."""
     week: int | None
     """The open Week while `running`, else None. Never the number of Weeks (FR-14)."""
+
+
+class TableStatusOut(BaseModel):
+    """Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers."""
+
+    seats: list[TableSeatOut]
+
+
+class PlayOut(BaseModel):
+    """The play screen's one envelope (Story 6.6, AD-3): what the Student's own Seat sees in the
+    open Week (`seat_state`, numbers and Roles only) and who sits where (`table_status`), with
+    the server's clock. Never the number of Weeks, future demand, another Seat's numbers or a
+    reference Order (FR-14, FR-23)."""
+
+    seat_state: SeatState
+    table_status: TableStatusOut
+    server_now: AwareDatetime
+    """The database clock when the envelope was read, the clock every stored time is on (AD-20):
+    durations are counted from it, never from the browser's clock."""
+    next_change_at: AwareDatetime | None
+    """The nearest time at which the envelope changes by time alone; None while nothing is due
+    (Story 6.14 adds the due times)."""
 
 
 StegeneStep = Literal["class_game", "debrief", "quiz", "replay", "test", "report"]

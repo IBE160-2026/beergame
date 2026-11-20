@@ -160,6 +160,8 @@ class WeekValues(BaseModel):
     shipped: Count
     inventory: Count
     backlog: Count
+    net_inventory: int
+    """Netto lager: inventory minus backlog (FR-23)."""
     supply_line: Count
     position: int
     cost: Money
@@ -190,6 +192,8 @@ class SeatDetail(BaseModel):
     supply_line_slots: tuple[SupplyLineSlot, ...]
     overdue: Count
     """Units ordered that the upstream Seat received but has not shipped (its backlog)."""
+    net_inventory: int
+    """Netto lager: inventory minus backlog (FR-23)."""
     position: int
     """Inventory minus backlog plus the supply line (Posisjon, FR-23)."""
     cost_lines: tuple[CostLine, ...]
@@ -236,6 +240,7 @@ def seat_detail(
                     shipped=seat.shipped,
                     inventory=seat.inventory,
                     backlog=seat.backlog,
+                    net_inventory=seat.inventory - seat.backlog,
                     supply_line=supply_line,
                     position=position,
                     cost=seat.cost,
@@ -264,6 +269,7 @@ def seat_detail(
         shipped=now.shipped,
         supply_line_slots=slots,
         overdue=supply_line - sum(slot.quantity for slot in slots),
+        net_inventory=now.inventory - now.backlog,
         position=position,
         cost_lines=(
             CostLine(

@@ -1,0 +1,71 @@
+"""`SeatState` version 2 (Story 6.6): `net_inventory` on the Week and on each `history` row. A
+state stored as version 1 (a Decision log row's `state_seen` written before it) reads as version 2
+with the same numbers, so the finished-game check still finds it equal to what the Seat saw."""
+
+import pytest
+from pydantic import ValidationError
+
+from app.engine import GameSettings, Role
+from app.modules.games.checks import _decision_log
+from app.modules.games.schemas import SeatState
+from app.modules.games.views import build_seat_state
+from tests.engine.test_view import play, stepped
+
+
+def week_6() -> tuple[GameSettings, list, list]:
+    settings = GameSettings()
+    states, orders = play(settings, 6, stepped)
+    return settings, states, orders
+
+
+def as_version_1(state: SeatState) -> dict:
+    stored = state.model_dump(mode="json")
+    stored["schema_version"] = 1
+    del stored["net_inventory"]
+    for row in stored["history"]:
+        del row["net_inventory"]
+    return stored
+
+
+def test_a_version_1_state_reads_as_version_2_with_the_same_numbers():
+    settings, states, orders = week_6()
+    for role in settings.roles:
+        state = build_seat_state(settings, states, orders[:5], role)
+        assert state.schema_version == 2
+        assert state.net_inventory == state.inventory - state.backlog
+        assert SeatState.model_validate(as_version_1(state)) == state
+
+
+def test_the_finished_game_check_accepts_a_version_1_row():
+    settings, states, orders = week_6()
+    state = build_seat_state(settings, states[:4], orders[:3], Role.WHOLESALER)
+    row = {"week": 4, "role": "wholesaler", "state_seen": as_version_1(state)}
+    assert _decision_log(settings, states, orders, [row]) == []
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda s: s.update(net_inventory=0),  # version 1 never held it
+        lambda s: s["history"][0].update(net_inventory=0),
+        lambda s: s.update(schema_version=True),  # not a whole number
+        lambda s: s.update(schema_version=1.0),
+        lambda s: s.update(schema_version=3),
+        lambda s: s.update(inventory="12"),  # malformed: the field check names it
+        lambda s: s["history"].append("not a row"),
+    ],
+)
+def test_a_malformed_stored_state_is_refused(change):
+    settings, states, orders = week_6()
+    stored = as_version_1(build_seat_state(settings, states, orders[:5], "retailer"))
+    change(stored)
+    with pytest.raises(ValidationError):
+        SeatState.model_validate(stored)
+
+
+def test_a_version_2_state_without_net_inventory_is_refused():
+    settings, states, orders = week_6()
+    stored = build_seat_state(settings, states, orders[:5], "factory").model_dump(mode="json")
+    del stored["net_inventory"]
+    with pytest.raises(ValidationError):
+        SeatState.model_validate(stored)

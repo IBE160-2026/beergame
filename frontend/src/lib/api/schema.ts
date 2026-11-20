@@ -1450,6 +1450,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/games/{game_id}/play": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Game Play
+         * @description The play screen's one envelope (Story 6.6, AD-3): `seat_state`, what the Student's own Seat
+         *     sees in the open Week (numbers and Roles only), `table_status`, who sits where, and the
+         *     server's clock. Never the number of Weeks, future demand, another Seat's numbers or a
+         *     reference Order (FR-14, FR-23). 409 `game_not_running` before the start and after the end;
+         *     any other game answers 403 `forbidden` (FR-5).
+         */
+        get: operations["getMyGamePlay"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/games/{game_id}/start": {
         parameters: {
             query?: never;
@@ -2145,6 +2169,23 @@ export interface components {
             start_at: string | null;
         };
         /**
+         * CostLine
+         * @description One part of this Week's cost: units on the end-of-Week balance times the rate.
+         */
+        CostLine: {
+            /** Amount */
+            amount: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "holding" | "backorder";
+            /** Rate */
+            rate: string;
+            /** Units */
+            units: number;
+        };
+        /**
          * DatesIn
          * @description The four dates as the Lecturer set them, each an instant with its offset or None.
          */
@@ -2796,6 +2837,22 @@ export interface components {
             roster_entry_id?: string | null;
             upload_row?: components["schemas"]["UploadRow"] | null;
         };
+        /**
+         * NeighbourNumber
+         * @description One number about a neighbouring Seat, labelled with its Role and the Week it refers to.
+         */
+        NeighbourNumber: {
+            /**
+             * Quantity
+             * @enum {string}
+             */
+            quantity: "inventory" | "backlog";
+            role: components["schemas"]["Role"];
+            /** Value */
+            value: number;
+            /** Week */
+            week: number;
+        };
         /** NewPasswordIn */
         NewPasswordIn: {
             /** Password */
@@ -2862,10 +2919,42 @@ export interface components {
             /** Time Per Order Median S */
             time_per_order_median_s: string | null;
         };
+        /**
+         * OrderPreview
+         * @description Coefficients for the live Order preview (AD-10): with a typed Order x, the supply line
+         *     becomes `supply_line_base + x` and the position `position_base + x`; the Order reaches
+         *     inventory in `order_arrival_week` if the upstream Seat ships it in full.
+         */
+        OrderPreview: {
+            /** Order Arrival Week */
+            order_arrival_week: number;
+            /** Position Base */
+            position_base: number;
+            /** Supply Line Base */
+            supply_line_base: number;
+        };
         /** PasswordResetIn */
         PasswordResetIn: {
             /** Email */
             email: string;
+        };
+        /**
+         * PlayOut
+         * @description The play screen's one envelope (Story 6.6, AD-3): what the Student's own Seat sees in the
+         *     open Week (`seat_state`, numbers and Roles only) and who sits where (`table_status`), with
+         *     the server's clock. Never the number of Weeks, future demand, another Seat's numbers or a
+         *     reference Order (FR-14, FR-23).
+         */
+        PlayOut: {
+            /** Next Change At */
+            next_change_at: string | null;
+            seat_state: components["schemas"]["SeatState"];
+            /**
+             * Server Now
+             * Format: date-time
+             */
+            server_now: string;
+            table_status: components["schemas"]["TableStatusOut"];
         };
         /**
          * RegistrationOut
@@ -3215,6 +3304,73 @@ export interface components {
             game_number: number;
             role: components["schemas"]["Role"];
         };
+        /**
+         * SeatState
+         * @description What one Seat sees in one opened Week: the single information boundary (AD-3, FR-23).
+         *
+         *     The play screen, the LLM player's prompt and the Decision log (`state_seen`) all read this
+         *     model, and a field is added here, never beside it. It holds numbers and Roles only: no
+         *     names, no number of Weeks, no future demand and no other Seat's state beyond the
+         *     `neighbour_numbers` that Information visibility allows (empty until Story 5.16 / 7.x).
+         *     Every number comes from `engine.seat_view` and `engine.seat_detail`; engine functions that
+         *     take a `SeatView` accept this model as it is.
+         *
+         *     Version 2 (Story 6.6) adds `net_inventory` to the Week and to each `history` row, for the
+         *     play screen's Netto lager; a stored version-1 state reads as version 2.
+         */
+        SeatState: {
+            /** Backlog */
+            backlog: number;
+            /** Cost Lines */
+            cost_lines: components["schemas"]["CostLine"][];
+            /** History */
+            history: components["schemas"]["WeekValues"][];
+            /** Incoming Delivery */
+            incoming_delivery: number;
+            /** Incoming Order */
+            incoming_order: number;
+            /** Incoming Orders */
+            incoming_orders: number[];
+            /** Inventory */
+            inventory: number;
+            /** Max Order */
+            max_order: number;
+            /** Min Order */
+            min_order: number;
+            /**
+             * Neighbour Numbers
+             * @default []
+             */
+            neighbour_numbers: components["schemas"]["NeighbourNumber"][];
+            /** Net Inventory */
+            net_inventory: number;
+            /** Order History */
+            order_history: number[];
+            /** Overdue */
+            overdue: number;
+            /** Position */
+            position: number;
+            preview: components["schemas"]["OrderPreview"];
+            role: components["schemas"]["Role"];
+            /**
+             * Schema Version
+             * @default 2
+             * @constant
+             */
+            schema_version: 2;
+            /** Shipped */
+            shipped: number;
+            /** Supply Line */
+            supply_line: number;
+            /** Supply Line Slots */
+            supply_line_slots: components["schemas"]["SupplyLineSlot"][];
+            /** Total Cost */
+            total_cost: string;
+            /** Week */
+            week: number;
+            /** Week Cost */
+            week_cost: string;
+        };
         /** SessionOut */
         SessionOut: {
             user: components["schemas"]["UserOut"];
@@ -3447,6 +3603,25 @@ export interface components {
             value: number;
         };
         /**
+         * SupplyLineSlot
+         * @description Units the Seat has ordered and not received, with the Week they can reach inventory.
+         *
+         *     `ordered`: an Order the upstream Seat (or production, for the last Role) has not received
+         *     yet; its arrival Week assumes the upstream Seat ships it in full. `in_transit` (shipping)
+         *     and `in_production` (last Role) are goods on their way.
+         */
+        SupplyLineSlot: {
+            /** Arrival Week */
+            arrival_week: number;
+            /** Quantity */
+            quantity: number;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "ordered" | "in_transit" | "in_production";
+        };
+        /**
          * TableSeatOut
          * @description A Seat of the Student's Class game (Story 6.1, FR-22, FR-34): its Role and who holds it,
          *     a Student by name, any AI player as «KI-spiller» (`ai`, never which kind), or free.
@@ -3462,6 +3637,14 @@ export interface components {
             /** Name */
             name: string | null;
             role: components["schemas"]["Role"];
+        };
+        /**
+         * TableStatusOut
+         * @description Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers.
+         */
+        TableStatusOut: {
+            /** Seats */
+            seats: components["schemas"]["TableSeatOut"][];
         };
         /**
          * UploadRow
@@ -3547,6 +3730,34 @@ export interface components {
             class_name: string;
             /** Sessions */
             sessions: components["schemas"]["SessionRef"][];
+        };
+        /**
+         * WeekValues
+         * @description One earlier Week of the Seat, as it stood when its Order was placed.
+         */
+        WeekValues: {
+            /** Backlog */
+            backlog: number;
+            /** Cost */
+            cost: string;
+            /** Incoming Delivery */
+            incoming_delivery: number;
+            /** Incoming Order */
+            incoming_order: number;
+            /** Inventory */
+            inventory: number;
+            /** Net Inventory */
+            net_inventory: number;
+            /** Order */
+            order: number;
+            /** Position */
+            position: number;
+            /** Shipped */
+            shipped: number;
+            /** Supply Line */
+            supply_line: number;
+            /** Week */
+            week: number;
         };
     };
     responses: never;
@@ -7300,6 +7511,64 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyGamePlay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
