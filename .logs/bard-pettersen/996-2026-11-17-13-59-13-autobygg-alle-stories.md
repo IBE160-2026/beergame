@@ -1745,3 +1745,25 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 128: beslutninger i Story 6.10.
+
+## Story 6.11: Skrive en ordre og se hvor den kommer fram (2026-11-20)
+
+### Oppgave
+Bygge Story 6.11 etter kjøreboka, og fjerne tekstmarkøren i ordrefeltet når det bare kan leses (Issue #128).
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-11-type-an-order-and-see-where-it-lands.md`.
+- **Commit f31ace1:** ordrefelt med − og + og validering, forhåndsvisning i tabellen med en tynn linje, og en boks i Kjedebåndet.
+- **Tester:**
+  - backend: 2705 tester (75 s);
+  - frontend: Vitest 631 og bygg;
+  - Playwright: 370 tester.
+- **Gjennomgang:** 33 lave funn. 7 ble rettet, og 1 er utsatt til 6.12.
+- **Visuell kontroll:** 30 skjermbilder i `screenshots/6.11/`. Ingen klare avvik.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 129: beslutninger i Story 6.11.
