@@ -16,6 +16,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "games.finish": frozenset({"game"}),
         "games.advance": frozenset({"game"}),
         "games.switch_to_rule_based": frozenset({"game"}),
+        # A Student opened a Guided Week (Story 6.10): only Class games take Students, so their
+        # Class session hears of it; the viewer's waiting status changes, and when the view
+        # completes the Week every Student of the Game sees the next one.
+        "games.view_week": frozenset({"game", "session", "user"}),
         # A Student moved or two swapped before the start (Story 5.10): only Class games take
         # Students, so their Class session hears of it, and each moved Student's pages reload.
         "games.move_seat": frozenset({"game", "session", "user"}),

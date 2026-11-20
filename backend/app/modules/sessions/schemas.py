@@ -405,13 +405,24 @@ class TableStatusOut(BaseModel):
     seats: list[TableSeatOut]
 
 
+class PlayTurnOut(BaseModel):
+    """The Student's own turn in the open Week (Story 6.10): whether it is a Guided Week, the
+    Seat's Order once placed (in a Guided Week the fixed Order, placed when the Week opened) and
+    whether the Student has opened the Guided Week. Never how many Guided Weeks there are."""
+
+    guided: bool
+    order: int | None
+    viewed: bool
+
+
 class PlayOut(BaseModel):
     """The play screen's one envelope (Story 6.6, AD-3): what the Student's own Seat sees in the
-    open Week (`seat_state`, numbers and Roles only) and who sits where (`table_status`), with
-    the server's clock. Never the number of Weeks, future demand, another Seat's numbers or a
-    reference Order (FR-14, FR-23)."""
+    open Week (`seat_state`, numbers and Roles only), the own turn (`turn`, Story 6.10) and who
+    sits where (`table_status`), with the server's clock. Never the number of Weeks, future
+    demand, another Seat's numbers or a reference Order (FR-14, FR-23)."""
 
     seat_state: SeatState
+    turn: PlayTurnOut
     table_status: TableStatusOut
     server_now: AwareDatetime
     """The database clock when the envelope was read, the clock every stored time is on (AD-20):

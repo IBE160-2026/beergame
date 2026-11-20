@@ -22,9 +22,19 @@ export function useMyGame(gameId: string) {
 }
 
 /** The play screen's one envelope (Story 6.6): the Student's own Seat in the open Week
- * (`seat_state`), who sits where (`table_status`) and the server's clock. */
+ * (`seat_state`), the own turn (`turn`, Story 6.10), who sits where (`table_status`) and the
+ * server's clock. */
 export type PlayEnvelope = components["schemas"]["PlayOut"];
 export type SeatState = PlayEnvelope["seat_state"];
+export type PlayTurn = PlayEnvelope["turn"];
+
+/** The Student has the Guided Week `week` on screen (Story 6.10): in a Guided Week that counts as
+ * their Order. A Week already viewed answers the same; one the game has left answers 409. */
+export function viewWeek(gameId: string, week: number) {
+  return request(() =>
+    api.POST("/api/me/games/{game_id}/weeks/{week}/view", { params: { path: { game_id: gameId, week } } }),
+  );
+}
 
 export const playKey = (id: string) => ["games", "mine", id, "play"] as const;
 

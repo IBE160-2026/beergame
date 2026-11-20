@@ -29,16 +29,23 @@ from tests.games.helpers import (
     play_week,
     query,
     seat_student,
+    view,
 )
 
 ROLES = ("retailer", "wholesaler", "distributor", "factory")
 SETTINGS = GameSettings(demand_seed=1)
 
 
+FREE = GameSettings(demand_seed=1, guided_weeks=0)
+"""The Game `started` plays by default: no Guided Weeks, so Week 1 already takes the Students'
+own Orders (in a Guided Week the order source places them, Story 6.10)."""
+
+
 async def started(*occupants: tuple[str, str | None], **settings) -> str:
     """A started Game whose Seats get `occupants` in chain order; every other Seat gets a
     Student, whose Orders the test places itself (Story 2.1: the order source places the
-    others' Orders when each Week opens)."""
+    others' Orders when each Week opens). No Guided Weeks unless `settings` names them."""
+    settings.setdefault("guided_weeks", 0)
     game_id = await commands.create("simulation", GameSettings(**settings), seed=1)
     students = list(ROLES[len(occupants) :])
     for role, (kind, policy_id) in zip(ROLES, occupants, strict=False):
@@ -96,7 +103,7 @@ async def test_an_order_writes_one_decision_log_row_with_the_state_seen(games_db
     seen = await service.seat_state(game_id, "retailer")
     turn = await service.open_turn(game_id, "retailer")
     with listening(games_db) as events:
-        placed = await commands.place_order(game_id, "retailer", 1, 4, "guided")
+        placed = await commands.place_order(game_id, "retailer", 1, 4, "student")
         received = events.drain()
     assert received == [{"topic": "game", "id": game_id, "version": 3}]
     assert (placed.week, placed.open_week, placed.lifecycle) == (1, 1, "running")
@@ -107,7 +114,7 @@ async def test_an_order_writes_one_decision_log_row_with_the_state_seen(games_db
         "retailer",
         1,
         4,
-        "guided",
+        "student",
         "none",
     )
     assert (row["occupant_kind"], row["reason"]) == ("student", "initial")
@@ -117,20 +124,20 @@ async def test_an_order_writes_one_decision_log_row_with_the_state_seen(games_db
     after = await service.open_turn(game_id, "retailer")
     assert after.ordered_at == row["ordered_at"] and row["ordered_at"] >= row["opened_at"]
     (log,) = await service.decision_log(game_id)
-    assert log.state_seen == seen and log.decided_by == "guided" and log.role == "retailer"
+    assert log.state_seen == seen and log.decided_by == "student" and log.role == "retailer"
 
 
 async def test_a_seat_id_works_like_a_role(games_db):
     game_id = await started()
     game = await service.get_game(game_id)
-    await commands.place_order(game_id, game.seats[3].id, 1, 4, "guided")
+    await commands.place_order(game_id, game.seats[3].id, 1, 4, "student")
     assert [row["role"] for row in log_rows(games_db, game_id)] == ["factory"]
 
 
 async def test_the_order_that_completes_the_week_advances_it_in_the_same_transaction(games_db):
     game_id = await started()
     for role in ROLES[:3]:
-        await commands.place_order(game_id, role, 1, 4, "guided")
+        await commands.place_order(game_id, role, 1, 4, "student")
     assert counts(games_db, game_id)[2:] == (1, 4, 3)
     statements: list[str] = []
     commits: list[bool] = []
@@ -141,7 +148,7 @@ async def test_the_order_that_completes_the_week_advances_it_in_the_same_transac
     event.listen(engine, "commit", commit)
     try:
         with listening(games_db) as events:
-            placed = await commands.place_order(game_id, "factory", 1, 4, "guided")
+            placed = await commands.place_order(game_id, "factory", 1, 4, "student")
             received = events.drain()
     finally:
         event.remove(engine, "before_cursor_execute", record)
@@ -160,8 +167,8 @@ async def test_the_order_that_completes_the_week_advances_it_in_the_same_transac
     stored = query(
         games_db, "SELECT state FROM game_weeks WHERE game_id = %s AND week = 2", (game_id,)
     )
-    first = initial_state(SETTINGS)
-    week_2 = advance(SETTINGS, first, dict.fromkeys(ROLES, 4))
+    first = initial_state(FREE)
+    week_2 = advance(FREE, first, dict.fromkeys(ROLES, 4))
     assert WeekState.model_validate(stored[0][0]) == week_2
     references = query(
         games_db,
@@ -174,7 +181,7 @@ async def test_the_order_that_completes_the_week_advances_it_in_the_same_transac
     )
     orders = [dict.fromkeys(ROLES, 4)]
     assert [r[0] for r in references] == [
-        rule_based.order(SETTINGS, seat_view(SETTINGS, [first, week_2], orders, role), rule)
+        rule_based.order(FREE, seat_view(FREE, [first, week_2], orders, role), rule)
         for role in ROLES
     ]
 
@@ -185,26 +192,23 @@ async def test_the_order_that_completes_the_week_advances_it_in_the_same_transac
     ids=["rule_based", "scripted"],
 )
 async def test_guided_weeks_take_only_the_guided_order_for_every_occupant(games_db, occupant):
-    """The Student's Guided Orders are refused unless guided; the order source places the
-    other Seats' Guided Orders."""
-    game_id = await started(("student", None), occupant, occupant, occupant)
+    """The order source places every Seat's Guided Order when the Week opens, the Student's
+    too (Story 6.10): a Student's own Order is refused, and the Student's view completes the
+    Week."""
+    game_id = await started(
+        ("student", None), occupant, occupant, occupant, guided_weeks=SETTINGS.guided_weeks
+    )
     for week in range(1, SETTINGS.guided_weeks + 1):
-        await assert_refused(
-            games_db,
-            game_id,
-            commands.place_order(game_id, "retailer", week, 5, "guided"),
-            "guided_order_required",
-            422,
-        )
-        for decided_by in ("rule_based", "scripted", "student", "llm"):
+        for order, decided_by in ((4, "guided"), (5, "guided"), (4, "student")):
             await assert_refused(
                 games_db,
                 game_id,
-                commands.place_order(game_id, "retailer", week, 4, decided_by),
-                "guided_order_required",
-                422,
+                commands.place_order(game_id, "retailer", week, order, decided_by),
+                "order_exists",
+                409,
             )
-        await commands.place_order(game_id, "retailer", week, guided_order(SETTINGS), "guided")
+        assert counts(games_db, game_id)[4] == 4 * week  # every Seat has ordered: still open
+        await view(game_id, "retailer", week)
     rows = [r for r in log_rows(games_db, game_id) if r["week"] <= SETTINGS.guided_weeks]
     assert len(rows) == 4 * SETTINGS.guided_weeks
     assert {(r["order"], r["decided_by"]) for r in rows} == {(4, "guided")}
@@ -284,11 +288,11 @@ async def test_an_earlier_week_is_no_longer_open(games_db):
 
 async def test_a_second_order_is_refused_and_the_key_backs_it_up(games_db):
     game_id = await started()
-    await commands.place_order(game_id, "retailer", 1, 4, "guided")
+    await commands.place_order(game_id, "retailer", 1, 4, "student")
     await assert_refused(
         games_db,
         game_id,
-        commands.place_order(game_id, "retailer", 1, 4, "guided"),
+        commands.place_order(game_id, "retailer", 1, 4, "student"),
         "order_exists",
         409,
     )
@@ -413,10 +417,10 @@ async def test_the_last_two_orders_at_once_advance_exactly_once(games_db):
     for _ in range(5):
         game_id = await started()
         for role in ROLES[:2]:
-            await commands.place_order(game_id, role, 1, 4, "guided")
+            await commands.place_order(game_id, role, 1, 4, "student")
         results = await asyncio.gather(
-            commands.place_order(game_id, "distributor", 1, 4, "guided"),
-            commands.place_order(game_id, "factory", 1, 4, "guided"),
+            commands.place_order(game_id, "distributor", 1, 4, "student"),
+            commands.place_order(game_id, "factory", 1, 4, "student"),
         )
         assert sorted(r.open_week for r in results) == [1, 2]
         assert counts(games_db, game_id) == (6, 4, 2, 8, 4)
@@ -452,9 +456,18 @@ async def test_a_reader_never_sees_a_week_without_its_state(games_db):
 
 
 def test_week_complete_is_true_only_when_every_turn_has_an_order():
-    assert not rules.week_complete([])
-    assert not rules.week_complete([{"ordered_at": 1}, {"ordered_at": None}])
-    assert rules.week_complete([{"ordered_at": 1}, {"ordered_at": 2}])
+    def turn(ordered, kind="rule_based", viewed=None):
+        return {"ordered_at": ordered, "occupant_kind": kind, "viewed_at": viewed}
+
+    for guided in (False, True):
+        assert not rules.week_complete([], guided=guided)
+        assert not rules.week_complete([turn(1), turn(None)], guided=guided)
+        assert rules.week_complete([turn(1), turn(2)], guided=guided)
+    # Story 6.10: in a Guided Week a Student's Seat also needs its view.
+    unviewed = [turn(1), turn(2, "student")]
+    assert rules.week_complete(unviewed, guided=False)
+    assert not rules.week_complete(unviewed, guided=True)
+    assert rules.week_complete([turn(1), turn(2, "student", viewed=3)], guided=True)
 
 
 async def test_play_to_end_matches_the_engine_only_game(games_db):
@@ -462,7 +475,7 @@ async def test_play_to_end_matches_the_engine_only_game(games_db):
     12-Week Game: past the Guided Weeks and the demand step; `test_sim.py` compares a whole
     Classic Game with the engine-only trace."""
     settings = SETTINGS.model_copy(update={"weeks": 12})
-    game_id = await started(weeks=settings.weeks)
+    game_id = await started(weeks=settings.weeks, guided_weeks=settings.guided_weeks)
     await play_to_end(game_id)
     rule = rule_based.parse_params(
         read_parameter_set("rule_based", rule_based.DEFAULT_SET_ID), rule_based.DEFAULT_SET_ID

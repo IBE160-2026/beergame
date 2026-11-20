@@ -7,7 +7,6 @@ running answers `game_not_running`; any other game is refused alike."""
 import uuid
 from datetime import datetime
 
-from app.engine import guided_order
 from app.engine.demand import series
 from app.engine.settings import GameSettings
 from app.modules.games import commands
@@ -66,13 +65,15 @@ async def running(klass: str, students: int = 4) -> tuple[str, str, dict[str, st
 
 
 async def played_to(game_id: str, roles: list[str], week: int) -> None:
-    """Every Student Seat orders until `week` is open: the guided Order in Guided Weeks, then
+    """Every Student Seat orders until `week` is open: views each Guided Week (Story 6.10), then
     Orders that differ by Role and Week."""
     settings = GameSettings()  # the Classic game the Class session froze
+    holders = {seat.role: seat.user_id for seat in (await games_service.get_game(game_id)).seats}
     for current in range(1, week):
         for index, role in enumerate(roles):
             if current <= settings.guided_weeks:
-                await commands.place_order(game_id, role, current, guided_order(settings), "guided")
+                # The guided Order was placed when the Week opened; the view completes it (6.10).
+                await commands.view_week(game_id, role, current, actor=holders[role])
             else:
                 await commands.place_order(game_id, role, current, 4 + index + current, "student")
 
@@ -86,7 +87,14 @@ async def test_the_envelope_is_the_own_seat_in_the_open_week_for_every_role(klas
         response = await play(who, game_id)
         assert response.status_code == 200
         body = response.json()
-        assert set(body) == {"seat_state", "table_status", "server_now", "next_change_at"}
+        assert set(body) == {
+            "seat_state",
+            "turn",
+            "table_status",
+            "server_now",
+            "next_change_at",
+        }
+        assert body["turn"] == {"guided": False, "order": None, "viewed": False}
         state = body["seat_state"]
         # The Seat's own state in the open Week, exactly as the one read model builds it.
         expected = await games_service.seat_state(game_id, role)

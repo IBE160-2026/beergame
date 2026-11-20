@@ -385,12 +385,40 @@ async def turn(
     return result.mappings().one_or_none()
 
 
-async def week_turns(session: AsyncSession, game_id: uuid.UUID, week: int) -> list[RowMapping]:
-    """The turns of every Seat in `week`."""
+async def week_turns_with_occupant(
+    session: AsyncSession, game_id: uuid.UUID, week: int
+) -> list[RowMapping]:
+    """The turns of every Seat in `week`, each with `occupant_kind` and `user_id` of the
+    occupancy row in force in that Week (`occupancy_in_force`), for `rules.week_complete`."""
+    in_force = (
+        select(seat_occupancy.c.seat_id, seat_occupancy.c.occupant_kind, seat_occupancy.c.user_id)
+        .where(
+            seat_occupancy.c.from_week <= week,
+            seat_occupancy.c.seat_id.in_(select(seats.c.id).where(seats.c.game_id == game_id)),
+        )
+        .ext(distinct_on(seat_occupancy.c.seat_id))
+        .order_by(
+            seat_occupancy.c.seat_id, seat_occupancy.c.from_week.desc(), seat_occupancy.c.id.desc()
+        )
+        .subquery()
+    )
     result = await session.execute(
-        select(seat_turns).where(seat_turns.c.game_id == game_id, seat_turns.c.week == week)
+        select(seat_turns, in_force.c.occupant_kind, in_force.c.user_id)
+        .select_from(seat_turns.outerjoin(in_force, in_force.c.seat_id == seat_turns.c.seat_id))
+        .where(seat_turns.c.game_id == game_id, seat_turns.c.week == week)
     )
     return list(result.mappings())
+
+
+async def set_viewed_at(session: AsyncSession, turn_id: uuid.UUID) -> Any:
+    """Mark the turn as viewed at the transaction's `now()`; returns that time."""
+    result = await session.execute(
+        update(seat_turns)
+        .where(seat_turns.c.id == turn_id)
+        .values(viewed_at=func.now())
+        .returning(seat_turns.c.viewed_at)
+    )
+    return result.scalar_one()
 
 
 async def set_ordered_at(session: AsyncSession, turn_id: uuid.UUID) -> Any:
@@ -430,6 +458,20 @@ async def has_seat_week(
         .limit(1)
     )
     return result.first() is not None
+
+
+async def seat_week_order(
+    session: AsyncSession, game_id: uuid.UUID, week: int, seat_id: uuid.UUID
+) -> int | None:
+    """The Seat's Order in `week`, or None before it has ordered."""
+    result = await session.execute(
+        select(seat_weeks.c.order).where(
+            seat_weeks.c.game_id == game_id,
+            seat_weeks.c.week == week,
+            seat_weeks.c.seat_id == seat_id,
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 async def insert_seat_week(session: AsyncSession, values: dict[str, Any]) -> None:

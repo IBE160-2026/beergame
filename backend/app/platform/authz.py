@@ -105,6 +105,9 @@ POLICIES: dict[str, frozenset[str]] = {
     "games.read_own": frozenset({ANY_USER}),
     # Story 6.5: a Student starts their own Class game; the service checks it is theirs.
     "games.start_own": frozenset({ANY_USER}),
+    # Story 6.10: a Student plays their own Class game (opens a Guided Week; Orders from 6.12);
+    # the service checks the Seat is theirs.
+    "games.play_own": frozenset({ANY_USER}),
     # The Starting task in the Student's own Class game (Story 6.3): any User, held to
     # `own_seat` like the game itself.
     "starting_task.answer_own": frozenset({ANY_USER}),

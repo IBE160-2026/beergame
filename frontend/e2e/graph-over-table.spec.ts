@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
+import type { PlayTurn } from "../src/modules/games/api";
 import week3 from "../src/modules/games/fixtures/play-week-3.json";
 import week11 from "../src/modules/games/fixtures/play-week-11.json";
 import week30 from "../src/modules/games/fixtures/play-week-30.json";
@@ -16,7 +17,8 @@ import { alignment, labelProblems, textReadable } from "./support/graph";
 const GAME_ID = "01a1f8ee-34f2-70af-8800-f79281ed7a66";
 const copy = nb.games.play;
 
-type Envelope = typeof week11;
+/** A stand-in envelope; `turn.order` is a number in a Guided Week and null after it. */
+type Envelope = Omit<typeof week11, "turn"> & { turn: PlayTurn };
 
 async function openPlay(page: Page, envelope: Envelope, text200 = false) {
   if (text200) {

@@ -64,6 +64,14 @@ def test_the_stand_in_envelope_is_the_engines_week(week):
     envelope = PlayOut.model_validate(stored)
     assert envelope.seat_state == wholesaler_in_week(week)
     assert stored["seat_state"] == wholesaler_in_week(week).model_dump(mode="json")
+    # The own turn (Story 6.10): a Guided Week holds the fixed Order placed when it opened.
+    settings = GameSettings()
+    guided = week <= settings.guided_weeks
+    assert stored["turn"] == {
+        "guided": guided,
+        "order": guided_order(settings) if guided else None,
+        "viewed": False,
+    }
 
 
 # The Landing's Demodata Seat (Story 6.8, UX-DR70): the same Grossist in Uke 4, a Veiledet uke,

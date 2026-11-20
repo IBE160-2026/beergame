@@ -616,6 +616,31 @@ async def get_my_game_play(
 
 
 @router.post(
+    "/me/games/{game_id}/weeks/{week}/view",
+    status_code=204,
+    responses=documented(401, 403, 409),
+    operation_id="viewMyGameWeek",
+)
+async def view_my_game_week(
+    game_id: str,
+    week: int,
+    user: Annotated[authz.Principal, Depends(authz.require("games.play_own"))],
+) -> Response:
+    """The Student has the Guided Week `week` on screen (Story 6.10, FR-24): it counts as their
+    Order there, and the view that leaves no Student to wait for opens the next Week. 204 also
+    when the Week was viewed already. 409 `week_not_open` (the game has moved on),
+    `week_not_guided`, `game_not_started`, `game_finished` or `seat_not_student`; any other
+    game, or a Seat the Student no longer holds, answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.view_own_week(user, game_id, week)
+    except service.ViewRefused as refused:
+        return error_response(409, refused.code, "The Week cannot be viewed.")
+    if found is None:
+        raise authz.Forbidden
+    return Response(status_code=204)
+
+
+@router.post(
     "/me/games/{game_id}/start",
     response_model=StudentGameOut,
     responses=documented(401, 403, 409),

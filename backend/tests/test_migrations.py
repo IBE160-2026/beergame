@@ -70,7 +70,7 @@ PRE_SESSION_TABLES = (
     | ROSTER_TABLES
 )
 HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES | {"progress_steps"} | STARTING_TASK_TABLES
-HEAD = "0046"  # 0046 adds versioned content and the Starting task answers (Story 6.3)
+HEAD = "0047"  # 0047 adds `seat_turns.viewed_at` (Story 6.10)
 
 
 def reset_schema(url: str) -> None:
@@ -185,7 +185,13 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
         rows(url, "UPDATE content_records SET version = 2 RETURNING version")
     answers = constraints(url, "starting_task_answers")
     assert "UNIQUE (user_id, class_session_id, item_id)" in answers["uq_starting_task_answers_item"]
+    # 0047 (Story 6.10): when a Student opened a Guided Week; the trigger keeps it once set.
+    assert "viewed_at" in columns(url, "seat_turns")
 
+    command.downgrade(cfg, "0046")
+    assert "viewed_at" not in columns(url, "seat_turns")
+    [(trigger,)] = rows(url, "SELECT prosrc FROM pg_proc WHERE proname = 'seat_turns_keep_opening'")
+    assert "viewed_at" not in trigger and "near_optimal" in trigger  # 0012's body again
     command.downgrade(cfg, "0045")
     assert STARTING_TASK_TABLES.isdisjoint(tables(url))
     assert not function_names(url, "content_records_immutable")

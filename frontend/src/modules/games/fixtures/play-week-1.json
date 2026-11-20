@@ -59,6 +59,11 @@
       "position_base": 24
     }
   },
+  "turn": {
+    "guided": true,
+    "order": 4,
+    "viewed": false
+  },
   "table_status": {
     "seats": [
       {

@@ -151,6 +151,7 @@ from app.modules.sessions.schemas import (
     NextDeadline,
     OfferedEffortLevelOut,
     PlayOut,
+    PlayTurnOut,
     ReplacedLevelOut,
     SeatChoiceGameOut,
     SeatChoiceIn,
@@ -1303,9 +1304,11 @@ async def student_play_of(user: authz.Principal, game_id: str) -> PlayOut | None
             s, found.game_id, user.id, _names_in(row["class_id"])
         )
         state = await games_service.seat_state(str(found.game_id), found.role, play.week)
+        turn = await games_service.open_turn(str(found.game_id), found.role, play.week)
         now = await games_service.database_now(s)
     return PlayOut(
         seat_state=state,
+        turn=PlayTurnOut(guided=turn.guided, order=turn.order, viewed=turn.viewed_at is not None),
         table_status=TableStatusOut(
             seats=[
                 TableSeatOut(role=seat.role, holder=seat.holder, name=seat.name, mine=seat.mine)
@@ -1315,6 +1318,38 @@ async def student_play_of(user: authz.Principal, game_id: str) -> PlayOut | None
         server_now=now,
         next_change_at=None,
     )
+
+
+class ViewRefused(Exception):
+    """A view of a Guided Week the api refuses (Story 6.10), with the command's code:
+    `week_not_open`, `week_not_guided`, `game_not_started`, `game_finished`, `seat_not_student`
+    or `seat_not_yours`."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+async def view_own_week(user: authz.Principal, game_id: str, week: int) -> bool | None:
+    """The Student has the Guided Week `week` of their own Class game on screen (Story 6.10,
+    FR-24), under `student_game_of`'s checks (None for every other id alike). Only
+    `games.commands.view_week` records it; a Week already viewed counts as done. A Seat the
+    Student no longer holds (`seat_not_yours`, a move after the check) and a not-found refusal
+    answer None like any other game (FR-5). Raises `ViewRefused` with the command's code
+    otherwise: `week_not_open`, `week_not_guided`, `game_not_started`, `game_finished` or
+    `seat_not_student`."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+    if own is None:
+        return None
+    found, _ = own
+    try:
+        await games_commands.view_week(str(found.game_id), found.role, week, actor=user.id)
+    except games_commands.CommandError as refused:
+        if refused.status == 404 or refused.code == "seat_not_yours":
+            return None
+        raise ViewRefused(refused.code) from None
+    return True
 
 
 class StartRefused(Exception):

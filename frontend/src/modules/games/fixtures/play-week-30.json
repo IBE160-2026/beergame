@@ -554,6 +554,11 @@
       "position_base": 22
     }
   },
+  "turn": {
+    "guided": false,
+    "order": null,
+    "viewed": false
+  },
   "table_status": {
     "seats": [
       {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
@@ -12,9 +12,10 @@ import { HOME_LINK, HOME_PATH, rulesPath } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { roleName } from "@/modules/sessions/sessions";
 
-import { type MyGame, myGameKey, type PlayEnvelope, playKey, useMyGame, usePlay } from "./api";
+import { type MyGame, myGameKey, type PlayEnvelope, playKey, useMyGame, usePlay, viewWeek } from "./api";
 import { ChainBandView } from "./chain-band-view";
 import { GameAction } from "./game-action";
+import { OrderField } from "./order-field";
 import { gameTitle, holderText } from "./home";
 import { ROWS } from "./week-table";
 import { WeekTable } from "./week-table-view";
@@ -28,8 +29,10 @@ const LINE = "text-body-phone lg:text-body";
  * right), the week table from the play envelope (`/api/me/games/{id}/play`), a Lenke to «Regler
  * før første ordre» and «Setene», each Seat's Role and who holds it in words («KI-spiller» for
  * every AI player). From 1024 px the table stands left and the rest in a right column. Never the
- * number of Weeks. Over the table the Seat's own link stands as the Kjedebånd (Story 6.9). Later
- * stories add the Ordrefelt and Setestatus. A game that has not started, or that this Student may
+ * number of Weeks. Over the table the Seat's own link stands as the Kjedebånd (Story 6.9). In a
+ * Veiledet uke the Ordrefelt shows the fixed Order read-only, and the page tells the api once that
+ * the Student has the Week on screen, which counts as their Order there (Story 6.10). Later
+ * stories add the editable Ordrefelt and Setestatus. A game that has not started, or that this Student may
  * not play before the briefing and Starting task, shows its next action (briefing, «Start spillet» or the not-ready line); a finished one says so. The
  * page follows the game's `game:` events (`topics.ts`). Another Student's game shows the
  * permission-denied page.
@@ -111,14 +114,18 @@ function Topplinje({ game, envelope }: { game: MyGame; envelope: PlayEnvelope })
 }
 
 function Running({ game, envelope }: { game: MyGame; envelope: PlayEnvelope }) {
+  useGuidedView(game.id, envelope);
   return (
     <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12">
       <div className="min-w-0">
         {/* Reading and focus order: Topplinje, Kjedebånd, Graf over tabell, the rest (FR-73). */}
         <ChainBandView state={envelope.seat_state} seatRoles={game.seats.map((seat) => seat.role)} />
-        <WeekTable state={envelope.seat_state} />
+        {/* A placed Order (a Veiledet uke's fixed Order) stands in Din ordre at nå. */}
+        <WeekTable state={envelope.seat_state} nowOrder={envelope.turn.order ?? undefined} />
       </div>
       <div>
+        {/* The Ordrefelt follows the table on phone and tops the right column on laptop. */}
+        <OrderField week={envelope.seat_state.week} turn={envelope.turn} />
         <PageLink href={rulesPath(game.id)}>{nb.games.briefing.title}</PageLink>
         <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
         <Seats game={game} />
@@ -126,6 +133,38 @@ function Running({ game, envelope }: { game: MyGame; envelope: PlayEnvelope }) {
     </div>
   );
 }
+
+/**
+ * A Guided Week on screen that the Student has not opened yet: tell the api once per Week (Story
+ * 6.10, `viewWeek`). A refusal (409: the game moved on, or 403) is left to the next `game:` event,
+ * which reads the envelope again; any other failure (offline, a dropped request, a 5xx) is sent
+ * again after `VIEW_RETRY_MS`, since the Week waits for this view. Nothing is shown for either.
+ */
+function useGuidedView(gameId: string, envelope: PlayEnvelope) {
+  const sent = useRef(new Set<number>());
+  const [attempt, setAttempt] = useState(0);
+  const week = envelope.seat_state.week;
+  const due = envelope.turn.guided && !envelope.turn.viewed;
+  useEffect(() => {
+    if (!due || sent.current.has(week)) return;
+    sent.current.add(week);
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let live = true;
+    viewWeek(gameId, week).catch((error: unknown) => {
+      const refused = error instanceof ApiRequestError && (error.status === 403 || error.status === 409);
+      if (refused || !live) return;
+      sent.current.delete(week);
+      retry = setTimeout(() => setAttempt((n) => n + 1), VIEW_RETRY_MS);
+    });
+    return () => {
+      live = false;
+      if (retry !== undefined) clearTimeout(retry);
+    };
+  }, [gameId, week, due, attempt]);
+}
+
+/** How long a failed view waits before it is sent again. */
+const VIEW_RETRY_MS = 5000;
 
 function NotRunning({ game }: { game: MyGame }) {
   return (

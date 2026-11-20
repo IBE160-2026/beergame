@@ -171,6 +171,9 @@ seat_turns = Table(
     # FR-67, FR-79); NULL only on turns opened before revision 0012.
     Column("near_optimal_reference_order", Integer, nullable=True),
     Column("near_optimal_algorithm_version", Text, nullable=True),
+    # When the Student holding the Seat opened a Guided Week (Story 6.10): set once by
+    # `games.commands.view_week`; there it counts as ordering (FR-24).
+    Column("viewed_at", DateTime(timezone=True), nullable=True),
     CheckConstraint("week >= 1", name="ck_seat_turns_week"),
     CheckConstraint("rule_based_reference_order >= 0", name="ck_seat_turns_reference_order"),
     CheckConstraint("near_optimal_reference_order >= 0", name="ck_seat_turns_near_optimal_order"),
@@ -186,7 +189,7 @@ seat_turns = Table(
     ),
 )
 """One row per Seat per opened Week (AD-20). A trigger refuses DELETE and any UPDATE of the
-Week, the Seat, `opened_at`, an `ordered_at` already set, an `ai_deadline_at` already set, the
+Week, the Seat, `opened_at`, an `ordered_at`, `viewed_at` or `ai_deadline_at` already set, the
 Rule-based reference Order, or a near-optimal reference already set: both references are
 computed once when the Week opens (AD-5)."""
 

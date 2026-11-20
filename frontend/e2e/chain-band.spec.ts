@@ -2,6 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 
 import { textWidth } from "../src/components/charts/chain-band-layout";
 import { nb } from "../src/copy/nb";
+import type { PlayTurn } from "../src/modules/games/api";
 import { bandEnds, bandLabels, type BandState } from "../src/modules/games/chain-band";
 import classic from "../src/modules/games/fixtures/chain-band-classic.json";
 import week3 from "../src/modules/games/fixtures/play-week-3.json";
@@ -18,7 +19,8 @@ import { labelProblems, textReadable } from "./support/graph";
 const GAME_ID = "01a1f8ee-34f2-70af-8800-f79281ed7a66";
 const BAND = 'svg[data-chart="band"]';
 
-type Envelope = typeof week11;
+/** A stand-in envelope; `turn.order` is a number in a Guided Week and null after it. */
+type Envelope = Omit<typeof week11, "turn"> & { turn: PlayTurn };
 
 async function openPlay(page: Page, envelope: Envelope, text200 = false) {
   if (text200) {

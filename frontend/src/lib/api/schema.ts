@@ -1560,6 +1560,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/games/{game_id}/weeks/{week}/view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * View My Game Week
+         * @description The Student has the Guided Week `week` on screen (Story 6.10, FR-24): it counts as their
+         *     Order there, and the view that leaves no Student to wait for opens the next Week. 204 also
+         *     when the Week was viewed already. 409 `week_not_open` (the game has moved on),
+         *     `week_not_guided`, `game_not_started`, `game_finished` or `seat_not_student`; any other
+         *     game, or a Seat the Student no longer holds, answers 403 `forbidden` (FR-5).
+         */
+        post: operations["viewMyGameWeek"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2941,9 +2965,9 @@ export interface components {
         /**
          * PlayOut
          * @description The play screen's one envelope (Story 6.6, AD-3): what the Student's own Seat sees in the
-         *     open Week (`seat_state`, numbers and Roles only) and who sits where (`table_status`), with
-         *     the server's clock. Never the number of Weeks, future demand, another Seat's numbers or a
-         *     reference Order (FR-14, FR-23).
+         *     open Week (`seat_state`, numbers and Roles only), the own turn (`turn`, Story 6.10) and who
+         *     sits where (`table_status`), with the server's clock. Never the number of Weeks, future
+         *     demand, another Seat's numbers or a reference Order (FR-14, FR-23).
          */
         PlayOut: {
             /** Next Change At */
@@ -2955,6 +2979,21 @@ export interface components {
              */
             server_now: string;
             table_status: components["schemas"]["TableStatusOut"];
+            turn: components["schemas"]["PlayTurnOut"];
+        };
+        /**
+         * PlayTurnOut
+         * @description The Student's own turn in the open Week (Story 6.10): whether it is a Guided Week, the
+         *     Seat's Order once placed (in a Guided Week the fixed Order, placed when the Week opened) and
+         *     whether the Student has opened the Guided Week. Never how many Guided Weeks there are.
+         */
+        PlayTurnOut: {
+            /** Guided */
+            guided: boolean;
+            /** Order */
+            order: number | null;
+            /** Viewed */
+            viewed: boolean;
         };
         /**
          * RegistrationOut
@@ -7811,6 +7850,63 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    viewMyGameWeek: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+                week: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

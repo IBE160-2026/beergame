@@ -136,6 +136,7 @@ async def open_turn(game_id: str, seat: str, week: int | None = None) -> TurnOve
         game, row = await _game_and_seat(session, game_id, seat)
         week = _week(await _opened(session, game["id"]), week)
         turn = await repo.turn(session, game["id"], row["id"], week)
+        order = await repo.seat_week_order(session, game["id"], week, row["id"])
     if turn is None:
         raise ViewError("week_not_open", f"the Seat has no turn in Week {week}", 409)
     settings = GameSettings.model_validate(game["settings"])
@@ -144,6 +145,8 @@ async def open_turn(game_id: str, seat: str, week: int | None = None) -> TurnOve
         guided=rules.guided_week(policy(game["purpose"]), settings, turn["week"]),
         opened_at=turn["opened_at"],
         ordered_at=turn["ordered_at"],
+        viewed_at=turn["viewed_at"],
+        order=order,
         rule_based_reference_order=turn["rule_based_reference_order"],
         near_optimal_reference_order=turn["near_optimal_reference_order"],
         near_optimal_algorithm_version=turn["near_optimal_algorithm_version"],

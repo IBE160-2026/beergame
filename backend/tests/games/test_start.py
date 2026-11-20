@@ -14,7 +14,7 @@ from app.engine import GameSettings, WeekState, initial_state, rule_based, seat_
 from app.modules.games import commands, service
 from app.platform.parameter_sets import read_parameter_set
 from tests.conftest import TEST_DATABASE_URL, libpq_dsn
-from tests.games.helpers import execute, listening, query, seat_student
+from tests.games.helpers import execute, listening, query, seat_student, student_of
 
 ROLES = ("retailer", "wholesaler", "distributor", "factory")
 
@@ -71,7 +71,10 @@ async def test_start_opens_week_1_with_one_turn_per_seat(games_db):
         received = events.drain()
     assert week == 1
     assert state(games_db, game_id) == ("running", 5, 1, 4, 4)
-    assert received == [{"topic": "game", "id": game_id, "version": 5}]
+    assert received == [
+        {"topic": "game", "id": game_id, "version": 5},
+        {"topic": "user", "id": str(student_of(game_id, "retailer")), "version": None},
+    ]
     ((stored,),) = query(games_db, "SELECT state FROM game_weeks WHERE game_id = %s", (game_id,))
     settings = GameSettings(demand_seed=1)
     assert WeekState.model_validate(stored) == initial_state(settings)
@@ -84,8 +87,9 @@ async def test_start_opens_week_1_with_one_turn_per_seat(games_db):
     ]
     assert len({row[2] for row in rows}) == 1  # one transaction, one `now()`
     assert all(row[2] is not None for row in rows)
-    # The order source placed the scripted Seats' Guided Orders in the same transaction.
-    assert [row[3] == row[2] for row in rows] == [False, True, True, True]
+    # The order source placed every Seat's Guided Order in the same transaction, the
+    # Student's too (Story 6.10).
+    assert [row[3] == row[2] for row in rows] == [True, True, True, True]
     assert all(uuid.UUID(str(row[5])).version == 7 for row in rows)
     params = default_params()
     expected = [
@@ -205,12 +209,16 @@ async def test_the_reference_order_and_opening_can_never_change(games_db):
     ):
         with pytest.raises(psycopg.errors.RestrictViolation, match="keeps its opening values"):
             execute(games_db, statement, (game_id,) if "%s" in statement else ())
-    execute(games_db, "UPDATE seat_turns SET ordered_at = now()")  # Story 1.9 sets this
+    # A Guided Week: every Seat ordered when it opened (Story 6.10).
     assert all(row[3] is not None for row in turns(games_db, game_id))
     with pytest.raises(psycopg.errors.RestrictViolation, match="keeps its opening values"):
         execute(games_db, "UPDATE seat_turns SET ordered_at = now() - interval '1 hour'")
     with pytest.raises(psycopg.errors.RestrictViolation, match="keeps its opening values"):
         execute(games_db, "UPDATE seat_turns SET ordered_at = NULL")
+    execute(games_db, "UPDATE seat_turns SET viewed_at = now()")  # `view_week` sets this
+    for statement in ("viewed_at = now() - interval '1 hour'", "viewed_at = NULL"):
+        with pytest.raises(psycopg.errors.RestrictViolation, match="keeps its opening values"):
+            execute(games_db, f"UPDATE seat_turns SET {statement}")
 
 
 async def test_start_waits_for_the_game_row_lock(games_db):

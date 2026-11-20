@@ -1,10 +1,14 @@
 import { expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
+import type { PlayTurn } from "../src/modules/games/api";
 import week1 from "../src/modules/games/fixtures/play-week-1.json";
 import week11 from "../src/modules/games/fixtures/play-week-11.json";
 import { loginByApi } from "./support/auth";
 import { expectAccessible } from "./support/classes";
+
+/** A stand-in envelope; `turn.order` is a number in a Guided Week and null after it. */
+type Envelope = Omit<typeof week11, "turn"> & { turn: PlayTurn };
 
 /** The play screen's week table (Story 6.6, FR-14, FR-23, FR-73, NFR-1, NFR-6, UX-DR13, UX-DR17,
  * UX-DR18), on the local stack through the proxy as the demo Student. The envelope's shape and its
@@ -37,7 +41,7 @@ function game(week: number) {
 
 /** The demo Student's running game in Uke 11 and its envelope (Uke 1 with `week1`); the envelope
  * waits for `held` when given. */
-async function withPlay(page: Page, envelope: typeof week11 = week11, held?: Promise<void>) {
+async function withPlay(page: Page, envelope: Envelope = week11, held?: Promise<void>) {
   await page.route(`**/api/me/games/${GAME_ID}`, (route) => route.fulfill({ json: game(envelope.seat_state.week) }));
   await page.route(`**/api/me/games/${GAME_ID}/play`, async (route) => {
     await held;

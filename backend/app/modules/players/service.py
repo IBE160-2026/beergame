@@ -1,4 +1,5 @@
-"""The one order source for every Seat that no Student holds (AD-5, FR-30).
+"""The one order source for every Seat that no Student holds (AD-5, FR-30), and for every Seat
+in a Guided Week (Story 6.10).
 
 `games.commands` calls `ensure_order` when a Week opens and right after a switch, inside its own
 transaction. Guided, Rule-based and scripted Orders are placed there and then, through
@@ -46,10 +47,11 @@ log = structlog.get_logger(__name__)
 def _order(turn: games_service.PendingTurn) -> tuple[int, games_service.DecidedBy] | None:
     """The Order of the turn and who decided it, or None when this source places none."""
     kind = turn.occupant_kind
+    if turn.guided:
+        # Every Seat, a Student's too, orders the Guided Order when the Week opens (Story 6.10).
+        return turn.guided_order, games_service.DecidedBy.GUIDED
     if kind is games_service.OccupantKind.STUDENT:
         return None
-    if turn.guided:
-        return turn.guided_order, games_service.DecidedBy.GUIDED
     if kind is games_service.OccupantKind.RULE_BASED:
         return turn.rule_based_reference_order, games_service.DecidedBy.RULE_BASED
     if kind is games_service.OccupantKind.SCRIPTED:
@@ -65,12 +67,13 @@ def _order(turn: games_service.PendingTurn) -> tuple[int, games_service.DecidedB
 async def ensure_order(game: games_service.OpenGame, seat: str) -> None:
     """Make sure the Seat with id `seat` gets its Order for the open Week.
 
-    In a Guided Week every non-student occupant orders the Guided Order, so no model is asked
-    (FR-31); outside it a `rule_based` occupant orders the reference Order stored on its turn
-    (never recomputed), a `scripted` occupant the Order of the policy on its occupancy row, and
-    an `llm` occupant gets one `ai-orders` job keyed `(game, week, seat)`, deferred on the
-    command's connection so it commits with the Week or not at all (AD-5, AD-9). Does nothing
-    for a Student, when the Game is not running, or when the Seat has already ordered, so it is
+    In a Guided Week every occupant, a Student too (Story 6.10), orders the Guided Order, so no
+    model is asked (FR-31); a Student's Week then waits for their view (`view_week`). Outside it
+    a `rule_based` occupant orders the reference Order stored on its turn (never recomputed), a
+    `scripted` occupant the Order of the policy on its occupancy row, and an `llm` occupant gets
+    one `ai-orders` job keyed `(game, week, seat)`, deferred on the command's connection so it
+    commits with the Week or not at all (AD-5, AD-9). Does nothing for a Student outside a
+    Guided Week, when the Game is not running, or when the Seat has already ordered, so it is
     safe to call again."""
     turn = await games_service.pending_turn(game, seat)
     if turn is None or turn.ordered:

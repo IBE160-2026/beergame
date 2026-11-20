@@ -271,6 +271,10 @@ class TurnOverview(BaseModel):
     """A Guided Week: the Order is `engine.guided_order`, placed with `decided_by = guided`."""
     opened_at: datetime
     ordered_at: datetime | None
+    viewed_at: datetime | None = None
+    """When the Student holding the Seat opened this Guided Week (`view_week`, Story 6.10)."""
+    order: int | None = None
+    """The Seat's Order in this Week, None before it has ordered."""
     rule_based_reference_order: int
     near_optimal_reference_order: int | None = None
     """Computed from the whole chain when the Week opened (FR-79); None only on turns opened
@@ -290,7 +294,7 @@ class PendingTurn(BaseModel):
     role: str
     week: int
     guided: bool
-    """A Guided Week: every non-student occupant orders `guided_order`."""
+    """A Guided Week: every occupant, a Student too (Story 6.10), orders `guided_order`."""
     guided_order: int
     occupant_kind: OccupantKind
     """The occupant in force in `week` (`from_week <= week`, newest)."""

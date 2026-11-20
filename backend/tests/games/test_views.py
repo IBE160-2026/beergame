@@ -273,7 +273,9 @@ async def test_seat_state_of_a_later_week_uses_the_orders_in_the_decision_log(ga
 async def test_open_turn_reports_the_stored_turn(games_db):
     game_id = await started_game()
     turn = await service.open_turn(game_id, "factory")
-    assert turn.week == 1 and turn.ordered_at is None
+    # A Guided Week: the Student's fixed Order was placed when it opened; not yet viewed.
+    assert turn.week == 1 and turn.guided and turn.ordered_at is not None
+    assert (turn.order, turn.viewed_at) == (4, None)
     expected = rule_based.order(CLASSIC, seat_view(CLASSIC, STATES[:1], [], Role.FACTORY), params())
     assert turn.rule_based_reference_order == expected
 

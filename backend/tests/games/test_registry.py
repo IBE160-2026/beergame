@@ -16,6 +16,8 @@ from tests.conftest import TEST_DATABASE_URL
 from tests.games.helpers import listening, play_to_end, seat_student
 
 SHORT = GameSettings(weeks=8, guided_weeks=2)
+FREE = GameSettings(weeks=8, guided_weeks=0)
+"""No Guided Weeks: the Students' own Orders complete each Week (Story 6.10)."""
 
 
 def public_commands() -> set[str]:
@@ -39,9 +41,10 @@ async def _run_assign_seat() -> str:
 
 
 async def _started_simulation() -> str:
-    """A Student holds every Seat, so the Game waits in Week 1."""
-    game_id = await _run_create()
-    seat_student(TEST_DATABASE_URL, game_id, *(role.value for role in SHORT.roles))
+    """A Student holds every Seat, so the Game waits in Week 1; with no Student ids, its start
+    tells no Student (`user:`) and only the commands' own topics remain."""
+    game_id = await commands.create("simulation", FREE, seed=1)
+    seat_student(TEST_DATABASE_URL, game_id, *(role.value for role in FREE.roles), anonymous=True)
     await commands.start(game_id)
     return game_id
 
@@ -61,7 +64,7 @@ async def _run_start() -> str:
 
 async def _run_place_order() -> str:
     game_id = await _started_simulation()
-    await commands.place_order(game_id, "retailer", 1, 4, "guided")
+    await commands.place_order(game_id, "retailer", 1, 4, "student")
     return game_id
 
 
@@ -95,6 +98,20 @@ async def _run_switch_to_rule_based() -> str:
     return game_id
 
 
+async def _run_view_week() -> str:
+    """The one Student of a started Class game opens Guided Week 1 (Story 6.10): the Week
+    completes and advances, so the Class session and the Student hear of it."""
+    from tests.games.test_set_snapshot import snapshot
+
+    game_id = await commands.create("class", class_session_id=uuid.uuid7(), game_number=1)
+    student = uuid.uuid7()
+    await commands.assign_seat(game_id, "retailer", "student", user_id=student)
+    await commands.set_snapshot(game_id, snapshot(), keep_students=[student])
+    await commands.start(game_id)
+    assert await commands.view_week(game_id, "retailer", 1, actor=student)
+    return game_id
+
+
 async def _run_move_seat() -> str:
     """A Student of a Class game moves to its free Factory Seat (Story 5.10)."""
     game_id = await commands.create("class", class_session_id=uuid.uuid7(), game_number=1)
@@ -123,10 +140,11 @@ RUNNERS = {
     "switch_to_rule_based": _run_switch_to_rule_based,
     "move_seat": _run_move_seat,
     "set_snapshot": _run_set_snapshot,
+    "view_week": _run_view_week,
 }
 """How to run each command once; a command added without a runner fails the test below."""
 
-CLASS_SETUP_EVENTS = {"move_seat": 4, "set_snapshot": 4, "start": 7}
+CLASS_SETUP_EVENTS = {"move_seat": 4, "set_snapshot": 4, "start": 7, "view_week": 10}
 """Runners on a Class game, and how many events their setup emits before the command's own."""
 
 
@@ -144,6 +162,7 @@ def test_every_command_is_exported_and_registered():
             "switch_to_rule_based",
             "move_seat",
             "set_snapshot",
+            "view_week",
         }
         == set(RUNNERS)
     )

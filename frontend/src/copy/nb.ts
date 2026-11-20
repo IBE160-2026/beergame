@@ -1479,6 +1479,13 @@ export const nb = {
       week: (week: number) => `Uke ${week}`,
       roleGame: (role: string, number: number) => `${role}, Spill ${number}`,
       finished: "Spillet er ferdig.",
+      /** Ordrefelt (Story 6.10, DESIGN.md → Ordrefelt, UX-DR20). The label is the spine's; the
+       * Veiledet uke line is [ASSUMPTION] draft copy. It never says how many Veiledede uker are
+       * left (FR-14): the briefing told that. */
+      order: {
+        label: (week: number) => `Din ordre for Uke ${week}`,
+        guided: "Veiledet uke. Ordren er fast og legges inn automatisk.",
+      },
       /** The week table (Story 6.6, DESIGN.md → Graf over tabell, UX-DR17, UX-DR18). The region
        * name, «Sveip for tidligere uker», «Din ordre» and «Kost, kr» are the spine's; the label for
        * known arrivals is [ASSUMPTION] draft copy (EXPERIENCE.md gives no string). */

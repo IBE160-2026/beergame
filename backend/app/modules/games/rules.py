@@ -14,11 +14,20 @@ def guided_week(game_policy: GamePolicy, settings: GameSettings, week: int) -> b
     return game_policy.guided_weeks == "settings" and week <= settings.guided_weeks
 
 
-def week_complete(turns: Sequence[Mapping[str, object]]) -> bool:
+def week_complete(turns: Sequence[Mapping[str, object]], *, guided: bool) -> bool:
     """The one predicate for an advance: the open Week is complete when every Seat's turn in it
-    has an Order (`ordered_at` set). `turns` are the open Week's `seat_turns` rows, one per
-    Seat; no turns means there is nothing to complete."""
-    return bool(turns) and all(turn["ordered_at"] is not None for turn in turns)
+    has an Order (`ordered_at` set) and, in a Guided Week, every turn of a Seat a Student holds
+    in that Week has been viewed (`viewed_at` set, Story 6.10, FR-24): there viewing counts as
+    ordering. `turns` are the open Week's `seat_turns` rows, one per Seat, each with the
+    `occupant_kind` in force that Week (`repo.week_turns_with_occupant`); no turns means there
+    is nothing to complete."""
+    return bool(turns) and all(
+        turn["ordered_at"] is not None
+        and not (
+            guided and turn["occupant_kind"] == OccupantKind.STUDENT and turn["viewed_at"] is None
+        )
+        for turn in turns
+    )
 
 
 @dataclass(frozen=True)

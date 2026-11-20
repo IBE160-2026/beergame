@@ -78,6 +78,7 @@ __all__ = [
     "set_snapshot",
     "start",
     "switch_to_rule_based",
+    "view_week",
 ]
 
 log = structlog.get_logger(__name__)
@@ -1180,7 +1181,7 @@ async def _place(
     if decider is DecidedBy.LLM:
         await _run_play_guard(session, game, settings, row, week)
     lifecycle, open_week = Lifecycle(game["lifecycle"]), week
-    if advance_week and rules.week_complete(await repo.week_turns(session, game_uuid, week)):
+    if advance_week and await _week_complete(session, game, week):
         lifecycle, open_week = await _step(session, game, settings, params, states)
     log.info("order_placed", game_id=str(game_uuid), seat_id=str(row["id"]), week=week)
     return OrderPlaced(
@@ -1292,6 +1293,108 @@ async def place_order(
     return placed
 
 
+def _actor(actor: object) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(str(actor))
+    except ValueError, TypeError, AttributeError:
+        return None
+
+
+async def view_week(game_id: str, seat: Role | str, week: int, *, actor: uuid.UUID | str) -> bool:
+    """The Student `actor` has the Guided Week `week` on screen (Story 6.10, FR-24, AD-2): set
+    `viewed_at` on their Seat's turn, once. In a Guided Week viewing counts as ordering (founder
+    decision 2026-11-12): the Seat's fixed Order was placed when the Week opened, and the view
+    that leaves no Student Seat unviewed completes the Week (`games.rules.week_complete`), which
+    then advances exactly one Week in this transaction.
+
+    One transaction with the Game row lock and a version bump, emitting `game:<id>`,
+    `session:<id>` where the Lecturer overview lists the Game, and `user:<id>` for the viewer and,
+    when the Week advances, for every Student holding a Seat (AD-8). A Week already viewed changes
+    nothing: no write, no version, no event; returns False then, True when it recorded the view.
+
+    Refuses `game_not_found`, `seat_not_found`, `game_not_started`, `game_finished`,
+    `week_not_open` (not the open Week), `week_not_guided`, `seat_not_student` (no Student holds
+    the Seat in that Week) and `seat_not_yours` (another Student does)."""
+    game_uuid = _game_uuid(game_id)
+    actor_id = _actor(actor)
+    async with get_sessionmaker().begin() as session:
+        game = await repo.lock_game(session, game_uuid)
+        if game is None:
+            raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
+        seat_rows = await repo.seats_with_occupant(session, game_uuid)
+        row = _seat_row(seat_rows, seat)
+        if game["lifecycle"] == Lifecycle.NOT_STARTED:
+            raise CommandError("game_not_started", "the Game has not started", 409)
+        if game["lifecycle"] == Lifecycle.FINISHED:
+            raise CommandError("game_finished", "the Game has finished", 409)
+        settings, params = _snapshot(game)
+        states, _ = await stored_play(session, game_uuid)
+        if type(week) is not int or week != states[-1].week:
+            raise CommandError("week_not_open", f"Week {week!r} is not the open Week", 409)
+        if not rules.guided_week(_policy(game["purpose"]), settings, week):
+            raise CommandError("week_not_guided", f"Week {week} is not a Guided Week", 409)
+        turn = await repo.turn(session, game_uuid, row["id"], week)
+        occupancy = await repo.occupancy_in_force(session, row["id"], week)
+        if turn is None or occupancy is None:  # `start` and every advance write both
+            raise CommandError("week_not_open", f"the Seat has no turn in Week {week}", 409)
+        if occupancy["occupant_kind"] != OccupantKind.STUDENT:
+            raise CommandError("seat_not_student", "no Student holds the Seat this Week", 409)
+        if actor_id is None or occupancy["user_id"] != actor_id:
+            raise CommandError("seat_not_yours", "another Student holds the Seat", 409)
+        if turn["viewed_at"] is not None:
+            return False
+        if turn["ordered_at"] is None:
+            # A Week opened before the Student's Guided Order was placed at opening (a Game
+            # started before Story 6.10): place it now, so the view can complete the Week.
+            await _ensure_order(OpenGame(session=session, game_id=game_uuid), row["id"])
+        await repo.set_viewed_at(session, turn["id"])
+        advanced = await _week_complete(session, game, week)
+        if advanced:
+            await _step(session, game, settings, params, states)
+        await _commit_change(session, game_uuid)
+        told = {actor_id}
+        if advanced:  # a new Week opens for every Student of the Game
+            told |= {
+                seat_row["user_id"]
+                for seat_row in seat_rows
+                if seat_row["occupant_kind"] == OccupantKind.STUDENT
+                and seat_row["user_id"] is not None
+            }
+        for student in sorted(str(each) for each in told):
+            await events.emit(session, "user", student)
+    log.info("week_viewed", game_id=game_id, seat_id=str(row["id"]), week=week, advanced=advanced)
+    await _settle(game_id)
+    return True
+
+
+async def _unviewed_guided_student(
+    session: AsyncSession, game: Mapping[str, Any], seat_id: uuid.UUID, week: int
+) -> bool:
+    """Whether `week` is a Guided Week whose turn of `seat_id` a Student holds and has not
+    viewed: that Seat has not ordered yet (Story 6.10)."""
+    settings = GameSettings.model_validate(game["settings"])
+    if not rules.guided_week(_policy(game["purpose"]), settings, week):
+        return False
+    occupancy = await repo.occupancy_in_force(session, seat_id, week)
+    turn = await repo.turn(session, game["id"], seat_id, week)
+    return (
+        occupancy is not None
+        and occupancy["occupant_kind"] == OccupantKind.STUDENT
+        and turn is not None
+        and turn["viewed_at"] is None
+    )
+
+
+async def _week_complete(session: AsyncSession, game: Mapping[str, Any], week: int) -> bool:
+    """`games.rules.week_complete` for the Game's `week`, with the occupants in force in it and
+    whether it is a Guided Week (Story 6.10)."""
+    guided = rules.guided_week(
+        _policy(game["purpose"]), GameSettings.model_validate(game["settings"]), week
+    )
+    turns = await repo.week_turns_with_occupant(session, game["id"], week)
+    return rules.week_complete(turns, guided=guided)
+
+
 async def _complete_week(game_id: uuid.UUID) -> bool:
     """Whether the Game is running and its open Week is complete, read without a lock;
     refuses an unknown Game."""
@@ -1304,7 +1407,7 @@ async def _complete_week(game_id: uuid.UUID) -> bool:
         week = await repo.open_week(session, game_id)
         if week is None:
             return False
-        return rules.week_complete(await repo.week_turns(session, game_id, week))
+        return await _week_complete(session, game, week)
 
 
 async def _advance_once(game_id: str) -> bool:
@@ -1318,7 +1421,7 @@ async def _advance_once(game_id: str) -> bool:
             return False
         states, _ = await stored_play(session, game_uuid)
         week = states[-1].week
-        if not rules.week_complete(await repo.week_turns(session, game_uuid, week)):
+        if not await _week_complete(session, game, week):
             return False  # another command advanced it meanwhile
         settings, params = _snapshot(game)
         _, open_week = await _step(session, game, settings, params, states)
@@ -1357,7 +1460,8 @@ async def switch_to_rule_based(
     Appends an occupancy row with `occupant_kind = rule_based` and `reason`; it never edits an
     earlier row (AD-5). A Seat without an Order for the open Week switches from this Week and
     gets its Order from `players.ensure_order` in the same transaction; a Seat that has ordered
-    switches from the next Week. Returns the occupancy row id."""
+    switches from the next Week. In a Guided Week a Student Seat that has not viewed the Week
+    has not ordered (Story 6.10), so it switches from this Week. Returns the occupancy row id."""
     switch_reason = _switch_reason(reason)
     game_uuid = _game_uuid(game_id)
     async with get_sessionmaker().begin() as session:
@@ -1372,6 +1476,10 @@ async def switch_to_rule_based(
         states, _ = await stored_play(session, game_uuid)
         week = states[-1].week
         ordered = await repo.has_seat_week(session, game_uuid, week, row["id"])
+        if ordered and await _unviewed_guided_student(session, game, row["id"], week):
+            # Viewing counts as ordering in a Guided Week (Story 6.10): a Student who has not
+            # opened it has not ordered, so the new occupant takes this Week.
+            ordered = False
         occupancy_id = uuid.uuid7()
         await repo.append_occupancy(
             session,
