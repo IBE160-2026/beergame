@@ -1429,8 +1429,35 @@ export const nb = {
           `Denne uka: ${backlog} enheter i restordre, hver til ${rate} kr. Lager ${inventory} gir ingen lagerkostnad.`,
         demoData: "Demodata",
       },
-      /** Back to Hjem until Story 6.3 opens the Startoppgave from here. */
+      /** Opens the Startoppgave (Story 6.3). */
       done: "Jeg har lest reglene",
+    },
+    /** The Startoppgave (Story 6.3, FR-85, UX-DR63, UX-DR70). The title, the error, the right and
+     * wrong lines, the final question with its four answers and the done line are the spine's
+     * (epics, EXPERIENCE.md → States); the rest is [ASSUMPTION] draft copy for the founder's
+     * review. The items' own prompts are content (`modules/content`), not copy. It never names
+     * the game. */
+    startingTask: {
+      title: "Startoppgave",
+      lead: "Noen korte regnestykker med tallene fra én kolonne i ukestabellen. Oppgaven teller ikke, og du går videre uansett hva du svarer.",
+      demoData: "Demodata",
+      progress: (n: number, of: number) => `Oppgave ${n} av ${of}`,
+      notWhole: "Skriv et helt tall.",
+      send: "Send svar",
+      /** «Riktig. Svaret er 3: 0 − 13 + 16.» The sum is the api's terms, written out. */
+      right: (expected: string, sum: string) => `Riktig. Svaret er ${expected}: ${sum}.`,
+      wrong: (expected: string, sum: string) => `Ikke riktig. Svaret er ${expected}: ${sum}.`,
+      final: {
+        question: "Har du spilt et spill som ligner dette før?",
+        optional: "Svaret er frivillig.",
+        choices: { yes: "Ja", no: "Nei", unknown: "Vet ikke" },
+        skip: "Hopp over",
+        none: "Velg et svar, eller hopp over.",
+      },
+      done: "Ferdig. Gå til Uke 1.",
+      /** Until Story 6.5 puts «Start spillet» on Hjem: says why the button leads there. */
+      startsFromHome: "Spillet starter fra Hjem.",
+      toHome: "Til Hjem",
     },
   },
 

@@ -8,6 +8,7 @@ import { ActionError } from "./action-error";
 import { AppHeader } from "./app-header";
 import { Breadcrumb } from "./breadcrumb";
 import { Button, guardUnavailable } from "./button";
+import { ColumnItem } from "./column-item";
 import { ConnectionNotice } from "./connection-notice";
 import { SegmentedChoice } from "./segmented-choice";
 import { Stegene } from "./stegene";
@@ -310,5 +311,34 @@ describe("Stegene", () => {
 
   it("keeps its markers out of the accessibility tree", () => {
     expect(html.match(/aria-hidden="true"/g)?.length).toBe(3);
+  });
+});
+
+describe("ColumnItem", () => {
+  const rows = [
+    { label: "Lager", value: 0 },
+    { label: "Restordre", value: 13 },
+    { label: "På vei", value: 16 },
+  ];
+
+  it("asks one row of the column with a labelled number field and announces its error", () => {
+    const html = renderToStaticMarkup(
+      <ColumnItem id="p" caption="Uke 11" rows={rows} askedLabel="Posisjon" hint="Posisjon = …" value="x" error="Skriv et helt tall." />,
+    );
+    expect(html).toContain("<caption");
+    expect(html).toContain('<label for="p-answer">Posisjon</label>');
+    expect(html).toMatch(/inputmode="numeric"/i);
+    expect(html).toContain('aria-invalid="true"');
+    expect(html).toContain('aria-describedby="p-hint p-error"');
+    expect(html).toMatch(/<p id="p-error" role="alert"[^>]*>Skriv et helt tall\.<\/p>/);
+  });
+
+  it("shows the stored answer and the result in words, without a field", () => {
+    const html = renderToStaticMarkup(
+      <ColumnItem id="p" caption="Uke 11" rows={rows} askedLabel="Posisjon" answer="5" result="Ikke riktig. Svaret er 3: 0 − 13 + 16." />,
+    );
+    expect(html).not.toContain("<input");
+    expect(html).toContain("Ikke riktig. Svaret er 3: 0 − 13 + 16.");
+    expect(html).toContain('tabindex="-1"');
   });
 });

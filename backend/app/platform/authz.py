@@ -100,6 +100,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # A Student's own Class game (Story 6.1): any User, held to `own_seat`; any other game is
     # refused the same as one that does not exist (FR-5).
     "games.read_own": frozenset({ANY_USER}),
+    # The Starting task in the Student's own Class game (Story 6.3): any User, held to
+    # `own_seat` like the game itself.
+    "starting_task.answer_own": frozenset({ANY_USER}),
     # The own session.
     "session.read": frozenset({ANY_USER}),
     # FR-5: no account role grants these. Epic 4+ adds the Class-scoped grants.

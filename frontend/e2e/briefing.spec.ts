@@ -126,11 +126,11 @@ for (const vp of VIEWPORTS) {
       const text = (await main.innerText()).toLowerCase();
       expect(text).toContain("enheter");
       expect(text).not.toMatch(/(?<!\p{L})øl(?!\p{L})/u);
-      // One primary button, back to Hjem until the Startoppgave (Story 6.3).
+      // One primary button, on to the Startoppgave (Story 6.3).
       await expect(main.getByRole("link", { name: copy.done })).toHaveCount(1);
       await expectAccessible(page, vp.phone);
       await main.getByRole("link", { name: copy.done }).click();
-      await expect(page).toHaveURL(/\/hjem$/);
+      await expect(page).toHaveURL(new RegExp(`/spill/${GAME_ID}/startoppgave$`));
     });
   });
 }

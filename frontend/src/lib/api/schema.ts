@@ -1429,6 +1429,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/games/{game_id}/starting-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Starting Task
+         * @description The Student's Starting task: the items in order, each answered one with its result, the
+         *     final question's choice and whether the task is done.
+         */
+        get: operations["getMyStartingTask"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/starting-task/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer Starting Task Item
+         * @description Send the answer to one item: scored by computed rules and stored once (a repeat keeps
+         *     the first answer). 422 `unknown_item` for an item the task does not have.
+         */
+        post: operations["answerStartingTaskItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/starting-task/final": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish Starting Task
+         * @description Answer or skip the final question; the task is then done and `starting_task` recorded.
+         *     409 `items_open` while an item has no answer.
+         */
+        post: operations["finishStartingTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1654,6 +1717,13 @@ export interface components {
              */
             user_id: string;
         };
+        /** AnswerIn */
+        AnswerIn: {
+            /** Answer */
+            answer: number;
+            /** Item Id */
+            item_id: string;
+        };
         /**
          * AuditActor
          * @description An actor of the log for the filter: a User with their name, or the system (both null).
@@ -1735,6 +1805,12 @@ export interface components {
          * @enum {string}
          */
         BouncedRegistration: "bounced";
+        /**
+         * Choice
+         * @description The answers to «Har du spilt et spill som ligner dette før?»; `skipped` is «Hopp over».
+         * @enum {string}
+         */
+        Choice: "yes" | "no" | "unknown" | "skipped";
         /**
          * ClassIn
          * @description A new Class (Story 4.1). The service checks the fields and answers every refused one in
@@ -2230,6 +2306,10 @@ export interface components {
         ErrorEnvelope: {
             error: components["schemas"]["ErrorBody"];
         };
+        /** FinalIn */
+        FinalIn: {
+            choice: components["schemas"]["Choice"];
+        };
         /**
          * GameRulesOut
          * @description The rules «Regler før første ordre» states (Story 6.2, FR-84), from the Class session's
@@ -2349,6 +2429,13 @@ export interface components {
              * @default 36
              */
             weeks: number;
+        };
+        /** GivenRowOut */
+        GivenRowOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2564,6 +2651,21 @@ export interface components {
         InvitationTokenIn: {
             /** Token */
             token: string;
+        };
+        /**
+         * ItemResultOut
+         * @description The stored answer and its score. Only for an answered item: the answer key is never sent
+         *     before.
+         */
+        ItemResultOut: {
+            /** Answer */
+            answer: number;
+            /** Correct */
+            correct: boolean;
+            /** Expected */
+            expected: number;
+            /** Terms */
+            terms: components["schemas"]["SumTermOut"][];
         };
         /**
          * LabHourIn
@@ -3212,6 +3314,37 @@ export interface components {
          * @enum {string}
          */
         StaffStatus: "active" | "invited" | "expired";
+        /** StartingTaskItemOut */
+        StartingTaskItemOut: {
+            /** Asked Label */
+            asked_label: string;
+            /** Column */
+            column: string;
+            /** Hint */
+            hint: string | null;
+            /** Id */
+            id: string;
+            /** Prompt */
+            prompt: string;
+            result: components["schemas"]["ItemResultOut"] | null;
+            /** Rows */
+            rows: components["schemas"]["GivenRowOut"][];
+        };
+        /**
+         * StartingTaskOut
+         * @description The Student's Starting task: the pinned content version, the items in order (answered
+         *     ones with their result), the final question's choice and whether the task is done. The web
+         *     app resumes at the first item without a result.
+         */
+        StartingTaskOut: {
+            /** Done */
+            done: boolean;
+            /** Items */
+            items: components["schemas"]["StartingTaskItemOut"][];
+            played_before: components["schemas"]["Choice"] | null;
+            /** Version */
+            version: number;
+        };
         /**
          * StepOut
          * @description A step of Stegene (Story 6.1, UX-DR29, AD-10, AD-16), its state computed here: the web app
@@ -3248,6 +3381,19 @@ export interface components {
             rules: components["schemas"]["GameRulesOut"];
             /** Seats */
             seats: components["schemas"]["TableSeatOut"][];
+        };
+        /**
+         * SumTermOut
+         * @description One part of the sum the result shows: «0 − 13 + 16» is (+1, 0), (−1, 13), (+1, 16).
+         */
+        SumTermOut: {
+            /**
+             * Sign
+             * @enum {integer}
+             */
+            sign: 1 | -1;
+            /** Value */
+            value: number;
         };
         /**
          * TableSeatOut
@@ -7097,6 +7243,170 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyStartingTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartingTaskOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answerStartingTaskItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartingTaskOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    finishStartingTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinalIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartingTaskOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

@@ -76,6 +76,7 @@ archived Class. Who may do what is `platform/authz`'s: `class_sessions.read`,
 import secrets
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -100,6 +101,7 @@ from app.engine.settings import (
     warnings,
 )
 from app.modules.classes import service as classes
+from app.modules.content import service as content
 from app.modules.games import commands as games_commands
 from app.modules.games import service as games_service
 from app.modules.identity import service as identity
@@ -1236,29 +1238,64 @@ async def _game_out(
     )
 
 
-async def student_game_of(user: authz.Principal, game_id: str) -> StudentGameOut | None:
-    """The Student's own Class game by id (Story 6.1, AD-12, FR-5), through `authz.own_seat`, and
-    only once its Class session is locked (a Student sees the game from the Start date). None for
-    an id that is not one, a Game that does not exist, another Student's game, a Game whose Class
-    session has not reached the Start date, or a Class the User is no longer a Student in: the
-    route answers each the same."""
+async def _own_locked_game(
+    s: AsyncSession, user: authz.Principal, game_id: str
+) -> tuple[games_service.StudentGame, Mapping[str, Any]] | None:
+    """The Student's own Class game by id and its Class session row, through `authz.own_seat`,
+    once the session is locked, in a Class the User is still a Student in (Story 6.1, FR-5);
+    None for every other case alike."""
     try:
         game_uuid = uuid.UUID(game_id)
     except ValueError:
         return None
     # The Classes Hjem lists: those the User is a Student in and that are not archived.
     listed = {item.id for item in (await classes.enrolled_classes(user)).items}
+    found = await games_service.own_game(s, user.id, game_uuid)
+    if found is None:
+        return None
+    # The Class session among the User's own (`authz.classes_enrolled_by`), locked.
+    rows = {row["id"]: row for row in await repo.enrolled_sessions(s, user)}
+    row = rows.get(found.class_session_id)
+    if row is None or row["class_id"] not in listed or not is_locked(row):
+        return None
+    return found, row
+
+
+async def student_game_of(user: authz.Principal, game_id: str) -> StudentGameOut | None:
+    """The Student's own Class game by id (Story 6.1, AD-12, FR-5), through `authz.own_seat`, and
+    only once its Class session is locked (a Student sees the game from the Start date). None for
+    an id that is not one, a Game that does not exist, another Student's game, a Game whose Class
+    session has not reached the Start date, or a Class the User is no longer a Student in: the
+    route answers each the same."""
     async with get_sessionmaker()() as s:
-        found = await games_service.own_game(s, user.id, game_uuid)
-        if found is None:
+        own = await _own_locked_game(s, user, game_id)
+        if own is None:
             return None
-        # The Class session among the User's own (`authz.classes_enrolled_by`), locked.
-        rows = {row["id"]: row for row in await repo.enrolled_sessions(s, user)}
-        row = rows.get(found.class_session_id)
-        if row is None or row["class_id"] not in listed or not is_locked(row):
-            return None
+        found, row = own
         done = await progress.steps_of(s, user.id, [row["id"]])
         return await _game_out(s, user.id, found, row, done.get(row["id"], set()))
+
+
+@dataclass(frozen=True)
+class OwnGameSession:
+    """The Class session of a Student's own game, and the Starting task version its lock pinned
+    (None for a session locked before the pin existed) (Story 6.3)."""
+
+    class_session_id: uuid.UUID
+    starting_task_version: int | None
+
+
+async def own_game_session(user: authz.Principal, game_id: str) -> OwnGameSession | None:
+    """The Class session of the Student's own locked Class game, under the same checks as
+    `student_game_of`, for the Starting task routes (Story 6.3); None for every other id alike.
+    The game's status is not asked: a finished game still offers the Starting task (FR-85)."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+        if own is None:
+            return None
+        session_id = own[1]["id"]
+        pins = await repo.session_pins(s, session_id)
+    return OwnGameSession(session_id, content.pinned_version(pins))
 
 
 async def lecturer_overview(user: authz.Principal) -> LecturerOverviewOut:
@@ -2122,6 +2159,10 @@ def register_pin_provider(name: str, provider: PinProvider) -> None:
     if known is not None and known is not provider:
         raise ValueError(f"a pin provider named {name!r} is registered already")
     _pin_providers[name] = provider
+
+
+# Story 6.3: every lock from now on pins the Starting task version (AD-23).
+register_pin_provider(content.Kind.STARTING_TASK.value, content.starting_task_pin)
 
 
 class ProviderKeyMissing(Exception):

@@ -47,6 +47,7 @@ export const seatChoicePath = (id: string) => `${classSessionPath(id)}/velg-sete
 /** A Student's Class game (Epic 6), and its «Regler før første ordre» (Story 6.2). */
 export const gamePath = (id: string) => `/spill/${encodeURIComponent(id)}`;
 export const rulesPath = (id: string) => `${gamePath(id)}/regler`;
+export const startingTaskPath = (id: string) => `${gamePath(id)}/startoppgave`;
 
 /** The link that leads to each home («Til Lærerhjem» …). */
 export const HOME_LINK: Record<Home, string> = {

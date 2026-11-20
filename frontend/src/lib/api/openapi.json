@@ -445,6 +445,29 @@
         "title": "AllocationStudentOut",
         "type": "object"
       },
+      "AnswerIn": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "maximum": 1000000.0,
+            "minimum": -1000000.0,
+            "title": "Answer",
+            "type": "integer"
+          },
+          "item_id": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id",
+          "answer"
+        ],
+        "title": "AnswerIn",
+        "type": "object"
+      },
       "AuditActor": {
         "description": "An actor of the log for the filter: a User with their name, or the system (both null).",
         "properties": {
@@ -635,6 +658,17 @@
           "bounced"
         ],
         "title": "BouncedRegistration",
+        "type": "string"
+      },
+      "Choice": {
+        "description": "The answers to «Har du spilt et spill som ligner dette før?»; `skipped` is «Hopp over».",
+        "enum": [
+          "yes",
+          "no",
+          "unknown",
+          "skipped"
+        ],
+        "title": "Choice",
         "type": "string"
       },
       "ClassIn": {
@@ -1863,6 +1897,19 @@
         "title": "ErrorEnvelope",
         "type": "object"
       },
+      "FinalIn": {
+        "additionalProperties": false,
+        "properties": {
+          "choice": {
+            "$ref": "#/components/schemas/Choice"
+          }
+        },
+        "required": [
+          "choice"
+        ],
+        "title": "FinalIn",
+        "type": "object"
+      },
       "GameRulesOut": {
         "description": "The rules «Regler før første ordre» states (Story 6.2, FR-84), from the Class session's\nfrozen settings: the delays, the number of Veiledede uker and the two cost rates. Never the\nnumber of Weeks, the demand, its seed or the largest Order (FR-14, AD-3).",
         "properties": {
@@ -2061,6 +2108,24 @@
           }
         },
         "title": "GameSettings",
+        "type": "object"
+      },
+      "GivenRowOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "GivenRowOut",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -2515,6 +2580,38 @@
           "token"
         ],
         "title": "InvitationTokenIn",
+        "type": "object"
+      },
+      "ItemResultOut": {
+        "description": "The stored answer and its score. Only for an answered item: the answer key is never sent\nbefore.",
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "integer"
+          },
+          "correct": {
+            "title": "Correct",
+            "type": "boolean"
+          },
+          "expected": {
+            "title": "Expected",
+            "type": "integer"
+          },
+          "terms": {
+            "items": {
+              "$ref": "#/components/schemas/SumTermOut"
+            },
+            "title": "Terms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "answer",
+          "correct",
+          "expected",
+          "terms"
+        ],
+        "title": "ItemResultOut",
         "type": "object"
       },
       "LabHourIn": {
@@ -3933,6 +4030,103 @@
         "title": "StaffStatus",
         "type": "string"
       },
+      "StartingTaskItemOut": {
+        "properties": {
+          "asked_label": {
+            "title": "Asked Label",
+            "type": "string"
+          },
+          "column": {
+            "title": "Column",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ItemResultOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/GivenRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "prompt",
+          "hint",
+          "column",
+          "rows",
+          "asked_label",
+          "result"
+        ],
+        "title": "StartingTaskItemOut",
+        "type": "object"
+      },
+      "StartingTaskOut": {
+        "description": "The Student's Starting task: the pinned content version, the items in order (answered\nones with their result), the final question's choice and whether the task is done. The web\napp resumes at the first item without a result.",
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StartingTaskItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "played_before": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Choice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "items",
+          "played_before",
+          "done"
+        ],
+        "title": "StartingTaskOut",
+        "type": "object"
+      },
       "StepOut": {
         "description": "A step of Stegene (Story 6.1, UX-DR29, AD-10, AD-16), its state computed here: the web app\nholds no rule for which step is open.",
         "properties": {
@@ -4004,6 +4198,29 @@
           "rules"
         ],
         "title": "StudentGameOut",
+        "type": "object"
+      },
+      "SumTermOut": {
+        "description": "One part of the sum the result shows: «0 − 13 + 16» is (+1, 0), (−1, 13), (+1, 16).",
+        "properties": {
+          "sign": {
+            "enum": [
+              1,
+              -1
+            ],
+            "title": "Sign",
+            "type": "integer"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sign",
+          "value"
+        ],
+        "title": "SumTermOut",
         "type": "object"
       },
       "TableSeatOut": {
@@ -9157,6 +9374,225 @@
         "summary": "Get My Game",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/starting-task": {
+      "get": {
+        "description": "The Student's Starting task: the items in order, each answered one with its result, the\nfinal question's choice and whether the task is done.",
+        "operationId": "getMyStartingTask",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartingTaskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Starting Task",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/starting-task/answers": {
+      "post": {
+        "description": "Send the answer to one item: scored by computed rules and stored once (a repeat keeps\nthe first answer). 422 `unknown_item` for an item the task does not have.",
+        "operationId": "answerStartingTaskItem",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartingTaskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Answer Starting Task Item",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/starting-task/final": {
+      "post": {
+        "description": "Answer or skip the final question; the task is then done and `starting_task` recorded.\n409 `items_open` while an item has no answer.",
+        "operationId": "finishStartingTask",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartingTaskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Finish Starting Task",
+        "tags": [
+          "tests"
         ]
       }
     }

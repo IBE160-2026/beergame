@@ -9,7 +9,7 @@ import { ApiRequestError } from "@/lib/api/client";
 import { usePageState } from "@/lib/page-state";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
-import { HOME_LINK, HOME_PATH } from "@/modules/identity/homes";
+import { HOME_LINK, HOME_PATH, startingTaskPath } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { roleName } from "@/modules/sessions/sessions";
 
@@ -23,9 +23,8 @@ const copy = nb.games.briefing;
  * the objective, how a Week goes, the game's own delays and Veiledede uker, how to play together,
  * and one Uke explained with the product's terms, labelled «Demodata». It never states the number
  * of Weeks and recommends no Order. Nothing is stored for reading it: Hjem leads here while the
- * api says `briefing_first`. The one primary button returns to Hjem until Story 6.3 opens the
- * Startoppgave from it. Another Student's game, or one not yet started, shows the
- * permission-denied page (FR-5).
+ * api says `briefing_first`. The one primary button opens the Startoppgave (Story 6.3). Another
+ * Student's game, or one not yet started, shows the permission-denied page (FR-5).
  */
 export function BriefingPage({ gameId }: { gameId: string }) {
   return (
@@ -99,7 +98,7 @@ function Briefing({ game }: { game: MyGame }) {
         <p className={BODY}>{copy.together.arrange}</p>
       </Section>
       <div className="mt-10">
-        <NextLink href={HOME_PATH.home} className={buttonClassName("primary")}>
+        <NextLink href={startingTaskPath(game.id)} className={buttonClassName("primary")}>
           {copy.done}
         </NextLink>
       </div>

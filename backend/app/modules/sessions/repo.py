@@ -103,6 +103,16 @@ async def enrolled_sessions(session: AsyncSession, user: authz.Principal) -> lis
     return list(result.mappings())
 
 
+async def session_pins(session: AsyncSession, class_session_id: uuid.UUID) -> Any:
+    """The pins the lock stored in the session's snapshot (`session_runtime.pins`, AD-23); None
+    before the lock (Story 6.3)."""
+    return await session.scalar(
+        select(class_sessions.c.snapshot["session_runtime"]["pins"]).where(
+            class_sessions.c.id == class_session_id
+        )
+    )
+
+
 async def staff_sessions(
     session: AsyncSession, user: authz.Principal, class_ids: list[uuid.UUID]
 ) -> list[RowMapping]:

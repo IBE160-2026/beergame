@@ -67,6 +67,23 @@ def test_progress_imports_no_feature_module():
             assert name.startswith("app.modules.progress"), f"{path.name}:{line} imports {name}"
 
 
+def test_content_imports_no_feature_module():
+    """AD-23: every module reads its pinned content through `content.service`, so `content`
+    imports no other module (Story 6.3)."""
+    for path, line, name in imports(APP / "modules" / "content"):
+        if name.startswith("app.modules."):
+            assert name.startswith("app.modules.content"), f"{path.name}:{line} imports {name}"
+
+
+def test_analysis_is_pure():
+    """AD-1: `app/analysis` (the Play guard, the Starting task's scoring) imports only the
+    stdlib, pydantic and `app.engine`: no module, no platform, no database, no LLM."""
+    for path, line, name in imports(APP / "analysis"):
+        assert not name.startswith(
+            ("app.modules", "app.platform", "app.ai", "sqlalchemy", "httpx", *LLM_IMPORTS)
+        ), f"{path.name}:{line} imports {name}"
+
+
 def test_the_platform_imports_no_module_and_no_llm_library():
     """`app/platform` (jobs included) names task modules by string only (Story 2.5)."""
     for path, line, name in imports(APP / "platform"):

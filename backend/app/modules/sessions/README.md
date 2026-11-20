@@ -219,8 +219,11 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
 - `session_runtime` is a `games.SessionRuntime` built by `games.commands.default_runtime`: AI mode,
   Effort level, model config id, its `prompt_versions`, the Inactivity limit, today's Rule-based and
   Play guard sets, and `pins`, filled by every provider registered with
-  `service.register_pin_provider(name, provider)` (empty in this story; Epics 6, 9, 10 and 11 add
-  theirs).
+  `service.register_pin_provider(name, provider)` (Epics 6, 9, 10 and 11 add theirs; Story 6.3
+  registers `starting_task` → `{"version": N}` from `content`).
+- `service.own_game_session(user, game_id)` (Story 6.3): the Class session of the Student's own
+  locked game and its pinned Starting task version, under `student_game_of`'s checks; the
+  Starting task routes in `modules/tests` use it.
 - With LLM players and a config that may not answer here (`ai.config.may_answer`: in production
   the mock config, or a provider whose key is not set) the lock raises `ProviderKeyMissing`
   (`provider_key_missing`) and stores nothing. Each owner of the Class and each active Admin gets

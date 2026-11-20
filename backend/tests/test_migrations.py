@@ -53,6 +53,8 @@ ROSTER_TABLES = {"roster_uploads", "roster_upload_rows", "roster_entries"}
 SESSION_TABLES = {"class_sessions", "lab_hours", "allocation_drafts", "deadline_reminders"}
 """The tables of `sessions`: revisions 0032 (Story 5.1), 0035 (Story 5.6), 0037 (Story 5.8) and
 0041 (Story 5.14)."""
+STARTING_TASK_TABLES = {"content_records", "starting_task_answers"}
+"""The tables of revision 0046 (Story 6.3)."""
 PRE_SESSION_TABLES = (
     AI_HEAD_TABLES
     | JOB_TABLES
@@ -67,8 +69,8 @@ PRE_SESSION_TABLES = (
     | CLASS_TABLES
     | ROSTER_TABLES
 )
-HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES | {"progress_steps"}
-HEAD = "0045"  # 0045 adds the steps a Student has done (Story 6.1)
+HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES | {"progress_steps"} | STARTING_TASK_TABLES
+HEAD = "0046"  # 0046 adds versioned content and the Starting task answers (Story 6.3)
 
 
 def reset_schema(url: str) -> None:
@@ -176,7 +178,17 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "ON DELETE SET NULL" in definition(url, "fk_class_sessions_copied_from")
     steps = constraints(url, "progress_steps")
     assert "UNIQUE (user_id, class_session_id, step)" in steps["uq_progress_steps_step"]
+    # 0046 (Story 6.3): version 1 of the Starting task is stored, and no record can change.
+    [(version, body)] = rows(url, "SELECT version, body FROM content_records")
+    assert version == 1 and [item["id"] for item in body["items"]][-1] == "position"
+    with pytest.raises(psycopg.errors.RestrictViolation):
+        rows(url, "UPDATE content_records SET version = 2 RETURNING version")
+    answers = constraints(url, "starting_task_answers")
+    assert "UNIQUE (user_id, class_session_id, item_id)" in answers["uq_starting_task_answers_item"]
 
+    command.downgrade(cfg, "0045")
+    assert STARTING_TASK_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "content_records_immutable")
     command.downgrade(cfg, "0044")
     assert "progress_steps" not in tables(url)
     command.downgrade(cfg, "0043")
@@ -527,6 +539,7 @@ def test_the_check_constraints_list_exactly_the_enum_values(test_database):
     from app.ai import budget as ai_budget
     from app.ai import models as ai_models
     from app.modules.classes.schemas import StaffRole
+    from app.modules.content.models import Kind
     from app.modules.games import schemas
     from app.modules.identity.schemas import (
         AccountRole,
@@ -536,6 +549,7 @@ def test_the_check_constraints_list_exactly_the_enum_values(test_database):
     )
     from app.modules.messaging import models as mail_models
     from app.modules.progress.models import Step
+    from app.modules.tests.models import PLAYED_BEFORE, Choice
 
     ai_checks = {
         "ck_ai_budgets_scope_kind": set(get_args(ai_budget.ScopeKind)),
@@ -552,6 +566,8 @@ def test_the_check_constraints_list_exactly_the_enum_values(test_database):
         "ck_mail_deliveries_delivery_state": set(mail_models.DELIVERY_STATES),
         "ck_mail_deliveries_bounce_class": set(mail_models.BOUNCE_CLASSES),
         "ck_progress_steps_step": {step.value for step in Step},
+        "ck_content_records_kind": {kind.value for kind in Kind},
+        "ck_starting_task_answers_kind": {c.value for c in Choice} | {PLAYED_BEFORE},
     }
     with psycopg.connect(libpq_dsn(test_database)) as conn:
         rows = dict(

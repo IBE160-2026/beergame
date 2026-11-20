@@ -20,3 +20,35 @@ export function useMyGame(gameId: string) {
     retry: false,
   });
 }
+
+/** The Startoppgave (Story 6.3): the items in order, answered ones with their result. */
+export const startingTaskKey = (id: string) => ["games", "mine", id, "starting-task"] as const;
+
+export function useStartingTask(gameId: string) {
+  return useQuery({
+    queryKey: startingTaskKey(gameId),
+    queryFn: () =>
+      request(() => api.GET("/api/me/games/{game_id}/starting-task", { params: { path: { game_id: gameId } } })),
+    retry: false,
+  });
+}
+
+/** Sends one item's answer; the api scores it and stores it once. */
+export function answerItem(gameId: string, itemId: string, answer: number) {
+  return request(() =>
+    api.POST("/api/me/games/{game_id}/starting-task/answers", {
+      params: { path: { game_id: gameId } },
+      body: { item_id: itemId, answer },
+    }),
+  );
+}
+
+/** Answers or skips the final question; the Starting task is then done. */
+export function finishTask(gameId: string, choice: components["schemas"]["Choice"]) {
+  return request(() =>
+    api.POST("/api/me/games/{game_id}/starting-task/final", {
+      params: { path: { game_id: gameId } },
+      body: { choice },
+    }),
+  );
+}
