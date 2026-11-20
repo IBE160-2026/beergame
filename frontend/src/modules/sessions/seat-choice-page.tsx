@@ -233,15 +233,16 @@ function GameSeats({
       </ul>
       {here ? (
         <div className="mt-3 flex flex-col items-start gap-2">
-          <Button variant="primary" unavailable={busy} onClick={() => onTake(here)}>
-            {busy ? copy.taking : takeLabel(game.number, here.role)}
-          </Button>
           {choice.my_seat ? (
-            // Taking another Seat moves the Student: said before the press.
+            // Taking another Seat moves the Student: said above the button, before the press
+            // (EXPERIENCE.md → Knapper: the consequence is written above the button).
             <p className="text-body-phone text-ink-secondary">
               {copy.leaves(roleName(choice.my_seat.role), choice.my_seat.game_number)}
             </p>
           ) : null}
+          <Button variant="primary" unavailable={busy} onClick={() => onTake(here)}>
+            {busy ? copy.taking : takeLabel(game.number, here.role)}
+          </Button>
           <ActionError message={error} />
         </div>
       ) : null}

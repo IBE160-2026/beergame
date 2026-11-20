@@ -362,7 +362,11 @@ function Preview({
         {allocation.opened ? (
           <p className="mt-2 max-w-prose text-body-phone font-semibold text-ink lg:text-body">{copy.opened}</p>
         ) : null}
-        {confirmedAt ? (
+        {choosing ? (
+          // Student choice (Story 5.17): its empty draft is confirmed by the save, so the
+          // Lecturer confirmed nothing; the panel says what the block says.
+          <p className="mt-2 max-w-prose text-body-phone font-semibold text-ink lg:text-body">{copy.choiceState}</p>
+        ) : confirmedAt ? (
           <p
             className={cn(
               "max-w-prose text-body-phone lg:text-body",
