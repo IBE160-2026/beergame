@@ -1605,3 +1605,27 @@ Bygge med `bmad-build-auto`. Ingen egen visuell kontroll, fordi den eneste synli
 
 ### Åpne punkter
 - Issue 122: beslutninger i Story 6.4.
+
+## Story 6.5: Starte klassespillet (2026-11-20)
+
+### Oppgave
+Bygge Story 6.5 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-5-start-the-class-game.md`.
+- **Commit 81538f1:**
+  - `POST /api/me/games/{id}/start`, og `status` og `week` på spillet;
+  - neste steg på Hjem, på ferdigskjermen og på den nye spillsiden `/spill/{id}`.
+- **Tester:**
+  - backend: 2659 tester;
+  - frontend: Vitest 495 og bygg;
+  - Playwright: 319 tester med 2 arbeidere.
+- **Gjennomgang:** 37 funn, 4 middels. Alle er rettet. Byggeagenten anbefaler en oppfølgende gjennomgang.
+- **Visuell kontroll:** 29 skjermbilder i `screenshots/6.5/`. Ingen klare avvik.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 123: beslutninger i Story 6.5, og en merknad om hvordan et helt spill kan kjøres i de siste reisene.
