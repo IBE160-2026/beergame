@@ -244,15 +244,30 @@ async def save(
     )
 
 
-async def due_locks(session: AsyncSession, now: datetime) -> list[uuid.UUID]:
-    """The Class sessions whose Start date has passed and that are not locked (Story 5.11),
-    oldest first: what the sweep's `sessions.lock` acts on."""
+async def due_locks(session: AsyncSession, now: datetime) -> list[RowMapping]:
+    """The Class sessions whose Start date has passed and that are not locked (Story 5.11), by
+    id: id, Class and `lock_refused_at`, what the sweep's `sessions.lock` finder judges."""
     result = await session.execute(
-        select(class_sessions.c.id)
+        select(class_sessions.c.id, class_sessions.c.class_id, class_sessions.c.lock_refused_at)
         .where(class_sessions.c.start_at <= now, class_sessions.c.locked_at.is_(None))
         .order_by(class_sessions.c.id)
     )
-    return list(result.scalars())
+    return list(result.mappings())
+
+
+async def set_lock_refused(session: AsyncSession, session_id: uuid.UUID, at: datetime) -> bool:
+    """Mark the first refusal of an unlocked session's lock (GitHub issue 109); a later refusal
+    keeps the first time. True when this call marked it."""
+    result = await session.execute(
+        update(class_sessions)
+        .where(
+            class_sessions.c.id == session_id,
+            class_sessions.c.locked_at.is_(None),
+            class_sessions.c.lock_refused_at.is_(None),
+        )
+        .values(lock_refused_at=at)
+    )
+    return bool(result.rowcount)
 
 
 async def locked_ids(session: AsyncSession, ids: list[uuid.UUID]) -> list[uuid.UUID]:

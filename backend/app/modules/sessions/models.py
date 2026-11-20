@@ -58,6 +58,9 @@ class_sessions = Table(
     # (`service.build_snapshot`). Both set together, by `service.lock` only.
     Column("locked_at", DateTime(timezone=True), nullable=True),
     Column("snapshot", JSONB(none_as_null=True), nullable=True),
+    # When the sweep first refused the lock for a missing provider key (GitHub issue 109); NULL
+    # otherwise. A refused lock shows on the Klasseøkt while `locked_at` is NULL.
+    Column("lock_refused_at", DateTime(timezone=True), nullable=True),
     # How the Students get their Seats (Story 5.17, FR-21): `random` (Stories 5.8 to 5.13) or
     # `student_choice`, final once saved.
     Column("allocation_method", Text, nullable=False, server_default="random"),

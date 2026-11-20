@@ -1,4 +1,5 @@
 import { nb } from "@/copy/nb";
+import { ApiRequestError } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { formatNumber, parseNumber } from "@/lib/number-format";
 
@@ -238,6 +239,22 @@ export function problemsOf(fields: Readonly<Record<string, unknown>>): Record<st
   return result;
 }
 
+/** The problem of a setting switched off here, as a save refused it (`feature_disabled`). */
+export const DISABLED_PROBLEM: SettingProblem = {
+  code: "feature_disabled",
+  minimum: null,
+  maximum: null,
+  decimal_places: null,
+};
+
+/** The settings with a field of their own that a save refused as switched off here (422
+ * `feature_disabled`, Stories 5.15 and 5.16): their reason stands at the field, so the save line
+ * only says nothing was saved (GitHub issue 114). Another refusal (Student choice) names none. */
+export function disabledSettings(error: unknown): string[] {
+  if (!(error instanceof ApiRequestError) || error.code !== "feature_disabled") return [];
+  return (["capacity", "info_visibility"] as const).filter((name) => error.fields[name] === "feature_disabled");
+}
+
 /** The reason under a setting, in words, with the allowed range the api sent. */
 export function problemText(problem: SettingProblem): string {
   const e = copy.edit.errors;
@@ -309,6 +326,19 @@ export function warningsBySetting(warnings: readonly SettingWarning[]): Record<s
     if (!list.includes(text)) list.push(text);
   }
   return result;
+}
+
+/** Whether the three delays are Classic's, as the api states Classic. The note that the sources
+ * disagree on the delays speaks of Classic's own, so it shows only then (GitHub issue 101). */
+export function hasClassicDelays(
+  settings: Pick<GameSettings, "order_delay" | "shipping_delay" | "production_delay">,
+  classic: Pick<GameSettings, "order_delay" | "shipping_delay" | "production_delay">,
+): boolean {
+  return (
+    settings.order_delay === classic.order_delay &&
+    settings.shipping_delay === classic.shipping_delay &&
+    settings.production_delay === classic.production_delay
+  );
 }
 
 /** The line naming what content and Play guard were calibrated for, from the api's Classic. */

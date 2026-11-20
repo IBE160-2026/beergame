@@ -226,6 +226,9 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   (`provider_key_missing`) and stores nothing. Each owner of the Class and each active Admin gets
   one immediate `class_session_lock_refused` notice (key per session and User); the mail is left
   out once the session has locked. The next sweep tries again; it never falls back to Rule-based.
+  The first refusal sets `lock_refused_at` (migration 0044); the read's `lock_refused` is true
+  while it is set and `locked_at` is not, and the Klasseøkt says so to the owner. A refused session
+  of an archived Class is left out of `due_locks` until the Class is restored (GitHub issue 109).
 - `is_locked` is true from `locked_at` as well as from a passed Start date. The read adds
   `locked_at`.
 - The sweep also runs `identity.purge_expired_roster_uploads` each minute.

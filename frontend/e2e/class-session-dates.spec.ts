@@ -104,6 +104,24 @@ test("a Spillfrist before the Startdato is refused with the reason under the fie
   await expect(lecturer.getByText(dates.none)).toBeVisible();
 });
 
+test("a half-typed date is refused under its field, never read as no date (Issue #100)", async ({ page, browser }) => {
+  const lecturer = await freshLecturer(page, browser);
+  const klass = await freshClass(lecturer);
+  const sessionId = await newSession(lecturer, klass.id);
+  await saveDates(lecturer, sessionId);
+  await lecturer.goto(`/klasseokter/${sessionId}`);
+  const start = lecturer.getByLabel(dates.names.start_at, { exact: true });
+  await start.fill("");
+  await start.focus();
+  await lecturer.keyboard.type("11");
+  await lecturer.getByRole("button", { name: copy.save }).click();
+  await expect(start).toHaveAccessibleDescription(dates.errors.incomplete);
+  await expect(start).toBeFocused();
+  // Nothing was sent: the stored Startdato stands.
+  const stored = await (await lecturer.request.get(`/api/class-sessions/${sessionId}`)).json();
+  expect(stored.start_at).not.toBeNull();
+});
+
 test("the Lærerhjem names the session that lacks dates and the next date", async ({ page, browser }) => {
   const lecturer = await freshLecturer(page, browser);
   const klass = await freshClass(lecturer);

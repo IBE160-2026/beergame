@@ -214,6 +214,9 @@ class ClassSessionOut(BaseModel):
     locked_at: datetime | None = None
     """When the lock froze the session (Story 5.11); None until then, also for a while after the
     Start date has passed (the sweep runs each minute, or the lock is refused)."""
+    lock_refused: bool = False
+    """Not locked, and the sweep has refused the lock for a missing provider key (GitHub issue
+    109): LLM players and no key for the model's provider. The sweep tries again each minute."""
     passed_dates: list[DateName]
     """The dates that are set and have passed by the server's clock; they no longer move."""
     play_time_warning: bool

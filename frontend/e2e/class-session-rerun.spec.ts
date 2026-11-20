@@ -41,9 +41,13 @@ for (const viewport of [
     const sessions = lecturer.getByRole("region", { name: copy.list.title });
     await sessions.getByRole("button", { name: r.open }).click();
     const panel = lecturer.getByRole("region", { name: r.title });
-    await expect(panel.getByRole("heading", { name: r.title })).toBeFocused();
+    // Focus on the first field (EXPERIENCE.md, Issue #116).
     const select = panel.getByLabel(r.source);
+    await expect(select).toBeFocused();
     await expect(select).toHaveValue(source);
+    // A long Class name breaks between words in the page heading, never inside one (Issue #116).
+    const title = lecturer.getByRole("heading", { level: 1 });
+    expect(await title.evaluate((h) => getComputedStyle(h).overflowWrap)).not.toBe("anywhere");
     await expect(select.locator("optgroup")).toHaveAttribute("label", last.name);
     await expect(select.locator("option")).toHaveText([r.option(1, r.noStart)]);
     const seed = panel.getByRole("switch", { name: new RegExp(r.keepSeed) });
@@ -83,8 +87,9 @@ test("Avbryt closes the panel and returns focus to the Lenke", async ({ page, br
   const open = lecturer.getByRole("button", { name: r.open });
   await open.click();
   const panel = lecturer.getByRole("region", { name: r.title });
-  // A new Lecturer's only Class has no session yet.
+  // A new Lecturer's only Class has no session yet: no field, so focus is on the heading.
   await expect(panel.getByText(r.none)).toBeVisible();
+  await expect(panel.getByRole("heading", { name: r.title })).toBeFocused();
   await expect(panel.getByRole("button", { name: r.submit })).toHaveCount(0);
   await panel.getByRole("button", { name: r.cancel }).click();
   await expect(panel).toHaveCount(0);

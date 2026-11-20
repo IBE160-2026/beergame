@@ -1003,6 +1003,11 @@
             ],
             "title": "Llm Unavailable"
           },
+          "lock_refused": {
+            "default": false,
+            "title": "Lock Refused",
+            "type": "boolean"
+          },
           "locked": {
             "title": "Locked",
             "type": "boolean"

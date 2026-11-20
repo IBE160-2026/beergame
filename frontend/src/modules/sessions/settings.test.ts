@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { ApiRequestError } from "@/lib/api/client";
 import { GROUP } from "@/lib/number-format";
 
 import type { GameSettings } from "./api";
@@ -8,7 +9,9 @@ import {
   capacityProblem,
   demandBody,
   demandProblemKey,
+  disabledSettings,
   draftOf,
+  hasClassicDelays,
   problemsOf,
   problemText,
   settingsBody,
@@ -267,5 +270,35 @@ describe("the shipping capacity (Story 5.15)", () => {
         "Advarsel: Kapasiteten (6 per uke) er under den høyeste etterspørselen (8). Et ledd med kapasitet holder ikke følge når etterspørselen er høyest.",
       ],
     });
+  });
+});
+
+describe("the note on the delay sources (GitHub issue 101)", () => {
+  it("shows only with Classic's three delays", () => {
+    expect(hasClassicDelays(settings, settings)).toBe(true);
+    expect(hasClassicDelays({ ...settings, shipping_delay: 3 }, settings)).toBe(false);
+    expect(hasClassicDelays({ ...settings, order_delay: 1 }, settings)).toBe(false);
+    expect(hasClassicDelays({ ...settings, production_delay: 1 }, settings)).toBe(false);
+    // Other settings off Classic leave the delays Classic's.
+    expect(hasClassicDelays({ ...settings, weeks: 52 } as GameSettings, settings)).toBe(true);
+  });
+});
+
+describe("a save refused for a setting switched off (GitHub issue 114)", () => {
+  it("names the settings with a field, so their reason stands there alone", () => {
+    const refused = new ApiRequestError(422, "feature_disabled", { capacity: "feature_disabled" });
+    expect(disabledSettings(refused)).toEqual(["capacity"]);
+    const both = new ApiRequestError(422, "feature_disabled", {
+      capacity: "feature_disabled",
+      info_visibility: "feature_disabled",
+    });
+    expect(disabledSettings(both)).toEqual(["capacity", "info_visibility"]);
+  });
+
+  it("names none for Student choice or another refusal", () => {
+    const choice = new ApiRequestError(422, "feature_disabled", { allocation_method: "feature_disabled" });
+    expect(disabledSettings(choice)).toEqual([]);
+    expect(disabledSettings(new ApiRequestError(422, "invalid_settings", { capacity: "feature_disabled" }))).toEqual([]);
+    expect(disabledSettings(new Error("x"))).toEqual([]);
   });
 });

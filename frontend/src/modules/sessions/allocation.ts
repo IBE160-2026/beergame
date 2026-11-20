@@ -28,15 +28,11 @@ export function changedReason(fields: Readonly<Record<string, unknown>> | undefi
   return fields?.draft === "students_removed" ? copy.studentsRemoved : copy.changed;
 }
 
-/** A game's four Seats in the order the line reads them: Detaljist first, as the customer sees the
- * chain («Ida, Detaljist. Sara, Grossist. …»); the api lists Fabrikk first, as the chart draws it. */
-export function seatsInReadingOrder(game: AllocationGame): AllocationSeat[] {
-  return [...game.seats].reverse();
-}
-
-/** «Ida, Detaljist. Sara, Grossist. Mikkel, Distributør. KI-spiller, Fabrikk.» */
+/** «KI-spiller, Fabrikk. Mikkel, Distributør. Sara, Grossist. Ida, Detaljist.»: the Seats in the
+ * api's order, Fabrikk first, as the chart draws them and «Velg spill og sete» lists them; one
+ * Seat order everywhere (GitHub issue 115). */
 export function gameLine(game: AllocationGame, choosing = false): string {
-  return seatsInReadingOrder(game)
+  return game.seats
     .map((seat) => `${copy.seat(holderName(seat, choosing), roleName(seat.role))}.`)
     .join(" ");
 }

@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { SegmentedChoice } from "@/components/segmented-choice";
 import { SelectField } from "@/components/select-field";
+import { TextAreaField } from "@/components/text-area-field";
 import { Switch } from "@/components/switch";
 import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
@@ -255,15 +256,34 @@ function DemandFields({
         {DEMAND_FIELDS[demand.kind].map((name) => {
           const problem = problems[demandProblemKey(name)];
           const field = DEMAND_LABELS[name];
+          if (name === "values") {
+            // 36–52 numbers do not fit one line (GitHub issue 102).
+            return (
+              <TextAreaField
+                key={name}
+                id={`setting-demand-${name}`}
+                label={field.label}
+                rows={4}
+                autoComplete="off"
+                spellCheck={false}
+                className="lg:col-span-2"
+                value={demand[name]}
+                hint={field.hint}
+                error={problem ? problemText(problem) : undefined}
+                onChange={(event) => onChange({ ...demand, [name]: event.target.value })}
+                onBlur={onLeave}
+              />
+            );
+          }
           return (
             <TextField
               key={name}
               id={`setting-demand-${name}`}
               label={field.label}
               type="text"
-              inputMode={name === "values" ? "text" : "numeric"}
+              inputMode="numeric"
               autoComplete="off"
-              className={name === "values" || name === "seed" ? "lg:col-span-2" : undefined}
+              className={name === "seed" ? "lg:col-span-2" : undefined}
               value={demand[name]}
               hint={field.hint}
               error={problem ? problemText(problem) : undefined}

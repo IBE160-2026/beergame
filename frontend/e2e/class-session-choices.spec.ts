@@ -149,7 +149,10 @@ test("a session that has started shows the choices as text, with no control", as
   await expect(lecturer.getByText(nb.sessions.lock.pending)).toBeVisible();
   await expect(lecturer.getByRole("radio")).toHaveCount(0);
   await expect(lecturer.getByRole("heading", { name: c.aiMode })).toBeVisible();
-  await expect(lecturer.getByText(c.effortValue(levelLabel(level)))).toBeVisible();
+  // Under its label, as the other locked values (Issue #109).
+  const effort = lecturer.getByRole("group", { name: c.effortLevel });
+  await expect(effort.getByRole("heading", { name: c.effortLevel })).toBeVisible();
+  await expect(effort.getByText(levelLabel(level), { exact: true })).toBeVisible();
   await expect(lecturer.getByText(c.group, { exact: true })).toBeVisible();
 });
 

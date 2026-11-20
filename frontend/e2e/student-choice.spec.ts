@@ -84,6 +84,9 @@ test("the Lecturer chooses Student choice with Valgknapper and saves it", async 
   await lecturer.getByRole("button", { name: a.open }).click();
   await expect(lecturer.getByText(a.choiceLead(0))).toBeVisible();
   await expect(lecturer.getByText(a.choiceMissing(5))).toBeVisible();
+  // Students who have not chosen are drawn first; only then do empty Seats get AI players (Issue #115).
+  await expect(lecturer.getByText(a.choiceEmptySeats)).toBeVisible();
+  await expect(lecturer.getByText(a.emptySeats, { exact: true })).toHaveCount(0);
   await expect(lecturer.getByRole("button", { name: a.confirm })).toHaveCount(0);
   await expect(lecturer.getByRole("button", { name: a.redraw })).toHaveCount(0);
   // Nobody is moved from the panel: no Seat list with «Flytt eller bytt».

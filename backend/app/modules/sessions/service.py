@@ -773,6 +773,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         test_deadline=row["test_deadline"],
         locked=is_locked(row, now=now),
         locked_at=row["locked_at"],
+        lock_refused=row["locked_at"] is None and row["lock_refused_at"] is not None,
         passed_dates=_passed(row, now),
         play_time_warning=_play_time_warning(row, settings),
         settings_warnings=[
@@ -2175,9 +2176,17 @@ async def open_games(class_session_id: uuid.UUID) -> int:
 async def due_locks(now: datetime) -> list[uuid.UUID]:
     """The sweep's `sessions.lock` finder (AD-9): the Class sessions whose Start date has passed
     and that are not locked, and the locked ones with a Class game still waiting for its
-    snapshot (an open cut short, Story 5.12), by id."""
+    snapshot (an open cut short, Story 5.12), by id. A session whose lock was refused already is
+    left out while its Class is archived: nobody is told of it, so retrying each minute would only
+    log (GitHub issue 109); it is tried again if the Class is restored."""
     async with get_sessionmaker().begin() as s:
-        due = await repo.due_locks(s, now)
+        due = []
+        for row in await repo.due_locks(s, now):
+            if row["lock_refused_at"] is not None and not await classes.is_writable(
+                row["class_id"], session=s
+            ):
+                continue
+            due.append(row["id"])
         waiting = await games_service.class_sessions_awaiting_snapshot(s)
         unfinished = await repo.locked_ids(s, waiting) if waiting else []
     return sorted({*due, *unfinished})
@@ -2192,7 +2201,7 @@ async def lock_due(class_session_id: object, now: datetime) -> bool:
     try:
         return await lock(class_session_id, now=now)
     except ProviderKeyMissing:
-        told = await _tell_lock_refused(class_session_id)
+        told = await _tell_lock_refused(class_session_id, now)
         log.warning(
             "class_session_lock_refused",
             class_session_id=str(class_session_id),
@@ -2202,14 +2211,18 @@ async def lock_due(class_session_id: object, now: datetime) -> bool:
         return False
 
 
-async def _tell_lock_refused(class_session_id: uuid.UUID) -> int:
-    """One `LOCK_REFUSED_NOTICE` per owner of the Class and per active Admin, keyed by the session
-    and the User, so each is told once. None for a Class that is archived. Returns how many
-    notices were stored now."""
+async def _tell_lock_refused(class_session_id: uuid.UUID, now: datetime) -> int:
+    """Mark the session's lock refused (`lock_refused_at`, the first time only, so the Klasseøkt
+    can say so), and one `LOCK_REFUSED_NOTICE` per owner of the Class and per active Admin, keyed
+    by the session and the User, so each is told once. No notice for a Class that is archived.
+    Returns how many notices were stored now."""
     told = 0
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, class_session_id)
-        if row is None or not await classes.is_writable(row["class_id"], session=s):
+        if row is None:
+            return 0
+        await repo.set_lock_refused(s, class_session_id, now)
+        if not await classes.is_writable(row["class_id"], session=s):
             return 0
         recipients = set(await classes.owners_of(s, row["class_id"]))
         recipients |= set(await identity.active_admins(s))

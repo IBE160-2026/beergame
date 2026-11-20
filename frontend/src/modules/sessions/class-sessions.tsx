@@ -110,7 +110,7 @@ export function ClassSessions({ classId, canCreate }: { classId: string; canCrea
 
 /**
  * «Lag fra en tidligere Klasseøkt» (Story 5.18, cut list, FR-66): opened in place, with focus on its
- * heading. The Faglærer picks one of the Class sessions the api offers (any Class they are staff
+ * first field. The Faglærer picks one of the Class sessions the api offers (any Class they are staff
  * of), chooses whether to keep the demand seed with a Bryter, and «Lag kopi» makes the new Class
  * session in this Class and opens it. What is and is not copied stands above the button.
  */
@@ -123,8 +123,18 @@ function CopyPanel({ classId, onClose }: { classId: string; onClose: () => void 
   const sources = useCopySources(classId, true);
   const [chosen, setChosen] = useState("");
   const [keepSeed, setKeepSeed] = useState(false);
-  useEffect(() => titleRef.current?.focus(), []);
+  const sourceRef = useRef<HTMLSelectElement>(null);
   const items = sources.data?.items;
+  // Focus goes to the first field (EXPERIENCE.md, GitHub issue 116); until the sources are there,
+  // or when there are none, to the heading. Once the field shows, it takes focus only from the
+  // heading, never from where the User has moved on to.
+  const hasSources = (items?.length ?? 0) > 0;
+  useEffect(() => titleRef.current?.focus(), []);
+  useEffect(() => {
+    if (hasSources && (document.activeElement === titleRef.current || document.activeElement === document.body)) {
+      sourceRef.current?.focus();
+    }
+  }, [hasSources]);
   const sourceId = chosen || items?.[0]?.id || "";
   const action = useAction({
     mutationFn: () => copyClassSession(classId, sourceId, keepSeed),
@@ -163,6 +173,7 @@ function CopyPanel({ classId, onClose }: { classId: string; onClose: () => void 
         <>
           <SelectField
             id={`${ids}-source`}
+            ref={sourceRef}
             label={r.source}
             value={sourceId}
             onChange={(event) => setChosen(event.target.value)}

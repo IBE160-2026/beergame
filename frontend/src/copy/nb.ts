@@ -806,6 +806,8 @@ export const nb = {
       },
       // [ASSUMPTION] Story 5.16: a save refused because a cut-list setting is switched off.
       featureDisabled: "En av innstillingene er slått av i denne installasjonen. Ingenting ble lagret.",
+      // [ASSUMPTION] GitHub issue 114: the save line when the reason stands at the field.
+      notSaved: "Ikke lagret.",
       /** The Demand pattern and its seed (Story 5.4, FR-13). [ASSUMPTION] draft copy. */
       demand: {
         legend: "Etterspørsel",
@@ -952,8 +954,6 @@ export const nb = {
       // Mockup 03 for Gruppedebrief; [ASSUMPTION] for Personlig debrief.
       groupHelp: "De fire i spillet går gjennom det sammen.",
       personalHelp: "Hver student går gjennom det alene.",
-      // [ASSUMPTION] the choices once locked or for an Assistant: the level in force.
-      effortValue: (label: string) => `Innsatsnivå: ${label}`,
       // [ASSUMPTION] the save of a level the model config no longer offers (`invalid_effort_level`).
       effortRefused: "Innsatsnivået kan ikke velges lenger. Last siden på nytt og velg et annet.",
     },
@@ -969,6 +969,9 @@ export const nb = {
         `Låst ${when}. Spillinnstillinger, etterspørsel, KI-modus, Innsatsnivå, Debrief-modus, Obligatorisk og ventetid er frosset.`,
       /** The Start date has passed but the lock has not run yet (each minute) or was refused. */
       pending: "Startdatoen er passert. Spillinnstillinger, etterspørsel, KI-modus, Innsatsnivå, Debrief-modus, Obligatorisk og ventetid kan ikke endres.",
+      // [ASSUMPTION] GitHub issue 109: the lock was refused, LLM players and no provider key.
+      refused:
+        "Klasseøkten kan ikke starte: KI-leverandøren for LLM-spillerne er ikke satt opp. Be en Admin ordne det. Låsen prøves igjen hvert minutt.",
       open: "Frister som ikke er passert, og Labtimer, kan fortsatt endres.",
       labHoursOpen: "Labtimer kan fortsatt endres.",
       save: "Lagre frister",
@@ -1058,6 +1061,8 @@ export const nb = {
         past: "Velg et tidspunkt fram i tid.",
         passed: "Datoen er passert og kan ikke flyttes.",
         required: "Klasseøkten har startet. Datoen kan ikke tas bort.",
+        // [ASSUMPTION] GitHub issue 100: a field the browser holds half-typed; nothing is sent.
+        incomplete: "Datoen og klokkeslettet er ikke fylt ut helt.",
       },
       // [ASSUMPTION] the alert line of a save refused for its dates.
       refused: "Datoene ble ikke lagret. Se feltene.",
@@ -1219,6 +1224,8 @@ export const nb = {
       methodChoicePending: "Lagre Klasseøkt for å åpne valget. Studentene får beskjed på e-post.",
       methodConfirmed: "Fordelingen er bekreftet. Fordelingsmåten kan ikke endres lenger.",
       choiceState: "Studentene velger spill og sete selv.",
+      // GitHub issue 115: what fills the empty Seats at the lock while Students choose.
+      choiceEmptySeats: "På startdatoen trekkes studenter som ikke har valgt, inn i ledige seter først. Seter som da er tomme, får KI-spiller.",
       /** «3 studenter har valgt sete. Hver søyle er ett spill, hver rad en Rolle.» */
       choiceLead: (students: number) =>
         `${students} ${students === 1 ? "student har" : "studenter har"} valgt sete. Hver søyle er ett spill, hver rad en Rolle.`,

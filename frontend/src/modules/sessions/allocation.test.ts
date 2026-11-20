@@ -30,9 +30,10 @@ const game: AllocationGame = {
 };
 
 describe("the allocation preview (Story 5.8)", () => {
-  it("reads a game's Seats from Detaljist to Fabrikk, naming empty and removed Seats", () => {
+  it("reads a game's Seats from Fabrikk to Detaljist, as the chart, naming empty and removed Seats", () => {
+    // One Seat order everywhere: Fabrikk first, as the chart and «Velg spill og sete» (Issue #115).
     expect(gameLine(game)).toBe(
-      "Ida, Detaljist. Sara, Grossist. Ikke lenger i Klassen, Distributør. KI-spiller, Fabrikk.",
+      "KI-spiller, Fabrikk. Ikke lenger i Klassen, Distributør. Sara, Grossist. Ida, Detaljist.",
     );
     expect(holderName(game.seats[0])).toBe("KI-spiller");
   });

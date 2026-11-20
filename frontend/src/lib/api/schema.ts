@@ -1876,6 +1876,11 @@ export interface components {
             lab_hours: components["schemas"]["LabHourOut"][];
             /** Llm Unavailable */
             llm_unavailable: "no_default_model" | null;
+            /**
+             * Lock Refused
+             * @default false
+             */
+            lock_refused: boolean;
             /** Locked */
             locked: boolean;
             /** Locked At */

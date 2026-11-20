@@ -44,7 +44,9 @@ import {
 import { DateFields } from "./date-fields";
 import { DateLine } from "./date-line";
 import {
+  DATE_NAMES,
   type DateInputs,
+  type DateName,
   dateErrors,
   datesBody,
   datesEditable,
@@ -55,7 +57,13 @@ import {
 import { LabHours } from "./lab-hours-panel";
 import { inactivityProblem, shareProblem, valueErrorsOf } from "./obligatory";
 import { copyLines } from "./rerun";
-import { calibratedText, draftOf, problemsOf, type SettingProblem, settingsBody, warningsBySetting } from "./settings";
+import {
+  calibratedText,
+  DISABLED_PROBLEM,
+  disabledSettings,
+  draftOf,
+  hasClassicDelays,
+  problemsOf, type SettingProblem, settingsBody, warningsBySetting } from "./settings";
 import { SettingsBlock } from "./settings-form";
 
 const copy = nb.sessions;
@@ -122,6 +130,10 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   // The date fields as typed; they take effect only when «Lagre Klasseøkt» saves them.
   const [inputs, setInputs] = useState<DateInputs>(() => inputsOf(item));
   const [testTouched, setTestTouched] = useState(item.test_deadline != null);
+  // A date field the browser holds half-typed reads as "" (GitHub issue 100): the save stops with
+  // a reason under it rather than clear the date.
+  const dateFields = useRef<Partial<Record<DateName, HTMLInputElement | null>>>({});
+  const [halfTyped, setHalfTyped] = useState<readonly DateName[]>([]);
   const [saved, setSaved] = useState(false);
   // A Lab hour form is open (Story 5.6): its save is the primary button meanwhile.
   const [labFormOpen, setLabFormOpen] = useState(false);
@@ -161,6 +173,12 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
         if (error instanceof ApiRequestError && error.code === "invalid_settings") {
           checks.current += 1;
           setProblems(problemsOf(error.fields));
+        }
+        // A setting switched off here (GitHub issue 114): the reason stands at its field only.
+        const disabled = disabledSettings(error);
+        if (disabled.length > 0) {
+          checks.current += 1;
+          setProblems(Object.fromEntries(disabled.map((name) => [name, DISABLED_PROBLEM])));
         }
         throw error;
       }
@@ -267,14 +285,20 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       locked={item.locked}
       secondary={labFormOpen || confirmShown}
       pending={action.isPending}
-      errorMessage={action.errorMessage}
+      // The reason of a switched-off setting stands at its field; the save line only says it was
+      // not saved (GitHub issue 114).
+      errorMessage={disabledSettings(action.error).length > 0 ? copy.edit.notSaved : action.errorMessage}
       saved={saved && !action.isError}
       onSave={() => {
         if (action.isPending) return;
         setSaved(false);
-        if (!valuesReady()) {
+        const half = DATE_NAMES.filter((name) => dateFields.current[name]?.validity.badInput);
+        setHalfTyped(half);
+        const ready = valuesReady();
+        if (half.length > 0 || !ready) {
           // Nothing is sent; the reasons stand under their fields.
           action.reset();
+          if (half.length > 0) dateFields.current[half[0]]?.focus();
           return;
         }
         action.mutate();
@@ -288,6 +312,11 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           <p className="text-body-phone text-ink lg:text-body">
             {item.locked_at ? copy.lock.lockedAt(osloDateText(item.locked_at)) : copy.lock.pending}
           </p>
+          {/* The sweep refused the lock for a missing provider key (GitHub issue 109): the owner
+              learns it here too, not only from the mail. */}
+          {!item.locked_at && item.lock_refused && item.can_manage ? (
+            <p className="mt-1 text-body-phone font-semibold text-ink lg:text-body">{copy.lock.refused}</p>
+          ) : null}
           {item.can_manage ? (
             <p className="mt-1 text-body-phone text-ink-secondary lg:text-body">
               {deadlinesOpen ? copy.lock.open : copy.lock.labHoursOpen}
@@ -333,8 +362,11 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
             onInactivityChange={setInactivity}
             onInactivityLeave={() => setInactivityChecked(true)}
           />
-          {/* It says the delays can be changed: not once locked (Story 5.11). */}
-          {item.locked ? null : <p className="mt-3 text-body-phone text-ink-secondary">{copy.delaySources}</p>}
+          {/* It speaks of Classic's delays and says they can be changed: only with those, and not
+              once locked (Story 5.11, GitHub issue 101). */}
+          {item.locked || !hasClassicDelays(settings, item.calibrated_settings) ? null : (
+            <p className="mt-3 text-body-phone text-ink-secondary">{copy.delaySources}</p>
+          )}
           <div className="mt-8">
             <ChainDiagram settings={settings} capacityEnabled={item.capacity_enabled} />
           </div>
@@ -352,8 +384,13 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
             onChange={(next, touched) => {
               setInputs(next);
               setTestTouched(touched);
+              setHalfTyped((prev) => (prev.length > 0 ? prev.filter((name) => next[name] === inputs[name]) : prev));
             }}
-            errors={dateErrors(action.error, inputs)}
+            fieldRefs={dateFields}
+            errors={{
+              ...dateErrors(action.error, inputs),
+              ...Object.fromEntries(halfTyped.map((name) => [name, copy.dates.errors.incomplete])),
+            }}
             passed={item.passed_dates}
             frozen={frozenDates(item)}
             readOnly={!item.can_manage}
@@ -462,10 +499,16 @@ function Choices({
             onChange={(effortLevel) => onChange({ ...draft, effortLevel })}
           />
         ) : llm && shown.effortLevel ? (
-          // Read-only, or nothing offered here: the level in force as text.
-          <p className="mt-4 text-body-phone text-ink">
-            {c.effortValue(inForce ? levelLabel(inForce) : shown.effortLevel)}
-          </p>
+          // Read-only, or nothing offered here: the level in force as text, under its label as the
+          // other locked values stand (GitHub issue 109).
+          <div role="group" aria-labelledby={`${ids}-effort`} className="mt-6">
+            <h3 id={`${ids}-effort`} className="text-label text-ink">
+              {c.effortLevel}
+            </h3>
+            <p className="mt-2 text-body-phone text-ink lg:text-body">
+              {inForce ? levelLabel(inForce) : shown.effortLevel}
+            </p>
+          </div>
         ) : null}
         <AiDescriptions item={item} />
       </section>

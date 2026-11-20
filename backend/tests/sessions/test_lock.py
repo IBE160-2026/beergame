@@ -210,12 +210,20 @@ async def test_a_missing_provider_key_refuses_the_lock_and_tells_owners_and_admi
         assert "Klasseøkt 1 i Klassen class-of-1994 har nådd startdatoen" in mail.text
     assert service.LOCK_REFUSED_NOTICE == delivery.LOCK_REFUSED_KIND
     assert delivery.KINDS[delivery.LOCK_REFUSED_KIND].mode == delivery.IMMEDIATE
+    # The Klasseøkt tells the refusal from a lock still waiting (GitHub issue 109); the first
+    # refusal's time stands.
+    body = (await call(LECTURER, "GET", f"/api/class-sessions/{session_id}")).json()
+    assert (body["locked_at"], body["lock_refused"]) == (None, True)
+    refused_at = rows("SELECT lock_refused_at FROM class_sessions WHERE id = %s", session_id)
+    assert refused_at == [(START + MINUTE,)]
     # The key is set: the next sweep locks, and the mail of a notice still waiting is left out.
     monkeypatch.setattr(config, "may_answer", may_answer)
     assert (await sweep.run(START + 3 * MINUTE))["sessions.lock"] == 1
     assert locked(session_id)[0] == START + 3 * MINUTE
     async with get_sessionmaker().begin() as s:
         assert await service.lock_refused_mail_context(s, admin, uuid.UUID(session_id), NOW) is None
+    body = (await call(LECTURER, "GET", f"/api/class-sessions/{session_id}")).json()
+    assert body["lock_refused"] is False
 
 
 async def test_in_production_the_mock_config_may_not_answer(two_levels, monkeypatch):
@@ -233,6 +241,11 @@ async def test_a_refused_lock_in_an_archived_class_tells_nobody(klass, two_level
     await sweep.run(START + MINUTE)
     assert locked(session_id) == (None, None)
     assert notices() == []
+    # Refused once, it is not tried again each minute while the Class is archived (GitHub issue
+    # 109), only once the Class is restored.
+    assert await service.due_locks(START + 2 * MINUTE) == []
+    execute("UPDATE classes SET archived_at = NULL WHERE id = %s", klass)
+    assert await service.due_locks(START + 2 * MINUTE) == [uuid.UUID(session_id)]
 
 
 async def test_the_sweep_purges_expired_roster_uploads(klass):

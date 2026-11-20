@@ -1,5 +1,7 @@
 "use client";
 
+import type { RefObject } from "react";
+
 import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
 
@@ -23,7 +25,11 @@ export function DateFields({
   passed,
   frozen,
   readOnly,
+  fieldRefs,
 }: {
+  /** The fields on screen by name, so a save can tell a half-typed one (`validity.badInput`)
+   * from an empty one (GitHub issue 100). */
+  fieldRefs?: RefObject<Partial<Record<DateName, HTMLInputElement | null>>>;
   inputs: DateInputs;
   /** The stored dates (ISO, UTC), shown as text where a date cannot change. */
   values: Record<DateName, string | null | undefined>;
@@ -71,6 +77,9 @@ export function DateFields({
             <TextField
               key={name}
               id={`date-${name}`}
+              ref={(element) => {
+                if (fieldRefs) fieldRefs.current[name] = element;
+              }}
               type="datetime-local"
               label={copy.names[name]}
               value={inputs[name]}

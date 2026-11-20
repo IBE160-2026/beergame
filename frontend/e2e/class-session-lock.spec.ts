@@ -85,6 +85,17 @@ test("locked with every date passed, the Klasseøkt has no save at all", async (
   await expect(lecturer.locator("input[type=datetime-local]")).toHaveCount(0);
   await expect(lecturer.getByRole("button", { name: copy.save })).toHaveCount(0);
   await expect(lecturer.getByRole("button", { name: copy.lock.save })).toHaveCount(0);
+  // Waiting for the sweep, not refused: no refusal line.
+  await expect(lecturer.getByText(copy.lock.refused)).toHaveCount(0);
+});
+
+test("a lock the sweep refused is said on the Klasseøkt (Issue #109)", async ({ page, browser }) => {
+  const lecturer = await freshLecturer(page, browser);
+  const { id } = await datedSession(lecturer);
+  await locked(lecturer, id, { locked_at: null, lock_refused: true, passed_dates: ["start_at"] });
+  await lecturer.goto(`/klasseokter/${id}`);
+  await expect(lecturer.getByText(copy.lock.pending)).toBeVisible();
+  await expect(lecturer.getByText(copy.lock.refused)).toBeVisible();
 });
 
 test("locked before the Startdato (an early start), the Startdato stands as text too", async ({ page, browser }) => {
@@ -163,7 +174,8 @@ test("once opened, «Fordeling» lists every Class game with its Seats, all not 
   const items = lecturer.getByRole("list", { name: allocation.heading(2) }).getByRole("listitem");
   await expect(items).toHaveCount(2);
   await expect(items.nth(0)).toContainText(
-    "Jonas Aas, Detaljist. Mikkel Dahl, Grossist. Sara Lie, Distributør. Ida Berg, Fabrikk.",
+    // Fabrikk first, as the chart (Issue #115).
+    "Ida Berg, Fabrikk. Sara Lie, Distributør. Mikkel Dahl, Grossist. Jonas Aas, Detaljist.",
   );
   await expect(items.nth(1)).toContainText("KI-spiller, Detaljist.");
   await expect(items.nth(1)).toContainText("KI-spiller, Fabrikk.");

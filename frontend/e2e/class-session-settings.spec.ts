@@ -93,6 +93,14 @@ test("a warning never blocks, and a saved change redraws the chain and names the
   await lecturer.getByRole("button", { name: edit.open }).click();
   await lecturer.getByRole("button", { name: edit.cancel }).click();
   await expect(lecturer.getByRole("button", { name: edit.open })).toBeFocused();
+
+  // The note on the delay sources speaks of Classic's delays: it goes with them (Issue #101).
+  await expect(lecturer.getByText(copy.delaySources)).toBeVisible();
+  await lecturer.getByRole("button", { name: edit.open }).click();
+  await field(lecturer, copy.settings.shippingDelay).fill("3");
+  await lecturer.getByRole("button", { name: copy.save }).click();
+  await expect(lecturer.getByRole("status").filter({ hasText: copy.saved })).toBeVisible();
+  await expect(lecturer.getByText(copy.delaySources)).toHaveCount(0);
 });
 
 test("a session that has started shows the settings read-only", async ({ page, browser }) => {

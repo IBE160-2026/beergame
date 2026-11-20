@@ -384,7 +384,7 @@ function Preview({
               : copy.lead(students)}
         </p>
         <p className="max-w-prose text-body-phone text-ink-secondary lg:text-body">
-          {allocation.opened ? copy.openedSeats : copy.emptySeats}
+          {allocation.opened ? copy.openedSeats : choosing ? copy.choiceEmptySeats : copy.emptySeats}
         </p>
         {withoutSeatLine(allocation) ? (
           <p className="mt-2 max-w-prose text-body-phone text-ink lg:text-body">{withoutSeatLine(allocation)}</p>

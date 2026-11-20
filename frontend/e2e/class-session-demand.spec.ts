@@ -102,6 +102,12 @@ test("a fixed series of the wrong length is refused under its field and stores n
   await lecturer.getByRole("button", { name: edit.open }).click();
   await field(lecturer, d.pattern).selectOption("fixed");
   const values = field(lecturer, d.values);
+  // Several lines: a series of 36–52 numbers is read whole (Issue #102).
+  await expect(values).toHaveJSProperty("tagName", "TEXTAREA");
+  // The «Mønster» select is set in Source Sans 3, as the fields are.
+  expect(
+    await field(lecturer, d.pattern).evaluate((element) => getComputedStyle(element).fontFamily),
+  ).toContain("Source Sans 3");
   await values.fill("4 4 4 4 8 8");
   const checked = lecturer.waitForResponse(`**/api/class-sessions/${id}/settings-check`);
   await values.blur();
@@ -114,8 +120,9 @@ test("a fixed series of the wrong length is refused under its field and stores n
   const stored = (await (await lecturer.request.get(`/api/class-sessions/${id}`)).json()).game_settings;
   expect(stored.demand.kind).toBe("step");
 
-  // 36 Weeks, typed with commas: saved, and named in the list and the chain.
-  await values.fill(Array.from({ length: 36 }, (_, i) => (i < 10 ? 4 : 6)).join(", "));
+  // 36 Weeks, typed with commas and over two lines: saved, and named in the list and the chain.
+  const series = Array.from({ length: 36 }, (_, i) => (i < 10 ? 4 : 6));
+  await values.fill(`${series.slice(0, 18).join(", ")}\n${series.slice(18).join(", ")}`);
   await lecturer.getByRole("button", { name: copy.save }).click();
   await expect(lecturer.getByRole("status").filter({ hasText: copy.saved })).toBeVisible();
   await expect(lecturer.getByText(copy.values.fixed(36), { exact: true })).toBeVisible();
