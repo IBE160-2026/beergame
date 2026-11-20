@@ -49,7 +49,7 @@ CLASS_TABLES = {"classes", "class_staff"}
 """The tables of revision 0023 (Story 4.1)."""
 ROSTER_TABLES = {"roster_uploads", "roster_upload_rows", "roster_entries"}
 """The tables of revisions 0024 (Story 4.2) and 0026 (Story 4.4)."""
-SESSION_TABLES = {"class_sessions"}
+SESSION_TABLES = {"class_sessions", "lab_hours"}
 """The table of revision 0032 (Story 5.1)."""
 PRE_SESSION_TABLES = (
     AI_HEAD_TABLES
@@ -66,7 +66,7 @@ PRE_SESSION_TABLES = (
     | ROSTER_TABLES
 )
 HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES
-HEAD = "0034"  # 0034 adds the Effort level of a Class session (Story 5.5)
+HEAD = "0035"  # 0035 adds the Lab hours of a Class session (Story 5.6)
 
 
 def reset_schema(url: str) -> None:
@@ -657,6 +657,26 @@ def test_0034_keeps_the_effort_level_to_llm_players_and_its_downgrade_drops_it(
             ).fetchall()
         }
     assert "effort_level" not in columns and "start_at" in columns
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_0035_keeps_a_lab_hour_in_order_and_its_downgrade_drops_the_table(migrations_database):
+    """0035 (Story 5.6): a Lab hour ends after it starts and has a place."""
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "head")
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        checks = dict(
+            conn.execute(
+                "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint "
+                "WHERE conrelid = 'lab_hours'::regclass AND contype = 'c'"
+            ).fetchall()
+        )
+    assert "ends_at > starts_at" in checks["ck_lab_hours_order"]
+    assert "120" in checks["ck_lab_hours_place"]
+    command.downgrade(cfg, "0034")
+    assert "lab_hours" not in tables(migrations_database)
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 

@@ -688,6 +688,13 @@
             "title": "Is Classic",
             "type": "boolean"
           },
+          "lab_hours": {
+            "items": {
+              "$ref": "#/components/schemas/LabHourOut"
+            },
+            "title": "Lab Hours",
+            "type": "array"
+          },
           "llm_unavailable": {
             "anyOf": [
               {
@@ -816,7 +823,8 @@
           "passed_dates",
           "play_time_warning",
           "settings_warnings",
-          "calibrated_settings"
+          "calibrated_settings",
+          "lab_hours"
         ],
         "title": "ClassSessionOut",
         "type": "object"
@@ -1143,6 +1151,38 @@
         "title": "EnrolledClassOut",
         "type": "object"
       },
+      "EnrolledLabHourOut": {
+        "description": "An upcoming Lab hour as a Student reads it (Story 5.6, FR-19), for Epic 6's Hjem.",
+        "properties": {
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "place": {
+            "title": "Place",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "starts_at",
+          "ends_at",
+          "place"
+        ],
+        "title": "EnrolledLabHourOut",
+        "type": "object"
+      },
       "EnrolledSessionListOut": {
         "properties": {
           "items": {
@@ -1187,6 +1227,13 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "lab_hours": {
+            "items": {
+              "$ref": "#/components/schemas/EnrolledLabHourOut"
+            },
+            "title": "Lab Hours",
+            "type": "array"
           },
           "next_deadline": {
             "anyOf": [
@@ -1253,7 +1300,8 @@
           "debrief_deadline",
           "test_deadline",
           "next_deadline",
-          "obligatory"
+          "obligatory",
+          "lab_hours"
         ],
         "title": "EnrolledSessionOut",
         "type": "object"
@@ -1878,6 +1926,71 @@
           "token"
         ],
         "title": "InvitationTokenIn",
+        "type": "object"
+      },
+      "LabHourIn": {
+        "additionalProperties": false,
+        "description": "A Lab hour as the Lecturer adds or changes it (Story 5.6, FR-19): its start and end as\ninstants with their offset, and its place. The service judges the rules (`invalid_lab_hour`),\nso a blank or long place gets its reason rather than a schema error.",
+        "properties": {
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "place": {
+            "maxLength": 1000,
+            "title": "Place",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "starts_at",
+          "ends_at",
+          "place"
+        ],
+        "title": "LabHourIn",
+        "type": "object"
+      },
+      "LabHourOut": {
+        "description": "A Lab hour as the Class's staff read it, UTC; the web app shows it in Europe/Oslo.",
+        "properties": {
+          "ended": {
+            "title": "Ended",
+            "type": "boolean"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "place": {
+            "title": "Place",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "starts_at",
+          "ends_at",
+          "place",
+          "ended"
+        ],
+        "title": "LabHourOut",
         "type": "object"
       },
       "LecturerOverviewOut": {
@@ -5243,6 +5356,254 @@
           }
         },
         "summary": "Get Class Session Demand Series",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/lab-hours": {
+      "post": {
+        "description": "«Legg til Labtime» (Story 5.6, FR-19): stores the Lab hour at once and tells each\nregistered Student through the day's digest mail. The Start-date lock does not apply.\n\nA refusal is 422 `invalid_lab_hour` with `fields`: `place` `required` or `too_long` (over 120\ncharacters); `ends_at` `not_after_start`, `too_long` (over 12 hours after the start) or\n`past`. Times count to the whole minute.",
+        "operationId": "addLabHour",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabHourIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabHourOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Add Lab Hour",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/lab-hours/{lab_hour_id}": {
+      "delete": {
+        "description": "Removes a Lab hour and tells each registered Student it is cancelled. A Lab hour that has\nended answers 409 `lab_hour_ended`.",
+        "operationId": "removeLabHour",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "lab_hour_id",
+            "required": true,
+            "schema": {
+              "title": "Lab Hour Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Lab Hour",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "put": {
+        "description": "Changes a Lab hour and tells each registered Student; unchanged values tell nobody. A Lab\nhour that has ended answers 409 `lab_hour_ended`; the other refusals are those of adding one\n(422 `invalid_lab_hour`).",
+        "operationId": "changeLabHour",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "lab_hour_id",
+            "required": true,
+            "schema": {
+              "title": "Lab Hour Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabHourIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabHourOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Change Lab Hour",
         "tags": [
           "sessions"
         ]

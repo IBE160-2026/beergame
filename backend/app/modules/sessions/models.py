@@ -69,3 +69,35 @@ class_sessions = Table(
     ),
 )
 """One row per Class session. Times come from the api's clock."""
+
+PLACE_MAX_LENGTH = 120
+"""The longest place of a Lab hour, in characters (Story 5.6)."""
+
+lab_hours = Table(
+    "lab_hours",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column("starts_at", DateTime(timezone=True), nullable=False),
+    Column("ends_at", DateTime(timezone=True), nullable=False),
+    Column("place", Text, nullable=False),
+    # Raised by each change, so each change has its own notice key.
+    Column("revision", Integer, nullable=False, server_default="1"),
+    # Set when the Lecturer removes it; the row stays so its cancellation mail can name it.
+    Column("cancelled_at", DateTime(timezone=True), nullable=True),
+    Column("created_by", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("ends_at > starts_at", name="ck_lab_hours_order"),
+    CheckConstraint(
+        f"char_length(place) BETWEEN 1 AND {PLACE_MAX_LENGTH}", name="ck_lab_hours_place"
+    ),
+)
+"""The Lab hours of a Class session (Story 5.6, FR-19), UTC. Only `sessions` reads it; other
+modules ask `service.current_lab_hour`."""

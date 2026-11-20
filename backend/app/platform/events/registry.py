@@ -25,6 +25,11 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # that changes a date also tells each registered Student of the Class (Story 5.2).
         "sessions.create": frozenset({"session"}),
         "sessions.save": frozenset({"session", "user"}),
+        # A Lab hour added, changed or removed (Story 5.6): the staff read the session again, and
+        # each registered Student's notice emits `user:<id>`.
+        "sessions.add_lab_hour": frozenset({"session", "user"}),
+        "sessions.change_lab_hour": frozenset({"session", "user"}),
+        "sessions.remove_lab_hour": frozenset({"session", "user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

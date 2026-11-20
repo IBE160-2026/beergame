@@ -66,6 +66,35 @@ export function saveClassSession(id: string, choices: ChoicesBody, dates: DatesI
   );
 }
 
+export type LabHour = components["schemas"]["LabHourOut"];
+export type LabHourIn = components["schemas"]["LabHourIn"];
+
+/** «Legg til Labtime»: stores a Lab hour at once and tells the Students (Story 5.6). */
+export function addLabHour(sessionId: string, body: LabHourIn) {
+  return request(() =>
+    api.POST("/api/class-sessions/{session_id}/lab-hours", { params: { path: { session_id: sessionId } }, body }),
+  );
+}
+
+/** Changes a Lab hour that has not ended (Story 5.6). */
+export function changeLabHour(sessionId: string, labHourId: string, body: LabHourIn) {
+  return request(() =>
+    api.PUT("/api/class-sessions/{session_id}/lab-hours/{lab_hour_id}", {
+      params: { path: { session_id: sessionId, lab_hour_id: labHourId } },
+      body,
+    }),
+  );
+}
+
+/** Removes a Lab hour that has not ended; the Students are told it is cancelled (Story 5.6). */
+export function removeLabHour(sessionId: string, labHourId: string) {
+  return request(() =>
+    api.DELETE("/api/class-sessions/{session_id}/lab-hours/{lab_hour_id}", {
+      params: { path: { session_id: sessionId, lab_hour_id: labHourId } },
+    }),
+  );
+}
+
 /** The api's errors and warnings on a draft of the Game settings; nothing is stored (Story 5.3). */
 export function checkClassSessionSettings(id: string, gameSettings: SettingsDraftBody) {
   return request(() =>

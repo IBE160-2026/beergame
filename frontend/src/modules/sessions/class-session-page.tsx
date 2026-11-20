@@ -39,6 +39,7 @@ import {
 import { DateFields } from "./date-fields";
 import { DateLine } from "./date-line";
 import { type DateInputs, dateErrors, datesBody, inputsOf } from "./dates";
+import { LabHours } from "./lab-hours-panel";
 import { calibratedText, draftOf, problemsOf, type SettingProblem, settingsBody, warningsBySetting } from "./settings";
 import { SettingsBlock } from "./settings-form";
 
@@ -106,6 +107,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   const [inputs, setInputs] = useState<DateInputs>(() => inputsOf(item));
   const [testTouched, setTestTouched] = useState(item.test_deadline != null);
   const [saved, setSaved] = useState(false);
+  // A Lab hour form is open (Story 5.6): its save is the primary button meanwhile.
+  const [labFormOpen, setLabFormOpen] = useState(false);
   // KI-modus, Innsatsnivå and Debrief-modus as chosen; sent with «Lagre Klasseøkt» (Story 5.5).
   const [choices, setChoices] = useState<ChoicesDraft>(() => choicesOf(item));
   const choosing = item.can_manage && !item.locked;
@@ -233,7 +236,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           <h2 id={datesTitle} className="text-headline text-ink">
             {copy.dates.title}
           </h2>
-          <DateLine dates={item} titleId={datesTitle} />
+          <DateLine dates={item} labHours={item.lab_hours} titleId={datesTitle} />
+          <LabHours item={item} onOpenChange={setLabFormOpen} />
           <DateFields
             inputs={inputs}
             testTouched={testTouched}
@@ -253,6 +257,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       <Choices item={item} draft={choices} editable={choosing} onChange={setChoices} />
       {item.can_manage ? (
         <SaveRow
+          secondary={labFormOpen}
           pending={action.isPending}
           errorMessage={action.errorMessage}
           saved={saved && !action.isError}
@@ -457,13 +462,16 @@ function AiDescriptions({ item }: { item: ClassSession }) {
   );
 }
 
-/** «Lagre Klasseøkt», the screen's primary button. A failure keeps focus and values. */
+/** «Lagre Klasseøkt», the screen's primary button, secondary while an in-place form with its own
+ * primary is open (Story 5.6). A failure keeps focus and values. */
 function SaveRow({
+  secondary,
   pending,
   errorMessage,
   saved,
   onSave,
 }: {
+  secondary: boolean;
   pending: boolean;
   errorMessage: string | undefined;
   saved: boolean;
@@ -476,7 +484,7 @@ function SaveRow({
           {copy.saveHint}
         </p>
         <Button
-          variant="primary"
+          variant={secondary ? "secondary" : "primary"}
           unavailable={pending}
           aria-describedby="save-hint"
           onClick={onSave}

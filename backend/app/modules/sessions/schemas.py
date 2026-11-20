@@ -1,4 +1,4 @@
-"""API shapes of `modules/sessions` (Stories 5.1 to 5.5)."""
+"""API shapes of `modules/sessions` (Stories 5.1 to 5.6)."""
 
 import uuid
 from datetime import datetime
@@ -106,6 +106,38 @@ class AiDescriptionsOut(BaseModel):
     rule_based: str
 
 
+class LabHourIn(BaseModel):
+    """A Lab hour as the Lecturer adds or changes it (Story 5.6, FR-19): its start and end as
+    instants with their offset, and its place. The service judges the rules (`invalid_lab_hour`),
+    so a blank or long place gets its reason rather than a schema error."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    starts_at: AwareDatetime
+    ends_at: AwareDatetime
+    place: str = Field(max_length=1000)
+
+
+class LabHourOut(BaseModel):
+    """A Lab hour as the Class's staff read it, UTC; the web app shows it in Europe/Oslo."""
+
+    id: uuid.UUID
+    starts_at: datetime
+    ends_at: datetime
+    place: str
+    ended: bool
+    """It has ended by the server's clock; it no longer changes or goes."""
+
+
+class EnrolledLabHourOut(BaseModel):
+    """An upcoming Lab hour as a Student reads it (Story 5.6, FR-19), for Epic 6's Hjem."""
+
+    id: uuid.UUID
+    starts_at: datetime
+    ends_at: datetime
+    place: str
+
+
 class ClassSessionOut(BaseModel):
     """One Class session as its Class's staff read it."""
 
@@ -159,6 +191,8 @@ class ClassSessionOut(BaseModel):
     calibrated_settings: GameSettings
     """The settings the product's content and Play guard were calibrated for: the Classic
     preset, so the web app holds no copy of it (FR-12)."""
+    lab_hours: list[LabHourOut]
+    """The Lab hours that were not removed, by start (Story 5.6); ended ones too."""
 
 
 class ClassSessionListItem(BaseModel):
@@ -225,6 +259,8 @@ class EnrolledSessionOut(BaseModel):
     next_deadline: NextDeadline | None
     """The earliest of the Play, Debrief and Test deadline still ahead; None when none is."""
     obligatory: bool
+    lab_hours: list[EnrolledLabHourOut]
+    """The Lab hours that have not ended and were not removed, by start (Story 5.6)."""
 
 
 class EnrolledSessionListOut(BaseModel):

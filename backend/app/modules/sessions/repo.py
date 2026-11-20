@@ -8,7 +8,7 @@ from typing import Any
 from sqlalchemy import RowMapping, func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.sessions.models import DATE_NAMES, class_sessions
+from app.modules.sessions.models import DATE_NAMES, class_sessions, lab_hours
 from app.platform import authz
 
 _number = (
@@ -92,6 +92,64 @@ async def staff_sessions(
         .order_by(_numbered.c.class_id, _numbered.c.id)
     )
     return list(result.mappings())
+
+
+async def insert_lab_hour(session: AsyncSession, **values: Any) -> None:
+    await session.execute(insert(lab_hours).values(**values))
+
+
+async def lab_hour_row(
+    session: AsyncSession, lab_hour_id: uuid.UUID, *, lock: bool = False
+) -> RowMapping | None:
+    """The Lab hour, cancelled or not, or None; with `lock` its row is locked."""
+    query = select(lab_hours).where(lab_hours.c.id == lab_hour_id)
+    if lock:
+        query = query.with_for_update()
+    return (await session.execute(query)).mappings().one_or_none()
+
+
+async def lab_hours_of(
+    session: AsyncSession, session_ids: list[uuid.UUID], *, ending_after: datetime | None = None
+) -> list[RowMapping]:
+    """The Lab hours of these Class sessions that were not removed, by start; with
+    `ending_after` only those that end after it."""
+    if not session_ids:
+        return []
+    query = select(lab_hours).where(
+        lab_hours.c.class_session_id.in_(session_ids), lab_hours.c.cancelled_at.is_(None)
+    )
+    if ending_after is not None:
+        query = query.where(lab_hours.c.ends_at > ending_after)
+    query = query.order_by(lab_hours.c.starts_at, lab_hours.c.id)
+    return list((await session.execute(query)).mappings())
+
+
+async def lab_hour_in_progress(
+    session: AsyncSession, class_session_id: uuid.UUID, now: datetime
+) -> RowMapping | None:
+    """The Lab hour of the Class session that is on at `now`, the earliest started if several."""
+    result = await session.execute(
+        select(lab_hours)
+        .where(
+            lab_hours.c.class_session_id == class_session_id,
+            lab_hours.c.cancelled_at.is_(None),
+            lab_hours.c.starts_at <= now,
+            lab_hours.c.ends_at > now,
+        )
+        .order_by(lab_hours.c.starts_at, lab_hours.c.id)
+        .limit(1)
+    )
+    return result.mappings().one_or_none()
+
+
+async def update_lab_hour(
+    session: AsyncSession, lab_hour_id: uuid.UUID, **values: Any
+) -> RowMapping:
+    """Changes the Lab hour and returns it as stored."""
+    result = await session.execute(
+        update(lab_hours).where(lab_hours.c.id == lab_hour_id).values(**values).returning(lab_hours)
+    )
+    return result.mappings().one()
 
 
 async def save(

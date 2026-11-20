@@ -27,6 +27,12 @@ Effort levels, their default and their effect lines are the model config's
 `players.service.describe`'s: this module names no level and writes no description. With
 Rule-based players no Effort level is in force (NULL).
 
+Lab hours (Story 5.6) are added, changed and removed on their own, at any time, the Start-date
+lock aside: each change tells every registered Student through `platform/notify` with a digest
+kind (`LAB_HOUR_KINDS`), whose mail reads the Lab hour at send time
+(`lab_hour_mail_context`). A removed Lab hour is kept, cancelled, so that mail can still name it.
+`current_lab_hour` is the only way another module learns whether a Lab hour is on.
+
 Every mutation passes one guard, `_writable`, which asks `classes.service.is_writable` inside the
 mutation's transaction and raises `classes.service.ClassArchived` (409 `class_archived`) for an
 archived Class. Who may do what is `platform/authz`'s: `class_sessions.read`,
@@ -40,6 +46,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import structlog
 from pydantic import ValidationError
@@ -59,7 +66,7 @@ from app.engine.settings import (
 from app.modules.classes import service as classes
 from app.modules.players import service as players
 from app.modules.sessions import repo
-from app.modules.sessions.models import DATE_NAMES
+from app.modules.sessions.models import DATE_NAMES, PLACE_MAX_LENGTH
 from app.modules.sessions.schemas import (
     AiDescriptionsOut,
     AiMode,
@@ -71,8 +78,11 @@ from app.modules.sessions.schemas import (
     DatesIn,
     DebriefMode,
     DemandSeriesOut,
+    EnrolledLabHourOut,
     EnrolledSessionListOut,
     EnrolledSessionOut,
+    LabHourIn,
+    LabHourOut,
     LecturerOverviewOut,
     LlmUnavailable,
     NextDate,
@@ -84,7 +94,7 @@ from app.modules.sessions.schemas import (
     SettingWarning,
     WaitingClass,
 )
-from app.platform import auth, authz, events
+from app.platform import auth, authz, events, notify
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
@@ -94,6 +104,17 @@ DEFAULT_DEBRIEF_MODE = DebriefMode.group
 DEFAULT_INACTIVITY_LIMIT_HOURS = 24
 DEFAULT_OBLIGATORY = False
 NO_DEFAULT_MODEL: LlmUnavailable = "no_default_model"
+
+LAB_HOUR_ADDED = "lab_hour_added"
+LAB_HOUR_CHANGED = "lab_hour_changed"
+LAB_HOUR_CANCELLED = "lab_hour_cancelled"
+LAB_HOUR_KINDS = (LAB_HOUR_ADDED, LAB_HOUR_CHANGED, LAB_HOUR_CANCELLED)
+"""The notice kinds of Lab hours, all `digest` in `messaging.delivery` (Story 5.6, AD-9)."""
+
+MAX_LAB_HOUR = timedelta(hours=12)
+"""The longest Lab hour: hours in a room, so `current_lab_hour` stays meaningful."""
+
+OSLO = ZoneInfo("Europe/Oslo")
 
 DATE_KINDS: dict[str, DateKind] = {
     "start_at": "start",
@@ -140,6 +161,19 @@ class InvalidDates(_FieldsError):
     change) or `required`."""
 
     code = "invalid_dates"
+
+
+class InvalidLabHour(_FieldsError):
+    """The Lab hour breaks a rule (422 `invalid_lab_hour`): `place` `required` or `too_long`;
+    `ends_at` `not_after_start`, `too_long` (more than `MAX_LAB_HOUR`) or `past`."""
+
+    code = "invalid_lab_hour"
+
+
+class LabHourEnded(Exception):
+    """The Lab hour has ended and no longer changes or goes (409 `lab_hour_ended`)."""
+
+    code = "lab_hour_ended"
 
 
 class InvalidSettings(Exception):
@@ -486,6 +520,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, session_id)
         number = await repo.number_of(s, session_id, row["class_id"]) if row else 0
+        labs = await repo.lab_hours_of(s, [session_id]) if row else []
     if row is None:
         return None
     found = await _class_for(user, row["class_id"], "class_sessions.read")
@@ -533,6 +568,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
             SettingWarning(code=w.code, field=w.field, values=w.values) for w in warnings(settings)
         ],
         calibrated_settings=GameSettings(),
+        lab_hours=[_lab_hour_out(lab, now) for lab in labs],
     )
 
 
@@ -749,13 +785,22 @@ def _next_deadline(
 
 
 async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
-    """The Class sessions of the Classes `user` is a Student in (FR-18, AD-3, AD-12): the dates,
-    the User's own deadlines and the next one that applies. Never the Game settings, the number
-    of Weeks or the demand. What Epic 6's Hjem shows as «Neste frist»."""
+    """The Class sessions of the Classes `user` is a Student in (FR-18, FR-19, AD-3, AD-12): the
+    dates, the User's own deadlines and the next one that applies, and the Lab hours that have
+    not ended. Never the Game settings, the number of Weeks or the demand. What Epic 6's Hjem
+    shows as «Neste frist» and «Labtimer»."""
     names = {item.id: item.name for item in (await classes.enrolled_classes(user)).items}
+    now = auth.utcnow()
     async with get_sessionmaker().begin() as s:
         rows = await repo.enrolled_sessions(s, user)
-    now = auth.utcnow()
+        labs = await repo.lab_hours_of(s, [row["id"] for row in rows], ending_after=now)
+    upcoming: dict[uuid.UUID, list[EnrolledLabHourOut]] = {}
+    for lab in labs:
+        upcoming.setdefault(lab["class_session_id"], []).append(
+            EnrolledLabHourOut(
+                id=lab["id"], starts_at=lab["starts_at"], ends_at=lab["ends_at"], place=lab["place"]
+            )
+        )
     return EnrolledSessionListOut(
         items=[
             EnrolledSessionOut(
@@ -769,6 +814,7 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                 test_deadline=effective_test_deadline(user, row),
                 next_deadline=_next_deadline(user, row, now),
                 obligatory=row["obligatory"],
+                lab_hours=upcoming.get(row["id"], []),
             )
             for row in rows
             if row["class_id"] in names
@@ -818,3 +864,241 @@ async def lecturer_overview(user: authz.Principal) -> LecturerOverviewOut:
         ],
         next_date=next_date,
     )
+
+
+# Lab hours (Story 5.6, FR-19, AD-9).
+
+
+def _lab_hour_out(row: Mapping[str, Any], now: datetime) -> LabHourOut:
+    return LabHourOut(
+        id=row["id"],
+        starts_at=row["starts_at"],
+        ends_at=row["ends_at"],
+        place=row["place"],
+        ended=row["ends_at"] <= now,
+    )
+
+
+def judge_lab_hour(wanted: LabHourIn, *, now: datetime) -> dict[str, Any]:
+    """The values to store of a Lab hour (UTC to the whole minute, the place trimmed), or raises
+    `InvalidLabHour` naming each field in question. A Lab hour may have begun; it may not have
+    ended."""
+    place = wanted.place.strip()
+    starts_at = _minute(wanted.starts_at)
+    ends_at = _minute(wanted.ends_at)
+    assert starts_at is not None and ends_at is not None
+    wrong: dict[str, str] = {}
+    if not place:
+        wrong["place"] = "required"
+    elif len(place) > PLACE_MAX_LENGTH:
+        wrong["place"] = "too_long"
+    if ends_at <= starts_at:
+        wrong["ends_at"] = "not_after_start"
+    elif ends_at - starts_at > MAX_LAB_HOUR:
+        wrong["ends_at"] = "too_long"
+    elif ends_at <= now:
+        wrong["ends_at"] = "past"
+    if wrong:
+        raise InvalidLabHour(wrong)
+    return {"starts_at": starts_at, "ends_at": ends_at, "place": place}
+
+
+async def _managed_session(
+    user: authz.Principal, session_id: uuid.UUID
+) -> Mapping[str, Any] | None:
+    """The Class session's row when `user` may manage its Class, else None."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, session_id)
+    if row is None or await _class_for(user, row["class_id"], "class_sessions.manage") is None:
+        return None
+    return row
+
+
+async def _tell_students(
+    s: AsyncSession, kind: str, lab_hour_id: uuid.UUID, students: list[uuid.UUID], key: str
+) -> None:
+    """One notice of `kind` per registered Student, holding ids only (AD-14); each emits
+    `user:<id>`."""
+    for student in students:
+        await notify.enqueue(s, student, kind, f"{kind}:{key}:{student}", ref=lab_hour_id)
+
+
+def _refused(session_id: uuid.UUID, refused: InvalidLabHour | LabHourEnded) -> None:
+    log.info(
+        "lab_hour_refused",
+        class_session_id=str(session_id),
+        error_code=refused.code,
+        fields=sorted(refused.fields) if isinstance(refused, InvalidLabHour) else None,
+    )
+
+
+async def add_lab_hour(
+    user: authz.Principal, session_id: uuid.UUID, wanted: LabHourIn, *, now: datetime
+) -> LabHourOut | None:
+    """«Legg til Labtime»: stores the Lab hour, emits `session:<id>` and tells each registered
+    Student (`LAB_HOUR_ADDED`). The Start-date lock does not apply. None when the User may not
+    manage the Class; raises `ClassArchived` or `InvalidLabHour`."""
+    row = await _managed_session(user, session_id)
+    if row is None:
+        return None
+    students = await classes.registered_students(row["class_id"])
+    lab_hour_id = uuid.uuid7()
+    async with get_sessionmaker().begin() as s:
+        await _writable(s, row["class_id"])
+        try:
+            values = judge_lab_hour(wanted, now=now)
+        except InvalidLabHour as refused:
+            _refused(session_id, refused)
+            raise
+        await repo.insert_lab_hour(
+            s,
+            id=lab_hour_id,
+            class_session_id=session_id,
+            revision=1,
+            created_by=user.id,
+            created_at=now,
+            updated_at=now,
+            **values,
+        )
+        await events.emit(s, "session", str(session_id))
+        await _tell_students(s, LAB_HOUR_ADDED, lab_hour_id, students, str(lab_hour_id))
+    log.info(
+        "lab_hour_added",
+        class_session_id=str(session_id),
+        lab_hour_id=str(lab_hour_id),
+        students=len(students),
+    )
+    return LabHourOut(id=lab_hour_id, ended=False, **values)
+
+
+async def _open_lab_hour(
+    s: AsyncSession, session_id: uuid.UUID, lab_hour_id: uuid.UUID, now: datetime
+) -> Mapping[str, Any] | None:
+    """The Lab hour of this Class session, locked, or None when it is another session's or was
+    removed; raises `LabHourEnded` once it has ended."""
+    found = await repo.lab_hour_row(s, lab_hour_id, lock=True)
+    if found is None or found["class_session_id"] != session_id or found["cancelled_at"]:
+        return None
+    if found["ends_at"] <= now:
+        refused = LabHourEnded()
+        _refused(session_id, refused)
+        raise refused
+    return found
+
+
+async def change_lab_hour(
+    user: authz.Principal,
+    session_id: uuid.UUID,
+    lab_hour_id: uuid.UUID,
+    wanted: LabHourIn,
+    *,
+    now: datetime,
+) -> LabHourOut | None:
+    """Changes a Lab hour that has not ended, raises its revision, emits `session:<id>` and tells
+    each registered Student (`LAB_HOUR_CHANGED`). Unchanged values store and tell nothing. None
+    when the User may not manage the Class or the Lab hour is not this session's; raises
+    `ClassArchived`, `LabHourEnded` or `InvalidLabHour`."""
+    row = await _managed_session(user, session_id)
+    if row is None:
+        return None
+    students = await classes.registered_students(row["class_id"])
+    async with get_sessionmaker().begin() as s:
+        await _writable(s, row["class_id"])
+        found = await _open_lab_hour(s, session_id, lab_hour_id, now)
+        if found is None:
+            return None
+        try:
+            values = judge_lab_hour(wanted, now=now)
+        except InvalidLabHour as refused:
+            _refused(session_id, refused)
+            raise
+        if all(values[name] == found[name] for name in values):
+            return _lab_hour_out(found, now)
+        revision = found["revision"] + 1
+        stored = await repo.update_lab_hour(
+            s, lab_hour_id, revision=revision, updated_at=now, **values
+        )
+        await events.emit(s, "session", str(session_id))
+        await _tell_students(
+            s, LAB_HOUR_CHANGED, lab_hour_id, students, f"{lab_hour_id}:{revision}"
+        )
+    log.info(
+        "lab_hour_changed",
+        class_session_id=str(session_id),
+        lab_hour_id=str(lab_hour_id),
+        revision=revision,
+        students=len(students),
+    )
+    return _lab_hour_out(stored, now)
+
+
+async def remove_lab_hour(
+    user: authz.Principal, session_id: uuid.UUID, lab_hour_id: uuid.UUID, *, now: datetime
+) -> bool:
+    """Removes a Lab hour that has not ended: it is kept as cancelled and never listed again,
+    emits `session:<id>` and tells each registered Student (`LAB_HOUR_CANCELLED`). False when
+    the User may not manage the Class or the Lab hour is not this session's; raises
+    `ClassArchived` or `LabHourEnded`."""
+    row = await _managed_session(user, session_id)
+    if row is None:
+        return False
+    students = await classes.registered_students(row["class_id"])
+    async with get_sessionmaker().begin() as s:
+        await _writable(s, row["class_id"])
+        found = await _open_lab_hour(s, session_id, lab_hour_id, now)
+        if found is None:
+            return False
+        await repo.update_lab_hour(s, lab_hour_id, cancelled_at=now, updated_at=now)
+        await events.emit(s, "session", str(session_id))
+        await _tell_students(s, LAB_HOUR_CANCELLED, lab_hour_id, students, str(lab_hour_id))
+    log.info(
+        "lab_hour_removed",
+        class_session_id=str(session_id),
+        lab_hour_id=str(lab_hour_id),
+        students=len(students),
+    )
+    return True
+
+
+async def current_lab_hour(
+    class_session_id: uuid.UUID, now: datetime, *, session: AsyncSession | None = None
+) -> LabHourOut | None:
+    """The Lab hour of the Class session that is on at `now` (started, not ended, not removed),
+    the earliest started if several; None outside every Lab hour. How Epic 8's «I rommet» asks;
+    no other module reads `lab_hours`."""
+    if session is not None:
+        found = await repo.lab_hour_in_progress(session, class_session_id, now)
+    else:
+        async with get_sessionmaker().begin() as s:
+            found = await repo.lab_hour_in_progress(s, class_session_id, now)
+    return None if found is None else _lab_hour_out(found, now)
+
+
+async def lab_hour_mail_context(
+    kind: str, session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a Lab hour notice, for `messaging` at send time (AD-9): the
+    Class's name and the Lab hour's start and end in Europe/Oslo with its place. None, so the
+    notice is left out, when the User is no longer a registered Student of the Class, the Class
+    is archived, the Lab hour has ended, or (for an added or changed one) it was removed."""
+    if ref is None:
+        return None
+    lab = await repo.lab_hour_row(session, ref)
+    if lab is None:
+        return None
+    if lab["ends_at"] <= now or (kind != LAB_HOUR_CANCELLED and lab["cancelled_at"] is not None):
+        return None
+    row = await repo.session_row(session, lab["class_session_id"])
+    if row is None:
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None or label.archived:
+        return None
+    if user_id not in await classes.registered_students(row["class_id"]):
+        return None
+    return {
+        "class_name": label.name,
+        "starts_at": lab["starts_at"].astimezone(OSLO),
+        "ends_at": lab["ends_at"].astimezone(OSLO),
+        "place": lab["place"],
+    }

@@ -1,0 +1,5 @@
+{# A Lab hour was removed (Story 5.6, FR-19), a digest kind. The variables are those of
+   `lab_hour_added`, read from the cancelled Lab hour at send time. #}
+{% import "kinds/_lab_hour.j2" as lab %}
+{% set subject = "Avlyst Labtime" %}
+Labtimen {{ lab.when(starts_at, ends_at) }}, {{ place }}, i Klassen {{ class_name }} er avlyst.

@@ -953,6 +953,52 @@ export const nb = {
       playTimeShort: (weeks: number) =>
         `Det er kort tid mellom Startdato og Spillfrist for ${weeks} uker. Du kan likevel lagre.`,
     },
+    /** Lab hours on the Datolinje (Story 5.6, FR-19, UX-DR51). «Labtime», «Legg til Labtime» and
+     * the legend are EXPERIENCE.md's and mockup 03's own; the rest is [ASSUMPTION] draft copy. */
+    labHours: {
+      title: "Labtimer",
+      add: "Legg til Labtime",
+      /** «Blå firkant: Labtime, Datalab A2.»; `places` already joined. */
+      legend: (places: string) => `Blå firkant: Labtime, ${places}.`,
+      none: "Ingen Labtimer ennå.",
+      /** A square in the Datolinje's text: «Labtime to. 26. nov. 14:15». */
+      markLabel: "Labtime",
+      /** One Lab hour: «to. 26. nov. 14:15–16:00, Datalab A2». */
+      item: (day: string, start: string, end: string, place: string) => `${day} ${start}–${end}, ${place}`,
+      ended: "ferdig",
+      edit: "Endre",
+      editLabel: (item: string) => `Endre Labtime ${item}`,
+      addTitle: "Ny Labtime",
+      editTitle: "Endre Labtime",
+      date: "Dato",
+      start: "Start",
+      end: "Slutt",
+      place: "Sted",
+      placeHint: "For eksempel Datalab A2.",
+      consequence: "Studentene får beskjed på e-post.",
+      saveAdd: "Lagre Labtime",
+      saveEdit: "Lagre endringen",
+      remove: "Fjern Labtimen",
+      cancel: "Avbryt",
+      saving: "Lagrer …",
+      removing: "Fjerner …",
+      added: "Labtimen er lagt til.",
+      changed: "Labtimen er endret.",
+      removed: "Labtimen er fjernet.",
+      errors: {
+        dateMissing: "Velg en dato.",
+        dateIncomplete: "Datoen er ikke fylt ut helt.",
+        timeMissing: "Skriv et klokkeslett.",
+        timeIncomplete: "Klokkeslettet er ikke fylt ut helt.",
+        endNotAfterStart: "Slutt må være etter start.",
+        tooLong: "En Labtime kan vare høyst 12 timer.",
+        past: "Labtimen er allerede over. Velg et senere tidspunkt.",
+        placeMissing: "Skriv hvor Labtimen er.",
+        placeTooLong: "Skriv høyst 120 tegn.",
+      },
+      refused: "Labtimen ble ikke lagret. Se feltene.",
+      hasEnded: "Labtimen er over og kan ikke endres lenger.",
+    },
     /** The Lærerhjem's «Venter» and «Neste frist» (Story 5.2, UX-DR56). [ASSUMPTION] */
     home: {
       lacksDates: (className: string, number: number) => `${className}: Klasseøkt ${number} mangler datoer`,

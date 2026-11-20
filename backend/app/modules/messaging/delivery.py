@@ -32,6 +32,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # `classes.service` registers with `identity` at import (Story 4.4), also in the worker.
 from app.modules.classes import service as classes  # noqa: F401
 from app.modules.identity import service as identity
+
+# `sessions.service` imports `classes.service`, which imports `messaging.service` and so this
+# module: its attributes are read when a mail is composed, never at import (Story 5.6).
+from app.modules.sessions import service as sessions
 from app.platform.config import Settings, get_settings
 from app.platform.email import Recipient
 
@@ -73,8 +77,25 @@ class Delivery:
             raise ValueError("a kind by reference gets its variables from its ref resolver")
 
 
+LAB_HOUR_KINDS = ("lab_hour_added", "lab_hour_changed", "lab_hour_cancelled")
+"""`sessions.service.LAB_HOUR_KINDS`, named here because that module may still be loading when
+this one is (a test keeps the two equal)."""
+
+
+def _lab_hour_context(kind: str) -> ContextResolver:
+    async def resolve(
+        session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+    ) -> Mapping[str, object] | None:
+        return await sessions.lab_hour_mail_context(kind, session, user_id, ref, now)
+
+    return resolve
+
+
 KINDS: Mapping[str, Delivery] = MappingProxyType(
     {
+        **{
+            kind: Delivery(DIGEST, kind, context=_lab_hour_context(kind)) for kind in LAB_HOUR_KINDS
+        },
         identity.PASSWORD_RESET: Delivery(
             IMMEDIATE, "password_reset", context=identity.password_reset_mail_context
         ),
@@ -88,8 +109,8 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         ),
     }
 )
-"""The product's kinds: `password_reset` (Story 3.6), `invitation` (Story 3.7) and
-`manual_registration` (Story 4.8)."""
+"""The product's kinds: `password_reset` (Story 3.6), `invitation` (Story 3.7),
+`manual_registration` (Story 4.8) and the Lab hour notices (Story 5.6, digest)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

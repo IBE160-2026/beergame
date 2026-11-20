@@ -567,6 +567,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/lab-hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Lab Hour
+         * @description «Legg til Labtime» (Story 5.6, FR-19): stores the Lab hour at once and tells each
+         *     registered Student through the day's digest mail. The Start-date lock does not apply.
+         *
+         *     A refusal is 422 `invalid_lab_hour` with `fields`: `place` `required` or `too_long` (over 120
+         *     characters); `ends_at` `not_after_start`, `too_long` (over 12 hours after the start) or
+         *     `past`. Times count to the whole minute.
+         */
+        post: operations["addLabHour"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/lab-hours/{lab_hour_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change Lab Hour
+         * @description Changes a Lab hour and tells each registered Student; unchanged values tell nobody. A Lab
+         *     hour that has ended answers 409 `lab_hour_ended`; the other refusals are those of adding one
+         *     (422 `invalid_lab_hour`).
+         */
+        put: operations["changeLabHour"];
+        post?: never;
+        /**
+         * Remove Lab Hour
+         * @description Removes a Lab hour and tells each registered Student it is cancelled. A Lab hour that has
+         *     ended answers 409 `lab_hour_ended`.
+         */
+        delete: operations["removeLabHour"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/settings-check": {
         parameters: {
             query?: never;
@@ -1461,6 +1513,8 @@ export interface components {
             inactivity_limit_hours: number;
             /** Is Classic */
             is_classic: boolean;
+            /** Lab Hours */
+            lab_hours: components["schemas"]["LabHourOut"][];
             /** Llm Unavailable */
             llm_unavailable: "no_default_model" | null;
             /** Locked */
@@ -1623,6 +1677,29 @@ export interface components {
             /** Name */
             name: string;
         };
+        /**
+         * EnrolledLabHourOut
+         * @description An upcoming Lab hour as a Student reads it (Story 5.6, FR-19), for Epic 6's Hjem.
+         */
+        EnrolledLabHourOut: {
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Place */
+            place: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+        };
         /** EnrolledSessionListOut */
         EnrolledSessionListOut: {
             /** Items */
@@ -1648,6 +1725,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Lab Hours */
+            lab_hours: components["schemas"]["EnrolledLabHourOut"][];
             next_deadline: components["schemas"]["NextDeadline"] | null;
             /** Number */
             number: number;
@@ -1964,6 +2043,51 @@ export interface components {
         InvitationTokenIn: {
             /** Token */
             token: string;
+        };
+        /**
+         * LabHourIn
+         * @description A Lab hour as the Lecturer adds or changes it (Story 5.6, FR-19): its start and end as
+         *     instants with their offset, and its place. The service judges the rules (`invalid_lab_hour`),
+         *     so a blank or long place gets its reason rather than a schema error.
+         */
+        LabHourIn: {
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Place */
+            place: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+        };
+        /**
+         * LabHourOut
+         * @description A Lab hour as the Class's staff read it, UTC; the web app shows it in Europe/Oslo.
+         */
+        LabHourOut: {
+            /** Ended */
+            ended: boolean;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Place */
+            place: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
         };
         /**
          * LecturerOverviewOut
@@ -4066,6 +4190,188 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    addLabHour: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabHourIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabHourOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    changeLabHour: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                lab_hour_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabHourIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabHourOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    removeLabHour: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                lab_hour_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

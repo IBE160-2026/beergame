@@ -102,3 +102,26 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   (`players.service.describe` of `llm` and `rule_based`) and `provider_unavailable` (LLM players
   on a config that offers no level here: in production, a provider key that is not set).
 - No level name, label or effect line and no description is written here or in the web app.
+
+## Lab hours (Story 5.6)
+
+- `lab_hours` (migration 0035): `starts_at`, `ends_at` (UTC; CHECK end after start), `place`
+  (1 to 120 characters), `revision`, `cancelled_at`. A removed Lab hour is kept, cancelled, and
+  never listed again, so its cancellation notice (ids only) can still name it.
+- `POST /api/class-sessions/{id}/lab-hours` (201), `PUT …/lab-hours/{lab_hour_id}` (200) and
+  `DELETE …/lab-hours/{lab_hour_id}` (204) save on their own, not with «Lagre Klasseøkt», for the
+  Class's owners, before and after the Start date. The rules: 403 `forbidden`, then 409
+  `class_archived`, 409 `lab_hour_ended` (it has ended), then 422 `invalid_lab_hour` with
+  `place` `required`/`too_long` and `ends_at` `not_after_start`/`too_long` (over 12 h)/`past`.
+  Times count to the whole minute and the place is trimmed. An unchanged PUT changes nothing.
+- Each change emits `session:<id>` and enqueues one notice per registered Student
+  (`classes.service.registered_students`) with `ref` = the Lab hour: `lab_hour_added`,
+  `lab_hour_changed` (its key holds the revision) or `lab_hour_cancelled`. All three are digest
+  kinds in `messaging.delivery`; their mail reads the Lab hour at send time through
+  `service.lab_hour_mail_context`, which leaves a notice out when the User is no longer a
+  registered Student, the Class is archived, the Lab hour has ended, or an added or changed one
+  was removed.
+- The staff read carries `lab_hours` (`ended` marks those over); `GET /api/me/class-sessions`
+  carries each session's Lab hours that have not ended.
+- `service.current_lab_hour(class_session_id, now)` is the Lab hour on at `now` (the earliest
+  started if several), or None: Epic 8's «I rommet» asks this, never the table.

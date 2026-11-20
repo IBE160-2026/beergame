@@ -10,7 +10,8 @@ Lærerhjem's read `/api/lecturer-home/class-sessions`. Story 5.3 adds the Game s
 save and the check of a draft, `/api/class-sessions/{id}/settings-check`. Story 5.4 adds the
 Demand pattern and seed to both and the staff's read of the series,
 `/api/class-sessions/{id}/demand-series`. Story 5.5 adds the Effort level and Debrief mode to the
-save and the offered levels, AI player descriptions and provider flag to the read."""
+save and the offered levels, AI player descriptions and provider flag to the read. Story 5.6 adds
+the Lab hours, `/api/class-sessions/{id}/lab-hours[/{lab_hour_id}]`, saved on their own."""
 
 import uuid
 from typing import Annotated
@@ -25,6 +26,8 @@ from app.modules.sessions.schemas import (
     ClassSessionSaveIn,
     DemandSeriesOut,
     EnrolledSessionListOut,
+    LabHourIn,
+    LabHourOut,
     LecturerOverviewOut,
     SettingsCheckIn,
     SettingsCheckOut,
@@ -160,6 +163,89 @@ async def save_class_session(
     if saved is None:
         raise authz.Forbidden
     return JSONResponse(saved.model_dump(mode="json"))
+
+
+def _lab_hour_refused(refused: service.InvalidLabHour | service.LabHourEnded) -> Response:
+    if isinstance(refused, service.LabHourEnded):
+        return error_response(409, refused.code, "The Lab hour has ended.")
+    return error_response(422, refused.code, "The Lab hour breaks a rule.", refused.fields)
+
+
+@router.post(
+    "/class-sessions/{session_id}/lab-hours",
+    status_code=201,
+    response_model=LabHourOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="addLabHour",
+)
+async def add_lab_hour(
+    session_id: str,
+    body: LabHourIn,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """«Legg til Labtime» (Story 5.6, FR-19): stores the Lab hour at once and tells each
+    registered Student through the day's digest mail. The Start-date lock does not apply.
+
+    A refusal is 422 `invalid_lab_hour` with `fields`: `place` `required` or `too_long` (over 120
+    characters); `ends_at` `not_after_start`, `too_long` (over 12 hours after the start) or
+    `past`. Times count to the whole minute."""
+    try:
+        added = await service.add_lab_hour(user, _id(session_id), body, now=auth.utcnow())
+    except service.InvalidLabHour as refused:
+        return _lab_hour_refused(refused)
+    if added is None:
+        raise authz.Forbidden
+    return JSONResponse(added.model_dump(mode="json"), status_code=201)
+
+
+@router.put(
+    "/class-sessions/{session_id}/lab-hours/{lab_hour_id}",
+    response_model=LabHourOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="changeLabHour",
+)
+async def change_lab_hour(
+    session_id: str,
+    lab_hour_id: str,
+    body: LabHourIn,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """Changes a Lab hour and tells each registered Student; unchanged values tell nobody. A Lab
+    hour that has ended answers 409 `lab_hour_ended`; the other refusals are those of adding one
+    (422 `invalid_lab_hour`)."""
+    try:
+        changed = await service.change_lab_hour(
+            user, _id(session_id), _id(lab_hour_id), body, now=auth.utcnow()
+        )
+    except (service.InvalidLabHour, service.LabHourEnded) as refused:
+        return _lab_hour_refused(refused)
+    if changed is None:
+        raise authz.Forbidden
+    return JSONResponse(changed.model_dump(mode="json"))
+
+
+@router.delete(
+    "/class-sessions/{session_id}/lab-hours/{lab_hour_id}",
+    status_code=204,
+    responses=documented(401, 403, 409),
+    operation_id="removeLabHour",
+)
+async def remove_lab_hour(
+    session_id: str,
+    lab_hour_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """Removes a Lab hour and tells each registered Student it is cancelled. A Lab hour that has
+    ended answers 409 `lab_hour_ended`."""
+    try:
+        removed = await service.remove_lab_hour(
+            user, _id(session_id), _id(lab_hour_id), now=auth.utcnow()
+        )
+    except service.LabHourEnded as refused:
+        return _lab_hour_refused(refused)
+    if not removed:
+        raise authz.Forbidden
+    return Response(status_code=204)
 
 
 @router.post(
