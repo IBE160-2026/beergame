@@ -1349,3 +1349,24 @@ Bygge med `bmad-build-auto`, gjøre en kort visuell kontroll med Playwright og a
 
 ### Åpne punkter
 - Issue 110: beslutninger og utsatte punkter i Story 5.12.
+
+## Story 5.13: Gi plass til studenter som registrerer seg etter fordelingen (2026-11-20)
+
+### Oppgave
+Bygge Story 5.13 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en kort visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-13-seat-students-who-register-after-allocation.md`.
+- **Commit a558089:** to nye handlinger i sveipet (plass til nye studenter og erstatning for fjernede studenter), `students_without_seat` og linja i «Fordeling».
+- **Tester:**
+  - backend: 2538 tester;
+  - frontend: Vitest 433, typecheck, bygg og Playwright 263.
+- **Gjennomgang:** 34 lave funn. 9 ble rettet.
+- **Visuell kontroll:** 8 skjermbilder i `screenshots/5.13/`. Ett avvik er rettet (accb50d).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 111: beslutninger i Story 5.13.
