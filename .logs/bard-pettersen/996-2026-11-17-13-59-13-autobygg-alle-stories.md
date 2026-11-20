@@ -1482,3 +1482,32 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 116: beslutninger i Story 5.18.
+
+## Avslutning av Epic 5 (2026-11-20)
+
+### Oppgave
+Avslutte Epic 5 etter kjøreboka: én oppfølgende gjennomgang, én stabilisering av e2e, og deretter PR og merge.
+
+### Plan
+1. Gjennomgå 5.11, 5.12 og 5.17 på tvers av storyene, siden specene deres anbefalte det, og rette de samlede UX-punktene.
+2. Stabilisere e2e under last og gjøre backend-pakken raskere.
+3. Lage en PR mot `main`.
+
+### Resultat
+- **Oppfølgende gjennomgang:** commits 6e91bd5, ce5a46e, 3e6ba26 og 841a79a.
+  - Låsen sjekker startdatoen på nytt etter at raden er låst.
+  - Låsen kan bruke plassen til en student som valgte og så ble fjernet.
+  - En avvist lås lagres og vises til faglæreren (migrasjon 0044). Arkiverte økter prøves ikke lenger hvert minutt.
+  - UX-punktene fra Issue #97, #100–#102, #109 og #114–#116 er rettet, og issuene er lukket.
+- **Stabilisering:** commits 354a1ff og 5c00c0c.
+  - Sveipet blokkerte mailkøen i 10–20 s hvert minutt. Oppslagene leser nå samlet, og tiden gikk fra 6,3 s til 0,17 s.
+  - Restretting av Issue #97, og fokus flyttes etter at elementet finnes.
+  - Den lange filterlista i admin-audit er kortet ned i testene.
+  - Funnet en produksjonsfeil: upsert av tilgangsforespørsler feilet med en generisk plan. Rettet, med en regresjonstest.
+  - Backend-pakken gikk fra rundt 80 s til 60 s.
+  - E2e med CI-kommandoen passerte 280/280 to ganger på rad rett etter bygget.
+
+### Åpne punkter
+- Issue #117: to punkter som er avgjort til senere (spill som aldri åpnes, og spill med bare KI-spillere når studentene velger).
+- Issue #56 og #60: Story 2.7 og 2.11 står i `review`.
+- Issue #31: tekstgjennomgang av alle [ASSUMPTION]-tekster.
