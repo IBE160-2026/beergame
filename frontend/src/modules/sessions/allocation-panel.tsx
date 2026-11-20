@@ -314,10 +314,10 @@ function Preview({
             {copy.confirmedOn(confirmedAt.day, confirmedAt.time)}
           </p>
         ) : null}
-        <p className="mt-2 max-w-prose text-body-phone text-ink-secondary">
+        <p className="mt-2 max-w-prose text-body-phone text-ink-secondary lg:text-body">
           {allocation.opened ? copy.openedLead(students, games.length) : copy.lead(students)}
         </p>
-        <p className="max-w-prose text-body-phone text-ink-secondary">
+        <p className="max-w-prose text-body-phone text-ink-secondary lg:text-body">
           {allocation.opened ? copy.openedSeats : copy.emptySeats}
         </p>
         {allocation.missing_count > 0 ? (
