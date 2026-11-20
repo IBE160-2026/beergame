@@ -1370,3 +1370,22 @@ Bygge med `bmad-build-auto`, gjøre en kort visuell kontroll med Playwright og a
 
 ### Åpne punkter
 - Issue 111: beslutninger i Story 5.13.
+
+## Story 5.14: Minne studentene på hver frist 24 timer før (2026-11-20)
+
+### Oppgave
+Bygge Story 5.14 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`. Ingen visuell kontroll, fordi `frontend/` ikke endres.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-14-remind-students-24-hours-before-each-deadline.md`.
+- **Commit 8c3e9d7:** `sessions.send_deadline_reminder` i sveipet, migrasjon 0041 `deadline_reminders` og mailmalen for påminnelsen.
+- **Tester:** 2551 backend-tester (rundt 71 s), ruff og copy-sjekken.
+- **Gjennomgang:** 21 lave funn. 4 ble rettet.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 112: beslutninger i Story 5.14.
+- Backend-pakken har vokst til rundt 71 s. Den måles igjen i avslutningen av Epic 5.
