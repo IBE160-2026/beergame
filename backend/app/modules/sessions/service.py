@@ -89,6 +89,7 @@ from app.ai import budget, config
 from app.engine import RULES_VERSION, GameSettings
 from app.engine.demand import DemandFixed, DemandRandom, DemandStep, DemandStepNoise, new_seed
 from app.engine.settings import (
+    CAPACITY_RANGE,
     DEMAND_RANGES,
     RANGES,
     ROLES,
@@ -273,6 +274,13 @@ class LabHourEnded(Exception):
     code = "lab_hour_ended"
 
 
+class FeatureDisabled(_FieldsError):
+    """A cut-list setting was sent while its flag is off (422 `feature_disabled`, AD-17): a
+    non-empty `capacity` while `FEATURE_CAPACITY` is off (Story 5.15)."""
+
+    code = "feature_disabled"
+
+
 class InvalidSettings(Exception):
     """The Game settings break the engine's rules (422 `invalid_settings`): one problem per
     setting, with the range that applies."""
@@ -309,6 +317,8 @@ def range_of(field: str) -> Range | None:
         return RANGES[field]
     if field == "demand_seed":
         return DEMAND_RANGES["demand_seed"]
+    if field.startswith("capacity."):
+        return CAPACITY_RANGE
     if field.startswith("demand."):
         return DEMAND_RANGES.get(field.removeprefix("demand."))
     return None
@@ -362,6 +372,12 @@ def _parse_problem(error: Mapping[str, Any], data: Mapping[str, Any], stored: Ga
             last = weeks
             return "demand.change_week", _problem(code, "demand.change_week", 1, last)
         return f"demand.{name}", _problem(code, f"demand.{name}", ranged=True)
+    if field == "capacity":
+        # One Role's value that is not a whole number: `capacity.<role>` with its range. An unknown
+        # Role, a Role outside the chain or a map that is not one: `capacity` `invalid`.
+        if len(loc) == 2 and str(loc[1]) in CAPACITY_ROLES:
+            return f"capacity.{loc[1]}", _problem("not_a_number", f"capacity.{loc[1]}", ranged=True)
+        return "capacity", _problem("invalid", "capacity")
     if out_of_range:
         code = "out_of_range"
     else:
@@ -369,9 +385,23 @@ def _parse_problem(error: Mapping[str, Any], data: Mapping[str, Any], stored: Ga
     return field, _problem(code, field, ranged=True)
 
 
-EDITABLE_SETTINGS = frozenset({*RANGES, "demand", "demand_seed"})
+CAPACITY_ROLES = frozenset(role.value for role in Role)
+"""The keys a capacity map may hold, as the api names them (`capacity.retailer`)."""
+
+EDITABLE_SETTINGS = frozenset({*RANGES, "demand", "demand_seed", "capacity"})
 """The Game settings a Lecturer changes through the Klasseøkt: those the engine gives a range
-(Story 5.3), and the Demand pattern with its seed (Story 5.4). Story 5.15 adds capacity."""
+(Story 5.3), the Demand pattern with its seed (Story 5.4), and the capacity (Story 5.15), the
+last only while `FEATURE_CAPACITY` is on."""
+
+
+def capacity_enabled() -> bool:
+    """`FEATURE_CAPACITY` (AD-17): whether the Klasseøkt offers a shipping capacity (Story 5.15)."""
+    return get_settings().feature_capacity
+
+
+def _sets_capacity(value: object) -> bool:
+    """Whether a draft's `capacity` caps anything: None and an empty map cap no Seat."""
+    return value is not None and value != {}
 
 
 def judge_settings(
@@ -383,11 +413,19 @@ def judge_settings(
     with the setting's range, as the engine's own range errors. The other settings of a draft
     that does not parse are still judged, with the unreadable ones at their stored values, so
     one mistyped field hides no error or warning elsewhere. A key outside `EDITABLE_SETTINGS`
-    (the chain, capacity until Story 5.15) is `not_editable` and never laid over."""
+    (the chain) is `not_editable` and never laid over. While `FEATURE_CAPACITY` is off a draft
+    that caps a Seat other than as stored is `capacity` `feature_disabled` (Story 5.15); a
+    capacity stored before the flag went off is kept (sent back unchanged or left out) and judged
+    as stored, so it never blocks another setting. None or `{}` clears it."""
     base = stored.model_dump(mode="json")
     problems: dict[str, SettingProblem] = {
         key: _problem("not_editable", key) for key in draft if key not in EDITABLE_SETTINGS
     }
+    flag = capacity_enabled()
+    stored_capacity = base.get("capacity")
+    sent = draft.get("capacity")
+    if not flag and _sets_capacity(sent) and sent != stored_capacity:
+        problems["capacity"] = _problem("feature_disabled", "capacity")
     data = {**base, **{key: value for key, value in draft.items() if key not in problems}}
     # Top-level settings that do not parse: judged at their stored values, their rules unsaid.
     unreadable: set[str] = set()
@@ -407,7 +445,8 @@ def judge_settings(
             return None, problems, []
     else:
         judged = settings
-    for found in validate(judged, capacity_enabled=get_settings().feature_capacity):
+    enabled = flag or judged.capacity == stored.capacity
+    for found in validate(judged, capacity_enabled=enabled):
         if found.field not in problems and found.field.split(".")[0] not in unreadable:
             problems[found.field] = _problem(found.code, found.field, found.minimum, found.maximum)
     risky = [
@@ -683,6 +722,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         ],
         calibrated_settings=GameSettings(),
         lab_hours=[_lab_hour_out(lab, now) for lab in labs],
+        capacity_enabled=capacity_enabled(),
     )
 
 
@@ -893,10 +933,17 @@ def _settings_to_store(
     row: Mapping[str, Any], draft: Mapping[str, Any], *, locked: bool
 ) -> GameSettings | None:
     """The Game settings to store from a draft, or None when they do not change. Raises
-    `SessionLocked` for a change once locked and `InvalidSettings` for a draft the engine
-    refuses. An unchanged draft is never judged, so a locked session can be saved as it stands."""
+    `FeatureDisabled` for a capacity while its flag is off, `SessionLocked` for a change once
+    locked and `InvalidSettings` for a draft the engine refuses. An unchanged draft is never
+    judged, so a locked session can be saved as it stands."""
     stored = GameSettings.model_validate(row["game_settings"])
     settings, problems, _ = judge_settings(stored, draft)
+    disabled = {key: p.code for key, p in problems.items() if p.code == "feature_disabled"}
+    if disabled:
+        # A capacity that differs from the stored one is a change: once locked, that answer wins.
+        if locked:
+            raise SessionLocked({"game_settings": "locked"})
+        raise FeatureDisabled(disabled)
     if any(problem.code == "not_editable" for problem in problems.values()):
         raise InvalidSettings(problems)
     if settings == stored:

@@ -138,6 +138,10 @@ async def save_class_session(
     `{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409
     `session_locked` (`{"game_settings": "locked"}`).
 
+    `game_settings.capacity` (Story 5.15) is `{role: units}` or null: one Role or every Role
+    capped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a
+    non-empty capacity answers 422 `feature_disabled` (`{"capacity": "feature_disabled"}`).
+
     `obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,
     FR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit
     under 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once
@@ -178,6 +182,8 @@ async def save_class_session(
         return error_response(
             422, refused.code, "The model config offers no such Effort level.", refused.fields
         )
+    except service.FeatureDisabled as refused:
+        return error_response(422, refused.code, "This setting is switched off.", refused.fields)
     except (service.DeadlinePassed, service.SessionLocked) as refused:
         return error_response(409, refused.code, "This can no longer change.", refused.fields)
     if saved is None:

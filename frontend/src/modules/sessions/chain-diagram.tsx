@@ -20,6 +20,8 @@ const END_W = 104;
 /** About the widest a 13 px glyph of these labels runs, to keep the demand lines inside. */
 const CHAR_W = 7.5;
 const HEIGHT = 120;
+/** Room for «Maks N» under a capped Role (Story 5.15). */
+const CAPPED_HEIGHT = 130;
 const FONT = 13;
 
 /** One pipe segment: `slots` boxes on a line ending in an arrow. */
@@ -73,7 +75,16 @@ function OrderDots({ x, width, weeks }: { x: number; width: number; weeks: numbe
  * data chart (AD-18). Every value comes from the API; the same values stand as text under it,
  * and that text labels the figure for screen readers.
  */
-export function ChainDiagram({ settings }: { settings: GameSettings }) {
+export function ChainDiagram({
+  settings,
+  capacityEnabled = false,
+}: {
+  settings: GameSettings;
+  /** `FEATURE_CAPACITY` (Story 5.15): a capped Role is marked «Maks N» and named in the text. */
+  capacityEnabled?: boolean;
+}) {
+  const capacityOf = (role: string): number | undefined =>
+    capacityEnabled ? settings.capacity?.[role as keyof NonNullable<GameSettings["capacity"]>] : undefined;
   const textId = useId();
   const titleId = useId();
   const roles = upstreamFirst(settings);
@@ -98,6 +109,11 @@ export function ChainDiagram({ settings }: { settings: GameSettings }) {
         <text x={x + ROLE_W / 2} y={PIPE_Y + 51} textAnchor="middle" fontSize={FONT} fill="var(--color-ink-secondary)">
           {copy.inventory(settings.starting_inventory)}
         </text>
+        {capacityOf(role) === undefined ? null : (
+          <text x={x + ROLE_W / 2} y={PIPE_Y + 69} textAnchor="middle" fontSize={FONT} fontWeight="600" fill="var(--color-ink)">
+            {copy.capped(capacityOf(role) ?? 0)}
+          </text>
+        )}
       </g>,
     );
     x += ROLE_W;
@@ -120,6 +136,7 @@ export function ChainDiagram({ settings }: { settings: GameSettings }) {
   // Wide enough for the longest demand line under «Kundene» («100, så 100 ± 20»).
   const longest = Math.max(copy.customers.length, demandLine.length, demandFrom.length);
   const width = x + Math.max(END_W, 26 + Math.ceil(longest * CHAR_W) + 8);
+  const height = roles.some((role) => capacityOf(role) !== undefined) ? CAPPED_HEIGHT : HEIGHT;
   return (
     <figure className="m-0">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -135,7 +152,7 @@ export function ChainDiagram({ settings }: { settings: GameSettings }) {
         <svg
           role="img"
           aria-labelledby={textId}
-          viewBox={`0 0 ${width} ${HEIGHT}`}
+          viewBox={`0 0 ${width} ${height}`}
           style={{ minWidth: `${width}px` }}
           className="block h-auto w-full"
           preserveAspectRatio="xMinYMid meet"
@@ -144,7 +161,7 @@ export function ChainDiagram({ settings }: { settings: GameSettings }) {
         </svg>
       </ScrollRegion>
       <figcaption id={textId} className="mt-3 max-w-2xl text-body-phone text-ink-secondary">
-        {chainText(settings)}
+        {chainText(settings, capacityEnabled)}
       </figcaption>
     </figure>
   );

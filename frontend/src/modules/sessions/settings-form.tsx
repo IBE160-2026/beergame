@@ -2,14 +2,18 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 
+import { SegmentedChoice } from "@/components/segmented-choice";
 import { SelectField } from "@/components/select-field";
+import { Switch } from "@/components/switch";
 import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
 import { LINK_BUTTON } from "@/modules/classes/roster-entry-forms";
 
 import { type ClassSession, useDemandSeries } from "./api";
-import { type SettingRow, settingRows } from "./sessions";
+import { cappedRoles, roleName, type SettingRow, settingRows } from "./sessions";
 import {
+  type CapacityDraft,
+  capacityProblem,
   DEMAND_FIELDS,
   DEMAND_KINDS,
   type DemandDraft,
@@ -112,6 +116,16 @@ export function SettingsBlock({
           onChange={(demand) => onChange({ ...draft, demand })}
           onLeave={onLeave}
         />
+        {draft.capacity ? (
+          <CapacityFields
+            roles={item.game_settings.roles}
+            capacity={draft.capacity}
+            problem={capacityProblem(problems)}
+            notes={warnings.capacity}
+            onChange={(capacity) => onChange({ ...draft, capacity })}
+            onLeave={onLeave}
+          />
+        ) : null}
         <TextField
           id="setting-inactivity_limit_hours"
           label={nb.terms.inactivityLimit}
@@ -165,12 +179,17 @@ function isDemandKey(name: string): boolean {
   return name === "demand" || name === "demand_seed" || name.startsWith("demand.");
 }
 
+/** Whether the api's key belongs to the capacity («capacity», «capacity.retailer»). */
+function isCapacityKey(name: string): boolean {
+  return name === "capacity" || name.startsWith("capacity.");
+}
+
 /** The api's errors on settings with no field here, under the list. The Demand pattern's own stand
  * under its fields; one on a field the chosen pattern does not show cannot come from this draft. */
 function otherErrors(problems: Readonly<Record<string, SettingProblem>>): Record<string, string[]> {
   const result: Record<string, string[]> = {};
   for (const [name, problem] of Object.entries(problems)) {
-    if (EDITABLE_NAMES.includes(name) || isDemandKey(name)) continue;
+    if (EDITABLE_NAMES.includes(name) || isDemandKey(name) || isCapacityKey(name)) continue;
     (result[""] ??= []).push(problemText(problem));
   }
   return result;
@@ -248,6 +267,113 @@ function DemandFields({
   );
 }
 
+const c = copy.edit.capacity;
+
+/** A shipping capacity (Story 5.15, cut list, FR-12): a Bryter, off by default; on, «Gjelder» as
+ * Valgknapper (every Role or one), the Role for one, and the units per Week as a Tekstfelt with the
+ * api's error and warnings under it, then the help line. Rendered only while `FEATURE_CAPACITY` is
+ * on. The web app holds no range: the api judges the value as the field is left. */
+function CapacityFields({
+  roles,
+  capacity,
+  problem,
+  notes,
+  onChange,
+  onLeave,
+}: {
+  roles: readonly CapacityDraft["role"][];
+  capacity: CapacityDraft;
+  problem: SettingProblem | undefined;
+  notes: readonly string[] | undefined;
+  onChange: (capacity: CapacityDraft) => void;
+  onLeave: () => void;
+}) {
+  const titleId = useId();
+  const helpId = useId();
+  const scopeName = useId();
+  // A change of scope, Role or switch is judged at once, as leaving a field is: after the render
+  // that holds it, so the check sends the new draft.
+  const pending = useRef(false);
+  // Any change of the capacity replaces a stored map the switch cannot show (`kept`). With no units
+  // typed yet there is nothing to judge, so no error shows before the Lecturer types.
+  const change = (next: CapacityDraft) => onChange({ ...next, kept: undefined });
+  const choose = (next: CapacityDraft) => {
+    change(next);
+    pending.current = next.units.trim() !== "";
+  };
+  useEffect(() => {
+    if (!pending.current) return;
+    pending.current = false;
+    onLeave();
+  });
+  return (
+    <section aria-labelledby={titleId} className="mt-6 border-t border-hairline pt-4">
+      <h3 id={titleId} className="text-label text-ink">
+        {c.legend}
+      </h3>
+      <Switch
+        id="setting-capacity"
+        className="mt-2"
+        checked={capacity.on}
+        labelledBy={titleId}
+        describedBy={capacity.on ? helpId : undefined}
+        onChange={(on) => choose({ ...capacity, on })}
+      >
+        {capacity.on ? c.on : c.off}
+      </Switch>
+      {capacity.on ? (
+        <>
+          <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <SegmentedChoice
+              name={scopeName}
+              legend={c.scope}
+              className="lg:col-span-2"
+              options={[
+                { value: "all", label: c.all },
+                { value: "one", label: c.one },
+              ]}
+              value={capacity.scope}
+              onChange={(scope) => choose({ ...capacity, scope })}
+            />
+            {capacity.scope === "one" ? (
+              <SelectField
+                id="setting-capacity-role"
+                label={c.role}
+                value={capacity.role}
+                onChange={(event) => choose({ ...capacity, role: event.target.value as CapacityDraft["role"] })}
+              >
+                {roles.map((role) => (
+                  <option key={role} value={role}>
+                    {roleName(role)}
+                  </option>
+                ))}
+              </SelectField>
+            ) : null}
+            <TextField
+              id="setting-capacity-units"
+              label={c.units}
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              value={capacity.units}
+              hint={c.unitsHint}
+              error={problem ? problemText(problem) : undefined}
+              notes={notes}
+              onChange={(event) => change({ ...capacity, units: event.target.value })}
+              onBlur={onLeave}
+            />
+          </div>
+          <p id={helpId} className="mt-3 text-body-phone text-ink-secondary">
+            {c.help}
+          </p>
+        </>
+      ) : problem ? (
+        <p className="mt-2 text-body-phone text-restordre">{problemText(problem)}</p>
+      ) : null}
+    </section>
+  );
+}
+
 /** «Vis etterspørselen uke for uke» (Story 5.4, FR-13): the saved series as the api materialised
  * it, a table of Week and demand, for the Class's staff. */
 function DemandSeries({ item }: { item: ClassSession }) {
@@ -313,8 +439,15 @@ function DemandSeries({ item }: { item: ClassSession }) {
 /** The saved settings as a list; a warning stands as a further description under its setting.
  * The api's errors on settings with no field show in the open block (`otherErrors`). */
 function ReadOnlyRows({ item, warnings }: { item: ClassSession; warnings: Readonly<Record<string, string[]>> }) {
-  const rows = settingRows(item.game_settings, item.inactivity_limit_hours);
-  return <RowList rows={rows} warnings={warnings} errors={{}} />;
+  const rows = settingRows(item.game_settings, item.inactivity_limit_hours, item.capacity_enabled);
+  const capped = item.capacity_enabled && cappedRoles(item.game_settings).length > 0;
+  return (
+    <>
+      <RowList rows={rows} warnings={warnings} errors={{}} />
+      {/* A capacity is set (Story 5.15): what a capped Seat means, and that Students are told. */}
+      {capped ? <p className="mt-2 text-body-phone text-ink-secondary">{copy.edit.capacity.help}</p> : null}
+    </>
+  );
 }
 
 function RowList({

@@ -76,8 +76,23 @@ export type DemandDraft = {
 
 export type DemandFieldName = Exclude<keyof DemandDraft, "kind">;
 
-/** The fields as typed, Norwegian style («0,50»), with the Demand pattern and its seed. */
-export type SettingsDraft = Record<SettingName, string> & { demand: DemandDraft };
+type Role = GameSettings["roles"][number];
+
+/** A shipping capacity as chosen (Story 5.15, cut list): off, or one Role or every Role capped at
+ * `units` per Week, as typed. */
+export type CapacityDraft = {
+  on: boolean;
+  scope: "all" | "one";
+  role: Role;
+  units: string;
+  /** A stored map the switch cannot show (several Roles, not all alike, set through the api): sent
+   * back as it was until the Lecturer changes the capacity, so another save never drops a cap. */
+  kept?: Partial<Record<Role, number>>;
+};
+
+/** The fields as typed, Norwegian style («0,50»), with the Demand pattern and its seed, and the
+ * capacity while `FEATURE_CAPACITY` is on (absent otherwise, so it is never sent). */
+export type SettingsDraft = Record<SettingName, string> & { demand: DemandDraft; capacity?: CapacityDraft };
 
 /** The Demand fields each kind shows, in order; `seed` only for the kinds that draw. */
 export const DEMAND_FIELDS: Record<DemandKind, readonly DemandFieldName[]> = {
@@ -102,9 +117,24 @@ function demandDraftOf(settings: GameSettings): DemandDraft {
   };
 }
 
-/** The fields of the settings the api returned. */
-export function draftOf(settings: GameSettings): SettingsDraft {
+/** The capacity the api returned as a draft: every Role of the chain at one value is «Alle ledd»;
+ * anything else opens as «Ett ledd» with the first capped Role, downstream first. Off by default,
+ * on the Retailer. */
+function capacityDraftOf(settings: GameSettings): CapacityDraft {
+  const capacity = settings.capacity ?? {};
+  const capped = settings.roles.filter((role) => capacity[role] !== undefined);
+  if (capped.length === 0) return { on: false, scope: "all", role: settings.roles[0], units: "" };
+  const values = new Set(capped.map((role) => capacity[role]));
+  const all = capped.length === settings.roles.length && values.size === 1;
+  const draft: CapacityDraft = { on: true, scope: all ? "all" : "one", role: capped[0], units: String(capacity[capped[0]]) };
+  if (!all && capped.length > 1) draft.kept = { ...capacity };
+  return draft;
+}
+
+/** The fields of the settings the api returned; the capacity only while `FEATURE_CAPACITY` is on. */
+export function draftOf(settings: GameSettings, capacityEnabled = false): SettingsDraft {
   const draft = { demand: demandDraftOf(settings) } as SettingsDraft;
+  if (capacityEnabled) draft.capacity = capacityDraftOf(settings);
   for (const field of EDITABLE) {
     const value = settings[field.name];
     draft[field.name] = field.kind === "cost" ? costText(String(value)) : String(value);
@@ -142,10 +172,20 @@ export function demandBody(demand: DemandDraft): Record<string, unknown> {
   return body;
 }
 
+/** The body's `capacity` (Story 5.15): null when off, else the units for the chosen Role or for every
+ * Role of the chain, as `roles` names them. */
+export function capacityBody(capacity: CapacityDraft, roles: readonly Role[]): Record<string, unknown> | null {
+  if (!capacity.on) return null;
+  if (capacity.kept) return { ...capacity.kept };
+  const units = whole(capacity.units);
+  const capped = capacity.scope === "all" ? roles : [capacity.role];
+  return Object.fromEntries(capped.map((role) => [role, units]));
+}
+
 /** The body's `game_settings`: whole numbers as numbers, costs as decimal strings, and anything
  * that does not read as a number as it was typed, so the api names what is wrong. The Demand
  * pattern goes as `demand`; its seed only for a pattern that draws, so the server's seed stays. */
-export function settingsBody(draft: SettingsDraft): Record<string, unknown> {
+export function settingsBody(draft: SettingsDraft, roles: readonly Role[] = ALL_ROLES): Record<string, unknown> {
   const body: Record<string, unknown> = {};
   for (const field of EDITABLE) {
     const typed = draft[field.name];
@@ -153,7 +193,18 @@ export function settingsBody(draft: SettingsDraft): Record<string, unknown> {
   }
   body.demand = demandBody(draft.demand);
   if (DEMAND_FIELDS[draft.demand.kind].includes("seed")) body.demand_seed = whole(draft.demand.seed);
+  if (draft.capacity) body.capacity = capacityBody(draft.capacity, roles);
   return body;
+}
+
+/** The Classic chain, downstream first, for a body built without the session's own chain. */
+const ALL_ROLES: readonly Role[] = ["retailer", "wholesaler", "distributor", "factory"];
+
+/** The api's problem on the capacity (Story 5.15): `capacity` itself, else the first Role's. */
+export function capacityProblem(problems: Readonly<Record<string, SettingProblem>>): SettingProblem | undefined {
+  if (problems.capacity) return problems.capacity;
+  const key = Object.keys(problems).find((name) => name.startsWith("capacity."));
+  return key === undefined ? undefined : problems[key];
 }
 
 /** The api's key of a problem under a Demand field («demand.start», «demand_seed»). */
@@ -193,6 +244,8 @@ export function problemText(problem: SettingProblem): string {
       return e.seedRequired;
     case "not_editable":
       return e.notEditable;
+    case "feature_disabled":
+      return copy.edit.capacity.disabled;
     case "guided_weeks_not_before_demand_change":
       if (ranged) return e.guidedBeforeChange(min, max);
       break;
@@ -223,15 +276,23 @@ export function warningText(warning: SettingWarning): string {
       return w.maxOrder(n("max_order"), n("threshold"), n("peak_demand"));
     case "too_few_weeks_for_demand_change":
       return w.weeks(n("arrival_week"), n("weeks"));
+    case "capacity_below_peak_demand":
+      return w.capacity(n("capacity"), n("peak_demand"));
     default:
       return w.other;
   }
 }
 
-/** The warnings in words, by the setting they stand under. */
+/** The warnings in words, by the setting they stand under. A capacity warning («capacity.retailer»)
+ * stands under `capacity`, once per wording, so four Roles capped alike warn once. */
 export function warningsBySetting(warnings: readonly SettingWarning[]): Record<string, string[]> {
   const result: Record<string, string[]> = {};
-  for (const warning of warnings) (result[warning.field] ??= []).push(warningText(warning));
+  for (const warning of warnings) {
+    const key = warning.field.startsWith("capacity.") ? "capacity" : warning.field;
+    const text = warningText(warning);
+    const list = (result[key] ??= []);
+    if (!list.includes(text)) list.push(text);
+  }
   return result;
 }
 

@@ -5,6 +5,7 @@ import { GROUP } from "@/lib/number-format";
 import type { GameSettings } from "./api";
 import {
   calibratedText,
+  capacityProblem,
   demandBody,
   demandProblemKey,
   draftOf,
@@ -174,5 +175,81 @@ describe("the Demand pattern (Story 5.4)", () => {
     expect(demandProblemKey("seed")).toBe("demand_seed");
     expect(demandProblemKey("spread")).toBe("demand.spread");
     expect(demandProblemKey("change_week")).toBe("demand.change_week");
+  });
+});
+
+describe("the shipping capacity (Story 5.15)", () => {
+  const roles = settings.roles;
+
+  it("is never in the draft or the body while the flag is off", () => {
+    const capped = { ...settings, capacity: { retailer: 6 } };
+    expect(draftOf(capped).capacity).toBeUndefined();
+    expect("capacity" in settingsBody(draftOf(capped), roles)).toBe(false);
+  });
+
+  it("is off by default and sends null while off", () => {
+    const draft = draftOf(settings, true);
+    expect(draft.capacity).toEqual({ on: false, scope: "all", role: "retailer", units: "" });
+    expect(settingsBody(draft, roles).capacity).toBeNull();
+  });
+
+  it("sends one Role or every Role of the chain, the units as typed when not whole", () => {
+    const draft = draftOf(settings, true);
+    const one = { on: true, scope: "one", role: "factory", units: " 6 " } as const;
+    expect(settingsBody({ ...draft, capacity: one }, roles).capacity).toEqual({ factory: 6 });
+    const all = { ...one, scope: "all" } as const;
+    expect(settingsBody({ ...draft, capacity: all }, roles).capacity).toEqual({
+      retailer: 6,
+      wholesaler: 6,
+      distributor: 6,
+      factory: 6,
+    });
+    expect(settingsBody({ ...draft, capacity: { ...one, units: "2,5" } }, roles).capacity).toEqual({ factory: "2,5" });
+  });
+
+  it("opens a stored capacity as all Roles or as one Role", () => {
+    const all = { retailer: 6, wholesaler: 6, distributor: 6, factory: 6 };
+    expect(draftOf({ ...settings, capacity: all }, true).capacity).toEqual({
+      on: true,
+      scope: "all",
+      role: "retailer",
+      units: "6",
+    });
+    expect(draftOf({ ...settings, capacity: { distributor: 9 } }, true).capacity).toEqual({
+      on: true,
+      scope: "one",
+      role: "distributor",
+      units: "9",
+    });
+  });
+
+  it("sends a stored map it cannot show back unchanged until the capacity is changed", () => {
+    const mixed = { retailer: 6, factory: 9 };
+    const draft = draftOf({ ...settings, capacity: mixed }, true);
+    expect(draft.capacity).toMatchObject({ on: true, scope: "one", role: "retailer", units: "6" });
+    expect(settingsBody(draft, roles).capacity).toEqual(mixed);
+    const changed = { ...draft, capacity: { ...draft.capacity!, units: "7", kept: undefined } };
+    expect(settingsBody(changed, roles).capacity).toEqual({ retailer: 7 });
+  });
+
+  it("words its problems and warns once for every Role capped alike", () => {
+    expect(capacityProblem({ "capacity.factory": { code: "out_of_range", minimum: "1", maximum: "100", decimal_places: null } }))
+      .toMatchObject({ code: "out_of_range" });
+    expect(problemText({ code: "out_of_range", minimum: "1", maximum: "100", decimal_places: null })).toBe(
+      "Må være fra 1 til 100.",
+    );
+    expect(problemText({ code: "feature_disabled", minimum: null, maximum: null, decimal_places: null })).toBe(
+      "Kapasitet er slått av i denne installasjonen.",
+    );
+    const warning = (role: string) => ({
+      code: "capacity_below_peak_demand",
+      field: `capacity.${role}`,
+      values: { role, capacity: "6", peak_demand: "8" },
+    });
+    expect(warningsBySetting(roles.map(warning))).toEqual({
+      capacity: [
+        "Advarsel: Kapasiteten (6 per uke) er under den høyeste etterspørselen (8). Et ledd med kapasitet holder ikke følge når etterspørselen er høyest.",
+      ],
+    });
   });
 });

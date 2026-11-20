@@ -235,12 +235,11 @@ async def test_an_unknown_setting_is_refused(klass):
     [
         {"roles": ["retailer", "factory"]},
         {"schema_version": 1},
-        {"capacity": {"retailer": 6}},
     ],
 )
 async def test_settings_this_screen_does_not_own_are_refused(klass, draft):
-    # The chain is the engine's; capacity is Story 5.15's. The Demand pattern and seed are
-    # editable since Story 5.4 (`test_demand.py`).
+    # The chain is the engine's. The Demand pattern and seed are editable since Story 5.4
+    # (`test_demand.py`), the capacity since Story 5.15 (`test_capacity.py`).
     session_id = await new_session(klass)
     before = stored(session_id)
     status, code, fields = refusal(await save(session_id, {**draft, "weeks": 30}))

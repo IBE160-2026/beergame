@@ -135,7 +135,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   // The Game settings as typed while the block is open (Story 5.3), and what the api last said of
   // them: errors by setting and warnings in words.
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(() => draftOf(settings));
+  const [draft, setDraft] = useState(() => draftOf(settings, item.capacity_enabled));
   const [problems, setProblems] = useState<Record<string, SettingProblem>>({});
   const [warnings, setWarnings] = useState(() => warningsBySetting(item.settings_warnings));
   const checked = useRef("");
@@ -149,7 +149,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           // Once locked the choices stand as stored; the api refuses any change.
           choosing ? choicesBody(choices) : { ai_mode: item.ai_mode },
           datesBody(inputs),
-          settingsOpen ? settingsBody(draft) : undefined,
+          settingsOpen ? settingsBody(draft, item.game_settings.roles) : undefined,
           settingsOpen ? Number(inactivity.trim()) : undefined,
         );
       } catch (error) {
@@ -166,6 +166,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       deadline_passed: copy.dates.refused,
       session_locked: copy.dates.locked,
       invalid_settings: copy.edit.refused,
+      feature_disabled: copy.edit.capacity.disabled,
       invalid_effort_level: copy.choices.effortRefused,
       invalid_session_values: copy.choices.valuesRefused,
     },
@@ -188,7 +189,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   });
   // Leaving a changed field: the api judges the whole draft (AD-1). A later answer wins.
   const checkDraft = () => {
-    const body = settingsBody(draft);
+    const body = settingsBody(draft, item.game_settings.roles);
     const key = JSON.stringify(body);
     if (key === checked.current) return;
     checked.current = key;
@@ -206,9 +207,9 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
     );
   };
   const openSettings = () => {
-    const stored = draftOf(item.game_settings);
+    const stored = draftOf(item.game_settings, item.capacity_enabled);
     setDraft(stored);
-    checked.current = JSON.stringify(settingsBody(stored));
+    checked.current = JSON.stringify(settingsBody(stored, item.game_settings.roles));
     setProblems({});
     setWarnings(warningsBySetting(item.settings_warnings));
     setInactivity(String(item.inactivity_limit_hours));
@@ -314,7 +315,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           {/* It says the delays can be changed: not once locked (Story 5.11). */}
           {item.locked ? null : <p className="mt-3 text-body-phone text-ink-secondary">{copy.delaySources}</p>}
           <div className="mt-8">
-            <ChainDiagram settings={settings} />
+            <ChainDiagram settings={settings} capacityEnabled={item.capacity_enabled} />
           </div>
         </section>
         <section aria-labelledby={datesTitle} className="min-w-0">

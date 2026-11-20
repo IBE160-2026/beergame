@@ -870,6 +870,10 @@
             "title": "Can Manage",
             "type": "boolean"
           },
+          "capacity_enabled": {
+            "title": "Capacity Enabled",
+            "type": "boolean"
+          },
           "class_id": {
             "format": "uuid",
             "title": "Class Id",
@@ -1086,7 +1090,8 @@
           "play_time_warning",
           "settings_warnings",
           "calibrated_settings",
-          "lab_hours"
+          "lab_hours",
+          "capacity_enabled"
         ],
         "title": "ClassSessionOut",
         "type": "object"
@@ -5538,7 +5543,7 @@
         ]
       },
       "put": {
-        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level` and `debrief_mode` (FR-16, FR-78), left out, keep their values. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).\n\n`obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,\nFR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit\nunder 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once\nlocked a changed one answers 409 `session_locked`. Switching the mark on tells each\nregistered Student through the day's digest mail.",
+        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level` and `debrief_mode` (FR-16, FR-78), left out, keep their values. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).\n\n`game_settings.capacity` (Story 5.15) is `{role: units}` or null: one Role or every Role\ncapped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a\nnon-empty capacity answers 422 `feature_disabled` (`{\"capacity\": \"feature_disabled\"}`).\n\n`obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,\nFR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit\nunder 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once\nlocked a changed one answers 409 `session_locked`. Switching the mark on tells each\nregistered Student through the day's digest mail.",
         "operationId": "saveClassSession",
         "parameters": [
           {

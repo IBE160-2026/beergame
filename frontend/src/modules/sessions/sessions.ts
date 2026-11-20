@@ -62,9 +62,34 @@ export function customerLines(demand: GameSettings["demand"]): readonly [string,
 
 export type SettingRow = { key: string; label: string; value: string };
 
+/** The capped Roles with their capacity, downstream first as the api orders the chain (Story 5.15). */
+export function cappedRoles(settings: GameSettings): [Role, number][] {
+  const capacity = settings.capacity ?? {};
+  return settings.roles.flatMap((role) => {
+    const units = capacity[role];
+    return units === undefined ? [] : [[role, units] as [Role, number]];
+  });
+}
+
+/** The capacity in words for the settings list: «Ingen», «6 per uke for alle ledd» or «6 per uke for
+ * Detaljist». */
+export function capacityText(settings: GameSettings): string {
+  const v = copy.values;
+  const capped = cappedRoles(settings);
+  if (capped.length === 0) return v.capacityNone;
+  const values = new Set(capped.map(([, units]) => units));
+  if (capped.length === settings.roles.length && values.size === 1) return v.capacityAll(capped[0][1]);
+  return capped.map(([role, units]) => v.capacityRoles(formatNumber(units), roleName(role))).join("; ");
+}
+
 /** The settings list of the Klasseøkt, in the mockup's order, from the values the API returned. Each
- * row's `key` is the setting's api name (or `demand`, `inactivity_limit_hours`). */
-export function settingRows(settings: GameSettings, inactivityLimitHours: number): SettingRow[] {
+ * row's `key` is the setting's api name (or `demand`, `inactivity_limit_hours`). The capacity row
+ * shows only while `FEATURE_CAPACITY` is on (Story 5.15). */
+export function settingRows(
+  settings: GameSettings,
+  inactivityLimitHours: number,
+  capacityEnabled = false,
+): SettingRow[] {
   const s = copy.settings;
   const v = copy.values;
   return [
@@ -84,12 +109,24 @@ export function settingRows(settings: GameSettings, inactivityLimitHours: number
       : []),
     { key: "guided_weeks", label: s.guidedWeeks, value: v.guidedWeeks(settings.guided_weeks) },
     { key: "max_order", label: s.maxOrder, value: formatNumber(settings.max_order) },
+    ...(capacityEnabled ? [{ key: "capacity", label: s.capacity, value: capacityText(settings) }] : []),
     { key: "inactivity_limit_hours", label: s.inactivityLimit, value: v.inactivityLimit(inactivityLimitHours) },
   ];
 }
 
-/** «Kjeden ved start» as text: the same values the diagram draws. */
-export function chainText(settings: GameSettings): string {
+/** «Kjeden ved start» as text: the same values the diagram draws, and a sentence per capped Role
+ * while `FEATURE_CAPACITY` is on (Story 5.15). */
+export function chainText(settings: GameSettings, capacityEnabled = false): string {
+  const capped = capacityEnabled
+    ? upstreamFirst(settings)
+        .filter((role) => settings.capacity?.[role] !== undefined)
+        .map((role) => " " + copy.chain.cappedText(roleName(role), settings.capacity?.[role] ?? 0))
+        .join("")
+    : "";
+  return chainSentences(settings) + capped;
+}
+
+function chainSentences(settings: GameSettings): string {
   return copy.chain.text({
     roles: copy.chain.list(upstreamFirst(settings).map(roleName)),
     inventory: settings.starting_inventory,

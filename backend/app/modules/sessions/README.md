@@ -57,8 +57,8 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
 ## Game settings (Story 5.3)
 
 - «Lagre Klasseøkt» takes `game_settings`: the settings with an engine range
-  (`service.EDITABLE_SETTINGS`), laid over the stored settings. Any other key (the chain,
-  capacity until 5.15) is `not_editable`. The
+  (`service.EDITABLE_SETTINGS`), laid over the stored settings. Any other key (the chain) is
+  `not_editable`. The
   engine alone judges the rest (`GameSettings.model_validate`, then `engine.validate` with
   `FEATURE_CAPACITY`). A refusal is
   422 `invalid_settings` with `fields: {setting: {code, minimum, maximum, decimal_places}}`, the
@@ -70,6 +70,15 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
 - Once locked, changed settings and every check answer 409 `session_locked`
   (`{"game_settings": "locked"}`); settings resent unchanged still save.
 - The order of a save: archived, locked, `invalid_settings`, then the dates.
+- Capacity (Story 5.15, cut list): `game_settings.capacity` is the engine's `{role: units}` or
+  null; the screen caps one Role or every Role. Errors are `capacity.<role>` (`out_of_range`,
+  `not_a_number`, range 1 to 100) or `capacity` `invalid` (unknown Role, not a map); below peak
+  demand the engine warns (`capacity_below_peak_demand`). `ClassSessionOut.capacity_enabled` is
+  `FEATURE_CAPACITY`. Off, a non-empty capacity that differs from the stored one answers 422
+  `feature_disabled` (`{"capacity": "feature_disabled"}`; in a check, an error with that code;
+  409 `session_locked` first once locked) and the screen shows nothing about capacity. A
+  capacity stored while the flag was on is kept (left out or sent back unchanged), does not block
+  other settings, and is frozen by the lock like every setting; null clears it.
 - `ClassSessionOut` carries `settings_warnings` (the engine's warnings on the stored settings;
   a setting with an error gets no warning in a check) and `calibrated_settings` (the Classic
   preset, which the screen names as what content and Play guard were calibrated for).

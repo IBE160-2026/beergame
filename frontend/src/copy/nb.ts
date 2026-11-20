@@ -722,6 +722,8 @@ export const nb = {
       // [ASSUMPTION] Story 5.3: the two settings the list did not show before.
       startingBacklog: "Startrestordre",
       maxOrder: "Største ordre",
+      // [ASSUMPTION] Story 5.15 (cut list, FEATURE_CAPACITY): the most a Role can ship per Week.
+      capacity: "Kapasitet",
     },
     /** Changing the Game settings (Story 5.3, FR-12, UX-DR48). [ASSUMPTION] draft copy. The api
      * judges every value; these lines only word its codes. Numbers arrive formatted. */
@@ -766,7 +768,25 @@ export const nb = {
           `Advarsel: Største ordre (${max}) er under ${threshold}. Med etterspørsel opp til ${peak} kan grensen stoppe vanlige ordre.`,
         weeks: (arrival: string, weeks: string) =>
           `Advarsel: Endringen i etterspørselen når Detaljisten tidligst i Uke ${arrival}, etter siste uke (${weeks}).`,
+        // [ASSUMPTION] Story 5.15: one line however many Roles are capped.
+        capacity: (capacity: string, peak: string) =>
+          `Advarsel: Kapasiteten (${capacity} per uke) er under den høyeste etterspørselen (${peak}). Et ledd med kapasitet holder ikke følge når etterspørselen er høyest.`,
         other: "Advarsel: Uvanlig verdi.",
+      },
+      /** A shipping capacity (Story 5.15, cut list, FEATURE_CAPACITY, FR-12). [ASSUMPTION] draft
+       * copy. The api judges the value; the briefing wording is Story 6.22's. */
+      capacity: {
+        legend: "Kapasitet",
+        off: "Nei, ingen grense",
+        on: "Ja, begrens hvor mye som kan sendes per uke",
+        scope: "Gjelder",
+        all: "Alle ledd",
+        one: "Ett ledd",
+        role: "Ledd",
+        units: "Enheter per uke",
+        unitsHint: "Et helt tall over 0.",
+        help: "Et ledd med kapasitet kan ha lager og restordre samtidig. Studentene får vite kapasiteten i briefingen.",
+        disabled: "Kapasitet er slått av i denne installasjonen.",
       },
       /** The Demand pattern and its seed (Story 5.4, FR-13). [ASSUMPTION] draft copy. */
       demand: {
@@ -828,6 +848,10 @@ export const nb = {
       fixed: (weeks: number) => `Fast serie over ${weeks} ${weeks === 1 ? "uke" : "uker"}`,
       guidedWeeks: (count: number) => (count === 0 ? "Ingen" : count === 1 ? "1" : `1–${count}`),
       inactivityLimit: (hours: number) => `${hours} t, så KI overtar`,
+      // [ASSUMPTION] Story 5.15: the capacity in the settings list.
+      capacityNone: "Ingen",
+      capacityAll: (units: number) => `${units} per uke for alle ledd`,
+      capacityRoles: (units: string, roles: string) => `${units} per uke for ${roles}`,
     },
     chain: {
       title: "Kjeden ved start",
@@ -843,6 +867,9 @@ export const nb = {
         fixed: (weeks: number) => ["Fast serie", `${weeks} ${weeks === 1 ? "uke" : "uker"}`] as const,
       },
       inventory: (units: number) => `Lager ${units}`,
+      // [ASSUMPTION] Story 5.15: under a capped Role in the diagram, and the sentence in its text.
+      capped: (units: number) => `Maks ${units}`,
+      cappedText: (role: string, units: number) => `${role} kan sende høyst ${units} per uke.`,
       delay: (weeks: number) => `${weeks} ${weeks === 1 ? "uke" : "uker"}`,
       /** The diagram's text: the same values as sentences, also read by screen readers. */
       text: (v: {

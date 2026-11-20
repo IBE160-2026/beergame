@@ -206,6 +206,9 @@ class ClassSessionOut(BaseModel):
     preset, so the web app holds no copy of it (FR-12)."""
     lab_hours: list[LabHourOut]
     """The Lab hours that were not removed, by start (Story 5.6); ended ones too."""
+    capacity_enabled: bool
+    """`FEATURE_CAPACITY` (Story 5.15, AD-17): the Klasseøkt offers a shipping capacity. Off, the
+    screen shows nothing about capacity and the api refuses one (`feature_disabled`)."""
 
 
 class ClassSessionListItem(BaseModel):

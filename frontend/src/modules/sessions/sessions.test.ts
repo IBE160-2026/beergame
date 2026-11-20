@@ -84,3 +84,23 @@ describe("the Demand pattern in words (Story 5.4)", () => {
     expect(customerLines(fixed)).toEqual(["Fast serie", "3 uker"]);
   });
 });
+
+describe("the shipping capacity in words (Story 5.15)", () => {
+  const value = (capacity: GameSettings["capacity"], on = true) =>
+    settingRows({ ...settings, capacity }, 24, on).find((r) => r.key === "capacity")?.value;
+
+  it("lists the capacity only while the flag is on", () => {
+    expect(value(undefined, false)).toBeUndefined();
+    expect(value({ retailer: 6 }, false)).toBeUndefined();
+    expect(value(undefined)).toBe("Ingen");
+    expect(value({ retailer: 6 })).toBe("6 per uke for Detaljist");
+    expect(value({ retailer: 6, wholesaler: 6, distributor: 6, factory: 6 })).toBe("6 per uke for alle ledd");
+    expect(value({ retailer: 6, factory: 9 })).toBe("6 per uke for Detaljist; 9 per uke for Fabrikk");
+  });
+
+  it("names the capped Role in the chain's text while the flag is on", () => {
+    const capped = { ...settings, capacity: { wholesaler: 6 } };
+    expect(chainText(capped, true)).toBe(chainText(settings) + " Grossist kan sende høyst 6 per uke.");
+    expect(chainText(capped)).toBe(chainText(settings));
+  });
+});
