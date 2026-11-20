@@ -1274,3 +1274,27 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 107: beslutninger i Story 5.9.
+
+## Story 5.10: Flytte eller bytte studenter i fordelingen (2026-11-20)
+
+### Oppgave
+Bygge Story 5.10 etter kjøreboka, og la en bekreftet fordeling vise at den er bekreftet (Issue #107).
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-10-move-or-swap-students-in-allocation.md`.
+- **Commit 5f4bf07:**
+  - flytte og bytte, før og etter bekreftelse, med `move_seat` og migrasjon 0039;
+  - plasslister i panelet;
+  - bekreftelseslinja.
+- **Tester:**
+  - backend: 2501 tester;
+  - frontend: Vitest 430, typecheck, bygg og Playwright 252.
+- **Gjennomgang:** 30 funn, 2 middels. Begge er rettet.
+- **Visuell kontroll:** 22 skjermbilder i `screenshots/5.10/`. Ett avvik er rettet (9b68c2c).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 108: beslutninger i Story 5.10.
