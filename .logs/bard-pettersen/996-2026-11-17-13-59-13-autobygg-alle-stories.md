@@ -1584,3 +1584,24 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 121: beslutninger i Story 6.3.
+
+## Story 6.4: Se endringer uten å laste siden på nytt (2026-11-20)
+
+### Oppgave
+Bygge Story 6.4 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`. Ingen egen visuell kontroll, fordi den eneste synlige endringen er linja om tilkoblingen.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-4-see-changes-without-reloading.md`.
+- **Commit 851bf88:** SSE på `GET /api/events` med `LISTEN` i Postgres, ny henting etter `topics.ts` i webappen, og linja som viser at siden er utdatert.
+- **Tester:**
+  - backend: 2651 tester;
+  - frontend: Vitest 493 og bygg;
+  - Playwright: 309 tester med 2 arbeidere, uten faste pauser.
+- **Gjennomgang:** 46 funn, 5 middels. 2 ble rettet, og 1 er utsatt. Byggeagenten anbefaler en oppfølgende gjennomgang.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 122: beslutninger i Story 6.4.
