@@ -428,7 +428,7 @@ function InfoVisibilityFields({
       <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-2 lg:grid-cols-2">
         {sides.map(({ side, id, label, on }) => (
           <div key={side}>
-            <p id={id} className="text-body-phone text-ink-secondary">
+            <p id={id} className="text-label text-ink">
               {label}
             </p>
             <Switch
