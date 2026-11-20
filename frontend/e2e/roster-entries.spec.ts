@@ -106,9 +106,7 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
     });
 
     test("a Student registered by hand sets a password, is removed and put back", async ({ browser }) => {
-      const [late, kari] = addresses("sen", "kari");
-      // Another address stays on the Roster, so its status list stays when Kari is removed.
-      await addEntry(lecturer, classId, late);
+      const [kari] = addresses("kari");
       await lecturer.goto(`/klasser/${classId}`);
       const roster = lecturer.getByRole("region", { name: nb.classes.roster.title });
       const addLink = roster.getByRole("button", { name: copy.add, exact: true });
@@ -153,8 +151,9 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
       await expect(remove).toBeFocused();
       await expectAccessible(lecturer, vp.phone);
       await remove.click();
+      // Kari was the last address: the list goes, the confirmation stays and takes focus (Issue #97).
       await expect(section.getByRole("status").filter({ hasText: copy.removed(kari) })).toBeFocused();
-      await expect(rows.filter({ hasText: kari })).toHaveCount(0);
+      await expect(rows).toHaveCount(0);
       expect(await reaches(browser, kari, classId)).toBe(403);
 
       // Added again: on the Roster as before, with access and no new registration.
