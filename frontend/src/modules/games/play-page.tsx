@@ -1,9 +1,11 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
+import { clearDraft, clearDrafts, loadDraft, saveDraft } from "@/lib/drafts";
 import { formatNumber } from "@/lib/number-format";
 import { usePageState } from "@/lib/page-state";
 import { orderPreview } from "@/lib/preview";
@@ -13,7 +15,7 @@ import { HOME_LINK, HOME_PATH, rulesPath } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { roleName } from "@/modules/sessions/sessions";
 
-import { type MyGame, myGameKey, type PlayEnvelope, playKey, useMyGame, usePlay, viewWeek } from "./api";
+import { type MyGame, myGameKey, placeOrder, type PlayEnvelope, playKey, useMyGame, usePlay, viewWeek } from "./api";
 import { ChainBandView } from "./chain-band-view";
 import { GameAction } from "./game-action";
 import { OrderField } from "./order-field";
@@ -34,8 +36,9 @@ const LINE = "text-body-phone lg:text-body";
  * number of Weeks. Over the table the Seat's own link stands as the Kjedebånd (Story 6.9). In a
  * Veiledet uke the Ordrefelt shows the fixed Order read-only, and the page tells the api once that
  * the Student has the Week on screen, which counts as their Order there (Story 6.10). After them
- * the Student types the Order, previewed in the table and the Kjedebånd (Story 6.11); later
- * stories send it and add Setestatus. A game that has not started, or that this Student may
+ * the Student types the Order, previewed in the table and the Kjedebånd (Story 6.11), kept as a
+ * draft in this browser until it is sent, and sends it with «Bekreft ordre på 24» (Story 6.12);
+ * later stories add Setestatus. A game that has not started, or that this Student may
  * not play before the briefing and Starting task, shows its next action (briefing, «Start spillet» or the not-ready line); a finished one says so. The
  * page follows the game's `game:` events (`topics.ts`). Another Student's game shows the
  * permission-denied page.
@@ -88,7 +91,7 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
       }}
       skeleton={SKELETON}
     >
-      {game ? shown ? <Running game={game} envelope={shown} /> : running ? null : <NotRunning game={game} /> : null}
+      {game ? shown ? <Running game={game} envelope={shown} userId={user.id} /> : running ? null : <NotRunning game={game} /> : null}
     </PageShell>
   );
 }
@@ -103,7 +106,10 @@ function Topplinje({ game, envelope }: { game: MyGame; envelope: PlayEnvelope })
   return (
     <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
       <div className="min-w-0">
-        <h1 className="text-title-phone text-ink lg:text-title-page">{copy.week(state.week)}</h1>
+        {/* Takes focus when the Student's own Order completed the Uke and the next one shows. */}
+        <h1 id={WEEK_HEADING} tabIndex={-1} className="text-title-phone text-ink outline-none lg:text-title-page">
+          {copy.week(state.week)}
+        </h1>
         <p className={`${LINE} mt-1 text-ink-secondary`}>{copy.roleGame(roleName(game.role), game.number)}</p>
       </div>
       <p className="text-right">
@@ -116,16 +122,37 @@ function Topplinje({ game, envelope }: { game: MyGame; envelope: PlayEnvelope })
   );
 }
 
-function Running({ game, envelope }: { game: MyGame; envelope: PlayEnvelope }) {
+const WEEK_HEADING = "play-week";
+
+/** The draft field of the typed Order of `gameId` in Uke `week` (`lib/drafts.ts`). */
+const orderDraftPrefix = (gameId: string) => `order:${gameId}:`;
+const orderDraftField = (gameId: string, week: number) => `${orderDraftPrefix(gameId)}${week}`;
+
+function Running({ game, envelope, userId }: { game: MyGame; envelope: PlayEnvelope; userId: string }) {
   useGuidedView(game.id, envelope);
   const state = envelope.seat_state;
-  // The typed Order belongs to its game and Uke: a new Uke starts empty (Story 6.12 keeps drafts).
-  const [typed, setTyped] = useState({ game: game.id, week: state.week, text: "" });
-  const text = typed.game === game.id && typed.week === state.week ? typed.text : "";
-  const editable = !envelope.turn.guided && envelope.turn.order == null;
+  const turn = envelope.turn;
+  const field = orderDraftField(game.id, state.week);
+  // The typed Order belongs to its game and Uke: a new Uke starts empty, unless this browser
+  // kept a draft of that very Uke for this User (a reload, a page left, an ended session).
+  const [typed, setTyped] = useState<{ game: string; week: number; text: string } | null>(null);
+  const text = typed?.game === game.id && typed.week === state.week ? typed.text : (loadDraft(userId, field) ?? "");
+  const editable = !turn.guided && turn.order == null;
+  // Drafts of the game's other Uker are of no use any more; nor is this Uke's once it is ordered.
+  useEffect(() => {
+    clearDrafts(userId, orderDraftPrefix(game.id), editable ? field : undefined);
+  }, [userId, game.id, field, editable]);
+  const send = useSendOrder(game.id, state.week, userId, field);
   const parsed = parseOrder(text, state.max_order);
-  // The live preview (Story 6.11, AD-10): only for a valid value on an editable field.
-  const preview = editable && parsed.kind === "valid" ? orderPreview(state.preview, parsed.value) : null;
+  // The live preview (Story 6.11, AD-10): a valid value on an editable field, and the sent Order
+  // after it, which the table and the Kjedebånd keep showing (Story 6.12, `06` C).
+  const placed = !turn.guided && turn.order != null ? turn.order : null;
+  const preview =
+    placed !== null
+      ? { ...orderPreview(state.preview, placed), confirmed: true }
+      : editable && parsed.kind === "valid"
+        ? orderPreview(state.preview, parsed.value)
+        : null;
   return (
     <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12">
       <div className="min-w-0">
@@ -133,18 +160,23 @@ function Running({ game, envelope }: { game: MyGame; envelope: PlayEnvelope }) {
         <ChainBandView state={state} seatRoles={game.seats.map((seat) => seat.role)} typed={preview?.order} />
         {/* A placed Order (a Veiledet uke's fixed Order) stands in Din ordre at nå; a typed one
             there and at its arrival Uke. */}
-        <WeekTable state={state} nowOrder={envelope.turn.order ?? undefined} typed={preview ?? undefined} />
+        <WeekTable state={state} nowOrder={turn.guided ? (turn.order ?? undefined) : undefined} typed={preview ?? undefined} />
       </div>
       <div>
         {/* The Ordrefelt follows the table on phone and tops the right column on laptop. */}
         <OrderField
           week={state.week}
-          turn={envelope.turn}
+          turn={turn}
           max={state.max_order}
           lastOrder={lastOrder(state.history)}
           text={text}
-          onText={(next) => setTyped({ game: game.id, week: state.week, text: next })}
-          preview={preview}
+          onText={(next) => {
+            setTyped({ game: game.id, week: state.week, text: next });
+            saveDraft(userId, field, next);
+          }}
+          preview={editable ? preview : null}
+          sending={send.sending === state.week}
+          onConfirm={send.confirm}
         />
         <PageLink href={rulesPath(game.id)}>{nb.games.briefing.title}</PageLink>
         <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
@@ -152,6 +184,49 @@ function Running({ game, envelope }: { game: MyGame; envelope: PlayEnvelope }) {
       </div>
     </div>
   );
+}
+
+/**
+ * «Bekreft ordre på 24» (Story 6.12, AD-2, UX-DR60): sends the Order once (a press while it is on
+ * its way does nothing), with no `version`. Either way the play envelope is read again, which
+ * shows the Confirmed state (the Order is stored), the next Uke (it completed the Uke) or the
+ * typed state again (it was refused or never arrived; Story 6.13 says so in words). After a
+ * success the draft is dropped and focus moves to «Ordren på 24 er sendt.», or to the new Uke's
+ * heading when the Uke moved on. Live updates never move focus: only this send does.
+ */
+function useSendOrder(gameId: string, week: number, userId: string, field: string) {
+  const queryClient = useQueryClient();
+  const inFlight = useRef(false);
+  // The Uke whose Order is on its way: a new Uke shown meanwhile is not Submitting.
+  const [sending, setSending] = useState<number | null>(null);
+  const [sent, setSent] = useState<number | null>(null);
+  useEffect(() => {
+    if (sent === null) return;
+    const target =
+      sent === week ? document.querySelector<HTMLElement>("[data-order-sent]") : document.getElementById(WEEK_HEADING);
+    target?.focus();
+    setSent(null);
+  }, [sent, week]);
+  const confirm = (value: number) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setSending(week);
+    const reread = () => queryClient.refetchQueries({ queryKey: playKey(gameId), exact: true });
+    placeOrder(gameId, week, value)
+      .then(
+        async () => {
+          clearDraft(userId, field);
+          await reread();
+          setSent(week);
+        },
+        () => reread(),
+      )
+      .finally(() => {
+        inFlight.current = false;
+        setSending(null);
+      });
+  };
+  return { sending, confirm };
 }
 
 /**

@@ -12,7 +12,11 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # holds a Seat reads Hjem and the game again. A simulation Game takes no Student
         # (`games.policy`), so it emits `game` alone.
         "games.start": frozenset({"game", "session", "user"}),
-        "games.place_order": frozenset({"game"}),
+        # An Order placed (Story 6.12): a Class game's session hears of it, the Student who
+        # ordered reads Hjem again, and when the Order completed the Week every Student of the
+        # Game does. An Order with no actor that completes no Week, in a Game no Lecturer overview
+        # lists (simulations), emits `game` alone.
+        "games.place_order": frozenset({"game", "session", "user"}),
         "games.finish": frozenset({"game"}),
         "games.advance": frozenset({"game"}),
         "games.switch_to_rule_based": frozenset({"game"}),

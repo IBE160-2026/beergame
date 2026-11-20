@@ -3010,6 +3010,21 @@
         "title": "OfferedEffortLevelOut",
         "type": "object"
       },
+      "OrderIn": {
+        "additionalProperties": false,
+        "description": "The Student's Order for the open Week (Story 6.12): one whole number; the command checks\nit lies from 0 to the Game settings maximum (`order_invalid`).",
+        "properties": {
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "order"
+        ],
+        "title": "OrderIn",
+        "type": "object"
+      },
       "OrderPreview": {
         "additionalProperties": false,
         "description": "Coefficients for the live Order preview (AD-10): with a typed Order x, the supply line\nbecomes `supply_line_base + x` and the position `position_base + x`; the Order reaches\ninventory in `order_arrival_week` if the upstream Seat ships it in full.",
@@ -10251,6 +10266,91 @@
         "summary": "Finish Starting Task",
         "tags": [
           "tests"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/weeks/{week}/order": {
+      "post": {
+        "description": "«Bekreft ordre på 24» (Story 6.12, FR-24, AD-2): the Student's Order for the open Week of\ntheir own Seat, placed once through `games.commands.place_order` with the Student as actor;\nthe client sends no `version`. 409 `order_exists` (also in a Guided Week, whose fixed Order\nis placed when it opens), `week_not_open`, `game_not_started`, `game_finished` or\n`seat_not_yours` (the Seat changed hands between the ownership check and the write); 422\n`order_invalid` (not a whole number from 0 to the maximum). Any other game, or a Seat the\nStudent no longer holds, answers 403 `forbidden` (FR-5).",
+        "operationId": "placeMyGameOrder",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "week",
+            "required": true,
+            "schema": {
+              "title": "Week",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Place My Game Order",
+        "tags": [
+          "sessions"
         ]
       }
     },

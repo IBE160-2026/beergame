@@ -9,7 +9,8 @@ import { expectAccessible } from "./support/classes";
  * UX-DR17, UX-DR20, UX-DR78). As in `guided-week.spec.ts`, the game and its envelope are stand-ins
  * with the api's shapes: the engine's Grossist of a Classic game in Uke 11 (På vei 16, the Order
  * due in Uke 15, Game settings maximum 999), held to the engine by
- * `backend/tests/games/test_play_fixture.py`. Nothing is sent yet: every POST is recorded. */
+ * `backend/tests/games/test_play_fixture.py`. Typing sends nothing: every POST is recorded (the
+ * send itself is `order-confirm.spec.ts`). */
 const GAME_ID = "01a1f8ee-34f2-70af-8800-f79281ed7a66";
 const copy = nb.games.play;
 const order = copy.order;
@@ -150,8 +151,6 @@ test("a valid 24 lands in the table and the Kjedebånd; Posisjon and Totalkostna
   // Nothing else moves while typing.
   expect(await position.innerText()).toBe(positionBefore);
   expect(await totalCost.innerText()).toBe(total);
-  // A press with a valid value sends nothing yet (Story 6.12).
-  await confirm(page).click();
   expect(posts).toEqual([]);
   // Clearing the field takes the preview away.
   await field(page).fill("");

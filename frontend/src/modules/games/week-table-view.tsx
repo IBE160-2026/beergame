@@ -183,8 +183,8 @@ export function WeekTable({
   fixed?: FixedLayout;
   /** An Order already placed at nå (a Veiledet uke's fixed Order), written in Din ordre. */
   nowOrder?: number;
-  /** A valid typed Order not yet confirmed (Story 6.11): written at nå and at its arrival Uke,
-   * joined by a thin line. Ignored when `nowOrder` is given. */
+  /** A valid typed Order (Story 6.11), or the sent one (`confirmed`, Story 6.12): written at nå
+   * and at its arrival Uke, joined by a thin line. Ignored when `nowOrder` is given. */
   typed?: TypedOrder;
   /** The id of the element that names the table (the Landing's caption). */
   labelledBy?: string;
@@ -290,7 +290,7 @@ function WeekCell({ column, cell, weekCol, style }: { column: Column; cell: Cell
       return (
         <td data-join="from" style={style} className={cn(base, NET_CELL, "bg-ink font-bold text-paper")}>
           {cell.text}
-          <span className="sr-only">, {copy.typed}</span>
+          <span className="sr-only">, {cell.confirmed ? copy.confirmed : copy.typed}</span>
         </td>
       );
     case "arrival-typed":
@@ -306,7 +306,7 @@ function WeekCell({ column, cell, weekCol, style }: { column: Column; cell: Cell
           <span data-join="to" className="inline-block min-w-[1.3em] border-[1.5px] border-ink font-bold leading-tight">
             {cell.text}
           </span>
-          <span className="sr-only">, {copy.typed}</span>
+          <span className="sr-only">, {cell.confirmed ? copy.confirmed : copy.typed}</span>
         </td>
       );
     case "order-empty":

@@ -63,8 +63,22 @@ async def _run_start() -> str:
 
 
 async def _run_place_order() -> str:
-    game_id = await _started_simulation()
-    await commands.place_order(game_id, "retailer", 1, 4, "student")
+    """The one Student of a started Class game without Guided Weeks orders in Week 1 (Story
+    6.12): the Week completes and advances, so the Class session and the Student hear of it."""
+    from tests.games.test_set_snapshot import snapshot
+
+    game_id = await commands.create("class", class_session_id=uuid.uuid7(), game_number=1)
+    student = uuid.uuid7()
+    await commands.assign_seat(game_id, "retailer", "student", user_id=student)
+    from tests.games.test_set_snapshot import SETTINGS
+
+    free = {
+        **snapshot(),
+        "settings": SETTINGS.model_copy(update={"guided_weeks": 0}).model_dump(mode="json"),
+    }
+    await commands.set_snapshot(game_id, free, keep_students=[student])
+    await commands.start(game_id)
+    await commands.place_order(game_id, "retailer", 1, 4, "student", actor=student)
     return game_id
 
 
@@ -144,7 +158,13 @@ RUNNERS = {
 }
 """How to run each command once; a command added without a runner fails the test below."""
 
-CLASS_SETUP_EVENTS = {"move_seat": 4, "set_snapshot": 4, "start": 7, "view_week": 10}
+CLASS_SETUP_EVENTS = {
+    "move_seat": 4,
+    "set_snapshot": 4,
+    "start": 7,
+    "view_week": 10,
+    "place_order": 10,
+}
 """Runners on a Class game, and how many events their setup emits before the command's own."""
 
 

@@ -29,6 +29,7 @@ from tests.games.helpers import (
     play_week,
     query,
     seat_student,
+    student_of,
     view,
 )
 
@@ -154,7 +155,10 @@ async def test_the_order_that_completes_the_week_advances_it_in_the_same_transac
         event.remove(engine, "before_cursor_execute", record)
         event.remove(engine, "commit", commit)
     assert len(commits) == 1
-    assert received == [{"topic": "game", "id": game_id, "version": 6}]
+    assert received[0] == {"topic": "game", "id": game_id, "version": 6}
+    # The Week moved on: every Student of the Game hears of it (Story 6.12).
+    assert {item["topic"] for item in received[1:]} == {"user"}
+    assert {item["id"] for item in received[1:]} == {str(student_of(game_id, r)) for r in ROLES}
     assert (placed.week, placed.open_week) == (1, 2)
     assert counts(games_db, game_id) == (6, 4, 2, 8, 4)
     lock = next(i for i, s in enumerate(statements) if s.endswith("FOR UPDATE"))
@@ -355,7 +359,9 @@ async def test_the_last_week_finishes_the_game(games_db):
         )
         received = events.drain()
     assert (placed.open_week, placed.lifecycle) == (None, "finished")
-    assert len(received) == 1
+    # One `game` event; the Students hear that the game no longer waits on them (Story 6.12).
+    assert [item["topic"] for item in received].count("game") == 1
+    assert {item["topic"] for item in received} == {"game", "user"}
     game = await service.get_game(game_id)
     assert game.lifecycle == "finished"
     weeks = query(

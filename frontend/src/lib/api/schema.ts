@@ -1560,6 +1560,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/games/{game_id}/weeks/{week}/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Place My Game Order
+         * @description «Bekreft ordre på 24» (Story 6.12, FR-24, AD-2): the Student's Order for the open Week of
+         *     their own Seat, placed once through `games.commands.place_order` with the Student as actor;
+         *     the client sends no `version`. 409 `order_exists` (also in a Guided Week, whose fixed Order
+         *     is placed when it opens), `week_not_open`, `game_not_started`, `game_finished` or
+         *     `seat_not_yours` (the Seat changed hands between the ownership check and the write); 422
+         *     `order_invalid` (not a whole number from 0 to the maximum). Any other game, or a Seat the
+         *     Student no longer holds, answers 403 `forbidden` (FR-5).
+         */
+        post: operations["placeMyGameOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/games/{game_id}/weeks/{week}/view": {
         parameters: {
             query?: never;
@@ -2942,6 +2968,15 @@ export interface components {
             name: string;
             /** Time Per Order Median S */
             time_per_order_median_s: string | null;
+        };
+        /**
+         * OrderIn
+         * @description The Student's Order for the open Week (Story 6.12): one whole number; the command checks
+         *     it lies from 0 to the Game settings maximum (`order_invalid`).
+         */
+        OrderIn: {
+            /** Order */
+            order: number;
         };
         /**
          * OrderPreview
@@ -7815,6 +7850,67 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["StartingTaskOut"];
                 };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    placeMyGameOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+                week: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Unauthorized */
             401: {

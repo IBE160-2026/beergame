@@ -1352,6 +1352,41 @@ async def view_own_week(user: authz.Principal, game_id: str, week: int) -> bool 
     return True
 
 
+class OrderRefused(Exception):
+    """A Student's Order the api refuses (Story 6.12), with the command's code and status:
+    409 `order_exists`, `week_not_open`, `game_not_started`, `game_finished`, `seat_not_yours`
+    (the Seat changed hands after `_own_locked_game`); 422 `order_invalid`."""
+
+    def __init__(self, code: str, status: int) -> None:
+        super().__init__(code)
+        self.code = code
+        self.status = status
+
+
+async def place_own_order(
+    user: authz.Principal, game_id: str, week: int, order: int
+) -> bool | None:
+    """The Student's Order for the open `week` of their own Class game (Story 6.12, FR-24, AD-2),
+    under `student_game_of`'s checks (None for every other id alike). Only
+    `games.commands.place_order` writes it, with the Student as `actor`, so a Seat the Student
+    no longer holds is refused there (`seat_not_yours`). A not-found refusal answers None like
+    any other game (FR-5); every other refusal raises `OrderRefused` with the command's code."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+    if own is None:
+        return None
+    found, _ = own
+    try:
+        await games_commands.place_order(
+            str(found.game_id), found.role, week, order, "student", actor=user.id
+        )
+    except games_commands.CommandError as refused:
+        if refused.status == 404:
+            return None
+        raise OrderRefused(refused.code, refused.status) from None
+    return True
+
+
 class StartRefused(Exception):
     """A Student's start the api refuses (Story 6.5): `starting_task_required` before the
     Starting task is done, `game_not_ready` before the lock has given the Game its snapshot."""

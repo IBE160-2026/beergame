@@ -1499,6 +1499,12 @@ export const nb = {
         confirm: "Bekreft ordre",
         confirmOn: (value: string) => `Bekreft ordre på ${value}`,
         arrives: (week: number) => `Kommer fram om lag Uke ${week}. Kan ikke endres etter at du har bekreftet.`,
+        /** Submitting and Confirmed (Story 6.12, EXPERIENCE.md → State Patterns → Spill). The
+         * «Venter på …» part comes with Setestatus (Story 6.14). `next` is [ASSUMPTION] draft copy
+         * of 2026-11-14 (open-assumptions.md). */
+        sending: (value: string) => `Sender ordre på ${value} …`,
+        sent: (value: string) => `Ordren på ${value} er sendt.`,
+        next: "Skjermen går videre når alle har bestilt. Du får e-post hvis spillet venter på deg.",
       },
       /** The week table (Story 6.6, DESIGN.md → Graf over tabell, UX-DR17, UX-DR18). The region
        * name, «Sveip for tidligere uker», «Din ordre» and «Kost, kr» are the spine's; the label for
@@ -1515,6 +1521,9 @@ export const nb = {
         /** Read with the typed Order's two cells, Din ordre at nå and its arrival in Levering:
          * «24, din ordre, ikke bekreftet» (Story 6.11). [ASSUMPTION] */
         typed: "din ordre, ikke bekreftet",
+        /** Read with the same two cells once the Order is sent: «24, din ordre» (Story 6.12).
+         * [ASSUMPTION] */
+        confirmed: "din ordre",
         /** The visible key under the table. [ASSUMPTION] */
         arrivalKey: "Tall i ramme: bestilt, ikke garantert.",
       },

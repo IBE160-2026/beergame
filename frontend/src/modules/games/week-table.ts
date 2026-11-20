@@ -78,12 +78,13 @@ export type Cell =
   /** Din ordre at nå with an Order already placed (a Veiledet uke): the number, in nå's weight. */
   | { kind: "order-placed"; text: string }
   /** Din ordre at nå with a valid typed Order not yet confirmed (Story 6.11): the same block. */
-  | { kind: "order-typed"; text: string }
+  | { kind: "order-typed"; text: string; confirmed?: boolean }
   /** The typed Order in Levering at its arrival Uke, after any known arrival there. */
-  | { kind: "arrival-typed"; text: string; known: string | null };
+  | { kind: "arrival-typed"; text: string; known: string | null; confirmed?: boolean };
 
-/** A valid typed Order and the Uke it arrives in (`lib/preview.ts`). */
-export type TypedOrder = { order: number; arrivalWeek: number };
+/** A valid typed Order and the Uke it arrives in (`lib/preview.ts`); `confirmed` once it is sent
+ * (Story 6.12), when the table keeps showing it the same way. */
+export type TypedOrder = { order: number; arrivalWeek: number; confirmed?: boolean };
 
 type Values = {
   incoming_order: number;
@@ -175,7 +176,8 @@ export function cellFor(state: SeatState, row: RowKey, week: number, nowOrder?: 
   if (week === state.week) {
     if (row === "order") {
       if (nowOrder !== undefined) return { kind: "order-placed", text: formatNumber(nowOrder) };
-      return preview ? { kind: "order-typed", text: formatNumber(preview.order) } : { kind: "order-empty" };
+      if (!preview) return { kind: "order-empty" };
+      return { kind: "order-typed", text: formatNumber(preview.order), ...(preview.confirmed ? { confirmed: true } : {}) };
     }
     if (row === "cost") return { kind: "plain", text: formatNumber(state.week_cost, { narrow: true }) };
     return known(state, row);
@@ -184,6 +186,8 @@ export function cellFor(state: SeatState, row: RowKey, week: number, nowOrder?: 
   // The engine gives at most one slot per arrival Uke; were there more, each is written, never summed.
   const arriving = state.supply_line_slots.filter((slot) => slot.arrival_week === week);
   const due = arriving.length === 0 ? null : arriving.map((slot) => formatNumber(slot.quantity)).join(" + ");
-  if (preview && preview.arrivalWeek === week) return { kind: "arrival-typed", text: formatNumber(preview.order), known: due };
+  if (preview && preview.arrivalWeek === week) {
+    return { kind: "arrival-typed", text: formatNumber(preview.order), known: due, ...(preview.confirmed ? { confirmed: true } : {}) };
+  }
   return due === null ? { kind: "empty" } : { kind: "arrival", text: due };
 }

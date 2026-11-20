@@ -1104,9 +1104,11 @@ async def _place(
     open_game: OpenGame | None = None,
     fallback: Fallback | str = Fallback.NONE,
     llm_call_ids: Sequence[uuid.UUID | str] = (),
+    actor: uuid.UUID | None = None,
 ) -> OrderPlaced:
     """`place_order`'s checks and writes in `session`; with `advance_week` it also runs the Week
-    this Order completes. `open_game` is the running command's Game, whose history it reuses."""
+    this Order completes. `open_game` is the running command's Game, whose history it reuses.
+    With an `actor`, the Seat's occupant in force must be that Student (Story 6.12)."""
     game = await repo.lock_game(session, game_uuid)
     if game is None:
         raise CommandError("game_not_found", f"no Game {str(game_uuid)!r}", 404)
@@ -1127,6 +1129,15 @@ async def _place(
         states, orders = await stored_play(session, game_uuid)
     if type(week) is not int or week != states[-1].week:
         raise CommandError("week_not_open", f"Week {week!r} is not the open Week", 409)
+    if actor is not None:
+        # Before anything about the Seat's Order is told: only its Student may know (FR-5).
+        holder = await repo.occupancy_in_force(session, row["id"], week)
+        if (
+            holder is None
+            or holder["occupant_kind"] != OccupantKind.STUDENT
+            or holder["user_id"] != actor
+        ):
+            raise CommandError("seat_not_yours", "the Seat is not the actor's", 409)
     if await repo.has_seat_week(session, game_uuid, week, row["id"]):
         raise CommandError("order_exists", "the Seat has already ordered this Week", 409)
     guided = rules.guided_week(_policy(game["purpose"]), settings, week)
@@ -1243,6 +1254,7 @@ async def place_order(
     within: OpenGame | None = None,
     fallback: Fallback | str = Fallback.NONE,
     llm_call_ids: Sequence[uuid.UUID | str] = (),
+    actor: uuid.UUID | str | None = None,
 ) -> OrderPlaced:
     """Place the Order of `seat` (a Role or a Seat id) for the open `week` and write its
     Decision log row with the state the Seat saw (AD-15, FR-67).
@@ -1259,7 +1271,19 @@ async def place_order(
     reference Order, an `llm` occupant) carries its failure type and the failed attempts.
 
     An Order with `decided_by = llm` runs the Play guard in the same transaction; on `switch`
-    the Seat is Rule-based from the next Week, reason `guard_switch` (FR-79, AD-5)."""
+    the Seat is Rule-based from the next Week, reason `guard_switch` (FR-79, AD-5).
+
+    `actor` is the User who pressed «Bekreft ordre» (Story 6.12, AD-2): the Seat's occupant in
+    force must be that Student, or the command refuses `seat_not_yours` and writes nothing. Calls
+    without a person (guided Orders, `players` jobs, the rescue loop) pass none and skip the
+    check. Emits `game:<id>`, `session:<id>` where the Lecturer overview lists the Game, and
+    `user:<id>` for the actor and, when the Order completed the Week, for every Student holding a
+    Seat (AD-8)."""
+    actor_id: uuid.UUID | None = None
+    if actor is not None:
+        actor_id = _actor(actor)
+        if actor_id is None:
+            raise CommandError("seat_not_yours", "the Seat is not the actor's", 409)
     if within is not None:
         if within.game_id != _game_uuid(game_id):
             raise ValueError("place_order within another Game's transaction")
@@ -1274,6 +1298,7 @@ async def place_order(
             open_game=within,
             fallback=fallback,
             llm_call_ids=llm_call_ids,
+            actor=actor_id,
         )
     game_uuid = _game_uuid(game_id)
     async with get_sessionmaker().begin() as session:
@@ -1287,8 +1312,19 @@ async def place_order(
             advance_week=True,
             fallback=fallback,
             llm_call_ids=llm_call_ids,
+            actor=actor_id,
         )
         await _commit_change(session, game_uuid)
+        told: set[uuid.UUID] = {actor_id} if actor_id is not None else set()
+        if placed.open_week != placed.week or placed.lifecycle == Lifecycle.FINISHED:
+            # The Week is done: every Student of the Game waits on a new one, or on nothing.
+            told |= {
+                row["user_id"]
+                for row in await repo.seats_with_occupant(session, game_uuid)
+                if row["occupant_kind"] == OccupantKind.STUDENT and row["user_id"] is not None
+            }
+        for student in sorted(str(each) for each in told):
+            await events.emit(session, "user", student)
     await _settle(game_id)
     return placed
 

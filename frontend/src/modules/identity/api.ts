@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { nb } from "@/copy/nb";
 import { api, toApiError } from "@/lib/api/client";
 import { request, useAction } from "@/lib/api/mutation";
+import { clearAllDrafts } from "@/lib/drafts";
 import type { components } from "@/lib/api/schema";
 
 export type SessionUser = components["schemas"]["UserOut"];
@@ -44,8 +45,9 @@ export function useLogout() {
       await request(() => api.POST("/api/auth/logout"));
     },
     fallback: nb.auth.session.logoutFailed,
-    // Nothing of the old session stays in the cache.
+    // Nothing of the old session stays in the cache, nor any unsent input (Story 6.12).
     onSuccess: () => {
+      clearAllDrafts();
       queryClient.clear();
       queryClient.setQueryData(meKey, null);
     },

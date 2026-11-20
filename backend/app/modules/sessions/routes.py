@@ -42,6 +42,7 @@ from app.modules.sessions.schemas import (
     LabHourIn,
     LabHourOut,
     LecturerOverviewOut,
+    OrderIn,
     PlayOut,
     SeatChoiceIn,
     SeatChoiceOut,
@@ -635,6 +636,34 @@ async def view_my_game_week(
         found = await service.view_own_week(user, game_id, week)
     except service.ViewRefused as refused:
         return error_response(409, refused.code, "The Week cannot be viewed.")
+    if found is None:
+        raise authz.Forbidden
+    return Response(status_code=204)
+
+
+@router.post(
+    "/me/games/{game_id}/weeks/{week}/order",
+    status_code=204,
+    responses=documented(401, 403, 409, 422),
+    operation_id="placeMyGameOrder",
+)
+async def place_my_game_order(
+    game_id: str,
+    week: int,
+    body: OrderIn,
+    user: Annotated[authz.Principal, Depends(authz.require("games.play_own"))],
+) -> Response:
+    """«Bekreft ordre på 24» (Story 6.12, FR-24, AD-2): the Student's Order for the open Week of
+    their own Seat, placed once through `games.commands.place_order` with the Student as actor;
+    the client sends no `version`. 409 `order_exists` (also in a Guided Week, whose fixed Order
+    is placed when it opens), `week_not_open`, `game_not_started`, `game_finished` or
+    `seat_not_yours` (the Seat changed hands between the ownership check and the write); 422
+    `order_invalid` (not a whole number from 0 to the maximum). Any other game, or a Seat the
+    Student no longer holds, answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.place_own_order(user, game_id, week, body.order)
+    except service.OrderRefused as refused:
+        return error_response(refused.status, refused.code, "The Order was not placed.")
     if found is None:
         raise authz.Forbidden
     return Response(status_code=204)

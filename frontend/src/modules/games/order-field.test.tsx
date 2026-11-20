@@ -89,11 +89,25 @@ describe("Ordrefelt, typing an Order (Story 6.11)", () => {
     expect(render("")).toMatch(/<input[^>]*value=""/);
   });
 
-  it("a placed Order outside the Guided Weeks shows read-only with no Veiledet uke line", () => {
-    const html = render("", { turn: { guided: false, order: 12, viewed: false } });
-    expect(html).toMatch(/<input[^>]*readonly[^>]*value="12"/i);
-    expect(html).not.toContain(copy.guided);
+});
+
+describe("Ordrefelt, sending and confirmed (Story 6.12)", () => {
+  it("sending: «Sender ordre på 24 …», busy and unavailable, the field read-only, − and + unavailable", () => {
+    const html = render("24", { sending: true });
+    expect(html).toMatch(/<button[^>]*aria-disabled="true"[^>]*aria-busy="true"[^>]*>Sender ordre på 24 …<\/button>/);
+    expect(html).toMatch(/<input[^>]*readOnly=""/);
+    expect(html).toMatch(/<button[^>]*aria-label="Én færre"[^>]*aria-disabled="true"/);
+    expect(html).toMatch(/<button[^>]*aria-label="Én flere"[^>]*aria-disabled="true"/);
+    expect(html).toMatch(/aria-live="polite"[^>]*>Sender ordre på 24 …</);
+  });
+
+  it("confirmed: «Ordren på 24 er sendt.» focusable by script, the next line, no field and no button", () => {
+    const html = render("", { turn: { guided: false, order: 24, viewed: false } });
+    expect(html).toMatch(/<p data-order-sent="" tabindex="-1"[^>]*>Ordren på 24 er sendt\.<\/p>/i);
+    expect(html).toContain(copy.next);
+    expect(html).not.toContain("<input");
     expect(html).not.toContain("<button");
+    expect(html).not.toContain(copy.guided);
   });
 });
 

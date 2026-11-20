@@ -405,6 +405,15 @@ class TableStatusOut(BaseModel):
     seats: list[TableSeatOut]
 
 
+class OrderIn(BaseModel):
+    """The Student's Order for the open Week (Story 6.12): one whole number; the command checks
+    it lies from 0 to the Game settings maximum (`order_invalid`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    order: StrictInt
+
+
 class PlayTurnOut(BaseModel):
     """The Student's own turn in the open Week (Story 6.10): whether it is a Guided Week, the
     Seat's Order once placed (in a Guided Week the fixed Order, placed when the Week opened) and

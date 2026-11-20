@@ -29,6 +29,10 @@ type Props = {
   onText: (text: string) => void;
   /** Where a valid typed value lands (`lib/preview.ts`); null while the text is not valid. */
   preview: OrderPreview | null;
+  /** The Order is on its way to the api (Story 6.12): Submitting. */
+  sending?: boolean;
+  /** «Bekreft ordre på x» pressed with a valid x and nothing on its way. */
+  onConfirm?: (value: number) => void;
 };
 
 /**
@@ -36,23 +40,25 @@ type Props = {
  * uke (Story 6.10) the Order is fixed and placed for the Student: the field shows it read-only on
  * `future-tint` with the reason under it and no button. Otherwise (Story 6.11) the Student types
  * one whole number from 0 to {maks}, or steps with − and +; the play screen previews a valid
- * value in the table and the Kjedebånd, and «Bekreft ordre på 24» waits for Story 6.12 to send
- * it. Nothing here suggests a number (UX-DR78) or says how many Veiledede uker remain (FR-14).
+ * value in the table and the Kjedebånd. «Bekreft ordre på 24» sends it (Story 6.12): Submitting
+ * while it is on its way, then Confirmed, with no undo and no dialog. Nothing here suggests a
+ * number (UX-DR78) or says how many Veiledede uker remain (FR-14).
  */
 export function OrderField(props: Props) {
   const { week, turn } = props;
-  if (turn.order != null) return <ReadOnly week={week} order={turn.order} guided={turn.guided} />;
+  if (turn.order != null && turn.guided) return <ReadOnly week={week} order={turn.order} />;
+  if (turn.order != null) return <Confirmed order={turn.order} />;
   if (turn.guided) return null;
   // A new Uke starts the field afresh: no reason or announcement carries over.
   return <Editable key={week} {...props} />;
 }
 
-/** The placed Order, read-only: a Veiledet uke's fixed Order with its reason. It is not a text
- * box to the pointer or the caret either (`cursor: default`, no caret, Issue 128). */
-function ReadOnly({ week, order, guided }: { week: number; order: number; guided: boolean }) {
+/** A Veiledet uke's fixed Order, read-only, with its reason. It is not a text box to the pointer
+ * or the caret either (`cursor: default`, no caret, Issue 128). */
+function ReadOnly({ week, order }: { week: number; order: number }) {
   const id = useId();
   return (
-    <div className="mt-8 mb-8 max-w-md lg:mt-0" data-order-field={guided ? "guided" : "placed"}>
+    <div className="mt-8 mb-8 max-w-md lg:mt-0" data-order-field="guided">
       <label htmlFor={`${id}-input`} className="block text-label text-ink">
         {copy.label(week)}
       </label>
@@ -61,20 +67,34 @@ function ReadOnly({ week, order, guided }: { week: number; order: number; guided
         type="text"
         inputMode="numeric"
         readOnly
-        aria-describedby={guided ? `${id}-guided` : undefined}
+        aria-describedby={`${id}-guided`}
         value={String(order)}
         className={cn(BOX, VALUE, "block cursor-default caret-transparent border border-ink-muted bg-future-tint px-3 text-ink-muted")}
       />
-      {guided ? (
-        <p id={`${id}-guided`} className="mt-2 text-caption text-ink-secondary">
-          {copy.guided}
-        </p>
-      ) : null}
+      <p id={`${id}-guided`} className="mt-2 text-caption text-ink-secondary">
+        {copy.guided}
+      </p>
     </div>
   );
 }
 
-function Editable({ week, max, lastOrder, text, onText, preview }: Props) {
+/** Confirmed (Story 6.12, EXPERIENCE.md → State Patterns → Spill, `06-spilldynamikk.png` C): the
+ * Order is sent and cannot change. «Ordren på 24 er sendt.» is where the play screen puts focus
+ * right after the send (`tabindex="-1"`, `data-order-sent`, read on focus), with what happens
+ * next under it. The table and the Kjedebånd keep showing the Order. «Venter på …» comes with
+ * Setestatus (Story 6.14). */
+function Confirmed({ order }: { order: number }) {
+  return (
+    <div className="mt-8 mb-8 max-w-md lg:mt-0" data-order-field="confirmed">
+      <p data-order-sent="" tabIndex={-1} className="text-body-phone font-bold text-ink outline-none lg:text-body">
+        {copy.sent(formatNumber(order))}
+      </p>
+      <p className="mt-2 text-caption text-ink-secondary">{copy.next}</p>
+    </div>
+  );
+}
+
+function Editable({ week, max, lastOrder, text, onText, preview, sending = false, onConfirm }: Props) {
   const id = useId();
   const button = useRef<HTMLButtonElement>(null);
   // An empty field shows its reason only once the button was pressed.
@@ -90,6 +110,7 @@ function Editable({ week, max, lastOrder, text, onText, preview }: Props) {
   const valid = parsed.kind === "valid" ? parsed.value : null;
 
   const change = (next: string) => {
+    if (sending) return; // The field is read-only while the Order is on its way.
     onText(next);
     setPressedEmpty(false);
     setAlert(null);
@@ -98,13 +119,18 @@ function Editable({ week, max, lastOrder, text, onText, preview }: Props) {
     if (message) setAlert((was) => ({ text: message, n: (was?.n ?? 0) + 1 }));
   };
   const step = (direction: -1 | 1) => {
+    if (sending) return;
     const next = stepOrder(parsed, max, direction);
     if (next === null) return;
     change(String(next));
     setStepped(copy.stepped(formatNumber(next)));
   };
   const press = () => {
-    if (valid !== null) return; // Story 6.12 sends the Order.
+    if (sending) return; // Further presses are ignored while the Order is on its way.
+    if (valid !== null) {
+      onConfirm?.(valid);
+      return;
+    }
     if (parsed.kind === "empty") setPressedEmpty(true);
     announce(error ?? copy.invalid(limit));
   };
@@ -115,8 +141,8 @@ function Editable({ week, max, lastOrder, text, onText, preview }: Props) {
     button.current?.focus();
   };
 
-  const fewer = stepOrder(parsed, max, -1) === null;
-  const more = stepOrder(parsed, max, 1) === null;
+  const fewer = sending || stepOrder(parsed, max, -1) === null;
+  const more = sending || stepOrder(parsed, max, 1) === null;
   const describedBy = [`${id}-help`, error ? `${id}-error` : null].filter(Boolean).join(" ");
   return (
     <div className="mt-8 mb-8 max-w-md lg:mt-0" data-order-field="editable">
@@ -144,6 +170,7 @@ function Editable({ week, max, lastOrder, text, onText, preview }: Props) {
           autoComplete="off"
           placeholder={copy.placeholder}
           value={text}
+          readOnly={sending}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
           onChange={(event) => change(event.target.value)}
@@ -168,7 +195,7 @@ function Editable({ week, max, lastOrder, text, onText, preview }: Props) {
         {alert ? <span key={alert.n}>{alert.text}</span> : null}
       </div>
       <p aria-live="polite" className="sr-only">
-        {stepped}
+        {sending && valid !== null ? copy.sending(formatNumber(valid)) : stepped}
       </p>
       {valid !== null && preview ? (
         <p className="mt-3 text-caption text-ink-secondary" data-order-arrives="">
@@ -176,9 +203,16 @@ function Editable({ week, max, lastOrder, text, onText, preview }: Props) {
         </p>
       ) : null}
       {/* Unavailable until the value is valid, yet a press still says why (`onClickCapture` runs
-          before the guard that ignores the press). */}
-      <Button ref={button} variant="primary" unavailable={valid === null} onClickCapture={press} className="mt-3 w-full">
-        {valid === null ? copy.confirm : copy.confirmOn(formatNumber(valid))}
+          before the guard that ignores the press). While sending it keeps focus, busy. */}
+      <Button
+        ref={button}
+        variant="primary"
+        unavailable={valid === null || sending}
+        aria-busy={sending ? true : undefined}
+        onClickCapture={press}
+        className="mt-3 w-full"
+      >
+        {valid === null ? copy.confirm : sending ? copy.sending(formatNumber(valid)) : copy.confirmOn(formatNumber(valid))}
       </Button>
     </div>
   );

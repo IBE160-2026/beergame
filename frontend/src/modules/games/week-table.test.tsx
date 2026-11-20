@@ -126,6 +126,20 @@ describe("cellFor", () => {
     expect(cellFor(state, "incomingDelivery", 15, 4, typed)).toEqual({ kind: "empty" });
   });
 
+  it("keeps a sent Order in the same two cells, marked confirmed (Story 6.12)", () => {
+    const sent = { order: 24, arrivalWeek: 15, confirmed: true };
+    expect(cellFor(state, "order", 11, undefined, sent)).toEqual({ kind: "order-typed", text: "24", confirmed: true });
+    expect(cellFor(state, "incomingDelivery", 15, undefined, sent)).toEqual({
+      kind: "arrival-typed",
+      text: "24",
+      known: null,
+      confirmed: true,
+    });
+    const html = renderToStaticMarkup(<WeekTable state={state} typed={sent} />);
+    expect(html).toContain(`, ${nb.games.play.table.confirmed}<`);
+    expect(html).not.toContain(nb.games.play.table.typed);
+  });
+
   it("has the phone's rows, with Sendt and På vei for the laptop only", () => {
     expect(ROWS.filter((r) => !r.laptopOnly).map((r) => r.label)).toEqual([
       "Ordre inn",
