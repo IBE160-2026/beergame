@@ -1248,3 +1248,29 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 106: beslutninger i Story 5.8.
+
+## Story 5.9: Bekrefte fordelingen jeg ser på (2026-11-20)
+
+### Oppgave
+Bygge Story 5.9 etter kjøreboka, og rette de to punktene fra Issue #106 i fordelingspanelet.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-9-confirm-allocation-i-am-looking-at.md`.
+- **Commit ebd5057:**
+  - «Bekreft fordeling» med kontroll av revisjon;
+  - klassespill og plasser (migrasjon 0038) og mail;
+  - fordelinger som mangler, på Lærerhjemmet;
+  - stiplet celle for fjernede studenter og ramme på 1 px.
+- **Avbrudd:** byggeagenten ble sendt tilbake én gang, fordi gjennomgangsagentene stoppet.
+- **Tester:**
+  - backend: 2482 tester;
+  - frontend: Vitest 428, typecheck, bygg og Playwright 245.
+- **Gjennomgang:** 31 funn, 2 middels. Begge er rettet.
+- **Visuell kontroll:** 22 skjermbilder i `screenshots/5.9/`. To avvik er rettet (f73ecd8).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 107: beslutninger i Story 5.9.
