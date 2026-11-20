@@ -1653,3 +1653,29 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 124: beslutninger i Story 6.6.
+
+## Story 6.7: Se Netto lager, Posisjon og kostnad som graf over tabellen (2026-11-20)
+
+### Oppgave
+Bygge Story 6.7 etter kjøreboka, og gjøre ukenumrene grå unntatt inneværende uke (Issue #124).
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-7-graph-over-table.md`.
+- **Commit 548c08f:**
+  - graf over tabellen i SVG laget for hånd, med «Nå»-linje og fremtid i tonet bakgrunn;
+  - kostnadsdelingen i motoren (`SeatState` v3);
+  - PDF-sjekk med WeasyPrint i CI.
+- **Tester:**
+  - backend: 2693 tester, og dekningen av motoren er 100 %;
+  - frontend: Vitest 523 og bygg;
+  - Playwright: 349 tester med 2 arbeidere;
+  - PDF-sjekken passerer.
+- **Gjennomgang:** 31 lave funn. 6 ble rettet.
+- **Visuell kontroll:** 20 skjermbilder i `screenshots/6.7/`. Ett avvik er rettet (e960af9).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 125: beslutninger i Story 6.7.
