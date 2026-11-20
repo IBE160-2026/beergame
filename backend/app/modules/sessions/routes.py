@@ -11,7 +11,8 @@ save and the check of a draft, `/api/class-sessions/{id}/settings-check`. Story 
 Demand pattern and seed to both and the staff's read of the series,
 `/api/class-sessions/{id}/demand-series`. Story 5.5 adds the Effort level and Debrief mode to the
 save and the offered levels, AI player descriptions and provider flag to the read. Story 5.6 adds
-the Lab hours, `/api/class-sessions/{id}/lab-hours[/{lab_hour_id}]`, saved on their own."""
+the Lab hours, `/api/class-sessions/{id}/lab-hours[/{lab_hour_id}]`, saved on their own. Story
+5.7 adds the obligatory mark, its required share and the Inactivity limit to the save."""
 
 import uuid
 from typing import Annotated
@@ -129,7 +130,13 @@ async def save_class_session(
     `demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with
     `fields` mapping each setting (`demand.<field>` inside the Demand pattern) to
     `{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409
-    `session_locked` (`{"game_settings": "locked"}`)."""
+    `session_locked` (`{"game_settings": "locked"}`).
+
+    `obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,
+    FR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit
+    under 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once
+    locked a changed one answers 409 `session_locked`. Switching the mark on tells each
+    registered Student through the day's digest mail."""
     try:
         saved = await service.save_session(
             user,
@@ -140,6 +147,9 @@ async def save_class_session(
             debrief_mode=body.debrief_mode,
             dates=body.dates,
             game_settings=body.game_settings,
+            obligatory=body.obligatory,
+            required_share_percent=body.required_share_percent,
+            inactivity_limit_hours=body.inactivity_limit_hours,
         )
     except service.InvalidSettings as refused:
         return error_response(
@@ -154,6 +164,10 @@ async def save_class_session(
         )
     except service.InvalidDates as refused:
         return error_response(422, refused.code, "The dates break a rule.", refused.fields)
+    except service.InvalidSessionValues as refused:
+        return error_response(
+            422, refused.code, "The share or the Inactivity limit breaks a rule.", refused.fields
+        )
     except service.InvalidEffortLevel as refused:
         return error_response(
             422, refused.code, "The model config offers no such Effort level.", refused.fields

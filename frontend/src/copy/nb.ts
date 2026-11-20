@@ -729,6 +729,9 @@ export const nb = {
       perRole: "Gjelder hvert ledd.",
       costHint: "Kroner per enhet per uke, med komma.",
       guidedHint: "Antall uker fra Uke 1 med veiledning.",
+      // Story 5.7 (EXPERIENCE.md → Klasseøkt, «Ventetid før KI tar over», UX-DR49).
+      inactivityHint: "Minst 20 timer. Kortere ventetid kan bare gjelde spill som er i rommet i en Labtime.",
+      inactivityError: "Skriv et helt antall timer, 20 eller mer.",
       locked: "Klasseøkten har startet. Spillinnstillingene kan ikke endres.",
       refused: "Spillinnstillingene ble ikke lagret. Se feltene.",
       errors: {
@@ -867,6 +870,15 @@ export const nb = {
       obligatoryYes: "Ja, står i emneplanen",
       // [ASSUMPTION]
       obligatoryNo: "Nei",
+      // Mockup 03, under the Bryter while it is on (Story 5.7).
+      obligatoryHelp: "Studentene ser at øvelsen er obligatorisk.",
+      // [ASSUMPTION] draft copy of Story 5.7, not in the spine: the required share of Weeks.
+      share: "Andel uker som kreves",
+      shareHint: "Et helt tall fra 1 til 100 %.",
+      shareError: "Skriv et helt tall fra 1 til 100.",
+      shareValue: (percent: number) => `Andel uker som kreves: ${percent} %`,
+      // [ASSUMPTION] the alert line of a save the api refused for the share or the Ventetid.
+      valuesRefused: "Klasseøkten ble ikke lagret. Se feltene.",
       // [ASSUMPTION] FR-15: no model config is pinned as the default.
       llmUnavailable:
         "LLM-spillere kan ikke velges før en Admin har valgt en standardmodell. Til da får Klasseøkten regelbaserte spillere.",

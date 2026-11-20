@@ -18,10 +18,23 @@ export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "id"> &
   notes?: readonly string[];
   /** Classes for the input alone, e.g. a narrow field whose hint and error keep the full width. */
   inputClassName?: string;
+  /** The reason is announced as it appears (`role="alert"`), for a rule checked on leaving the
+   * field (UX-DR49). */
+  errorAlert?: boolean;
   ref?: Ref<HTMLInputElement>;
 };
 
-export function TextField({ id, label, error, hint, notes = [], className, inputClassName, ...props }: TextFieldProps) {
+export function TextField({
+  id,
+  label,
+  error,
+  hint,
+  notes = [],
+  className,
+  inputClassName,
+  errorAlert,
+  ...props
+}: TextFieldProps) {
   const errorId = `${id}-error`;
   const hintId = `${id}-hint`;
   const noteIds = notes.map((_, index) => `${id}-note-${index}`);
@@ -47,7 +60,7 @@ export function TextField({ id, label, error, hint, notes = [], className, input
         </p>
       ) : null}
       {error ? (
-        <p id={errorId} className="text-body-phone text-restordre">
+        <p id={errorId} role={errorAlert ? "alert" : undefined} className="text-body-phone text-restordre">
           {error}
         </p>
       ) : null}

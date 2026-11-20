@@ -51,17 +51,33 @@ export type SettingsCheck = components["schemas"]["SettingsCheckOut"];
 /** A draft of the Game settings as sent: any field, laid over the stored settings by the api. */
 export type SettingsDraftBody = Record<string, unknown>;
 
-/** What «Lagre Klasseøkt» sends of KI-modus, Innsatsnivå and Debrief-modus (Story 5.5). */
-export type ChoicesBody = Pick<ClassSessionSaveIn, "ai_mode" | "effort_level" | "debrief_mode">;
+/** What «Lagre Klasseøkt» sends of KI-modus, Innsatsnivå and Debrief-modus (Story 5.5), and of
+ * Obligatorisk with its required share (Story 5.7). */
+export type ChoicesBody = Pick<
+  ClassSessionSaveIn,
+  "ai_mode" | "effort_level" | "debrief_mode" | "obligatory" | "required_share_percent"
+>;
 type ClassSessionSaveIn = components["schemas"]["ClassSessionSaveIn"];
 
-/** «Lagre Klasseøkt»: saves the Class session as it stands, with its choices (Story 5.5), its four
- * dates (Story 5.2) and, while the settings block is open, its Game settings (Story 5.3). */
-export function saveClassSession(id: string, choices: ChoicesBody, dates: DatesIn, gameSettings?: SettingsDraftBody) {
+/** «Lagre Klasseøkt»: saves the Class session as it stands, with its choices (Stories 5.5, 5.7),
+ * its four dates (Story 5.2) and, while the settings block is open, its Game settings (Story 5.3)
+ * and its Inactivity limit (Story 5.7). */
+export function saveClassSession(
+  id: string,
+  choices: ChoicesBody,
+  dates: DatesIn,
+  gameSettings?: SettingsDraftBody,
+  inactivityLimitHours?: number,
+) {
   return request(() =>
     api.PUT("/api/class-sessions/{session_id}", {
       params: { path: { session_id: id } },
-      body: { ...choices, dates, ...(gameSettings ? { game_settings: gameSettings } : {}) },
+      body: {
+        ...choices,
+        dates,
+        ...(gameSettings ? { game_settings: gameSettings } : {}),
+        ...(inactivityLimitHours !== undefined ? { inactivity_limit_hours: inactivityLimitHours } : {}),
+      },
     }),
   );
 }

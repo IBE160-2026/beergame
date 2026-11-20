@@ -101,7 +101,7 @@ async def test_two_class_sessions_draw_their_own_seeds_and_list_newest_first(kla
     assert [i["id"] for i in listed.json()["items"]] == [second["id"], first["id"]]
 
 
-@pytest.mark.parametrize("body", [{}, {"ai_mode": "human"}, {"ai_mode": "llm", "obligatory": True}])
+@pytest.mark.parametrize("body", [{}, {"ai_mode": "human"}, {"ai_mode": "llm", "group_size": 5}])
 async def test_a_save_body_that_is_not_valid_is_refused_and_changes_nothing(
     klass, default_model, body
 ):

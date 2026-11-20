@@ -752,6 +752,10 @@
             "title": "Provider Unavailable",
             "type": "boolean"
           },
+          "required_share_percent": {
+            "title": "Required Share Percent",
+            "type": "integer"
+          },
           "saved_at": {
             "anyOf": [
               {
@@ -807,6 +811,7 @@
           "debrief_mode",
           "inactivity_limit_hours",
           "obligatory",
+          "required_share_percent",
           "llm_unavailable",
           "effort_level",
           "effort_levels",
@@ -831,7 +836,7 @@
       },
       "ClassSessionSaveIn": {
         "additionalProperties": false,
-        "description": "«Lagre Klasseøkt». The screen sends the AI mode, Effort level and Debrief mode as chosen\n(Story 5.5), the four dates (Story 5.2) and the Game settings (Story 5.3) with the Demand\npattern and its seed (Story 5.4); a field left out (`effort_level`, `debrief_mode`, `dates`,\n`game_settings`) keeps its value. `game_settings` is laid over the stored settings, so a\nsetting left out keeps its value. With Rule-based players no Effort level is in force, and\na sent one is ignored.",
+        "description": "«Lagre Klasseøkt». The screen sends the AI mode, Effort level and Debrief mode as chosen\n(Story 5.5), the four dates (Story 5.2) and the Game settings (Story 5.3) with the Demand\npattern and its seed (Story 5.4), and the obligatory mark, its required share and the\nInactivity limit (Story 5.7); a field left out keeps its value. `game_settings` is laid over\nthe stored settings, so a setting left out keeps its value. With Rule-based players no Effort\nlevel is in force, and a sent one is ignored.",
         "properties": {
           "ai_mode": {
             "$ref": "#/components/schemas/AiMode"
@@ -880,6 +885,43 @@
               }
             ],
             "title": "Game Settings"
+          },
+          "inactivity_limit_hours": {
+            "anyOf": [
+              {
+                "maximum": 8760.0,
+                "minimum": -100000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactivity Limit Hours"
+          },
+          "obligatory": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Obligatory"
+          },
+          "required_share_percent": {
+            "anyOf": [
+              {
+                "maximum": 1000.0,
+                "minimum": -1000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Share Percent"
           }
         },
         "required": [
@@ -5217,7 +5259,7 @@
         ]
       },
       "put": {
-        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level` and `debrief_mode` (FR-16, FR-78), left out, keep their values. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).",
+        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level` and `debrief_mode` (FR-16, FR-78), left out, keep their values. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).\n\n`obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,\nFR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit\nunder 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once\nlocked a changed one answers 409 `session_locked`. Switching the mark on tells each\nregistered Student through the day's digest mail.",
         "operationId": "saveClassSession",
         "parameters": [
           {

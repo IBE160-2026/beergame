@@ -22,7 +22,8 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "identity.deactivate_user": frozenset({"user"}),
         "identity.reactivate_user": frozenset({"user"}),
         # A Class session created or saved (Story 5.1): its Class's staff read it again. A save
-        # that changes a date also tells each registered Student of the Class (Story 5.2).
+        # that changes a date also tells each registered Student of the Class (Story 5.2), and
+        # one that marks it obligatory enqueues a notice per Student, which emits `user` (5.7).
         "sessions.create": frozenset({"session"}),
         "sessions.save": frozenset({"session", "user"}),
         # A Lab hour added, changed or removed (Story 5.6): the staff read the session again, and

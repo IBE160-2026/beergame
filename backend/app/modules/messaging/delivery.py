@@ -91,11 +91,22 @@ def _lab_hour_context(kind: str) -> ContextResolver:
     return resolve
 
 
+OBLIGATORY_KIND = "class_session_obligatory"
+"""`sessions.service.OBLIGATORY_NOTICE` (Story 5.7), named here for the same reason."""
+
+
+async def _obligatory_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.obligatory_mail_context(session, user_id, ref, now)
+
+
 KINDS: Mapping[str, Delivery] = MappingProxyType(
     {
         **{
             kind: Delivery(DIGEST, kind, context=_lab_hour_context(kind)) for kind in LAB_HOUR_KINDS
         },
+        OBLIGATORY_KIND: Delivery(DIGEST, OBLIGATORY_KIND, context=_obligatory_context),
         identity.PASSWORD_RESET: Delivery(
             IMMEDIATE, "password_reset", context=identity.password_reset_mail_context
         ),
@@ -110,7 +121,8 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
     }
 )
 """The product's kinds: `password_reset` (Story 3.6), `invitation` (Story 3.7),
-`manual_registration` (Story 4.8) and the Lab hour notices (Story 5.6, digest)."""
+`manual_registration` (Story 4.8), the Lab hour notices (Story 5.6, digest) and the obligatory
+notice (Story 5.7, digest)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

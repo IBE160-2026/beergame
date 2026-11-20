@@ -10,9 +10,48 @@ import { Breadcrumb } from "./breadcrumb";
 import { Button, guardUnavailable } from "./button";
 import { ConnectionNotice } from "./connection-notice";
 import { SegmentedChoice } from "./segmented-choice";
+import { Switch } from "./switch";
 import { ViewToggle } from "./view-toggle";
 import { LoadingNote, Skeleton } from "./skeleton";
 import { TextField } from "./text-field";
+
+describe("Switch", () => {
+  const render = (checked: boolean) =>
+    renderToStaticMarkup(
+      <Switch id="s" checked={checked} onChange={() => {}} labelledBy="heading">
+        {checked ? "Ja, står i emneplanen" : "Nei"}
+      </Switch>,
+    );
+
+  it("is a native button exposed as a switch, named by its heading and its state text", () => {
+    const html = render(true);
+    expect(html).toContain('type="button"');
+    expect(html).toContain('role="switch"');
+    expect(html).toContain('aria-checked="true"');
+    expect(html).toContain('aria-labelledby="heading s-text"');
+    expect(html).toContain('id="s-text"');
+    expect(html).toContain("Ja, står i emneplanen");
+    expect(render(false)).toContain('aria-checked="false"');
+  });
+
+  it("fills the track in ink with the knob at the right when on, and moves the knob when off", () => {
+    const on = render(true);
+    for (const cls of ["rounded-full", "bg-ink", "bg-paper", "left-[calc(100%-1.5rem)]", "min-h-tap-target-min"]) {
+      expect(on).toContain(cls);
+    }
+    const off = render(false);
+    expect(off).toContain("border-ink-muted");
+    expect(off).toContain("left-1");
+    expect(off).not.toContain("left-[calc(100%-1.5rem)]");
+  });
+
+  it("toggles through onChange", () => {
+    const onChange = vi.fn();
+    const element = Switch({ id: "s", checked: false, onChange, labelledBy: "h", children: "Nei" });
+    (element.props as { onClick: () => void }).onClick();
+    expect(onChange).toHaveBeenCalledWith(true);
+  });
+});
 
 describe("Button", () => {
   it("renders an unavailable button with aria-disabled and never the native disabled", () => {

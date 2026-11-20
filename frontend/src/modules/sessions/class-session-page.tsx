@@ -6,6 +6,8 @@ import { useId, useRef, useState } from "react";
 import { ActionError } from "@/components/action-error";
 import { Button } from "@/components/button";
 import { SegmentedChoice } from "@/components/segmented-choice";
+import { Switch } from "@/components/switch";
+import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 import { useAction } from "@/lib/api/mutation";
@@ -40,6 +42,7 @@ import { DateFields } from "./date-fields";
 import { DateLine } from "./date-line";
 import { type DateInputs, dateErrors, datesBody, inputsOf } from "./dates";
 import { LabHours } from "./lab-hours-panel";
+import { inactivityProblem, shareProblem, valueErrorsOf } from "./obligatory";
 import { calibratedText, draftOf, problemsOf, type SettingProblem, settingsBody, warningsBySetting } from "./settings";
 import { SettingsBlock } from "./settings-form";
 
@@ -112,6 +115,11 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   // KI-modus, Innsatsnivå and Debrief-modus as chosen; sent with «Lagre Klasseøkt» (Story 5.5).
   const [choices, setChoices] = useState<ChoicesDraft>(() => choicesOf(item));
   const choosing = item.can_manage && !item.locked;
+  // «Andel uker som kreves» and «Ventetid før KI tar over» (Story 5.7): their reasons show once the
+  // field is left or «Lagre Klasseøkt» pressed.
+  const [shareChecked, setShareChecked] = useState(false);
+  const [inactivity, setInactivity] = useState(() => String(item.inactivity_limit_hours));
+  const [inactivityChecked, setInactivityChecked] = useState(false);
   // The Game settings as typed while the block is open (Story 5.3), and what the api last said of
   // them: errors by setting and warnings in words.
   const [editing, setEditing] = useState(false);
@@ -120,6 +128,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   const [warnings, setWarnings] = useState(() => warningsBySetting(item.settings_warnings));
   const checked = useRef("");
   const checks = useRef(0);
+  const settingsOpen = editing && item.can_manage && !item.locked;
   const action = useAction({
     mutationFn: async () => {
       try {
@@ -128,7 +137,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           // Once locked the choices stand as stored; the api refuses any change.
           choosing ? choicesBody(choices) : { ai_mode: item.ai_mode },
           datesBody(inputs),
-          editing && item.can_manage && !item.locked ? settingsBody(draft) : undefined,
+          settingsOpen ? settingsBody(draft) : undefined,
+          settingsOpen ? Number(inactivity.trim()) : undefined,
         );
       } catch (error) {
         if (error instanceof ApiRequestError && error.code === "invalid_settings") {
@@ -145,6 +155,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       session_locked: copy.dates.locked,
       invalid_settings: copy.edit.refused,
       invalid_effort_level: copy.choices.effortRefused,
+      invalid_session_values: copy.choices.valuesRefused,
     },
     onSuccess: (result) => {
       queryClient.setQueryData(classSessionKey(item.id), result);
@@ -153,6 +164,9 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       setInputs(inputsOf(result));
       setChoices(choicesOf(result));
       setTestTouched(result.test_deadline != null);
+      setShareChecked(false);
+      setInactivity(String(result.inactivity_limit_hours));
+      setInactivityChecked(false);
       // The saved values stand in the list; the block opens again for a next change.
       checks.current += 1;
       setProblems({});
@@ -185,7 +199,26 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
     checked.current = JSON.stringify(settingsBody(stored));
     setProblems({});
     setWarnings(warningsBySetting(item.settings_warnings));
+    setInactivity(String(item.inactivity_limit_hours));
+    setInactivityChecked(false);
     setEditing(true);
+  };
+  // The web's own checks of the share and the Ventetid, else what the api said of them.
+  const refusedValues = valueErrorsOf(action.error);
+  const shareError =
+    (choosing && choices.obligatory && shareChecked ? shareProblem(choices.requiredShare) : undefined) ??
+    refusedValues.share;
+  const inactivityError =
+    (settingsOpen && inactivityChecked ? inactivityProblem(inactivity) : undefined) ?? refusedValues.inactivity;
+  /** Whether the drafts the web checks itself may be sent; shows each reason otherwise. */
+  const valuesReady = () => {
+    const shareWrong = choosing && choices.obligatory && shareProblem(choices.requiredShare) !== undefined;
+    const inactivityWrong = settingsOpen && inactivityProblem(inactivity) !== undefined;
+    // Only a field on screen is marked checked, so a share field that opens later is not judged
+    // before it is left.
+    setShareChecked(choosing && choices.obligatory);
+    setInactivityChecked(settingsOpen);
+    return !shareWrong && !inactivityWrong;
   };
   const cancelSettings = () => {
     checks.current += 1;
@@ -226,6 +259,10 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
             onCancel={cancelSettings}
             onChange={setDraft}
             onLeave={checkDraft}
+            inactivity={inactivity}
+            inactivityError={inactivityError}
+            onInactivityChange={setInactivity}
+            onInactivityLeave={() => setInactivityChecked(true)}
           />
           <p className="mt-3 text-body-phone text-ink-secondary">{copy.delaySources}</p>
           <div className="mt-8">
@@ -254,7 +291,14 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           ) : null}
         </section>
       </div>
-      <Choices item={item} draft={choices} editable={choosing} onChange={setChoices} />
+      <Choices
+        item={item}
+        draft={choices}
+        editable={choosing}
+        onChange={setChoices}
+        shareError={shareError}
+        onShareLeave={() => setShareChecked(true)}
+      />
       {item.can_manage ? (
         <SaveRow
           secondary={labFormOpen}
@@ -264,6 +308,11 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           onSave={() => {
             if (action.isPending) return;
             setSaved(false);
+            if (!valuesReady()) {
+              // Nothing is sent; the reasons stand under their fields.
+              action.reset();
+              return;
+            }
             action.mutate();
           }}
         />
@@ -280,18 +329,24 @@ const CONTENT_SIZED = "lg:[&_label]:flex-none";
  * KI-modus, Debrief-modus and Obligatorisk (Story 5.5, FR-15, FR-16, FR-78, UX-DR48, UX-DR49). The
  * first two are Valgknapper while the session is unlocked and the User may change it; «Innsatsnivå»
  * shows only with LLM players, with the levels the api offers. Locked, or for an Assistant, the
- * values stand as text. Obligatorisk becomes a choice in Story 5.7.
+ * values stand as text. Obligatorisk is a Bryter with «Andel uker som kreves» under it while on
+ * (Story 5.7, FR-17, UX-DR12, UX-DR78): the switch's label is the whole confirmation, with no
+ * dialog, and like the Valgknapper it takes effect on «Lagre Klasseøkt».
  */
 function Choices({
   item,
   draft,
   editable,
   onChange,
+  shareError,
+  onShareLeave,
 }: {
   item: ClassSession;
   draft: ChoicesDraft;
   editable: boolean;
   onChange: (next: ChoicesDraft) => void;
+  shareError: string | undefined;
+  onShareLeave: () => void;
 }) {
   const c = copy.choices;
   const ids = useId();
@@ -384,11 +439,50 @@ function Choices({
           {shown.debriefMode === "group" ? c.groupHelp : c.personalHelp}
         </p>
       </section>
-      <section className="min-w-0">
-        <h2 className="text-label text-ink">{c.obligatory}</h2>
-        <p className="mt-2 text-body-phone text-ink lg:text-body">
-          {item.obligatory ? c.obligatoryYes : c.obligatoryNo}
-        </p>
+      <section aria-labelledby={`${ids}-obligatory`} className="min-w-0">
+        <h2 id={`${ids}-obligatory`} className="text-label text-ink">
+          {c.obligatory}
+        </h2>
+        {editable ? (
+          <Switch
+            id={`${ids}-obligatory-switch`}
+            className="mt-1"
+            checked={draft.obligatory}
+            onChange={(obligatory) => onChange({ ...draft, obligatory })}
+            labelledBy={`${ids}-obligatory`}
+            describedBy={draft.obligatory ? `${ids}-obligatory-help` : undefined}
+          >
+            {draft.obligatory ? c.obligatoryYes : c.obligatoryNo}
+          </Switch>
+        ) : (
+          <p className="mt-2 text-body-phone text-ink lg:text-body">
+            {shown.obligatory ? c.obligatoryYes : c.obligatoryNo}
+          </p>
+        )}
+        {shown.obligatory ? (
+          <p id={`${ids}-obligatory-help`} className="mt-2 text-body-phone text-ink-secondary">
+            {c.obligatoryHelp}
+          </p>
+        ) : null}
+        {shown.obligatory && editable ? (
+          <TextField
+            id={`${ids}-share`}
+            className="mt-4"
+            inputClassName="max-w-32"
+            label={c.share}
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            value={draft.requiredShare}
+            hint={c.shareHint}
+            error={shareError}
+            errorAlert
+            onChange={(event) => onChange({ ...draft, requiredShare: event.target.value })}
+            onBlur={onShareLeave}
+          />
+        ) : shown.obligatory ? (
+          <p className="mt-4 text-body-phone text-ink lg:text-body">{c.shareValue(item.required_share_percent)}</p>
+        ) : null}
       </section>
     </div>
   );

@@ -8,13 +8,16 @@ const copy = nb.sessions.choices;
 export type DebriefMode = ClassSession["debrief_mode"];
 export type OfferedLevel = ClassSession["effort_levels"][number];
 
-/** KI-modus, Innsatsnivå and Debrief-modus as chosen on the screen (Story 5.5). They take effect
- * only when «Lagre Klasseøkt» sends them. */
+/** KI-modus, Innsatsnivå and Debrief-modus (Story 5.5), and Obligatorisk with its required share
+ * (Story 5.7), as chosen on the screen. They take effect only when «Lagre Klasseøkt» sends them. */
 export type ChoicesDraft = {
   aiMode: AiMode;
   /** The chosen level's name; null when nothing is offered. */
   effortLevel: string | null;
   debriefMode: DebriefMode;
+  obligatory: boolean;
+  /** «Andel uker som kreves» as typed. */
+  requiredShare: string;
 };
 
 /** The level the screen preselects: the one in force, else the config's default. */
@@ -30,6 +33,8 @@ export function choicesOf(item: ClassSession): ChoicesDraft {
     aiMode: item.ai_mode,
     effortLevel: offered ? item.effort_level : (defaultLevel(item.effort_levels) ?? item.effort_level),
     debriefMode: item.debrief_mode,
+    obligatory: item.obligatory,
+    requiredShare: String(item.required_share_percent),
   };
 }
 
@@ -40,16 +45,22 @@ export function withAiMode(draft: ChoicesDraft, aiMode: AiMode, item: ClassSessi
   return { ...draft, aiMode, effortLevel: kept ?? choicesOf(item).effortLevel };
 }
 
-/** The choices as «Lagre Klasseøkt» sends them: an Effort level only with LLM players. */
+/** The choices as «Lagre Klasseøkt» sends them: an Effort level only with LLM players, and the
+ * required share only while Obligatorisk is on (off, the stored share is kept). Check the share
+ * with `shareProblem` first. */
 export function choicesBody(draft: ChoicesDraft): {
   ai_mode: AiMode;
   effort_level?: string;
   debrief_mode: DebriefMode;
+  obligatory: boolean;
+  required_share_percent?: number;
 } {
   return {
     ai_mode: draft.aiMode,
     ...(draft.aiMode === "llm" && draft.effortLevel ? { effort_level: draft.effortLevel } : {}),
     debrief_mode: draft.debriefMode,
+    obligatory: draft.obligatory,
+    ...(draft.obligatory ? { required_share_percent: Number(draft.requiredShare.trim()) } : {}),
   };
 }
 

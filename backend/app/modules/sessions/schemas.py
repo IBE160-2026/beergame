@@ -5,7 +5,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
 
 from app.engine import GameSettings
 
@@ -154,7 +154,12 @@ class ClassSessionOut(BaseModel):
     ai_mode: AiMode
     debrief_mode: DebriefMode
     inactivity_limit_hours: int
+    """«Ventetid før KI tar over» in whole hours, never under 20 (Story 5.7, FR-36)."""
     obligatory: bool
+    """The Lecturer marked it as stated in the course plan (Story 5.7, FR-17)."""
+    required_share_percent: int
+    """«Andel uker som kreves», a whole percent from 1 to 100 (Story 5.7). Stored whether or not
+    the session is obligatory; nothing in this epic computes Completion with it."""
     llm_unavailable: LlmUnavailable | None
     """Set while LLM players cannot be chosen; the screen says why (FR-15, AD-17)."""
     effort_level: str | None
@@ -223,10 +228,10 @@ class DatesIn(BaseModel):
 class ClassSessionSaveIn(BaseModel):
     """«Lagre Klasseøkt». The screen sends the AI mode, Effort level and Debrief mode as chosen
     (Story 5.5), the four dates (Story 5.2) and the Game settings (Story 5.3) with the Demand
-    pattern and its seed (Story 5.4); a field left out (`effort_level`, `debrief_mode`, `dates`,
-    `game_settings`) keeps its value. `game_settings` is laid over the stored settings, so a
-    setting left out keeps its value. With Rule-based players no Effort level is in force, and
-    a sent one is ignored."""
+    pattern and its seed (Story 5.4), and the obligatory mark, its required share and the
+    Inactivity limit (Story 5.7); a field left out keeps its value. `game_settings` is laid over
+    the stored settings, so a setting left out keeps its value. With Rule-based players no Effort
+    level is in force, and a sent one is ignored."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -235,6 +240,13 @@ class ClassSessionSaveIn(BaseModel):
     debrief_mode: DebriefMode | None = None
     dates: DatesIn | None = None
     game_settings: dict[str, Any] | None = None
+    obligatory: bool | None = None
+    required_share_percent: StrictInt | None = Field(None, ge=-1000, le=1000)
+    """Whole percent, a JSON integer (no string, boolean or float); the service answers
+    `out_of_range` outside 1 to 100. The bounds here only keep the value an integer the database
+    holds."""
+    inactivity_limit_hours: StrictInt | None = Field(None, ge=-100_000, le=8760)
+    """Whole hours; the service answers `below_minimum` under 20. At most a year (a guard)."""
 
 
 class NextDeadline(BaseModel):

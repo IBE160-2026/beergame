@@ -536,6 +536,12 @@ export interface paths {
          *     `fields` mapping each setting (`demand.<field>` inside the Demand pattern) to
          *     `{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409
          *     `session_locked` (`{"game_settings": "locked"}`).
+         *
+         *     `obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,
+         *     FR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit
+         *     under 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once
+         *     locked a changed one answers 409 `session_locked`. Switching the mark on tells each
+         *     registered Student through the day's digest mail.
          */
         put: operations["saveClassSession"];
         post?: never;
@@ -1531,6 +1537,8 @@ export interface components {
             play_time_warning: boolean;
             /** Provider Unavailable */
             provider_unavailable: boolean;
+            /** Required Share Percent */
+            required_share_percent: number;
             /** Saved At */
             saved_at: string | null;
             /** Settings Warnings */
@@ -1544,10 +1552,10 @@ export interface components {
          * ClassSessionSaveIn
          * @description «Lagre Klasseøkt». The screen sends the AI mode, Effort level and Debrief mode as chosen
          *     (Story 5.5), the four dates (Story 5.2) and the Game settings (Story 5.3) with the Demand
-         *     pattern and its seed (Story 5.4); a field left out (`effort_level`, `debrief_mode`, `dates`,
-         *     `game_settings`) keeps its value. `game_settings` is laid over the stored settings, so a
-         *     setting left out keeps its value. With Rule-based players no Effort level is in force, and
-         *     a sent one is ignored.
+         *     pattern and its seed (Story 5.4), and the obligatory mark, its required share and the
+         *     Inactivity limit (Story 5.7); a field left out keeps its value. `game_settings` is laid over
+         *     the stored settings, so a setting left out keeps its value. With Rule-based players no Effort
+         *     level is in force, and a sent one is ignored.
          */
         ClassSessionSaveIn: {
             ai_mode: components["schemas"]["AiMode"];
@@ -1559,6 +1567,12 @@ export interface components {
             game_settings?: {
                 [key: string]: unknown;
             } | null;
+            /** Inactivity Limit Hours */
+            inactivity_limit_hours?: number | null;
+            /** Obligatory */
+            obligatory?: boolean | null;
+            /** Required Share Percent */
+            required_share_percent?: number | null;
         };
         /**
          * DatesIn

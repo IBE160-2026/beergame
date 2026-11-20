@@ -18,6 +18,10 @@ from app.platform.db import metadata
 MIN_INACTIVITY_LIMIT_HOURS = 20
 """The floor of the Inactivity limit (EXPERIENCE.md: whole hours, never under 20)."""
 
+MIN_REQUIRED_SHARE_PERCENT = 1
+MAX_REQUIRED_SHARE_PERCENT = 100
+"""The range of «Andel uker som kreves», a whole percent (Story 5.7, FR-17)."""
+
 DATE_NAMES = ("start_at", "play_deadline", "debrief_deadline", "test_deadline")
 """The four dates of a Class session in their order (Story 5.2, FR-18): Startdato, Spillfrist,
 Debrieffrist, Testfrist. Every pair that is set keeps this order."""
@@ -35,6 +39,9 @@ class_sessions = Table(
     Column("debrief_mode", Text, nullable=False),
     Column("inactivity_limit_hours", Integer, nullable=False),
     Column("obligatory", Boolean, nullable=False),
+    # The share of Weeks a Student must order in, in percent (Story 5.7); read through
+    # `service.required_share` only.
+    Column("required_share_percent", Integer, nullable=False),
     # The `ai` model config the Class session uses; no foreign key into `ai` tables (AD-6).
     Column("model_config_id", Uuid, nullable=True),
     # The Effort level in force (Story 5.5): a level name of that config; NULL for Rule-based.
@@ -50,6 +57,11 @@ class_sessions = Table(
     CheckConstraint(
         f"inactivity_limit_hours >= {MIN_INACTIVITY_LIMIT_HOURS}",
         name="ck_class_sessions_inactivity_limit",
+    ),
+    CheckConstraint(
+        f"required_share_percent BETWEEN {MIN_REQUIRED_SHARE_PERCENT} "
+        f"AND {MAX_REQUIRED_SHARE_PERCENT}",
+        name="ck_class_sessions_required_share",
     ),
     CheckConstraint(
         "ai_mode <> 'llm' OR model_config_id IS NOT NULL",

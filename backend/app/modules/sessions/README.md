@@ -125,3 +125,18 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   carries each session's Lab hours that have not ended.
 - `service.current_lab_hour(class_session_id, now)` is the Lab hour on at `now` (the earliest
   started if several), or None: Epic 8's «I rommet» asks this, never the table.
+
+## Obligatory mark and Inactivity limit (Story 5.7)
+
+- `class_sessions.required_share_percent` (migration 0036): «Andel uker som kreves», a whole
+  percent, CHECK 1 to 100. A new session gets `COMPLETION_DEFAULT_SHARE_PERCENT` (placeholder 80).
+- «Lagre Klasseøkt» takes `obligatory`, `required_share_percent` and `inactivity_limit_hours`;
+  each left out keeps its value. A changed share outside 1 to 100 or limit under 20 answers 422
+  `invalid_session_values` (`out_of_range`, `below_minimum`); once locked a changed one answers
+  409 `session_locked`. Unchanged values are never judged.
+- Switching the mark on enqueues one `class_session_obligatory` notice per registered Student
+  (`ref` = the Class session, the moment in its key), a digest kind whose mail reads
+  `service.obligatory_mail_context` at send time and is left out when the mark is off again, the
+  Class is archived or the User is no longer a registered Student. Switching off tells nobody.
+- `service.required_share(class_session)` is the one source of the share for Story 8.9 and
+  Epic 13; this module computes no Completion with it.

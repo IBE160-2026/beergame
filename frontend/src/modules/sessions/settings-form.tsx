@@ -32,7 +32,8 @@ const copy = nb.sessions;
  * become Tekstfelt fields, labels above, focus on the first, and under them the Demand pattern:
  * «Mønster» and the chosen pattern's fields, with the seed for a pattern that draws. Leaving a
  * field asks the api to judge the draft (`onLeave`); its errors show under the field with the
- * allowed range, and its warnings as text. Choices take effect only with «Lagre Klasseøkt».
+ * allowed range, and its warnings as text. Under them «Ventetid før KI tar over» (Story 5.7) in
+ * whole hours. Choices take effect only with «Lagre Klasseøkt».
  */
 export function SettingsBlock({
   item,
@@ -45,6 +46,10 @@ export function SettingsBlock({
   onCancel,
   onChange,
   onLeave,
+  inactivity,
+  inactivityError,
+  onInactivityChange,
+  onInactivityLeave,
 }: {
   item: ClassSession;
   editable: boolean;
@@ -56,6 +61,12 @@ export function SettingsBlock({
   onCancel: () => void;
   onChange: (draft: SettingsDraft) => void;
   onLeave: () => void;
+  /** «Ventetid før KI tar over» as typed (Story 5.7): not a Game setting, so the web checks it
+   * on leaving the field and on save, and the api holds the same floor. */
+  inactivity: string;
+  inactivityError: string | undefined;
+  onInactivityChange: (text: string) => void;
+  onInactivityLeave: () => void;
 }) {
   const first = useRef<HTMLInputElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
@@ -101,12 +112,26 @@ export function SettingsBlock({
           onChange={(demand) => onChange({ ...draft, demand })}
           onLeave={onLeave}
         />
-        <ReadOnlyRows
-          item={item}
-          only={["inactivity_limit_hours"]}
-          warnings={warnings}
-          errors={otherErrors(problems)}
+        <TextField
+          id="setting-inactivity_limit_hours"
+          label={nb.terms.inactivityLimit}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          className="mt-6 border-t border-hairline pt-4"
+          inputClassName="lg:max-w-40"
+          value={inactivity}
+          hint={copy.edit.inactivityHint}
+          error={inactivityError}
+          errorAlert
+          onChange={(event) => onInactivityChange(event.target.value)}
+          onBlur={onInactivityLeave}
         />
+        {(otherErrors(problems)[""] ?? []).map((text, index) => (
+          <p key={`other-${index}`} className="mt-2 text-body-phone text-restordre">
+            {text}
+          </p>
+        ))}
         <button
           type="button"
           className={`${LINK_BUTTON} mt-3`}
@@ -285,32 +310,11 @@ function DemandSeries({ item }: { item: ClassSession }) {
   );
 }
 
-/** The saved settings as a list; a warning, or an error on a setting with no field, stands as a
- * further description under its setting. */
-function ReadOnlyRows({
-  item,
-  only,
-  warnings,
-  errors = {},
-}: {
-  item: ClassSession;
-  only?: readonly string[];
-  warnings: Readonly<Record<string, string[]>>;
-  errors?: Readonly<Record<string, string[]>>;
-}) {
-  const rows = settingRows(item.game_settings, item.inactivity_limit_hours).filter(
-    (row) => !only || only.includes(row.key),
-  );
-  return (
-    <>
-      <RowList rows={rows} warnings={warnings} errors={errors} />
-      {(errors[""] ?? []).map((text, index) => (
-        <p key={`other-${index}`} className="mt-2 text-body-phone text-restordre">
-          {text}
-        </p>
-      ))}
-    </>
-  );
+/** The saved settings as a list; a warning stands as a further description under its setting.
+ * The api's errors on settings with no field show in the open block (`otherErrors`). */
+function ReadOnlyRows({ item, warnings }: { item: ClassSession; warnings: Readonly<Record<string, string[]>> }) {
+  const rows = settingRows(item.game_settings, item.inactivity_limit_hours);
+  return <RowList rows={rows} warnings={warnings} errors={{}} />;
 }
 
 function RowList({

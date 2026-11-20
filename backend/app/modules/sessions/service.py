@@ -33,6 +33,12 @@ kind (`LAB_HOUR_KINDS`), whose mail reads the Lab hour at send time
 (`lab_hour_mail_context`). A removed Lab hour is kept, cancelled, so that mail can still name it.
 `current_lab_hour` is the only way another module learns whether a Lab hour is on.
 
+The obligatory mark, its required share of Weeks and the Inactivity limit (Story 5.7) are saved
+with «Lagre Klasseøkt» and lock at the Start date. Switching the mark on tells every registered
+Student through a digest notice (`OBLIGATORY_NOTICE`, mail read at send time by
+`obligatory_mail_context`). `required_share` is the one source of the share for Story 8.9 and
+Epic 13; nothing here computes Completion with it.
+
 Every mutation passes one guard, `_writable`, which asks `classes.service.is_writable` inside the
 mutation's transaction and raises `classes.service.ClassArchived` (409 `class_archived`) for an
 archived Class. Who may do what is `platform/authz`'s: `class_sessions.read`,
@@ -66,7 +72,13 @@ from app.engine.settings import (
 from app.modules.classes import service as classes
 from app.modules.players import service as players
 from app.modules.sessions import repo
-from app.modules.sessions.models import DATE_NAMES, PLACE_MAX_LENGTH
+from app.modules.sessions.models import (
+    DATE_NAMES,
+    MAX_REQUIRED_SHARE_PERCENT,
+    MIN_INACTIVITY_LIMIT_HOURS,
+    MIN_REQUIRED_SHARE_PERCENT,
+    PLACE_MAX_LENGTH,
+)
 from app.modules.sessions.schemas import (
     AiDescriptionsOut,
     AiMode,
@@ -110,6 +122,9 @@ LAB_HOUR_CHANGED = "lab_hour_changed"
 LAB_HOUR_CANCELLED = "lab_hour_cancelled"
 LAB_HOUR_KINDS = (LAB_HOUR_ADDED, LAB_HOUR_CHANGED, LAB_HOUR_CANCELLED)
 """The notice kinds of Lab hours, all `digest` in `messaging.delivery` (Story 5.6, AD-9)."""
+
+OBLIGATORY_NOTICE = "class_session_obligatory"
+"""The notice kind sent when a Class session is marked obligatory, `digest` (Story 5.7, AD-9)."""
 
 MAX_LAB_HOUR = timedelta(hours=12)
 """The longest Lab hour: hours in a room, so `current_lab_hour` stays meaningful."""
@@ -161,6 +176,14 @@ class InvalidDates(_FieldsError):
     change) or `required`."""
 
     code = "invalid_dates"
+
+
+class InvalidSessionValues(_FieldsError):
+    """The obligatory share or the Inactivity limit breaks its rule (422
+    `invalid_session_values`): `required_share_percent` `out_of_range` (outside 1 to 100),
+    `inactivity_limit_hours` `below_minimum` (under 20)."""
+
+    code = "invalid_session_values"
 
 
 class InvalidLabHour(_FieldsError):
@@ -335,6 +358,13 @@ def is_locked(class_session: ClassSessionLike, *, now: datetime | None = None) -
     return start is not None and start <= (now or auth.utcnow())
 
 
+def required_share(class_session: ClassSessionLike) -> int:
+    """The share of Weeks the Class session requires, a whole percent from 1 to 100 (Story 5.7,
+    FR-17): the one source Story 8.9 and Epic 13 read. It is stored whether or not the session is
+    obligatory; whether a requirement applies is the obligatory mark's to say."""
+    return _value(class_session, "required_share_percent")
+
+
 def effective_debrief_deadline(
     user: authz.Principal | uuid.UUID, class_session: ClassSessionLike
 ) -> datetime | None:
@@ -453,6 +483,7 @@ async def create_session(
             debrief_mode=DEFAULT_DEBRIEF_MODE.value,
             inactivity_limit_hours=DEFAULT_INACTIVITY_LIMIT_HOURS,
             obligatory=DEFAULT_OBLIGATORY,
+            required_share_percent=get_settings().completion_default_share_percent,
             model_config_id=default.id if default else None,
             # The config's default level; `active_default` only returns a config that offers one.
             effort_level=offered[0].name if offered else None,
@@ -549,6 +580,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         debrief_mode=DebriefMode(row["debrief_mode"]),
         inactivity_limit_hours=row["inactivity_limit_hours"],
         obligatory=row["obligatory"],
+        required_share_percent=row["required_share_percent"],
         llm_unavailable=unavailable,
         effort_level=_in_force(row, offered) if llm else None,
         effort_levels=await _levels_out(config_id, offered),
@@ -599,6 +631,9 @@ async def save_session(
     debrief_mode: DebriefMode | None = None,
     dates: DatesIn | None = None,
     game_settings: Mapping[str, Any] | None = None,
+    obligatory: bool | None = None,
+    required_share_percent: int | None = None,
+    inactivity_limit_hours: int | None = None,
 ) -> ClassSessionOut | None:
     """«Lagre Klasseøkt»: saves the Class session as it stands and emits `session:<id>`. LLM
     players on a Class session with no model config take the active default and its budget row
@@ -608,14 +643,18 @@ async def save_session(
     no level is in force. `debrief_mode` None keeps the stored one. With `game_settings` the
     draft is judged by `judge_settings` and stored, or `InvalidSettings` is raised. With `dates`
     the four dates are replaced under the rules of `judge_dates`; a change emits `user:<id>`
-    once per registered Student of the Class. Once locked, a changed AI mode, Effort level,
-    Debrief mode or Game settings raise `SessionLocked`. None when the User may not manage the
-    Class; raises `ClassArchived`."""
+    once per registered Student of the Class. `obligatory`, `required_share_percent` and
+    `inactivity_limit_hours` (Story 5.7), None, keep their values; a changed share outside 1 to
+    100 or limit under 20 raises `InvalidSessionValues`, and switching the mark on enqueues one
+    `OBLIGATORY_NOTICE` per registered Student. Once locked, a changed AI mode, Effort level,
+    Debrief mode, Game settings, obligatory mark, share or Inactivity limit raise
+    `SessionLocked`. None when the User may not manage the Class; raises `ClassArchived`."""
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, session_id)
     if row is None or await _class_for(user, row["class_id"], "class_sessions.manage") is None:
         return None
-    students = await classes.registered_students(row["class_id"]) if dates is not None else []
+    needs_students = dates is not None or obligatory is True
+    students = await classes.registered_students(row["class_id"]) if needs_students else []
     async with get_sessionmaker().begin() as s:
         await _writable(s, row["class_id"])
         row = await repo.session_row(s, session_id, lock=True)
@@ -633,6 +672,17 @@ async def save_session(
         )
         in_force = _in_force(row, offered) if row["ai_mode"] == AiMode.llm.value else None
         level: str | None = None
+        marked = row["obligatory"] if obligatory is None else obligatory
+        share = (
+            row["required_share_percent"]
+            if required_share_percent is None
+            else required_share_percent
+        )
+        limit = (
+            row["inactivity_limit_hours"]
+            if inactivity_limit_hours is None
+            else inactivity_limit_hours
+        )
         try:
             if locked:
                 refused = {
@@ -646,11 +696,15 @@ async def save_session(
                             and effort_level != in_force,
                         ),
                         ("debrief_mode", debrief != row["debrief_mode"]),
+                        ("obligatory", marked != row["obligatory"]),
+                        ("required_share_percent", share != row["required_share_percent"]),
+                        ("inactivity_limit_hours", limit != row["inactivity_limit_hours"]),
                     )
                     if differs
                 }
                 if refused:
                     raise SessionLocked(refused)
+            _judge_values(row, share, limit)
             if game_settings is not None:
                 new_settings = _settings_to_store(row, game_settings, locked=locked)
             if dates is not None:
@@ -700,16 +754,33 @@ async def save_session(
             debrief_mode=debrief,
             dates=changed,
             game_settings=new_settings.model_dump(mode="json") if new_settings else None,
+            obligatory=marked,
+            required_share_percent=share,
+            inactivity_limit_hours=limit,
         )
         await events.emit(s, "session", str(session_id))
         if changed:
             for student in students:
                 await events.emit(s, "user", str(student))
+        switched_on = marked and not row["obligatory"]
+        if switched_on:
+            # The moment in the key: a mark switched off and on again later is told again; the
+            # mail leaves the notice out if the mark is off when the digest goes (AD-9).
+            for student in students:
+                await notify.enqueue(
+                    s,
+                    student,
+                    OBLIGATORY_NOTICE,
+                    f"{OBLIGATORY_NOTICE}:{session_id}:{now.isoformat()}:{student}",
+                    ref=session_id,
+                )
     log.info(
         "class_session_saved",
         class_session_id=str(session_id),
         dates=sorted(changed),
         settings_changed=new_settings is not None,
+        obligatory_switched_on=switched_on,
+        students_told=len(students) if switched_on else 0,
     )
     if changed and locked:
         # After the start a moved deadline holds for the whole Class session (FR-18).
@@ -717,6 +788,20 @@ async def save_session(
             "class_session_dates_moved", class_session_id=str(session_id), dates=sorted(changed)
         )
     return await get_session(user, session_id)
+
+
+def _judge_values(row: Mapping[str, Any], share: int, limit: int) -> None:
+    """Raises `InvalidSessionValues` for a changed share outside 1 to 100 or a changed Inactivity
+    limit under 20 (FR-17, FR-36). An unchanged value is never judged."""
+    wrong: dict[str, str] = {}
+    if share != row["required_share_percent"] and not (
+        MIN_REQUIRED_SHARE_PERCENT <= share <= MAX_REQUIRED_SHARE_PERCENT
+    ):
+        wrong["required_share_percent"] = "out_of_range"
+    if limit != row["inactivity_limit_hours"] and limit < MIN_INACTIVITY_LIMIT_HOURS:
+        wrong["inactivity_limit_hours"] = "below_minimum"
+    if wrong:
+        raise InvalidSessionValues(wrong)
 
 
 def _settings_to_store(
@@ -1102,3 +1187,23 @@ async def lab_hour_mail_context(
         "ends_at": lab["ends_at"].astimezone(OSLO),
         "place": lab["place"],
     }
+
+
+async def obligatory_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of an `OBLIGATORY_NOTICE`, for `messaging` at send time (Story
+    5.7, AD-9): the Class's name. None, so the notice is left out, when the Class session is gone
+    or no longer obligatory, the Class is archived, or the User is no longer a registered Student
+    of it."""
+    if ref is None:
+        return None
+    row = await repo.session_row(session, ref)
+    if row is None or not row["obligatory"]:
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None or label.archived:
+        return None
+    if user_id not in await classes.registered_students(row["class_id"]):
+        return None
+    return {"class_name": label.name}

@@ -163,6 +163,9 @@ async def save(
     debrief_mode: str,
     dates: dict[str, datetime | None] | None,
     game_settings: dict[str, Any] | None = None,
+    obligatory: bool,
+    required_share_percent: int,
+    inactivity_limit_hours: int,
 ) -> None:
     values: dict[str, Any] = {**(dates or {})}
     if game_settings is not None:
@@ -176,6 +179,9 @@ async def save(
             model_config_id=model_config_id,
             effort_level=effort_level,
             debrief_mode=debrief_mode,
+            obligatory=obligatory,
+            required_share_percent=required_share_percent,
+            inactivity_limit_hours=inactivity_limit_hours,
             **values,
         )
     )

@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 import psycopg
@@ -66,7 +67,7 @@ PRE_SESSION_TABLES = (
     | ROSTER_TABLES
 )
 HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES
-HEAD = "0035"  # 0035 adds the Lab hours of a Class session (Story 5.6)
+HEAD = "0036"  # 0036 adds the required share of Weeks of a Class session (Story 5.7)
 
 
 def reset_schema(url: str) -> None:
@@ -677,6 +678,57 @@ def test_0035_keeps_a_lab_hour_in_order_and_its_downgrade_drops_the_table(migrat
     assert "120" in checks["ck_lab_hours_place"]
     command.downgrade(cfg, "0034")
     assert "lab_hours" not in tables(migrations_database)
+    command.upgrade(cfg, "head")
+    assert current_version(migrations_database) == HEAD
+
+
+def test_0036_backfills_80_keeps_the_share_in_range_and_its_downgrade_drops_it(
+    migrations_database,
+):
+    """0036 (Story 5.7): a whole percent from 1 to 100, 80 for rows stored before, and no
+    database default afterwards."""
+    reset_schema(migrations_database)
+    cfg = config(migrations_database)
+    command.upgrade(cfg, "0035")
+    session = "00000000-0000-0000-0000-000000000036"
+    insert = (
+        "INSERT INTO class_sessions (id, class_id, game_settings, ai_mode, debrief_mode, "
+        "inactivity_limit_hours, obligatory, created_at{share}) VALUES (%s, "
+        "'00000000-0000-0000-0000-000000000002', '{{}}', 'rule_based', 'group', 24, false, "
+        "now(){value})"
+    )
+    with psycopg.connect(libpq_dsn(migrations_database), autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO institutions (id, name, created_at, updated_at) VALUES "
+            "('00000000-0000-0000-0000-000000000009', 'I', now(), now())"
+        )
+        conn.execute(
+            "INSERT INTO classes (id, name, institution_id, created_at) VALUES "
+            "('00000000-0000-0000-0000-000000000002', 'K', "
+            "'00000000-0000-0000-0000-000000000009', now())"
+        )
+        conn.execute(insert.format(share="", value=""), (session,))
+    command.upgrade(cfg, "head")
+    query = (
+        "SELECT column_default FROM information_schema.columns "
+        "WHERE table_name = 'class_sessions' AND column_name = 'required_share_percent'"
+    )
+    with psycopg.connect(libpq_dsn(migrations_database), autocommit=True) as conn:
+        assert conn.execute(
+            "SELECT required_share_percent FROM class_sessions WHERE id = %s", (session,)
+        ).fetchall() == [(80,)]
+        assert conn.execute(query).fetchall() == [(None,)]
+        for value, allowed in ((0, False), (1, True), (100, True), (101, False)):
+            row = str(uuid.uuid4())
+            statement = insert.format(share=", required_share_percent", value=f", {value}")
+            if allowed:
+                conn.execute(statement, (row,))
+            else:
+                with pytest.raises(psycopg.errors.CheckViolation):
+                    conn.execute(statement, (row,))
+    command.downgrade(cfg, "0035")
+    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+        assert conn.execute(query).fetchall() == []
     command.upgrade(cfg, "head")
     assert current_version(migrations_database) == HEAD
 
