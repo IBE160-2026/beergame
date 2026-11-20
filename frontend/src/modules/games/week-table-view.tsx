@@ -23,7 +23,12 @@ const NET_FILL: Record<NetStep, string> = {
   "neg-4": "bg-net-neg-4 text-paper",
 };
 
-const WEEK_COL = "w-[1.6em] min-w-[1.6em] px-0 text-center";
+// 1.6 em, so 12 columns fit at 360 px; a column whose number is wider grows to it plus a small
+// side gap, so neighbouring numbers («−14», «−20», «27,5») never run together (DESIGN.md → Graf
+// over tabell at narrow widths).
+const WEEK_COL = "w-[1.6em] min-w-[1.6em] px-[0.1em] text-center";
+/** Netto lager cells stand apart as separate squares, as drawn (`05-spill.png`). */
+const NET_CELL = "shadow-[inset_0_0_0_1px_var(--color-paper)]";
 const ROW_LABEL =
   "sticky left-0 z-10 min-w-row-label-phone bg-paper pr-2 text-left align-middle font-normal text-ink lg:min-w-row-label-laptop";
 
@@ -135,7 +140,7 @@ export function WeekTable({ state }: { state: SeatState }) {
       </div>
       <div className="flex flex-wrap justify-between gap-x-4 px-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] lg:px-0">
         <p className="mt-1 text-caption text-ink-secondary">
-          <span aria-hidden="true" className="mr-1 inline-block h-[0.9em] w-[1.2em] border border-ink-muted align-[-0.1em]" />
+          <span aria-hidden="true" className="mr-1 inline-block h-[0.9em] w-[1.2em] border border-ink align-[-0.1em]" />
           {copy.arrivalKey}
         </p>
         {earlierHidden ? <p className="mt-1 text-caption text-ink-secondary">{copy.swipe}</p> : null}
@@ -148,13 +153,13 @@ function WeekCell({ column, cell }: { column: Column; cell: Cell }) {
   const base = cn(WEEK_COL, "h-row-phone lg:h-row-laptop", columnClass(column));
   switch (cell.kind) {
     case "net":
-      return <td className={cn(base, NET_FILL[cell.step])}>{cell.text}</td>;
+      return <td className={cn(base, NET_CELL, NET_FILL[cell.step])}>{cell.text}</td>;
     case "plain":
       return <td className={base}>{cell.text}</td>;
     case "arrival":
       return (
         <td className={base}>
-          <span className="inline-block min-w-[1.3em] border border-ink-muted leading-tight">{cell.text}</span>
+          <span className="inline-block min-w-[1.3em] border border-ink leading-tight">{cell.text}</span>
           <span className="sr-only">, {copy.arrival}</span>
         </td>
       );
