@@ -1413,3 +1413,25 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 113: beslutninger i Story 5.15.
+
+## Story 5.16: Sette informasjonssynlighet (kuttliste, `FEATURE_INFO_VISIBILITY`) (2026-11-20)
+
+### Oppgave
+Bygge Story 5.16 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto` etter samme mønster som 5.15, gjøre en visuell kontroll og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-16-set-information-visibility.md`.
+- **Commit 79ad488:** `info_visibility` i innstillingene (`schema_version` 2) og «Synlige naboer» med to brytere bak flagget.
+- **Tester:**
+  - backend: 2591 tester, og dekningen av motoren er 100 %;
+  - frontend: Vitest 445, typecheck og bygg;
+  - Playwright: 267/267 i én kjøring. I neste kjøring fikk 12 tester tidsavbrudd rett etter bygget, og de passerte ved ny kjøring.
+- **Gjennomgang:** 28 funn. Det middels funnet er rettet.
+- **Visuell kontroll:** 10 skjermbilder i `screenshots/5.16/`. Ett avvik er rettet (d065411).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 114: beslutninger i Story 5.16.
