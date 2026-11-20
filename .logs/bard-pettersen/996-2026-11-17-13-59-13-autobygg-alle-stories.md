@@ -1178,3 +1178,24 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 103: beslutninger i Story 5.5.
+
+## Story 5.6: Legge til labtimer (2026-11-20)
+
+### Oppgave
+Bygge Story 5.6 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-6-add-lab-hours.md`.
+- **Commit 3e79579:** migrasjon 0035 `lab_hours`, ruter for å legge til, endre og fjerne, melding i den daglige oppsummeringsmailen, labtimer på datolinja med forklaring og liste.
+- **Tester:**
+  - backend: 2412 tester;
+  - frontend: Vitest 414, typecheck, bygg og Playwright 224.
+- **Gjennomgang:** 38 punkter. Det middels punktet (fokus etter «Avbryt») er rettet.
+- **Visuell kontroll:** 20 skjermbilder i `screenshots/5.6/`. Ett avvik er rettet (795a5a9).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 104: beslutninger i Story 5.6.
