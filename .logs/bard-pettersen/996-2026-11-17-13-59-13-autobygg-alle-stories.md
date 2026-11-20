@@ -1789,3 +1789,25 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 130: beslutninger i Story 6.12.
+
+## Story 6.13: Aldri miste eller doble en ordre ved dårlig forbindelse (2026-11-21)
+
+### Oppgave
+Bygge Story 6.13 etter kjøreboka, og rette bruddet før «…» fra Issue #130.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-13-never-lose-or-double-an-order-on-a-bad-connection.md`.
+- **Commit 8821dcd:** sjekk av lagret ordre etter feil, tidsavbrudd etter 10 s med sjekk, tilstand uten nett, og en API-test for kappløp. Ingen endringer i backend-koden.
+- **Tester:**
+  - backend: 2713 tester;
+  - frontend: Vitest 644 og bygg;
+  - Playwright: 390 passerte og 1 feilet på en lokator, som er rettet.
+- **Gjennomgang:** 37 funn, 5 middels. Byggeagenten anbefaler en oppfølgende gjennomgang.
+- **Visuell kontroll:** 26 skjermbilder i `screenshots/6.13/`. Ingen avvik. Hele Playwright-pakken passerte 395/395.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 131: beslutninger i Story 6.13.
