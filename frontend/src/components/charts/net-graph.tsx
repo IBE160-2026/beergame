@@ -106,11 +106,13 @@ export function NetGraph(props: NetGraphProps) {
       </defs>
       {/* `future-tint` right of the now-line: known arrivals, never the past (DESIGN.md). */}
       <rect x={nowX} y={0} width={Math.max(0, width - nowX)} height={height} fill={colour("future-tint")} />
+      {/* Gridlines and the zero line stop at nå, so no rule runs through the direct labels right of
+          it (mockup 05); a projection (Replay) is drawn there, so they then run on. */}
       {ticks.map((tick) => (
         <line
           key={tick}
           x1={0}
-          x2={width}
+          x2={projection && projection.length > 0 ? width : Math.min(width, nowX)}
           y1={y(tick)}
           y2={y(tick)}
           stroke={colour(tick === 0 ? "axis" : "hairline")}
