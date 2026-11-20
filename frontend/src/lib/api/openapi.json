@@ -268,12 +268,63 @@
         "title": "AllocationGameOut",
         "type": "object"
       },
+      "AllocationMoveIn": {
+        "additionalProperties": false,
+        "description": "Move or swap in the allocation (Story 5.10): the draft the Lecturer is looking at, the\nSeat of the Student who moves, and the Seat they move to. A Student in that Seat takes the\nfirst Seat (a swap).",
+        "properties": {
+          "draft_id": {
+            "format": "uuid",
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "from_game": {
+            "title": "From Game",
+            "type": "integer"
+          },
+          "from_role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "to_game": {
+            "title": "To Game",
+            "type": "integer"
+          },
+          "to_role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "draft_id",
+          "revision",
+          "from_game",
+          "from_role",
+          "to_game",
+          "to_role"
+        ],
+        "title": "AllocationMoveIn",
+        "type": "object"
+      },
       "AllocationOut": {
         "description": "The «Fordeling» block: the registered Students now, those of them not in the draft (they\nregistered after it was drawn), and the draft, None until one is drawn.",
         "properties": {
           "confirmed": {
             "title": "Confirmed",
             "type": "boolean"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
           },
           "draft": {
             "anyOf": [
@@ -298,7 +349,8 @@
           "registered_count",
           "missing_count",
           "draft",
-          "confirmed"
+          "confirmed",
+          "confirmed_at"
         ],
         "title": "AllocationOut",
         "type": "object"
@@ -5714,6 +5766,99 @@
           }
         },
         "summary": "Confirm Allocation",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/allocation/move": {
+      "post": {
+        "description": "Move a Student to a free Seat, or swap two (Story 5.10, FR-20), in the draft named by\n`draft_id` and `revision`: the Student of `from_game`/`from_role` takes\n`to_game`/`to_role`, and a Student there takes the first Seat. The draft keeps its id and\nits revision rises by one. Once the allocation is confirmed the Class games change in the\nsame transaction and the Students who moved are told through the day's digest mail.\n\n409 `allocation_changed` (`{\"draft\": \"changed\"}`) when the draft is no longer the current\none; 422 `invalid_move` with `fields` `{\"to\": \"same\"}`, `{\"from\"|\"to\": \"unknown\"}`,\n`{\"from\": \"empty\"}` or `{\"from\": \"last_student\"}`; 409 `session_locked` (`{\"allocation\":\n\"locked\"}`) once the Start date has passed; 409 `class_archived` for an archived Class.\nA confirmed allocation's Games refusing the move answer the command's code (such as 409\n`game_already_started`). Nothing is committed on any refusal.",
+        "operationId": "moveInAllocation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllocationMoveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllocationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Move In Allocation",
         "tags": [
           "sessions"
         ]

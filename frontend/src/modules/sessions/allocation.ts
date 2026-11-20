@@ -66,3 +66,40 @@ export function nextGame(key: string, selected: number, count: number): number |
       return null;
   }
 }
+
+/** A Seat in the allocation, by its game: what a move starts from or goes to (Story 5.10). */
+export type SeatAt = { game: number; seat: AllocationSeat };
+
+/** The button that picks a Student to move: «Flytt eller bytt Ida, Detaljist i Spill 3». */
+export function pickLabel({ game, seat }: SeatAt): string {
+  return copy.pick(holderName(seat), roleName(seat.role), game);
+}
+
+/** The button on another Seat once a Student is picked: a swap when a Student holds it, otherwise
+ * a move to the free Seat. Each names the Student, the Role and the Klassespill (UX-DR50). */
+export function targetLabel(picked: SeatAt, target: SeatAt): string {
+  const name = holderName(picked.seat);
+  const role = roleName(picked.seat.role);
+  if (target.seat.user_id != null) {
+    return copy.swapWith(
+      name,
+      role,
+      picked.game,
+      holderName(target.seat),
+      roleName(target.seat.role),
+      target.game,
+    );
+  }
+  return copy.moveTo(name, role, picked.game, roleName(target.seat.role), target.game);
+}
+
+/** What the status line says once the move or swap is stored. */
+export function movedLine(picked: SeatAt, target: SeatAt): string {
+  if (target.seat.user_id != null) return copy.swapped(holderName(picked.seat), holderName(target.seat));
+  return copy.moved(holderName(picked.seat), roleName(target.seat.role), target.game);
+}
+
+/** Why a move was refused (422 `invalid_move`), by its `fields`. */
+export function invalidMoveReason(fields: Readonly<Record<string, unknown>> | undefined): string {
+  return fields?.from === "last_student" ? copy.moveLastStudent : copy.moveInvalid;
+}

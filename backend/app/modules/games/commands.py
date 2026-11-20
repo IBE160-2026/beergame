@@ -71,6 +71,7 @@ __all__ = [
     "assign_seat",
     "create",
     "finish",
+    "move_seat",
     "place_order",
     "start",
     "switch_to_rule_based",
@@ -493,6 +494,116 @@ async def assign_seat(
     if within is None:
         await _settle(game_id)
     return str(occupancy_id)
+
+
+async def move_seat(
+    game_id: str,
+    role: Role | str,
+    to_game_id: str,
+    to_role: Role | str,
+    *,
+    within: AsyncSession | None = None,
+) -> None:
+    """Move the Student of one Seat to another Seat of the same Class session before the start
+    (Story 5.10, FR-20): to a free Seat, which leaves the first Seat free, or to a Seat another
+    Student holds, who takes the first Seat (a swap). Both Games are locked in id order, so two
+    moves over the same Games never deadlock.
+
+    The Seats get rows from Week 1 (`student`, reason `initial`); a Seat left free gets a row
+    with no occupant kind and reason `moved`, since occupancy is append-only (AD-5). Each Game's
+    version rises with `game:<id>` (and `session:<id>`), and each moved Student gets
+    `user:<id>`. A Student holds one Seat per Class session afterwards
+    (`student_already_seated` otherwise, nothing kept).
+
+    Refuses `game_not_found`, `game_already_started`, `class_session_mismatch` (the two Games are
+    not of one Class session), `occupant_kind_not_allowed` (no Students in this purpose),
+    `unknown_role`, `same_seat`, `seat_not_student` (no Student to move) and `seat_occupied` (the
+    target holds an AI player). `within` is the caller's transaction (`sessions`).
+    """
+    source_id, target_id = _game_uuid(game_id), _game_uuid(to_game_id)
+    async with _transaction(within) as session:
+        locked: dict[uuid.UUID, Mapping[str, object]] = {}
+        for each in sorted({source_id, target_id}):
+            game = await repo.lock_game(session, each)
+            if game is None:
+                raise CommandError("game_not_found", f"no Game {str(each)!r}", 404)
+            locked[each] = game
+        source, target = locked[source_id], locked[target_id]
+        if source["class_session_id"] is None or (
+            source["class_session_id"] != target["class_session_id"]
+        ):
+            raise CommandError(
+                "class_session_mismatch", "a Student moves between Games of one Class session", 422
+            )
+        if not _policy(str(source["purpose"])).student_occupants:
+            raise CommandError(
+                "occupant_kind_not_allowed", "a Seat of this Game cannot be given a Student", 422
+            )
+        if any(game["lifecycle"] != Lifecycle.NOT_STARTED for game in locked.values()):
+            raise CommandError(
+                "game_already_started", "Students move only before the Game starts", 409
+            )
+        from_seat = await repo.seat_by_role(session, source_id, str(role))
+        to_seat = await repo.seat_by_role(session, target_id, str(to_role))
+        if from_seat is None or to_seat is None:
+            raise CommandError("unknown_role", "the Game has no Seat for that Role", 422)
+        if from_seat["id"] == to_seat["id"]:
+            raise CommandError("same_seat", "a Student moves to another Seat", 422)
+        moving = _holder(await repo.seats_with_occupant(session, source_id), from_seat["id"])
+        staying = _holder(await repo.seats_with_occupant(session, target_id), to_seat["id"])
+        if moving is None or moving["occupant_kind"] != OccupantKind.STUDENT:
+            raise CommandError("seat_not_student", f"no Student holds the {role} Seat", 409)
+        if staying is not None and staying["occupant_kind"] not in (None, OccupantKind.STUDENT):
+            raise CommandError(
+                "seat_occupied", f"the {to_role} Seat holds a player who does not move", 409
+            )
+        swapped = staying["user_id"] if staying is not None else None
+        await _append_initial(
+            session, to_seat["id"], OccupantKind.STUDENT, None, user_id=moving["user_id"]
+        )
+        if swapped is not None:
+            await _append_initial(
+                session, from_seat["id"], OccupantKind.STUDENT, None, user_id=swapped
+            )
+        else:
+            await repo.append_occupancy(
+                session,
+                {
+                    "id": uuid.uuid7(),
+                    "seat_id": from_seat["id"],
+                    "from_week": 1,
+                    "occupant_kind": None,
+                    "policy_id": None,
+                    "reason": OccupancyReason.MOVED.value,
+                    "user_id": None,
+                },
+            )
+        students = [moving["user_id"], *([swapped] if swapped is not None else [])]
+        class_session = source["class_session_id"]
+        for student in students:
+            if await repo.student_seat_count(session, class_session, student) != 1:
+                raise CommandError(
+                    "student_already_seated",
+                    "the Student already holds a Seat in this Class session",
+                    409,
+                )
+        for each in sorted(locked):
+            await _commit_change(session, each)
+        for student in students:
+            await events.emit(session, "user", str(student))
+    log.info(
+        "seat_moved",
+        game_id=str(source_id),
+        to_game_id=str(target_id),
+        swapped=swapped is not None,
+    )
+
+
+def _holder(
+    rows: Sequence[Mapping[str, object]], seat_id: uuid.UUID
+) -> Mapping[str, object] | None:
+    """The Seat's row from `repo.seats_with_occupant`: its latest occupant kind and Student."""
+    return next((row for row in rows if row["id"] == seat_id), None)
 
 
 async def _append_initial(

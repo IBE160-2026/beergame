@@ -67,7 +67,7 @@ PRE_SESSION_TABLES = (
     | ROSTER_TABLES
 )
 HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES
-HEAD = "0038"  # 0038 adds Class games and the confirmed allocation (Story 5.9)
+HEAD = "0039"  # 0039 lets a Seat be freed before the start (Story 5.10)
 
 
 def reset_schema(url: str) -> None:
@@ -733,12 +733,13 @@ def test_0036_backfills_80_keeps_the_share_in_range_and_its_downgrade_drops_it(
     assert current_version(migrations_database) == HEAD
 
 
-def test_0037_and_0038_keep_one_draft_per_session_and_class_games_and_downgrade(
+def test_0037_to_0039_keep_one_draft_per_session_class_games_and_free_seats(
     migrations_database,
 ):
     """0037 (Story 5.8): one current draft per Class session, its revision from 1. 0038 (Story
     5.9): a Game's snapshot is all there or all NULL, a Class game has its session and a unique
-    number, and only a `student` occupant has a user id."""
+    number, and only a `student` occupant has a user id. 0039 (Story 5.10): a free-Seat row has
+    no occupant kind and the reason `moved`."""
     reset_schema(migrations_database)
     cfg = config(migrations_database)
     command.upgrade(cfg, "head")
@@ -760,7 +761,12 @@ def test_0037_and_0038_keep_one_draft_per_session_and_class_games_and_downgrade(
     assert "num_nulls(settings, demand_series" in games["ck_games_snapshot"]
     assert "UNIQUE (class_session_id, game_number)" in games["uq_games_class_session_number"]
     assert "game_number IS NULL" in games["ck_games_class_session"]
-    assert "user_id IS NULL" in constraints("seat_occupancy")["ck_seat_occupancy_user_student"]
+    occupancy = constraints("seat_occupancy")
+    assert "user_id IS NULL" in occupancy["ck_seat_occupancy_user_student"]
+    assert "'moved'" in occupancy["ck_seat_occupancy_free"]
+    command.downgrade(cfg, "0038")
+    assert "ck_seat_occupancy_free" not in constraints("seat_occupancy")
+    assert "'moved'" not in constraints("seat_occupancy")["ck_seat_occupancy_reason"]
     command.downgrade(cfg, "0037")
     assert "ck_games_snapshot" not in constraints("games")
     command.downgrade(cfg, "0036")

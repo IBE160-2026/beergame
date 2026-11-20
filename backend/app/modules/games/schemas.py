@@ -53,6 +53,9 @@ class OccupancyReason(StrEnum):
     GUARD_SWITCH = "guard_switch"
     COST_LIMIT = "cost_limit"
     PLAYOUT = "playout"
+    MOVED = "moved"
+    """The Seat was freed before the start: its Student moved to another Seat (Story 5.10). The
+    row has no occupant kind; it is the only reason such a row has."""
 
 
 class DecidedBy(StrEnum):
@@ -282,7 +285,8 @@ class OccupancyRow(BaseModel):
     role: str
     seat_id: str
     from_week: int
-    occupant_kind: OccupantKind
+    occupant_kind: OccupantKind | None
+    """None: the Seat is free from `from_week` on (reason `moved`, Story 5.10)."""
     policy_id: str | None
     reason: OccupancyReason
 

@@ -189,3 +189,16 @@ export function redrawAllocation(sessionId: string) {
     api.POST("/api/class-sessions/{session_id}/allocation/redraw", { params: { path: { session_id: sessionId } } }),
   );
 }
+
+export type AllocationMove = Omit<components["schemas"]["AllocationMoveIn"], "draft_id" | "revision">;
+
+/** Move a Student to a free Seat, or swap two, in the draft shown, by its id and revision
+ * (Story 5.10). Once confirmed the Class games change too, and the Students who moved are told. */
+export function moveInAllocation(sessionId: string, draftId: string, revision: number, move: AllocationMove) {
+  return request(() =>
+    api.POST("/api/class-sessions/{session_id}/allocation/move", {
+      params: { path: { session_id: sessionId } },
+      body: { draft_id: draftId, revision, ...move },
+    }),
+  );
+}

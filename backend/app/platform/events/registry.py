@@ -13,6 +13,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "games.finish": frozenset({"game"}),
         "games.advance": frozenset({"game"}),
         "games.switch_to_rule_based": frozenset({"game"}),
+        # A Student moved or two swapped before the start (Story 5.10): only Class games take
+        # Students, so their Class session hears of it, and each moved Student's pages reload.
+        "games.move_seat": frozenset({"game", "session", "user"}),
         # A notice to a User (Story 3.5, AD-9); a notice addressed by reference emits nothing.
         "notify.enqueue": frozenset({"user"}),
         # A role the Admin grants or revokes (Story 3.9): the User's open pages reload it.
@@ -39,6 +42,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # again, and each Student's allocation notice emits `user:<id>`. A confirm that only
         # takes removed Students out of the draft emits `session` alone.
         "sessions.confirm_allocation": frozenset({"game", "session", "user"}),
+        # A Student moved or two swapped in the allocation (Story 5.10): before the confirmation
+        # only the draft changes (`session`); after it `games.move_seat` runs in the same
+        # transaction (`game`, `session`, `user`) and each moved Student's notice emits `user`.
+        "sessions.move_allocation": frozenset({"game", "session", "user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

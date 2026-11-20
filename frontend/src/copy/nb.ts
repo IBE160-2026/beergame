@@ -1061,6 +1061,37 @@ export const nb = {
       confirmFailed: "Fordelingen ble ikke bekreftet. Prøv igjen.",
       confirmLocked: "Klasseøkten har startet. Fordelingen kan ikke bekreftes lenger.",
       redrawConfirmed: "Fordelingen er bekreftet og kan ikke trekkes på nytt.",
+      // Issue 107 and Story 5.10: [ASSUMPTION] draft copy, except «Fordelingen er bekreftet».
+      /** «Fordelingen er bekreftet ti. 24. nov. kl. 10:00.» in the open panel. */
+      confirmedOn: (day: string, time: string) => `Fordelingen er bekreftet ${day} kl. ${time}.`,
+      movedNotice: "De som flyttes eller byttes, får beskjed på e-post.",
+      /** The selected game's Seats, where Students are moved and swapped: «Seter i Spill 3». */
+      seatsHeading: (game: number) => `Seter i Spill ${game}`,
+      /** «Flytt eller bytt Ida, Detaljist i Spill 3». */
+      pick: (name: string, role: string, game: number) => `Flytt eller bytt ${name}, ${role} i Spill ${game}`,
+      cancelPick: "Avbryt flyttingen",
+      /** The buttons' visible text; each starts its full accessible name below. */
+      pickShort: "Flytt eller bytt",
+      swapShort: "Bytt",
+      moveShort: "Flytt",
+      /** Said once a Student is picked, and kept while another game is chosen. */
+      picked: (name: string, role: string, game: number) =>
+        `${name}, ${role} i Spill ${game}, skal flyttes. Velg et spill i diagrammet og så et sete.`,
+      /** «Bytt Ida (Detaljist, Spill 3) med Sara (Grossist, Spill 5)». */
+      swapWith: (name: string, role: string, game: number, other: string, otherRole: string, otherGame: number) =>
+        `Bytt ${name} (${role}, Spill ${game}) med ${other} (${otherRole}, Spill ${otherGame})`,
+      /** «Flytt Ida (Detaljist, Spill 3) til ledig sete: Grossist i Spill 5». */
+      moveTo: (name: string, role: string, game: number, toRole: string, toGame: number) =>
+        `Flytt ${name} (${role}, Spill ${game}) til ledig sete: ${toRole} i Spill ${toGame}`,
+      /** «Ida er flyttet til Grossist i Spill 5.» */
+      moved: (name: string, role: string, game: number) => `${name} er flyttet til ${role} i Spill ${game}.`,
+      swapped: (name: string, other: string) => `${name} og ${other} har byttet plass.`,
+      moving: "Flytter …",
+      moveFailed: "Flyttingen ble ikke lagret. Prøv igjen.",
+      moveLocked: "Klasseøkten har startet. Ingen kan flyttes lenger.",
+      moveLastStudent: "Spillet ville stått uten studenter. Bytt med en student i stedet.",
+      moveInvalid: "Det setet kan ikke brukes. Velg et annet.",
+      moveStarted: "Spillet har startet. Ingen kan flyttes inn eller ut av det.",
     },
     /** The Lærerhjem's «Venter» and «Neste frist» (Stories 5.2, 5.9, UX-DR56). [ASSUMPTION] */
     home: {

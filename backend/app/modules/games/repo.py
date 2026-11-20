@@ -64,10 +64,16 @@ async def seat(session: AsyncSession, game_id: uuid.UUID, seat_id: uuid.UUID) ->
 
 
 async def has_occupant(session: AsyncSession, seat_id: uuid.UUID) -> bool:
+    """Whether the Seat has an occupant now: a latest occupancy row with an occupant kind. A
+    Seat with no row, or whose latest row freed it (Story 5.10), is free."""
     result = await session.execute(
-        select(seat_occupancy.c.id).where(seat_occupancy.c.seat_id == seat_id).limit(1)
+        select(seat_occupancy.c.occupant_kind)
+        .where(seat_occupancy.c.seat_id == seat_id)
+        .order_by(seat_occupancy.c.id.desc())
+        .limit(1)
     )
-    return result.first() is not None
+    row = result.first()
+    return row is not None and row[0] is not None
 
 
 async def append_occupancy(session: AsyncSession, values: dict[str, Any]) -> None:
@@ -117,8 +123,15 @@ def _latest_occupancy(*where: Any) -> Any:
 async def student_seated(
     session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
 ) -> bool:
-    """Whether the Student holds a Seat in a Game of the Class session now (Story 5.9). Only
-    the occupancy rows of that session's Seats are read."""
+    """Whether the Student holds a Seat in a Game of the Class session now (Story 5.9)."""
+    return await student_seat_count(session, class_session_id, user_id) > 0
+
+
+async def student_seat_count(
+    session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> int:
+    """How many Seats the Student holds in the Games of the Class session now (Stories 5.9,
+    5.10). Only the occupancy rows of that session's Seats are read."""
     session_seats = (
         select(seats.c.id)
         .join(games, games.c.id == seats.c.game_id)
@@ -126,7 +139,7 @@ async def student_seated(
     )
     latest = _latest_occupancy(seat_occupancy.c.seat_id.in_(session_seats))
     result = await session.execute(
-        select(seats.c.id)
+        select(func.count())
         .select_from(
             seats.join(latest, latest.c.seat_id == seats.c.id).join(
                 games, games.c.id == seats.c.game_id
@@ -137,9 +150,18 @@ async def student_seated(
             latest.c.occupant_kind == "student",
             latest.c.user_id == user_id,
         )
-        .limit(1)
     )
-    return result.first() is not None
+    return int(result.scalar_one())
+
+
+async def class_game_ids(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> dict[int, uuid.UUID]:
+    """The Class session's Games by game number (Story 5.10)."""
+    result = await session.execute(
+        select(games.c.game_number, games.c.id).where(games.c.class_session_id == class_session_id)
+    )
+    return {number: game_id for number, game_id in result.all()}
 
 
 async def set_lifecycle(session: AsyncSession, game_id: uuid.UUID, lifecycle: str) -> None:

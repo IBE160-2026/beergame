@@ -37,6 +37,13 @@ def _in(column: str, values: type[StrEnum]) -> str:
     return f"{column} IN ({', '.join(repr(value.value) for value in values)})"
 
 
+FREE_SEAT_ROW = (
+    "(occupant_kind IS NULL) = (reason = 'moved') "
+    "AND (occupant_kind IS NOT NULL OR (policy_id IS NULL AND user_id IS NULL))"
+)
+"""A free-Seat occupancy row (Story 5.10): no occupant kind, reason `moved`, no policy id or
+user id; and `moved` is never the reason of an occupant."""
+
 SNAPSHOT_COLUMNS = ("settings", "demand_series", "demand_seed", "rules_version", "session_runtime")
 SNAPSHOT_TOGETHER = f"num_nulls({', '.join(SNAPSHOT_COLUMNS)}) IN (0, {len(SNAPSHOT_COLUMNS)})"
 
@@ -113,7 +120,9 @@ seat_occupancy = Table(
     Column("id", Uuid, primary_key=True),
     Column("seat_id", Uuid, ForeignKey("seats.id"), nullable=False, index=True),
     Column("from_week", Integer, nullable=False),
-    Column("occupant_kind", Text, nullable=False),
+    # NULL: the Seat is free from `from_week` on, its Student moved before the start (reason
+    # `moved`, Story 5.10). Append-only, so freeing a Seat is a row too.
+    Column("occupant_kind", Text, nullable=True),
     Column("policy_id", Text, nullable=True),
     Column("reason", Text, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
@@ -125,6 +134,7 @@ seat_occupancy = Table(
         "occupant_kind = 'student' OR user_id IS NULL", name="ck_seat_occupancy_user_student"
     ),
     CheckConstraint(_in("occupant_kind", OccupantKind), name="ck_seat_occupancy_kind"),
+    CheckConstraint(FREE_SEAT_ROW, name="ck_seat_occupancy_free"),
     CheckConstraint(_in("reason", OccupancyReason), name="ck_seat_occupancy_reason"),
 )
 """Append-only (AD-5): a trigger refuses UPDATE and DELETE. The latest row by `id` (UUIDv7) is

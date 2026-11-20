@@ -3,6 +3,7 @@ topics the events registry lists for it."""
 
 import ast
 import inspect
+import uuid
 from pathlib import Path
 
 from sqlalchemy import event
@@ -81,6 +82,14 @@ async def _run_switch_to_rule_based() -> str:
     return game_id
 
 
+async def _run_move_seat() -> str:
+    """A Student of a Class game moves to its free Factory Seat (Story 5.10)."""
+    game_id = await commands.create("class", class_session_id=uuid.uuid7(), game_number=1)
+    await commands.assign_seat(game_id, "retailer", "student", user_id=uuid.uuid7())
+    await commands.move_seat(game_id, "retailer", game_id, "factory")
+    return game_id
+
+
 RUNNERS = {
     "create": _run_create,
     "assign_seat": _run_assign_seat,
@@ -89,6 +98,7 @@ RUNNERS = {
     "finish": _run_finish,
     "advance": _run_advance,
     "switch_to_rule_based": _run_switch_to_rule_based,
+    "move_seat": _run_move_seat,
 }
 """How to run each command once; a command added without a runner fails the test below."""
 
@@ -105,6 +115,7 @@ def test_every_command_is_exported_and_registered():
             "finish",
             "advance",
             "switch_to_rule_based",
+            "move_seat",
         }
         == set(RUNNERS)
     )
@@ -120,6 +131,12 @@ async def test_each_command_emits_exactly_its_registered_topics(games_db):
         with listening(games_db) as events:
             game_id = await runner()
             received = events.drain()
+        if name == "move_seat":
+            # A Class game (its Class session hears of each command): only the move's events.
+            received = received[4:]
+            assert {item["topic"] for item in received} == COMMAND_TOPICS["games.move_seat"]
+            assert {item["id"] for item in received if item["topic"] == "game"} == {game_id}
+            continue
         if name != "create":
             received = received[1:]  # the first event is the setup's create
         assert {item["topic"] for item in received} == COMMAND_TOPICS[f"games.{name}"]

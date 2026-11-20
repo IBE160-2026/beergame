@@ -50,6 +50,8 @@ through `games.commands` in one transaction: one Class game per group with no se
 snapshot comes at the lock) and one `student` Seat per Student, then a digest notice per Student
 (`ALLOCATION_NOTICE`, mail read at send time by `allocation_mail_context`). A confirmed allocation
 is never drawn again. The Lærerhjem names the unlocked sessions whose allocation is not confirmed.
+Until the lock a Student can be moved to a free Seat or two swapped (Story 5.10), in the draft by
+its revision and, once confirmed, in the Class games too through `games.commands.move_seat`.
 
 Every mutation passes one guard, `_writable`, which asks `classes.service.is_writable` inside the
 mutation's transaction and raises `classes.service.ClassArchived` (409 `class_archived`) for an
@@ -101,6 +103,7 @@ from app.modules.sessions.schemas import (
     AllocationConfirmIn,
     AllocationDraftOut,
     AllocationGameOut,
+    AllocationMoveIn,
     AllocationOut,
     AllocationSeatOut,
     ClassSessionListItem,
@@ -191,6 +194,24 @@ class AllocationConfirmed(_FieldsError):
     """The allocation is confirmed, so it is never drawn again (409 `allocation_confirmed`)."""
 
     code = "allocation_confirmed"
+
+
+class InvalidMove(_FieldsError):
+    """A move or swap that the draft cannot take (422 `invalid_move`, Story 5.10): `{"to":
+    "same"}`, `{"from"|"to": "unknown"}` (no such game in the draft), `{"from": "empty"}` (no
+    Student there) or `{"from": "last_student"}` (the game would be left without a Student)."""
+
+    code = "invalid_move"
+
+
+class SeatCommandRefused(_FieldsError):
+    """`games.commands.move_seat` refused a confirmed allocation's move (Story 5.10); its code
+    and status are the command's, and nothing is committed."""
+
+    def __init__(self, code: str, status: int) -> None:
+        super().__init__({"allocation": code})
+        self.code = code
+        self.status = status
 
 
 class DeadlinePassed(_FieldsError):
@@ -1274,7 +1295,11 @@ async def _allocation_out(class_id: uuid.UUID, draft: Mapping[str, Any] | None) 
     registered = await classes.registered_students(class_id)
     if draft is None:
         return AllocationOut(
-            registered_count=len(registered), missing_count=0, draft=None, confirmed=False
+            registered_count=len(registered),
+            missing_count=0,
+            draft=None,
+            confirmed=False,
+            confirmed_at=None,
         )
     placed = [
         allocation.Seat(uuid.UUID(a["user_id"]), a["game_number"], Role(a["role"]))
@@ -1289,6 +1314,7 @@ async def _allocation_out(class_id: uuid.UUID, draft: Mapping[str, Any] | None) 
         registered_count=len(registered),
         missing_count=sum(1 for student in registered if student not in in_draft),
         confirmed=draft["confirmed_at"] is not None,
+        confirmed_at=draft["confirmed_at"],
         draft=AllocationDraftOut(
             id=draft["id"],
             revision=draft["revision"],
@@ -1528,6 +1554,121 @@ async def _commit_allocation(
         games=len(by_game),
         students=len(draft["assignments"]),
     )
+
+
+# Moving and swapping Students (Story 5.10, FR-20, AD-2, AD-8, AD-9).
+
+
+def _moved(
+    assignments: list[Mapping[str, Any]], wanted: AllocationMoveIn
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """The draft's assignments after the move or swap, and the Students who moved. Raises
+    `InvalidMove` when the draft cannot take it."""
+    numbers = {a["game_number"] for a in assignments}
+    origin = (wanted.from_game, wanted.from_role.value)
+    target = (wanted.to_game, wanted.to_role.value)
+    if origin == target:
+        raise InvalidMove({"to": "same"})
+    for side, number in (("from", wanted.from_game), ("to", wanted.to_game)):
+        if number not in numbers:
+            raise InvalidMove({side: "unknown"})
+    held = {(a["game_number"], a["role"]): a["user_id"] for a in assignments}
+    moving = held.get(origin)
+    if moving is None:
+        raise InvalidMove({"from": "empty"})
+    staying = held.get(target)
+    if (
+        staying is None
+        and wanted.from_game != wanted.to_game
+        and sum(1 for a in assignments if a["game_number"] == wanted.from_game) == 1
+    ):
+        raise InvalidMove({"from": "last_student"})
+    edited: list[dict[str, Any]] = []
+    for a in assignments:
+        seat = (a["game_number"], a["role"])
+        if seat == origin:
+            if staying is not None:
+                edited.append({**a, "user_id": staying})
+        elif seat == target:
+            edited.append({**a, "user_id": moving})
+        else:
+            edited.append(dict(a))
+    if staying is None:
+        edited.append({"user_id": moving, "game_number": target[0], "role": target[1]})
+    edited.sort(key=lambda a: (a["game_number"], SEAT_ORDER.index(Role(a["role"]))))
+    return edited, [moving, *([staying] if staying is not None else [])]
+
+
+async def move_allocation(
+    user: authz.Principal, session_id: uuid.UUID, wanted: AllocationMoveIn, *, now: datetime
+) -> AllocationOut | None:
+    """Move a Student to a free Seat, or swap two, in the draft the Lecturer is looking at.
+
+    Under the Class session's row lock, in one transaction: the stored draft changes under the
+    same id with its revision raised by one, and `session:<id>` is emitted. Once the allocation
+    is confirmed the Class games change with it through `games.commands.move_seat`, and each
+    Student who moved gets the allocation notice again (`ALLOCATION_NOTICE`, keyed by the new
+    revision), so the draft is always what the Seats hold.
+
+    Raises `SessionLocked` once locked, `AllocationChanged` (`{"draft": "changed"}`) when
+    `wanted` is not the current draft id and revision, `InvalidMove` for a move the draft cannot
+    take and `SeatCommandRefused` when the command refuses; nothing is committed then. Raises
+    `ClassArchived`; None when the User may not manage the Class."""
+    row = await _managed_session(user, session_id)
+    if row is None:
+        return None
+    try:
+        async with get_sessionmaker().begin() as s:
+            await _writable(s, row["class_id"])
+            row = await repo.session_row(s, session_id, lock=True)
+            if row is None:
+                return None
+            draft = await repo.draft_of(s, session_id)
+            if is_locked(row, now=now):
+                raise SessionLocked({"allocation": "locked"})
+            if draft is None or (draft["id"], draft["revision"]) != (
+                wanted.draft_id,
+                wanted.revision,
+            ):
+                raise AllocationChanged({"draft": "changed"})
+            edited, students = _moved(draft["assignments"], wanted)
+            revision = draft["revision"] + 1
+            await repo.update_draft(s, session_id, assignments=edited, revision=revision)
+            await events.emit(s, "session", str(session_id))
+            if draft["confirmed_at"] is not None:
+                games = await games_service.class_game_ids(s, session_id)
+                try:
+                    await games_commands.move_seat(
+                        games[wanted.from_game],
+                        wanted.from_role,
+                        games[wanted.to_game],
+                        wanted.to_role,
+                        within=s,
+                    )
+                except games_commands.CommandError as refused:
+                    raise SeatCommandRefused(refused.code, refused.status) from None
+                for student in students:
+                    await notify.enqueue(
+                        s,
+                        uuid.UUID(student),
+                        ALLOCATION_NOTICE,
+                        f"{ALLOCATION_NOTICE}:{draft['id']}:{revision}:{student}",
+                        ref=session_id,
+                    )
+            draft = await repo.draft_of(s, session_id)
+    except (SessionLocked, AllocationChanged, InvalidMove, SeatCommandRefused) as refused:
+        log.info(
+            "allocation_move_refused", class_session_id=str(session_id), error_code=refused.code
+        )
+        raise
+    log.info(
+        "allocation_moved",
+        class_session_id=str(session_id),
+        revision=revision,
+        swapped=len(students) == 2,
+        confirmed=draft["confirmed_at"] is not None,
+    )
+    return await _allocation_out(row["class_id"], draft)
 
 
 async def allocation_mail_context(

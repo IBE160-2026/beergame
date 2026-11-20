@@ -2,7 +2,18 @@ import { describe, expect, it } from "vitest";
 
 import { nb } from "@/copy/nb";
 
-import { changedReason, gameLine, holderName, nextGame, seatMark, ticks } from "./allocation";
+import {
+  changedReason,
+  gameLine,
+  holderName,
+  invalidMoveReason,
+  movedLine,
+  nextGame,
+  pickLabel,
+  seatMark,
+  targetLabel,
+  ticks,
+} from "./allocation";
 import type { AllocationGame } from "./api";
 
 const game: AllocationGame = {
@@ -64,5 +75,24 @@ describe("confirming the allocation (Story 5.9)", () => {
     expect(lacks("k", 2, ["dates", "allocation"])).toBe("k: Klasseøkt 2 mangler datoer og bekreftet fordeling");
     expect(lacks("k", 1, ["allocation"])).toBe("k: Klasseøkt 1 mangler bekreftet fordeling");
     expect(lacks("k", 1, ["dates"])).toBe("k: Klasseøkt 1 mangler datoer");
+  });
+});
+
+describe("moving and swapping (Story 5.10)", () => {
+  const ida = { game: 17, seat: game.seats[3] };
+  const sara = { game: 4, seat: game.seats[2] };
+  const free = { game: 4, seat: game.seats[0] };
+
+  it("names the Student, the Role and the Klassespill on every button", () => {
+    expect(pickLabel(ida)).toBe("Flytt eller bytt Ida, Detaljist i Spill 17");
+    expect(targetLabel(ida, sara)).toBe("Bytt Ida (Detaljist, Spill 17) med Sara (Grossist, Spill 4)");
+    expect(targetLabel(ida, free)).toBe("Flytt Ida (Detaljist, Spill 17) til ledig sete: Fabrikk i Spill 4");
+  });
+
+  it("says what changed, and why a move was refused", () => {
+    expect(movedLine(ida, sara)).toBe("Ida og Sara har byttet plass.");
+    expect(movedLine(ida, free)).toBe("Ida er flyttet til Fabrikk i Spill 4.");
+    expect(invalidMoveReason({ from: "last_student" })).toBe(nb.sessions.allocation.moveLastStudent);
+    expect(invalidMoveReason({ to: "same" })).toBe(nb.sessions.allocation.moveInvalid);
   });
 });

@@ -610,6 +610,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/allocation/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move In Allocation
+         * @description Move a Student to a free Seat, or swap two (Story 5.10, FR-20), in the draft named by
+         *     `draft_id` and `revision`: the Student of `from_game`/`from_role` takes
+         *     `to_game`/`to_role`, and a Student there takes the first Seat. The draft keeps its id and
+         *     its revision rises by one. Once the allocation is confirmed the Class games change in the
+         *     same transaction and the Students who moved are told through the day's digest mail.
+         *
+         *     409 `allocation_changed` (`{"draft": "changed"}`) when the draft is no longer the current
+         *     one; 422 `invalid_move` with `fields` `{"to": "same"}`, `{"from"|"to": "unknown"}`,
+         *     `{"from": "empty"}` or `{"from": "last_student"}`; 409 `session_locked` (`{"allocation":
+         *     "locked"}`) once the Start date has passed; 409 `class_archived` for an archived Class.
+         *     A confirmed allocation's Games refusing the move answer the command's code (such as 409
+         *     `game_already_started`). Nothing is committed on any refusal.
+         */
+        post: operations["moveInAllocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/allocation/redraw": {
         parameters: {
             query?: never;
@@ -1422,6 +1453,27 @@ export interface components {
             seats: components["schemas"]["AllocationSeatOut"][];
         };
         /**
+         * AllocationMoveIn
+         * @description Move or swap in the allocation (Story 5.10): the draft the Lecturer is looking at, the
+         *     Seat of the Student who moves, and the Seat they move to. A Student in that Seat takes the
+         *     first Seat (a swap).
+         */
+        AllocationMoveIn: {
+            /**
+             * Draft Id
+             * Format: uuid
+             */
+            draft_id: string;
+            /** From Game */
+            from_game: number;
+            from_role: components["schemas"]["Role"];
+            /** Revision */
+            revision: number;
+            /** To Game */
+            to_game: number;
+            to_role: components["schemas"]["Role"];
+        };
+        /**
          * AllocationOut
          * @description The «Fordeling» block: the registered Students now, those of them not in the draft (they
          *     registered after it was drawn), and the draft, None until one is drawn.
@@ -1429,6 +1481,8 @@ export interface components {
         AllocationOut: {
             /** Confirmed */
             confirmed: boolean;
+            /** Confirmed At */
+            confirmed_at: string | null;
             draft: components["schemas"]["AllocationDraftOut"] | null;
             /** Missing Count */
             missing_count: number;
@@ -4469,6 +4523,77 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    moveInAllocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AllocationMoveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AllocationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

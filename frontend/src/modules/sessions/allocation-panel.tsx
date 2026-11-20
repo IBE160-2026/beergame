@@ -10,9 +10,22 @@ import { ViewToggle } from "@/components/view-toggle";
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 import { useAction } from "@/lib/api/mutation";
+import { cn } from "@/lib/utils";
 import { LINK_BUTTON } from "@/modules/classes/roster-entry-forms";
 
-import { changedReason, gameLine, nextGame, seatMark, ticks } from "./allocation";
+import {
+  changedReason,
+  gameLine,
+  holderName,
+  invalidMoveReason,
+  movedLine,
+  nextGame,
+  pickLabel,
+  type SeatAt,
+  seatMark,
+  targetLabel,
+  ticks,
+} from "./allocation";
 import {
   type Allocation,
   type AllocationGame,
@@ -20,10 +33,12 @@ import {
   type ClassSession,
   confirmAllocation,
   lecturerHomeKey,
+  moveInAllocation,
   openAllocation,
   redrawAllocation,
   useAllocation,
 } from "./api";
+import { osloDayAndTime } from "./dates";
 import { roleName } from "./sessions";
 
 const copy = nb.sessions.allocation;
@@ -35,8 +50,10 @@ const copy = nb.sessions.allocation;
  * draft. «Kjør fordeling på nytt» replaces it; nobody is told. «Bekreft fordeling» (Story 5.9) is
  * the page's primary button while the panel is open (`onConfirmShown` makes «Lagre Klasseøkt»
  * secondary meanwhile); it commits the draft shown and closes the panel to «Fordelingen er
- * bekreftet.», which takes focus. A confirmed allocation is not drawn again. An Assistant
- * lecturer, or anyone once the session is locked, reads the stored draft only.
+ * bekreftet.», which takes focus. A confirmed allocation is not drawn again, and the open panel
+ * says when it was confirmed (issue 107). Until the lock a Lecturer moves a Student to a free Seat
+ * or swaps two from the selected game's Seats (Story 5.10), before and after the confirmation. An
+ * Assistant lecturer, or anyone once the session is locked, reads the stored draft only.
  */
 export function AllocationBlock({
   item,
@@ -54,8 +71,9 @@ export function AllocationBlock({
   const stateRef = useRef<HTMLParagraphElement>(null);
   const allocation = found.data;
   const confirmed = allocation?.confirmed ?? false;
-  // Drawing and confirming end with the confirmation; moving and swapping come in Story 5.10.
+  // Drawing and confirming end with the confirmation; moving and swapping last until the lock.
   const canDraw = item.can_manage && !item.locked && !confirmed;
+  const canMove = item.can_manage && !item.locked;
   const confirmShown = open && allocation?.draft != null && canDraw;
   useEffect(() => {
     onConfirmShown?.(confirmShown);
@@ -98,6 +116,7 @@ export function AllocationBlock({
           headingId={`${ids}-heading`}
           headingRef={headingRef}
           canDraw={canDraw}
+          canMove={canMove}
           onClose={() => {
             setClosedReason(undefined);
             setOpen(false);
@@ -157,6 +176,7 @@ function Preview({
   headingId,
   headingRef,
   canDraw,
+  canMove,
   onClose,
   onChanged,
   onConfirmed,
@@ -166,6 +186,7 @@ function Preview({
   headingId: string;
   headingRef: RefObject<HTMLHeadingElement | null>;
   canDraw: boolean;
+  canMove: boolean;
   onClose: () => void;
   onChanged: (reason: string | undefined) => void;
   onConfirmed: () => void;
@@ -216,13 +237,65 @@ function Preview({
     confirm.error instanceof ApiRequestError && confirm.error.code === "allocation_changed"
       ? changedReason(confirm.error.fields)
       : confirm.errorMessage;
-  const busy = redraw.isPending || confirm.isPending;
+  // Moving and swapping (Story 5.10): pick a Student, choose any game in the chart, then press the
+  // button on the Seat to move to. The request carries the revision on screen.
+  const [picked, setPicked] = useState<Picked | null>(null);
+  const pickedAt = seatAt(games, picked);
+  const seatRefs = useRef(new Map<string, HTMLButtonElement>());
+  const [focusSeat, setFocusSeat] = useState<string | null>(null);
+  useEffect(() => {
+    if (focusSeat === null) return;
+    seatRefs.current.get(focusSeat)?.focus();
+    setFocusSeat(null);
+  }, [focusSeat, allocation]);
+  const move = useAction({
+    mutationFn: async ({ from, to }: { from: SeatAt; to: SeatAt }) => {
+      try {
+        return await moveInAllocation(item.id, draft.id, draft.revision, {
+          from_game: from.game,
+          from_role: from.seat.role,
+          to_game: to.game,
+          to_role: to.seat.role,
+        });
+      } catch (error) {
+        if (error instanceof ApiRequestError && error.code === "allocation_changed") {
+          setPicked(null);
+          await queryClient.invalidateQueries({ queryKey: allocationKey(item.id), exact: true });
+        }
+        throw error;
+      }
+    },
+    messages: {
+      session_locked: copy.moveLocked,
+      game_already_started: copy.moveStarted,
+      allocation_changed: copy.changed,
+    },
+    fallback: copy.moveFailed,
+    onSuccess: (next, { from, to }) => {
+      queryClient.setQueryData(allocationKey(item.id), next);
+      setPicked(null);
+      setSelected(to.game);
+      setResult(movedLine(from, to));
+      setFocusSeat(seatKey(to.game, to.seat.role));
+    },
+  });
+  const moveError =
+    move.error instanceof ApiRequestError && move.error.code === "invalid_move"
+      ? invalidMoveReason(move.error.fields)
+      : move.errorMessage;
+  const confirmedAt = allocation.confirmed && allocation.confirmed_at ? osloDayAndTime(allocation.confirmed_at) : null;
+  const busy = redraw.isPending || confirm.isPending || move.isPending;
   return (
     <div className="flex flex-col gap-4">
       <div>
         <h2 id={headingId} ref={headingRef} tabIndex={-1} className="text-headline text-ink focus:outline-none">
           {copy.heading(games.length)}
         </h2>
+        {confirmedAt ? (
+          <p className="mt-2 max-w-prose text-body-phone font-semibold text-ink lg:text-body">
+            {copy.confirmedOn(confirmedAt.day, confirmedAt.time)}
+          </p>
+        ) : null}
         <p className="mt-2 max-w-prose text-body-phone text-ink-secondary">{copy.lead(students)}</p>
         <p className="max-w-prose text-body-phone text-ink-secondary">{copy.emptySeats}</p>
         {allocation.missing_count > 0 ? (
@@ -251,10 +324,30 @@ function Preview({
           <ScrollRegion labelledBy={`${ids}-chart`}>
             <AllocationChart games={games} selected={shown.number} onSelect={setSelected} />
           </ScrollRegion>
-          <p className="text-body-phone text-ink lg:text-body">
-            <span className="mr-3 font-semibold">{copy.game(shown.number)}</span>
-            {gameLine(shown)}
-          </p>
+          {canMove ? (
+            <SeatList
+              game={shown}
+              picked={pickedAt}
+              busy={busy}
+              refs={seatRefs.current}
+              onPick={(at) => {
+                move.reset();
+                setResult("");
+                setPicked(at === null ? null : { game: at.game, role: at.seat.role, userId: at.seat.user_id! });
+              }}
+              onTarget={(to) => {
+                if (busy || pickedAt === null) return;
+                confirm.reset();
+                redraw.reset();
+                move.mutate({ from: pickedAt, to });
+              }}
+            />
+          ) : (
+            <p className="text-body-phone text-ink lg:text-body">
+              <span className="mr-3 font-semibold">{copy.game(shown.number)}</span>
+              {gameLine(shown)}
+            </p>
+          )}
         </>
       ) : (
         <ol aria-label={copy.heading(games.length)} className="flex flex-col gap-1">
@@ -276,6 +369,8 @@ function Preview({
                 if (busy) return;
                 // Cleared first, so a second redraw is announced again.
                 setResult("");
+                setPicked(null);
+                move.reset();
                 confirm.reset();
                 redraw.mutate();
               }}
@@ -289,7 +384,9 @@ function Preview({
               onClick={() => {
                 if (busy) return;
                 setResult("");
+                setPicked(null);
                 redraw.reset();
+                move.reset();
                 confirm.mutate();
               }}
             >
@@ -299,16 +396,119 @@ function Preview({
               {copy.noticeLine}
             </p>
           </>
+        ) : canMove && allocation.confirmed ? (
+          <p className="text-body-phone text-ink-secondary">{copy.movedNotice}</p>
         ) : null}
         <button type="button" className={LINK_BUTTON} onClick={onClose}>
           {copy.close}
         </button>
       </div>
-      <ActionError message={redraw.errorMessage ?? confirmError} />
+      <ActionError message={redraw.errorMessage ?? confirmError ?? moveError} />
       <p role="status" className="text-body-phone text-ink">
         {result}
       </p>
     </div>
+  );
+}
+
+const seatKey = (game: number, role: string) => `${game}:${role}`;
+
+/** A picked Student: the Seat and who held it when picked. */
+type Picked = { game: number; role: string; userId: string };
+
+/** The picked Seat as the draft now holds it; null once another Student holds it, or none (a
+ * draft read again after an edit elsewhere), so a move never goes out for someone not picked. */
+function seatAt(games: AllocationGame[], picked: Picked | null): SeatAt | null {
+  if (picked === null) return null;
+  const seat = games.find((game) => game.number === picked.game)?.seats.find((s) => s.role === picked.role);
+  return seat && seat.user_id === picked.userId ? { game: picked.game, seat } : null;
+}
+
+/**
+ * The selected game's Seats, Fabrikk first, where Students are moved and swapped (Story 5.10,
+ * UX-DR9, UX-DR50): no drag. Each Student's row has «Flytt eller bytt»; once one is picked, every
+ * other Seat of whichever game is selected offers «Bytt» (a Student there) or «Flytt» (a free
+ * Seat). The short visible text starts the accessible name, which names the Student, the Role and
+ * the Klassespill in full.
+ */
+function SeatList({
+  game,
+  picked,
+  busy,
+  refs,
+  onPick,
+  onTarget,
+}: {
+  game: AllocationGame;
+  picked: SeatAt | null;
+  busy: boolean;
+  refs: Map<string, HTMLButtonElement>;
+  onPick: (at: SeatAt | null) => void;
+  onTarget: (at: SeatAt) => void;
+}) {
+  const ids = useId();
+  return (
+    <section aria-labelledby={`${ids}-seats`} className="flex flex-col">
+      <h3 id={`${ids}-seats`} className="text-label text-ink">
+        {copy.seatsHeading(game.number)}
+      </h3>
+      {/* Who is picked stays said while another game is chosen in the chart. */}
+      <p role="status" className="mt-1 max-w-prose text-body-phone text-ink lg:text-body">
+        {picked ? copy.picked(holderName(picked.seat), roleName(picked.seat.role), picked.game) : ""}
+      </p>
+      <ul className="mt-2 flex max-w-xl flex-col border-t border-hairline">
+        {game.seats.map((seat) => {
+          const at: SeatAt = { game: game.number, seat };
+          const key = seatKey(game.number, seat.role);
+          const isPicked = picked !== null && picked.game === game.number && picked.seat.role === seat.role;
+          const setRef = (node: HTMLButtonElement | null) => {
+            if (node) refs.set(key, node);
+            else refs.delete(key);
+          };
+          let action = null;
+          if (isPicked) {
+            action = (
+              <Button ref={setRef} unavailable={busy} aria-pressed onClick={() => onPick(null)}>
+                {copy.cancelPick}
+              </Button>
+            );
+          } else if (picked !== null) {
+            action = (
+              <Button ref={setRef} unavailable={busy} aria-label={targetLabel(picked, at)} onClick={() => onTarget(at)}>
+                {seat.user_id != null ? copy.swapShort : copy.moveShort}
+              </Button>
+            );
+          } else if (seat.user_id != null) {
+            action = (
+              <Button ref={setRef} unavailable={busy} aria-label={pickLabel(at)} onClick={() => onPick(at)}>
+                {copy.pickShort}
+              </Button>
+            );
+          }
+          return (
+            <li
+              key={key}
+              data-seat={seat.role}
+              // Phone: Role and name on one line, the button under them at full width. Wider: one
+              // line, the buttons in one right-hand column of one width.
+              className="grid min-h-tap-target-min grid-cols-[6rem_minmax(0,1fr)] items-center gap-x-4 gap-y-2 border-b border-hairline py-2 sm:grid-cols-[7rem_minmax(0,1fr)_10rem] sm:py-1"
+            >
+              <span className="text-body-phone text-ink-secondary lg:text-body">{roleName(seat.role)}</span>
+              <span
+                className={cn(
+                  "min-w-0 break-words text-body-phone lg:text-body",
+                  seat.user_id != null ? "text-ink" : "text-ink-muted",
+                  isPicked && "font-semibold",
+                )}
+              >
+                {holderName(seat)}
+              </span>
+              {action ? <div className="col-span-2 flex sm:col-span-1 [&>button]:w-full">{action}</div> : null}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

@@ -14,7 +14,8 @@ save and the offered levels, AI player descriptions and provider flag to the rea
 the Lab hours, `/api/class-sessions/{id}/lab-hours[/{lab_hour_id}]`, saved on their own. Story
 5.7 adds the obligatory mark, its required share and the Inactivity limit to the save. Story 5.8
 adds the allocation draft, `/api/class-sessions/{id}/allocation[/redraw]`, and Story 5.9 its
-confirmation, `/api/class-sessions/{id}/allocation/confirm`."""
+confirmation, `/api/class-sessions/{id}/allocation/confirm`, and Story 5.10 moving and swapping
+Students in it, `/api/class-sessions/{id}/allocation/move`."""
 
 import uuid
 from typing import Annotated
@@ -25,6 +26,7 @@ from fastapi.responses import JSONResponse, Response
 from app.modules.sessions import service
 from app.modules.sessions.schemas import (
     AllocationConfirmIn,
+    AllocationMoveIn,
     AllocationOut,
     ClassSessionListOut,
     ClassSessionOut,
@@ -365,6 +367,48 @@ async def confirm_allocation(
     if confirmed is None:
         raise authz.Forbidden
     return JSONResponse(confirmed.model_dump(mode="json"))
+
+
+@router.post(
+    "/class-sessions/{session_id}/allocation/move",
+    response_model=AllocationOut,
+    responses=documented(401, 403, 404, 409, 422),
+    operation_id="moveInAllocation",
+)
+async def move_in_allocation(
+    session_id: str,
+    body: AllocationMoveIn,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """Move a Student to a free Seat, or swap two (Story 5.10, FR-20), in the draft named by
+    `draft_id` and `revision`: the Student of `from_game`/`from_role` takes
+    `to_game`/`to_role`, and a Student there takes the first Seat. The draft keeps its id and
+    its revision rises by one. Once the allocation is confirmed the Class games change in the
+    same transaction and the Students who moved are told through the day's digest mail.
+
+    409 `allocation_changed` (`{"draft": "changed"}`) when the draft is no longer the current
+    one; 422 `invalid_move` with `fields` `{"to": "same"}`, `{"from"|"to": "unknown"}`,
+    `{"from": "empty"}` or `{"from": "last_student"}`; 409 `session_locked` (`{"allocation":
+    "locked"}`) once the Start date has passed; 409 `class_archived` for an archived Class.
+    A confirmed allocation's Games refusing the move answer the command's code (such as 409
+    `game_already_started`). Nothing is committed on any refusal."""
+    try:
+        moved = await service.move_allocation(user, _id(session_id), body, now=auth.utcnow())
+    except service.SessionLocked as refused:
+        return error_response(409, refused.code, "The Class session has started.", refused.fields)
+    except service.AllocationChanged as refused:
+        return error_response(
+            409, refused.code, "The allocation is not the one shown.", refused.fields
+        )
+    except service.InvalidMove as refused:
+        return error_response(422, refused.code, "The move does not fit the draft.", refused.fields)
+    except service.SeatCommandRefused as refused:
+        return error_response(
+            refused.status, refused.code, "The Class games refused the move.", refused.fields
+        )
+    if moved is None:
+        raise authz.Forbidden
+    return JSONResponse(moved.model_dump(mode="json"))
 
 
 @router.post(

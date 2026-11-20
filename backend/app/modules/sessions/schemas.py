@@ -353,6 +353,8 @@ class AllocationOut(BaseModel):
     confirmed: bool
     """The Lecturer confirmed the draft (Story 5.9): its Class games exist, and only move and
     swap remain (Story 5.10)."""
+    confirmed_at: datetime | None
+    """When the draft was confirmed, for «Fordelingen er bekreftet {dato}.» (Issue #107)."""
 
 
 class AllocationConfirmIn(BaseModel):
@@ -362,3 +364,18 @@ class AllocationConfirmIn(BaseModel):
 
     draft_id: uuid.UUID
     revision: StrictInt
+
+
+class AllocationMoveIn(BaseModel):
+    """Move or swap in the allocation (Story 5.10): the draft the Lecturer is looking at, the
+    Seat of the Student who moves, and the Seat they move to. A Student in that Seat takes the
+    first Seat (a swap)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    draft_id: uuid.UUID
+    revision: StrictInt
+    from_game: StrictInt
+    from_role: Role
+    to_game: StrictInt
+    to_role: Role

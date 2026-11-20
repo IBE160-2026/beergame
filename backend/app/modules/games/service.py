@@ -4,6 +4,8 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.ai import budget as ai_budget
 from app.engine import GameSettings
 from app.modules.games import repo
@@ -70,6 +72,7 @@ __all__ = [
     "TurnOverview",
     "ViewError",
     "budget_scope",
+    "class_game_ids",
     "complete_running_games",
     "create_batch",
     "games_charged_to",
@@ -89,6 +92,13 @@ __all__ = [
     "seat_state",
     "verify_finished",
 ]
+
+
+async def class_game_ids(session: AsyncSession, class_session_id: uuid.UUID) -> dict[int, str]:
+    """The Class session's Games by game number, read in the caller's transaction (Story
+    5.10)."""
+    found = await repo.class_game_ids(session, class_session_id)
+    return {number: str(game_id) for number, game_id in found.items()}
 
 
 async def get_game(game_id: str) -> GameOverview | None:

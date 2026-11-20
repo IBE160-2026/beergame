@@ -1,8 +1,10 @@
 import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { gameLine } from "../src/modules/sessions/allocation";
+import { gameLine, holderName, movedLine, pickLabel, targetLabel } from "../src/modules/sessions/allocation";
 import type { Allocation, AllocationGame } from "../src/modules/sessions/api";
+import { osloDayAndTime } from "../src/modules/sessions/dates";
+import { roleName } from "../src/modules/sessions/sessions";
 import { expectAccessible, freshClass, lecturerPage, test } from "./support/classes";
 
 /** «Fordeling» on the Klasseøkt (Story 5.8, FR-20, NFR-6, UX-DR50, UX-DR75), on the local stack.
@@ -42,6 +44,18 @@ const opener = (page: Page) => page.getByRole("button", { name: a.open });
 const heading = (page: Page, games: number) => page.getByRole("heading", { name: a.heading(games) });
 const columns = (page: Page) => page.locator("svg g[role='button']");
 
+/** The selected game's Seats as the Lecturer edits them (Story 5.10): each row names its holder. */
+async function expectSeats(page: Page, game: AllocationGame) {
+  const seats = page.getByRole("region", { name: a.seatsHeading(game.number) });
+  for (const seat of game.seats) {
+    await expect(seats.locator(`li[data-seat='${seat.role}']`)).toContainText(holderName(seat));
+  }
+}
+
+const at = (game: AllocationGame, index: number) => ({ game: game.number, seat: game.seats[index] });
+const studentIndex = (game: AllocationGame) => game.seats.findIndex((seat) => seat.user_id != null);
+const freeIndex = (game: AllocationGame) => game.seats.findIndex((seat) => seat.user_id == null);
+
 test("opening «Fordeling» draws a draft, shows it, and running it again replaces it", async ({
   browser,
   lecturerSession,
@@ -62,13 +76,13 @@ test("opening «Fordeling» draws a draft, shows it, and running it again replac
   expect(first.revision).toBe(1);
   await expect(columns(lecturer)).toHaveCount(2);
   // Game 1 is selected: its line names its four Students in the stored draft.
-  await expect(lecturer.getByText(gameLine(first.games[0]))).toBeVisible();
+  await expectSeats(lecturer, first.games[0]);
   // By keyboard to game 2, which has one Student and three KI-spillere.
   await columns(lecturer).first().focus();
   await lecturer.keyboard.press("ArrowRight");
   await expect(columns(lecturer).nth(1)).toBeFocused();
   await expect(columns(lecturer).nth(1)).toHaveAttribute("aria-pressed", "true");
-  await expect(lecturer.getByText(gameLine(first.games[1]))).toBeVisible();
+  await expectSeats(lecturer, first.games[1]);
   expect(gameLine(first.games[1]).split(a.aiPlayer).length - 1).toBe(3);
 
   // «Vis som liste»: every game with its names; every Student is there once.
@@ -94,7 +108,7 @@ test("opening «Fordeling» draws a draft, shows it, and running it again replac
   await expect(lecturer.getByRole("status").filter({ hasText: a.redrawn })).toBeVisible();
   const again = (await storedAllocation(lecturer, id)).draft!;
   expect(again.id).not.toBe(first.id);
-  await expect(lecturer.getByText(gameLine(again.games[0]))).toBeVisible();
+  await expectSeats(lecturer, again.games[0]);
   await expect(lecturer.getByText(a.noticeLine)).toBeVisible();
 
   // A Student who registers after the draw is not in it: the panel says so after a reload.
@@ -152,6 +166,8 @@ for (const [who, changes] of [
     await opener(lecturer).click();
     await expect(heading(lecturer, 1)).toBeFocused();
     await expect(lecturer.getByRole("button", { name: a.redraw })).toHaveCount(0);
+    await expect(lecturer.getByRole("button", { name: /^Flytt/ })).toHaveCount(0);
+    await expect(lecturer.getByText(gameLine((await storedAllocation(lecturer, id)).draft!.games[0]))).toBeVisible();
     expect(posts).toBe(0);
     await lecturer.context().close();
   });
@@ -174,6 +190,7 @@ function hundredGames(): Allocation {
     registered_count: 397,
     missing_count: 0,
     confirmed: false,
+    confirmed_at: null,
     draft: {
       id: "00000000-0000-0000-0000-00000000aaaa",
       revision: 1,
@@ -219,7 +236,7 @@ for (const vp of SIZES) {
       await expect(columns(lecturer).first()).toBeFocused();
       await lecturer.keyboard.press("End");
       await expect(columns(lecturer).last()).toBeFocused();
-      await expect(lecturer.getByText(gameLine(body.draft!.games[99]))).toBeVisible();
+      await expectSeats(lecturer, body.draft!.games[99]);
       await expectAccessible(lecturer, vp.phone);
       await lecturer.getByText(a.list, { exact: true }).click();
       await expect(lecturer.getByRole("list", { name: a.heading(100) }).getByRole("listitem")).toHaveCount(100);
@@ -250,7 +267,11 @@ test("«Bekreft fordeling» commits the draft shown and closes to the confirmed 
   // Opened again it shows the confirmed draft, with neither a new draw nor a second confirm.
   await opener(lecturer).click();
   await expect(heading(lecturer, 2)).toBeFocused();
-  await expect(lecturer.getByText(gameLine(stored.draft!.games[0]))).toBeVisible();
+  await expectSeats(lecturer, stored.draft!.games[0]);
+  // It says it is confirmed, and when (issue 107).
+  const when = osloDayAndTime(stored.confirmed_at!);
+  await expect(lecturer.getByText(a.confirmedOn(when.day, when.time))).toBeVisible();
+  await expect(lecturer.getByText(a.movedNotice)).toBeVisible();
   await expect(lecturer.getByRole("button", { name: a.redraw })).toHaveCount(0);
   await expect(lecturer.getByRole("button", { name: a.confirm })).toHaveCount(0);
   await expect(lecturer.getByRole("button", { name: copy.save })).toHaveClass(/bg-ink/);
@@ -274,7 +295,7 @@ test("a draft drawn again meanwhile is shown, not confirmed", async ({ browser, 
   const confirm = lecturer.getByRole("button", { name: a.confirm });
   await confirm.click();
   await expect(lecturer.getByRole("main").getByRole("alert")).toHaveText(a.changed);
-  await expect(lecturer.getByText(gameLine(current.games[0]))).toBeVisible();
+  await expectSeats(lecturer, current.games[0]);
   expect((await storedAllocation(lecturer, id)).confirmed).toBe(false);
   // The next press confirms what is now shown.
   await confirm.click();
@@ -312,5 +333,169 @@ test("a removed Student's cell reads apart, and the selected frame is 1 px until
   await lecturer.keyboard.press("ArrowRight");
   await expect(columns(lecturer).nth(2)).toBeFocused();
   await expect(frame).toHaveAttribute("stroke-width", "3");
+  await lecturer.context().close();
+});
+
+/** The Seat a move filled, as the draft holds it afterwards: the moved Student in the target's Role. */
+const landed = (from: ReturnType<typeof at>, to: ReturnType<typeof at>) => ({
+  game: to.game,
+  seat: { ...to.seat, user_id: from.seat.user_id, name: from.seat.name },
+});
+
+const statusLine = (page: Page, text: string) => page.getByRole("status").filter({ hasText: text });
+
+test("a Student is moved and two swapped by keyboard, before and after the confirmation", async ({
+  browser,
+  lecturerSession,
+}) => {
+  const lecturer = await lecturerPage(browser, lecturerSession, { width: 1440, height: 900 });
+  const { id } = await sessionWithStudents(lecturer, 5);
+  await lecturer.goto(`/klasseokter/${id}`);
+  await opener(lecturer).click();
+  await expect(heading(lecturer, 2)).toBeFocused();
+  const first = (await storedAllocation(lecturer, id)).draft!;
+
+  // Game 1's first Student is picked with Space; the pick is said, and the button now cancels it.
+  const from = at(first.games[0], studentIndex(first.games[0]));
+  await lecturer.getByRole("button", { name: pickLabel(from) }).press("Space");
+  await expect(statusLine(lecturer, a.picked(holderName(from.seat), roleName(from.seat.role), 1))).toBeVisible();
+  await expect(lecturer.getByRole("button", { name: a.cancelPick })).toBeFocused();
+  // Game 2 is chosen in the chart with the arrow keys; its free Seat takes the Student.
+  await columns(lecturer).first().focus();
+  await lecturer.keyboard.press("ArrowRight");
+  const to = at(first.games[1], freeIndex(first.games[1]));
+  await lecturer.getByRole("button", { name: targetLabel(from, to) }).press("Enter");
+  await expect(statusLine(lecturer, movedLine(from, to))).toBeVisible();
+  // Focus is on the changed row; the draft keeps its id under the next revision.
+  await expect(lecturer.getByRole("button", { name: pickLabel(landed(from, to)) })).toBeFocused();
+  const second = (await storedAllocation(lecturer, id)).draft!;
+  expect([second.id, second.revision]).toEqual([first.id, 2]);
+  await expectSeats(lecturer, second.games[1]);
+
+  // A swap back across games, game 1 chosen with ←.
+  const mover = landed(from, to);
+  await lecturer.getByRole("button", { name: pickLabel(mover) }).press("Enter");
+  await columns(lecturer).nth(1).focus();
+  await lecturer.keyboard.press("ArrowLeft");
+  const other = at(second.games[0], studentIndex(second.games[0]));
+  await lecturer.getByRole("button", { name: targetLabel(mover, other) }).press("Enter");
+  await expect(statusLine(lecturer, movedLine(mover, other))).toBeVisible();
+  await expect(lecturer.getByRole("button", { name: pickLabel(landed(mover, other)) })).toBeFocused();
+  expect((await storedAllocation(lecturer, id)).draft!.revision).toBe(3);
+
+  // «Bekreft fordeling» commits the edited draft.
+  await lecturer.getByRole("button", { name: a.confirm }).click();
+  await expect(lecturer.getByText(a.confirmed, { exact: true })).toBeFocused();
+  const confirmed = await storedAllocation(lecturer, id);
+  expect([confirmed.confirmed, confirmed.draft!.revision]).toEqual([true, 3]);
+
+  // After it, a swap still works until the lock; the Class games follow (the api tests pin them).
+  await opener(lecturer).click();
+  await expect(heading(lecturer, 2)).toBeFocused();
+  const when = osloDayAndTime(confirmed.confirmed_at!);
+  await expect(lecturer.getByText(a.confirmedOn(when.day, when.time))).toBeVisible();
+  const c = confirmed.draft!;
+  const from3 = at(c.games[0], studentIndex(c.games[0]));
+  await lecturer.getByRole("button", { name: pickLabel(from3) }).click();
+  await columns(lecturer).nth(1).click();
+  const to3 = at(c.games[1], studentIndex(c.games[1]));
+  await lecturer.getByRole("button", { name: targetLabel(from3, to3) }).click();
+  await expect(statusLine(lecturer, movedLine(from3, to3))).toBeVisible();
+  const after = await storedAllocation(lecturer, id);
+  expect([after.confirmed, after.draft!.revision]).toEqual([true, 4]);
+  await expect(lecturer.getByText(a.confirmedOn(when.day, when.time))).toBeVisible();
+  await lecturer.context().close();
+});
+
+test("a confirmed allocation opened read-only says it is confirmed, and when", async ({
+  browser,
+  lecturerSession,
+}) => {
+  const lecturer = await lecturerPage(browser, lecturerSession, { width: 1280, height: 800 });
+  const { id } = await sessionWithStudents(lecturer, 3);
+  const drawn = (await (
+    await lecturer.request.post(`/api/class-sessions/${id}/allocation`, { headers: CSRF })
+  ).json()) as Allocation;
+  const confirmed = await lecturer.request.post(`/api/class-sessions/${id}/allocation/confirm`, {
+    data: { draft_id: drawn.draft!.id, revision: drawn.draft!.revision },
+    headers: CSRF,
+  });
+  expect(confirmed.ok()).toBe(true);
+  const stored = await storedAllocation(lecturer, id);
+  // An Assistant lecturer's view of it, as the server answers it (the api tests pin the real one).
+  await lecturer.route(`**/api/class-sessions/${id}`, async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    const response = await route.fetch();
+    await route.fulfill({ response, json: { ...(await response.json()), can_manage: false } });
+  });
+  await lecturer.goto(`/klasseokter/${id}`);
+  await opener(lecturer).click();
+  await expect(heading(lecturer, 1)).toBeFocused();
+  const when = osloDayAndTime(stored.confirmed_at!);
+  await expect(lecturer.getByText(a.confirmedOn(when.day, when.time))).toBeVisible();
+  await expect(lecturer.getByText(gameLine(stored.draft!.games[0]))).toBeVisible();
+  await expect(lecturer.getByRole("button", { name: /^Flytt/ })).toHaveCount(0);
+  await expect(lecturer.getByText(a.movedNotice)).toHaveCount(0);
+  await lecturer.context().close();
+});
+
+for (const vp of SIZES) {
+  test(`moving by tap at ${vp.name}: labelled buttons, no drag, focus back, and axe passes`, async ({
+    browser,
+    lecturerSession,
+  }) => {
+    const lecturer = await lecturerPage(browser, lecturerSession, vp);
+    const { id } = await sessionWithStudents(lecturer, 5);
+    await lecturer.goto(`/klasseokter/${id}`);
+    await opener(lecturer).click();
+    await expect(heading(lecturer, 2)).toBeFocused();
+    const first = (await storedAllocation(lecturer, id)).draft!;
+    await expectAccessible(lecturer, vp.phone);
+    const from = at(first.games[0], studentIndex(first.games[0]));
+    await lecturer.getByRole("button", { name: pickLabel(from) }).click();
+    // Picked: each other Seat of game 1 holds a Student, so each offers a swap naming both.
+    await expect(lecturer.getByRole("button", { name: /^Bytt / })).toHaveCount(3);
+    await expectAccessible(lecturer, vp.phone);
+    await columns(lecturer).nth(1).click();
+    const to = at(first.games[1], freeIndex(first.games[1]));
+    await lecturer.getByRole("button", { name: targetLabel(from, to) }).click();
+    await expect(lecturer.getByRole("button", { name: pickLabel(landed(from, to)) })).toBeFocused();
+    await expectAccessible(lecturer, vp.phone);
+    await lecturer.context().close();
+  });
+}
+
+test("a move on a draft changed meanwhile is refused, and the current draft is shown", async ({
+  browser,
+  lecturerSession,
+}) => {
+  const lecturer = await lecturerPage(browser, lecturerSession, { width: 1440, height: 900 });
+  const { id } = await sessionWithStudents(lecturer, 5);
+  await lecturer.goto(`/klasseokter/${id}`);
+  await opener(lecturer).click();
+  await expect(heading(lecturer, 2)).toBeFocused();
+  const first = (await storedAllocation(lecturer, id)).draft!;
+  const from = at(first.games[0], studentIndex(first.games[0]));
+  await lecturer.getByRole("button", { name: pickLabel(from) }).click();
+  // A co-owner swaps two other Students in another tab meanwhile.
+  const elsewhere = await lecturer.request.post(`/api/class-sessions/${id}/allocation/move`, {
+    data: {
+      draft_id: first.id,
+      revision: first.revision,
+      from_game: 1,
+      from_role: first.games[0].seats.filter((seat) => seat.user_id != null)[1].role,
+      to_game: 2,
+      to_role: first.games[1].seats[studentIndex(first.games[1])].role,
+    },
+    headers: CSRF,
+  });
+  expect(elsewhere.ok()).toBe(true);
+  const current = ((await elsewhere.json()) as Allocation).draft!;
+  await lecturer.getByRole("button", { name: /^Bytt / }).first().click();
+  await expect(lecturer.getByRole("main").getByRole("alert")).toHaveText(a.changed);
+  // The pick is cleared and the panel shows the draft as it is now; nothing else moved.
+  await expect(lecturer.getByRole("button", { name: a.cancelPick })).toHaveCount(0);
+  await expectSeats(lecturer, current.games[0]);
+  expect((await storedAllocation(lecturer, id)).draft!.revision).toBe(2);
   await lecturer.context().close();
 });

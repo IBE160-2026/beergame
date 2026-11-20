@@ -172,3 +172,19 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   locked 409 `session_locked`; a redraw of a confirmed allocation 409 `allocation_confirmed`.
 - The Lærerhjem's «Venter» names each session by what it lacks (`lacks`: `dates`, `allocation`); a
   session lacks its allocation until it is confirmed or the session is locked.
+
+## Moving and swapping Students (Story 5.10)
+
+- `POST …/allocation/move` with `{draft_id, revision, from_game, from_role, to_game, to_role}`: the
+  Student of the first Seat takes the second; a Student there takes the first (a swap). The draft
+  keeps its id, its revision rises by one, and `session:<id>` is emitted. It works before and after
+  the confirmation, until the lock (409 `session_locked`). A stale id or revision answers 409
+  `allocation_changed`; a move the draft cannot take 422 `invalid_move` (`fields`: `to: same`,
+  `from|to: unknown`, `from: empty`, `from: last_student` — a game is never left without a
+  Student).
+- Once confirmed, the same transaction runs `games.commands.move_seat` on the Class games (locked
+  in id order; a Seat left free gets an occupancy row with no kind and reason `moved`, migration
+  0039), and each Student who moved gets the `allocation_confirmed` notice again, keyed
+  `allocation_confirmed:{draft}:{revision}:{user}`. The draft is always what the Seats hold. A
+  refusal of the command answers its own code (such as 409 `game_already_started`).
+- `AllocationOut.confirmed_at` gives the panel «Fordelingen er bekreftet {dato}.».

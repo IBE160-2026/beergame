@@ -196,6 +196,7 @@ async def test_with_every_student_removed_the_draft_goes(klass):
         "missing_count": 0,
         "draft": None,
         "confirmed": False,
+        "confirmed_at": None,
     }
     assert counts()[0] == 0
 
