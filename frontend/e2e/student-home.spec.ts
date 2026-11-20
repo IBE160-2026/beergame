@@ -26,6 +26,15 @@ const GAME = {
     { role: "wholesaler", holder: "student", name: "Demo Student", mine: true },
     { role: "retailer", holder: "ai", name: null, mine: false },
   ],
+  briefing_first: true,
+  rules: {
+    order_delay: 2,
+    shipping_delay: 2,
+    production_delay: 2,
+    guided_weeks: 4,
+    holding_cost: "0.50",
+    backorder_cost: "1.00",
+  },
 };
 
 /** The demo Student's Class with one Class session in the given state, as the api answers it. */
@@ -129,6 +138,8 @@ for (const vp of VIEWPORTS) {
       const steps = main.getByRole("region", { name: copy.steps }).getByRole("listitem");
       await expect(steps.nth(0)).toHaveText(/Klassespill\s*pågår/);
       await expect(steps.nth(4)).toHaveText(copy.locked.test);
+      // Story 6.2: until the Starting task, Hjem's one primary button leads to the briefing.
+      await expect(main.getByRole("link", { name: copy.readRules })).toHaveAttribute("href", `/spill/${GAME.id}/regler`);
       await expectAccessible(page, vp.phone);
       await textAtLeast13px(page);
     });

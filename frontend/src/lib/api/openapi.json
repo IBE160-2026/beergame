@@ -1863,6 +1863,45 @@
         "title": "ErrorEnvelope",
         "type": "object"
       },
+      "GameRulesOut": {
+        "description": "The rules «Regler før første ordre» states (Story 6.2, FR-84), from the Class session's\nfrozen settings: the delays, the number of Veiledede uker and the two cost rates. Never the\nnumber of Weeks, the demand, its seed or the largest Order (FR-14, AD-3).",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "guided_weeks": {
+            "title": "Guided Weeks",
+            "type": "integer"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "order_delay": {
+            "title": "Order Delay",
+            "type": "integer"
+          },
+          "production_delay": {
+            "title": "Production Delay",
+            "type": "integer"
+          },
+          "shipping_delay": {
+            "title": "Shipping Delay",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "order_delay",
+          "shipping_delay",
+          "production_delay",
+          "guided_weeks",
+          "holding_cost",
+          "backorder_cost"
+        ],
+        "title": "GameRulesOut",
+        "type": "object"
+      },
       "GameSettings": {
         "additionalProperties": false,
         "description": "Everything that defines a Game's arithmetic. `GameSettings()` is the Classic game.",
@@ -3929,6 +3968,10 @@
       "StudentGameOut": {
         "description": "The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four\nSeats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`).",
         "properties": {
+          "briefing_first": {
+            "title": "Briefing First",
+            "type": "boolean"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -3940,6 +3983,9 @@
           },
           "role": {
             "$ref": "#/components/schemas/Role"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/GameRulesOut"
           },
           "seats": {
             "items": {
@@ -3953,7 +3999,9 @@
           "id",
           "number",
           "role",
-          "seats"
+          "seats",
+          "briefing_first",
+          "rules"
         ],
         "title": "StudentGameOut",
         "type": "object"

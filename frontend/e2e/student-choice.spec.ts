@@ -200,6 +200,15 @@ test("with the flag off the route is not found and Hjem shows the drawn Seat onc
             name: role === "wholesaler" ? "student7@example.com" : null,
             mine: role === "wholesaler",
           })),
+          briefing_first: true,
+          rules: {
+            order_delay: 2,
+            shipping_delay: 2,
+            production_delay: 2,
+            guided_weeks: 4,
+            holding_cost: "0.50",
+            backorder_cost: "1.00",
+          },
         };
       }
     }

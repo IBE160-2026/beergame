@@ -2231,6 +2231,26 @@ export interface components {
             error: components["schemas"]["ErrorBody"];
         };
         /**
+         * GameRulesOut
+         * @description The rules «Regler før første ordre» states (Story 6.2, FR-84), from the Class session's
+         *     frozen settings: the delays, the number of Veiledede uker and the two cost rates. Never the
+         *     number of Weeks, the demand, its seed or the largest Order (FR-14, AD-3).
+         */
+        GameRulesOut: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Guided Weeks */
+            guided_weeks: number;
+            /** Holding Cost */
+            holding_cost: string;
+            /** Order Delay */
+            order_delay: number;
+            /** Production Delay */
+            production_delay: number;
+            /** Shipping Delay */
+            shipping_delay: number;
+        };
+        /**
          * GameSettings
          * @description Everything that defines a Game's arithmetic. `GameSettings()` is the Classic game.
          */
@@ -3215,6 +3235,8 @@ export interface components {
          *     Seats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`).
          */
         StudentGameOut: {
+            /** Briefing First */
+            briefing_first: boolean;
             /**
              * Id
              * Format: uuid
@@ -3223,6 +3245,7 @@ export interface components {
             /** Number */
             number: number;
             role: components["schemas"]["Role"];
+            rules: components["schemas"]["GameRulesOut"];
             /** Seats */
             seats: components["schemas"]["TableSeatOut"][];
         };

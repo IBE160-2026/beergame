@@ -1,13 +1,15 @@
 "use client";
 
-import { Button } from "@/components/button";
+import NextLink from "next/link";
+
+import { Button, buttonClassName } from "@/components/button";
 import { Link } from "@/components/link";
 import { LoadingNote, Skeleton } from "@/components/skeleton";
 import { Stegene } from "@/components/stegene";
 import { nb } from "@/copy/nb";
 import { usePageState } from "@/lib/page-state";
 import { enrolledClassesKey, useEnrolledClasses } from "@/modules/classes/api";
-import { seatChoicePath } from "@/modules/identity/homes";
+import { rulesPath, seatChoicePath } from "@/modules/identity/homes";
 import { type EnrolledSession, enrolledSessionsKey, useEnrolledSessions } from "@/modules/sessions/api";
 import { homeLine } from "@/modules/sessions/seat-choice";
 import { roleName } from "@/modules/sessions/sessions";
@@ -61,6 +63,10 @@ export function StudentHjem() {
     return <p className="mt-8 max-w-md text-body-phone text-ink-secondary lg:text-body">{nb.homes.noClass}</p>;
   }
   const all = sessions.data?.items ?? [];
+  // Hjem keeps one primary button (UX-DR8): «Les reglene» of the first game whose briefing comes
+  // first, in the order the page lists them; any further one is a Lenke.
+  const listed = items.flatMap((item) => all.filter((session) => session.class_id === item.id));
+  const primaryRules = listed.find((session) => session.game?.briefing_first)?.id ?? null;
   return (
     <ul className="mt-8 flex max-w-md flex-col border-t border-hairline">
       {items.map((item) => {
@@ -73,7 +79,14 @@ export function StudentHjem() {
             {own.length === 0 ? (
               <p className="mt-1 text-body-phone text-ink-secondary lg:text-body">{nb.homes.startDate}</p>
             ) : (
-              own.map((session) => <SessionBlock key={session.id} session={session} labelled={own.length > 1} />)
+              own.map((session) => (
+                <SessionBlock
+                  key={session.id}
+                  session={session}
+                  labelled={own.length > 1}
+                  primaryRules={session.id === primaryRules}
+                />
+              ))
             )}
           </li>
         );
@@ -83,7 +96,15 @@ export function StudentHjem() {
 }
 
 /** One Class session on Hjem: the game card or the line before it, then Stegene and the dates. */
-function SessionBlock({ session, labelled }: { session: EnrolledSession; labelled: boolean }) {
+function SessionBlock({
+  session,
+  labelled,
+  primaryRules,
+}: {
+  session: EnrolledSession;
+  labelled: boolean;
+  primaryRules: boolean;
+}) {
   const game = session.game ?? null;
   const deadline = deadlineText(session);
   const labs = session.lab_hours ?? [];
@@ -96,7 +117,7 @@ function SessionBlock({ session, labelled }: { session: EnrolledSession; labelle
             .join(" · ")}
         </p>
       ) : null}
-      {game ? <GameCard game={game} session={session} /> : <BeforeStart session={session} />}
+      {game ? <GameCard game={game} session={session} primaryRules={primaryRules} /> : <BeforeStart session={session} />}
       <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps)} />
       {deadline || labs.length > 0 ? (
         <dl className="mt-6 flex flex-col gap-2 border-t border-hairline pt-4 text-body-phone lg:text-body">
@@ -119,7 +140,15 @@ function SessionBlock({ session, labelled }: { session: EnrolledSession; labelle
 }
 
 /** «Spill 17 · Du er Grossist» and «Setene»: each Seat's Role and who holds it, in words. */
-function GameCard({ game, session }: { game: NonNullable<EnrolledSession["game"]>; session: EnrolledSession }) {
+function GameCard({
+  game,
+  session,
+  primaryRules,
+}: {
+  game: NonNullable<EnrolledSession["game"]>;
+  session: EnrolledSession;
+  primaryRules: boolean;
+}) {
   const seatsId = `seats-${session.id}`;
   const drawn = homeLine(session);
   return (
@@ -144,7 +173,30 @@ function GameCard({ game, session }: { game: NonNullable<EnrolledSession["game"]
           ))}
         </ul>
       </section>
+      <RulesEntry game={game} primary={primaryRules} />
     </div>
+  );
+}
+
+/** Story 6.2: while the briefing comes first (the api's `briefing_first`), «Les reglene» leads
+ * to «Regler før første ordre», as Hjem's primary button; afterwards the briefing stays a Lenke. */
+function RulesEntry({ game, primary }: { game: NonNullable<EnrolledSession["game"]>; primary: boolean }) {
+  const href = rulesPath(game.id);
+  if (game.briefing_first && primary) {
+    return (
+      <div className="mt-5">
+        <NextLink href={href} className={buttonClassName("primary")}>
+          {copy.readRules}
+        </NextLink>
+      </div>
+    );
+  }
+  return (
+    <p className="mt-3">
+      <Link href={href} standalone>
+        {game.briefing_first ? copy.readRules : copy.rulesLink}
+      </Link>
+    </p>
   );
 }
 

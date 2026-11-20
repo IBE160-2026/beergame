@@ -13,7 +13,21 @@ const seat = (over: Partial<Seat>): Seat => ({ role: "wholesaler", holder: "stud
 
 describe("Hjem's game card (Story 6.1)", () => {
   it("names the game and the Student's Role", () => {
-    const game: Game = { id: "g", number: 17, role: "wholesaler", seats: [] };
+    const game: Game = {
+      id: "g",
+      number: 17,
+      role: "wholesaler",
+      seats: [],
+      briefing_first: true,
+      rules: {
+        order_delay: 2,
+        shipping_delay: 2,
+        production_delay: 2,
+        guided_weeks: 4,
+        holding_cost: "0.50",
+        backorder_cost: "1.00",
+      },
+    };
     expect(gameTitle(game)).toBe("Spill 17 · Du er Grossist");
   });
 

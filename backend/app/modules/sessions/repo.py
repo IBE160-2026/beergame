@@ -82,7 +82,9 @@ async def sessions_of(session: AsyncSession, class_id: uuid.UUID) -> list[RowMap
 
 async def enrolled_sessions(session: AsyncSession, user: authz.Principal) -> list[RowMapping]:
     """The sessions of the Classes `user` is a Student in (`authz.classes_enrolled_by`), with
-    their numbers: dates and the obligatory mark only, never the Game settings."""
+    their numbers: dates and the obligatory mark, and the settings and the snapshot's settings
+    (`snapshot_settings`; never its demand) only so that `service.game_rules` can pick the rules
+    the briefing states (Story 6.2); the Student's answer never carries the Game settings."""
     result = await session.execute(
         select(
             _numbered.c.id,
@@ -92,6 +94,8 @@ async def enrolled_sessions(session: AsyncSession, user: authz.Principal) -> lis
             *(_numbered.c[name] for name in DATE_NAMES),
             _numbered.c.locked_at,
             _numbered.c.allocation_method,
+            _numbered.c.game_settings,
+            _numbered.c.snapshot["settings"].label("snapshot_settings"),
         )
         .where(_numbered.c.class_id.in_(authz.classes_enrolled_by(user)))
         .order_by(_numbered.c.class_id, _numbered.c.id)

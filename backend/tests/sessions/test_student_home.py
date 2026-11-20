@@ -7,9 +7,11 @@ one the same. The api's clock is fixed and the sweep is handed its `now`."""
 
 import uuid
 
+from app.engine import GameSettings
 from app.modules.games import commands as games_commands
 from app.modules.ops import sweep
 from app.modules.progress import service as progress
+from app.modules.sessions.service import game_rules
 from tests.classes.test_classes import make
 from tests.classes.test_invitation_counts import execute
 from tests.classes.test_roster_upload import NOW, clock, klass
@@ -17,6 +19,7 @@ from tests.classes.test_staff import call
 from tests.sessions.test_dates import OUTSIDER, START, student_of
 from tests.sessions.test_lock import MINUTE, _empty
 from tests.sessions.test_open_games import confirmed, games_of, holders
+from tests.sessions.test_settings import save
 from tests.sessions.test_student_choice import email
 
 __all__ = ["_empty", "clock", "klass"]
@@ -152,3 +155,64 @@ async def test_a_classmate_removed_after_the_start_has_no_name(klass):
     # Nor does anyone once the Class is archived (Story 4.10): Hjem lists it no more.
     execute("UPDATE classes SET archived_at = %s WHERE id = %s", NOW, klass)
     assert (await game_of(email(0), item["game"]["id"])).status_code == 403
+
+
+CLASSIC_RULES = {
+    "order_delay": 2,
+    "shipping_delay": 2,
+    "production_delay": 2,
+    "guided_weeks": 4,
+    "holding_cost": "0.50",
+    "backorder_cost": "1.00",
+}
+
+
+async def test_the_briefing_comes_first_until_the_starting_task_is_done(klass):
+    """Story 6.2: nothing is stored for "briefing read"; `briefing_first` holds until
+    `progress` has `starting_task`, on Hjem and on the game route alike."""
+    session_id, seated = await confirmed(klass, 1)
+    await sweep.run(START + MINUTE)
+    game = (await home(email(0)))["game"]
+    assert game["briefing_first"] is True and game["rules"] == CLASSIC_RULES
+    assert (await game_of(email(0), game["id"])).json() == game
+    # The rules hold only what the briefing states: no Weeks, demand, seed or largest Order.
+    assert set(game["rules"]) == set(CLASSIC_RULES)
+    await progress.record_step(seated[0], uuid.UUID(session_id), "starting_task", NOW)
+    after = (await home(email(0)))["game"]
+    assert after["briefing_first"] is False and after["rules"] == CLASSIC_RULES
+    assert (await game_of(email(0), game["id"])).json()["briefing_first"] is False
+
+
+async def test_the_briefing_states_the_sessions_own_rules(klass):
+    """Story 6.2: a Lecturer's changed delays, Veiledede uker and rates reach the briefing, read
+    from the snapshot the lock froze."""
+    session_id, _ = await confirmed(klass, 1)
+    changed = {
+        "order_delay": 3,
+        "shipping_delay": 1,
+        "production_delay": 2,
+        "guided_weeks": 0,
+        "holding_cost": "0.75",
+        "backorder_cost": "2.00",
+    }
+    assert (await save(session_id, changed)).status_code == 200
+    await sweep.run(START + MINUTE)
+    # The snapshot wins over the session's settings, should those ever differ after the lock.
+    execute(
+        "UPDATE class_sessions SET game_settings = %s::jsonb WHERE id = %s",
+        GameSettings().model_dump_json(),
+        session_id,
+    )
+    game = (await home(email(0)))["game"]
+    assert game["rules"] == changed
+    assert (await game_of(email(0), game["id"])).json()["rules"] == changed
+
+
+def test_the_rules_come_from_the_settings_until_the_lock_has_stored_its_snapshot():
+    """Story 6.2: between the Start date and the sweep's lock there is no snapshot yet; the
+    session's own settings, which no longer change, give the rules."""
+    stored = GameSettings(order_delay=3, guided_weeks=1).model_dump(mode="json")
+    frozen = GameSettings(order_delay=1).model_dump(mode="json")
+    assert game_rules({"snapshot_settings": None, "game_settings": stored}).order_delay == 3
+    assert game_rules({"snapshot_settings": None, "game_settings": stored}).guided_weeks == 1
+    assert game_rules({"snapshot_settings": frozen, "game_settings": stored}).order_delay == 1

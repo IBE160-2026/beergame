@@ -372,3 +372,12 @@ Obligatorisk mark it carries, per Class session:
 one `student_game` gives, joined through `authz.own_seat`) in a locked session of a Class that is
 not archived; any other id, also a game the Student left in a move before the start, answers 403
 `forbidden`, the same whether or not the game exists.
+
+## «Regler før første ordre» (Story 6.2)
+
+The game card (both endpoints above) also carries `briefing_first`, true until `progress` has
+`starting_task` for the Student in that Class session (nothing is stored for "briefing read"), and
+`rules`: the order, shipping and production delays, the number of Veiledede uker and the two cost
+rates, read by `service.game_rules` from the session's frozen `snapshot['settings']` (or its
+`game_settings` until the lock has stored the snapshot; a locked session no longer changes them).
+Never the number of Weeks, the demand, its seed or the largest Order (FR-14, AD-3).

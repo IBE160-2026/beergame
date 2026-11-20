@@ -140,6 +140,7 @@ from app.modules.sessions.schemas import (
     EnrolledLabHourOut,
     EnrolledSessionListOut,
     EnrolledSessionOut,
+    GameRulesOut,
     LabHourIn,
     LabHourOut,
     LecturerOverviewOut,
@@ -1110,8 +1111,11 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
             else {}
         )
         locked = [row for row in rows if row["class_id"] in names and is_locked(row, now=now)]
-        cards = {row["id"]: await _student_card(s, user.id, row) for row in locked}
         done = await progress.steps_of(s, user.id, [row["id"] for row in rows])
+        cards = {
+            row["id"]: await _student_card(s, user.id, row, done.get(row["id"], set()))
+            for row in locked
+        }
     upcoming: dict[uuid.UUID, list[EnrolledLabHourOut]] = {}
     for lab in labs:
         upcoming.setdefault(lab["class_session_id"], []).append(
@@ -1184,20 +1188,40 @@ def _names_in(class_id: uuid.UUID) -> Callable[[list[uuid.UUID]], Awaitable[dict
 
 
 async def _student_card(
-    s: AsyncSession, user_id: uuid.UUID, row: Mapping[str, Any]
+    s: AsyncSession, user_id: uuid.UUID, row: Mapping[str, Any], done: set[progress.Step]
 ) -> StudentGameOut | None:
     """The Student's Class game in a locked Class session, through `games.service.student_game`
     and `table_status` (Story 6.1, AD-3); None when they never held a Seat in it."""
     found = await games_service.student_game(s, user_id, row["id"])
     if found is None:
         return None
-    return await _game_out(s, user_id, found, row["class_id"])
+    return await _game_out(s, user_id, found, row, done)
+
+
+def game_rules(row: Mapping[str, Any]) -> GameRulesOut:
+    """The rules the briefing states (Story 6.2, FR-84), from the Class session's frozen snapshot
+    or, until the lock has stored it, its settings, which a locked session no longer changes
+    (`SessionLocked`). Only the delays, the Veiledede uker and the cost rates (FR-14, AD-3)."""
+    frozen = row["snapshot_settings"]
+    settings = GameSettings.model_validate(frozen if frozen is not None else row["game_settings"])
+    return GameRulesOut(
+        order_delay=settings.order_delay,
+        shipping_delay=settings.shipping_delay,
+        production_delay=settings.production_delay,
+        guided_weeks=settings.guided_weeks,
+        holding_cost=settings.holding_cost,
+        backorder_cost=settings.backorder_cost,
+    )
 
 
 async def _game_out(
-    s: AsyncSession, user_id: uuid.UUID, found: games_service.StudentGame, class_id: uuid.UUID
+    s: AsyncSession,
+    user_id: uuid.UUID,
+    found: games_service.StudentGame,
+    row: Mapping[str, Any],
+    done: set[progress.Step],
 ) -> StudentGameOut:
-    table = await games_service.table_status(s, found.game_id, user_id, _names_in(class_id))
+    table = await games_service.table_status(s, found.game_id, user_id, _names_in(row["class_id"]))
     return StudentGameOut(
         id=found.game_id,
         number=found.number,
@@ -1206,6 +1230,9 @@ async def _game_out(
             TableSeatOut(role=seat.role, holder=seat.holder, name=seat.name, mine=seat.mine)
             for seat in table.seats
         ],
+        # Story 6.2: the briefing comes first until the Starting task is done (AD-16).
+        briefing_first=progress.Step.STARTING_TASK not in done,
+        rules=game_rules(row),
     )
 
 
@@ -1230,7 +1257,8 @@ async def student_game_of(user: authz.Principal, game_id: str) -> StudentGameOut
         row = rows.get(found.class_session_id)
         if row is None or row["class_id"] not in listed or not is_locked(row):
             return None
-        return await _game_out(s, user.id, found, row["class_id"])
+        done = await progress.steps_of(s, user.id, [row["id"]])
+        return await _game_out(s, user.id, found, row, done.get(row["id"], set()))
 
 
 async def lecturer_overview(user: authz.Principal) -> LecturerOverviewOut:

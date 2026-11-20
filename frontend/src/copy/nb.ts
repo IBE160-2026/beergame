@@ -30,6 +30,17 @@ function countWord(count: number): string {
  * a Student sees game, Role and Seats from the Start date (founder decision 2026-11-12). */
 const START_DATE_LINE = "Du får Rolle og spill på startdatoen.";
 
+/** The numbers the briefing's worked Uke writes into its lines (Story 6.2). */
+type WorkedWeekCopy = {
+  inventoryBefore: number;
+  backlogBefore: number;
+  onHand: number;
+  owed: number;
+  shipped: number;
+  inventoryAfter: number;
+  backlogAfter: number;
+};
+
 /** What a Class session on the Lærerhjem still lacks, in words (Stories 5.2, 5.9). */
 const LACKS = { dates: "datoer", allocation: "bekreftet fordeling" } as const;
 
@@ -377,6 +388,11 @@ export const nb = {
       /** «to. 26. nov. 14:15, Datalab A2». */
       labHourItem: (day: string, time: string, place: string) => `${day} ${time}, ${place}`,
       obligatory: "Obligatorisk",
+      /** Story 6.2: Hjem's primary button to the briefing, until the Starting task is done. The
+       * story's draft. [ASSUMPTION] */
+      readRules: "Les reglene",
+      /** Story 6.2: the briefing's Lenke afterwards, named by its title. */
+      rulesLink: "Regler før første ordre",
     },
   },
 
@@ -1332,6 +1348,89 @@ export const nb = {
         `${className}: Klasseøkt ${number} mangler ${what.map((item) => LACKS[item]).join(" og ")}`,
       nextDate: (dateName: string, number: number, className: string) =>
         `${dateName}, Klasseøkt ${number}, ${className}`,
+    },
+  },
+
+  /** The Student's Class game (Epic 6). Shown before the Debrief: `npm run check:copy` holds it to
+   * the pre-Debrief rules. */
+  games: {
+    /** «Regler før første ordre» (Story 6.2, FR-84, FR-14, UX-DR63, UX-DR70). The title is the
+     * spine's; everything else is [ASSUMPTION] draft copy for the founder's review. It states the
+     * game's own delays, Veiledede uker and rates, never the number of Weeks, and recommends no
+     * Order. */
+    briefing: {
+      title: "Regler før første ordre",
+      lead: (role: string, number: number) =>
+        `Du er ${role} i Spill ${number}. Kjeden har fire roller: Fabrikk, Distributør, Grossist og Detaljist. Hver uke sender du enheter til den som bestiller fra deg, og legger inn én egen ordre.`,
+      goal: {
+        title: "Målet",
+        text: "Dere skal få lavest mulig totalkostnad for hele kjeden, ikke bare for ditt eget sete.",
+        rates: (holding: string, backorder: string) =>
+          `Hver enhet på lager koster ${holding} kr per uke. Hver enhet i restordre koster ${backorder} kr per uke.`,
+      },
+      week: {
+        title: "Slik går en uke",
+        same: "Alle setene legger inn ordre for den samme uka. Når alle har lagt inn sin ordre, regnes uka, og neste uke åpner.",
+        ship: "Det du har på lager, må du sende, opp til det som er bestilt fra deg. Du kan ikke holde enheter tilbake.",
+        backlog: "Det du ikke kan sende, blir restordre. Restordre sendes så snart du har enheter.",
+      },
+      delays: {
+        title: "Forsinkelsene",
+        /** Every Role but Fabrikk: the order reaches the supplier, then the goods travel back. */
+        order: (weeks: string, supplier: string) => `Ordren din kommer fram til ${supplier} ${weeks} etter at du la den inn.`,
+        shipping: (weeks: string) => `Det som sendes til deg, er ${weeks} på vei før det kommer fram.`,
+        /** Fabrikk orders from its own production. */
+        production: (orderWeeks: string, productionWeeks: string) =>
+          `Ordren din går til produksjon ${orderWeeks} etter at du la den inn. Produksjonen tar ${productionWeeks}.`,
+        /** No sum of the delays: the web app works out no game quantity (AD-1). */
+        earliest:
+          "Det du bestiller nå, kommer altså tidligst fram etter begge forsinkelsene, og senere hvis leverandøren mangler enheter.",
+        earliestFactory: "Det du bestiller nå, kommer altså tidligst fram etter begge forsinkelsene.",
+        onTheWay: "Enheter du har bestilt og ennå ikke fått, står som På vei.",
+        /** The supplier, definite: «Distributøren». */
+        supplier: { wholesaler: "Grossisten", distributor: "Distributøren", factory: "Fabrikken" },
+        weeks: (count: number) => (count === 1 ? "én uke" : `${countWord(count)} uker`),
+      },
+      guided: {
+        title: "Veiledede uker",
+        some: (count: number) =>
+          `${count === 1 ? "Den første uka er en veiledet uke." : `De første ${countWord(count)} ukene er veiledede uker.`} Ordren er fast og legges inn for deg, så du kan bli kjent med tallene. Uka går videre når alle har åpnet den.`,
+        none: "Dette spillet har ingen veiledede uker. Du legger inn din egen ordre fra første uke.",
+      },
+      together: {
+        title: "Slik spiller dere",
+        continues: "Spill som om virksomheten fortsetter.",
+        arrange: "Dere kan avtale når dere spiller, men dere skal ikke snakke om ordrer eller tall med de andre i kjeden.",
+      },
+      example: {
+        title: "Én uke forklart",
+        caption: "Uke 11 for en Grossist",
+        term: "Rad",
+        value: "Tall",
+        meaning: "Hva det betyr",
+        /** The worked Uke's rows, top to bottom (Demodata, Design Notes of Story 6.2), each with the
+         * numbers of `EXAMPLE` in `modules/games/briefing.ts`. */
+        rows: {
+          incomingOrder: (w: WorkedWeekCopy) =>
+            `Det Detaljisten bestilte. Med ${w.backlogBefore} i restordre fra før må Grossisten sende ${w.owed}.`,
+          incomingDelivery: (w: WorkedWeekCopy) =>
+            `Enheter som kom fram denne uka. Med ${w.inventoryBefore} på lager fra før har Grossisten ${w.onHand}.`,
+          unitsShipped: () => "Grossisten sender alt den har, opp til det den skal sende.",
+          inventory: (w: WorkedWeekCopy) => `Det som er igjen etter sendingen: ${w.onHand} − ${w.shipped}.`,
+          backlog: (w: WorkedWeekCopy) =>
+            `Det Grossisten ikke kunne sende: ${w.owed} − ${w.shipped}. Det sendes så snart enhetene finnes.`,
+          netInventory: (w: WorkedWeekCopy) =>
+            `Lager minus restordre: ${w.inventoryAfter} − ${w.backlogAfter}. Under null betyr restordre. Spillets tabell viser denne raden.`,
+          supplyLine: () => "Enheter Grossisten har bestilt og ennå ikke fått.",
+        },
+        /** «Denne uka: 13 enheter i restordre, hver til 1,00 kr. Lager 0 gir ingen lagerkostnad.» No
+         * product: the web app computes no cost (AD-1). */
+        cost: (backlog: number, inventory: number, rate: string) =>
+          `Denne uka: ${backlog} enheter i restordre, hver til ${rate} kr. Lager ${inventory} gir ingen lagerkostnad.`,
+        demoData: "Demodata",
+      },
+      /** Back to Hjem until Story 6.3 opens the Startoppgave from here. */
+      done: "Jeg har lest reglene",
     },
   },
 

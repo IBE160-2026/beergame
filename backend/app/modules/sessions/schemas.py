@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any, Literal
 
@@ -363,6 +364,19 @@ class TableSeatOut(BaseModel):
     mine: bool
 
 
+class GameRulesOut(BaseModel):
+    """The rules «Regler før første ordre» states (Story 6.2, FR-84), from the Class session's
+    frozen settings: the delays, the number of Veiledede uker and the two cost rates. Never the
+    number of Weeks, the demand, its seed or the largest Order (FR-14, AD-3)."""
+
+    order_delay: int
+    shipping_delay: int
+    production_delay: int
+    guided_weeks: int
+    holding_cost: Decimal
+    backorder_cost: Decimal
+
+
 class StudentGameOut(BaseModel):
     """The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four
     Seats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`)."""
@@ -371,6 +385,10 @@ class StudentGameOut(BaseModel):
     number: int
     role: Role
     seats: list[TableSeatOut]
+    briefing_first: bool
+    """Story 6.2: the briefing comes first, until the Student has done the Starting task
+    (`progress` `starting_task`). Nothing is stored for "briefing read"."""
+    rules: GameRulesOut
 
 
 StegeneStep = Literal["class_game", "debrief", "quiz", "replay", "test", "report"]
