@@ -1679,3 +1679,25 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 125: beslutninger i Story 6.7.
+
+## Story 6.8: Se plassen med Demodata på forsiden som graf over tabellen (2026-11-20)
+
+### Oppgave
+Bygge Story 6.8 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-8-landing-demodata-graph-over-table.md`.
+- **Commit 2e950e5:** `seat-figure.tsx` med samme `WeekTable` som spillskjermen, data fra motoren i `demo-seat.json`, og felles sjekker for justering i `e2e/support/graph.ts`.
+- **Tester:**
+  - backend: 2694 tester;
+  - frontend: Vitest 525 og bygg;
+  - Playwright: 348 av 349 passerte. 1 mailtest feilet under last og passerte alene.
+- **Gjennomgang:** 32 funn. 15 lave ble rettet.
+- **Visuell kontroll:** 6 skjermbilder i `screenshots/6.8/`. To avvik er rettet (d1c33b4).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 126: beslutninger i Story 6.8.
