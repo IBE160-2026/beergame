@@ -94,6 +94,7 @@ async def staff_sessions(
             _numbered.c.class_id,
             _numbered.c.number,
             *(_numbered.c[name] for name in DATE_NAMES),
+            _numbered.c.locked_at,
             confirmed,
         )
         .where(
@@ -195,6 +196,27 @@ async def save(
             inactivity_limit_hours=inactivity_limit_hours,
             **values,
         )
+    )
+
+
+async def due_locks(session: AsyncSession, now: datetime) -> list[uuid.UUID]:
+    """The Class sessions whose Start date has passed and that are not locked (Story 5.11),
+    oldest first: what the sweep's `sessions.lock` acts on."""
+    result = await session.execute(
+        select(class_sessions.c.id)
+        .where(class_sessions.c.start_at <= now, class_sessions.c.locked_at.is_(None))
+        .order_by(class_sessions.c.id)
+    )
+    return list(result.scalars())
+
+
+async def set_locked(
+    session: AsyncSession, session_id: uuid.UUID, *, locked_at: datetime, snapshot: dict[str, Any]
+) -> None:
+    await session.execute(
+        update(class_sessions)
+        .where(class_sessions.c.id == session_id)
+        .values(locked_at=locked_at, snapshot=snapshot)
     )
 
 

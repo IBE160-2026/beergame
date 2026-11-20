@@ -96,6 +96,30 @@ export function osloDayAndTime(iso: string): { day: string; time: string } {
   };
 }
 
+/** «ti. 24. nov. kl. 10:00»: a date as text, in Europe/Oslo, where it can no longer change
+ * (Story 5.11, GitHub issue 103). */
+export function osloDateText(iso: string): string {
+  const { day, time } = osloDayAndTime(iso);
+  return copy.dateText(day, time);
+}
+
+type LockedDates = { passed_dates: readonly DateName[]; locked_at?: string | null };
+
+/** The dates that no longer move: those that have passed, and the Startdato of a session locked
+ * before it (Story 5.11, FR-18). */
+export function frozenDates(item: LockedDates): DateName[] {
+  return DATE_NAMES.filter(
+    (name) => item.passed_dates.includes(name) || (name === "start_at" && item.locked_at != null),
+  );
+}
+
+/** Whether a date can still change on save: once the session is locked, only the deadlines that
+ * have not passed (Story 5.11, FR-18). */
+export function datesEditable(item: LockedDates & { can_manage: boolean }): boolean {
+  const frozen = frozenDates(item);
+  return item.can_manage && DATE_NAMES.some((name) => !frozen.includes(name));
+}
+
 /** The fields of a Class session as the API holds them. */
 export function inputsOf(item: Record<DateName, string | null | undefined>): DateInputs {
   return {

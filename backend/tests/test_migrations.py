@@ -67,7 +67,7 @@ PRE_SESSION_TABLES = (
     | ROSTER_TABLES
 )
 HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES
-HEAD = "0039"  # 0039 lets a Seat be freed before the start (Story 5.10)
+HEAD = "0040"  # 0040 stores the Start-date lock of a Class session (Story 5.11)
 
 
 def reset_schema(url: str) -> None:
@@ -733,13 +733,14 @@ def test_0036_backfills_80_keeps_the_share_in_range_and_its_downgrade_drops_it(
     assert current_version(migrations_database) == HEAD
 
 
-def test_0037_to_0039_keep_one_draft_per_session_class_games_and_free_seats(
+def test_0037_to_0040_keep_one_draft_per_session_class_games_free_seats_and_the_lock(
     migrations_database,
 ):
     """0037 (Story 5.8): one current draft per Class session, its revision from 1. 0038 (Story
     5.9): a Game's snapshot is all there or all NULL, a Class game has its session and a unique
     number, and only a `student` occupant has a user id. 0039 (Story 5.10): a free-Seat row has
-    no occupant kind and the reason `moved`."""
+    no occupant kind and the reason `moved`. 0040 (Story 5.11): a Class session's `locked_at` and
+    `snapshot` are set together."""
     reset_schema(migrations_database)
     cfg = config(migrations_database)
     command.upgrade(cfg, "head")
@@ -764,6 +765,9 @@ def test_0037_to_0039_keep_one_draft_per_session_class_games_and_free_seats(
     occupancy = constraints("seat_occupancy")
     assert "user_id IS NULL" in occupancy["ck_seat_occupancy_user_student"]
     assert "'moved'" in occupancy["ck_seat_occupancy_free"]
+    assert "snapshot IS NULL" in constraints("class_sessions")["ck_class_sessions_lock"]
+    command.downgrade(cfg, "0039")
+    assert "ck_class_sessions_lock" not in constraints("class_sessions")
     command.downgrade(cfg, "0038")
     assert "ck_seat_occupancy_free" not in constraints("seat_occupancy")
     assert "'moved'" not in constraints("seat_occupancy")["ck_seat_occupancy_reason"]

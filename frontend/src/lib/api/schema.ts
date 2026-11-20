@@ -1731,6 +1731,8 @@ export interface components {
             llm_unavailable: "no_default_model" | null;
             /** Locked */
             locked: boolean;
+            /** Locked At */
+            locked_at?: string | null;
             /** Number */
             number: number;
             /** Obligatory */

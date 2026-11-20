@@ -46,6 +46,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # only the draft changes (`session`); after it `games.move_seat` runs in the same
         # transaction (`game`, `session`, `user`) and each moved Student's notice emits `user`.
         "sessions.move_allocation": frozenset({"game", "session", "user"}),
+        # The Start-date lock (Story 5.11): the staff read the session again; a lock refused for
+        # a missing provider key tells each owner and Admin once, which emits `user`.
+        "sessions.lock": frozenset({"session", "user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

@@ -743,6 +743,15 @@ def _counts(measurement: EffortMeasurement, app_env: str) -> bool:
     return not measurement.mock or app_env in MOCK_ENVS
 
 
+def may_answer(found: ModelConfig) -> bool:
+    """Whether a model may answer for this config in this environment: the mock where it may,
+    else the real endpoint with its key set (AD-17). False in production for the mock config or
+    a provider whose key is not set; `sessions.lock` refuses then (`provider_key_missing`)."""
+    from app.ai import adapters  # imports this module
+
+    return adapters.availability(found.spec, get_settings().app_env).kind != "refused"
+
+
 async def offered_effort_levels(
     config_id: uuid.UUID | str, *, session: AsyncSession | None = None
 ) -> list[OfferedLevel]:

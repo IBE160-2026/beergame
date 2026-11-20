@@ -37,6 +37,17 @@ async def roles_of(session: AsyncSession, user_id: uuid.UUID) -> list[str]:
     return list(result.scalars())
 
 
+async def active_holders(session: AsyncSession, role: str) -> list[uuid.UUID]:
+    """The active Users who hold the account role `role`, by id."""
+    result = await session.execute(
+        select(users.c.id)
+        .join(user_roles, user_roles.c.user_id == users.c.id)
+        .where(user_roles.c.role == role, users.c.is_active)
+        .order_by(users.c.id)
+    )
+    return list(result.scalars())
+
+
 async def insert_user(
     session: AsyncSession,
     *,

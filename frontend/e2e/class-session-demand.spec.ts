@@ -132,7 +132,7 @@ test("a session that has started shows the Demand pattern read-only, and its ser
     await route.fulfill({ response, json: { ...(await response.json()), locked: true } });
   });
   await lecturer.goto(`/klasseokter/${id}`);
-  await expect(lecturer.getByText(edit.locked)).toBeVisible();
+  await expect(lecturer.getByText(nb.sessions.lock.pending)).toBeVisible();
   await expect(lecturer.getByRole("button", { name: edit.open })).toHaveCount(0);
   await expect(field(lecturer, d.pattern)).toHaveCount(0);
   await lecturer.getByRole("button", { name: edit.series.show }).click();

@@ -110,7 +110,7 @@ test("a session that has started shows the settings read-only", async ({ page, b
     });
   });
   await lecturer.goto(`/klasseokter/${id}`);
-  await expect(lecturer.getByText(edit.locked)).toBeVisible();
+  await expect(lecturer.getByText(nb.sessions.lock.pending)).toBeVisible();
   await expect(lecturer.getByRole("button", { name: edit.open })).toHaveCount(0);
   await expect(lecturer.getByRole("textbox", { name: copy.settings.orderDelay })).toHaveCount(0);
 });

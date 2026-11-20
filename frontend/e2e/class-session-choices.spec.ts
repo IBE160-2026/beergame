@@ -146,7 +146,7 @@ test("a session that has started shows the choices as text, with no control", as
   const level = ((await stored(lecturer, id)).effort_levels as OfferedLevel[])[0];
   await answerWith(lecturer, id, { locked: true });
   await lecturer.goto(`/klasseokter/${id}`);
-  await expect(lecturer.getByText(copy.edit.locked)).toBeVisible();
+  await expect(lecturer.getByText(nb.sessions.lock.pending)).toBeVisible();
   await expect(lecturer.getByRole("radio")).toHaveCount(0);
   await expect(lecturer.getByRole("heading", { name: c.aiMode })).toBeVisible();
   await expect(lecturer.getByText(c.effortValue(levelLabel(level)))).toBeVisible();

@@ -41,7 +41,15 @@ import {
 } from "./choices";
 import { DateFields } from "./date-fields";
 import { DateLine } from "./date-line";
-import { type DateInputs, dateErrors, datesBody, inputsOf } from "./dates";
+import {
+  type DateInputs,
+  dateErrors,
+  datesBody,
+  datesEditable,
+  frozenDates,
+  inputsOf,
+  osloDateText,
+} from "./dates";
 import { LabHours } from "./lab-hours-panel";
 import { inactivityProblem, shareProblem, valueErrorsOf } from "./obligatory";
 import { calibratedText, draftOf, problemsOf, type SettingProblem, settingsBody, warningsBySetting } from "./settings";
@@ -237,9 +245,45 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       : klass?.staff_role === "assistant"
         ? copy.assistantLead
         : null;
+  // Locked (Story 5.11, GitHub issue 103): what is frozen stands as text, and the only save is the
+  // deadlines', while one can still move.
+  const deadlinesOpen = datesEditable(item);
+  const saveShown = item.can_manage && (!item.locked || deadlinesOpen);
+  const saveRow = (
+    <SaveRow
+      locked={item.locked}
+      secondary={labFormOpen || confirmShown}
+      pending={action.isPending}
+      errorMessage={action.errorMessage}
+      saved={saved && !action.isError}
+      onSave={() => {
+        if (action.isPending) return;
+        setSaved(false);
+        if (!valuesReady()) {
+          // Nothing is sent; the reasons stand under their fields.
+          action.reset();
+          return;
+        }
+        action.mutate();
+      }}
+    />
+  );
   return (
     <>
-      {item.is_classic ? <p className="mt-2 text-body-phone text-ink-secondary lg:text-body">{copy.defaults}</p> : null}
+      {item.locked ? (
+        <div className="mt-2 max-w-3xl">
+          <p className="text-body-phone text-ink lg:text-body">
+            {item.locked_at ? copy.lock.lockedAt(osloDateText(item.locked_at)) : copy.lock.pending}
+          </p>
+          {item.can_manage ? (
+            <p className="mt-1 text-body-phone text-ink-secondary lg:text-body">
+              {deadlinesOpen ? copy.lock.open : copy.lock.labHoursOpen}
+            </p>
+          ) : null}
+        </div>
+      ) : item.is_classic ? (
+        <p className="mt-2 text-body-phone text-ink-secondary lg:text-body">{copy.defaults}</p>
+      ) : null}
       {readOnlyLine ? (
         <p className="mt-2 max-w-2xl text-body-phone text-ink-secondary lg:text-body">{readOnlyLine}</p>
       ) : null}
@@ -251,7 +295,6 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           {item.is_classic ? null : (
             <p className="mt-2 text-body-phone text-ink-secondary">{calibratedText(item.calibrated_settings)}</p>
           )}
-          {item.locked && item.can_manage ? <p className="mt-2 text-body-phone text-ink">{copy.edit.locked}</p> : null}
           <SettingsBlock
             item={item}
             editable={item.can_manage && !item.locked}
@@ -268,7 +311,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
             onInactivityChange={setInactivity}
             onInactivityLeave={() => setInactivityChecked(true)}
           />
-          <p className="mt-3 text-body-phone text-ink-secondary">{copy.delaySources}</p>
+          {/* It says the delays can be changed: not once locked (Story 5.11). */}
+          {item.locked ? null : <p className="mt-3 text-body-phone text-ink-secondary">{copy.delaySources}</p>}
           <div className="mt-8">
             <ChainDiagram settings={settings} />
           </div>
@@ -281,6 +325,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           <LabHours item={item} onOpenChange={setLabFormOpen} />
           <DateFields
             inputs={inputs}
+            values={item}
             testTouched={testTouched}
             onChange={(next, touched) => {
               setInputs(next);
@@ -288,11 +333,14 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
             }}
             errors={dateErrors(action.error, inputs)}
             passed={item.passed_dates}
+            frozen={frozenDates(item)}
             readOnly={!item.can_manage}
           />
           {item.play_time_warning ? (
             <p className="mt-3 text-body-phone text-ink lg:text-body">{copy.dates.playTimeShort(settings.weeks)}</p>
           ) : null}
+          {/* Locked, «Lagre frister» saves only these fields, so it sits under them. */}
+          {saveShown && item.locked ? saveRow : null}
           <AllocationBlock item={item} onConfirmShown={setConfirmShown} />
         </section>
       </div>
@@ -304,24 +352,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
         shareError={shareError}
         onShareLeave={() => setShareChecked(true)}
       />
-      {item.can_manage ? (
-        <SaveRow
-          secondary={labFormOpen || confirmShown}
-          pending={action.isPending}
-          errorMessage={action.errorMessage}
-          saved={saved && !action.isError}
-          onSave={() => {
-            if (action.isPending) return;
-            setSaved(false);
-            if (!valuesReady()) {
-              // Nothing is sent; the reasons stand under their fields.
-              action.reset();
-              return;
-            }
-            action.mutate();
-          }}
-        />
-      ) : null}
+      {saveShown && !item.locked ? saveRow : null}
     </>
   );
 }
@@ -562,15 +593,18 @@ function AiDescriptions({ item }: { item: ClassSession }) {
 }
 
 /** «Lagre Klasseøkt», the screen's primary button, secondary while an in-place form with its own
- * primary is open (Story 5.6) or «Bekreft fordeling» shows (Story 5.9). A failure keeps focus and
- * values. */
+ * primary is open (Story 5.6) or «Bekreft fordeling» shows (Story 5.9). Once locked it is «Lagre
+ * frister», which saves only the deadlines that can still move (Story 5.11). A failure keeps focus
+ * and values. */
 function SaveRow({
+  locked,
   secondary,
   pending,
   errorMessage,
   saved,
   onSave,
 }: {
+  locked: boolean;
   secondary: boolean;
   pending: boolean;
   errorMessage: string | undefined;
@@ -581,7 +615,7 @@ function SaveRow({
     <div className="mt-10 flex flex-col items-start gap-3 lg:items-end">
       <div className="flex flex-col-reverse items-start gap-3 lg:flex-row lg:items-center lg:gap-6">
         <p id="save-hint" className="text-body-phone text-ink-secondary">
-          {copy.saveHint}
+          {locked ? copy.lock.saveHint : copy.saveHint}
         </p>
         <Button
           variant={secondary ? "secondary" : "primary"}
@@ -589,12 +623,12 @@ function SaveRow({
           aria-describedby="save-hint"
           onClick={onSave}
         >
-          {pending ? copy.saving : copy.save}
+          {pending ? copy.saving : locked ? copy.lock.save : copy.save}
         </Button>
       </div>
       <ActionError message={errorMessage} />
       <p role="status" className="text-body-phone text-ink">
-        {saved ? copy.saved : ""}
+        {saved ? (locked ? copy.lock.saved : copy.saved) : ""}
       </p>
     </div>
   );

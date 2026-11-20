@@ -735,7 +735,6 @@ export const nb = {
       // Story 5.7 (EXPERIENCE.md → Klasseøkt, «Ventetid før KI tar over», UX-DR49).
       inactivityHint: "Minst 20 timer. Kortere ventetid kan bare gjelde spill som er i rommet i en Labtime.",
       inactivityError: "Skriv et helt antall timer, 20 eller mer.",
-      locked: "Klasseøkten har startet. Spillinnstillingene kan ikke endres.",
       refused: "Spillinnstillingene ble ikke lagret. Se feltene.",
       errors: {
         outOfRange: (min: string, max: string) => `Må være fra ${min} til ${max}.`,
@@ -913,6 +912,19 @@ export const nb = {
     saveHint: "Du kan lagre uten å endre noe.",
     // [ASSUMPTION]
     saved: "Klasseøkten er lagret.",
+    /** The locked Klasseøkt (Story 5.11, FR-18, GitHub issue 103). [ASSUMPTION] draft copy. */
+    lock: {
+      /** Under the title once the lock has frozen the session; `when` as «ti. 24. nov. kl. 10:00». */
+      lockedAt: (when: string) =>
+        `Låst ${when}. Spillinnstillinger, etterspørsel, KI-modus, Innsatsnivå, Debrief-modus, Obligatorisk og ventetid er frosset.`,
+      /** The Start date has passed but the lock has not run yet (each minute) or was refused. */
+      pending: "Startdatoen er passert. Spillinnstillinger, etterspørsel, KI-modus, Innsatsnivå, Debrief-modus, Obligatorisk og ventetid kan ikke endres.",
+      open: "Frister som ikke er passert, og Labtimer, kan fortsatt endres.",
+      labHoursOpen: "Labtimer kan fortsatt endres.",
+      save: "Lagre frister",
+      saveHint: "Bare frister som ikke er passert, blir lagret.",
+      saved: "Fristene er lagret.",
+    },
     // [ASSUMPTION] the save of LLM players refused (`llm_unavailable`).
     llmRefused: "LLM-spillere kan ikke velges ennå. Be en Admin velge en standardmodell.",
     // [ASSUMPTION] above the Klasseøkt an Assistant lecturer reads.
@@ -949,6 +961,12 @@ export const nb = {
       testPrefilled: "Fylt ut 7 dager etter Debrieffristen. Du kan endre den.",
       // [ASSUMPTION] beside a date that has passed and no longer moves.
       passed: "Passert. Datoen kan ikke flyttes.",
+      // [ASSUMPTION] Story 5.11: a date that can no longer change, as text: «ti. 24. nov. kl. 10:00».
+      dateText: (day: string, time: string) => `${day} kl. ${time}`,
+      // [ASSUMPTION] a date not set, shown as text.
+      notSet: "Ikke satt",
+      // [ASSUMPTION] Story 5.11: the Startdato of a session locked before it (an early start).
+      lockedStart: "Klasseøkten er låst. Startdatoen kan ikke flyttes.",
       /** A date on the Datolinje: «ti. 24. nov.». */
       day: (weekday: string, day: number, month: string) => `${weekday} ${day}. ${month}`,
       weekdays: ["sø.", "ma.", "ti.", "on.", "to.", "fr.", "lø."],

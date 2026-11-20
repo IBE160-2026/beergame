@@ -619,6 +619,16 @@ async def student_names(class_id: uuid.UUID, user_ids: list[uuid.UUID]) -> dict[
     return await identity.student_names(class_id, user_ids)
 
 
+async def owners_of(session: AsyncSession, class_id: uuid.UUID) -> list[uuid.UUID]:
+    """The ids of the Class's owners and co-owners (Story 5.11: who is told that a Class session
+    cannot lock). Assistant lecturers are not among them."""
+    return sorted(
+        row["user_id"]
+        for row in await repo.staff_of(session, class_id)
+        if row["role"] == StaffRole.owner.value
+    )
+
+
 async def label_of_class(session: AsyncSession, class_id: uuid.UUID) -> identity.ClassLabel | None:
     """How a Student Invitation names its Class, in its mail and on «Du er invitert»
     (`identity`'s resolver)."""

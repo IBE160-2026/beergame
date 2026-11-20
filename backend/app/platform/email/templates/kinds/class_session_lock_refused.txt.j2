@@ -1,0 +1,6 @@
+{# A Class session could not lock at its Start date: LLM players and no key for the provider of its
+   model (Story 5.11, AD-17), an immediate kind sent once to each owner of the Class and each Admin.
+   `class_name` and `session_number` come from `sessions.service.lock_refused_mail_context` at send
+   time. [ASSUMPTION] draft copy. #}
+{% set subject = "Klasseøkten kan ikke starte" %}
+Klasseøkt {{ session_number }} i Klassen {{ class_name }} har nådd startdatoen, men kan ikke starte: KI-leverandøren for LLM-spillerne er ikke satt opp. En Admin må sette den opp, og da starter Klasseøkten av seg selv innen ett minutt.

@@ -103,6 +103,13 @@ class SessionRuntime(BaseModel):
     """Id of the Play guard parameter set the Game froze (FR-79); None only on Games created
     before Story 2.10, for which the guard does not run."""
     play_guard_params_version: int | None = None
+    inactivity_limit_hours: int | None = None
+    """The Class session's Inactivity limit the lock froze (Story 5.11); None on other Games."""
+    prompt_versions: dict[str, int] | None = None
+    """The prompt version per purpose of `model_config_id`, frozen with it (Story 5.11)."""
+    pins: dict[str, Any] | None = None
+    """The open map of pinned content versions and further runtime fields that the Class
+    session's lock fills from its registered pin providers (Story 5.11, AD-23)."""
 
     @model_validator(mode="after")
     def _config_and_level(self) -> SessionRuntime:

@@ -15,6 +15,7 @@ import uuid
 from collections.abc import AsyncIterator, Iterable, Mapping, Sequence
 from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import Any
 
 import structlog
 from pydantic import ValidationError
@@ -70,6 +71,7 @@ __all__ = [
     "advance",
     "assign_seat",
     "create",
+    "default_runtime",
     "finish",
     "move_seat",
     "place_order",
@@ -170,6 +172,34 @@ def _play_guard_params(set_id: str) -> play_guard.PlayGuardParams:
         raise CommandError(
             "invalid_parameter_set", f"Play guard parameter set {set_id!r} is invalid", 422
         ) from None
+
+
+def default_runtime(
+    *,
+    model_config_id: str | None,
+    effort_level: str | None,
+    inactivity_limit_hours: int | None = None,
+    prompt_versions: Mapping[str, int] | None = None,
+    pins: Mapping[str, Any] | None = None,
+) -> SessionRuntime:
+    """The `SessionRuntime` a Game freezes with today's Rule-based and Play guard parameter sets:
+    LLM players with `model_config_id`, Rule-based ones without. The Class session's lock builds
+    its snapshot with this (Story 5.11), so a Class game and a Game that takes its snapshot at
+    creation have the same shape (AD-4)."""
+    params = _rule_based_params(rule_based.DEFAULT_SET_ID)
+    guard = _play_guard_params(DEFAULT_PLAY_GUARD_SET)
+    return SessionRuntime(
+        ai_mode="rule_based" if model_config_id is None else "llm",
+        rule_based_params=params.id,
+        rule_based_params_version=params.version,
+        model_config_id=model_config_id,
+        effort_level=effort_level,
+        play_guard_params=guard.id,
+        play_guard_params_version=guard.version,
+        inactivity_limit_hours=inactivity_limit_hours,
+        prompt_versions=dict(prompt_versions) if prompt_versions is not None else None,
+        pins=dict(pins) if pins is not None else None,
+    )
 
 
 def _frozen_play_guard(runtime: SessionRuntime) -> play_guard.PlayGuardParams | None:

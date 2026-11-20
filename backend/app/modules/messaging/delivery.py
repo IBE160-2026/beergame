@@ -111,6 +111,16 @@ async def _allocation_context(
     return await sessions.allocation_mail_context(session, user_id, ref, now)
 
 
+LOCK_REFUSED_KIND = "class_session_lock_refused"
+"""`sessions.service.LOCK_REFUSED_NOTICE` (Story 5.11), named here for the same reason."""
+
+
+async def _lock_refused_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.lock_refused_mail_context(session, user_id, ref, now)
+
+
 KINDS: Mapping[str, Delivery] = MappingProxyType(
     {
         **{
@@ -118,6 +128,8 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         },
         OBLIGATORY_KIND: Delivery(DIGEST, OBLIGATORY_KIND, context=_obligatory_context),
         ALLOCATION_KIND: Delivery(DIGEST, ALLOCATION_KIND, context=_allocation_context),
+        # Immediate: the Start date has passed and the Class games wait for the lock.
+        LOCK_REFUSED_KIND: Delivery(IMMEDIATE, LOCK_REFUSED_KIND, context=_lock_refused_context),
         identity.PASSWORD_RESET: Delivery(
             IMMEDIATE, "password_reset", context=identity.password_reset_mail_context
         ),
@@ -133,7 +145,8 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
 )
 """The product's kinds: `password_reset` (Story 3.6), `invitation` (Story 3.7),
 `manual_registration` (Story 4.8), the Lab hour notices (Story 5.6, digest), the obligatory
-notice (Story 5.7, digest) and the allocation notice (Story 5.9, digest)."""
+notice (Story 5.7, digest), the allocation notice (Story 5.9, digest) and the refused lock
+(Story 5.11, immediate)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

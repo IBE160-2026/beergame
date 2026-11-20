@@ -54,6 +54,11 @@ class_sessions = Table(
     Column("saved_at", DateTime(timezone=True), nullable=True),
     # The four dates (Story 5.2), UTC, NULL until the Lecturer sets them.
     *(Column(name, DateTime(timezone=True), nullable=True) for name in DATE_NAMES),
+    # The Start-date lock (Story 5.11, AD-4): when it froze the session, and what it froze
+    # (`service.build_snapshot`). Both set together, by `service.lock` only.
+    Column("locked_at", DateTime(timezone=True), nullable=True),
+    Column("snapshot", JSONB(none_as_null=True), nullable=True),
+    CheckConstraint("(locked_at IS NULL) = (snapshot IS NULL)", name="ck_class_sessions_lock"),
     CheckConstraint("ai_mode IN ('llm', 'rule_based')", name="ck_class_sessions_ai_mode"),
     CheckConstraint("debrief_mode IN ('group', 'personal')", name="ck_class_sessions_debrief_mode"),
     CheckConstraint(

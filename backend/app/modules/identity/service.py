@@ -222,6 +222,12 @@ async def mail_recipient(session: AsyncSession, user_id: uuid.UUID) -> email.Rec
     return email.Recipient(email=row["email"], name=row["name"])
 
 
+async def active_admins(session: AsyncSession) -> list[uuid.UUID]:
+    """The ids of the active Admins, for a notice every Admin needs (Story 5.11: a Class session
+    that cannot lock because its AI provider has no key)."""
+    return await repo.active_holders(session, AccountRole.admin.value)
+
+
 async def user_id_for_email(session: AsyncSession, address: str) -> uuid.UUID | None:
     """The id of the User with this e-mail, or None. For the local dev mailbox only."""
     row = await repo.user_by_email(session, normalise_email(address))

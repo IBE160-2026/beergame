@@ -185,8 +185,11 @@ class ClassSessionOut(BaseModel):
     test_deadline: datetime | None
     """The four dates in UTC, None until set (Story 5.2). The web app shows them in Europe/Oslo."""
     locked: bool
-    """`service.is_locked`: the Start date has passed. Settings no longer change; deadlines that
-    have not passed still move."""
+    """`service.is_locked`: the session is locked or its Start date has passed. Settings no
+    longer change; deadlines that have not passed still move."""
+    locked_at: datetime | None = None
+    """When the lock froze the session (Story 5.11); None until then, also for a while after the
+    Start date has passed (the sweep runs each minute, or the lock is refused)."""
     passed_dates: list[DateName]
     """The dates that are set and have passed by the server's clock; they no longer move."""
     play_time_warning: bool

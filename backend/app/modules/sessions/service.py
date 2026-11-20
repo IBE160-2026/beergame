@@ -53,6 +53,12 @@ is never drawn again. The Lærerhjem names the unlocked sessions whose allocatio
 Until the lock a Student can be moved to a free Seat or two swapped (Story 5.10), in the draft by
 its revision and, once confirmed, in the Class games too through `games.commands.move_seat`.
 
+At the Start date the sweep's `sessions.lock` (Story 5.11) locks the Class session through
+`lock`, which Epic 8 also calls to start early: one transaction sets `locked_at` and stores the
+frozen snapshot of `build_snapshot`, with the pins of every provider registered through
+`register_pin_provider`. With LLM players and no usable provider key the lock is refused, the
+owners and the Admins are told once, and the next sweep tries again.
+
 Every mutation passes one guard, `_writable`, which asks `classes.service.is_writable` inside the
 mutation's transaction and raises `classes.service.ClassArchived` (409 `class_archived`) for an
 archived Class. Who may do what is `platform/authz`'s: `class_sessions.read`,
@@ -62,7 +68,7 @@ archived Class. Who may do what is `platform/authz`'s: `class_sessions.read`,
 
 import secrets
 import uuid
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -73,7 +79,7 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget, config
-from app.engine import GameSettings
+from app.engine import RULES_VERSION, GameSettings
 from app.engine.demand import DemandFixed, DemandRandom, DemandStep, DemandStepNoise, new_seed
 from app.engine.settings import (
     DEMAND_RANGES,
@@ -88,6 +94,7 @@ from app.engine.settings import (
 from app.modules.classes import service as classes
 from app.modules.games import commands as games_commands
 from app.modules.games import service as games_service
+from app.modules.identity import service as identity
 from app.modules.players import service as players
 from app.modules.sessions import allocation, repo
 from app.modules.sessions.models import (
@@ -408,9 +415,16 @@ def _value(class_session: ClassSessionLike, name: str) -> Any:
 
 
 def is_locked(class_session: ClassSessionLike, *, now: datetime | None = None) -> bool:
-    """The one predicate of the Start-date lock points (FR-18): true once the Start date has
-    passed. Settings then answer `session_locked`; deadlines that have not passed still move.
-    Story 5.11 adds `locked_at` here."""
+    """The one predicate of the Start-date lock points (FR-18): true once the session is locked
+    (`locked_at`, Story 5.11, also an early lock) or its Start date has passed. Settings then
+    answer `session_locked`; deadlines that have not passed still move."""
+    locked_at = (
+        class_session.locked_at
+        if isinstance(class_session, ClassSessionOut)
+        else class_session.get("locked_at")
+    )
+    if locked_at is not None:
+        return True
     start = _value(class_session, "start_at")
     return start is not None and start <= (now or auth.utcnow())
 
@@ -651,6 +665,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         debrief_deadline=row["debrief_deadline"],
         test_deadline=row["test_deadline"],
         locked=is_locked(row, now=now),
+        locked_at=row["locked_at"],
         passed_dates=_passed(row, now),
         play_time_warning=_play_time_warning(row, settings),
         settings_warnings=[
@@ -766,6 +781,9 @@ async def save_session(
                 new_settings = _settings_to_store(row, game_settings, locked=locked)
             if dates is not None:
                 changed = judge_dates(row, dates, now=now, locked=locked)
+                if row["locked_at"] is not None and "start_at" in changed:
+                    # Locked early (Epic 8), before the Start date: it no longer moves either.
+                    raise SessionLocked({"start_at": "locked"})
             if ai_mode is AiMode.llm:
                 if config_id is None:
                     default = await config.active_default(session=s)
@@ -1694,3 +1712,171 @@ async def allocation_mail_context(
     if user_id not in await classes.registered_students(row["class_id"]):
         return None
     return {"class_name": label.name}
+
+
+# The Start-date lock (Story 5.11, FR-12, FR-13, FR-15, FR-78, AD-4, AD-8, AD-9, AD-17, AD-23).
+
+LOCK_REFUSED_NOTICE = "class_session_lock_refused"
+"""The notice kind each owner of the Class and each Admin gets once when the lock is refused for
+a missing provider key, `immediate` (Story 5.11, AD-17): the Start date has passed."""
+
+PinProvider = Callable[[AsyncSession, Mapping[str, Any]], Awaitable[Any]]
+"""`(session, class_session_row)` → the JSON value the lock pins under the provider's name."""
+
+_pin_providers: dict[str, PinProvider] = {}
+
+
+def register_pin_provider(name: str, provider: PinProvider) -> None:
+    """Add a provider whose value every later lock stores in `SessionRuntime.pins[name]` (AD-23):
+    Epic 6 the Starting task, Epic 9 the Debrief content, Epic 10 the Replay template, Epic 11 the
+    question set. The lock's mechanism does not change with them. Registering the same provider
+    again changes nothing; another one under a taken name is refused."""
+    known = _pin_providers.get(name)
+    if known is not None and known is not provider:
+        raise ValueError(f"a pin provider named {name!r} is registered already")
+    _pin_providers[name] = provider
+
+
+class ProviderKeyMissing(Exception):
+    """LLM players, and the provider of the session's model config may not answer here (in
+    production: its key is not set). The lock is refused and nothing is frozen (AD-17)."""
+
+    code = "provider_key_missing"
+
+
+async def build_snapshot(
+    class_session: Mapping[str, Any], *, session: AsyncSession | None = None
+) -> dict[str, Any]:
+    """The frozen snapshot of a Class session row (AD-4), keyed like `games.SNAPSHOT_COLUMNS`:
+    the `GameSettings` with `schema_version`, the demand series the engine materialises with its
+    seed, the engine's `rules_version`, and the `SessionRuntime` (AI mode, Effort level,
+    Inactivity limit, model config id and its prompt versions, and the pins of every registered
+    provider). The one builder, so a Game that takes its snapshot at creation has the same
+    shape."""
+    if session is None:
+        async with get_sessionmaker().begin() as s:
+            return await build_snapshot(class_session, session=s)
+    settings = GameSettings.model_validate(class_session["game_settings"])
+    config_id: str | None = None
+    level: str | None = None
+    prompts: dict[str, int] | None = None
+    if class_session["ai_mode"] == AiMode.llm.value:
+        found = await config.get(class_session["model_config_id"], session=session)
+        if found is None:
+            raise config.ConfigNotFound(class_session["model_config_id"])
+        config_id = str(found.id)
+        level = class_session["effort_level"] or found.spec.effort_levels[0].name
+        prompts = {str(purpose): version for purpose, version in found.spec.prompts.items()}
+    pins = {
+        name: await provider(session, class_session)
+        for name, provider in sorted(_pin_providers.items())
+    }
+    runtime = games_commands.default_runtime(
+        model_config_id=config_id,
+        effort_level=level,
+        inactivity_limit_hours=class_session["inactivity_limit_hours"],
+        prompt_versions=prompts,
+        pins=pins,
+    )
+    return {
+        "settings": settings.model_dump(mode="json"),
+        "demand_series": list(demand_series(settings)),
+        "demand_seed": settings.demand_seed,
+        "rules_version": RULES_VERSION,
+        "session_runtime": runtime.model_dump(mode="json"),
+    }
+
+
+async def lock(class_session_id: uuid.UUID, *, now: datetime | None = None) -> bool:
+    """Lock the Class session now, whatever its Start date (the sweep at the Start date, Epic 8
+    when the Lecturer starts early): in one transaction under the session's row lock, set
+    `locked_at`, store `build_snapshot`, mark the model config referenced (LLM players) and emit
+    `session:<id>`. True when this call locked it; False when it was locked already or does not
+    exist. With LLM players whose provider may not answer here it raises `ProviderKeyMissing`
+    and stores nothing; it never falls back to Rule-based players (AD-17)."""
+    now = now or auth.utcnow()
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, class_session_id, lock=True)
+        if row is None or row["locked_at"] is not None:
+            return False
+        llm = row["ai_mode"] == AiMode.llm.value
+        if llm:
+            found = await config.get(row["model_config_id"], session=s)
+            if found is None or not config.may_answer(found):
+                raise ProviderKeyMissing
+        snapshot = await build_snapshot(row, session=s)
+        if llm:
+            await config.mark_referenced(row["model_config_id"], session=s)
+        await repo.set_locked(s, class_session_id, locked_at=now, snapshot=snapshot)
+        await events.emit(s, "session", str(class_session_id))
+    log.info(
+        "class_session_locked",
+        class_session_id=str(class_session_id),
+        ai_mode=row["ai_mode"],
+        model_config_id=str(row["model_config_id"]) if llm else None,
+        pins=sorted(snapshot["session_runtime"]["pins"] or {}),
+    )
+    return True
+
+
+async def due_locks(now: datetime) -> list[uuid.UUID]:
+    """The sweep's `sessions.lock` finder (AD-9): the Class sessions whose Start date has passed
+    and that are not locked, by id."""
+    async with get_sessionmaker().begin() as s:
+        return await repo.due_locks(s, now)
+
+
+async def lock_due(class_session_id: object, now: datetime) -> bool:
+    """The sweep's `sessions.lock` action, one Class session per transaction with its id only
+    (AD-9). A refusal for a missing provider key tells each owner of the Class and each Admin
+    once, and the next minute's sweep tries again."""
+    assert isinstance(class_session_id, uuid.UUID)
+    try:
+        return await lock(class_session_id, now=now)
+    except ProviderKeyMissing:
+        told = await _tell_lock_refused(class_session_id)
+        log.warning(
+            "class_session_lock_refused",
+            class_session_id=str(class_session_id),
+            error_code=ProviderKeyMissing.code,
+            told=told,
+        )
+        return False
+
+
+async def _tell_lock_refused(class_session_id: uuid.UUID) -> int:
+    """One `LOCK_REFUSED_NOTICE` per owner of the Class and per active Admin, keyed by the session
+    and the User, so each is told once. None for a Class that is archived. Returns how many
+    notices were stored now."""
+    told = 0
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, class_session_id)
+        if row is None or not await classes.is_writable(row["class_id"], session=s):
+            return 0
+        recipients = set(await classes.owners_of(s, row["class_id"]))
+        recipients |= set(await identity.active_admins(s))
+        for user_id in sorted(recipients):
+            key = f"{LOCK_REFUSED_NOTICE}:{class_session_id}:{user_id}"
+            if await notify.enqueue(s, user_id, LOCK_REFUSED_NOTICE, key, ref=class_session_id):
+                told += 1
+    return told
+
+
+async def lock_refused_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `LOCK_REFUSED_NOTICE`, for `messaging` at send time: the
+    Class's name and the session's number. None, so no mail goes, once the session has locked,
+    is gone or its Class is archived."""
+    if ref is None:
+        return None
+    row = await repo.session_row(session, ref)
+    if row is None or row["locked_at"] is not None:
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None or label.archived:
+        return None
+    return {
+        "class_name": label.name,
+        "session_number": await repo.number_of(session, ref, row["class_id"]),
+    }

@@ -188,3 +188,26 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   `allocation_confirmed:{draft}:{revision}:{user}`. The draft is always what the Seats hold. A
   refusal of the command answers its own code (such as 409 `game_already_started`).
 - `AllocationOut.confirmed_at` gives the panel «Fordelingen er bekreftet {dato}.».
+
+## The Start-date lock (Story 5.11)
+
+- `class_sessions.locked_at` and `snapshot` (migration 0040, set together by a CHECK). The sweep's
+  due action `sessions.lock` finds the sessions whose Start date has passed and that are not locked
+  (`service.due_locks`) and runs `service.lock_due` on each, one per transaction with its id.
+- `service.lock(class_session_id, now=)` locks whatever the date (Epic 8's early start calls it):
+  under the row lock it stores `build_snapshot` (keyed like `games.SNAPSHOT_COLUMNS`: `settings`,
+  `demand_series`, `demand_seed`, `rules_version`, `session_runtime`), marks the model config
+  referenced (LLM players), sets `locked_at` and emits `session:<id>`. A second call changes nothing.
+- `session_runtime` is a `games.SessionRuntime` built by `games.commands.default_runtime`: AI mode,
+  Effort level, model config id, its `prompt_versions`, the Inactivity limit, today's Rule-based and
+  Play guard sets, and `pins`, filled by every provider registered with
+  `service.register_pin_provider(name, provider)` (empty in this story; Epics 6, 9, 10 and 11 add
+  theirs).
+- With LLM players and a config that may not answer here (`ai.config.may_answer`: in production
+  the mock config, or a provider whose key is not set) the lock raises `ProviderKeyMissing`
+  (`provider_key_missing`) and stores nothing. Each owner of the Class and each active Admin gets
+  one immediate `class_session_lock_refused` notice (key per session and User); the mail is left
+  out once the session has locked. The next sweep tries again; it never falls back to Rule-based.
+- `is_locked` is true from `locked_at` as well as from a passed Start date. The read adds
+  `locked_at`.
+- The sweep also runs `identity.purge_expired_roster_uploads` each minute.

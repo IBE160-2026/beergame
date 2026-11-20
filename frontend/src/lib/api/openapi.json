@@ -913,6 +913,18 @@
             "title": "Locked",
             "type": "boolean"
           },
+          "locked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked At"
+          },
           "number": {
             "title": "Number",
             "type": "integer"

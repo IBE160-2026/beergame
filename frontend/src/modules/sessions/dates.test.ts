@@ -3,7 +3,18 @@ import { describe, expect, it } from "vitest";
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 
-import { addDays, dateErrors, datesBody, fromOsloInput, inputsOf, osloDayAndTime, toOsloInput } from "./dates";
+import {
+  addDays,
+  dateErrors,
+  datesBody,
+  datesEditable,
+  fromOsloInput,
+  frozenDates,
+  inputsOf,
+  osloDateText,
+  osloDayAndTime,
+  toOsloInput,
+} from "./dates";
 
 const copy = nb.sessions.dates;
 
@@ -35,6 +46,18 @@ describe("the date fields in Europe/Oslo (Story 5.2)", () => {
 
   it("names a day as the Datolinje shows it", () => {
     expect(osloDayAndTime("2026-11-24T09:00:00Z")).toEqual({ day: "ti. 24. nov.", time: "10:00" });
+  });
+
+  it("words a frozen date as text, and saves dates only while one can still move (Story 5.11)", () => {
+    expect(osloDateText("2026-11-24T09:00:00Z")).toBe("ti. 24. nov. kl. 10:00");
+    const all = ["start_at", "play_deadline", "debrief_deadline", "test_deadline"] as const;
+    expect(datesEditable({ can_manage: true, passed_dates: ["start_at"] })).toBe(true);
+    expect(datesEditable({ can_manage: true, passed_dates: [...all] })).toBe(false);
+    expect(datesEditable({ can_manage: false, passed_dates: [] })).toBe(false);
+    // Locked early, before the Startdato: it no longer moves either.
+    expect(frozenDates({ passed_dates: [], locked_at: "2026-11-20T09:00:00Z" })).toEqual(["start_at"]);
+    expect(frozenDates({ passed_dates: ["start_at"], locked_at: null })).toEqual(["start_at"]);
+    expect(frozenDates({ passed_dates: [] })).toEqual([]);
   });
 
   it("builds the body from the fields, an empty field as null", () => {

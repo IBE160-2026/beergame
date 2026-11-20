@@ -156,12 +156,14 @@ test("a passed date is read-only, and a short play time is said without blocking
     await route.fulfill({ response, json: { ...body, locked: true, passed_dates: ["start_at"], play_time_warning: true } });
   });
   await lecturer.goto(`/klasseokter/${sessionId}`);
-  const start = lecturer.getByLabel(dates.names.start_at, { exact: true });
-  await expect(start).toHaveAttribute("readonly", "");
-  await expect(start).toHaveAccessibleDescription(dates.passed);
-  await expect(lecturer.getByLabel(dates.names.play_deadline, { exact: true })).not.toHaveAttribute("readonly", "");
+  // The passed Startdato stands as text (Story 5.11, GitHub issue 103); the deadlines are still fields.
+  const start = lecturer.getByRole("group", { name: dates.names.start_at, exact: true });
+  await expect(start).toContainText(dates.passed);
+  await expect(lecturer.locator("input#date-start_at")).toHaveCount(0);
+  await expect(lecturer.locator("input#date-play_deadline")).toBeEditable();
   await expect(lecturer.getByText(dates.playTimeShort(36))).toBeVisible();
-  await expect(lecturer.getByRole("button", { name: copy.save })).toBeEnabled();
+  await expect(lecturer.getByRole("button", { name: copy.lock.save })).toBeEnabled();
+  await expect(lecturer.getByRole("button", { name: copy.save })).toHaveCount(0);
 });
 
 test("two sessions made in the same minute have labels of their own (Issue #98)", async ({ page, browser }) => {
