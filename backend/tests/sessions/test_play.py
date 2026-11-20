@@ -91,7 +91,7 @@ async def test_the_envelope_is_the_own_seat_in_the_open_week_for_every_role(klas
         # The Seat's own state in the open Week, exactly as the one read model builds it.
         expected = await games_service.seat_state(game_id, role)
         assert state == expected.model_dump(mode="json")
-        assert (state["role"], state["week"], state["schema_version"]) == (role, 6, 2)
+        assert (state["role"], state["week"], state["schema_version"]) == (role, 6, 3)
         assert [row["week"] for row in state["history"]] == [1, 2, 3, 4, 5]
         assert state["net_inventory"] == state["inventory"] - state["backlog"]
         for row in state["history"]:

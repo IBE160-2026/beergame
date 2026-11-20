@@ -1496,6 +1496,31 @@ export const nb = {
         /** The visible key under the table. [ASSUMPTION] */
         arrivalKey: "Tall i ramme: bestilt, ikke garantert.",
       },
+      /** The graph over the table (Story 6.7, DESIGN.md → Graf over tabell, UX-DR16). «Nå»,
+       * «Kost per uke», the key «restordre 1,00 / lager 0,50» and the direct labels («Restordre
+       * 13», «Posisjon 3») are the spine's; the rest is [ASSUMPTION] draft copy. */
+      graph: {
+        /** The Netto lager field's title, as drawn in `05-spill.png`. [ASSUMPTION] */
+        netTitle: "Lager over null, restordre under",
+        costTitle: "Kost per uke",
+        /** The key's two parts, each after its colour square: «restordre 1,00 / lager 0,50». */
+        backorderKey: (rate: string) => `restordre ${rate}`,
+        holdingKey: (rate: string) => `lager ${rate}`,
+        /** Shown by the key in the Uke the Kost per uke axis grows. [ASSUMPTION] (DESIGN.md) */
+        axisGrown: (top: string) => `Aksen går nå til ${top} kr.`,
+        costTick: (top: string) => `${top} kr`,
+        now: "Nå",
+        /** Direct labels at the now-point, by the sign of Netto lager («Restordre 13», «Lager 12»,
+         * «Netto lager 0»). The 0 and Lager forms are [ASSUMPTION]. */
+        netLabel: (net: number, text: string) =>
+          net < 0 ? `Restordre ${text}` : net > 0 ? `Lager ${text}` : `Netto lager ${text}`,
+        positionLabel: (text: string) => `Posisjon ${text}`,
+        /** The charts' `<title>`s, the alternative text a PDF reader gets (AD-18). [ASSUMPTION] */
+        netSvg: "Graf over Netto lager og Posisjon per uke. Tallene står i tabellen under.",
+        netAxisSvg: "Akse for Netto lager og Posisjon, i enheter.",
+        costSvg: "Graf over Kost per uke, lagerkostnad nederst og restordrekostnad øverst. Tallene står i raden Kost, kr.",
+        costAxisSvg: "Akse for Kost per uke, i kroner.",
+      },
     },
   },
 

@@ -18,12 +18,18 @@ FIXTURES = (
 )
 
 # The Orders of Weeks 5..10 per Role after the four Guided Weeks: the Retailer chases the step in
-# demand, the Grossist holds on and then orders more, as the spine's Uke 11 (EXPERIENCE.md).
+# demand, the Grossist holds on and then orders more, as the spine's Uke 11 (EXPERIENCE.md). Weeks
+# 11..29 (for the late Uke 30) follow: the Retailer keeps ordering hard, the Grossist orders too
+# little and then far too much, so backlog builds, a Uke costs more than 40 kr and stock follows.
 ORDERS = {
-    "retailer": [8, 12, 12, 10, 10, 8],
-    "wholesaler": [4, 4, 4, 4, 4, 8],
-    "distributor": [4, 4, 6, 8, 10, 10],
-    "factory": [4, 4, 4, 6, 8, 10],
+    "retailer": [8, 12, 12, 10, 10, 8]
+    + [16, 16, 14, 12, 10, 10, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+    "wholesaler": [4, 4, 4, 4, 4, 8]
+    + [8, 8, 8, 30, 30, 30, 20, 10, 4, 4, 4, 4, 4, 4, 8, 8, 8, 8, 8],
+    "distributor": [4, 4, 6, 8, 10, 10]
+    + [12, 14, 16, 20, 24, 24, 20, 16, 12, 10, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+    "factory": [4, 4, 4, 6, 8, 10]
+    + [12, 14, 16, 20, 24, 24, 20, 16, 12, 10, 8, 8, 8, 8, 8, 8, 8, 8, 8],
 }
 
 
@@ -42,7 +48,7 @@ def wholesaler_in_week(week: int) -> SeatState:
     return build_seat_state(settings, states, orders, "wholesaler")
 
 
-@pytest.mark.parametrize("week", [1, 11])
+@pytest.mark.parametrize("week", [1, 3, 11, 14, 30])
 def test_the_stand_in_envelope_is_the_engines_week(week):
     stored = json.loads((FIXTURES / f"play-week-{week}.json").read_text(encoding="utf-8"))
     envelope = PlayOut.model_validate(stored)

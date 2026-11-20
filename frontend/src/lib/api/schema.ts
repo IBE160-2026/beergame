@@ -3316,7 +3316,9 @@ export interface components {
          *     take a `SeatView` accept this model as it is.
          *
          *     Version 2 (Story 6.6) adds `net_inventory` to the Week and to each `history` row, for the
-         *     play screen's Netto lager; a stored version-1 state reads as version 2.
+         *     play screen's Netto lager. Version 3 (Story 6.7) adds `holding_cost` and `backorder_cost` to
+         *     each `history` row, for the graph's Kost per uke bars. A stored version-1 or version-2 state
+         *     reads as version 3.
          */
         SeatState: {
             /** Backlog */
@@ -3354,10 +3356,10 @@ export interface components {
             role: components["schemas"]["Role"];
             /**
              * Schema Version
-             * @default 2
+             * @default 3
              * @constant
              */
-            schema_version: 2;
+            schema_version: 3;
             /** Shipped */
             shipped: number;
             /** Supply Line */
@@ -3738,8 +3740,12 @@ export interface components {
         WeekValues: {
             /** Backlog */
             backlog: number;
+            /** Backorder Cost */
+            backorder_cost: string;
             /** Cost */
             cost: string;
+            /** Holding Cost */
+            holding_cost: string;
             /** Incoming Delivery */
             incoming_delivery: number;
             /** Incoming Order */

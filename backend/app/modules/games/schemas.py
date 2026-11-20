@@ -158,6 +158,26 @@ _Week = Annotated[int, Field(strict=True, ge=1)]
 _Money = Annotated[Decimal, Field(allow_inf_nan=False)]
 
 
+def _rates(cost_lines: Any) -> tuple[Decimal, Decimal] | None:
+    """The holding and backorder rates in a stored state's `cost_lines`, or None if they are not
+    both there as decimals."""
+    if not isinstance(cost_lines, (list, tuple)):
+        return None
+    by_kind: dict[str, Decimal] = {}
+    for line in cost_lines:
+        if isinstance(line, dict) and isinstance(line.get("rate"), (str, Decimal)):
+            try:
+                rate = Decimal(line["rate"])
+            except ArithmeticError:
+                return None
+            if not rate.is_finite():
+                return None  # the cost split then stays missing, and the field checks refuse it
+            by_kind[line.get("kind")] = rate
+    if "holding" not in by_kind or "backorder" not in by_kind:
+        return None
+    return by_kind["holding"], by_kind["backorder"]
+
+
 class SeatState(SeatView):
     """What one Seat sees in one opened Week: the single information boundary (AD-3, FR-23).
 
@@ -169,9 +189,11 @@ class SeatState(SeatView):
     take a `SeatView` accept this model as it is.
 
     Version 2 (Story 6.6) adds `net_inventory` to the Week and to each `history` row, for the
-    play screen's Netto lager; a stored version-1 state reads as version 2."""
+    play screen's Netto lager. Version 3 (Story 6.7) adds `holding_cost` and `backorder_cost` to
+    each `history` row, for the graph's Kost per uke bars. A stored version-1 or version-2 state
+    reads as version 3."""
 
-    schema_version: Literal[2] = 2
+    schema_version: Literal[3] = 3
     week: _Week
     incoming_order: _Count
     """This Week's incoming order; customer demand for the Retailer."""
@@ -197,29 +219,45 @@ class SeatState(SeatView):
 
     @model_validator(mode="before")
     @classmethod
-    def _upgrade_version_1(cls, data: Any) -> Any:
-        """A state stored as version 1 (a Decision log row's `state_seen` written before Story
-        6.6) reads as version 2: its `net_inventory`, on the Week and on each `history` row, is
-        the inventory minus the backlog it already holds. A version-1 object never held
-        `net_inventory`, so one that does is refused."""
-        if not isinstance(data, dict) or data.get("schema_version") != 1:
-            return data
-        if type(data["schema_version"]) is not int:
-            raise ValueError("schema_version must be a whole number")
+    def _upgrade_stored_versions(cls, data: Any) -> Any:
+        """A state stored as version 1 or 2 (a Decision log row's `state_seen` written before
+        Story 6.6 or 6.7) reads as version 3 with the same numbers.
 
-        def upgraded(values: Any) -> Any:
+        Version 1 → 2: `net_inventory`, on the Week and on each `history` row, is the inventory
+        minus the backlog it already holds; a version-1 object that holds it is refused.
+        Version 2 → 3: each `history` row's `holding_cost` and `backorder_cost` are its inventory
+        and backlog times the rates in the state's own `cost_lines` (a Game's rates never change);
+        an older object that holds them is refused."""
+        if not isinstance(data, dict) or data.get("schema_version") not in (1, 2):
+            return data
+        version = data["schema_version"]
+        if type(version) is not int:
+            raise ValueError("schema_version must be a whole number")
+        rates = _rates(data.get("cost_lines"))
+
+        def upgraded(values: Any, *, row: bool) -> Any:
             if not isinstance(values, dict):
                 return values
-            if "net_inventory" in values:
-                raise ValueError("schema_version 1 has no net_inventory")
+            found = dict(values)
             inventory, backlog = values.get("inventory"), values.get("backlog")
-            if type(inventory) is not int or type(backlog) is not int:
-                return values  # incomplete or malformed: the field checks name what is wrong
-            return {**values, "net_inventory": inventory - backlog}
+            whole = type(inventory) is int and type(backlog) is int
+            if version == 1:
+                if "net_inventory" in values:
+                    raise ValueError("schema_version 1 has no net_inventory")
+                if whole:
+                    found["net_inventory"] = inventory - backlog
+            if row:
+                if "holding_cost" in values or "backorder_cost" in values:
+                    raise ValueError(f"schema_version {version} has no cost split")
+                if whole and rates is not None:
+                    found["holding_cost"] = rates[0] * inventory
+                    found["backorder_cost"] = rates[1] * backlog
+            # Incomplete or malformed values stay as they are: the field checks name what is wrong.
+            return found
 
-        found = {**upgraded(data), "schema_version": 2}
+        found = {**upgraded(data, row=False), "schema_version": 3}
         if isinstance(data.get("history"), (list, tuple)):
-            found["history"] = [upgraded(row) for row in data["history"]]
+            found["history"] = [upgraded(row, row=True) for row in data["history"]]
         return found
 
 

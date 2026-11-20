@@ -30,7 +30,7 @@
       8
     ],
     "neighbour_numbers": [],
-    "schema_version": 2,
+    "schema_version": 3,
     "week": 11,
     "incoming_order": 10,
     "incoming_delivery": 4,
@@ -83,6 +83,8 @@
         "supply_line": 12,
         "position": 24,
         "cost": "6.00",
+        "holding_cost": "6.00",
+        "backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -96,6 +98,8 @@
         "supply_line": 12,
         "position": 24,
         "cost": "6.00",
+        "holding_cost": "6.00",
+        "backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -109,6 +113,8 @@
         "supply_line": 12,
         "position": 24,
         "cost": "6.00",
+        "holding_cost": "6.00",
+        "backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -122,6 +128,8 @@
         "supply_line": 12,
         "position": 24,
         "cost": "6.00",
+        "holding_cost": "6.00",
+        "backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -135,6 +143,8 @@
         "supply_line": 12,
         "position": 24,
         "cost": "6.00",
+        "holding_cost": "6.00",
+        "backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -148,6 +158,8 @@
         "supply_line": 12,
         "position": 24,
         "cost": "6.00",
+        "holding_cost": "6.00",
+        "backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -161,6 +173,8 @@
         "supply_line": 12,
         "position": 20,
         "cost": "4.00",
+        "holding_cost": "4.00",
+        "backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -174,6 +188,8 @@
         "supply_line": 12,
         "position": 12,
         "cost": "0.00",
+        "holding_cost": "0.00",
+        "backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -187,6 +203,8 @@
         "supply_line": 12,
         "position": 4,
         "cost": "8.00",
+        "holding_cost": "0.00",
+        "backorder_cost": "8.00",
         "order": 4
       },
       {
@@ -200,6 +218,8 @@
         "supply_line": 12,
         "position": -2,
         "cost": "14.00",
+        "holding_cost": "0.00",
+        "backorder_cost": "14.00",
         "order": 8
       }
     ],

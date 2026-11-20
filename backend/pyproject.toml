@@ -21,6 +21,8 @@ dependencies = [
     "tzdata==2026.6",
     "openpyxl==3.1.5",
     "et-xmlfile==2.0.0",
+    # Chart print check (Story 6.7) and, later, the Student report PDF (AD-18); needs Pango.
+    "weasyprint==70.0",
 ]
 
 [dependency-groups]

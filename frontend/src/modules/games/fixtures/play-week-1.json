@@ -9,7 +9,7 @@
     "supply_line": 12,
     "order_history": [],
     "neighbour_numbers": [],
-    "schema_version": 2,
+    "schema_version": 3,
     "week": 1,
     "incoming_order": 4,
     "incoming_delivery": 4,

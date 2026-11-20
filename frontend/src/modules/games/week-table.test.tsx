@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 
+import { renderToStaticMarkup } from "react-dom/server";
+
+import { nb } from "@/copy/nb";
 import { MINUS } from "@/lib/number-format";
 
+import week1 from "./fixtures/play-week-1.json";
 import fixture from "./fixtures/play-week-11.json";
+import week14 from "./fixtures/play-week-14.json";
+import week30 from "./fixtures/play-week-30.json";
 import type { SeatState } from "./api";
-import { cellFor, netStep, ROWS, weekColumns } from "./week-table";
+import { cellFor, graphSeries, netStep, ROWS, weekColumns } from "./week-table";
+import { WeekTable } from "./week-table-view";
 
 // The engine's Grossist in Uke 11 of a Classic game (pinned by `backend/tests/games/test_play_fixture.py`).
 const state = fixture.seat_state as SeatState;
@@ -107,5 +114,76 @@ describe("cellFor", () => {
       "Din ordre",
       "Kost, kr",
     ]);
+  });
+});
+
+describe("graphSeries (Story 6.7)", () => {
+  it("takes every value from the history and nå's fields, as the api gave them", () => {
+    const series = graphSeries(state);
+    expect(series.weeks.map((w) => w.week)).toEqual(Array.from({ length: 11 }, (_, i) => i + 1));
+    const now = series.weeks[10]!;
+    expect(now).toEqual({ week: 11, net: state.net_inventory, position: state.position, holding: 0, backorder: 20 });
+    const first = state.history[0]!;
+    expect(series.weeks[0]).toEqual({
+      week: 1,
+      net: first.net_inventory,
+      position: first.position,
+      holding: Number(first.holding_cost),
+      backorder: Number(first.backorder_cost),
+    });
+    expect(series.rates).toEqual({ holding: "0,50", backorder: "1,00" });
+    expect(series.highest).toBe(20);
+    expect(series.highestBefore).toBe(14);
+  });
+
+  it("finds the costliest Uke over the whole game so far, not only the window", () => {
+    const late = graphSeries(week30.seat_state as SeatState);
+    expect(late.highest).toBe(56);
+    expect(late.weeks).toHaveLength(30);
+  });
+});
+
+describe("WeekTable rendered on the server with a fixed layout (the print page)", () => {
+  const html = renderToStaticMarkup(<WeekTable state={state} fixed={{ labelWidth: 96, columnWidth: 28, fontSize: 13 }} />);
+
+  it("draws both fields over the phone and laptop columns, with titles, in aria-hidden rows", () => {
+    expect(html.match(/<svg[^>]*data-chart="net"/g)).toHaveLength(2);
+    expect(html.match(/<svg[^>]*data-chart="cost"/g)).toHaveLength(2);
+    expect(html.match(/<tr aria-hidden="true" data-field=/g)).toHaveLength(4);
+    expect(html).toContain(`<title>${nb.games.play.graph.netSvg}</title>`);
+    // Phone: Uke 4 … 15, so nå (11) is the 8th column; its centre at 7.5 × 28 px.
+    expect(html).toMatch(/data-mark="now" data-week="11" cx="210"/);
+    expect(html).toContain("Restordre 20");
+    expect(html).toContain(`Posisjon ${MINUS}4`);
+    expect(html).toContain("40 kr");
+    expect(html).toContain("restordre 1,00");
+    expect(html).toContain("lager 0,50");
+  });
+
+  it("greys every Uke number but nå (Issue #124)", () => {
+    expect(html).toMatch(/data-col="11" data-now=""[^>]*font-bold text-ink/);
+    expect(html).toMatch(/data-col="10"[^>]*font-normal text-ink-muted/);
+    expect(html).toMatch(/data-col="12"[^>]*font-normal text-ink-muted/);
+  });
+
+  it("says so in the Uke the Kost per uke axis grows, and only then", () => {
+    const grows = renderToStaticMarkup(<WeekTable state={week14.seat_state as SeatState} />);
+    expect(html).not.toContain("Aksen går nå til");
+    expect(grows).toContain(nb.games.play.graph.axisGrown("80"));
+  });
+});
+
+describe("WeekTable in Uke 1 (no history)", () => {
+  it("draws one point per line, one bar and the 40 kr axis, all at nå", () => {
+    const html = renderToStaticMarkup(
+      <WeekTable state={week1.seat_state as SeatState} fixed={{ labelWidth: 96, columnWidth: 28, fontSize: 13 }} />,
+    );
+    // Uke 1 … 5 are phone columns too: one field row each, no laptop variant.
+    expect(html.match(/<tr aria-hidden="true" data-field=/g)).toHaveLength(2);
+    expect(html).toContain('data-weeks="1" data-x="14"');
+    expect(html.match(/data-mark="position"/g)).toHaveLength(1);
+    expect(html.match(/data-mark="cost"/g)).toHaveLength(1);
+    expect(html).toContain(">40 kr</text>");
+    expect(html).toContain("Lager 12");
   });
 });

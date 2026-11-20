@@ -65,6 +65,8 @@ ALLOWED_KEYS = set(SeatState.model_fields) | {
     "amount",
     "order",
     "cost",
+    "holding_cost",
+    "backorder_cost",
     "order_arrival_week",
     "supply_line_base",
     "position_base",
@@ -110,7 +112,7 @@ def test_every_seat_state_holds_numbers_and_roles_only():
         assert not {"weeks", "demand", "demand_seed", "seed", "name", "names"} & keys
         for text in texts - ALLOWED_TEXT:
             Decimal(text)  # money travels as decimal strings; anything else is not allowed
-        assert data["schema_version"] == 2 and data["week"] == week
+        assert data["schema_version"] == 3 and data["week"] == week
         assert data["neighbour_numbers"] == []
         # No future demand: the series up to the next Week never appears.
         if week < CLASSIC.weeks:

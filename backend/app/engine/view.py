@@ -165,6 +165,10 @@ class WeekValues(BaseModel):
     supply_line: Count
     position: int
     cost: Money
+    holding_cost: Money
+    """The part of `cost` charged on inventory: the holding rate times `inventory`."""
+    backorder_cost: Money
+    """The part of `cost` charged on backlog: the backorder rate times `backlog`."""
     order: Count
 
 
@@ -244,6 +248,8 @@ def seat_detail(
                     supply_line=supply_line,
                     position=position,
                     cost=seat.cost,
+                    holding_cost=settings.holding_cost * seat.inventory,
+                    backorder_cost=settings.backorder_cost * seat.backlog,
                     order=history[number - 1],
                 )
             )

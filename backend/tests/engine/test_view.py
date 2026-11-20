@@ -288,6 +288,9 @@ def test_detail_agrees_with_the_pipelines_in_every_week(
                 assert row.inventory == earlier.seat(role).inventory
                 assert row.net_inventory == row.inventory - row.backlog
                 assert row.cost == earlier.seat(role).cost
+                assert row.holding_cost == settings.holding_cost * row.inventory
+                assert row.backorder_cost == settings.backorder_cost * row.backlog
+                assert row.holding_cost + row.backorder_cost == row.cost
                 past = seat_detail(settings, states[: row.week], orders[: row.week - 1], role)
                 assert (row.supply_line, row.position) == (
                     past.preview.supply_line_base,

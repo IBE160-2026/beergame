@@ -1,14 +1,21 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 
+import { AxisLabels } from "@/components/charts/axis-labels";
+import { CostBars, costScale } from "@/components/charts/cost-bars";
+import { NetGraph, netScale } from "@/components/charts/net-graph";
+import { costAxisTop } from "@/components/charts/scales";
+import { type FieldSize, type FixedLayout, fixedCell, type GraphField, GraphOverTable } from "@/components/graph-over-table";
 import { nb } from "@/copy/nb";
+import { formatNumber } from "@/lib/number-format";
 import { cn } from "@/lib/utils";
 
 import type { SeatState } from "./api";
-import { type Cell, cellFor, type Column, type NetStep, ROWS, weekColumns } from "./week-table";
+import { type Cell, cellFor, type Column, type GraphSeries, graphSeries, type NetStep, ROWS, weekColumns } from "./week-table";
 
 const copy = nb.games.play.table;
+const graphCopy = nb.games.play.graph;
 
 /** Matrix-step fills with their text token: `ink` on steps 1–2, `paper` on 3–4 (DESIGN.md). */
 const NET_FILL: Record<NetStep, string> = {
@@ -32,145 +39,213 @@ const NET_CELL = "shadow-[inset_0_0_0_1px_var(--color-paper)]";
 const ROW_LABEL =
   "sticky left-0 z-10 min-w-row-label-phone bg-paper pr-2 text-left align-middle font-normal text-ink lg:min-w-row-label-laptop";
 
+/** The Netto lager field's height and the Kost per uke field's, in em of the caption size. */
+const NET_HEIGHT_EM = 7.5;
+const COST_HEIGHT_EM = 3.2;
+
 /** A column's visibility and tint: earlier than nå − 7 only in the laptop layout; right of nå on
  * `future-tint`. */
 function columnClass(column: Column) {
   return cn(!column.phone && "hidden lg:table-cell", column.when === "future" && "bg-future-tint");
 }
 
-/**
- * The week table (Story 6.6, FR-23, UX-DR17, UX-DR18): the Seat's Uker as columns up to nå + 4,
- * never the end of the game. One scroll region named «Graf og tabell» holds it, with sticky row
- * labels; on load and when the Uke changes it scrolls so that nå and as many of nå + 1 … nå + 4 as
- * fit are in view. «Sveip for tidligere uker» shows while earlier Uker are scrolled out of view.
- * The cells take no focus; the region does, so arrow keys scroll it.
- */
-export function WeekTable({ state }: { state: SeatState }) {
-  const region = useRef<HTMLDivElement>(null);
-  const [earlierHidden, setEarlierHidden] = useState(false);
-  const columns = weekColumns(state.week);
-
-  const update = useCallback(() => {
-    const element = region.current;
-    if (element) setEarlierHidden(element.scrollLeft > 1);
-  }, []);
-
-  // Bring nå into view: nå at the left edge of the scrolled area, or as far right as the region
-  // goes, whichever is less, so nå + 4 is the right edge whenever all columns from nå fit.
-  const toNow = useCallback(() => {
-    const element = region.current;
-    const now = element?.querySelector<HTMLElement>("[data-now]");
-    const label = element?.querySelector<HTMLElement>("th[scope=row]");
-    if (!element || !now || !label) return;
-    const offset = now.getBoundingClientRect().left - element.getBoundingClientRect().left + element.scrollLeft;
-    const target = offset - label.getBoundingClientRect().width;
-    element.scrollLeft = Math.max(0, Math.min(target, element.scrollWidth - element.clientWidth));
-    update();
-  }, [update]);
-
-  useLayoutEffect(() => {
-    toNow();
-  }, [toNow, state.week]);
-
-  useLayoutEffect(() => {
-    const element = region.current;
-    if (!element) return;
-    // A changed layout (rotation, the laptop breakpoint, larger text) brings nå back into view.
-    let size = `${element.clientWidth}x${element.scrollWidth}`;
-    const observer = new ResizeObserver(() => {
-      const now = `${element.clientWidth}x${element.scrollWidth}`;
-      if (now !== size) {
-        size = now;
-        toNow();
-      }
+/** The two graph fields over the table (Story 6.7, UX-DR16): Netto lager with the Posisjon line,
+ * then Kost per uke. Each draws the Uker of its columns up to nå, from the api's values. */
+function graphFields(state: SeatState, series: GraphSeries): GraphField[] {
+  const byWeek = new Map(series.weeks.map((week) => [week.week, week]));
+  const drawn = (size: FieldSize) =>
+    size.columns.flatMap((column, i) => {
+      const week = column.when === "future" ? undefined : byWeek.get(column.week);
+      return week ? [{ ...week, x: size.xs[i]! }] : [];
     });
-    observer.observe(element);
-    if (element.firstElementChild) observer.observe(element.firstElementChild);
-    return () => observer.disconnect();
-  }, [toNow]);
+  const top = costAxisTop(series.highest);
+  const grown = top > costAxisTop(series.highestBefore);
+  const topText = formatNumber(top);
+  return [
+    {
+      key: "net",
+      caption: graphCopy.netTitle,
+      heightEm: NET_HEIGHT_EM,
+      render: (size) => {
+        const points = drawn(size);
+        const scale = netScale({ height: size.height, fontSize: size.fontSize, points });
+        return {
+          plot: (
+            <NetGraph
+              width={size.width}
+              height={size.height}
+              fontSize={size.fontSize}
+              points={points}
+              nowX={size.nowX}
+              title={graphCopy.netSvg}
+              netLabel={graphCopy.netLabel(state.net_inventory, formatNumber(Math.abs(state.net_inventory)))}
+              positionLabel={graphCopy.positionLabel(formatNumber(state.position))}
+              nowLabel={graphCopy.now}
+            />
+          ),
+          axis: (
+            <AxisLabels
+              width={size.labelWidth}
+              height={size.height}
+              fontSize={size.fontSize}
+              title={graphCopy.netAxisSvg}
+              ticks={scale.ticks.map((tick) => ({ y: scale.y(tick), text: formatNumber(tick) }))}
+            />
+          ),
+        };
+      },
+    },
+    {
+      key: "cost",
+      caption: <CostKey rates={series.rates} grownTo={grown ? topText : null} />,
+      heightEm: COST_HEIGHT_EM,
+      render: (size) => {
+        const y = costScale(size.height, size.fontSize, top);
+        return {
+          plot: (
+            <CostBars
+              width={size.width}
+              height={size.height}
+              fontSize={size.fontSize}
+              bars={drawn(size)}
+              barWidth={Math.max(4, Math.round(size.columnWidth * 0.55))}
+              top={top}
+              nowX={size.nowX}
+              title={graphCopy.costSvg}
+            />
+          ),
+          axis: (
+            <AxisLabels
+              width={size.labelWidth}
+              height={size.height}
+              fontSize={size.fontSize}
+              title={graphCopy.costAxisSvg}
+              ticks={[{ y: y(top), text: graphCopy.costTick(topText) }]}
+            />
+          ),
+        };
+      },
+    },
+  ];
+}
 
+/** «Kost per uke ■ restordre 1,00 / ■ lager 0,50», and in the Uke the axis grows, the line that
+ * says so. */
+function CostKey({ rates, grownTo }: { rates: GraphSeries["rates"]; grownTo: string | null }) {
+  // A filled square drawn as a border, so it is no text background.
+  const swatch = "mr-1 inline-block h-0 w-0 border-[0.35em] align-[-0.05em]";
   return (
-    <div className="-mx-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] lg:mx-0">
-      {/* `relative` keeps the screen-reader-only labels (absolutely placed) inside the scroll area. */}
-      <div
-        ref={region}
-        role="region"
-        aria-label={copy.region}
-        tabIndex={0}
-        onScroll={update}
-        className="relative overflow-x-auto pb-1 [scrollbar-color:var(--color-ink-muted)_var(--color-hairline)] [scrollbar-width:thin] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-      >
-        <table className="border-collapse text-table-cell text-ink tabular-nums lining-nums lg:text-table-cell-laptop">
-          <thead>
-            <tr className="border-b border-axis">
-              <th scope="row" className={ROW_LABEL}>
-                {nb.terms.week}
-              </th>
-              {columns.map((column) => (
-                <th
-                  key={column.week}
-                  scope="col"
-                  data-now={column.when === "now" ? "" : undefined}
-                  className={cn(
-                    WEEK_COL,
-                    "h-row-phone lg:h-row-laptop",
-                    column.when === "now" ? "font-bold" : "font-normal",
-                    columnClass(column),
-                  )}
-                >
-                  <span className="sr-only">{nb.terms.week} </span>
-                  {column.week}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {ROWS.map((row) => (
-              <tr key={row.key} data-row={row.key} className={cn("border-b border-hairline", row.laptopOnly && "hidden lg:table-row")}>
-                <th scope="row" className={ROW_LABEL}>
-                  {row.label}
-                </th>
-                {columns.map((column) => (
-                  <WeekCell key={column.week} column={column} cell={cellFor(state, row.key, column.week)} />
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="flex flex-wrap justify-between gap-x-4 px-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] lg:px-0">
+    <>
+      <span className="mr-2 text-ink">{graphCopy.costTitle}</span>
+      <span className="whitespace-nowrap">
+        <span aria-hidden="true" className={cn(swatch, "border-restordre")} />
+        {graphCopy.backorderKey(rates.backorder)}
+      </span>
+      {" / "}
+      <span className="whitespace-nowrap">
+        <span aria-hidden="true" className={cn(swatch, "border-lager")} />
+        {graphCopy.holdingKey(rates.holding)}
+      </span>
+      {grownTo ? <span className="block text-ink">{graphCopy.axisGrown(grownTo)}</span> : null}
+    </>
+  );
+}
+
+/**
+ * Graf over tabell on the play screen (Stories 6.6 and 6.7, FR-23, UX-DR16, UX-DR17, UX-DR18): the
+ * Seat's Uker as columns up to nå + 4, never the end of the game, with the Netto lager and
+ * Posisjon graph and Kost per uke over them on the same columns, and the now-line «Nå» through
+ * both. One scroll region named «Graf og tabell»; see `GraphOverTable`. The cells take no focus;
+ * the region does, so arrow keys scroll it. With `fixed`, every width is given (the print page).
+ */
+export function WeekTable({ state, fixed }: { state: SeatState; fixed?: FixedLayout }) {
+  const columns = weekColumns(state.week);
+  const series = graphSeries(state);
+  const weekCell = fixedCell(fixed, "week");
+  const labelCell = fixedCell(fixed, "label");
+  return (
+    <GraphOverTable
+      label={copy.region}
+      columns={columns}
+      fields={graphFields(state, series)}
+      fixed={fixed}
+      swipe={copy.swipe}
+      footer={
         <p className="mt-1 text-caption text-ink-secondary">
           <span aria-hidden="true" className="mr-1 inline-block h-[0.9em] w-[1.2em] border border-ink align-[-0.1em]" />
           {copy.arrivalKey}
         </p>
-        {earlierHidden ? <p className="mt-1 text-caption text-ink-secondary">{copy.swipe}</p> : null}
-      </div>
-    </div>
+      }
+      head={
+        <tr className="border-b border-axis">
+          <th scope="row" className={ROW_LABEL} style={labelCell}>
+            {nb.terms.week}
+          </th>
+          {columns.map((column) => (
+            <th
+              key={column.week}
+              scope="col"
+              data-col={column.week}
+              data-now={column.when === "now" ? "" : undefined}
+              style={weekCell}
+              className={cn(
+                WEEK_COL,
+                "h-row-phone lg:h-row-laptop",
+                // Only nå is bold ink; the other Uke numbers are grey, as axis labels (`05-spill.png`).
+                column.when === "now" ? "font-bold text-ink" : "font-normal text-ink-muted",
+                columnClass(column),
+              )}
+            >
+              <span className="sr-only">{nb.terms.week} </span>
+              {column.week}
+            </th>
+          ))}
+        </tr>
+      }
+      body={ROWS.map((row) => (
+        <tr key={row.key} data-row={row.key} className={cn("border-b border-hairline", row.laptopOnly && "hidden lg:table-row")}>
+          <th scope="row" className={ROW_LABEL} style={labelCell}>
+            {row.label}
+          </th>
+          {columns.map((column) => (
+            <WeekCell key={column.week} column={column} cell={cellFor(state, row.key, column.week)} style={weekCell} />
+          ))}
+        </tr>
+      ))}
+    />
   );
 }
 
-function WeekCell({ column, cell }: { column: Column; cell: Cell }) {
+function WeekCell({ column, cell, style }: { column: Column; cell: Cell; style?: CSSProperties }) {
   const base = cn(WEEK_COL, "h-row-phone lg:h-row-laptop", columnClass(column));
   switch (cell.kind) {
     case "net":
-      return <td className={cn(base, NET_CELL, NET_FILL[cell.step])}>{cell.text}</td>;
+      return (
+        <td style={style} className={cn(base, NET_CELL, NET_FILL[cell.step])}>
+          {cell.text}
+        </td>
+      );
     case "plain":
-      return <td className={base}>{cell.text}</td>;
+      return (
+        <td style={style} className={base}>
+          {cell.text}
+        </td>
+      );
     case "arrival":
       return (
-        <td className={base}>
+        <td style={style} className={base}>
           <span className="inline-block min-w-[1.3em] border border-ink leading-tight">{cell.text}</span>
           <span className="sr-only">, {copy.arrival}</span>
         </td>
       );
     case "order-empty":
       return (
-        <td className={base}>
+        <td style={style} className={base}>
           <span aria-hidden="true" className="mx-auto block h-[1.1em] w-[1.3em] border border-dashed border-ink-muted" />
           <span className="sr-only">{copy.noOrderYet}</span>
         </td>
       );
     default:
-      return <td className={base} />;
+      return <td style={style} className={base} />;
   }
 }

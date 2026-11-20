@@ -99,6 +99,58 @@ function known(values: Values, key: Exclude<RowKey, "order" | "cost">): Cell {
   return { kind: "plain", text: formatNumber(value) };
 }
 
+/** One Uke of the graph: Netto lager, Posisjon and the cost split, as the api gave them. */
+export type GraphWeek = { week: number; net: number; position: number; holding: number; backorder: number };
+
+export type GraphSeries = {
+  /** Uke 1 … nå, oldest first; the graph draws the ones in its columns. */
+  weeks: GraphWeek[];
+  /** The Game settings' rates from this Uke's cost lines, formatted («1,00», «0,50»). */
+  rates: { holding: string; backorder: string };
+  /** The costliest Uke so far (nå included), and before nå, in kroner, for the axis top. */
+  highest: number;
+  highestBefore: number;
+};
+
+function amountOf(state: SeatState, kind: "holding" | "backorder"): string {
+  return state.cost_lines.find((line) => line.kind === kind)?.amount ?? "0";
+}
+
+function rateOf(state: SeatState, kind: "holding" | "backorder"): string {
+  const rate = state.cost_lines.find((line) => line.kind === kind)?.rate;
+  return rate === undefined ? "" : formatNumber(rate, { decimals: 2 });
+}
+
+/**
+ * The graph's series (Story 6.7): every value is a `seat_state` field as returned (history rows,
+ * then nå's `net_inventory`, `position` and `cost_lines` amounts). Decimal strings become numbers
+ * only to be drawn; nothing is worked out (AD-10).
+ */
+export function graphSeries(state: SeatState): GraphSeries {
+  const weeks: GraphWeek[] = state.history.map((row) => ({
+    week: row.week,
+    net: row.net_inventory,
+    position: row.position,
+    holding: Number(row.holding_cost),
+    backorder: Number(row.backorder_cost),
+  }));
+  weeks.push({
+    week: state.week,
+    net: state.net_inventory,
+    position: state.position,
+    holding: Number(amountOf(state, "holding")),
+    backorder: Number(amountOf(state, "backorder")),
+  });
+  const costOf = (row: SeatState["history"][number]) => Number(row.cost);
+  const before = Math.max(0, ...state.history.map(costOf));
+  return {
+    weeks,
+    rates: { holding: rateOf(state, "holding"), backorder: rateOf(state, "backorder") },
+    highest: Math.max(before, Number(state.week_cost)),
+    highestBefore: before,
+  };
+}
+
 /** What the cell of `row` in Uke `week` shows. */
 export function cellFor(state: SeatState, row: RowKey, week: number): Cell {
   if (week < state.week) {
