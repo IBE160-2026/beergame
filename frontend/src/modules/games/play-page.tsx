@@ -1,10 +1,11 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
 import { nb } from "@/copy/nb";
-import { ApiRequestError } from "@/lib/api/client";
+import { ApiRequestError, isSessionExpired } from "@/lib/api/client";
+import { errorCode } from "@/lib/api/mutation";
 import { clearDraft, clearDrafts, loadDraft, saveDraft } from "@/lib/drafts";
 import { formatNumber } from "@/lib/number-format";
 import { usePageState } from "@/lib/page-state";
@@ -173,10 +174,12 @@ function Running({ game, envelope, userId }: { game: MyGame; envelope: PlayEnvel
           onText={(next) => {
             setTyped({ game: game.id, week: state.week, text: next });
             saveDraft(userId, field, next);
+            send.clear(); // a new value is a new Order: the last send's words no longer apply
           }}
           preview={editable ? preview : null}
           sending={send.sending === state.week}
           onConfirm={send.confirm}
+          {...outcomeProps(send.outcome, state.week)}
         />
         <PageLink href={rulesPath(game.id)}>{nb.games.briefing.title}</PageLink>
         <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
@@ -186,20 +189,46 @@ function Running({ game, envelope, userId }: { game: MyGame; envelope: PlayEnvel
   );
 }
 
+/** How long a sent Order may go unanswered before the app asks the server whether it arrived
+ * (Story 6.13, EXPERIENCE.md → Timed out: a placeholder of 10 s). The check is bounded alike. */
+export const ORDER_SUBMIT_TIMEOUT_MS = 10_000;
+
+/** What the last send left to say, for the Uke it was sent in (Story 6.13). */
+type SendOutcome = { week: number; value: number; kind: "checking" | "failed" | "weekGone" | "seatGone" };
+
+/** Rejects with `network_error` when `promise` has not settled after `ms`. */
+function within<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new ApiRequestError(0, "network_error")), ms);
+  });
+  return Promise.race([promise, late]).finally(() => clearTimeout(timer));
+}
+
 /**
- * «Bekreft ordre på 24» (Story 6.12, AD-2, UX-DR60): sends the Order once (a press while it is on
- * its way does nothing), with no `version`. Either way the play envelope is read again, which
- * shows the Confirmed state (the Order is stored), the next Uke (it completed the Uke) or the
- * typed state again (it was refused or never arrived; Story 6.13 says so in words). After a
- * success the draft is dropped and focus moves to «Ordren på 24 er sendt.», or to the new Uke's
- * heading when the Uke moved on. Live updates never move focus: only this send does.
+ * «Bekreft ordre på 24» (Stories 6.12 and 6.13, AD-2, UX-DR60): sends the Order once (a press while
+ * it is on its way does nothing), with no `version`, as a mutation, so an ended session goes to
+ * «Logg inn» (`providers.tsx`) with the draft kept. A send unanswered after
+ * `ORDER_SUBMIT_TIMEOUT_MS` is aborted and the screen says it is checking. Whatever went wrong
+ * (but an ended session), the play envelope is read again before anything is said, each read
+ * bounded by the same timeout: an Order that is stored (`order_exists` included, or an Uke that
+ * moved on with this value in its history) is Confirmed like a success; otherwise the screen says
+ * why it was not sent, and a retry is safe since the api never places a second Order. After a
+ * success the draft is dropped and focus moves to «Ordren på 24 er sendt.»,
+ * or to the new Uke's heading when the Uke moved on. Live updates never move focus: only this send
+ * does.
  */
 function useSendOrder(gameId: string, week: number, userId: string, field: string) {
   const queryClient = useQueryClient();
   const inFlight = useRef(false);
   // The Uke whose Order is on its way: a new Uke shown meanwhile is not Submitting.
   const [sending, setSending] = useState<number | null>(null);
+  const [outcome, setOutcome] = useState<SendOutcome | null>(null);
   const [sent, setSent] = useState<number | null>(null);
+  const mutation = useMutation({
+    mutationFn: (vars: { week: number; value: number; signal: AbortSignal }) =>
+      placeOrder(gameId, vars.week, vars.value, vars.signal),
+  });
   useEffect(() => {
     if (sent === null) return;
     const target =
@@ -207,26 +236,105 @@ function useSendOrder(gameId: string, week: number, userId: string, field: strin
     target?.focus();
     setSent(null);
   }, [sent, week]);
+
+  // A read of the envelope after a send, never left hanging (the screen must leave Submitting).
+  const reread = () =>
+    within(queryClient.refetchQueries({ queryKey: playKey(gameId), exact: true }), ORDER_SUBMIT_TIMEOUT_MS).catch(
+      () => undefined,
+    );
+  /**
+   * What the server holds for the Seat's Order of Uke `ordered`, read afresh: `stored` (the open
+   * Uke has the Seat's Order, or a later Uke's history shows `value` there), `other` (the Uke
+   * moved on with another Order), `none`, or null when the server did not answer in time.
+   */
+  const stored = async (ordered: number, value: number): Promise<"stored" | "other" | "none" | null> => {
+    try {
+      await within(
+        queryClient.refetchQueries({ queryKey: playKey(gameId), exact: true }, { throwOnError: true }),
+        ORDER_SUBMIT_TIMEOUT_MS,
+      );
+    } catch {
+      return null;
+    }
+    const envelope = queryClient.getQueryData<PlayEnvelope>(playKey(gameId));
+    if (!envelope) return null;
+    const open = envelope.seat_state.week;
+    if (open === ordered) return envelope.turn.order != null ? "stored" : "none";
+    if (open < ordered) return "none";
+    const row = envelope.seat_state.history.find((w) => w.week === ordered);
+    if (!row) return null;
+    return row.order === value ? "stored" : "other";
+  };
+
   const confirm = (value: number) => {
     if (inFlight.current) return;
     inFlight.current = true;
-    setSending(week);
-    const reread = () => queryClient.refetchQueries({ queryKey: playKey(gameId), exact: true });
-    placeOrder(gameId, week, value)
+    const ordered = week;
+    setSending(ordered);
+    setOutcome(null);
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      setOutcome({ week: ordered, value, kind: "checking" });
+      controller.abort();
+    }, ORDER_SUBMIT_TIMEOUT_MS);
+    const confirmed = () => {
+      clearDraft(userId, field);
+      setOutcome(null);
+      setSent(ordered);
+    };
+    mutation
+      .mutateAsync({ week: ordered, value, signal: controller.signal })
       .then(
         async () => {
-          clearDraft(userId, field);
+          clearTimeout(timer);
           await reread();
-          setSent(week);
+          confirmed();
         },
-        () => reread(),
+        async (error: unknown) => {
+          clearTimeout(timer);
+          // An ended session goes to «Logg inn» (the mutation cache); the draft waits there.
+          if (isSessionExpired(error)) return;
+          const code = errorCode(error);
+          // The Seat's Order is stored, maybe from a second device: Confirmed with its value.
+          if (code === "order_exists") {
+            await reread();
+            confirmed();
+            return;
+          }
+          // `week_not_open` too: the api answers it before `order_exists`, so a retry of an Order
+          // that arrived and completed the Uke gets it. The history then shows the Order.
+          const there = await stored(ordered, value);
+          if (there === "stored") confirmed();
+          else if (there === "other" || code === "week_not_open") setOutcome({ week: ordered, value, kind: "weekGone" });
+          // A lost Seat usually loses the envelope too (403): the code alone says why.
+          else if (code === "seat_not_yours") setOutcome({ week: ordered, value, kind: "seatGone" });
+          else setOutcome({ week: ordered, value, kind: "failed" });
+        },
       )
       .finally(() => {
         inFlight.current = false;
         setSending(null);
       });
   };
-  return { sending, confirm };
+  return { sending, outcome, confirm, clear: () => setOutcome(null) };
+}
+
+/** The words the order area shows for a send's outcome in Uke `week`. */
+function outcomeProps(outcome: SendOutcome | null, week: number) {
+  if (!outcome) return { checking: false, failure: null, retry: false };
+  const value = formatNumber(outcome.value);
+  const here = outcome.week === week;
+  switch (outcome.kind) {
+    case "checking":
+      return { checking: here, failure: null, retry: false };
+    case "failed":
+      return { checking: false, failure: here ? copy.order.failed : null, retry: here };
+    case "weekGone":
+      // Read in whichever Uke the screen moved on to.
+      return { checking: false, failure: copy.order.weekGone(outcome.week, value), retry: false };
+    case "seatGone":
+      return { checking: false, failure: here ? copy.order.seatGone(value) : null, retry: false };
+  }
 }
 
 /**

@@ -4,6 +4,7 @@ import { type KeyboardEvent, useId, useRef, useState } from "react";
 
 import { Button, guardUnavailable } from "@/components/button";
 import { nb } from "@/copy/nb";
+import { useConnection } from "@/lib/connection";
 import { formatNumber } from "@/lib/number-format";
 import type { OrderPreview } from "@/lib/preview";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,12 @@ type Props = {
   sending?: boolean;
   /** «Bekreft ordre på x» pressed with a valid x and nothing on its way. */
   onConfirm?: (value: number) => void;
+  /** No answer within the order-submit timeout: the app asks the server (Story 6.13). */
+  checking?: boolean;
+  /** Why the last send did not place the Order, read as an alert (Story 6.13). */
+  failure?: string | null;
+  /** The last send failed: the button offers to send the same value again. */
+  retry?: boolean;
 };
 
 /**
@@ -41,8 +48,9 @@ type Props = {
  * `future-tint` with the reason under it and no button. Otherwise (Story 6.11) the Student types
  * one whole number from 0 to {maks}, or steps with − and +; the play screen previews a valid
  * value in the table and the Kjedebånd. «Bekreft ordre på 24» sends it (Story 6.12): Submitting
- * while it is on its way, then Confirmed, with no undo and no dialog. Nothing here suggests a
- * number (UX-DR78) or says how many Veiledede uker remain (FR-14).
+ * while it is on its way, then Confirmed, with no undo and no dialog. A send that failed, timed
+ * out or meets an offline device says so in words above the button (Story 6.13). Nothing here
+ * suggests a number (UX-DR78) or says how many Veiledede uker remain (FR-14).
  */
 export function OrderField(props: Props) {
   const { week, turn } = props;
@@ -94,8 +102,21 @@ function Confirmed({ order }: { order: number }) {
   );
 }
 
-function Editable({ week, max, lastOrder, text, onText, preview, sending = false, onConfirm }: Props) {
+function Editable({
+  week,
+  max,
+  lastOrder,
+  text,
+  onText,
+  preview,
+  sending = false,
+  onConfirm,
+  checking = false,
+  failure = null,
+  retry = false,
+}: Props) {
   const id = useId();
+  const connection = useConnection();
   const button = useRef<HTMLButtonElement>(null);
   // An empty field shows its reason only once the button was pressed.
   const [pressedEmpty, setPressedEmpty] = useState(false);
@@ -140,6 +161,25 @@ function Editable({ week, max, lastOrder, text, onText, preview, sending = false
     event.preventDefault();
     button.current?.focus();
   };
+
+  // What the order area says about the send (Story 6.13, UX-DR60), politely: the server is being
+  // asked, or the device is offline (or just back) with a typed value that is not sent.
+  const unsent = valid !== null && !sending && !failure ? formatNumber(valid) : null;
+  const status = checking
+    ? copy.checking
+    : unsent !== null && connection === "offline"
+      ? copy.offline(unsent)
+      : unsent !== null && connection === "reconnected"
+        ? copy.reconnected
+        : null;
+  const label =
+    valid === null
+      ? copy.confirm
+      : sending
+        ? copy.sending(formatNumber(valid))
+        : retry
+          ? copy.retry(formatNumber(valid))
+          : copy.confirmOn(formatNumber(valid));
 
   const fewer = sending || stepOrder(parsed, max, -1) === null;
   const more = sending || stepOrder(parsed, max, 1) === null;
@@ -199,14 +239,22 @@ function Editable({ week, max, lastOrder, text, onText, preview, sending = false
       <div role="alert" className="sr-only">
         {alert ? <span key={alert.n}>{alert.text}</span> : null}
       </div>
-      <p aria-live="polite" className="sr-only">
-        {sending && valid !== null ? copy.sending(formatNumber(valid)) : stepped}
+      <p aria-live="polite" className="sr-only" data-order-announce="">
+        {sending ? (valid !== null && !checking ? copy.sending(formatNumber(valid)) : "") : stepped}
       </p>
       {valid !== null && preview ? (
         <p className="mt-3 text-caption text-ink-secondary" data-order-arrives="">
           {copy.arrives(preview.arrivalWeek)}
         </p>
       ) : null}
+      {/* Both regions are always there, so a message that appears is read: a failed send
+          assertively, the rest politely. Focus stays on the button. */}
+      <div role="alert" data-order-failure="">
+        {failure ? <p className="mt-3 text-body-phone font-bold text-ink lg:text-body">{failure}</p> : null}
+      </div>
+      <div aria-live="polite" data-order-status="">
+        {status ? <p className="mt-3 text-body-phone text-ink lg:text-body">{status}</p> : null}
+      </div>
       {/* Unavailable until the value is valid, yet a press still says why (`onClickCapture` runs
           before the guard that ignores the press). While sending it keeps focus, busy. */}
       <Button
@@ -217,7 +265,7 @@ function Editable({ week, max, lastOrder, text, onText, preview, sending = false
         onClickCapture={press}
         className="mt-3 w-full"
       >
-        {valid === null ? copy.confirm : sending ? copy.sending(formatNumber(valid)) : copy.confirmOn(formatNumber(valid))}
+        {label}
       </Button>
     </div>
   );

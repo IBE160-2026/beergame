@@ -1502,9 +1502,20 @@ export const nb = {
         /** Submitting and Confirmed (Story 6.12, EXPERIENCE.md → State Patterns → Spill). The
          * «Venter på …» part comes with Setestatus (Story 6.14). `next` is [ASSUMPTION] draft copy
          * of 2026-11-14 (open-assumptions.md). */
-        sending: (value: string) => `Sender ordre på ${value} …`,
+        sending: (value: string) => `Sender ordre på ${value} …`,
         sent: (value: string) => `Ordren på ${value} er sendt.`,
         next: "Skjermen går videre når alle har bestilt. Du får e-post hvis spillet venter på deg.",
+        /** A send that failed, timed out or found the device offline (Story 6.13, EXPERIENCE.md →
+         * State Patterns → Spill, UX-DR60). The spine's strings, except `weekGone` and `seatGone`,
+         * which are [ASSUMPTION] draft copy for `409 week_not_open` and `409 seat_not_yours`. A
+         * non-breaking space keeps «…» on the line of the word before it (GitHub issue 130). */
+        failed: "Ordren ble ikke sendt. Ingenting er bestilt ennå.",
+        retry: (value: string) => `Prøv å sende ${value} igjen`,
+        checking: "Vi vet ikke om ordren kom fram. Sjekker …",
+        offline: (value: string) => `Ordren på ${value} er ikke sendt.`,
+        reconnected: "Tilkoblet igjen. Ordren er ikke sendt ennå.",
+        weekGone: (week: number, value: string) => `Uke ${week} er over. Ordren på ${value} ble ikke sendt.`,
+        seatGone: (value: string) => `Du har ikke dette setet lenger. Ordren på ${value} ble ikke sendt.`,
       },
       /** The week table (Story 6.6, DESIGN.md → Graf over tabell, UX-DR17, UX-DR18). The region
        * name, «Sveip for tidligere uker», «Din ordre» and «Kost, kr» are the spine's; the label for

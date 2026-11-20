@@ -94,11 +94,16 @@ describe("Ordrefelt, typing an Order (Story 6.11)", () => {
 describe("Ordrefelt, sending and confirmed (Story 6.12)", () => {
   it("sending: «Sender ordre på 24 …», busy and unavailable, the field read-only, − and + unavailable", () => {
     const html = render("24", { sending: true });
-    expect(html).toMatch(/<button[^>]*aria-disabled="true"[^>]*aria-busy="true"[^>]*>Sender ordre på 24 …<\/button>/);
+    expect(html).toMatch(/<button[^>]*aria-disabled="true"[^>]*aria-busy="true"[^>]*>Sender ordre på 24 …<\/button>/);
     expect(html).toMatch(/<input[^>]*readOnly=""/);
     expect(html).toMatch(/<button[^>]*aria-label="Én færre"[^>]*aria-disabled="true"/);
     expect(html).toMatch(/<button[^>]*aria-label="Én flere"[^>]*aria-disabled="true"/);
-    expect(html).toMatch(/aria-live="polite"[^>]*>Sender ordre på 24 …</);
+    expect(html).toMatch(/aria-live="polite"[^>]*>Sender ordre på 24 …</);
+  });
+
+  it("«…» never wraps alone: a non-breaking space before it (Issue #130)", () => {
+    expect(copy.sending("24")).toBe("Sender ordre på 24 …");
+    expect(copy.checking.endsWith("Sjekker …")).toBe(true);
   });
 
   it("confirmed: «Ordren på 24 er sendt.» focusable by script, the next line, no field and no button", () => {
@@ -108,6 +113,45 @@ describe("Ordrefelt, sending and confirmed (Story 6.12)", () => {
     expect(html).not.toContain("<input");
     expect(html).not.toContain("<button");
     expect(html).not.toContain(copy.guided);
+  });
+});
+
+describe("Ordrefelt, a send that did not place the Order (Story 6.13)", () => {
+  const regions = (html: string) => ({
+    alert: html.match(/<div role="alert" data-order-failure="">(.*?)<\/div>/)?.[1] ?? null,
+    status: html.match(/<div aria-live="polite" data-order-status="">(.*?)<\/div>/)?.[1] ?? null,
+  });
+
+  it("nothing to say: both regions are there and empty", () => {
+    expect(regions(render("24"))).toEqual({ alert: "", status: "" });
+  });
+
+  it("submit failed: the alert, the value editable and «Prøv å sende 24 igjen» active", () => {
+    const html = render("24", { failure: copy.failed, retry: true });
+    expect(regions(html).alert).toContain(copy.failed);
+    expect(html).toMatch(/<input[^>]*value="24"/);
+    expect(html).not.toMatch(/<input[^>]*readOnly/);
+    expect(html).toMatch(/<button[^>]*>Prøv å sende 24 igjen<\/button>/);
+    expect(html).not.toMatch(/aria-disabled="true"[^>]*>Prøv å sende/);
+  });
+
+  it("refused by code: the code's words, the normal button", () => {
+    const html = render("24", { failure: copy.seatGone("24") });
+    expect(regions(html).alert).toContain(copy.seatGone("24"));
+    expect(html).toMatch(/>Bekreft ordre på 24<\/button>/);
+  });
+
+  it("timed out: «Vi vet ikke om ordren kom fram. Sjekker …» politely, still busy, not said twice", () => {
+    const html = render("24", { sending: true, checking: true });
+    expect(regions(html).status).toContain(copy.checking);
+    expect(html).toMatch(/aria-busy="true"[^>]*>Sender ordre på 24 …<\/button>/);
+    expect(html).toMatch(/<p aria-live="polite" class="sr-only" data-order-announce=""><\/p>/);
+  });
+
+  it("the words for a closed Uke and a lost Seat name the Order", () => {
+    expect(copy.weekGone(11, "24")).toBe("Uke 11 er over. Ordren på 24 ble ikke sendt.");
+    expect(copy.seatGone("24")).toContain("Ordren på 24 ble ikke sendt.");
+    expect(copy.offline("24")).toBe("Ordren på 24 er ikke sendt.");
   });
 });
 

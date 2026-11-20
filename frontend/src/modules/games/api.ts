@@ -38,12 +38,14 @@ export function viewWeek(gameId: string, week: number) {
 
 /** «Bekreft ordre på 24» (Story 6.12): the Student's Order for the open Week, placed once; no
  * `version` is sent. Answers 204; a refusal carries the command's code (`order_exists`,
- * `week_not_open`, `seat_not_yours`, …), which Story 6.13 turns into copy. */
-export function placeOrder(gameId: string, week: number, order: number) {
+ * `week_not_open`, `seat_not_yours`, …), which Story 6.13 turns into copy. `signal` aborts a
+ * send that took too long (it then fails as `network_error`). */
+export function placeOrder(gameId: string, week: number, order: number, signal?: AbortSignal) {
   return request(() =>
     api.POST("/api/me/games/{game_id}/weeks/{week}/order", {
       params: { path: { game_id: gameId, week } },
       body: { order },
+      signal,
     }),
   );
 }

@@ -3,6 +3,7 @@
 Student as actor (FR-24, AD-2). The client sends no `version`; a refusal answers the command's
 code; any other game is refused alike (FR-5)."""
 
+import asyncio
 import uuid
 
 from app.engine import GameSettings
@@ -79,6 +80,39 @@ async def test_an_order_already_placed_is_not_placed_again(klass):
     before = weeks_and_orders(game_id)
     assert code(await order(who, game_id, week, {"order": 24})) == (409, "order_exists")
     assert weeks_and_orders(game_id) == before
+
+
+async def test_two_sends_racing_for_one_seat_and_week_place_one_order(klass):
+    """Story 6.13 (AD-2, FR-24): a retry and a second device sending at the same time. The Game
+    row lock lets one place the Order; the other is refused with `409` and changes nothing (the
+    unique `(game_id, week, seat_id)` backs this up)."""
+    game_id, by_role = await free_week(klass, students=2)
+    week = CLASSIC.guided_weeks + 1
+    # Each Student races once; the second race is also the Order that completes the Week.
+    for n, (role, who) in enumerate(by_role.items()):
+        answers = await asyncio.gather(
+            order(who, game_id, week, {"order": 9}), order(who, game_id, week, {"order": 24})
+        )
+        assert sorted(a.status_code for a in answers) == [204, 409]
+        [refused] = [a for a in answers if a.status_code == 409]
+        # The loser of the race that completed the Week finds it closed: `week_not_open` is
+        # checked before `order_exists`, which the web app answers by reading the history.
+        assert code(refused) == (409, "order_exists" if n == 0 else "week_not_open")
+        [placed] = [v for v, a in zip((9, 24), answers, strict=True) if a.status_code == 204]
+        rows = query(
+            TEST_DATABASE_URL,
+            'SELECT w."order" FROM seat_weeks w JOIN seats s ON s.id = w.seat_id '
+            "WHERE w.game_id = %s AND w.week = %s AND s.role = %s",
+            (game_id, week, role),
+        )
+        assert rows == [(placed,)]
+        # The screen then reads the stored Order: in the open Week, or in the history after it.
+        envelope = (await play(who, game_id)).json()
+        if n == 0:
+            assert envelope["turn"]["order"] == placed
+        else:
+            assert envelope["seat_state"]["week"] == week + 1
+            assert envelope["seat_state"]["history"][-1]["order"] == placed
 
 
 async def test_invalid_orders_and_guided_weeks_are_refused_with_nothing_written(klass):

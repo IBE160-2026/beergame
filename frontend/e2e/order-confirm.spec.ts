@@ -1,67 +1,18 @@
-import { expect, type Page, type Route, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import week11 from "../src/modules/games/fixtures/play-week-11.json";
 import week14 from "../src/modules/games/fixtures/play-week-14.json";
-import { DEMO_PASSWORD, DEMO_USERS, loginAs, loginByApi, untilHydrated } from "./support/auth";
+import { DEMO_PASSWORD, DEMO_USERS, loginAs, untilHydrated } from "./support/auth";
 import { expectAccessible } from "./support/classes";
+import { confirmButton as confirm, drafts, GAME_ID, openPlay, orderField as field, refetchPlay as refetch } from "./support/play";
 
 /** Confirming the Order and keeping what was typed (Story 6.12, FR-24, FR-73, NFR-6, AD-10,
- * UX-DR59, UX-DR60). As in `order-field.spec.ts`, the game and its envelopes are stand-ins with the
- * api's shapes (the engine's Grossist of a Classic game in Uke 11, held to the engine by
- * `backend/tests/games/test_play_fixture.py`); the Order's POST is answered here and recorded. The
- * api side of the send is `backend/tests/sessions/test_orders.py`. */
-const GAME_ID = "01a1f8ee-34f2-70af-8800-f79281ed7a67";
+ * UX-DR59, UX-DR60), on the stand-in play screen of `support/play.ts`. */
 const copy = nb.games.play;
 const order = copy.order;
-const ORDER_PATH = `/api/me/games/${GAME_ID}/weeks/11/order`;
-const confirmed = { ...week11, turn: { ...week11.turn, order: 24 } };
 
-type Stub = { envelope: unknown; posts: unknown[]; answer: (route: Route) => Promise<void> };
-
-/** The play screen of Uke 11 for the demo Student. `stub.envelope` is what the next read of the
- * play envelope gets; `stub.answer` answers the Order's POST (204, and Uke 11 then holds 24). */
-async function openPlay(page: Page, login = true): Promise<Stub> {
-  const stub: Stub = {
-    envelope: week11,
-    posts: [],
-    answer: async (route) => {
-      stub.envelope = confirmed;
-      await route.fulfill({ status: 204 });
-    },
-  };
-  if (login) await loginByApi(page, "student");
-  await page.route(`**/api/me/games/${GAME_ID}`, (route) =>
-    route.fulfill({
-      json: {
-        id: GAME_ID,
-        number: 17,
-        role: "wholesaler",
-        seats: week11.table_status.seats,
-        briefing_first: false,
-        rules: { order_delay: 2, shipping_delay: 2, production_delay: 2, guided_weeks: 4, holding_cost: "0.50", backorder_cost: "1.00" },
-        status: "running",
-        week: 11,
-      },
-    }),
-  );
-  await page.route(`**/api/me/games/${GAME_ID}/play`, (route) => route.fulfill({ json: stub.envelope }));
-  await page.route(`**${ORDER_PATH}`, (route) => {
-    stub.posts.push(route.request().postDataJSON());
-    return stub.answer(route);
-  });
-  await page.goto(`/spill/${GAME_ID}`);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.week(11));
-  return stub;
-}
-
-const field = (page: Page) => page.getByRole("textbox", { name: order.label(11) });
-const confirm = (page: Page) => page.locator("[data-order-field] button.w-full");
 const typedBox = (page: Page) => page.locator('svg[data-chart="band"] rect[data-mark="typed"]');
-/** Read the play envelope again, as coming back online does (`providers.tsx`). */
-const refetch = (page: Page) => page.evaluate(() => window.dispatchEvent(new Event("online")));
-const drafts = (page: Page) =>
-  page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith("olspillet:draft:")));
 
 test.afterEach(async ({ page }) => {
   await page.unrouteAll({ behavior: "ignoreErrors" });
@@ -90,7 +41,7 @@ for (const width of [320, 360, 1440]) {
       await expect(confirm(page)).toBeFocused();
       await expect(field(page)).toHaveAttribute("readonly", "");
       await page.keyboard.press("Enter"); // a further press is ignored
-      await expect(page.locator("[data-order-field] [aria-live=polite]")).toHaveText(order.sending("24"));
+      await expect(page.locator("[data-order-field] [data-order-announce]")).toHaveText(order.sending("24"));
       const targets = await page.locator("[data-order-field] button").evaluateAll((els) =>
         els.map((el) => Math.min(el.getBoundingClientRect().width, el.getBoundingClientRect().height)),
       );
@@ -166,7 +117,8 @@ test("a send that fails keeps the value, editable, with focus on the button", as
   stub.answer = (route) => route.fulfill({ status: 503, json: { error: { code: "unavailable", message: "x" } } });
   await field(page).fill("24");
   await confirm(page).click();
-  await expect(confirm(page)).toHaveText(order.confirmOn("24"));
+  // Story 6.13 says so in words; `order-failures.spec.ts` covers the failure states.
+  await expect(confirm(page)).toHaveText(order.retry("24"));
   await expect(confirm(page)).not.toHaveAttribute("aria-busy");
   await expect(confirm(page)).toBeFocused();
   await expect(field(page)).toHaveValue("24");

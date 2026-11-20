@@ -163,7 +163,8 @@ test("keyboard: Enter moves to the button, errors are announced on leaving or pr
   await page.setViewportSize({ width: 360, height: 800 });
   const posts = await openPlay(page);
   const input = field(page);
-  const alert = page.locator('[data-order-field] [role="alert"]');
+  // The input's own alert (the send's failures have theirs, `data-order-failure`, Story 6.13).
+  const alert = page.locator('[data-order-field] [role="alert"]:not([data-order-failure])');
   // The empty button is focusable and, pressed, gives the reason.
   await confirm(page).focus();
   await page.keyboard.press("Enter");
@@ -189,7 +190,7 @@ test("keyboard: Enter moves to the button, errors are announced on leaving or pr
   await expect(fewer).toHaveAttribute("aria-disabled", "true");
   await more.click();
   await expect(input).toHaveValue("1");
-  await expect(page.locator("[data-order-field] [aria-live=polite]")).toHaveText(order.stepped("1"));
+  await expect(page.locator("[data-order-field] [data-order-announce]")).toHaveText(order.stepped("1"));
   await fewer.click();
   await expect(input).toHaveValue("0");
   await expect(fewer).toHaveAttribute("aria-disabled", "true");
