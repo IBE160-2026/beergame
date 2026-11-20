@@ -1298,3 +1298,29 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 108: beslutninger i Story 5.10.
+
+## Story 5.11: Låse klasseøkta på startdatoen (2026-11-20)
+
+### Oppgave
+Bygge Story 5.11 etter kjøreboka, og rette den låste visningen fra Issue #103.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-11-lock-class-session-at-start-date.md`.
+- **Commit 1dd6b0f:**
+  - låsing i sveipet, med et frosset øyeblikksbilde (migrasjon 0040);
+  - avvisning og melding når nøkkelen mangler;
+  - låst visning som tekst.
+- **Avbrudd:** steg 1 tok rundt én time før byggeagenten fikk en statusforespørsel.
+- **Tester:**
+  - backend: 2510 tester;
+  - frontend: Vitest, typecheck og bygg;
+  - Playwright: 256 passerte og 1 feilet under last; den passerer når den kjøres alene.
+- **Gjennomgang:** 50 funn. 11 ble rettet og 3 er utsatt. Byggeagenten anbefaler en oppfølgende gjennomgang.
+- **Visuell kontroll:** 12 skjermbilder i `screenshots/5.11/`. Ingen klare avvik.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 109: beslutninger og utsatte punkter i Story 5.11.
