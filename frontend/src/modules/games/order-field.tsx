@@ -176,7 +176,12 @@ function Editable({ week, max, lastOrder, text, onText, preview, sending = false
           onChange={(event) => change(event.target.value)}
           onBlur={() => announce(error)}
           onKeyDown={onKeyDown}
-          className={cn(VALUE, "min-w-0 flex-1 bg-paper px-2 text-ink outline-none placeholder:text-body placeholder:text-ink-muted")}
+          className={cn(
+            VALUE,
+            "min-w-0 flex-1 px-2 outline-none placeholder:text-body placeholder:text-ink-muted",
+            // Read-only while submitting (DESIGN.md → Ordrefelt): `future-tint` fill, value in `ink-muted`.
+            sending ? "bg-future-tint text-ink-muted" : "bg-paper text-ink",
+          )}
         />
         <Segment label={copy.more} sign="+" unavailable={more} onPress={() => step(1)} side="right" />
       </div>
