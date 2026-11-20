@@ -266,7 +266,8 @@ function WeekCell({ column, cell, weekCol, style }: { column: Column; cell: Cell
       );
     case "order-placed":
       return (
-        <td style={style} className={cn(base, "font-bold")}>
+        // DESIGN.md → Graf over tabell: the Din ordre cell for nå is an `ink` block with a `paper` number.
+        <td style={style} className={cn(base, NET_CELL, "bg-ink font-bold text-paper")}>
           {cell.text}
         </td>
       );
