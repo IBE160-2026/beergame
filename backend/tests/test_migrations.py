@@ -98,384 +98,205 @@ def current_version(url: str) -> str:
     return version
 
 
-def test_upgrade_head_from_empty_creates_the_games_tables(migrations_database):
-    reset_schema(migrations_database)
-    command.upgrade(config(migrations_database), "head")
-    assert tables(migrations_database) == HEAD_TABLES
-    assert current_version(migrations_database) == HEAD
+def rows(url: str, sql: str, params: tuple | None = None) -> list[tuple]:
+    with psycopg.connect(libpq_dsn(url)) as conn:
+        return conn.execute(sql, params).fetchall()
 
 
-def test_the_revisions_match_the_module_tables(migrations_database):
-    """`alembic check` fails when a module table and the revisions disagree."""
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.check(cfg)
+def columns(url: str, table: str) -> set[str]:
+    query = "SELECT column_name FROM information_schema.columns WHERE table_name = %s"
+    return {name for (name,) in rows(url, query, (table,))}
 
 
-def test_downgrade_to_the_baseline_removes_the_games_tables(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0001")
-    assert tables(migrations_database) == {"alembic_version"}
-    assert current_version(migrations_database) == "0001"
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        functions = conn.execute(
-            "SELECT 1 FROM pg_proc WHERE proname = 'seat_occupancy_append_only'"
-        ).fetchall()
-    assert functions == []
-
-
-def test_downgrade_to_0002_removes_the_week_tables(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0002")
-    assert tables(migrations_database) == {"alembic_version", "games", "seats", "seat_occupancy"}
-    assert current_version(migrations_database) == "0002"
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        functions = conn.execute(
-            "SELECT 1 FROM pg_proc WHERE proname = 'seat_turns_keep_opening'"
-        ).fetchall()
-    assert functions == []
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
-
-
-def test_downgrade_to_0003_restores_the_week_tables_of_story_1_8(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0003")
-    assert tables(migrations_database) == GAMES_HEAD_TABLES - {"seat_weeks", "game_checks"}
-    assert current_version(migrations_database) == "0003"
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        functions = {
-            row[0]
-            for row in conn.execute(
-                "SELECT proname FROM pg_proc WHERE proname IN "
-                "('seat_weeks_append_only', 'game_weeks_append_only', 'seat_turns_keep_opening')"
-            ).fetchall()
-        }
-        primary_key = conn.execute(
-            "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'game_weeks_pkey'"
-        ).fetchone()
-        columns = {
-            row[0]
-            for row in conn.execute(
-                "SELECT column_name FROM information_schema.columns WHERE table_name = 'game_weeks'"
-            ).fetchall()
-        }
-    assert functions == {"seat_turns_keep_opening"}
-    assert primary_key == ("PRIMARY KEY (game_id, week)",)
-    assert "finished" not in columns
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
-
-
-def test_downgrade_to_0004_removes_the_check_table(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0004")
-    assert tables(migrations_database) == GAMES_HEAD_TABLES - {"game_checks"}
-    assert current_version(migrations_database) == "0004"
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        # The way down passes 0006, which drops the AI tables and their trigger function.
-        functions = conn.execute(
-            "SELECT 1 FROM pg_proc WHERE proname IN "
-            "('game_checks_append_only', 'ai_model_configs_immutable')"
-        ).fetchall()
-    assert functions == []
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
-
-
-def test_downgrade_to_0007_removes_the_job_schema_and_the_llm_columns(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0007")
-    assert tables(migrations_database) == AI_HEAD_TABLES
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        leftovers = conn.execute(
-            "SELECT proname FROM pg_proc WHERE proname LIKE 'procrastinate%%' UNION ALL "
-            "SELECT typname FROM pg_type WHERE typname LIKE 'procrastinate%%'"
-        ).fetchall()
-        columns = {
-            row[0]
-            for row in conn.execute(
-                "SELECT column_name FROM information_schema.columns WHERE table_name = 'seat_weeks'"
-            ).fetchall()
-        }
-        (fallback,) = conn.execute(
-            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
-            "WHERE conname = 'ck_seat_weeks_fallback'"
-        ).fetchone()
-    assert leftovers == []
-    assert "llm_call_ids" not in columns
-    assert "provider_error" not in fallback
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
-
-
-def test_downgrade_to_0008_removes_the_ai_deadlines(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0008")
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        columns = conn.execute(
-            "SELECT table_name FROM information_schema.columns WHERE column_name = 'ai_deadline_at'"
-        ).fetchall()
-        (outcome,) = conn.execute(
-            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
-            "WHERE conname = 'ck_llm_call_outcome'"
-        ).fetchone()
-        (trigger,) = conn.execute(
-            "SELECT prosrc FROM pg_proc WHERE proname = 'seat_turns_keep_opening'"
-        ).fetchone()
-    assert columns == []
-    assert "cancelled" not in outcome
-    assert "ai_deadline_at" not in trigger
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
-
-
-def test_downgrade_to_0011_removes_the_near_optimal_reference(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0011")
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        columns = conn.execute(
-            "SELECT table_name FROM information_schema.columns "
-            "WHERE column_name LIKE 'near_optimal_%'"
-        ).fetchall()
-        checks = conn.execute(
-            "SELECT conname FROM pg_constraint WHERE conname LIKE '%near_optimal%'"
-        ).fetchall()
-        (trigger,) = conn.execute(
-            "SELECT prosrc FROM pg_proc WHERE proname = 'seat_turns_keep_opening'"
-        ).fetchone()
-    assert columns == [] and checks == []
-    assert "near_optimal" not in trigger and "ai_deadline_at" in trigger  # 0009's function
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
-
-
-def test_downgrade_to_0012_removes_the_simulation_batches(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0012")
-    assert tables(migrations_database) == (
-        PRE_SESSION_TABLES
-        - {"simulation_batches"}
-        - MEASUREMENT_TABLES
-        - IDENTITY_TABLES
-        - MAIL_TABLES
-        - RESET_TABLES
-        - INVITATION_TABLES
-        - INSTITUTION_TABLES
-        - ACCESS_REQUEST_TABLES
-        - CLASS_TABLES
-        - ROSTER_TABLES
+def constraints(url: str, table: str) -> dict[str, str]:
+    return dict(
+        rows(
+            url,
+            "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint "
+            "WHERE conrelid = %s::regclass AND contype IN ('c', 'u')",
+            (table,),
+        )
     )
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        columns = conn.execute(
-            "SELECT table_name, column_name FROM information_schema.columns "
-            "WHERE column_name IN ('batch_id', 'effort_level') AND table_name IN "
-            "('games', 'seat_weeks')"
-        ).fetchall()
-        functions = conn.execute(
-            "SELECT 1 FROM pg_proc WHERE proname = 'simulation_batches_append_only'"
-        ).fetchall()
-    assert columns == [] and functions == []
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
 
 
-def test_downgrade_to_0013_removes_the_effort_measurements_and_pins(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0013")
-    assert tables(migrations_database) == (
-        PRE_SESSION_TABLES
-        - MEASUREMENT_TABLES
-        - IDENTITY_TABLES
-        - MAIL_TABLES
-        - RESET_TABLES
-        - INVITATION_TABLES
-        - INSTITUTION_TABLES
-        - ACCESS_REQUEST_TABLES
-        - CLASS_TABLES
-        - ROSTER_TABLES
-    )
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        functions = conn.execute(
-            "SELECT 1 FROM pg_proc WHERE proname = 'effort_measurements_append_only'"
-        ).fetchall()
-    assert functions == []
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
+def definition(url: str, name: str) -> str:
+    query = "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = %s"
+    [(found,)] = rows(url, query, (name,))
+    return found
 
 
-def test_downgrade_to_0014_removes_the_identity_and_rate_limit_tables(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0014")
-    assert tables(migrations_database) == (
-        PRE_SESSION_TABLES
-        - IDENTITY_TABLES
-        - MAIL_TABLES
-        - RESET_TABLES
-        - INVITATION_TABLES
-        - INSTITUTION_TABLES
-        - ACCESS_REQUEST_TABLES
-        - CLASS_TABLES
-        - ROSTER_TABLES
-    )
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
+def function_names(url: str, *names: str) -> set[str]:
+    query = "SELECT proname FROM pg_proc WHERE proname = ANY(%s)"
+    return {name for (name,) in rows(url, query, (list(names),))}
 
 
-def test_downgrade_to_0015_removes_the_notice_and_delivery_tables(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
+def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migrations_database):
+    """One walk instead of a fresh database per revision: from an empty schema to head (every
+    module's tables, `alembic check` clean), then down revision by revision to the baseline,
+    checking what each downgrade removes, and up to head again. The revisions that move data have
+    tests of their own below."""
+    url = migrations_database
+    reset_schema(url)
+    cfg = config(url)
     command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0015")
-    assert tables(migrations_database) == (
-        PRE_SESSION_TABLES
-        - MAIL_TABLES
-        - RESET_TABLES
-        - INVITATION_TABLES
-        - INSTITUTION_TABLES
-        - ACCESS_REQUEST_TABLES
-        - CLASS_TABLES
-        - ROSTER_TABLES
-    )
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
+    assert tables(url) == HEAD_TABLES
+    assert current_version(url) == HEAD
+    command.check(cfg)  # fails when a module table and the revisions disagree
 
+    # At head. 0034 (Story 5.5): a Class session's Effort level, NULL unless its AI mode is `llm`.
+    # 0035 (Story 5.6): a Lab hour ends after it starts and has a place. 0037 (Story 5.8): one
+    # current draft per Class session, its revision from 1. 0038 (Story 5.9): a Game's snapshot
+    # is all there or all NULL, a Class game has its session and a unique number, and only a
+    # `student` occupant has a user id. 0039 (Story 5.10): a free-Seat row has no occupant kind
+    # and the reason `moved`. 0040 (Story 5.11): a Class session's `locked_at` and `snapshot` are
+    # set together. 0041 (Story 5.14): one reminder per deadline and time. 0042 (Story 5.17): the
+    # allocation method is `random` or `student_choice`. 0043 (Story 5.18): a copy names its
+    # source, and forgets it when the source goes. 0044 (GitHub issue 109): when the lock was
+    # first refused.
+    assert "effort_level IS NULL" in definition(url, "ck_class_sessions_effort_level_llm_only")
+    assert "ends_at > starts_at" in definition(url, "ck_lab_hours_order")
+    assert "120" in definition(url, "ck_lab_hours_place")
+    assert "lock_refused_at" in columns(url, "class_sessions")
+    drafts = constraints(url, "allocation_drafts")
+    assert "revision >= 1" in drafts["ck_allocation_drafts_revision"]
+    assert "UNIQUE (class_session_id)" in drafts["uq_allocation_drafts_class_session"]
+    games = constraints(url, "games")
+    assert "num_nulls(settings, demand_series" in games["ck_games_snapshot"]
+    assert "UNIQUE (class_session_id, game_number)" in games["uq_games_class_session_number"]
+    assert "game_number IS NULL" in games["ck_games_class_session"]
+    occupancy = constraints(url, "seat_occupancy")
+    assert "user_id IS NULL" in occupancy["ck_seat_occupancy_user_student"]
+    assert "'moved'" in occupancy["ck_seat_occupancy_free"]
+    sessions = constraints(url, "class_sessions")
+    assert "snapshot IS NULL" in sessions["ck_class_sessions_lock"]
+    assert "'student_choice'" in sessions["ck_class_sessions_allocation_method"]
+    reminders = constraints(url, "deadline_reminders")
+    assert "'test_deadline'" in reminders["ck_deadline_reminders_deadline"]
+    assert "deadline, deadline_at)" in reminders["uq_deadline_reminders_deadline"]
+    assert "ON DELETE SET NULL" in definition(url, "fk_class_sessions_copied_from")
 
-def test_downgrade_to_0016_removes_the_reset_table_and_the_stale_reason(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0016")
-    assert tables(migrations_database) == (
-        PRE_SESSION_TABLES
-        - RESET_TABLES
-        - INVITATION_TABLES
-        - INSTITUTION_TABLES
-        - ACCESS_REQUEST_TABLES
-        - CLASS_TABLES
-        - ROSTER_TABLES
-    )
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        check = conn.execute(
-            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
-            "WHERE conname = 'ck_mail_deliveries_skipped_reason'"
-        ).fetchone()[0]
-    assert "stale" not in check
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
+    command.downgrade(cfg, "0043")
+    assert "lock_refused_at" not in columns(url, "class_sessions")
+    command.downgrade(cfg, "0042")
+    assert {"copied_from", "effort_level_replaced"}.isdisjoint(columns(url, "class_sessions"))
+    command.downgrade(cfg, "0041")
+    assert "ck_class_sessions_allocation_method" not in constraints(url, "class_sessions")
+    command.downgrade(cfg, "0040")
+    assert "deadline_reminders" not in tables(url)
+    command.downgrade(cfg, "0039")
+    assert "ck_class_sessions_lock" not in constraints(url, "class_sessions")
+    command.downgrade(cfg, "0038")
+    assert "ck_seat_occupancy_free" not in constraints(url, "seat_occupancy")
+    assert "'moved'" not in constraints(url, "seat_occupancy")["ck_seat_occupancy_reason"]
+    command.downgrade(cfg, "0037")
+    assert "ck_games_snapshot" not in constraints(url, "games")
+    command.downgrade(cfg, "0036")
+    assert "allocation_drafts" not in tables(url)
+    command.downgrade(cfg, "0034")
+    assert "lab_hours" not in tables(url)
+    command.downgrade(cfg, "0033")
+    session_columns = columns(url, "class_sessions")
+    assert "effort_level" not in session_columns and "start_at" in session_columns
+    command.downgrade(cfg, "0031")
+    assert tables(url) == PRE_SESSION_TABLES
 
-
-def test_downgrade_to_0017_removes_the_invitation_and_audit_tables(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0017")
-    assert (
-        tables(migrations_database)
-        == PRE_SESSION_TABLES
-        - INVITATION_TABLES
-        - INSTITUTION_TABLES
-        - ACCESS_REQUEST_TABLES
-        - CLASS_TABLES
-        - ROSTER_TABLES
-    )
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        functions = conn.execute(
-            "SELECT 1 FROM pg_proc WHERE proname = 'audit_events_append_only'"
-        ).fetchall()
-    assert functions == []
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
-
-
-def test_downgrade_to_0019_removes_the_session_version(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0019")
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        columns = conn.execute(
-            "SELECT 1 FROM information_schema.columns "
-            "WHERE table_name = 'users' AND column_name = 'session_version'"
-        ).fetchall()
-    assert columns == []
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
-
-
-def test_downgrade_to_0020_removes_the_institutions(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0020")
-    assert (
-        tables(migrations_database)
-        == PRE_SESSION_TABLES
-        - INSTITUTION_TABLES
-        - ACCESS_REQUEST_TABLES
-        - CLASS_TABLES
-        - ROSTER_TABLES
-    )
-    assert current_version(migrations_database) == "0020"
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
-
-
-def test_downgrade_to_0021_removes_the_access_requests(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0021")
-    assert (
-        tables(migrations_database)
-        == PRE_SESSION_TABLES - ACCESS_REQUEST_TABLES - CLASS_TABLES - ROSTER_TABLES
-    )
-    assert current_version(migrations_database) == "0021"
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
-
-
-def test_downgrade_to_0022_removes_the_classes(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0022")
-    assert tables(migrations_database) == PRE_SESSION_TABLES - CLASS_TABLES - ROSTER_TABLES
-    assert current_version(migrations_database) == "0022"
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
-
-
-def test_downgrade_to_0023_removes_the_roster_uploads(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
+    command.downgrade(cfg, "0027")
+    delivery_columns = {"delivery_state", "bounce_class", "last_event_id"}
+    assert not delivery_columns & columns(url, "mail_deliveries")
+    roster = PRE_SESSION_TABLES - ROSTER_TABLES
     command.downgrade(cfg, "0023")
-    assert tables(migrations_database) == PRE_SESSION_TABLES - ROSTER_TABLES
-    assert current_version(migrations_database) == "0023"
+    assert tables(url) == roster
+    assert current_version(url) == "0023"
+    command.downgrade(cfg, "0022")
+    assert tables(url) == roster - CLASS_TABLES
+    command.downgrade(cfg, "0021")
+    assert tables(url) == roster - CLASS_TABLES - ACCESS_REQUEST_TABLES
+    command.downgrade(cfg, "0020")
+    institutions = roster - CLASS_TABLES - ACCESS_REQUEST_TABLES - INSTITUTION_TABLES
+    assert tables(url) == institutions
+    assert current_version(url) == "0020"
+    command.downgrade(cfg, "0019")
+    assert "session_version" not in columns(url, "users")
+    command.downgrade(cfg, "0017")
+    assert tables(url) == institutions - INVITATION_TABLES
+    assert function_names(url, "audit_events_append_only") == set()
+    command.downgrade(cfg, "0016")
+    assert tables(url) == institutions - INVITATION_TABLES - RESET_TABLES
+    assert "stale" not in definition(url, "ck_mail_deliveries_skipped_reason")
+    command.downgrade(cfg, "0015")
+    mail = institutions - INVITATION_TABLES - RESET_TABLES - MAIL_TABLES
+    assert tables(url) == mail
+    command.downgrade(cfg, "0014")
+    assert tables(url) == mail - IDENTITY_TABLES
+    command.downgrade(cfg, "0013")
+    assert tables(url) == mail - IDENTITY_TABLES - MEASUREMENT_TABLES
+    assert function_names(url, "effort_measurements_append_only") == set()
+    command.downgrade(cfg, "0012")
+    assert tables(url) == mail - IDENTITY_TABLES - MEASUREMENT_TABLES - {"simulation_batches"}
+    batch_columns = rows(
+        url,
+        "SELECT table_name, column_name FROM information_schema.columns "
+        "WHERE column_name IN ('batch_id', 'effort_level') AND table_name IN "
+        "('games', 'seat_weeks')",
+    )
+    assert batch_columns == []
+    assert function_names(url, "simulation_batches_append_only") == set()
+    command.downgrade(cfg, "0011")
+    near_optimal = rows(
+        url,
+        "SELECT table_name FROM information_schema.columns WHERE column_name LIKE 'near_optimal_%'",
+    )
+    near_checks = rows(url, "SELECT conname FROM pg_constraint WHERE conname LIKE '%near_optimal%'")
+    trigger_query = "SELECT prosrc FROM pg_proc WHERE proname = 'seat_turns_keep_opening'"
+    [(trigger,)] = rows(url, trigger_query)
+    assert near_optimal == [] and near_checks == []
+    assert "near_optimal" not in trigger and "ai_deadline_at" in trigger  # 0009's function
+    command.downgrade(cfg, "0008")
+    deadlines = rows(
+        url,
+        "SELECT table_name FROM information_schema.columns WHERE column_name = 'ai_deadline_at'",
+    )
+    [(trigger,)] = rows(url, trigger_query)
+    assert deadlines == []
+    assert "cancelled" not in definition(url, "ck_llm_call_outcome")
+    assert "ai_deadline_at" not in trigger
+    command.downgrade(cfg, "0007")
+    assert tables(url) == AI_HEAD_TABLES
+    leftovers = rows(
+        url,
+        "SELECT proname FROM pg_proc WHERE proname LIKE 'procrastinate%%' UNION ALL "
+        "SELECT typname FROM pg_type WHERE typname LIKE 'procrastinate%%'",
+    )
+    assert leftovers == []
+    assert "llm_call_ids" not in columns(url, "seat_weeks")
+    assert "provider_error" not in definition(url, "ck_seat_weeks_fallback")
+    command.downgrade(cfg, "0004")
+    assert tables(url) == GAMES_HEAD_TABLES - {"game_checks"}
+    assert current_version(url) == "0004"
+    # The way down passes 0006, which drops the AI tables and their trigger function.
+    assert function_names(url, "game_checks_append_only", "ai_model_configs_immutable") == set()
+    command.downgrade(cfg, "0003")
+    assert tables(url) == GAMES_HEAD_TABLES - {"seat_weeks", "game_checks"}
+    assert current_version(url) == "0003"
+    week_functions = function_names(
+        url, "seat_weeks_append_only", "game_weeks_append_only", "seat_turns_keep_opening"
+    )
+    assert week_functions == {"seat_turns_keep_opening"}
+    assert definition(url, "game_weeks_pkey") == "PRIMARY KEY (game_id, week)"
+    assert "finished" not in columns(url, "game_weeks")
+    command.downgrade(cfg, "0002")
+    assert tables(url) == {"alembic_version", "games", "seats", "seat_occupancy"}
+    assert current_version(url) == "0002"
+    assert function_names(url, "seat_turns_keep_opening") == set()
+    command.downgrade(cfg, "0001")
+    assert tables(url) == {"alembic_version"}
+    assert current_version(url) == "0001"
+    assert function_names(url, "seat_occupancy_append_only") == set()
+
     command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
+    assert tables(url) == HEAD_TABLES
+    assert current_version(url) == HEAD
+    assert delivery_columns <= columns(url, "mail_deliveries")
 
 
 def test_downgrade_to_0025_removes_the_roster_and_keeps_role_invitations(migrations_database):
@@ -515,28 +336,6 @@ def test_downgrade_to_0025_removes_the_roster_and_keeps_role_invitations(migrati
             ("a@x.no", "lecturer")
         ]
     command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
-
-
-def test_downgrade_to_0027_removes_the_delivery_event_columns(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0027")
-
-    def columns() -> set[str]:
-        with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-            return {
-                row[0]
-                for row in conn.execute(
-                    "SELECT column_name FROM information_schema.columns "
-                    "WHERE table_name = 'mail_deliveries'"
-                ).fetchall()
-            }
-
-    assert not {"delivery_state", "bounce_class", "last_event_id"} & columns()
-    command.upgrade(cfg, "head")
-    assert {"delivery_state", "bounce_class", "last_event_id"} <= columns()
     assert current_version(migrations_database) == HEAD
 
 
@@ -626,63 +425,6 @@ def test_0031_admits_assistants_and_its_downgrade_removes_them(migrations_databa
     assert current_version(migrations_database) == HEAD
 
 
-def test_downgrade_to_0031_removes_the_class_sessions(migrations_database):
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0031")
-    assert tables(migrations_database) == PRE_SESSION_TABLES
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
-
-
-def test_0034_keeps_the_effort_level_to_llm_players_and_its_downgrade_drops_it(
-    migrations_database,
-):
-    """0034 (Story 5.5): a Class session's Effort level, NULL unless its AI mode is `llm`."""
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        (check,) = conn.execute(
-            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
-            "WHERE conname = 'ck_class_sessions_effort_level_llm_only'"
-        ).fetchone()
-    assert "effort_level IS NULL" in check
-    command.downgrade(cfg, "0033")
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        columns = {
-            name
-            for (name,) in conn.execute(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name = 'class_sessions'"
-            ).fetchall()
-        }
-    assert "effort_level" not in columns and "start_at" in columns
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
-
-
-def test_0035_keeps_a_lab_hour_in_order_and_its_downgrade_drops_the_table(migrations_database):
-    """0035 (Story 5.6): a Lab hour ends after it starts and has a place."""
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        checks = dict(
-            conn.execute(
-                "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint "
-                "WHERE conrelid = 'lab_hours'::regclass AND contype = 'c'"
-            ).fetchall()
-        )
-    assert "ends_at > starts_at" in checks["ck_lab_hours_order"]
-    assert "120" in checks["ck_lab_hours_place"]
-    command.downgrade(cfg, "0034")
-    assert "lab_hours" not in tables(migrations_database)
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
-
-
 def test_0036_backfills_80_keeps_the_share_in_range_and_its_downgrade_drops_it(
     migrations_database,
 ):
@@ -734,93 +476,6 @@ def test_0036_backfills_80_keeps_the_share_in_range_and_its_downgrade_drops_it(
     assert current_version(migrations_database) == HEAD
 
 
-def test_0037_to_0043_keep_drafts_class_games_free_seats_the_lock_reminders_method_and_copy(
-    migrations_database,
-):
-    """0037 (Story 5.8): one current draft per Class session, its revision from 1. 0038 (Story
-    5.9): a Game's snapshot is all there or all NULL, a Class game has its session and a unique
-    number, and only a `student` occupant has a user id. 0039 (Story 5.10): a free-Seat row has
-    no occupant kind and the reason `moved`. 0040 (Story 5.11): a Class session's `locked_at` and
-    `snapshot` are set together. 0041 (Story 5.14): one reminder per deadline and time. 0042
-    (Story 5.17): the allocation method is `random` or `student_choice`. 0043 (Story 5.18): a
-    copy names its source, and forgets it when the source goes."""
-    reset_schema(migrations_database)
-    cfg = config(migrations_database)
-    command.upgrade(cfg, "head")
-
-    def constraints(table: str) -> dict[str, str]:
-        with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-            return dict(
-                conn.execute(
-                    "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint "
-                    "WHERE conrelid = %s::regclass AND contype IN ('c', 'u')",
-                    (table,),
-                ).fetchall()
-            )
-
-    def class_session_columns() -> set[str]:
-        with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-            return {
-                name
-                for (name,) in conn.execute(
-                    "SELECT column_name FROM information_schema.columns "
-                    "WHERE table_name = 'class_sessions'"
-                ).fetchall()
-            }
-
-    # 0044 (GitHub issue 109): when the lock was first refused.
-    assert "lock_refused_at" in class_session_columns()
-    drafts = constraints("allocation_drafts")
-    assert "revision >= 1" in drafts["ck_allocation_drafts_revision"]
-    assert "UNIQUE (class_session_id)" in drafts["uq_allocation_drafts_class_session"]
-    games = constraints("games")
-    assert "num_nulls(settings, demand_series" in games["ck_games_snapshot"]
-    assert "UNIQUE (class_session_id, game_number)" in games["uq_games_class_session_number"]
-    assert "game_number IS NULL" in games["ck_games_class_session"]
-    occupancy = constraints("seat_occupancy")
-    assert "user_id IS NULL" in occupancy["ck_seat_occupancy_user_student"]
-    assert "'moved'" in occupancy["ck_seat_occupancy_free"]
-    assert "snapshot IS NULL" in constraints("class_sessions")["ck_class_sessions_lock"]
-    reminders = constraints("deadline_reminders")
-    assert "'test_deadline'" in reminders["ck_deadline_reminders_deadline"]
-    assert "deadline, deadline_at)" in reminders["uq_deadline_reminders_deadline"]
-    method = constraints("class_sessions")["ck_class_sessions_allocation_method"]
-    assert "'student_choice'" in method
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        (copied,) = conn.execute(
-            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
-            "WHERE conname = 'fk_class_sessions_copied_from'"
-        ).fetchone()
-    assert "ON DELETE SET NULL" in copied
-    command.downgrade(cfg, "0043")
-    assert "lock_refused_at" not in class_session_columns()
-    command.downgrade(cfg, "0042")
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
-        columns = {
-            name
-            for (name,) in conn.execute(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name = 'class_sessions'"
-            ).fetchall()
-        }
-    assert {"copied_from", "effort_level_replaced"}.isdisjoint(columns)
-    command.downgrade(cfg, "0041")
-    assert "ck_class_sessions_allocation_method" not in constraints("class_sessions")
-    command.downgrade(cfg, "0040")
-    assert "deadline_reminders" not in tables(migrations_database)
-    command.downgrade(cfg, "0039")
-    assert "ck_class_sessions_lock" not in constraints("class_sessions")
-    command.downgrade(cfg, "0038")
-    assert "ck_seat_occupancy_free" not in constraints("seat_occupancy")
-    assert "'moved'" not in constraints("seat_occupancy")["ck_seat_occupancy_reason"]
-    command.downgrade(cfg, "0037")
-    assert "ck_games_snapshot" not in constraints("games")
-    command.downgrade(cfg, "0036")
-    assert "allocation_drafts" not in tables(migrations_database)
-    command.upgrade(cfg, "head")
-    assert current_version(migrations_database) == HEAD
-
-
 def test_the_procrastinate_schema_of_0008_is_the_one_the_installed_version_ships():
     """Revision 0008 keeps procrastinate 3.11.0's `schema.sql`. When procrastinate is upgraded
     this fails: add a revision with the upgrade's migration SQL and the new schema file."""
@@ -859,8 +514,9 @@ CHECKS = {
 }
 
 
-def test_the_check_constraints_list_exactly_the_enum_values(migrations_database):
-    """`alembic check` does not compare CHECK contents, so compare them with the enums here."""
+def test_the_check_constraints_list_exactly_the_enum_values(test_database):
+    """`alembic check` does not compare CHECK contents, so compare them with the enums here, on
+    the session's test database, which is at head."""
     import re
     from typing import get_args
 
@@ -891,9 +547,7 @@ def test_the_check_constraints_list_exactly_the_enum_values(migrations_database)
         "ck_mail_deliveries_delivery_state": set(mail_models.DELIVERY_STATES),
         "ck_mail_deliveries_bounce_class": set(mail_models.BOUNCE_CLASSES),
     }
-    reset_schema(migrations_database)
-    command.upgrade(config(migrations_database), "head")
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+    with psycopg.connect(libpq_dsn(test_database)) as conn:
         rows = dict(
             conn.execute(
                 "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint "
@@ -903,8 +557,8 @@ def test_the_check_constraints_list_exactly_the_enum_values(migrations_database)
         )
     assert set(rows) == set(CHECKS) | set(ai_checks)
     # 0033 (Story 5.2): every pair of the four dates that is set keeps their order. Its downgrade
-    # runs in `test_downgrade_to_0031_removes_the_class_sessions`.
-    with psycopg.connect(libpq_dsn(migrations_database)) as conn:
+    # runs in `test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back`.
+    with psycopg.connect(libpq_dsn(test_database)) as conn:
         (order,) = conn.execute(
             "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
             "WHERE conname = 'ck_class_sessions_date_order'"

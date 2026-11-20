@@ -19,6 +19,7 @@ from app.platform.events.registry import COMMAND_TOPICS
 from tests.classes.test_invitation_counts import execute
 from tests.classes.test_roster_upload import NOW, clock, klass
 from tests.classes.test_student_registration import emitted
+from tests.conftest import TEST_DATABASE_URL, empty
 from tests.messaging.helpers import mails, rows
 from tests.sessions.test_dates import (
     DEBRIEF,
@@ -56,7 +57,7 @@ async def dated(class_id: str, **body) -> str:
     # Locked at the Start date first, which allocates and tells the Students: those notices and
     # their jobs are another story's, so they are cleared here.
     await sweep.run(START)
-    execute("TRUNCATE notices, mail_deliveries, procrastinate_jobs CASCADE")
+    empty(TEST_DATABASE_URL, "notices, mail_deliveries, procrastinate_jobs")
     return session_id
 
 

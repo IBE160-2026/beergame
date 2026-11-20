@@ -20,11 +20,9 @@ from pathlib import Path
 import httpx2
 import psycopg
 import pytest
-from alembic import command
-from alembic.config import Config
 from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.ai import adapters, ratelimit
 from app.platform import db
 from app.platform.config import LOCAL_DATABASE_URL, Settings, get_settings
 
@@ -107,6 +105,11 @@ def _ensure_database(url: str) -> None:
 
 
 def migrate(url: str, revision: str = "head") -> None:
+    # Imported here, as `app.ai` below: the pytest-xdist controller imports this file too, and
+    # pays every top-level import before it starts the workers.
+    from alembic import command
+    from alembic.config import Config
+
     cfg = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
     cfg.attributes["database_url"] = url
     cfg.attributes["configure_logger"] = False
@@ -128,6 +131,34 @@ def migrations_database() -> str:
     return MIGRATIONS_DATABASE_URL
 
 
+_REFERRING = """
+WITH RECURSIVE found(name) AS (
+    SELECT unnest(%s::regclass[])
+    UNION
+    SELECT c.conrelid::regclass FROM pg_constraint c JOIN found ON c.confrelid = found.name
+    WHERE c.contype = 'f'
+)
+SELECT name::text FROM found
+"""
+_emptied: dict[tuple[str, str], str] = {}
+
+
+def empty(url: str, tables: str) -> None:
+    """Delete every row of `tables` and of the tables that refer to them, as `TRUNCATE ...
+    CASCADE` would, in one round trip. Row by row with triggers and foreign-key checks off
+    (`session_replication_role`): on the near-empty tables of a test that is several times faster
+    than a TRUNCATE, which makes new files and sends every backend a cache invalidation."""
+    conn = kept_connection(url)
+    key = (url, tables)
+    if key not in _emptied:
+        names = [name.strip() for name in tables.split(",")]
+        found = [name for (name,) in conn.execute(_REFERRING, (names,)).fetchall()]
+        _emptied[key] = "".join(f"DELETE FROM {name};" for name in found)
+    with conn.transaction():
+        conn.execute("SET LOCAL session_replication_role = replica")
+        conn.execute(_emptied[key])
+
+
 GAMES_TABLES = (
     "games, seats, seat_occupancy, game_weeks, seat_turns, seat_weeks, game_checks, "
     "simulation_batches, procrastinate_jobs"
@@ -138,7 +169,7 @@ GAMES_TABLES = (
 @pytest.fixture
 def games_db(test_database) -> str:
     """The test database at the latest revision with empty games tables."""
-    kept_connection(test_database).execute(f"TRUNCATE {GAMES_TABLES} CASCADE")
+    empty(test_database, GAMES_TABLES)
     return test_database
 
 
@@ -148,8 +179,8 @@ AI_TABLES = "effort_measurements, ai_default_pins, llm_call, ai_budgets, ai_mode
 @pytest.fixture
 def ai_db(test_database) -> str:
     """The test database at the latest revision with empty model config, budget and `llm_call`
-    tables (TRUNCATE fires no row trigger, so referenced configs go too)."""
-    kept_connection(test_database).execute(f"TRUNCATE {AI_TABLES}")
+    tables (`empty` fires no row trigger, so referenced configs go too)."""
+    empty(test_database, AI_TABLES)
     return test_database
 
 
@@ -163,7 +194,7 @@ IDENTITY_TABLES = (
 @pytest.fixture
 def identity_db(test_database) -> str:
     """The test database at the latest revision with no Users and no rate-limit counts."""
-    kept_connection(test_database).execute(f"TRUNCATE {IDENTITY_TABLES} CASCADE")
+    empty(test_database, IDENTITY_TABLES)
     return test_database
 
 
@@ -178,7 +209,7 @@ def mail_db(test_database) -> Iterator[str]:
     (Story 3.5)."""
     from app.platform.email import senders
 
-    kept_connection(test_database).execute(f"TRUNCATE {MAIL_TABLES} CASCADE")
+    empty(test_database, MAIL_TABLES)
     senders.MOCK.sent.clear()
     yield test_database
     senders.MOCK.sent.clear()
@@ -211,11 +242,46 @@ def reset_caches() -> None:
     db.get_sessionmaker.cache_clear()
 
 
+_create_engine = db.create_async_engine
+_engines: dict[tuple[str, str], AsyncEngine] = {}
+_test_loop: list[asyncio.AbstractEventLoop] = []
+KEPT_IDLE = 2
+"""Idle pooled connections a shared engine keeps between tests; more are closed, so twelve
+workers stay well inside the server's `max_connections` beside the local stack."""
+
+
+def _shared_engine(url, **kwargs) -> AsyncEngine:
+    """`create_async_engine` for the app: one engine per URL and pool options on the tests' event
+    loop. Each test starts with fresh settings, but a new engine per test opened its pooled
+    connections again (about 20 ms each against the local Docker database). An engine made in
+    another loop (a CLI test's `asyncio.run`) is never shared: its connections belong to it."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+    if loop is None or not _test_loop or loop is not _test_loop[0]:
+        return _create_engine(url, **kwargs)
+    key = (str(url), repr(sorted(kwargs.items())))
+    if key not in _engines:
+        _engines[key] = _create_engine(url, **kwargs)
+    return _engines[key]
+
+
+db.create_async_engine = _shared_engine
+
+
 @pytest.fixture(autouse=True)
 async def _fresh_settings():
+    if not _test_loop:
+        _test_loop.append(asyncio.get_running_loop())
     reset_caches()
     yield
-    await db.dispose()  # close pooled connections before the engine is dropped
+    if db.get_engine.cache_info().currsize:
+        engine = db.get_engine()
+        if engine not in _engines.values():
+            await engine.dispose()  # close pooled connections before the engine is dropped
+        elif engine.sync_engine.pool.checkedin() > KEPT_IDLE:
+            await engine.dispose()  # the engine stays usable, with an empty pool
     reset_caches()
 
 
@@ -241,7 +307,19 @@ REFUSE = httpx2.MockTransport(_refuse)
 def _no_real_endpoint() -> Iterator[None]:
     """No test reaches a real provider (Story 2.7). Each starts with a fresh limiter and a
     skipping clock, so rate-limit waits and 429 back-off never sleep for real."""
+    from app.ai import adapters, ratelimit
+
     ratelimit.limiter.reset()
     with adapters.use_transport(REFUSE), ratelimit.use_clock(ratelimit.SkippingClock()):
         yield
     ratelimit.limiter.reset()
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """The files directly under `tests/` first: they hold the long tests (whole simulated
+    batches, the migration walk, programs run as processes), which otherwise came last and left
+    one worker running them while the others had finished. pytest-xdist's `worksteal` hands each
+    worker a slice of this order and lets the others steal from a slice's end, so long tests at
+    the start run early and the short ones behind them even the workers out. The sort is stable:
+    the order inside each group stays as collected."""
+    items.sort(key=lambda item: item.path.parent.name != "tests")
