@@ -124,8 +124,18 @@ export function AllocationBlock({
       setOpen(true);
     },
   });
+  // Where focus goes once the panel has closed: set before `setOpen(false)`, moved after the
+  // commit that renders the target. A frame callback could run before that commit on a busy
+  // machine, while the target is not on the page yet.
+  const focusOnClose = useRef<"opener" | "state" | null>(null);
   useEffect(() => {
-    if (open) headingRef.current?.focus();
+    if (open) {
+      headingRef.current?.focus();
+      return;
+    }
+    const target = focusOnClose.current;
+    focusOnClose.current = null;
+    if (target) (target === "state" ? stateRef : openerRef).current?.focus();
   }, [open]);
 
   const draft = allocation?.draft ?? null;
@@ -136,8 +146,8 @@ export function AllocationBlock({
   // A redraw with nobody left removes the draft: the panel closes to the block.
   useEffect(() => {
     if (open && allocation !== undefined && draft === null) {
+      focusOnClose.current = "opener";
       setOpen(false);
-      requestAnimationFrame(() => openerRef.current?.focus());
     }
   }, [open, allocation, draft]);
 
@@ -153,15 +163,15 @@ export function AllocationBlock({
           canMove={canMove}
           onClose={() => {
             setClosedReason(undefined);
+            focusOnClose.current = "opener";
             setOpen(false);
-            requestAnimationFrame(() => openerRef.current?.focus());
           }}
           onChanged={setClosedReason}
           onConfirmed={() => {
             setClosedReason(undefined);
+            focusOnClose.current = "state";
             setOpen(false);
             void queryClient.invalidateQueries({ queryKey: lecturerHomeKey, exact: true });
-            requestAnimationFrame(() => stateRef.current?.focus());
           }}
         />
       </section>

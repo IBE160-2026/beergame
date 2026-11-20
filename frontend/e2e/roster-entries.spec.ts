@@ -150,10 +150,18 @@ for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
       const remove = section.getByRole("button", { name: copy.removeSubmit });
       await expect(remove).toBeFocused();
       await expectAccessible(lecturer, vp.phone);
+      // The Class read again after the removal says it has no Roster now.
+      const classRead = lecturer.waitForResponse(
+        (r) => new URL(r.url()).pathname === `/api/classes/${classId}` && r.request().method() === "GET",
+      );
       await remove.click();
-      // Kari was the last address: the list goes, the confirmation stays and takes focus (Issue #97).
-      await expect(section.getByRole("status").filter({ hasText: copy.removed(kari) })).toBeFocused();
+      // Kari was the last address: the list goes, the confirmation stays and takes focus (Issue #97),
+      // also once the Class itself has been read again with no Roster.
+      const removed = section.getByRole("status").filter({ hasText: copy.removed(kari) });
+      await expect(removed).toBeFocused();
       await expect(rows).toHaveCount(0);
+      expect((await (await classRead).json()).roster_count).toBe(0);
+      await expect(removed).toBeFocused();
       expect(await reaches(browser, kari, classId)).toBe(403);
 
       // Added again: on the Roster as before, with access and no new registration.

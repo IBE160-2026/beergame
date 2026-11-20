@@ -34,6 +34,22 @@ async function expectAccessible(page: Page, phone: boolean) {
   expect(small).toEqual([]);
 }
 
+/** The actor filter lists everyone who ever acted, and the local database keeps every run's fresh
+ * Lecturers: thousands of options, over which axe alone took 13 s. The real answer is fetched and
+ * cut to the system and the demo Users, so the page's size does not grow with the runs. */
+async function demoActorsOnly(page: Page) {
+  const demo = new Set<string>(Object.values(DEMO_USERS).map((user) => user.name));
+  await page.route("**/api/admin/audit/actors", async (route) => {
+    try {
+      const response = await route.fetch();
+      const { items } = (await response.json()) as { items: { id: string | null; name: string | null }[] };
+      await route.fulfill({ response, json: { items: items.filter((a) => a.id === null || demo.has(a.name ?? "")) } });
+    } catch {
+      // A test that does not read the filter can end with this answer in flight.
+    }
+  });
+}
+
 const tag = () => `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
 const actorFilter = (page: Page) => page.getByLabel(copy.filters.actor, { exact: true });
 const actionFilter = (page: Page) => page.getByLabel(copy.filters.action, { exact: true });
@@ -55,6 +71,7 @@ for (const vp of VIEWPORTS) {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
     test("the Admin opens «Revisjonslogg» and finds a fresh action with names", async ({ page }) => {
+      await demoActorsOnly(page);
       await loginByApi(page, "admin");
       const name = `Revisjon ${tag()}`;
       const created = await page.request.post("/api/admin/institutions", {
@@ -100,6 +117,7 @@ test.describe("filters and states", () => {
       const url = new URL(request.url());
       if (url.pathname === "/api/admin/audit") asked.push(url.searchParams);
     });
+    await demoActorsOnly(page);
     await loginByApi(page, "admin");
     await page.goto("/admin/revisjonslogg");
     await expect(page.locator("tbody tr").first()).toBeVisible();
@@ -132,6 +150,7 @@ test.describe("filters and states", () => {
   test("with no events the log says so", async ({ page }) => {
     await page.route("**/api/admin/audit?*", (route) => route.fulfill({ json: { items: [], next_cursor: null } }));
     await page.route("**/api/admin/audit", (route) => route.fulfill({ json: { items: [], next_cursor: null } }));
+    await demoActorsOnly(page);
     await loginByApi(page, "admin");
     await page.goto("/admin/revisjonslogg");
     await expect(page.getByRole("status").filter({ hasText: copy.list.empty })).toBeVisible();

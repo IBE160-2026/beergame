@@ -1,6 +1,7 @@
 """SQL for the games tables. Writers here are called only from `games.commands`."""
 
 import uuid
+from collections.abc import Sequence
 from typing import Any
 
 from sqlalchemy import RowMapping, func, select, update
@@ -199,32 +200,33 @@ async def class_sessions_with_unstarted_games(session: AsyncSession) -> list[uui
     return list(result.scalars())
 
 
-async def class_games(session: AsyncSession, class_session_id: uuid.UUID) -> list[RowMapping]:
-    """The Class session's Games by game number: id, number, lifecycle and whether the snapshot is
-    stored (Story 5.12)."""
+async def class_games(
+    session: AsyncSession, class_session_ids: Sequence[uuid.UUID]
+) -> list[RowMapping]:
+    """The Games of these Class sessions by session and game number: id, session, number,
+    lifecycle and whether the snapshot is stored (Story 5.12). One read for many sessions, so the
+    sweep's finders do not ask once per session."""
     result = await session.execute(
         select(
             games.c.id,
+            games.c.class_session_id,
             games.c.game_number,
             games.c.lifecycle,
             games.c.settings.is_not(None).label("has_snapshot"),
         )
-        .where(games.c.class_session_id == class_session_id)
-        .order_by(games.c.game_number)
+        .where(games.c.class_session_id.in_(list(class_session_ids)))
+        .order_by(games.c.class_session_id, games.c.game_number)
     )
     return list(result.mappings())
 
 
 async def class_session_seats(
-    session: AsyncSession, class_session_id: uuid.UUID
+    session: AsyncSession, class_session_ids: Sequence[uuid.UUID]
 ) -> list[RowMapping]:
-    """Every Seat of the Class session's Games in one read, by Game and chain order, with its
+    """Every Seat of these Class sessions' Games in one read, by Game and chain order, with its
     latest occupancy row (None when free), as `seats_with_occupant` gives one Game's (5.12)."""
-    session_seats = (
-        select(seats.c.id)
-        .join(games, games.c.id == seats.c.game_id)
-        .where(games.c.class_session_id == class_session_id)
-    )
+    in_sessions = games.c.class_session_id.in_(list(class_session_ids))
+    session_seats = select(seats.c.id).join(games, games.c.id == seats.c.game_id).where(in_sessions)
     latest = _latest_occupancy(seat_occupancy.c.seat_id.in_(session_seats))
     result = await session.execute(
         select(
@@ -238,7 +240,7 @@ async def class_session_seats(
                 latest, latest.c.seat_id == seats.c.id
             )
         )
-        .where(games.c.class_session_id == class_session_id)
+        .where(in_sessions)
         .order_by(seats.c.game_id, seats.c.position)
     )
     return list(result.mappings())

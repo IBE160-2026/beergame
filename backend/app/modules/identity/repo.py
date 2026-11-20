@@ -3,7 +3,18 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import RowMapping, delete, func, literal, or_, select, text, tuple_, update
+from sqlalchemy import (
+    RowMapping,
+    delete,
+    func,
+    literal,
+    literal_column,
+    or_,
+    select,
+    text,
+    tuple_,
+    update,
+)
 from sqlalchemy.dialects.postgresql import aggregate_order_by, array_agg, distinct_on, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -592,7 +603,10 @@ async def upsert_access_request(
         )
         .on_conflict_do_update(
             index_elements=[access_requests.c.email],
-            index_where=access_requests.c.status == "open",
+            # A literal, not a bound parameter: once a warm pooled connection runs this statement
+            # prepared, Postgres plans it generically and cannot match a parameter to the partial
+            # index's `status = 'open'` (from about the eleventh request on one connection).
+            index_where=access_requests.c.status == literal_column("'open'"),
             set_={"name": name, "institution": institution, "requested_at": now},
         )
         .returning(access_requests.c.id)
@@ -1008,20 +1022,21 @@ async def remindable_entries(
 
 
 async def registered_user_ids(
-    session: AsyncSession, class_id: uuid.UUID, registrations: list[str]
-) -> list[uuid.UUID]:
-    """The Users of the Class's entries that are in `registrations`, not removed, by User id."""
+    session: AsyncSession, class_ids: list[uuid.UUID], registrations: list[str]
+) -> list[RowMapping]:
+    """The Users of these Classes' entries that are in `registrations`, not removed: `class_id`
+    and `user_id`, by Class and User id."""
     result = await session.execute(
-        select(roster_entries.c.user_id)
+        select(roster_entries.c.class_id, roster_entries.c.user_id)
         .where(
-            roster_entries.c.class_id == class_id,
+            roster_entries.c.class_id.in_(class_ids),
             roster_entries.c.registration.in_(registrations),
             roster_entries.c.removed_at.is_(None),
             roster_entries.c.user_id.is_not(None),
         )
-        .order_by(roster_entries.c.user_id)
+        .order_by(roster_entries.c.class_id, roster_entries.c.user_id)
     )
-    return list(result.scalars())
+    return list(result.mappings())
 
 
 async def student_names(

@@ -161,6 +161,14 @@ async def class_state(
     return GONE if row is None else row[0]
 
 
+async def active_class_ids(session: AsyncSession, class_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+    """Those of `class_ids` that exist and are not archived, read without a lock."""
+    result = await session.execute(
+        select(classes.c.id).where(classes.c.id.in_(class_ids), classes.c.archived_at.is_(None))
+    )
+    return set(result.scalars())
+
+
 async def set_archived(session: AsyncSession, class_id: uuid.UUID, now: datetime) -> None:
     await session.execute(update(classes).where(classes.c.id == class_id).values(archived_at=now))
 

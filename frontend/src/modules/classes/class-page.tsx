@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
@@ -61,6 +61,10 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
   const archivedNow = found.data?.archived;
   const refused = useArchivedRefusal();
   const wasArchived = useRef(archivedNow);
+  // «Status etter utsending» stays once it has shown: removing the last address brings the Class
+  // to no Roster, and the confirmation it keeps must outlive that (Issue #97). It hides itself
+  // when the list is empty and nothing is left to confirm.
+  const [statusShown, setStatusShown] = useState(false);
   useEffect(() => {
     if (archivedNow && wasArchived.current === false) notice.current?.focus();
     wasArchived.current = archivedNow;
@@ -69,6 +73,7 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
     return <AccessDenied user={user} updatedAt={updatedAt} />;
   }
   const item = found.data;
+  if (item && item.roster_count > 0 && !statusShown) setStatusShown(true);
   // Changes are for the Class's Faglærere, and only while it is active (Story 4.10).
   const writable = Boolean(item?.can_manage && !item.archived);
   const crumbs = item
@@ -150,7 +155,7 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
         {/* What became of the Invitations (Story 4.6), once a mail has gone out. */}
         {item && item.roster_count > 0 ? <InvitationSummary classId={item.id} /> : null}
         {/* Where each address stands, and reminders (Story 4.7), once the Roster has addresses. */}
-        {item && item.roster_count > 0 ? <RegistrationStatus classId={item.id} readOnly={!writable} /> : null}
+        {item && statusShown ? <RegistrationStatus classId={item.id} readOnly={!writable} /> : null}
         {/* «Arkiver Klassen», last on the page, for its Faglærere (Story 4.10). */}
         {item && writable ? <ArchiveClass classId={item.id} /> : null}
       </OneFormAtATime>

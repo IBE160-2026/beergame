@@ -1,6 +1,7 @@
 """What other modules may use from `games`. Writes go through `games.commands` only."""
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -76,6 +77,7 @@ __all__ = [
     "budget_scope",
     "class_game_ids",
     "class_games",
+    "class_games_of",
     "class_sessions_awaiting_snapshot",
     "class_sessions_with_unstarted_games",
     "complete_running_games",
@@ -128,21 +130,33 @@ class ClassGame:
 async def class_games(session: AsyncSession, class_session_id: uuid.UUID) -> list[ClassGame]:
     """The Class session's Games by number with each Seat's current occupant, read in the
     caller's transaction (Story 5.12)."""
+    return (await class_games_of(session, [class_session_id])).get(class_session_id, [])
+
+
+async def class_games_of(
+    session: AsyncSession, class_session_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, list[ClassGame]]:
+    """`class_games` of many Class sessions in two reads, by session id; a session with no Game
+    is left out. For the sweep's finders, which judge every confirmed session each minute."""
+    if not class_session_ids:
+        return {}
     seats: dict[uuid.UUID, list[ClassGameSeat]] = {}
-    for seat in await repo.class_session_seats(session, class_session_id):
+    for seat in await repo.class_session_seats(session, class_session_ids):
         seats.setdefault(seat["game_id"], []).append(
             ClassGameSeat(seat["role"], seat["occupant_kind"], seat["user_id"])
         )
-    return [
-        ClassGame(
-            id=game["id"],
-            number=game["game_number"],
-            lifecycle=game["lifecycle"],
-            has_snapshot=game["has_snapshot"],
-            seats=tuple(seats.get(game["id"], ())),
+    found: dict[uuid.UUID, list[ClassGame]] = {}
+    for game in await repo.class_games(session, class_session_ids):
+        found.setdefault(game["class_session_id"], []).append(
+            ClassGame(
+                id=game["id"],
+                number=game["game_number"],
+                lifecycle=game["lifecycle"],
+                has_snapshot=game["has_snapshot"],
+                seats=tuple(seats.get(game["id"], ())),
+            )
         )
-        for game in await repo.class_games(session, class_session_id)
-    ]
+    return found
 
 
 async def class_sessions_awaiting_snapshot(session: AsyncSession) -> list[uuid.UUID]:

@@ -285,3 +285,26 @@ async def test_only_an_admin_reaches_the_request_list_and_actions(admin, clock):
         ]
     assert [r.status_code for r in anonymous] == [401, 401]
     assert [r.status_code for r in lecturer] == [403, 403]
+
+
+async def test_the_upsert_works_on_a_warm_connection_where_postgres_plans_it_generically(admin):
+    """psycopg prepares a statement on its sixth run on one connection, and Postgres then tries
+    a generic plan, which could not match a bound `status` to the partial unique index: the
+    eleventh request on one pooled connection failed. Twenty, on one connection."""
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.modules.identity import repo
+    from app.platform.db import get_engine
+
+    async with get_engine().connect() as conn, AsyncSession(conn) as session:
+        for n in range(20):
+            await repo.upsert_access_request(
+                session,
+                request_id=uuid.uuid4(),
+                name="Ola",
+                email=f"warm-{n % 4}@usn.no",
+                institution="USN",
+                now=NOW,
+            )
+        await session.commit()
+    assert len(stored()) == 4

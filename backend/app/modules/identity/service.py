@@ -2068,8 +2068,20 @@ async def class_roster(class_id: uuid.UUID, *, now: datetime) -> list[RosterFact
 async def registered_users(class_id: uuid.UUID) -> list[uuid.UUID]:
     """The Users who are Students in the Class: registered through an Invitation or by hand,
     and not removed (FR-9). An address unregistered after its Invitation expired is not one."""
+    return sorted((await registered_users_of([class_id])).get(class_id, set()))
+
+
+async def registered_users_of(class_ids: list[uuid.UUID]) -> dict[uuid.UUID, set[uuid.UUID]]:
+    """`registered_users` of many Classes in one read, by Class id; a Class with no Student is
+    left out."""
+    found: dict[uuid.UUID, set[uuid.UUID]] = {}
+    if not class_ids:
+        return found
     async with get_sessionmaker().begin() as s:
-        return await repo.registered_user_ids(s, class_id, [r.value for r in REGISTERED])
+        rows = await repo.registered_user_ids(s, class_ids, [r.value for r in REGISTERED])
+    for row in rows:
+        found.setdefault(row["class_id"], set()).add(row["user_id"])
+    return found
 
 
 async def student_names(class_id: uuid.UUID, ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:

@@ -2315,17 +2315,17 @@ async def _seating_candidates(
     async with get_sessionmaker().begin() as s:
         sessions = await repo.confirmed_sessions(s)
         unstarted = set(await games_service.class_sessions_with_unstarted_games(s))
-    found = []
-    for row in sessions:
-        if is_locked(row, now=now) and row["id"] not in unstarted:
-            continue
-        if not await classes.is_writable(row["class_id"]):
-            continue
-        async with get_sessionmaker().begin() as s:
-            games = await games_service.class_games(s, row["id"])
-        registered = set(await classes.registered_students(row["class_id"]))
-        found.append((row, games, registered))
-    return found
+    sessions = [r for r in sessions if not is_locked(r, now=now) or r["id"] in unstarted]
+    # A few reads for every session at once, not a few per session: the sweep runs this each
+    # minute on the one `worker-batch` slot that also sends the mail.
+    writable = await classes.writable_class_ids(list({r["class_id"] for r in sessions}))
+    sessions = [r for r in sessions if r["class_id"] in writable]
+    async with get_sessionmaker().begin() as s:
+        games = await games_service.class_games_of(s, [r["id"] for r in sessions])
+    registered = await classes.registered_students_of(list({r["class_id"] for r in sessions}))
+    return [
+        (row, games.get(row["id"], []), registered.get(row["class_id"], set())) for row in sessions
+    ]
 
 
 async def late_registrants(now: datetime) -> list[tuple[uuid.UUID, uuid.UUID]]:
@@ -3054,16 +3054,18 @@ async def student_choice_offers(now: datetime) -> list[tuple[uuid.UUID, uuid.UUI
         return []
     async with get_sessionmaker().begin() as s:
         sessions = await repo.open_student_choice_sessions(s)
-    due: list[tuple[uuid.UUID, uuid.UUID]] = []
-    for row in sessions:
-        if is_locked(row, now=now) or not await classes.is_writable(row["class_id"]):
-            continue
-        registered = sorted(await classes.registered_students(row["class_id"]))
-        keys = {_choice_key(row["id"], student): student for student in registered}
-        async with get_sessionmaker().begin() as s:
-            used = await notify.used_keys(s, list(keys))
-        due.extend((row["id"], student) for key, student in keys.items() if key not in used)
-    return due
+    sessions = [row for row in sessions if not is_locked(row, now=now)]
+    writable = await classes.writable_class_ids(list({r["class_id"] for r in sessions}))
+    sessions = [row for row in sessions if row["class_id"] in writable]
+    registered = await classes.registered_students_of(list({r["class_id"] for r in sessions}))
+    keys = {
+        _choice_key(row["id"], student): (row["id"], student)
+        for row in sessions
+        for student in sorted(registered.get(row["class_id"], ()))
+    }
+    async with get_sessionmaker().begin() as s:
+        used = await notify.used_keys(s, list(keys))
+    return [item for key, item in keys.items() if key not in used]
 
 
 async def offer_student_choice_due(item: object, now: datetime) -> bool:
