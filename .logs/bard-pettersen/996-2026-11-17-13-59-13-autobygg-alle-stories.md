@@ -1224,3 +1224,27 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 105: beslutninger i Story 5.7.
+
+## Story 5.8: Forhåndsvise en tilfeldig fordeling og kjøre den på nytt (2026-11-20)
+
+### Oppgave
+Bygge Story 5.8 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-8-preview-random-allocation-run-again.md`.
+- **Commit c3d31a0:**
+  - fordelingsfunksjonen og migrasjon 0037 `allocation_drafts`;
+  - ruter for å lese, åpne og trekke på nytt;
+  - blokken «Fordeling» med SVG-diagram og listevisning.
+- **Tester:**
+  - backend: 2462 tester (62 s);
+  - frontend: Vitest 425, typecheck, bygg og Playwright 242.
+- **Gjennomgang:** 28 funn, 3 middels. Alle er rettet.
+- **Visuell kontroll:** 26 skjermbilder i `screenshots/5.8/`. Ett avvik er rettet (94678f6), to små punkter går til 5.9.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 106: beslutninger i Story 5.8.
