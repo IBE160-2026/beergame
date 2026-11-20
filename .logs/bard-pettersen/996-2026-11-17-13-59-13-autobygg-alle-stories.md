@@ -1389,3 +1389,27 @@ Bygge med `bmad-build-auto`. Ingen visuell kontroll, fordi `frontend/` ikke endr
 ### Åpne punkter
 - Issue 112: beslutninger i Story 5.14.
 - Backend-pakken har vokst til rundt 71 s. Den måles igjen i avslutningen av Epic 5.
+
+## Story 5.15: Sette transportkapasitet (kuttliste, `FEATURE_CAPACITY`) (2026-11-20)
+
+### Oppgave
+Bygge Story 5.15 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-15-set-shipping-capacity.md`.
+- **Commit afe6439:** kapasitet som spillinnstilling bak flagget, `capacity_enabled` i API-et, bryteren «Kapasitet» og «Maks N» i kjeden.
+- **Avbrudd:**
+  - steg 1 tok rundt 30 minutter før byggeagenten fikk en statusforespørsel;
+  - byggeagenten leverte under gjennomgangen og ble sendt tilbake.
+- **Tester:**
+  - backend: 2562 tester;
+  - frontend: Vitest 441, typecheck, bygg og Playwright 265/265.
+- **Gjennomgang:** 30 funn, 7 middels. Fire problemer ble rettet.
+- **Visuell kontroll:** 12 skjermbilder i `screenshots/5.15/`. Ett avvik er rettet (1dc73ce).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 113: beslutninger i Story 5.15.
