@@ -20,7 +20,9 @@ export function SeatFigure() {
         {copy.caption}
       </p>
       <WeekTable state={DEMO_SEAT} nowOrder={DEMO_GUIDED_ORDER} labelledBy={CAPTION_ID} wide />
-      <figcaption className="mt-2 flex flex-wrap justify-between gap-x-4 text-caption text-ink-muted">
+      {/* Below 1024 px the figure is as wide as the page while its table is not, so «Demodata»
+          stands under the note, by the table, rather than at the page's right edge. */}
+      <figcaption className="mt-2 flex flex-col gap-x-4 text-caption text-ink-muted lg:flex-row lg:flex-wrap lg:justify-between">
         <span>{copy.ownNumbers}</span>
         <span>{copy.demoData}</span>
       </figcaption>
