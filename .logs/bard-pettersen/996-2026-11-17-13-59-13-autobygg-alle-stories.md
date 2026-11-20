@@ -1511,3 +1511,28 @@ Avslutte Epic 5 etter kjøreboka: én oppfølgende gjennomgang, én stabiliserin
 - Issue #117: to punkter som er avgjort til senere (spill som aldri åpnes, og spill med bare KI-spillere når studentene velger).
 - Issue #56 og #60: Story 2.7 og 2.11 står i `review`.
 - Issue #31: tekstgjennomgang av alle [ASSUMPTION]-tekster.
+
+## Story 6.1: Se klassespill, rolle og plasser på Hjem (2026-11-20)
+
+### Oppgave
+Bygge Story 6.1, den første storyen i Epic 6, etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-1-see-class-game-role-seats-on-hjem.md`. I tillegg er `epic-6-context.md` laget.
+- **Commit 1e17fda:**
+  - `game` og `steps` i `/api/me/class-sessions`, og modulen `progress` (migrasjon 0045);
+  - `own_seat` og `GET /api/me/games/{id}`;
+  - ny Hjem for studenten.
+- **Tester:**
+  - backend: 2610 tester (64 s);
+  - frontend: Vitest 467, typecheck og bygg;
+  - Playwright: 288 tester med 2 arbeidere.
+- **Gjennomgang:** 47 funn, 4 middels. 3 ble rettet.
+- **Visuell kontroll:** 18 skjermbilder i `screenshots/6.1/`. Tre avvik er rettet (bd3cb91).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 119: beslutninger i Story 6.1.
