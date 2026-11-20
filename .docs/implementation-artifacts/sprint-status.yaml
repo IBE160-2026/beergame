@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-20-2026 01:04
+last_updated: 11-20-2026 02:17
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -103,7 +103,7 @@ development_status:
   5-3-change-game-settings-with-range-errors-and-warnings: done
   5-4-choose-a-demand-pattern-and-its-seed: done
   5-5-choose-ai-mode-effort-level-and-debrief-mode: done
-  5-6-add-lab-hours: in-progress
+  5-6-add-lab-hours: done
   5-7-mark-the-class-session-obligatory-and-set-the-inactivity-lim: backlog
   5-8-preview-a-random-allocation-and-run-it-again: backlog
   5-9-confirm-the-allocation-i-am-looking-at: backlog
