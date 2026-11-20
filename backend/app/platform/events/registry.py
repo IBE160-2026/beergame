@@ -8,7 +8,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
     {
         "games.create": frozenset({"game"}),
         "games.assign_seat": frozenset({"game"}),
-        "games.start": frozenset({"game"}),
+        # A Game started (Story 6.5): a Class game's session hears of it, and each Student who
+        # holds a Seat reads Hjem and the game again. A simulation Game takes no Student
+        # (`games.policy`), so it emits `game` alone.
+        "games.start": frozenset({"game", "session", "user"}),
         "games.place_order": frozenset({"game"}),
         "games.finish": frozenset({"game"}),
         "games.advance": frozenset({"game"}),

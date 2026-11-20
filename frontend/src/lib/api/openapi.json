@@ -4187,6 +4187,27 @@
             },
             "title": "Seats",
             "type": "array"
+          },
+          "status": {
+            "enum": [
+              "not_ready",
+              "ready",
+              "running",
+              "finished"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "week": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week"
           }
         },
         "required": [
@@ -4195,7 +4216,9 @@
           "role",
           "seats",
           "briefing_first",
-          "rules"
+          "rules",
+          "status",
+          "week"
         ],
         "title": "StudentGameOut",
         "type": "object"
@@ -9406,6 +9429,79 @@
           }
         },
         "summary": "Get My Game",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/start": {
+      "post": {
+        "description": "«Start spillet» (Story 6.5, FR-22): the Student starts their own Class game for all four\nSeats and gets the game as it now stands. A game already started counts as done. 409\n`starting_task_required` before the Starting task is done, 409 `game_not_ready` before the\nlock has given the game its snapshot; any other game answers 403 `forbidden` (FR-5).",
+        "operationId": "startMyGame",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentGameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start My Game",
         "tags": [
           "sessions"
         ]

@@ -1450,6 +1450,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/games/{game_id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start My Game
+         * @description «Start spillet» (Story 6.5, FR-22): the Student starts their own Class game for all four
+         *     Seats and gets the game as it now stands. A game already started counts as done. 409
+         *     `starting_task_required` before the Starting task is done, 409 `game_not_ready` before the
+         *     lock has given the game its snapshot; any other game answers 403 `forbidden` (FR-5).
+         */
+        post: operations["startMyGame"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/games/{game_id}/starting-task": {
         parameters: {
             query?: never;
@@ -3402,6 +3425,13 @@ export interface components {
             rules: components["schemas"]["GameRulesOut"];
             /** Seats */
             seats: components["schemas"]["TableSeatOut"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_ready" | "ready" | "running" | "finished";
+            /** Week */
+            week: number | null;
         };
         /**
          * SumTermOut
@@ -7270,6 +7300,64 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    startMyGame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentGameOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

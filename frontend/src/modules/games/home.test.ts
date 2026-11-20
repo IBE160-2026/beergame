@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { nb } from "@/copy/nb";
 import type { EnrolledSession } from "@/modules/sessions/api";
 
-import { deadlineText, gameTitle, holderText, labHourText, stepItems } from "./home";
+import { deadlineText, gameTitle, holderText, labHourText, nextAction, stepItems, toWeekText } from "./home";
 
 const copy = nb.homes.student;
 type Game = NonNullable<EnrolledSession["game"]>;
@@ -27,6 +27,8 @@ describe("Hjem's game card (Story 6.1)", () => {
         holding_cost: "0.50",
         backorder_cost: "1.00",
       },
+      status: "ready",
+      week: null,
     };
     expect(gameTitle(game)).toBe("Spill 17 · Du er Grossist");
   });
@@ -71,5 +73,23 @@ describe("Hjem's dates", () => {
   it("gives a Lab hour its day, start time and place", () => {
     const lab = { id: "l", starts_at: "2026-11-26T13:15:00Z", ends_at: "2026-11-26T15:00:00Z", place: "Datalab A2" };
     expect(labHourText(lab)).toBe("to. 26. nov. 14:15, Datalab A2");
+  });
+});
+
+describe("the game's next action (Story 6.5)", () => {
+  it("leads through the briefing, then the start, then the open Week", () => {
+    expect(nextAction({ briefing_first: true, status: "ready" })).toBe("rules");
+    // A game another Student started still asks for the briefing first.
+    expect(nextAction({ briefing_first: true, status: "running" })).toBe("rules");
+    expect(nextAction({ briefing_first: false, status: "ready" })).toBe("start");
+    expect(nextAction({ briefing_first: false, status: "not_ready" })).toBe("notReady");
+    expect(nextAction({ briefing_first: false, status: "running" })).toBe("play");
+    expect(nextAction({ briefing_first: false, status: "finished" })).toBeNull();
+    expect(nextAction({ briefing_first: true, status: "finished" })).toBeNull();
+  });
+
+  it("names the open Week", () => {
+    expect(toWeekText({ week: 11 })).toBe("Gå til Uke 11");
+    expect(toWeekText({ week: null })).toBe("Gå til Uke 1");
   });
 });

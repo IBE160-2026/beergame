@@ -19,7 +19,9 @@ import { HOME_LINK, HOME_PATH } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { enrolledSessionsKey } from "@/modules/sessions/api";
 
-import { answerItem, finishTask, myGameKey, startingTaskKey, useStartingTask } from "./api";
+import { answerItem, finishTask, myGameKey, startingTaskKey, useMyGame, useStartingTask } from "./api";
+import { GameAction } from "./game-action";
+import { nextAction } from "./home";
 import {
   type FinalChoice,
   firstOpen,
@@ -37,7 +39,7 @@ const BODY = "text-body-phone text-ink lg:text-body";
  * column of the week table, labelled «Demodata», each answered by a whole number. The api scores
  * each answer once (computed rules) and the line under the column says right or wrong in words with
  * the sum; the Student goes on either way. After the last item the optional question «Har du spilt
- * et spill som ligner dette før?», then «Ferdig. Gå til Uke 1.». It resumes at the first item
+ * et spill som ligner dette før?», then «Ferdig. Gå til Uke 1.» and «Start spillet» (Story 6.5). It resumes at the first item
  * without an answer, on any device. Another Student's game shows the permission-denied page.
  */
 export function StartingTaskPage({ gameId }: { gameId: string }) {
@@ -116,7 +118,7 @@ function Task({ gameId, task }: { gameId: string; task: StartingTask }) {
           }}
         />
       ) : null}
-      {task.done ? <Done focus={focusDone} /> : null}
+      {task.done ? <Done gameId={gameId} focus={focusDone} /> : null}
     </div>
   );
 }
@@ -271,8 +273,15 @@ function FinalQuestion({ gameId, onStored }: { gameId: string; onStored: (next: 
   );
 }
 
-function Done({ focus }: { focus: boolean }) {
+/** «Ferdig. Gå til Uke 1.», then the game's next action (Story 6.5): «Start spillet» with its
+ * consequence line, «Gå til Uke n» once another started it, or, before the game has its
+ * snapshot, the not-ready line with «Til Hjem»; «Til Hjem» alone for a finished game, or when
+ * the game cannot be read. The task is done, so the briefing no longer
+ * comes first, whatever an older read of the game still says. */
+function Done({ gameId, focus }: { gameId: string; focus: boolean }) {
   const ref = useRef<HTMLParagraphElement>(null);
+  const found = useMyGame(gameId);
+  const game = found.data ? { ...found.data, briefing_first: false } : undefined;
   useEffect(() => {
     if (focus) ref.current?.focus();
   }, [focus]);
@@ -281,12 +290,15 @@ function Done({ focus }: { focus: boolean }) {
       <p ref={ref} tabIndex={-1} className="text-headline text-ink">
         {copy.done}
       </p>
-      <p className={`${BODY} mt-2`}>{copy.startsFromHome}</p>
-      <div className="mt-6">
-        <NextLink href={HOME_PATH.home} className={buttonClassName("primary")}>
-          {copy.toHome}
-        </NextLink>
-      </div>
+      {found.isPending ? null : game && nextAction(game) !== null ? (
+        <GameAction game={game} primary homeWhenNotReady />
+      ) : (
+        <div className="mt-6">
+          <NextLink href={HOME_PATH.home} className={buttonClassName("primary")}>
+            {copy.toHome}
+          </NextLink>
+        </div>
+      )}
     </section>
   );
 }

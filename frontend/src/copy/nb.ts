@@ -30,6 +30,9 @@ function countWord(count: number): string {
  * a Student sees game, Role and Seats from the Start date (founder decision 2026-11-12). */
 const START_DATE_LINE = "Du får Rolle og spill på startdatoen.";
 
+/** Story 6.5: a game the lock has not given its snapshot yet. [ASSUMPTION] */
+const NOT_READY = "Spillet er ikke klart til å starte ennå.";
+
 /** The numbers the briefing's worked Uke writes into its lines (Story 6.2). */
 type WorkedWeekCopy = {
   inventoryBefore: number;
@@ -1455,9 +1458,29 @@ export const nb = {
         none: "Velg et svar, eller hopp over.",
       },
       done: "Ferdig. Gå til Uke 1.",
-      /** Until Story 6.5 puts «Start spillet» on Hjem: says why the button leads there. */
-      startsFromHome: "Spillet starter fra Hjem.",
       toHome: "Til Hjem",
+    },
+    /** Starting the Class game (Story 6.5, FR-22, UX-DR78). «Start spillet», its consequence line
+     * and «Gå til Uke 1» are the spine's (EXPERIENCE.md → Start); the rest is [ASSUMPTION] draft
+     * copy for the founder's review. */
+    start: {
+      start: "Start spillet",
+      consequence: "Spillet starter for alle fire. Reglene for ventetid gjelder fra nå.",
+      /** «Gå til Uke 11». */
+      toWeek: (week: number) => `Gå til Uke ${week}`,
+      notReady: NOT_READY,
+      failed: "Spillet ble ikke startet. Prøv igjen.",
+      errors: {
+        starting_task_required: "Gjør Startoppgaven først.",
+        game_not_ready: NOT_READY,
+      },
+    },
+    /** The play route (Story 6.5): the Topplinje's «Uke 11» over «Grossist, Spill 17» (DESIGN.md
+     * → Topplinje), and the four Seats. «Spillet er ferdig.» stands until Story 6.18. */
+    play: {
+      week: (week: number) => `Uke ${week}`,
+      roleGame: (role: string, number: number) => `${role}, Spill ${number}`,
+      finished: "Spillet er ferdig.",
     },
   },
 

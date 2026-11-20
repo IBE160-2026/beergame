@@ -38,7 +38,7 @@ async def _run_assign_seat() -> str:
     return game_id
 
 
-async def _run_start() -> str:
+async def _started_simulation() -> str:
     """A Student holds every Seat, so the Game waits in Week 1."""
     game_id = await _run_create()
     seat_student(TEST_DATABASE_URL, game_id, *(role.value for role in SHORT.roles))
@@ -46,15 +46,28 @@ async def _run_start() -> str:
     return game_id
 
 
+async def _run_start() -> str:
+    """A Class game with its snapshot and one Student starts (Story 6.5): its Class session and
+    the Student hear of it. The setup emits seven events (create 2, assign 2, snapshot 3)."""
+    from tests.games.test_set_snapshot import snapshot
+
+    game_id = await commands.create("class", class_session_id=uuid.uuid7(), game_number=1)
+    student = uuid.uuid7()
+    await commands.assign_seat(game_id, "retailer", "student", user_id=student)
+    await commands.set_snapshot(game_id, snapshot(), keep_students=[student])
+    await commands.start(game_id)
+    return game_id
+
+
 async def _run_place_order() -> str:
-    game_id = await _run_start()
+    game_id = await _started_simulation()
     await commands.place_order(game_id, "retailer", 1, 4, "guided")
     return game_id
 
 
 async def _run_finish() -> str:
     """`finish` runs inside the `place_order` that completes the last Week."""
-    game_id = await _run_start()
+    game_id = await _started_simulation()
     await play_to_end(game_id)
     return game_id
 
@@ -77,7 +90,7 @@ async def _no_settle(game_id: str) -> None:
 
 
 async def _run_switch_to_rule_based() -> str:
-    game_id = await _run_start()
+    game_id = await _started_simulation()
     await commands.switch_to_rule_based(game_id, "retailer", "takeover_staff")
     return game_id
 
@@ -113,6 +126,9 @@ RUNNERS = {
 }
 """How to run each command once; a command added without a runner fails the test below."""
 
+CLASS_SETUP_EVENTS = {"move_seat": 4, "set_snapshot": 4, "start": 7}
+"""Runners on a Class game, and how many events their setup emits before the command's own."""
+
 
 def test_every_command_is_exported_and_registered():
     found = public_commands()
@@ -143,9 +159,9 @@ async def test_each_command_emits_exactly_its_registered_topics(games_db):
         with listening(games_db) as events:
             game_id = await runner()
             received = events.drain()
-        if name in ("move_seat", "set_snapshot"):
+        if name in CLASS_SETUP_EVENTS:
             # A Class game (its Class session hears of each command): only this command's events.
-            received = received[4:]
+            received = received[CLASS_SETUP_EVENTS[name] :]
             assert {item["topic"] for item in received} == COMMAND_TOPICS[f"games.{name}"]
             assert {item["id"] for item in received if item["topic"] == "game"} == {game_id}
             continue

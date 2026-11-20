@@ -590,6 +590,34 @@ async def get_my_game(
     return JSONResponse(found.model_dump(mode="json"))
 
 
+@router.post(
+    "/me/games/{game_id}/start",
+    response_model=StudentGameOut,
+    responses=documented(401, 403, 409),
+    operation_id="startMyGame",
+)
+async def start_my_game(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.start_own"))],
+) -> Response:
+    """«Start spillet» (Story 6.5, FR-22): the Student starts their own Class game for all four
+    Seats and gets the game as it now stands. A game already started counts as done. 409
+    `starting_task_required` before the Starting task is done, 409 `game_not_ready` before the
+    lock has given the game its snapshot; any other game answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.start_own_game(user, game_id)
+    except service.StartRefused as refused:
+        message = (
+            "Do the Starting task first."
+            if refused.code == "starting_task_required"
+            else "The game is not ready to start yet."
+        )
+        return error_response(409, refused.code, message)
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
 @router.get(
     "/lecturer-home/class-sessions",
     response_model=LecturerOverviewOut,

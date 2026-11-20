@@ -106,6 +106,8 @@ function myGame(done: () => boolean) {
       { role: "retailer", holder: "ai", name: null, mine: false },
     ],
     briefing_first: !done(),
+    status: "ready",
+    week: null,
     rules: {
       order_delay: 2,
       shipping_delay: 2,
@@ -167,6 +169,7 @@ for (const vp of VIEWPORTS) {
     test("wrong, right, final question and done, each in words and accessible", async ({ page }) => {
       await loginByApi(page, "student");
       const sent = await withTask(page);
+      await page.route(`**/api/me/games/${GAME_ID}`, (route) => route.fulfill({ json: myGame(sent.done) }));
       await page.goto(`/spill/${GAME_ID}/startoppgave`);
       const main = page.getByRole("main");
       await expect(main.getByRole("heading", { level: 1 })).toHaveText(copy.title);
@@ -199,10 +202,10 @@ for (const vp of VIEWPORTS) {
       const done = main.getByText(copy.done);
       await expect(done).toBeVisible();
       await expect(done).toBeFocused();
-      await expect(main.getByText(copy.startsFromHome)).toBeVisible();
-      // The page link at the top and the primary button under the done line both lead to Hjem.
-      await expect(main.getByRole("link", { name: copy.toHome })).toHaveCount(2);
-      await expect(main.getByRole("link", { name: copy.toHome }).last()).toHaveClass(/(^|\s)bg-ink(\s|$)/);
+      // Story 6.5: the game is ready, so «Start spillet» is the primary under its consequence line.
+      await expect(main.getByText(nb.games.start.consequence)).toBeVisible();
+      await expect(main.getByRole("button", { name: nb.games.start.start })).toHaveClass(/(^|\s)bg-ink(\s|$)/);
+      await expect(main.getByRole("link", { name: copy.toHome })).toHaveCount(1);
       await expectAccessible(page, vp.phone);
       expect([...sent]).toEqual([
         { item_id: "to-ship", answer: 12 },
@@ -286,4 +289,29 @@ test("once done, Hjem at once shows the rules as a Lenke, not «Les reglene»", 
   // Within the cache's 30 s, Hjem reads again: the briefing no longer comes first.
   await expect(main.getByRole("link", { name: nb.homes.student.rulesLink })).toBeVisible();
   await expect(main.getByRole("link", { name: nb.homes.student.readRules })).toHaveCount(0);
+});
+
+test("the done screen leads on from where the game stands", async ({ page }) => {
+  await loginByApi(page, "student");
+  await withTask(page, { "to-ship": 17, position: 3 });
+  // A stale read still says the briefing comes first; another Student has started the game.
+  let game: Record<string, unknown> = { ...myGame(() => false), status: "running", week: 1 };
+  await page.route(`**/api/me/games/${GAME_ID}`, (route) => route.fulfill({ json: game }));
+  await page.goto(`/spill/${GAME_ID}/startoppgave`);
+  const main = page.getByRole("main");
+  await main.getByRole("button", { name: copy.final.skip }).click();
+  await expect(main.getByRole("link", { name: nb.games.start.toWeek(1) })).toHaveClass(/(^|\s)bg-ink(\s|$)/);
+
+  // Before the game has its snapshot: the not-ready line and «Til Hjem» as the one primary.
+  game = { ...myGame(() => true), status: "not_ready", week: null };
+  await page.reload();
+  await expect(main.getByText(nb.games.start.notReady)).toBeVisible();
+  await expect(main.getByRole("button", { name: nb.games.start.start })).toHaveCount(0);
+  await expect(main.getByRole("link", { name: copy.toHome }).last()).toHaveClass(/(^|\s)bg-ink(\s|$)/);
+
+  // A finished game: «Til Hjem» is the primary.
+  game = { ...myGame(() => true), status: "finished", week: null };
+  await page.reload();
+  await expect(main.getByText(copy.done)).toBeVisible();
+  await expect(main.getByRole("link", { name: copy.toHome }).last()).toHaveClass(/(^|\s)bg-ink(\s|$)/);
 });

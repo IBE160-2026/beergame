@@ -54,3 +54,22 @@ export function labHourText(lab: EnrolledSession["lab_hours"][number]): string {
   const { day, time } = osloDayAndTime(lab.starts_at);
   return copy.labHourItem(day, time, lab.place);
 }
+
+/** What the game asks of the Student next (Story 6.5), from the api's `briefing_first` and
+ * `status` alone: the briefing until the Starting task is done (also in a game another started),
+ * then «Start spillet», then «Gå til Uke n»; `notReady` before the game has its snapshot; null
+ * once it is finished. */
+export type NextAction = "rules" | "start" | "play" | "notReady" | null;
+
+export function nextAction(game: Pick<StudentGame, "briefing_first" | "status">): NextAction {
+  if (game.status === "finished") return null;
+  if (game.briefing_first) return "rules";
+  if (game.status === "ready") return "start";
+  if (game.status === "running") return "play";
+  return "notReady";
+}
+
+/** «Gå til Uke 11»: the open Week, or Uke 1 while the api has not opened one yet. */
+export function toWeekText(game: Pick<StudentGame, "week">): string {
+  return nb.games.start.toWeek(game.week ?? 1);
+}

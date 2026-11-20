@@ -377,6 +377,9 @@ class GameRulesOut(BaseModel):
     backorder_cost: Decimal
 
 
+GamePlayStatus = Literal["not_ready", "ready", "running", "finished"]
+
+
 class StudentGameOut(BaseModel):
     """The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four
     Seats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`)."""
@@ -389,6 +392,11 @@ class StudentGameOut(BaseModel):
     """Story 6.2: the briefing comes first, until the Student has done the Starting task
     (`progress` `starting_task`). Nothing is stored for "briefing read"."""
     rules: GameRulesOut
+    status: GamePlayStatus
+    """Story 6.5: `not_ready` before the lock has given the Game its snapshot, `ready` to start,
+    `running` (also while it plays out), or `finished`."""
+    week: int | None
+    """The open Week while `running`, else None. Never the number of Weeks (FR-14)."""
 
 
 StegeneStep = Literal["class_game", "debrief", "quiz", "replay", "test", "report"]

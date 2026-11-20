@@ -201,6 +201,8 @@ test("with the flag off the route is not found and Hjem shows the drawn Seat onc
             mine: role === "wholesaler",
           })),
           briefing_first: true,
+          status: "ready",
+          week: null,
           rules: {
             order_delay: 2,
             shipping_delay: 2,

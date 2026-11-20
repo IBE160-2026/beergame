@@ -52,3 +52,9 @@ export function finishTask(gameId: string, choice: components["schemas"]["Choice
     }),
   );
 }
+
+/** «Start spillet» (Story 6.5): starts the Student's own game, or finds it started already, and
+ * answers the game as it now stands. */
+export function startGame(gameId: string) {
+  return request(() => api.POST("/api/me/games/{game_id}/start", { params: { path: { game_id: gameId } } }));
+}

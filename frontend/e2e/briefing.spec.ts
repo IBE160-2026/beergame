@@ -34,6 +34,8 @@ function game(briefingFirst: boolean, rules = RULES, role = "wholesaler") {
       { role: "retailer", holder: "ai", name: null, mine: false },
     ],
     briefing_first: briefingFirst,
+    status: "ready",
+    week: null,
     rules,
   };
 }

@@ -1224,6 +1224,7 @@ async def _game_out(
     done: set[progress.Step],
 ) -> StudentGameOut:
     table = await games_service.table_status(s, found.game_id, user_id, _names_in(row["class_id"]))
+    play = await games_service.play_status(s, found.game_id)
     return StudentGameOut(
         id=found.game_id,
         number=found.number,
@@ -1235,6 +1236,8 @@ async def _game_out(
         # Story 6.2: the briefing comes first until the Starting task is done (AD-16).
         briefing_first=progress.Step.STARTING_TASK not in done,
         rules=game_rules(row),
+        status=play.status,
+        week=play.week,
     )
 
 
@@ -1274,6 +1277,40 @@ async def student_game_of(user: authz.Principal, game_id: str) -> StudentGameOut
         found, row = own
         done = await progress.steps_of(s, user.id, [row["id"]])
         return await _game_out(s, user.id, found, row, done.get(row["id"], set()))
+
+
+class StartRefused(Exception):
+    """A Student's start the api refuses (Story 6.5): `starting_task_required` before the
+    Starting task is done, `game_not_ready` before the lock has given the Game its snapshot."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+async def start_own_game(user: authz.Principal, game_id: str) -> StudentGameOut | None:
+    """«Start spillet» (Story 6.5, FR-22, AD-2): the Student starts their own Class game, under
+    `student_game_of`'s checks (None for every other id alike), once they have done the Starting
+    task (the pre-play gate). Only `games.commands.start` starts it; a Game another Student or the
+    Lecturer started first counts as done. Returns the game as it now stands."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+        if own is None:
+            return None
+        found, row = own
+        done = await progress.steps_of(s, user.id, [row["id"]])
+    if progress.Step.STARTING_TASK not in done.get(row["id"], set()):
+        raise StartRefused("starting_task_required")
+    try:
+        await games_commands.start(str(found.game_id))
+    except games_commands.CommandError as refused:
+        if refused.code == "game_not_ready":
+            raise StartRefused(refused.code) from None
+        if refused.code != "game_already_started":
+            raise
+    else:
+        log.info("student_started_game", game_id=str(found.game_id), user_id=str(user.id))
+    return await student_game_of(user, game_id)
 
 
 @dataclass(frozen=True)

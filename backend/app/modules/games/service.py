@@ -4,6 +4,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -91,6 +92,8 @@ __all__ = [
     "games_charged_to",
     "scope_of",
     "own_game",
+    "PlayStatus",
+    "play_status",
     "student_game",
     "student_seated",
     "table_status",
@@ -216,6 +219,34 @@ async def student_game(
         number=best["game_number"],
         role=best["role"],
     )
+
+
+PlayStatusName = Literal["not_ready", "ready", "running", "finished"]
+
+
+@dataclass(frozen=True)
+class PlayStatus:
+    """Where a Game stands for its Students (Story 6.5): `not_ready` before its snapshot,
+    `ready` to start, `running` (also while it plays out) with its open Week, or `finished`.
+    Never the number of Weeks (FR-14)."""
+
+    status: PlayStatusName
+    week: int | None
+
+
+async def play_status(session: AsyncSession, game_id: uuid.UUID) -> PlayStatus:
+    """The Game's `PlayStatus`, read in the caller's transaction."""
+    game = await repo.get_game(session, game_id)
+    if game is None:
+        raise LookupError(f"no Game {game_id}")
+    lifecycle = game["lifecycle"]
+    if lifecycle == Lifecycle.NOT_STARTED:
+        return PlayStatus("ready" if game["settings"] is not None else "not_ready", None)
+    if lifecycle == Lifecycle.FINISHED:
+        return PlayStatus("finished", None)
+    if lifecycle in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT):
+        return PlayStatus("running", await repo.open_week(session, game_id))
+    raise ValueError(f"unknown lifecycle {lifecycle!r}")
 
 
 async def own_game(

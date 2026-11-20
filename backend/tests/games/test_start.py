@@ -256,3 +256,22 @@ async def test_each_turn_holds_the_reference_order_of_its_own_seat(games_db):
     ]
     assert len(set(expected)) > 1  # the Seats' Week 1 views differ
     assert [row[4] for row in turns(games_db, game_id)] == expected
+
+
+async def test_a_class_games_start_tells_its_session_and_each_seated_student(games_db):
+    """Story 6.5 (AD-8): `user:<id>` for every Student holding a Seat, once, and `session:<id>`
+    for the Class session; AI Seats tell nobody."""
+    from tests.games.test_class_games import SESSION, class_game
+    from tests.games.test_set_snapshot import snapshot
+
+    game_id = await class_game()
+    a, b = uuid.uuid7(), uuid.uuid7()
+    await commands.assign_seat(game_id, "retailer", "student", user_id=a)
+    await commands.assign_seat(game_id, "factory", "student", user_id=b)
+    await commands.set_snapshot(game_id, snapshot(), keep_students=[a, b])
+    with listening(games_db) as events:
+        assert await commands.start(game_id) == 1
+        received = events.drain()
+    assert sorted((e["topic"], e["id"]) for e in received) == sorted(
+        [("game", game_id), ("session", str(SESSION)), ("user", str(a)), ("user", str(b))]
+    )

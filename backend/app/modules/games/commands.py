@@ -938,7 +938,8 @@ async def start(game_id: str) -> int:
     """Start a `not_started` Game: give every free Seat a Rule-based player, store the Week 1
     state, open one turn per Seat and let the order source place the Orders of the non-student
     Seats. Returns the opened Week (1); by then the Game may have advanced, or finished when no
-    Student holds a Seat."""
+    Student holds a Seat. Emits `game:<id>`, `session:<id>` where the Lecturer overview lists
+    the Game, and `user:<id>` for each Student holding a Seat (Story 6.5)."""
     game_uuid = _game_uuid(game_id)
     async with get_sessionmaker().begin() as session:
         game = await repo.lock_game(session, game_uuid)
@@ -971,6 +972,15 @@ async def start(game_id: str) -> int:
         await repo.set_lifecycle(session, game_uuid, Lifecycle.RUNNING.value)
         await _open_week(session, game, settings, params, [state], [], seat_rows)
         await _commit_change(session, game_uuid)
+        # Story 6.5: each Student in the Game sees it started, on Hjem too (AD-8).
+        for student in sorted(
+            {
+                str(seat["user_id"])
+                for seat in seat_rows
+                if seat["occupant_kind"] == OccupantKind.STUDENT and seat["user_id"] is not None
+            }
+        ):
+            await events.emit(session, "user", student)
     log.info("game_started", game_id=game_id)
     await _settle(game_id)
     return state.week

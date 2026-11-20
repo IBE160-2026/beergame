@@ -27,6 +27,8 @@ const GAME = {
     { role: "retailer", holder: "ai", name: null, mine: false },
   ],
   briefing_first: true,
+  status: "ready",
+  week: null,
   rules: {
     order_delay: 2,
     shipping_delay: 2,
