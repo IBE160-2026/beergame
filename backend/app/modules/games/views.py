@@ -5,7 +5,7 @@ the Decision log read the `SeatState` it returns and nothing else about the Game
 """
 
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,7 +17,10 @@ from app.modules.games.schemas import (
     DecisionLogRow,
     Lifecycle,
     OccupancyRow,
+    OccupantKind,
     SeatState,
+    TableSeat,
+    TableStatus,
     TurnOverview,
 )
 from app.platform.db import get_sessionmaker
@@ -29,6 +32,7 @@ __all__ = [
     "occupancy_history",
     "open_turn",
     "seat_state",
+    "table_status",
 ]
 
 
@@ -199,3 +203,34 @@ async def occupancy_history(game_id: str) -> tuple[OccupancyRow, ...]:
         )
         for row in rows
     )
+
+
+NameResolver = Callable[[list[uuid.UUID]], Awaitable[Mapping[uuid.UUID, str]]]
+"""Given Student ids, their names now; an id left out has no name to show (no longer in the
+Class). `games` imports no feature module, so the caller passes it (`classes.student_names`)."""
+
+
+async def table_status(
+    session: AsyncSession, game_id: uuid.UUID, viewer_id: uuid.UUID, names: NameResolver
+) -> TableStatus:
+    """Who sits in each Seat of the Game, as `viewer_id` sees it (Story 6.1, AD-3): Fabrikk first
+    (UX-DR73), a Student by the name `names` gives now, every AI player as an AI player with no
+    kind, a Seat with no occupant as free. The viewer's own Seat is the one they hold now, else
+    the one they held last. Built at read time; never stored and never sent to an LLM."""
+    rows = await repo.seats_with_occupant(session, game_id)
+    held = {row["role"]: row["user_id"] for row in rows}
+    own = await repo.last_seat_of(session, game_id, viewer_id)
+    found = await names(sorted({u for u in held.values() if u is not None}))
+    seats = []
+    for row in reversed(rows):  # chain order serves the customer first; Fabrikk leads here
+        kind = row["occupant_kind"]
+        if kind is None:
+            holder, name = "free", None
+        elif kind == OccupantKind.STUDENT:
+            holder, name = "student", found.get(row["user_id"])
+        else:
+            holder, name = "ai", None
+        # A Seat another Student holds now is never the viewer's, even if the viewer held it once.
+        mine = row["role"] == own and (holder != "student" or row["user_id"] == viewer_id)
+        seats.append(TableSeat(role=row["role"], holder=holder, name=name, mine=mine))
+    return TableStatus(seats=tuple(seats))

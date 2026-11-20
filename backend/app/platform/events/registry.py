@@ -70,6 +70,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "sessions.open_student_choice": frozenset({"game", "session", "user"}),
         "sessions.choose_seat": frozenset({"game", "session", "user"}),
         "sessions.offer_student_choice": frozenset({"game", "session", "user"}),
+        # A step a Student has done (Story 6.1, AD-16): their Hjem and Stegene read it again, and
+        # so does the Class session's overview. A step already recorded emits nothing.
+        "progress.record_step": frozenset({"session", "user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

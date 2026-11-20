@@ -18,6 +18,7 @@ from app.modules.games.models import (
     seats,
     simulation_batches,
 )
+from app.platform import authz
 
 
 async def insert_game(session: AsyncSession, values: dict[str, Any]) -> None:
@@ -126,6 +127,77 @@ async def student_seated(
 ) -> bool:
     """Whether the Student holds a Seat in a Game of the Class session now (Story 5.9)."""
     return await student_seat_count(session, class_session_id, user_id) > 0
+
+
+async def student_seats(
+    session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> list[RowMapping]:
+    """Every Seat of the Class session's Games that the Student holds or has held (Story 6.1),
+    joined through `authz.own_seat`: game id, game number, Role, the id of the last occupancy row
+    naming the Student, and whether they hold the Seat now (the Seat's latest row names them)."""
+    named = (
+        select(
+            seat_occupancy.c.seat_id,
+            seat_occupancy.c.id.label("row_id"),
+        )
+        .where(seat_occupancy.c.user_id == user_id)
+        .subquery()
+    )
+    latest = _latest_occupancy(seat_occupancy.c.seat_id.in_(select(named.c.seat_id)))
+    result = await session.execute(
+        select(
+            games.c.id.label("game_id"),
+            games.c.game_number,
+            seats.c.role,
+            named.c.row_id,
+            (latest.c.user_id == user_id).label("holds"),
+        )
+        .select_from(
+            named.join(seats, seats.c.id == named.c.seat_id)
+            .join(games, games.c.id == seats.c.game_id)
+            .outerjoin(latest, latest.c.seat_id == seats.c.id)
+        )
+        .where(
+            games.c.class_session_id == class_session_id,
+            games.c.id.in_(authz.own_seat(user_id)),
+        )
+    )
+    return list(result.mappings())
+
+
+async def own_game(
+    session: AsyncSession, user_id: uuid.UUID, game_id: uuid.UUID
+) -> RowMapping | None:
+    """The Game, when the User holds or has held a Seat in it (`authz.own_seat`); None for any
+    other Game, so another's reads as one that does not exist (Story 6.1, FR-5)."""
+    result = await session.execute(
+        select(games).where(games.c.id == game_id, games.c.id.in_(authz.own_seat(user_id, game_id)))
+    )
+    return result.mappings().one_or_none()
+
+
+async def last_seat_of(session: AsyncSession, game_id: uuid.UUID, user_id: uuid.UUID) -> str | None:
+    """The Role of the Game's Seat the User holds now, else of the one they held last; None when
+    they never held one (Story 6.1)."""
+    game_seats = select(seats.c.id).where(seats.c.game_id == game_id)
+    latest = _latest_occupancy(seat_occupancy.c.seat_id.in_(game_seats))
+    held_now = await session.execute(
+        select(seats.c.role)
+        .join(latest, latest.c.seat_id == seats.c.id)
+        .where(seats.c.game_id == game_id, latest.c.user_id == user_id)
+        .limit(1)
+    )
+    role = held_now.scalar_one_or_none()
+    if role is not None:
+        return role
+    last = await session.execute(
+        select(seats.c.role)
+        .join(seat_occupancy, seat_occupancy.c.seat_id == seats.c.id)
+        .where(seats.c.game_id == game_id, seat_occupancy.c.user_id == user_id)
+        .order_by(seat_occupancy.c.id.desc())
+        .limit(1)
+    )
+    return last.scalar_one_or_none()
 
 
 async def student_seat_count(

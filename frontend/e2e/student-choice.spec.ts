@@ -189,11 +189,24 @@ test("with the flag off the route is not found and Hjem shows the drawn Seat onc
       if (item.id === id) {
         item.seat_choice_open = false;
         item.drawn_seat = { game_number: 3, role: "wholesaler" };
+        // Once locked, a drawn Student holds the Seat, so Hjem has the game card too (Story 6.1).
+        item.game = {
+          id: id,
+          number: 3,
+          role: "wholesaler",
+          seats: ["factory", "distributor", "wholesaler", "retailer"].map((role) => ({
+            role,
+            holder: role === "wholesaler" ? "student" : "ai",
+            name: role === "wholesaler" ? "student7@example.com" : null,
+            mine: role === "wholesaler",
+          })),
+        };
       }
     }
     await route.fulfill({ response, json: body });
   });
   await student.goto("/hjem");
+  await expect(student.getByRole("heading", { name: nb.homes.student.game(3, "Grossist") })).toBeVisible();
   await expect(student.getByText(sc.drawn("Grossist", 3))).toBeVisible();
   await expectAccessible(student, true);
   // `FEATURE_STUDENT_CHOICE` off: the api answers not found (pinned by the api tests).

@@ -347,3 +347,30 @@ class GameSummary(BaseModel):
     """Decision log rows per `decided_by`, in `DecidedBy` order; zero counts left out."""
     check: GameCheck | None
     """The finished-game check, or None when it has not run."""
+
+
+TableHolder = Literal["student", "ai", "free"]
+
+
+class TableSeat(BaseModel):
+    """One Seat of a Game as its players see who sits there (Story 6.1, AD-3): a Student's name,
+    an AI player («KI-spiller», never which kind) or free. People only, never numbers."""
+
+    model_config = _FROZEN
+
+    role: str
+    holder: TableHolder
+    name: str | None
+    """The Student's name, read at request time; None for an AI player, a free Seat, or a Student
+    who is no longer in the Class."""
+    mine: bool
+    """Whether this is the viewer's own Seat (held now, or last held)."""
+
+
+class TableStatus(BaseModel):
+    """The people side of a Game for one viewer (AD-3), Fabrikk first (UX-DR73). Built at read
+    time by `views.table_status`; never stored and never passed to an LLM."""
+
+    model_config = _FROZEN
+
+    seats: tuple[TableSeat, ...]

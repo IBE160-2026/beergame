@@ -104,6 +104,7 @@ from app.modules.games import commands as games_commands
 from app.modules.games import service as games_service
 from app.modules.identity import service as identity
 from app.modules.players import service as players
+from app.modules.progress import service as progress
 from app.modules.sessions import allocation, repo
 from app.modules.sessions.models import (
     DATE_NAMES,
@@ -156,6 +157,9 @@ from app.modules.sessions.schemas import (
     SettingProblem,
     SettingsCheckOut,
     SettingWarning,
+    StepOut,
+    StudentGameOut,
+    TableSeatOut,
     WaitingClass,
     WaitingReason,
 )
@@ -1105,6 +1109,9 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
             if choice
             else {}
         )
+        locked = [row for row in rows if row["class_id"] in names and is_locked(row, now=now)]
+        cards = {row["id"]: await _student_card(s, user.id, row) for row in locked}
+        done = await progress.steps_of(s, user.id, [row["id"] for row in rows])
     upcoming: dict[uuid.UUID, list[EnrolledLabHourOut]] = {}
     for lab in labs:
         upcoming.setdefault(lab["class_session_id"], []).append(
@@ -1130,11 +1137,100 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                 and row["allocation_method"] == "student_choice"
                 and not is_locked(row, now=now),
                 drawn_seat=_drawn_seat(drafts.get(row["id"]), user.id),
+                game=cards.get(row["id"]),
+                steps=stegene(cards.get(row["id"]) is not None, done.get(row["id"], set())),
             )
             for row in rows
             if row["class_id"] in names
         ]
     )
+
+
+STEGENE: tuple[tuple[str, progress.Step], ...] = (
+    ("class_game", progress.Step.CLASS_GAME),
+    ("debrief", progress.Step.DEBRIEF),
+    ("quiz", progress.Step.QUIZ_PASSED),
+    ("replay", progress.Step.REPLAY),
+    ("test", progress.Step.TEST_SUBMITTED),
+    ("report", progress.Step.ASSESSMENT_READY),
+)
+"""Stegene's six steps in order (UX-DR29) and the `progress` step that marks each done."""
+
+
+def stegene(has_game: bool, done: set[progress.Step]) -> list[StepOut]:
+    """The state of each of Stegene's steps (Story 6.1, AD-10): a done step is `done`; with a
+    game the first step not done is `current` and the later ones `locked`; with no game (before
+    the Start date, or no Seat yet) every step not done is `locked`."""
+    steps: list[StepOut] = []
+    current_given = not has_game
+    for name, step in STEGENE:
+        if step in done:
+            state = "done"
+        elif not current_given:
+            state, current_given = "current", True
+        else:
+            state = "locked"
+        steps.append(StepOut(step=name, state=state))
+    return steps
+
+
+def _names_in(class_id: uuid.UUID) -> Callable[[list[uuid.UUID]], Awaitable[dict[uuid.UUID, str]]]:
+    """`classes.student_names` for one Class: the names `table_status` shows, read now."""
+
+    async def resolve(user_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+        return await classes.student_names(class_id, user_ids)
+
+    return resolve
+
+
+async def _student_card(
+    s: AsyncSession, user_id: uuid.UUID, row: Mapping[str, Any]
+) -> StudentGameOut | None:
+    """The Student's Class game in a locked Class session, through `games.service.student_game`
+    and `table_status` (Story 6.1, AD-3); None when they never held a Seat in it."""
+    found = await games_service.student_game(s, user_id, row["id"])
+    if found is None:
+        return None
+    return await _game_out(s, user_id, found, row["class_id"])
+
+
+async def _game_out(
+    s: AsyncSession, user_id: uuid.UUID, found: games_service.StudentGame, class_id: uuid.UUID
+) -> StudentGameOut:
+    table = await games_service.table_status(s, found.game_id, user_id, _names_in(class_id))
+    return StudentGameOut(
+        id=found.game_id,
+        number=found.number,
+        role=found.role,
+        seats=[
+            TableSeatOut(role=seat.role, holder=seat.holder, name=seat.name, mine=seat.mine)
+            for seat in table.seats
+        ],
+    )
+
+
+async def student_game_of(user: authz.Principal, game_id: str) -> StudentGameOut | None:
+    """The Student's own Class game by id (Story 6.1, AD-12, FR-5), through `authz.own_seat`, and
+    only once its Class session is locked (a Student sees the game from the Start date). None for
+    an id that is not one, a Game that does not exist, another Student's game, a Game whose Class
+    session has not reached the Start date, or a Class the User is no longer a Student in: the
+    route answers each the same."""
+    try:
+        game_uuid = uuid.UUID(game_id)
+    except ValueError:
+        return None
+    # The Classes Hjem lists: those the User is a Student in and that are not archived.
+    listed = {item.id for item in (await classes.enrolled_classes(user)).items}
+    async with get_sessionmaker()() as s:
+        found = await games_service.own_game(s, user.id, game_uuid)
+        if found is None:
+            return None
+        # The Class session among the User's own (`authz.classes_enrolled_by`), locked.
+        rows = {row["id"]: row for row in await repo.enrolled_sessions(s, user)}
+        row = rows.get(found.class_session_id)
+        if row is None or row["class_id"] not in listed or not is_locked(row):
+            return None
+        return await _game_out(s, user.id, found, row["class_id"])
 
 
 async def lecturer_overview(user: authz.Principal) -> LecturerOverviewOut:

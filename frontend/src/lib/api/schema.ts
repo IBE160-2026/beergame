@@ -1407,6 +1407,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/games/{game_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Game
+         * @description The Student's own Class game (Story 6.1): number, Role and the four Seats, from the Start
+         *     date. Any other game, one that does not exist and an id that is not one all answer the same
+         *     403 `forbidden`, which never says whether the game exists (FR-5).
+         */
+        get: operations["getMyGame"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2163,6 +2185,7 @@ export interface components {
             /** Debrief Deadline */
             debrief_deadline: string | null;
             drawn_seat?: components["schemas"]["SeatRef"] | null;
+            game?: components["schemas"]["StudentGameOut"] | null;
             /**
              * Id
              * Format: uuid
@@ -2184,6 +2207,11 @@ export interface components {
             seat_choice_open: boolean;
             /** Start At */
             start_at: string | null;
+            /**
+             * Steps
+             * @default []
+             */
+            steps: components["schemas"]["StepOut"][];
             /** Test Deadline */
             test_deadline: string | null;
         };
@@ -3164,6 +3192,57 @@ export interface components {
          * @enum {string}
          */
         StaffStatus: "active" | "invited" | "expired";
+        /**
+         * StepOut
+         * @description A step of Stegene (Story 6.1, UX-DR29, AD-10, AD-16), its state computed here: the web app
+         *     holds no rule for which step is open.
+         */
+        StepOut: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "done" | "current" | "locked";
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "class_game" | "debrief" | "quiz" | "replay" | "test" | "report";
+        };
+        /**
+         * StudentGameOut
+         * @description The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four
+         *     Seats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`).
+         */
+        StudentGameOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Number */
+            number: number;
+            role: components["schemas"]["Role"];
+            /** Seats */
+            seats: components["schemas"]["TableSeatOut"][];
+        };
+        /**
+         * TableSeatOut
+         * @description A Seat of the Student's Class game (Story 6.1, FR-22, FR-34): its Role and who holds it,
+         *     a Student by name, any AI player as «KI-spiller» (`ai`, never which kind), or free.
+         */
+        TableSeatOut: {
+            /**
+             * Holder
+             * @enum {string}
+             */
+            holder: "student" | "ai" | "free";
+            /** Mine */
+            mine: boolean;
+            /** Name */
+            name: string | null;
+            role: components["schemas"]["Role"];
+        };
         /**
          * UploadRow
          * @description A row of the Class's staged upload: the invalid row a manual registration corrects.
@@ -6946,6 +7025,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getMyGame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentGameOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

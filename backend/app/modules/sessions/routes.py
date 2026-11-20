@@ -18,7 +18,8 @@ confirmation, `/api/class-sessions/{id}/allocation/confirm`, and Story 5.10 movi
 Students in it, `/api/class-sessions/{id}/allocation/move`. Story 5.17 adds the allocation method
 to the save and the Student's «Velg spill og sete», `/api/me/class-sessions/{id}/seat-choice`.
 Story 5.18 adds making one from an earlier one, `/api/classes/{class_id}/class-sessions/copy`
-with its sources `…/copy-sources`."""
+with its sources `…/copy-sources`. Story 6.1 adds the Student's game card and Stegene to
+`/api/me/class-sessions` and the Student's own game, `/api/me/games/{game_id}`."""
 
 import uuid
 from typing import Annotated
@@ -45,6 +46,7 @@ from app.modules.sessions.schemas import (
     SeatChoiceOut,
     SettingsCheckIn,
     SettingsCheckOut,
+    StudentGameOut,
 )
 from app.platform import auth, authz
 from app.platform.errors import documented, error_response
@@ -566,6 +568,25 @@ async def list_my_class_sessions(
     """The Class sessions of the Classes the User is a Student in: dates and the next deadline,
     never the Game settings (FR-18). Empty for a User who is no Student."""
     found = await service.enrolled_sessions(user)
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/me/games/{game_id}",
+    response_model=StudentGameOut,
+    responses=documented(401, 403),
+    operation_id="getMyGame",
+)
+async def get_my_game(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.read_own"))],
+) -> Response:
+    """The Student's own Class game (Story 6.1): number, Role and the four Seats, from the Start
+    date. Any other game, one that does not exist and an id that is not one all answer the same
+    403 `forbidden`, which never says whether the game exists (FR-5)."""
+    found = await service.student_game_of(user, game_id)
+    if found is None:
+        raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))
 
 

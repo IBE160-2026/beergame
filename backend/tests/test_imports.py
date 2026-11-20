@@ -59,6 +59,14 @@ def test_games_has_no_llm_or_provider_import():
             assert name == "app.modules.players.service", f"{path.name}:{line} imports {name}"
 
 
+def test_progress_imports_no_feature_module():
+    """AD-16: any module records and reads steps through `progress`, so `progress` imports no
+    other module (Story 6.1)."""
+    for path, line, name in imports(APP / "modules" / "progress"):
+        if name.startswith("app.modules."):
+            assert name.startswith("app.modules.progress"), f"{path.name}:{line} imports {name}"
+
+
 def test_the_platform_imports_no_module_and_no_llm_library():
     """`app/platform` (jobs included) names task modules by string only (Story 2.5)."""
     for path, line, name in imports(APP / "platform"):

@@ -348,6 +348,43 @@ class SeatRef(BaseModel):
     role: Role
 
 
+TableHolder = Literal["student", "ai", "free"]
+
+
+class TableSeatOut(BaseModel):
+    """A Seat of the Student's Class game (Story 6.1, FR-22, FR-34): its Role and who holds it,
+    a Student by name, any AI player as «KI-spiller» (`ai`, never which kind), or free."""
+
+    role: Role
+    holder: TableHolder
+    name: str | None
+    """The Student's name now; None for an AI player, a free Seat, or a Student no longer in the
+    Class."""
+    mine: bool
+
+
+class StudentGameOut(BaseModel):
+    """The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four
+    Seats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`)."""
+
+    id: uuid.UUID
+    number: int
+    role: Role
+    seats: list[TableSeatOut]
+
+
+StegeneStep = Literal["class_game", "debrief", "quiz", "replay", "test", "report"]
+StepState = Literal["done", "current", "locked"]
+
+
+class StepOut(BaseModel):
+    """A step of Stegene (Story 6.1, UX-DR29, AD-10, AD-16), its state computed here: the web app
+    holds no rule for which step is open."""
+
+    step: StegeneStep
+    state: StepState
+
+
 class EnrolledSessionOut(BaseModel):
     """A Class session as its Student reads it (Story 5.2, FR-18, AD-3): the dates and the next
     deadline that applies. Never the Game settings, the number of Weeks or the demand."""
@@ -373,6 +410,12 @@ class EnrolledSessionOut(BaseModel):
     drawn_seat: SeatRef | None = None
     """Story 5.17: once locked, the Seat the draw gave this Student because they chose none
     («Du fikk et sete ved trekning: Grossist i Spill 17.»); None otherwise and with the flag off."""
+    game: StudentGameOut | None = None
+    """Story 6.1: the Student's Class game, from the Start date (`is_locked`) and once they hold
+    or have held a Seat in it; None before, also after a confirmed allocation."""
+    steps: list[StepOut] = []
+    """Story 6.1: Stegene's six steps in order, Klassespill first. With no game every step not
+    done is `locked`; with one, the first step not done is `current`."""
 
 
 class EnrolledSessionListOut(BaseModel):

@@ -35,6 +35,8 @@ from app.modules.games.schemas import (
     SeatState,
     SessionRuntime,
     SimulationBatch,
+    TableSeat,
+    TableStatus,
     TurnOverview,
 )
 from app.modules.games.summaries import game_summary
@@ -45,6 +47,7 @@ from app.modules.games.views import (
     occupancy_history,
     open_turn,
     seat_state,
+    table_status,
 )
 from app.platform.db import get_sessionmaker
 
@@ -70,6 +73,9 @@ __all__ = [
     "SeatState",
     "SessionRuntime",
     "SimulationBatch",
+    "StudentGame",
+    "TableSeat",
+    "TableStatus",
     "TurnOverview",
     "ViewError",
     "ClassGame",
@@ -84,7 +90,10 @@ __all__ = [
     "create_batch",
     "games_charged_to",
     "scope_of",
+    "own_game",
+    "student_game",
     "student_seated",
+    "table_status",
     "decision_log",
     "finished_game_ids",
     "game_summary",
@@ -176,6 +185,52 @@ async def student_seated(
 ) -> bool:
     """Whether the Student holds a Seat in a Game of the Class session now (Story 5.13)."""
     return await repo.student_seated(session, class_session_id, user_id)
+
+
+@dataclass(frozen=True)
+class StudentGame:
+    """A Student's game in a Class session (Story 6.1): the Game, its number and the Role of the
+    Student's Seat."""
+
+    game_id: uuid.UUID
+    class_session_id: uuid.UUID
+    number: int
+    role: str
+
+
+async def student_game(
+    session: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> StudentGame | None:
+    """The one way any module finds a Student's game (Story 6.1): the Class game of the Class
+    session in which the Student holds a Seat now, else the one in which they held a Seat last
+    (joined through `authz.own_seat`); None when they never held one. Read in the caller's
+    transaction."""
+    rows = await repo.student_seats(session, class_session_id, user_id)
+    if not rows:
+        return None
+    # A Seat held now wins; otherwise the latest occupancy row naming the Student (UUIDv7 ids).
+    best = max(rows, key=lambda row: (bool(row["holds"]), row["row_id"].bytes))
+    return StudentGame(
+        game_id=best["game_id"],
+        class_session_id=class_session_id,
+        number=best["game_number"],
+        role=best["role"],
+    )
+
+
+async def own_game(
+    session: AsyncSession, user_id: uuid.UUID, game_id: uuid.UUID
+) -> StudentGame | None:
+    """The Game `game_id` when it is the Student's game, the one `student_game` gives for its
+    Class session (joined through `authz.own_seat`); None for any other Game, also one they held a
+    Seat in before a move, so another's reads the same as one that does not exist (FR-5)."""
+    game = await repo.own_game(session, user_id, game_id)
+    if game is None or game["class_session_id"] is None:
+        return None
+    found = await student_game(session, user_id, game["class_session_id"])
+    if found is None or found.game_id != game_id:
+        return None
+    return found
 
 
 async def get_game(game_id: str) -> GameOverview | None:

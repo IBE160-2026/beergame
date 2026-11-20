@@ -10,6 +10,7 @@ import { Breadcrumb } from "./breadcrumb";
 import { Button, guardUnavailable } from "./button";
 import { ConnectionNotice } from "./connection-notice";
 import { SegmentedChoice } from "./segmented-choice";
+import { Stegene } from "./stegene";
 import { Switch } from "./switch";
 import { ViewToggle } from "./view-toggle";
 import { LoadingNote, Skeleton } from "./skeleton";
@@ -283,5 +284,31 @@ describe("ViewToggle", () => {
     expect(html.match(/type="radio"/g)).toHaveLength(2);
     expect(html).toMatch(/checked="" value="list"/);
     expect(html).toMatch(/min-h-control-height-phone/);
+  });
+});
+
+describe("Stegene", () => {
+  const html = renderToStaticMarkup(
+    <Stegene
+      title="Stegene"
+      titleId="st"
+      items={[
+        { key: "a", name: "Klassespill", state: "current", note: "pågår" },
+        { key: "b", name: "Replay", state: "locked", note: "Replay, åpnes når du har bestått Debrief-quizen." },
+      ]}
+    />,
+  );
+
+  it("is an ordered list named by its heading, with the state of each step in words", () => {
+    expect(html).toContain('aria-labelledby="st"');
+    expect(html).toContain("<ol");
+    expect(html).toContain("pågår");
+    expect(html).toContain("Replay, åpnes når du har bestått Debrief-quizen.");
+    expect(html).toContain('data-state="current"');
+    expect(html).toContain('data-state="locked"');
+  });
+
+  it("keeps its markers out of the accessibility tree", () => {
+    expect(html.match(/aria-hidden="true"/g)?.length).toBe(3);
   });
 });

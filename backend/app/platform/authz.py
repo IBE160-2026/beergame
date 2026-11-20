@@ -29,6 +29,9 @@ modules ask `can(user, action, resource)`, they never compare roles themselves.
 - Students (Story 4.5): `classes_enrolled_by(user)` is the scope of a Student's own Classes, from
   the Roster entries linked to the User and not removed. `classes.read_enrolled` is open to every
   logged-in User; the scope decides what they see.
+- Games (Story 6.1): `own_seat(user, game)` is the scope of a Student's own Class games, the
+  Games in which they hold or have held a Seat. `games.read_own` is open to every logged-in User;
+  the scope decides.
 
 This module imports no `app.modules` code.
 """
@@ -94,6 +97,9 @@ POLICIES: dict[str, frozenset[str]] = {
     "class_sessions.read_enrolled": frozenset({ANY_USER}),
     # The Classes a User is a Student in (Story 4.5): any User, held to `classes_enrolled_by`.
     "classes.read_enrolled": frozenset({ANY_USER}),
+    # A Student's own Class game (Story 6.1): any User, held to `own_seat`; any other game is
+    # refused the same as one that does not exist (FR-5).
+    "games.read_own": frozenset({ANY_USER}),
     # The own session.
     "session.read": frozenset({ANY_USER}),
     # FR-5: no account role grants these. Epic 4+ adds the Class-scoped grants.
@@ -161,6 +167,27 @@ def classes_enrolled_by(user: Principal | uuid.UUID) -> Select:
     return select(_roster_entries.c.class_id).where(
         _roster_entries.c.user_id == user_id, _roster_entries.c.removed_at.is_(None)
     )
+
+
+_seats = table("seats", column("id"), column("game_id"))
+_seat_occupancy = table("seat_occupancy", column("seat_id"), column("user_id"))
+"""`games.seats` and `games.seat_occupancy` by name only, for the own-Seat scope."""
+
+
+def own_seat(user: Principal | uuid.UUID, game: uuid.UUID | None = None) -> Select:
+    """The ids of the Games in which `user` holds or has held a Seat (Story 6.1, AD-12, FR-5):
+    a Seat with an occupancy row naming the User. A subquery for `WHERE games.id IN (...)`; every
+    query on a Student's own game joins through it, so another game reads as one that does not
+    exist. `game` narrows it to one Game."""
+    user_id = user if isinstance(user, uuid.UUID) else user.id
+    query = (
+        select(_seats.c.game_id)
+        .join(_seat_occupancy, _seat_occupancy.c.seat_id == _seats.c.id)
+        .where(_seat_occupancy.c.user_id == user_id)
+    )
+    if game is not None:
+        query = query.where(_seats.c.game_id == game)
+    return query
 
 
 PrincipalLoader = Callable[[uuid.UUID, int], Awaitable[Principal | None]]

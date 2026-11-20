@@ -67,8 +67,8 @@ PRE_SESSION_TABLES = (
     | CLASS_TABLES
     | ROSTER_TABLES
 )
-HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES
-HEAD = "0044"  # 0044 adds when the lock of a Class session was refused (GitHub issue 109)
+HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES | {"progress_steps"}
+HEAD = "0045"  # 0045 adds the steps a Student has done (Story 6.1)
 
 
 def reset_schema(url: str) -> None:
@@ -152,7 +152,7 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # set together. 0041 (Story 5.14): one reminder per deadline and time. 0042 (Story 5.17): the
     # allocation method is `random` or `student_choice`. 0043 (Story 5.18): a copy names its
     # source, and forgets it when the source goes. 0044 (GitHub issue 109): when the lock was
-    # first refused.
+    # first refused. 0045 (Story 6.1): one row per User, Class session and step.
     assert "effort_level IS NULL" in definition(url, "ck_class_sessions_effort_level_llm_only")
     assert "ends_at > starts_at" in definition(url, "ck_lab_hours_order")
     assert "120" in definition(url, "ck_lab_hours_place")
@@ -174,7 +174,11 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "'test_deadline'" in reminders["ck_deadline_reminders_deadline"]
     assert "deadline, deadline_at)" in reminders["uq_deadline_reminders_deadline"]
     assert "ON DELETE SET NULL" in definition(url, "fk_class_sessions_copied_from")
+    steps = constraints(url, "progress_steps")
+    assert "UNIQUE (user_id, class_session_id, step)" in steps["uq_progress_steps_step"]
 
+    command.downgrade(cfg, "0044")
+    assert "progress_steps" not in tables(url)
     command.downgrade(cfg, "0043")
     assert "lock_refused_at" not in columns(url, "class_sessions")
     command.downgrade(cfg, "0042")
@@ -531,6 +535,7 @@ def test_the_check_constraints_list_exactly_the_enum_values(test_database):
         RosterSource,
     )
     from app.modules.messaging import models as mail_models
+    from app.modules.progress.models import Step
 
     ai_checks = {
         "ck_ai_budgets_scope_kind": set(get_args(ai_budget.ScopeKind)),
@@ -546,6 +551,7 @@ def test_the_check_constraints_list_exactly_the_enum_values(test_database):
         "ck_mail_deliveries_skipped_reason": set(mail_models.SKIP_REASONS),
         "ck_mail_deliveries_delivery_state": set(mail_models.DELIVERY_STATES),
         "ck_mail_deliveries_bounce_class": set(mail_models.BOUNCE_CLASSES),
+        "ck_progress_steps_step": {step.value for step in Step},
     }
     with psycopg.connect(libpq_dsn(test_database)) as conn:
         rows = dict(

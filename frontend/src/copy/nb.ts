@@ -330,6 +330,54 @@ export const nb = {
     startDate: START_DATE_LINE,
     // [ASSUMPTION] Issue #93: Hjem with no Class (none yet, removed, or archived).
     noClass: "Du er ikke med i noen Klasse nå. Når en Faglærer legger deg til, står Klassen her.",
+    /** Hjem from the Start date (Story 6.1, UX-DR29, EXPERIENCE.md → Hjem (Student), mockup
+     * `04-student-hjem.png`). «Spill 17 · Du er Grossist», «Setene», «Stegene», «pågår», «Neste
+     * frist», the Replay and Individuell test lock lines are the spine's; the rest is
+     * [ASSUMPTION] draft copy for review. */
+    student: {
+      /** «Spill 17 · Du er Grossist». */
+      game: (number: number, role: string) => `Spill ${number} · Du er ${role}`,
+      /** Shown above a session's block only when the Class has more than one: «Klasseøkt 2». */
+      session: (number: number) => `Klasseøkt ${number}`,
+      seats: "Setene",
+      aiPlayer: "KI-spiller",
+      // [ASSUMPTION]
+      free: "ledig",
+      // [ASSUMPTION] A classmate removed from the Class since the start.
+      removed: "Ikke lenger i Klassen",
+      /** After the Student's own name on their Seat: «Sara (deg)». [ASSUMPTION] */
+      you: (name: string) => `${name} (deg)`,
+      steps: "Stegene",
+      stepNames: {
+        class_game: "Klassespill",
+        debrief: "Debrief",
+        quiz: "Quiz",
+        replay: "Replay",
+        test: "Individuell test",
+        report: "Rapport",
+      },
+      /** The current step's mark, in text. */
+      current: "pågår",
+      // [ASSUMPTION] A step that is done.
+      done: "ferdig",
+      /** What opens each later step. Replay's and Individuell test's are the spine's; the other
+       * four are [ASSUMPTION] in their pattern. */
+      locked: {
+        class_game: "Klassespill, åpnes på startdatoen.",
+        debrief: "Debrief, åpnes når Klassespillet er ferdig.",
+        quiz: "Quiz, åpnes når du har fullført Debriefen.",
+        replay: "Replay, åpnes når du har bestått Debrief-quizen.",
+        test: "Individuell test, åpnes når du har fullført Replay.",
+        report: "Rapport, åpnes når den individuelle testen er vurdert.",
+      },
+      nextDeadline: "Neste frist",
+      /** «Spillfrist ti. 8. des.» */
+      deadline: (kind: string, day: string) => `${kind} ${day}`,
+      labHour: "Labtime",
+      /** «to. 26. nov. 14:15, Datalab A2». */
+      labHourItem: (day: string, time: string, place: string) => `${day} ${time}, ${place}`,
+      obligatory: "Obligatorisk",
+    },
   },
 
   /** The Lecturer's Classes (Epic 4). «Klassene dine», «Ny Klasse», «Lag Klasse», «Navn» and

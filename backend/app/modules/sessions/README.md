@@ -353,3 +353,22 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   gone or no longer readable) and `effort_level_replaced` (`{name, label}`, the label from the
   source's config). `copy_from` copies Epic 5's settings only; the later stories that own more
   session settings add theirs to it.
+
+## The Student's Hjem (Story 6.1)
+
+`GET /api/me/class-sessions` is the Student's home endpoint. Besides the dates, Lab hours and
+Obligatorisk mark it carries, per Class session:
+
+- `game`: the Student's Class game once the session `is_locked` (also after a confirmed
+  allocation, never before the Start date): number, Role and the four Seats Fabrikk first, read
+  through `games.service.student_game` (the one way any module finds a Student's game) and
+  `games.service.table_status`, with names from `classes.service.student_names` at read time. An
+  AI player is `ai`, with no name and no kind.
+- `steps`: Stegene's six steps (`class_game`, `debrief`, `quiz`, `replay`, `test`, `report`) with
+  `done` / `current` / `locked`, computed by `service.stegene` from `progress.steps_of`. With no
+  game every step not done is `locked`.
+
+`GET /api/me/games/{game_id}` (`games.read_own`) answers the same card for the Student's game (the
+one `student_game` gives, joined through `authz.own_seat`) in a locked session of a Class that is
+not archived; any other id, also a game the Student left in a move before the start, answers 403
+`forbidden`, the same whether or not the game exists.

@@ -1722,6 +1722,16 @@
               }
             ]
           },
+          "game": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StudentGameOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -1780,6 +1790,14 @@
               }
             ],
             "title": "Start At"
+          },
+          "steps": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/StepOut"
+            },
+            "title": "Steps",
+            "type": "array"
           },
           "test_deadline": {
             "anyOf": [
@@ -3875,6 +3893,110 @@
         ],
         "title": "StaffStatus",
         "type": "string"
+      },
+      "StepOut": {
+        "description": "A step of Stegene (Story 6.1, UX-DR29, AD-10, AD-16), its state computed here: the web app\nholds no rule for which step is open.",
+        "properties": {
+          "state": {
+            "enum": [
+              "done",
+              "current",
+              "locked"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "step": {
+            "enum": [
+              "class_game",
+              "debrief",
+              "quiz",
+              "replay",
+              "test",
+              "report"
+            ],
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "state"
+        ],
+        "title": "StepOut",
+        "type": "object"
+      },
+      "StudentGameOut": {
+        "description": "The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four\nSeats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`).",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/TableSeatOut"
+            },
+            "title": "Seats",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "role",
+          "seats"
+        ],
+        "title": "StudentGameOut",
+        "type": "object"
+      },
+      "TableSeatOut": {
+        "description": "A Seat of the Student's Class game (Story 6.1, FR-22, FR-34): its Role and who holds it,\na Student by name, any AI player as «KI-spiller» (`ai`, never which kind), or free.",
+        "properties": {
+          "holder": {
+            "enum": [
+              "student",
+              "ai",
+              "free"
+            ],
+            "title": "Holder",
+            "type": "string"
+          },
+          "mine": {
+            "title": "Mine",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role",
+          "holder",
+          "name",
+          "mine"
+        ],
+        "title": "TableSeatOut",
+        "type": "object"
       },
       "UploadRow": {
         "description": "A row of the Class's staged upload: the invalid row a manual registration corrects.",
@@ -8922,6 +9044,69 @@
           }
         },
         "summary": "Take Seat",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}": {
+      "get": {
+        "description": "The Student's own Class game (Story 6.1): number, Role and the four Seats, from the Start\ndate. Any other game, one that does not exist and an id that is not one all answer the same\n403 `forbidden`, which never says whether the game exists (FR-5).",
+        "operationId": "getMyGame",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentGameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Game",
         "tags": [
           "sessions"
         ]
