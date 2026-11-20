@@ -1199,3 +1199,28 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 104: beslutninger i Story 5.6.
+
+## Story 5.7: Merke klasseøkta som obligatorisk og sette inaktivitetsgrensen (2026-11-20)
+
+### Oppgave
+Bygge Story 5.7 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-5-7-mark-obligatory-set-inactivity-limit.md`.
+- **Commit 2b26dc8:**
+  - bryteren «Obligatorisk» og andelen uker som kreves (migrasjon 0036);
+  - feltet «Ventetid før KI tar over»;
+  - melding i den daglige oppsummeringsmailen.
+- **Tester:**
+  - backend: 2435 tester (63 s);
+  - frontend: Vitest 422, typecheck, bygg og Playwright 234;
+  - migrasjonstesten tar 1,7 s, på linje med de andre migrasjonstestene.
+- **Gjennomgang:** 35 funn, 1 middels. Det middels er rettet.
+- **Visuell kontroll:** 18 skjermbilder i `screenshots/5.7/`. Ingen avvik.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 105: beslutninger i Story 5.7.
