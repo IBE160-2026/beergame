@@ -1723,3 +1723,25 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 127: beslutninger i Story 6.9.
+
+## Story 6.10: Spille de veiledede ukene (2026-11-20)
+
+### Oppgave
+Bygge Story 6.10 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-10-play-the-guided-weeks.md`.
+- **Commit e0db96f:** fast ordre for alle plasser i veiledede uker, visning som ordre (migrasjon 0047), og felt som bare kan leses på spillskjermen.
+- **Tester:**
+  - backend: 2704 tester (76 s), og resultatene fra golden batch er uendret;
+  - frontend: Vitest 547 og bygg;
+  - Playwright: 364 tester før rettingene, og 55 tester for spillskjermen etter dem.
+- **Gjennomgang:** 30 funn, 1 middels. 4 ble rettet.
+- **Visuell kontroll:** 14 skjermbilder i `screenshots/6.10/`. Ett avvik er rettet (e1ddf85).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 128: beslutninger i Story 6.10.
