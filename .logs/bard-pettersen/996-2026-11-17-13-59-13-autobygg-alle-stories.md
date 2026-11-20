@@ -1536,3 +1536,25 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 119: beslutninger i Story 6.1.
+
+## Story 6.2: Lese reglene før første ordre (2026-11-20)
+
+### Oppgave
+Bygge Story 6.2 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-2-read-rules-before-first-order.md`.
+- **Commit 7aaf91b:** regelsiden `/spill/{id}/regler`, `briefing_first` og `rules` i spillkortet, og «Les reglene» på Hjem.
+- **Tester:**
+  - backend: 2613 tester;
+  - frontend: Vitest 473 og bygg;
+  - Playwright: 297 tester med 2 arbeidere.
+- **Gjennomgang:** to runder. Grafstripa er utsatt til 6.6 og 6.7.
+- **Visuell kontroll:** 9 skjermbilder i `screenshots/6.2/`. To avvik er rettet (6ca3ac6).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 120: beslutninger i Story 6.2.
