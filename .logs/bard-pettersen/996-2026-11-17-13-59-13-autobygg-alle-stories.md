@@ -2222,3 +2222,24 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #148: beslutninger (låst Forklaring, maks 5000 tegn, endepunkter for steg 2–5).
+
+## Story 9.4: Se avsløringen av kundeetterspørselen (spor 2)
+
+### Oppgave
+Bygge Story 9.4 på `epic-9` i spor 2, og rette tabellhøyden på steg 1 fra den visuelle kontrollen av 9.3.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-4-see-the-reveal-of-customer-demand.md` (på `epic-9`).
+- Commits: 2ce357c (storyen), 066fd73 (byggeagentens skjermbilder).
+- Steg 2 med avsløringen: overskrift laget av kode fra etterspørselsrekken med setningsmaler (ny innholdstype `sentence_templates`, migrasjon 0104), Etterspørselsbåndet over tabellen med Kundene, Ordre inn og Din ordre, og «Øvelsen heter Beer Game.». Tabellen på steg 1 har nå høydegrense.
+- Tester: backend 2884 på 69 s, Vitest 732, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 117 med axe.
+- Gjennomgang: 27 funn, 7 rettet (blant dem at plassholderne i malene må være rene navn).
+- `week-advance` feilet én gang på tidskravet mens begge sporene kjørte, og passerte alene.
+- Visuell kontroll (Sonnet, spor 2): ti skjermbilder i `screenshots/9.4/` (b331cfc). Rettet at ukene 34–36 lå bak sidelengs rulling ved 1280 px (5b94e3a). Nøkkel over båndet og alle ukenummer som kolonneoverskrifter avviker fra mockupen, men følger specen.
+- Status: done.
+
+### Åpne punkter
+- Issue #149: beslutninger (setningsmaler, valg av overskrift, plassering av steg 2).
