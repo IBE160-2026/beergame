@@ -16,8 +16,8 @@ import { DEBRIEF_STEPS, type Debrief, downstreamRole, type Reveal, type RevealWe
 const copy = nb.debrief.reveal;
 const LINE = "text-body-phone lg:text-body";
 /** One week column: 1.6 em, so 12 columns fit at 360 px (as the play screen's week table); wider
- * from 1024 px, so a whole game spreads over the laptop page. */
-const WEEK_COL = "w-[1.6em] min-w-[1.6em] px-[0.1em] text-center lg:w-[2em] lg:min-w-[2em]";
+ * from 1024 px (1.8 em), so a whole game of 36 Uker fits the 1280 px laptop page without a scroll. */
+const WEEK_COL = "w-[1.6em] min-w-[1.6em] px-[0.1em] text-center lg:w-[1.8em] lg:min-w-[1.8em]";
 const ROW_LABEL =
   "sticky left-0 z-10 min-w-row-label-phone bg-paper pr-2 text-left align-middle font-normal text-ink lg:min-w-row-label-laptop";
 /** The band's height in em of the caption size (about 200 px at 13 px, `07-debrief.png`). */
