@@ -188,15 +188,18 @@ test("a Student in two Classes sees each Message's Class name; in one Class, non
       : body.items;
     await route.fulfill({ response, json: { ...body, items } });
   });
-  await page.goto("/hjem");
-  const meldinger = page.getByRole("main").getByRole("region", { name: nb.messages.mine.title });
-  await expect(meldinger.getByRole("listitem")).toHaveCount(2);
-  await expect(meldinger.getByRole("listitem").nth(0)).toContainText("class-of-2027");
-  await expect(meldinger.getByRole("listitem").nth(1)).toContainText("Logistikk 2");
+  try {
+    await page.goto("/hjem");
+    const meldinger = page.getByRole("main").getByRole("region", { name: nb.messages.mine.title });
+    await expect(meldinger.getByRole("listitem")).toHaveCount(2);
+    await expect(meldinger.getByRole("listitem").nth(0)).toContainText("class-of-2027");
+    await expect(meldinger.getByRole("listitem").nth(1)).toContainText("Logistikk 2");
 
-  second = false;
-  await page.reload();
-  await expect(meldinger.getByRole("listitem")).toHaveCount(2);
-  await expect(meldinger).not.toContainText("class-of-2027");
-  await page.unrouteAll({ behavior: "ignoreErrors" });
+    second = false;
+    await page.reload();
+    await expect(meldinger.getByRole("listitem")).toHaveCount(2);
+    await expect(meldinger).not.toContainText("class-of-2027");
+  } finally {
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+  }
 });

@@ -38,10 +38,10 @@ describe("Lager og restordre (Story 7.8)", () => {
   });
 
   it("labels each band's largest stock above its bar and largest backlog below it, in kept room", () => {
-    const [band] = stockBands(200, rows, 14);
-    // 100 px a band, 94 − 28 px for the bars: the labels sit in the 14 px kept at top and foot.
-    expect(band!.unit).toBeCloseTo(66 / 18);
-    expect(band!.zero).toBe(Math.round(17 + 12 * (66 / 18)));
+    const [band] = stockBands(200, rows, 17);
+    // 100 px a band, 94 − 34 px for the bars: the labels sit in the 17 px kept at top and foot.
+    expect(band!.unit).toBeCloseTo(60 / 18);
+    expect(band!.zero).toBe(Math.round(20 + 12 * (60 / 18)));
     const html = renderToStaticMarkup(
       <StockBacklog width={90} height={200} xs={[15, 45, 75]} columnWidth={30} rows={rows} title="t" fontSize={13} />,
     );

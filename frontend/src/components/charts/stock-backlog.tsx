@@ -56,7 +56,7 @@ export function stockBands(height: number, rows: readonly StockBacklogRow[], lab
  * «Vis som tabell» is the alternative.
  */
 export function StockBacklog({ width, height, xs, columnWidth, rows, title, fontSize }: StockBacklogProps) {
-  const labelRoom = fontSize ? Math.ceil(fontSize * 1.1) : 0;
+  const labelRoom = fontSize ? Math.ceil(fontSize * 1.25) : 0;
   const bands = stockBands(height, rows, labelRoom);
   const barWidth = Math.max(2, Math.round(columnWidth * 0.7));
   return (
@@ -96,11 +96,13 @@ export function StockBacklog({ width, height, xs, columnWidth, rows, title, font
           const x = xs[column];
           if (most <= 0 || x === undefined) return null;
           const h = Math.max(1, most * band.unit);
+          // Kept inside the drawing at the first and last Uke: a tabular digit is about 0.55 em.
+          const half = (String(most).length * 0.55 * fontSize) / 2;
           return (
             <text
               key={`${kind}-label`}
               data-label={kind}
-              x={round(x)}
+              x={round(Math.min(Math.max(x, half), width - half))}
               y={round(kind === "stock" ? band.zero - h - 2 : band.zero + 1 + h + 2)}
               textAnchor="middle"
               dominantBaseline={kind === "stock" ? "text-after-edge" : "text-before-edge"}
