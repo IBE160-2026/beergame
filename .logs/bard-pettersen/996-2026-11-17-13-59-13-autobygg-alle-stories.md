@@ -1859,3 +1859,29 @@ Måle først, så rette. Gjøre en visuell kontroll og avslutte. To gjennomgangs
 ### Åpne punkter
 - Issue 133: beslutninger i Story 6.15.
 - Backend-pakken er gjort raskere: fra 78,7 s til 59,8 s (commit 17af926).
+
+## Story 6.16: Se hva plassen har kostet så langt (2026-11-21)
+
+### Oppgave
+Bygge Story 6.16 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en visuell kontroll og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-16-see-what-my-seat-has-cost-so-far.md`.
+- **Commit 4f3b9cc:**
+  - løpende kostnad i motoren (`SeatState` v4);
+  - «Kostnad så langt» med graf og tabell, og Alle rader på telefon;
+  - panelet på forsiden, og kostnadsaksen i steg på 20 kr.
+- **Tester:**
+  - backend: 2742 tester (63–69 s);
+  - frontend: Vitest 669 og bygg;
+  - Playwright: 155 målrettede tester.
+- **Gjennomgang:** 23 funn, 1 middels. 5 ble rettet.
+- **Visuell kontroll:** 11 skjermbilder i `screenshots/6.16/`. Ett avvik er rettet (ce44a40).
+- **CI:** e2e var rød på `student-choice` og `worker-ai`, og er rettet i 07345fa.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 134: beslutninger i Story 6.16.
