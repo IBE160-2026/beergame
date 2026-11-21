@@ -1956,3 +1956,25 @@ Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en visuell kontrol
 
 ### Åpne punkter
 - Issue 137: beslutninger i Story 6.19.
+
+## Story 6.20: Spille et privat testspill som faglærer (kuttliste, `FEATURE_LECTURER_TEST_GAME`) (2026-11-21)
+
+### Oppgave
+Bygge Story 6.20 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en visuell kontroll og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-20-play-a-private-test-game-as-a-lecturer.md`.
+- **Commit 88d136b:** blokken «Testspill» på Klasseøkta, testspill med KI-spillere på spillskjermen til studentene, utelatelse fra lister og sveip (migrasjon 0050), og flagg.
+- **Tester:**
+  - backend: 2754 tester (70,8 s);
+  - frontend: Vitest 692 og bygg;
+  - Playwright: 66 målrettede tester.
+- **Gjennomgang:** 28 funn. Ett problem ble rettet.
+- **Visuell kontroll:** 40 skjermbilder i `screenshots/6.20/`. Ett avvik er rettet (8723631).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 138: beslutninger i Story 6.20.
