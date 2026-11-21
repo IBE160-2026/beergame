@@ -79,10 +79,10 @@ test("Spillinnsikt opens from the wall and the table, shows every Week as stored
   await page.goto(`/klasseokter/${game.sessionId}/oversikt`);
   const main = page.getByRole("main");
   const grid = main.getByRole("region", { name: nb.wall.region }).getByRole("grid");
-  await expect(grid.locator("[data-row] [role=gridcell]")).toHaveCount(2);
+  await expect(grid.locator("[data-row] [role=gridcell][data-week]")).toHaveCount(2);
 
   // A click on the wall row opens the game.
-  await grid.locator("[data-row] [role=gridcell]").first().click();
+  await grid.locator("[data-row] [role=gridcell][data-week]").first().click();
   await expect(page).toHaveURL(insightUrl);
   await expect(main.getByRole("heading", { level: 1, name: "Spill 1" })).toBeVisible();
   await expect(main.locator("[data-status]")).toHaveText(`${copy.statusLabel}: ${copy.status.running}`);

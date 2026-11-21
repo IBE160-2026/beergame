@@ -134,3 +134,31 @@ describe("opening a game from the table (Story 7.7)", () => {
     expect(render()).not.toContain("cursor-pointer");
   });
 });
+
+describe("«Melding» in the table and the band's tint (Story 7.11, UX-DR41)", () => {
+  const html = renderToStaticMarkup(
+    <MatrixTable
+      rows={[
+        { ...row("2", { game: 2 }, [4]), tint: true, link: { href: "/m/2", text: "Melding", name: "Melding til alle i Spill 2" } },
+        { ...row("5", { game: 5 }, [1]), link: { href: "/m/5", text: "Melding", name: "Melding til alle i Spill 5" } },
+      ]}
+      columns={[{ key: "status", header: "Status" }]}
+      copy={{ region: "Alle spill", caption: "c", gameHeader: "Spill", week: "Uke", link: "Melding" }}
+      format={String}
+      onActivate={() => {}}
+    />,
+  );
+
+  it("heads a link column, read only, and gives each row its link with the first row's in the Tab order", () => {
+    expect(html).toMatch(/<th scope="col" data-column="link"[^>]*><span class="sr-only">Melding<\/span><\/th>/);
+    expect(html.match(/data-row-link=/g)).toHaveLength(2);
+    expect(html).toMatch(/aria-label="Melding til alle i Spill 2"[^>]*tabindex="0"/);
+    expect(html).toMatch(/aria-label="Melding til alle i Spill 5"[^>]*tabindex="-1"/);
+  });
+
+  it("tints the band's row with an ink link and leaves the others lager", () => {
+    expect(html).toContain('<tr data-row="2" data-tint="" class="cursor-pointer bg-restordre-fill">');
+    expect(html).toMatch(/<a class="[^"]*text-ink[^"]*" aria-label="Melding til alle i Spill 2"/);
+    expect(html).toMatch(/<a class="[^"]*text-lager[^"]*" aria-label="Melding til alle i Spill 5"/);
+  });
+});

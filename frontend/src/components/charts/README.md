@@ -69,6 +69,14 @@ nearest game row (its last Uke when it has fewer), Home and End to the row's end
 (`moveFocus`). Focus is held by Game id and Uke and put back after a re-render that moved the
 row. The focused cell draws `focus-ring-inset` itself, as SVG children draw no outline.
 
+**Row links (Story 7.11).** A row may carry a link («Melding» on the Oversikt). It is the row's
+last `gridcell`, an SVG `<a>` at the drawing's right edge in a column `wallSizes` reserves, and it
+keeps the wall one Tab stop: Right from the last Uke reaches it, Left goes back, Up and Down move
+link to link, and a row with no Uke yet is reached by its link only; Home and End stay on the
+Uker. Enter or a plain click follows it through `onFollow` and never opens the row. A `tint` row
+(the Varselbånd's game) is drawn on `restordre-fill` with its link `ink`; other links are `lager`.
+«Vis som tabell» gives the same link its own column, the row's second Tab stop after its row header.
+
 **Sticky game column and Uke header.** CSS `position: sticky` does not act inside an SVG, and
 splitting the wall into several SVGs would break the grid's rows. The wall's scroll region writes
 its offsets to `--wall-x` and `--wall-y` on the SVG; the row headers translate by `--wall-x`, the

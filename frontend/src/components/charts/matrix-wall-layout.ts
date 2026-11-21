@@ -98,6 +98,11 @@ export type WallSizes = {
   shortDetail: boolean;
   /** The whole drawing; wider than the width passed in when the Uker need more room. */
   width: number;
+  /** Where each row's link ends (its right edge, Story 7.11); the link column's left edge is
+   * `width - linkWidth`. */
+  linkRight: number;
+  /** The link column with its gap; 0 without links. */
+  linkWidth: number;
 };
 
 const GAP = 0.75; // em between label and figure, and around the detail text
@@ -127,6 +132,8 @@ export function wallSizes(input: {
   notes?: readonly WallNote[];
   /** Labels that take the whole game column, figure included («Kjedekost/uke, snitt»). */
   spans?: readonly string[];
+  /** The rows' link texts («Melding», Story 7.11), drawn in a column at the drawing's right edge. */
+  links?: readonly string[];
 }): WallSizes {
   const { width, fontSize } = input;
   // No game with a Uke yet: no Uke column at all, and the width math divides by one.
@@ -149,13 +156,17 @@ export function wallSizes(input: {
       (most, note) => Math.max(most, note.cells * cell + 2 * gap + textWidth(pick(note), fontSize)),
       0,
     );
-  const shortDetail = notes !== undefined && labelWidth + noteEnd(minCell, (note) => note.full) > width;
+  const link = widest(input.links ?? [], 600);
+  const linkWidth = link > 0 ? link + gap : 0;
+  const shortDetail = notes !== undefined && labelWidth + noteEnd(minCell, (note) => note.full) + linkWidth > width;
   const chosen = (note: WallNote) => (shortDetail ? note.short : note.full);
   const detail = notes ? widest(notes.map(chosen)) : widest(input.details);
   const detailWidth = detail > 0 ? detail + 2 * gap : 0;
-  const room = Math.floor((width - labelWidth - detailWidth) / Math.max(1, columns));
+  const room = Math.floor((width - labelWidth - detailWidth - linkWidth) / Math.max(1, columns));
   const cellWidth = Math.max(minCell, Math.min(maxCell, room));
   const cellsEnd = labelWidth + Math.max(columns, SKELETON_CELLS) * cellWidth;
+  const drawing =
+    (notes ? Math.max(cellsEnd, labelWidth + noteEnd(cellWidth, chosen)) : cellsEnd + detailWidth) + linkWidth;
   return {
     fontSize,
     cellFont,
@@ -169,10 +180,10 @@ export function wallSizes(input: {
     detailWidth,
     shortDetail,
     // Room for a loading row's Skjelett bar (8 cells) also before any game has a Uke; with
-    // `notes`, each note after its own row's cells.
-    width: notes
-      ? Math.max(cellsEnd, labelWidth + noteEnd(cellWidth, chosen))
-      : cellsEnd + detailWidth,
+    // `notes`, each note after its own row's cells; then the link column.
+    width: drawing,
+    linkRight: drawing - 1,
+    linkWidth,
   };
 }
 
@@ -184,42 +195,55 @@ export function headerWeeks(columns: number, cellWidth: number, fontSize: number
   return all.filter((week) => week === 1 || week % 5 === 0);
 }
 
-/** A cell the keyboard can reach: the game's id and its Uke (1-based). */
-export type WallPosition = { id: string; week: number };
+/** A cell the keyboard can reach: the game's id and its Uke (1-based), or the row's link cell
+ * (`link`, Story 7.11), which keeps the Uke it was reached from for Up and Down. */
+export type WallPosition = { id: string; week: number; link?: boolean };
+
+/** A game row as the keyboard sees it: its number of Uke cells and whether it has a link cell. */
+export type WallStops = { id: string; cells: number; link?: boolean };
+
+const hasStop = (row: WallStops) => row.cells > 0 || row.link === true;
+
+/** The first place in a row: its Uke 1, or its link when it has no Uke yet. */
+export function firstStop(row: WallStops): WallPosition {
+  return row.cells > 0 ? { id: row.id, week: 1 } : { id: row.id, week: 1, link: true };
+}
 
 /**
  * Where an arrow, Home or End key moves focus (EXPERIENCE.md → Matrisevegg → Keyboard): left and
- * right cell by cell within the row, up and down to the nearest game row with cells, keeping the
- * Uke where that row has it and else its last; Home and End to the row's first and last Uke.
- * `rows` are the game rows in drawn order with their number of cells. Returns null for any
- * other key, and the same position at an edge.
+ * right cell by cell within the row, Right from the last Uke onto the row's link cell (Story 7.11)
+ * and Left back; up and down to the nearest game row with a place, keeping the Uke where that row
+ * has it and else its last, and link to link; Home and End to the row's first and last Uke.
+ * `rows` are the game rows in drawn order. Returns null for any other key, and the same position
+ * at an edge.
  */
-export function moveFocus(
-  rows: readonly { id: string; cells: number }[],
-  at: WallPosition,
-  key: string,
-): WallPosition | null {
-  const reachable = rows.filter((row) => row.cells > 0);
+export function moveFocus(rows: readonly WallStops[], at: WallPosition, key: string): WallPosition | null {
+  const reachable = rows.filter(hasStop);
   const index = reachable.findIndex((row) => row.id === at.id);
   if (index < 0) return null;
   const row = reachable[index]!;
+  const onLink = at.link === true && row.link === true;
   const clamp = (target: { cells: number }, week: number) => Math.min(Math.max(1, week), target.cells);
+  const uke = (target: WallStops, week: number): WallPosition =>
+    target.cells > 0 ? { id: target.id, week: clamp(target, week) } : { id: target.id, week, link: true };
+  const link = (target: WallStops, week: number): WallPosition => ({ id: target.id, week, link: true });
   switch (key) {
     case "ArrowLeft":
+      if (onLink) return row.cells > 0 ? { id: row.id, week: row.cells } : at;
       return { id: row.id, week: clamp(row, at.week - 1) };
     case "ArrowRight":
+      if (onLink) return at;
+      if (row.link && at.week >= row.cells) return link(row, at.week);
       return { id: row.id, week: clamp(row, at.week + 1) };
     case "Home":
-      return { id: row.id, week: 1 };
+      return row.cells > 0 ? { id: row.id, week: 1 } : at;
     case "End":
-      return { id: row.id, week: row.cells };
-    case "ArrowUp": {
-      const target = reachable[Math.max(0, index - 1)]!;
-      return { id: target.id, week: clamp(target, at.week) };
-    }
+      return row.cells > 0 ? { id: row.id, week: row.cells } : at;
+    case "ArrowUp":
     case "ArrowDown": {
-      const target = reachable[Math.min(reachable.length - 1, index + 1)]!;
-      return { id: target.id, week: clamp(target, at.week) };
+      const step = key === "ArrowUp" ? -1 : 1;
+      const target = reachable[Math.min(reachable.length - 1, Math.max(0, index + step))]!;
+      return onLink && target.link ? link(target, at.week) : uke(target, at.week);
     }
     default:
       return null;

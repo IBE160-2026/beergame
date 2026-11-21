@@ -773,6 +773,20 @@ class OverviewWaitOut(BaseModel):
     since: AwareDatetime
 
 
+class OverviewAlertOut(BaseModel):
+    """The Varselbånd (Story 7.11, FR-39, UX-DR45): the Class game chosen by the api, the Seat it
+    waits for longest and since when. Epic 8 changes the choice to the game closest to Takeover."""
+
+    game_id: uuid.UUID
+    game_number: int | None
+    role: Role
+    name: str | None
+    """The Student's name now; None for a Student no longer in the Class."""
+    user_id: uuid.UUID | None
+    """The Student, for «Send Melding»; None when `name` is None."""
+    since: AwareDatetime
+
+
 class OverviewGameOut(BaseModel):
     """One Class game on the Oversikt, from its `game_summaries` row (Story 7.1, AD-25)."""
 
@@ -871,6 +885,9 @@ class ClassOverviewOut(BaseModel):
     """None before the Start date and while no Class game has finished."""
     funnel: list[FunnelStageOut]
     """The Trakt's stages in order, «Registrert» first; a stage nobody records yet is 0."""
+    alert: OverviewAlertOut | None
+    """The Varselbånd's game (Story 7.11): the longest-waiting Class game; None before the Start
+    date and while no Class game waits for a Student."""
     class_id: uuid.UUID
     class_name: str
     session_number: int

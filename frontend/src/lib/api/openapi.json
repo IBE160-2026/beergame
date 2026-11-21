@@ -925,6 +925,16 @@
           "ai": {
             "$ref": "#/components/schemas/OverviewAiOut"
           },
+          "alert": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OverviewAlertOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "before_start": {
             "title": "Before Start",
             "type": "boolean"
@@ -1021,6 +1031,7 @@
           "ai",
           "cost",
           "funnel",
+          "alert",
           "class_id",
           "class_name",
           "session_number"
@@ -3946,6 +3957,68 @@
           "games"
         ],
         "title": "OverviewAiOut",
+        "type": "object"
+      },
+      "OverviewAlertOut": {
+        "description": "The Varselbånd (Story 7.11, FR-39, UX-DR45): the Class game chosen by the api, the Seat it\nwaits for longest and since when. Epic 8 changes the choice to the game closest to Takeover.",
+        "properties": {
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "since": {
+            "format": "date-time",
+            "title": "Since",
+            "type": "string"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "game_id",
+          "game_number",
+          "role",
+          "name",
+          "user_id",
+          "since"
+        ],
+        "title": "OverviewAlertOut",
         "type": "object"
       },
       "OverviewCountsOut": {

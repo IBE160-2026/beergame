@@ -2085,6 +2085,17 @@ export const nb = {
     empty: "Klasseøkten har ingen klassespill.",
     /** [ASSUMPTION] Story 7.2: the heading of the game list under the Matrisevegg. */
     listTitle: "Spill og seter",
+    /** The Varselbånd (Story 7.11, UX-DR45): «Spill 2 venter på Noah (Grossist) i 23 t.» is the
+     * spine's; the rest is [ASSUMPTION]. Epic 8 adds the countdown and its other actions. */
+    band: {
+      /** [ASSUMPTION] the band's accessible name. */
+      label: "Spillet som har ventet lengst",
+      text: (game: string, name: string | null, role: string, duration: string) =>
+        name ? `${game} venter på ${name} (${role}) i ${duration}.` : `${game} venter på ${role} i ${duration}.`,
+      /** [ASSUMPTION] read out when the band appears or changes game: the line without its duration. */
+      said: (game: string, name: string | null, role: string) =>
+        name ? `${game} venter på ${name} (${role}).` : `${game} venter på ${role}.`,
+    },
     /** «Oppdater automatisk» and the Oversikt's Tilkoblingslinje (Story 7.5, EXPERIENCE.md →
      * Oppdater automatisk and State Patterns → Oversikt). */
     live: {
@@ -2109,6 +2120,8 @@ export const nb = {
         title: "Venter ellers",
         /** [ASSUMPTION] */
         none: "Ingen spill venter nå.",
+        /** [ASSUMPTION] the band's game waits, no other does (Story 7.11). */
+        noneOther: "Ingen andre spill venter.",
         /** «Ida, Detaljist, 18 t». */
         who: (name: string, role: string, duration: string) => `${name}, ${role}, ${duration}`,
         whoRole: (role: string, duration: string) => `${role}, ${duration}`,
@@ -2244,6 +2257,8 @@ export const nb = {
       /** «Noah (Grossist), 23 t»; a Student no longer in the Class is named by Role. [ASSUMPTION] */
       wait: (who: string, role: string, duration: string) => `${who} (${role}), ${duration}`,
       waitRole: (role: string, duration: string) => `${role}, ${duration}`,
+      /** [ASSUMPTION] the read-only header of the «Melding» column (Story 7.11). */
+      link: "Melding",
     },
   },
 

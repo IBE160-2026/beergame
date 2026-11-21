@@ -39,15 +39,18 @@ export function OverviewRail({
   groups,
   now,
   className,
+  alertId = null,
 }: {
   data: ClassOverview;
   groups: readonly OverviewGroup[];
   now: number;
   className?: string;
+  /** The Varselbånd's game, left out of «Venter ellers» (Story 7.11, UX-DR45). */
+  alertId?: string | null;
 }) {
   return (
     <aside aria-label={copy.label} className={cn("min-w-0 text-body-phone text-ink lg:text-body", className)} data-overview-rail="">
-      <WaitingElsewhere data={data} groups={groups} now={now} />
+      <WaitingElsewhere data={data} groups={groups} now={now} alertId={alertId} />
       {data.before_start ? null : <ClassCostBlock data={data} />}
       <Funnel funnel={data.funnel} />
     </aside>
@@ -66,12 +69,22 @@ function Section({ title, children, name }: { title: string; children: React.Rea
   );
 }
 
-function WaitingElsewhere({ data, groups, now }: { data: ClassOverview; groups: readonly OverviewGroup[]; now: number }) {
-  const rows = waitingElsewhere(groups, now);
+function WaitingElsewhere({
+  data,
+  groups,
+  now,
+  alertId,
+}: {
+  data: ClassOverview;
+  groups: readonly OverviewGroup[];
+  now: number;
+  alertId: string | null;
+}) {
+  const rows = waitingElsewhere(groups, now, alertId);
   return (
     <Section title={copy.waiting.title} name="waiting">
       {rows.length === 0 ? (
-        <p className="mt-2">{copy.waiting.none}</p>
+        <p className="mt-2">{alertId ? copy.waiting.noneOther : copy.waiting.none}</p>
       ) : (
         <ul className="mt-2">
           {rows.map((row) => (

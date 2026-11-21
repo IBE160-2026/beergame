@@ -15,6 +15,7 @@ const OVERVIEW = {
   ai: { seats: 0, games: 0 },
   cost: null,
   funnel: [{ stage: "registered", count: 0 }],
+  alert: null,
   class_id: "c1",
   class_name: "klasse",
   session_number: 1,

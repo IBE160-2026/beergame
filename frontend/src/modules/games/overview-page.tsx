@@ -13,6 +13,7 @@ import { useThrottledAnnouncement } from "@/lib/announce";
 import { ApiRequestError } from "@/lib/api/client";
 import { formatClock } from "@/lib/connection";
 import { usePageState } from "@/lib/page-state";
+import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import {
@@ -28,6 +29,7 @@ import { PageShell } from "@/modules/identity/page-shell";
 import { osloDateText } from "@/modules/sessions/dates";
 
 import { type ClassOverview, classOverviewKey, type OverviewAnswer, type OverviewGame, useClassOverview } from "./api";
+import { OverviewBand } from "./overview-band";
 import { OverviewRail } from "./overview-rail";
 import { OverviewWall, rememberReturn, type ReturnTo } from "./overview-wall";
 import {
@@ -37,6 +39,7 @@ import {
   costText,
   groupsOf,
   headline,
+  messageLink,
   type OverviewGroup,
   seatTexts,
   waitLines,
@@ -238,6 +241,8 @@ function OverviewBody({
   // The headline counts, read out politely at most once a minute (UX-DR44); nothing else here is.
   const said = useThrottledAnnouncement(data.before_start ? "" : counts);
   const groups = groupsOf(data.items);
+  // The Varselbånd's game, as the api named it (Story 7.11, AD-10).
+  const alertId = data.before_start ? null : (data.alert?.game_id ?? null);
   if (data.before_start) {
     return (
       <RailLayout rail={<OverviewRail data={data} groups={groups} now={now} />}>
@@ -247,7 +252,8 @@ function OverviewBody({
   }
   return (
     <div className="mt-6">
-      <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
+      <OverviewBand alert={data.alert} sessionId={sessionId} now={now} />
+      <div className="mt-6 flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0">
           <p className="text-body-phone font-semibold text-ink tabular-nums lining-nums lg:text-body" data-headline="">
             {counts}
@@ -262,13 +268,13 @@ function OverviewBody({
         <AutoUpdate controls={controls} />
       </div>
       <RailLayout
-        rail={<OverviewRail data={data} groups={groups} now={now} />}
+        rail={<OverviewRail data={data} groups={groups} now={now} alertId={alertId} />}
         after={
           groups.length > 0 ? (
             <>
               <h2 className="mt-12 text-headline text-ink">{copy.listTitle}</h2>
               {groups.map((group) => (
-                <Group key={group.name} group={group} now={now} sessionId={sessionId} />
+                <Group key={group.name} group={group} now={now} sessionId={sessionId} alertId={alertId} />
               ))}
             </>
           ) : undefined
@@ -283,6 +289,7 @@ function OverviewBody({
             now={now}
             heldAt={controls.heldAt?.receivedAt ?? null}
             returnTo={returnTo}
+            alertId={alertId}
           />
         )}
       </RailLayout>
@@ -307,9 +314,20 @@ function useReturnTo(sessionId: string): ReturnTo | null {
 
 /** A game's name as the link to its Spillinnsikt (Story 7.7). A click that opens it elsewhere (a
  * new tab or window) leaves this page's address as it is. */
-function GameLink({ sessionId, gameId, name }: { sessionId: string; gameId: string; name: string }) {
+function GameLink({
+  sessionId,
+  gameId,
+  name,
+  onTint = false,
+}: {
+  sessionId: string;
+  gameId: string;
+  name: string;
+  onTint?: boolean;
+}) {
   return (
     <Link
+      onTint={onTint}
       href={gameInsightPath(sessionId, gameId)}
       onClick={(event) => {
         if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -372,7 +390,17 @@ function AutoUpdate({ controls }: { controls: LiveControls }) {
   );
 }
 
-function Group({ group, now, sessionId }: { group: OverviewGroup; now: number; sessionId: string }) {
+function Group({
+  group,
+  now,
+  sessionId,
+  alertId,
+}: {
+  group: OverviewGroup;
+  now: number;
+  sessionId: string;
+  alertId: string | null;
+}) {
   const id = useId();
   return (
     <section aria-labelledby={id} className="mt-6 max-w-5xl">
@@ -381,24 +409,34 @@ function Group({ group, now, sessionId }: { group: OverviewGroup; now: number; s
       </h3>
       <ul>
         {group.games.map((game) => (
-          <GameRow key={game.game_id} game={game} now={now} sessionId={sessionId} />
+          <GameRow key={game.game_id} game={game} now={now} sessionId={sessionId} tint={game.game_id === alertId} />
         ))}
       </ul>
     </section>
   );
 }
 
-function GameRow({ game, now, sessionId }: { game: OverviewGame; now: number; sessionId: string }) {
+function GameRow({ game, now, sessionId, tint }: { game: OverviewGame; now: number; sessionId: string; tint: boolean }) {
   const name = copy.game(game.game_number ?? null);
   const cost = costText(game);
   const waits = waitLines(game, now);
+  const message = messageLink(sessionId, game);
   return (
     <li
       data-game={game.game_id}
-      className="grid grid-cols-1 gap-y-1 border-b border-hairline py-3 @2xl:grid-cols-[7rem_5rem_minmax(0,1fr)_10rem] @2xl:gap-x-6"
+      data-tint={tint ? "" : undefined}
+      className={cn(
+        "grid grid-cols-1 gap-y-1 border-b border-hairline py-3 @2xl:grid-cols-[7rem_5rem_minmax(0,1fr)_10rem] @2xl:gap-x-6",
+        // The tint reaches past the row's edges so its columns stay in line with the others.
+        tint && "-mx-2 bg-restordre-fill px-2",
+      )}
     >
-      <p className="text-label text-ink">
-        <GameLink sessionId={sessionId} gameId={game.game_id} name={name} />
+      <p className="flex flex-wrap items-baseline gap-x-4 text-label text-ink">
+        <GameLink sessionId={sessionId} gameId={game.game_id} name={name} onTint={tint} />
+        {/* A Message to the Class game (Story 7.11, UX-DR41). */}
+        <Link href={message.href} aria-label={message.name} onTint={tint} data-row-message="" className="min-h-tap-target-min inline-flex items-center">
+          {message.text}
+        </Link>
       </p>
       <p className="text-body-phone text-ink-secondary tabular-nums lining-nums lg:text-body">
         {game.week != null ? copy.week(game.week) : null}

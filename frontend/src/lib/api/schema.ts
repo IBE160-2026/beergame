@@ -2319,6 +2319,7 @@ export interface components {
          */
         ClassOverviewOut: {
             ai: components["schemas"]["OverviewAiOut"];
+            alert: components["schemas"]["OverviewAlertOut"] | null;
             /** Before Start */
             before_start: boolean;
             /**
@@ -3631,6 +3632,30 @@ export interface components {
             games: number;
             /** Seats */
             seats: number;
+        };
+        /**
+         * OverviewAlertOut
+         * @description The Varselbånd (Story 7.11, FR-39, UX-DR45): the Class game chosen by the api, the Seat it
+         *     waits for longest and since when. Epic 8 changes the choice to the game closest to Takeover.
+         */
+        OverviewAlertOut: {
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+            /** Game Number */
+            game_number: number | null;
+            /** Name */
+            name: string | null;
+            role: components["schemas"]["Role"];
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
+            /** User Id */
+            user_id: string | null;
         };
         /**
          * OverviewCountsOut

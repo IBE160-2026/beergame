@@ -277,3 +277,71 @@ describe("opening a game from the wall (Story 7.7)", () => {
     expect(render()).not.toContain("cursor-pointer");
   });
 });
+
+describe("«Melding» in the wall and the band's tint (Story 7.11, UX-DR41)", () => {
+  const link = (id: string) => ({ href: `/m/${id}`, text: "Melding", name: `Melding til alle i Spill ${id}` });
+
+  it("reaches a row's link by Right from its last Uke, moves link to link, and a row without Uker by its link", () => {
+    const rows = [
+      { id: "a", cells: 3, link: true },
+      { id: "new", cells: 0, link: true },
+      { id: "b", cells: 2, link: true },
+      { id: "plain", cells: 0 },
+    ];
+    expect(moveFocus(rows, { id: "a", week: 3 }, "ArrowRight")).toEqual({ id: "a", week: 3, link: true });
+    expect(moveFocus(rows, { id: "a", week: 3, link: true }, "ArrowRight")).toEqual({ id: "a", week: 3, link: true });
+    expect(moveFocus(rows, { id: "a", week: 3, link: true }, "ArrowLeft")).toEqual({ id: "a", week: 3 });
+    expect(moveFocus(rows, { id: "a", week: 3, link: true }, "ArrowDown")).toEqual({ id: "new", week: 3, link: true });
+    expect(moveFocus(rows, { id: "a", week: 2 }, "ArrowDown")).toEqual({ id: "new", week: 2, link: true });
+    expect(moveFocus(rows, { id: "new", week: 2, link: true }, "ArrowDown")).toEqual({ id: "b", week: 2, link: true });
+    expect(moveFocus(rows, { id: "new", week: 2, link: true }, "ArrowLeft")).toEqual({ id: "new", week: 2, link: true });
+    expect(moveFocus(rows, { id: "b", week: 2, link: true }, "ArrowDown")).toEqual({ id: "b", week: 2, link: true });
+    expect(moveFocus(rows, { id: "b", week: 1 }, "End")).toEqual({ id: "b", week: 2 });
+    expect(moveFocus(rows, { id: "b", week: 2, link: true }, "Home")).toEqual({ id: "b", week: 1 });
+  });
+
+  it("makes room for the link column at the drawing's right edge", () => {
+    const base = { width: 400, fontSize: 13, columns: 10, labels: ["Spill 12"], figures: [], details: [] };
+    const without = wallSizes(base);
+    const withLinks = wallSizes({ ...base, links: ["Melding"] });
+    expect(without.linkWidth).toBe(0);
+    expect(withLinks.linkWidth).toBeGreaterThan(0);
+    expect(withLinks.linkRight).toBe(withLinks.width - 1);
+    expect(withLinks.width - withLinks.linkWidth).toBeGreaterThanOrEqual(withLinks.labelWidth + 10 * withLinks.cellWidth);
+  });
+
+  const html = renderToStaticMarkup(
+    <MatrixWall
+      width={300}
+      fontSize={13}
+      copy={COPY}
+      format={(value) => formatNumber(value)}
+      onActivate={() => {}}
+      groups={[
+        {
+          key: "waiting",
+          title: "Venter 2",
+          rows: [
+            { id: "g2", label: "Spill 2", rowName: "Spill 2", values: [3, -4], tint: true, link: link("2") },
+            { id: "g5", label: "Spill 5", rowName: "Spill 5", values: [1], link: link("5") },
+          ],
+        },
+        { key: "notStarted", title: "Ikke startet 1", rows: [{ id: "g7", label: "Spill 7", rowName: "Spill 7", values: [], link: link("7") }] },
+      ]}
+    />,
+  );
+
+  it("gives every row its link as the last grid cell, out of the Tab order, ink on the tinted row and lager elsewhere", () => {
+    expect(html.match(/<a [^>]*data-link=""/g)).toHaveLength(3);
+    expect(html).toContain('aria-label="Melding til alle i Spill 7"');
+    expect(html).toMatch(/role="gridcell" aria-colindex="4"><a href="\/m\/2"[^>]*tabindex="-1"/);
+    expect(html).toMatch(new RegExp(`data-row="g2"[^]*?fill="${colour("ink")}" text-decoration="underline">Melding`));
+    expect(html).toMatch(new RegExp(`data-row="g5"[^]*?fill="${colour("lager")}" text-decoration="underline">Melding`));
+    expect(html.match(/tabindex="0"/g)).toHaveLength(2); // the region and Spill 2, Uke 1
+  });
+
+  it("tints only the band's row in restordre-fill", () => {
+    expect(html.match(/data-tint=""/g)).toHaveLength(1);
+    expect(html).toMatch(new RegExp(`data-row="g2"[^>]*data-tint=""[^]*?fill="${colour("restordre-fill")}"`));
+  });
+});

@@ -77,7 +77,7 @@ test("the Matrisevegg reads every game Uke by Uke from the keyboard and keeps fo
     await expect(grid.getByRole("rowheader", { name: `${copy.groups.running} 1`, exact: true })).toBeVisible();
     await expect(grid.getByRole("rowheader", { name: /^Spill 1, pågår, kjedekost \d[\d\s]*\skr$/ })).toBeVisible();
     await expect(grid.getByRole("columnheader")).toHaveCount(5); // Spill + Uke 1–4
-    const cells = grid.locator("[data-row] [role=gridcell]");
+    const cells = grid.locator("[data-row] [role=gridcell][data-week]");
     await expect(cells).toHaveCount(4);
     // Each cell is read where it stands, with the value also where it prints «−» or nothing.
     for (let week = 1; week <= 4; week++) {
@@ -227,7 +227,7 @@ test("Veggfiltre change wall and table at once, with the class median over the w
     const median = grid.getByRole("row").filter({ has: page.getByRole("rowheader", { name: wall.median.row(nb.terms.factory) }) });
     await expect(median).toHaveCount(1);
     await expect(grid.getByRole("rowheader", { name: wall.median.chainRow })).toBeVisible();
-    const firstCell = grid.locator("[data-row] [role=gridcell]").first();
+    const firstCell = grid.locator("[data-row] [role=gridcell][data-week]").first();
     const value = /: Netto lager (−?\d+)\.$/.exec((await firstCell.getAttribute("aria-label")) ?? "")![1]!;
     await expect(median.getByRole("gridcell").first()).toHaveAccessibleName(
       `Uke 1: median ${value}, midterste halvdel ${value} til ${value}, 1 spill.`,
@@ -251,7 +251,7 @@ test("Veggfiltre change wall and table at once, with the class median over the w
       await expect(main.getByText(wall.shown(nb.terms.order, nb.terms.retailer), { exact: true })).toBeVisible();
       await expect(main.getByRole("list", { name: wall.flowLegend(nb.terms.order) }).getByRole("listitem")).toHaveText([...wall.flowBins]);
       await expect(main.getByText(wall.minusNote)).toHaveCount(0);
-      await expect(grid.locator("[data-row] [role=gridcell]").first()).toHaveAccessibleName(/^Spill 1, Uke 1: Ordre \d+\.$/);
+      await expect(grid.locator("[data-row] [role=gridcell][data-week]").first()).toHaveAccessibleName(/^Spill 1, Uke 1: Ordre \d+\.$/);
       await expect(grid.locator("[data-row] [data-step^=flow-]").first()).toBeVisible();
       await expect(grid.getByRole("rowheader", { name: wall.median.row(nb.terms.retailer) })).toBeVisible();
       await expect.poll(() => requests.some((url) => url.includes("/overview/aggregates?role=retailer&cells=order&status=all"))).toBe(true);
@@ -308,7 +308,7 @@ test("«Oppdater automatisk» shows an Order within 5 s, holds the page when off
   const main = page.getByRole("main");
   const headline = main.locator("[data-headline]");
   const said = page.locator("[data-counts-announcement]");
-  const cells = main.getByRole("region", { name: nb.wall.region }).locator("[data-row] [role=gridcell]");
+  const cells = main.getByRole("region", { name: nb.wall.region }).locator("[data-row] [role=gridcell][data-week]");
   await expect(headline).toHaveText("0 ferdig · 1 pågår · 0 venter");
   await expect(cells).toHaveCount(1);
   await untilLive(page);
@@ -383,7 +383,7 @@ test("«Oppdater automatisk» shows an Order within 5 s, holds the page when off
   });
   await later.goto(`/klasseokter/${game.sessionId}/oversikt`);
   const laterMain = later.getByRole("main");
-  const laterCells = laterMain.getByRole("region", { name: nb.wall.region }).locator("[data-row] [role=gridcell]");
+  const laterCells = laterMain.getByRole("region", { name: nb.wall.region }).locator("[data-row] [role=gridcell][data-week]");
   await expect(laterMain.locator("[data-headline]")).toHaveText("0 ferdig · 1 pågår · 0 venter");
   await expect.poll(() => failedOnce).toBe(true);
   await expect(laterCells).toHaveCount(0);
@@ -433,10 +433,10 @@ test("the right rail shows who waits, the class's cost and the Trakt, beside the
   const main = page.getByRole("main");
   const aside = main.getByRole("complementary", { name: rail.label });
   const waiting = aside.getByRole("region", { name: rail.waiting.title });
-  await expect(waiting.getByRole("listitem")).toHaveCount(1);
-  await expect(waiting.getByRole("listitem")).toContainText(
-    new RegExp(`^Spill 1${second!.name}, [A-Za-zøå]+, (under 1 min|\\d+ min)$`),
-  );
+  // The one waiting game is the Varselbånd's, so «Venter ellers» leaves it out (Story 7.11).
+  await expect(main.locator(`[data-attention-band="${game.gameId}"]`)).toBeVisible();
+  await expect(waiting.getByRole("listitem")).toHaveCount(0);
+  await expect(waiting.getByText(rail.waiting.noneOther)).toBeVisible();
   await expect(waiting.getByText(rail.waiting.ai(2, 1))).toBeVisible();
   const cost = aside.getByRole("region", { name: rail.cost.title });
   await expect(cost.getByText(rail.cost.none)).toBeVisible();

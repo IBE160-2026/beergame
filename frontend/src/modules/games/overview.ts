@@ -1,11 +1,12 @@
 import { nb } from "@/copy/nb";
 import { formatNumber, KRONER } from "@/lib/number-format";
+import { messagePath } from "@/modules/identity/homes";
 import { roleName } from "@/modules/sessions/sessions";
 
 import type { WallSummary } from "@/components/charts/matrix-median";
 import { GAME_COLUMN, type TableColumn, type TableFooterRow, type TableRow } from "@/components/charts/matrix-table";
 import type { TableSort } from "@/components/charts/matrix-table-sort";
-import type { WallGroup, WallRow } from "@/components/charts/matrix-wall";
+import type { WallGroup, WallLink, WallRow } from "@/components/charts/matrix-wall";
 
 import type { ClassOverview, GameWeeks, OverviewGame, WallAggregates, WallFilter } from "./api";
 import { waitDuration } from "./seat-status";
@@ -242,6 +243,45 @@ export function statusCounts(games: readonly OverviewGame[]): Record<StatusFilte
   };
 }
 
+/** The Varselbånd's game as the api named it (Story 7.11); null when nothing waits. */
+export type OverviewAlert = ClassOverview["alert"];
+
+/**
+ * What a row offers beside its numbers (Story 7.11, UX-DR41): «Melding» to its Class game, and the
+ * tint of the Varselbånd's game, named by the api (`alertId`).
+ */
+export type RowActions = { sessionId: string; alertId: string | null };
+
+/** A row's «Melding»: the Meldingsskjema preset to that Class game. */
+export function messageLink(sessionId: string, game: OverviewGame): WallLink {
+  return {
+    href: messagePath(sessionId, { game: game.game_id }),
+    text: nb.messages.toGame,
+    name: nb.messages.toGameLabel(game.game_number ?? null),
+  };
+}
+
+/**
+ * The Varselbånd's line (Story 7.11, UX-DR45): «Spill 2 venter på Noah (Grossist) i 23 t.», the
+ * wait counted from the api's `since` at `now` (ms on the server's clock); a Student no longer in
+ * the Class is named by Role.
+ */
+export function bandText(alert: NonNullable<OverviewAlert>, now: number): string {
+  const duration = waitDuration(Math.max(0, now - Date.parse(alert.since)));
+  return copy.band.text(copy.game(alert.game_number ?? null), alert.name, roleName(alert.role), duration);
+}
+
+/** What is announced when the band appears or names another game or Student: the line without
+ * its duration, so the clock alone never announces it («Spill 2 venter på Noah (Grossist).»). */
+export function bandSaid(alert: OverviewAlert): string {
+  return alert ? copy.band.said(copy.game(alert.game_number ?? null), alert.name, roleName(alert.role)) : "";
+}
+
+/** «Send Melding»: the Meldingsskjema preset to the Student waited for, else to the Class game. */
+export function bandMessagePath(sessionId: string, alert: NonNullable<OverviewAlert>): string {
+  return messagePath(sessionId, alert.user_id ? { game: alert.game_id, student: alert.user_id } : { game: alert.game_id });
+}
+
 /**
  * The Matrisevegg's rows (Story 7.2, UX-DR41): the Oversikt's groups in the same order, each game
  * with «Spill n», its kjedekost in whole kroner, its status or wait after the cells, a row header
@@ -255,6 +295,7 @@ export function wallGroups(
   role: string,
   now: number,
   cells: WallCells = "net",
+  actions?: RowActions,
 ): WallGroup[] {
   return groups.map((group) => ({
     key: group.name,
@@ -274,9 +315,15 @@ export function wallGroups(
         rowName: wall.rowName([label, status.charAt(0).toLowerCase() + status.slice(1), ...(cost ? [wall.chainCost(cost)] : [])]),
         values: cellValues(found?.data, role, cells),
         loading: !found?.data && !found?.failed && game.status !== "not_started",
+        ...rowExtras(game, actions),
       };
     }),
   }));
+}
+
+function rowExtras(game: OverviewGame, actions: RowActions | undefined): { tint?: boolean; link?: WallLink } {
+  if (!actions) return {};
+  return { tint: game.game_id === actions.alertId, link: messageLink(actions.sessionId, game) };
 }
 
 /** A median or quartile as read and in the table: up to one decimal («12,5», «−3»). */
@@ -382,6 +429,7 @@ export function tableRows(
   role: string,
   now: number,
   cells: WallCells = "net",
+  actions?: RowActions,
 ): TableRow[] {
   return groups
     .flatMap((group) => group.games)
@@ -404,6 +452,7 @@ export function tableRows(
         },
         values: cellValues(found?.data, role, cells),
         loading: !found?.data && !found?.failed && game.status !== "not_started",
+        ...rowExtras(game, actions),
       };
     });
 }
@@ -415,11 +464,12 @@ export type WaitingRow = { id: string; game: string; who: string[] };
 
 /**
  * «Venter ellers» (Story 7.6, UX-DR40): the waiting games as the Venter group orders them, longest
- * wait first, each with whom it waits for and for how long at `now`. Reads the groups it is given.
+ * wait first, each with whom it waits for and for how long at `now`, leaving out the Varselbånd's
+ * game (`alertId`, Story 7.11, UX-DR45). Reads the groups it is given.
  */
-export function waitingElsewhere(groups: readonly OverviewGroup[], now: number): WaitingRow[] {
+export function waitingElsewhere(groups: readonly OverviewGroup[], now: number, alertId: string | null = null): WaitingRow[] {
   const waiting = groups.find((group) => group.name === "waiting")?.games ?? [];
-  return waiting.map((game) => ({
+  return waiting.filter((game) => game.game_id !== alertId).map((game) => ({
     id: game.game_id,
     game: copy.game(game.game_number ?? null),
     // A waiting game with no named wait (none has a start time) still reads as waiting.

@@ -5,6 +5,7 @@ import { type KeyboardEvent, useCallback, useEffect, useId, useLayoutEffect, use
 import { fitsCell, graphHeight, MedianGraph, type WallSummary, type WallSummaryRow } from "./matrix-median";
 import {
   cellText,
+  firstStop,
   headerWeeks,
   moveFocus,
   SKELETON_CELLS,
@@ -15,6 +16,7 @@ import {
   type WallPosition,
   type WallScale,
   type WallStep,
+  type WallStops,
   wallSizes,
 } from "./matrix-wall-layout";
 import { CHART_FONT, colour } from "./palette";
@@ -38,7 +40,15 @@ export type WallRow = {
   values: readonly number[];
   /** The values are on their way: a Skjelett bar stands in the row. */
   loading?: boolean;
+  /** The row is the one the page asks to act on (the Varselbånd's game, Story 7.11): tinted
+   * `restordre-fill` with `ink` text and an `ink` link. */
+  tint?: boolean;
+  /** A link at the row's right end («Melding», Story 7.11): its last grid cell. */
+  link?: WallLink;
 };
+
+/** A row's link: where it goes, its printed text and its accessible name. */
+export type WallLink = { href: string; text: string; name: string };
 
 export type WallGroup = { key: string; title: string; rows: readonly WallRow[] };
 
@@ -85,6 +95,9 @@ export type MatrixWallProps = {
   onActivate?: (id: string) => void;
   /** Puts focus on the `position` cell once its game's cells are drawn (back from Spillinnsikt). */
   autoFocus?: boolean;
+  /** Follows a row's link (a plain click or Enter), e.g. through the router; else the browser
+   * loads it. */
+  onFollow?: (href: string) => void;
 };
 
 const PAPER = colour("paper");
@@ -116,6 +129,7 @@ export function MatrixWall({
   summary,
   onActivate,
   autoFocus = false,
+  onFollow,
 }: MatrixWallProps) {
   const id = useId();
   const region = useRef<HTMLDivElement>(null);
@@ -152,18 +166,28 @@ export function MatrixWall({
         )
       : undefined,
     spans: summaryRows.map((row) => row.label),
+    links: rows.flatMap((row) => (row.link ? [row.link.text] : [])),
   });
   // The graph stands over the Uke header; the header sticks once the graph has scrolled away.
   const graph = graphHeight(summary, fontSize);
   const top = graph + size.headerHeight;
-  const reachable = rows.map((row) => ({ id: row.id, cells: row.values.length }));
-  const first = reachable.find((row) => row.cells > 0);
+  const reachable: WallStops[] = rows.map((row) => ({
+    id: row.id,
+    cells: row.values.length,
+    link: row.link !== undefined,
+  }));
+  const first = reachable.find((row) => row.cells > 0 || row.link);
   // The cell in the Tab order: the one last focused while its game still has it, else the first.
   const target: WallPosition | null = (() => {
-    const row = active ? reachable.find((r) => r.id === active.id && r.cells > 0) : undefined;
-    if (row && active) return { id: row.id, week: Math.min(active.week, row.cells) };
-    return first ? { id: first.id, week: 1 } : null;
+    const row = active ? reachable.find((r) => r.id === active.id && (r.cells > 0 || r.link)) : undefined;
+    if (row && active) {
+      if ((active.link && row.link) || row.cells === 0) return { id: row.id, week: active.week, link: true };
+      return { id: row.id, week: Math.min(active.week, row.cells) };
+    }
+    return first ? firstStop(first) : null;
   })();
+  const linkOf = (id: string) => rows.find((row) => row.id === id)?.link;
+  const follow = (href: string) => (onFollow ? onFollow(href) : window.location.assign(href));
 
   // The region's scroll moves the game column and the Uke header with it, and the clip paths
   // keep the cells out from under them: CSS `sticky` cannot act inside an SVG (README.md).
@@ -182,17 +206,22 @@ export function MatrixWall({
   useLayoutEffect(stick);
 
   const cellElement = (at: WallPosition | null) =>
-    at ? svg.current?.querySelector<SVGGElement>(`[data-row="${CSS.escape(at.id)}"] [data-week="${at.week}"]`) : null;
+    at
+      ? svg.current?.querySelector<SVGElement>(
+          `[data-row="${CSS.escape(at.id)}"] ${at.link ? "[data-link]" : `[data-week="${at.week}"]`}`,
+        )
+      : null;
 
   /** Scroll the region so the cell is clear of the sticky game column and Uke header. */
-  const reveal = (element: SVGGElement, at: WallPosition) => {
+  const reveal = (element: SVGElement, at: WallPosition) => {
     const box = region.current;
     const row = element.closest<SVGGElement>("[data-row]");
     if (!box || !row) return;
-    const x = size.labelWidth + (at.week - 1) * size.cellWidth;
+    const x = at.link ? size.width - size.linkWidth : size.labelWidth + (at.week - 1) * size.cellWidth;
+    const w = at.link ? size.linkWidth : size.cellWidth;
     const y = Number(row.dataset.y);
     if (x < box.scrollLeft + size.labelWidth) box.scrollLeft = x - size.labelWidth;
-    else if (x + size.cellWidth > box.scrollLeft + box.clientWidth) box.scrollLeft = x + size.cellWidth - box.clientWidth;
+    else if (x + w > box.scrollLeft + box.clientWidth) box.scrollLeft = x + w - box.clientWidth;
     if (y < Math.max(graph, box.scrollTop) + size.headerHeight) box.scrollTop = y - size.headerHeight;
     else if (y + size.rowHeight > box.scrollTop + box.clientHeight) box.scrollTop = y + size.rowHeight - box.clientHeight;
   };
@@ -218,10 +247,18 @@ export function MatrixWall({
 
   const onKeyDown = (event: KeyboardEvent<SVGSVGElement>) => {
     if (!target || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-    if (event.key === "Enter" && onActivate) {
-      event.preventDefault();
-      onActivate(target.id);
-      return;
+    if (event.key === "Enter") {
+      const link = target.link ? linkOf(target.id) : undefined;
+      if (link) {
+        event.preventDefault();
+        follow(link.href);
+        return;
+      }
+      if (onActivate) {
+        event.preventDefault();
+        onActivate(target.id);
+        return;
+      }
     }
     const next = moveFocus(reachable, target, event.key);
     if (!next) return;
@@ -276,7 +313,7 @@ export function MatrixWall({
           role="grid"
           aria-labelledby={titleId}
           aria-rowcount={1 + groups.length + rows.length + summaryRows.length}
-          aria-colcount={1 + size.columns}
+          aria-colcount={1 + size.columns + (rows.some((row) => row.link) ? 1 : 0)}
           width={size.width}
           height={height}
           viewBox={`0 0 ${size.width} ${height}`}
@@ -288,9 +325,15 @@ export function MatrixWall({
           onFocus={(event) => {
             focused.current = true;
             setHasFocus(true);
-            const week = (event.target as Element).getAttribute("data-week");
-            const row = (event.target as Element).closest("[data-row]")?.getAttribute("data-row");
-            if (week && row && (row !== target?.id || Number(week) !== target?.week)) {
+            const element = event.target as Element;
+            const row = element.closest("[data-row]")?.getAttribute("data-row");
+            if (!row) return;
+            if (element.hasAttribute("data-link")) {
+              if (row !== target?.id || !target.link) setActive({ id: row, week: target?.week ?? 1, link: true });
+              return;
+            }
+            const week = element.getAttribute("data-week");
+            if (week && (row !== target?.id || Number(week) !== target?.week || target.link)) {
               setActive({ id: row, week: Number(week) });
             }
           }}
@@ -393,6 +436,8 @@ export function MatrixWall({
                   stuckX={stuckX}
                   textY={textY}
                   onActivate={onActivate}
+                  onFollow={follow}
+                  linkIndex={2 + size.columns}
                 />
               ))}
             </g>
@@ -442,6 +487,8 @@ function Row({
   stuckX,
   textY,
   onActivate,
+  onFollow,
+  linkIndex,
 }: {
   row: WallRow;
   y: number;
@@ -457,22 +504,29 @@ function Row({
   stuckX: { transform: string };
   textY: (top: number, h: number) => number;
   onActivate?: (id: string) => void;
+  onFollow: (href: string) => void;
+  linkIndex: number;
 }) {
   const h = size.rowHeight;
   const cellsEnd = size.labelWidth + row.values.length * size.cellWidth;
+  const ground = row.tint ? colour("restordre-fill") : PAPER;
+  const onLink = target?.id === row.id && target.link === true;
+  const link = row.link;
+  const linkX = size.width - size.linkWidth;
   return (
     <g
       role="row"
       aria-rowindex={rowIndex}
       data-row={row.id}
       data-y={y}
+      data-tint={row.tint ? "" : undefined}
       onClick={onActivate ? () => onActivate(row.id) : undefined}
       className={onActivate ? "cursor-pointer" : undefined}
     >
       <g clipPath={`url(#${clipLabels})`}>
         <g style={stuckX}>
           <g role="rowheader" aria-label={row.rowName} aria-colindex={1}>
-            <rect x={0} y={y} width={size.labelWidth} height={h} fill={PAPER} />
+            <rect x={0} y={y} width={size.labelWidth} height={h} fill={ground} />
             <text x={1} y={textY(y, h)} fill={INK}>
               {row.label}
             </text>
@@ -485,6 +539,10 @@ function Row({
         </g>
       </g>
       <g clipPath={`url(#${clipCells})`}>
+        {row.tint ? (
+          // The tint runs the row's length behind the cells, which keep their own fills.
+          <rect x={size.labelWidth} y={y} width={size.width - size.labelWidth} height={h} fill={ground} aria-hidden="true" />
+        ) : null}
         {row.loading ? (
           <rect
             x={size.labelWidth}
@@ -502,7 +560,7 @@ function Row({
           const x = size.labelWidth + i * size.cellWidth;
           const formatted = format(value);
           const shown = cellText(value, formatted, size.cellWidth, size.cellFont);
-          const isTarget = target?.id === row.id && target.week === week;
+          const isTarget = target?.id === row.id && target.week === week && !target.link;
           return (
             <g
               key={week}
@@ -549,6 +607,43 @@ function Row({
           >
             {size.shortDetail ? (row.shortDetail ?? row.detail) : row.detail}
           </text>
+        ) : null}
+        {link ? (
+          <g role="gridcell" aria-colindex={linkIndex}>
+            <a
+              href={link.href}
+              aria-label={link.name}
+              tabIndex={onLink ? 0 : -1}
+              data-link=""
+              className="outline-none"
+              onClick={(event) => {
+                // The row's own click opens Spillinnsikt; the link goes elsewhere.
+                event.stopPropagation();
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                onFollow(link.href);
+              }}
+            >
+              {/* The column's whole cell is the link's target. */}
+              <rect x={linkX} y={y} width={size.linkWidth} height={h} fill={ground} />
+              <text
+                x={size.linkRight}
+                y={textY(y, h)}
+                textAnchor="end"
+                fontWeight={600}
+                fill={row.tint ? INK : colour("lager")}
+                textDecoration="underline"
+              >
+                {link.text}
+              </text>
+              {onLink && showRing ? (
+                <g aria-hidden="true" data-focus-ring="">
+                  <rect x={linkX + 1} y={y + 1} width={size.linkWidth - 2} height={h - 2} fill="none" stroke={INK} strokeWidth={2} />
+                  <rect x={linkX + 2.5} y={y + 2.5} width={size.linkWidth - 5} height={h - 5} fill="none" stroke={PAPER} strokeWidth={1} />
+                </g>
+              ) : null}
+            </a>
+          </g>
         ) : null}
       </g>
     </g>

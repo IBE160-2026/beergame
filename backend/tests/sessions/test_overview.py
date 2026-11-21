@@ -52,6 +52,7 @@ async def test_before_the_start_date_the_overview_lists_the_allocation_without_n
     assert response.status_code == 200
     body = response.json()
     assert body["before_start"] is True
+    assert body["alert"] is None
     # The page reads again when the Start date passes (AD-8).
     assert body["start_at"] is not None
     assert body["next_change_at"] == body["start_at"]
@@ -101,6 +102,8 @@ async def test_staff_see_whom_a_running_game_waits_for_and_test_games_stay_out(k
     # The rail (Story 7.6): the AI players counted from the Seats, no cost while none finished.
     assert body["ai"] == {"seats": 2, "games": 1}
     assert body["cost"] is None
+    # Nothing waits: no Varselbånd (Story 7.11).
+    assert body["alert"] is None
     assert [stage["stage"] for stage in body["funnel"]] == [
         "registered",
         "class_game",
@@ -129,6 +132,15 @@ async def test_staff_see_whom_a_running_game_waits_for_and_test_games_stay_out(k
     [wait] = item["waiting_for"]
     assert (wait["role"], wait["name"]) == (role_of[other], holders[role_of[other]])
     assert wait["since"] == item["wait_started_at"]
+    # The Varselbånd names the game and the Student, chosen by the api (Story 7.11, AD-10).
+    assert body["alert"] == {
+        "game_id": game_id,
+        "game_number": item["game_number"],
+        "role": role_of[other],
+        "name": holders[role_of[other]],
+        "user_id": str(other),
+        "since": wait["since"],
+    }
     # A Lecturer's test Game of the same session is in no list and no count (AD-13).
     await commands.create("lecturer_test", GameSettings(), class_session_id=uuid.UUID(session_id))
     again = (await overview(LECTURER, session_id)).json()
@@ -140,6 +152,7 @@ async def test_staff_see_whom_a_running_game_waits_for_and_test_games_stay_out(k
     assistant = await overview(ASSISTANT, session_id)
     assert assistant.status_code == 200
     assert assistant.json()["items"] == again["items"]
+    assert assistant.json()["alert"] == again["alert"] == body["alert"]
 
 
 async def test_a_finished_game_fills_the_cost_block_and_the_trakt_with_a_new_etag(klass):

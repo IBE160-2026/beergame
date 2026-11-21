@@ -70,6 +70,7 @@ export function OverviewWall({
   now,
   heldAt = null,
   returnTo = null,
+  alertId = null,
 }: {
   sessionId: string;
   groups: readonly OverviewGroup[];
@@ -78,6 +79,8 @@ export function OverviewWall({
   heldAt?: number | null;
   /** Back from Spillinnsikt: the game that gets focus, in the view it was opened from. */
   returnTo?: ReturnTo | null;
+  /** The Varselbånd's game, tinted in the wall and the table (Story 7.11). */
+  alertId?: string | null;
 }) {
   const ids = useId();
   const box = useRef<HTMLDivElement>(null);
@@ -133,6 +136,8 @@ export function OverviewWall({
   const footer = shownAggregates ? tableFooter(shownAggregates, shownAggregates.role) : undefined;
   const table = nb.wall.table;
   const median = nb.wall.median;
+  // Every row's «Melding» and the band's tint (Story 7.11, UX-DR41).
+  const actions = { sessionId, alertId };
   return (
     <div ref={box} className="mt-8 min-w-0 text-caption" data-overview-wall="">
       <WallFilters filter={filter} counts={statusCounts(all)} onChange={setFilter} />
@@ -180,7 +185,7 @@ export function OverviewWall({
           <MatrixWall
             width={size.width}
             fontSize={size.fontSize}
-            groups={wallGroups(shown, weeks, role, now, cells)}
+            groups={wallGroups(shown, weeks, role, now, cells, actions)}
             copy={copy}
             format={format}
             scale={scaleOf(cells)}
@@ -188,14 +193,15 @@ export function OverviewWall({
             position={position}
             onPosition={setPosition}
             onActivate={open}
+            onFollow={(href) => router.push(href)}
             autoFocus={autoFocus}
           />
         </div>
       ) : (
         <MatrixTable
-          rows={tableRows(shown, weeks, role, now, cells)}
+          rows={tableRows(shown, weeks, role, now, cells, actions)}
           columns={TABLE_COLUMNS}
-          copy={{ region: copy.region, caption: copy.title, gameHeader: copy.gameHeader, week: nb.terms.week }}
+          copy={{ region: copy.region, caption: copy.title, gameHeader: copy.gameHeader, week: nb.terms.week, link: table.link }}
           format={format}
           gameFirst="ascending"
           sort={sort}

@@ -30,6 +30,7 @@ from app.modules.sessions.schemas import (
     InsightSeatOut,
     InsightWeekOut,
     OverviewAiOut,
+    OverviewAlertOut,
     OverviewCountsOut,
     OverviewGameOut,
     OverviewSeatOut,
@@ -112,9 +113,41 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
         cost=None if before_start else _cost_out(finished, parts),
         funnel=[FunnelStageOut(stage="registered", count=trakt.registered)]
         + [FunnelStageOut(stage=step.value, count=count) for step, count in trakt.steps],
+        alert=None if before_start else _alert(games, names),
         class_id=found.id,
         class_name=found.name,
         session_number=number,
+    )
+
+
+def _alert(games: list[ClassGameSummary], names: dict[uuid.UUID, str]) -> OverviewAlertOut | None:
+    """The Varselbånd's game (Story 7.11, FR-39, AD-10): of the waiting Class games with a
+    waited-for Seat, the one whose wait started first (its `wait_started_at`, else its earliest
+    Seat), then the lowest game number; within it the Seat waited for longest, then in chain order.
+    The web app never picks it. Epic 8 (Story 8.3) replaces this rule with the earliest
+    `takeover_due_at`. `names` holds the Students still in the Class: anyone else is named by
+    Role, with no `user_id` to write to."""
+    waiting = [g for g in games if g.status is GameStatus.WAITING and g.waiting_for]
+    if not waiting:
+        return None
+
+    def started(game: ClassGameSummary):
+        return game.wait_started_at or min(wait.since for wait in game.waiting_for)
+
+    game = min(
+        waiting,
+        key=lambda g: (started(g), g.game_number is None, g.game_number or 0, str(g.game_id)),
+    )
+    # `min` keeps the first of equal keys: `waiting_for` is in chain order.
+    wait = min(game.waiting_for, key=lambda w: w.since)
+    name = names.get(wait.user_id) if wait.user_id else None
+    return OverviewAlertOut(
+        game_id=game.game_id,
+        game_number=game.game_number,
+        role=Role(wait.role),
+        name=name,
+        user_id=wait.user_id if name is not None else None,
+        since=wait.since,
     )
 
 
