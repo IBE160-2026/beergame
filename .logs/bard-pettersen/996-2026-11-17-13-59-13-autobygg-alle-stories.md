@@ -2629,3 +2629,24 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter i to runder. Den bl
 
 ### Åpne punkter
 - Issue #169: beslutninger, og at 48 timer regnes fra spillets slutt (en tilbakeholdt Debrief kan falle tilbake med én gang).
+
+## Story 8.3: Se på Oversikt hvilket klassespill som er nærmest overtakelse (spor 1)
+
+### Oppgave
+Bygge Story 8.3 på `epic-8` i spor 1. Første story etter at `main` (avslutningen av Epic 7) ble merget inn i `epic-8`.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Neste byggeagent (8.4) startet med en gang; den visuelle kontrollen venter til den forrige kontrollens stack er ledig.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-3-see-on-the-oversikt-which-class-game-is-closest-to-takeover.md`.
+- Commit: 007e8e9. Ingen migrasjon.
+- Varselbåndet viser spillet med tidligste frist for overtakelse og teller ned («KI overtar om 1 t.», «KI overtar nå.»). Seter med KI-spiller får merke i tekst på Oversikt og i Spillinnsikt.
+- Tester: backend 2916, Vitest 842, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 138 av 139 (`homes` ved 320 px feilet én gang og passerte ved ny kjøring). Rettet et regex med hardt mellomrom som merge med `main` hadde ødelagt.
+- Gjennomgang: 25 funn, ingen høye eller middels, 3 lave rettet.
+- Byggeagenten endret ved en feil linjeslutt i 15 skjermbilder fra 8.2 og satte dem tilbake til innholdet i HEAD; git ser dem som uendret.
+- Visuell kontroll (Sonnet, bare rapport, eget worktree): 15 skjermbilder i `screenshots/8.3/`, ingen klare feil. «Pause spillet» og «Sett inn KI-spiller» i båndet kommer med 8.5 og 8.6. Fargen på raden i spillista går 8 px forbi venstre marg; tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #170: beslutninger (regel for båndet, merker for KI-spillere, ingen migrasjon).
