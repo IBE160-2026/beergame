@@ -19,14 +19,16 @@ async function untilLive(page: Page) {
 
 /** Each Student's play screen at Uke `week`, live, timing Uke `week + 1`. */
 async function openAll(students: LiveStudent[], gameId: string, week: number): Promise<Page[]> {
-  const pages = await Promise.all(students.map((student) => student.context.newPage()));
-  for (const page of pages) {
-    await instrument(page, week + 1);
-    await page.goto(`/spill/${gameId}`);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.week(week));
-    await untilLive(page);
-  }
-  return pages;
+  return Promise.all(
+    students.map(async (student) => {
+      const page = await student.context.newPage();
+      await instrument(page, week + 1);
+      await page.goto(`/spill/${gameId}`);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.week(week));
+      await untilLive(page);
+      return page;
+    }),
+  );
 }
 
 /** The last Student confirms `value` on the page; returns the press time. */

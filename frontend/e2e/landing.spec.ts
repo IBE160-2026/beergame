@@ -1,16 +1,14 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { DEMO_USERS, loginByApi, untilFontsLoaded } from "./support/auth";
+import { axe } from "./support/axe";
 import { alignment, labelProblems, textReadable } from "./support/graph";
 
 /** The Landing and «Be om lærertilgang» (Story 3.13, UX-DR61, UX-DR70, UX-DR75, NFR-6), on the
  * local stack. Each submitting test uses its own fresh address and dismisses its request again. */
 const landing = nb.landing;
 const form = nb.accessRequest;
-const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
-
 /** Widths from the story. 400 % zoom on a 1280 × 1024 screen is a 320 × 256 CSS-pixel viewport. */
 const VIEWPORTS = [
   { name: "320 px", width: 320, height: 640, phone: true },
@@ -20,7 +18,7 @@ const VIEWPORTS = [
 ];
 
 async function expectAccessible(page: Page) {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
+  const results = await axe(page);
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
   const scrolls = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,

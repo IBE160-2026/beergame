@@ -3,7 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { nb } from "../src/copy/nb";
 import week14 from "../src/modules/games/fixtures/play-week-14.json";
 import { DEMO_PASSWORD, DEMO_USERS, untilHydrated } from "./support/auth";
-import { expectAccessible } from "./support/classes";
+import { expectAccessible, expectReflow } from "./support/classes";
 import {
   confirmButton as button,
   confirmedWeek11,
@@ -49,7 +49,7 @@ for (const width of [320, 360, 1440]) {
       await expect(page.locator("[data-connection-notice]")).toContainText(nb.system.offline);
       await expect(status(page)).toHaveText(order.offline("24"));
       await expect(field(page)).toHaveValue("24");
-      await expectAccessible(page, phone);
+      await expectReflow(page, phone);
       // Back: still not sent, the normal button, nothing sent on its own.
       await context.setOffline(false);
       await expect(status(page)).toHaveText(order.reconnected);
@@ -67,6 +67,8 @@ for (const width of [320, 360, 1440]) {
       await expect(field(page)).toHaveValue("24");
       await expect(field(page)).not.toHaveAttribute("readonly");
       await expect(status(page)).toHaveText("");
+      // The one axe check per width, on Submit failed (the alert and «Prøv igjen»); the offline
+      // Tilkoblingslinje has its own in `system-states.spec.ts`.
       await expectAccessible(page, phone);
       const targets = await page.locator("[data-order-field] button:not([data-all-rows-link])").evaluateAll((els) =>
         els.map((el) => Math.min(el.getBoundingClientRect().width, el.getBoundingClientRect().height)),
@@ -84,7 +86,7 @@ for (const width of [320, 360, 1440]) {
       await expect(button(page)).toBeFocused();
       await expect(button(page)).toHaveAttribute("aria-busy", "true");
       await expect(failure(page)).toHaveText("");
-      await expectAccessible(page, phone);
+      await expectReflow(page, phone);
       stub.envelope = confirmedWeek11;
       release();
       await expect(page.getByText(order.sent("24"))).toBeFocused();

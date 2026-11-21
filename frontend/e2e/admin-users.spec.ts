@@ -1,15 +1,14 @@
-import AxeBuilder from "@axe-core/playwright";
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { DEMO_USERS, demoContext, latestMail, loginByApi, nextMail } from "./support/auth";
+import { axe } from "./support/axe";
 
 /** The User list and the role buttons on «Brukere og roller» (Story 3.9, FR-2, FR-3, UX-DR57,
  * UX-DR75, NFR-6), on the local stack with the mail worker. Each test that changes a role makes
  * its own fresh account from an Invitation; demo Users are never changed (their refusals are
  * answered by the test, not the api). */
 const list = nb.admin.users.list;
-const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const CSRF = { "X-Requested-With": "olspillet" };
 
 type Viewport = { name: string; width: number; height: number; phone: boolean; text200?: boolean };
@@ -21,7 +20,7 @@ const VIEWPORTS: Viewport[] = [
 ];
 
 async function expectAccessible(page: Page, phone: boolean) {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
+  const results = await axe(page);
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
   const scrolls = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(scrolls).toBe(false);

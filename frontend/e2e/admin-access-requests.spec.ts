@@ -1,8 +1,8 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { loginByApi } from "./support/auth";
+import { axe } from "./support/axe";
 
 /** The open requests for lecturer access on «Brukere og roller» (Story 3.13, FR-1, FR-3), on the
  * local stack. Each test files its own request with a fresh name and address and answers it, so
@@ -10,8 +10,6 @@ import { loginByApi } from "./support/auth";
 const requests = nb.admin.users.requests;
 const invite = nb.admin.users.invite;
 const audit = nb.admin.audit;
-const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
-
 async function fileRequest(page: Page, tag: string) {
   const stamp = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
   const body = { name: `Lærer ${tag} ${stamp}`, email: `foresporsel-${tag}-${stamp}@example.com`, institution: "USN" };
@@ -39,7 +37,7 @@ for (const vp of [
     const row = rowOf(page, filed.name);
     await expect(row).toContainText(filed.email);
     await expect(row).toContainText("USN");
-    const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
+    const results = await axe(page);
     expect(results.violations.map((v) => v.id)).toEqual([]);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth),

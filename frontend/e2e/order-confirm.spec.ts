@@ -4,7 +4,7 @@ import { nb } from "../src/copy/nb";
 import week11 from "../src/modules/games/fixtures/play-week-11.json";
 import week14 from "../src/modules/games/fixtures/play-week-14.json";
 import { DEMO_PASSWORD, DEMO_USERS, loginAs, untilHydrated } from "./support/auth";
-import { expectAccessible } from "./support/classes";
+import { expectAccessible, expectReflow } from "./support/classes";
 import { confirmButton as confirm, drafts, GAME_ID, openPlay, orderField as field, refetchPlay as refetch } from "./support/play";
 
 /** Confirming the Order and keeping what was typed (Story 6.12, FR-24, FR-73, NFR-6, AD-10,
@@ -46,7 +46,7 @@ for (const width of [320, 360, 1440]) {
         els.map((el) => Math.min(el.getBoundingClientRect().width, el.getBoundingClientRect().height)),
       );
       for (const size of targets) expect(size).toBeGreaterThanOrEqual(44);
-      await expectAccessible(page, phone);
+      await expectReflow(page, phone);
       release();
       // Confirmed: the message has focus; the Order stays in the table and the Kjedebånd.
       const sent = page.getByText(order.sent("24"));
@@ -60,6 +60,8 @@ for (const width of [320, 360, 1440]) {
       await expect(page.locator("[data-join-line]")).toHaveCount(1);
       await expect(page.locator('svg[data-chart="band"] text[data-label="supplyLine"]')).toHaveText("På vei 16 + 24");
       await expect(typedBox(page)).toHaveCount(1);
+      // The one axe check per width: the confirmed message with the Order's preview (join line,
+      // typed box), the markup the sending and typed states draw too.
       await expectAccessible(page, phone);
       expect(await drafts(page)).toEqual([]);
     });
@@ -74,7 +76,7 @@ for (const width of [320, 360, 1440]) {
       await expect(field(page)).toHaveValue("24");
       await expect(confirm(page)).toHaveText(order.confirmOn("24"));
       await expect(typedBox(page)).toHaveCount(1);
-      await expectAccessible(page, width < 1024);
+      await expectReflow(page, width < 1024);
       expect(stub.posts).toEqual([]);
     });
   });

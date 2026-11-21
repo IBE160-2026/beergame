@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
@@ -12,6 +11,7 @@ import {
   untilFontsLoaded,
   untilHydrated,
 } from "./support/auth";
+import { axe } from "./support/axe";
 
 /** Deactivating and reactivating a User, and the Invitation list with its resend, on «Brukere og
  * roller» (Story 3.10, FR-1, FR-3, UX-DR57, UX-DR61, NFR-6), on the local stack with the mail
@@ -19,7 +19,6 @@ import {
  * are never deactivated. */
 const list = nb.admin.users.list;
 const invitations = nb.admin.users.invitations;
-const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const CSRF = { "X-Requested-With": "olspillet" };
 const PASSWORD = "et-godt-passord";
 
@@ -31,7 +30,7 @@ const VIEWPORTS = [
 async function expectAccessible(page: Page, phone: boolean) {
   // The reflow and tap-target checks below measure the layout: measure it in the product's font.
   await untilFontsLoaded(page);
-  const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
+  const results = await axe(page);
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
   const scrolls = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(scrolls).toBe(false);

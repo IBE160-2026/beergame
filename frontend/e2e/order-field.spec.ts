@@ -3,7 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { nb } from "../src/copy/nb";
 import week11 from "../src/modules/games/fixtures/play-week-11.json";
 import { loginByApi } from "./support/auth";
-import { expectAccessible } from "./support/classes";
+import { expectAccessible, expectReflow } from "./support/classes";
 
 /** Typing an Order and seeing where it lands (Story 6.11, FR-24, FR-73, NFR-6, AD-10, UX-DR14,
  * UX-DR17, UX-DR20, UX-DR78). As in `guided-week.spec.ts`, the game and its envelope are stand-ins
@@ -66,7 +66,7 @@ for (const width of [320, 360, 1440]) {
       await expect(page.getByText(order.last("8"))).toBeVisible();
       await expect(confirm(page)).toHaveText(order.confirm);
       await expect(confirm(page)).toHaveAttribute("aria-disabled", "true");
-      await expectAccessible(page, phone);
+      await expectReflow(page, phone);
       if (phone) {
         // Field and button fill the width at their token heights.
         const sizes = await page.evaluate(() => {
@@ -94,13 +94,13 @@ for (const width of [320, 360, 1440]) {
       await expect(confirm(page)).not.toHaveAttribute("aria-disabled", "true");
       await expect(page.getByText(order.arrives(15))).toBeVisible();
       await expect(page.locator("[data-join-line] line")).toHaveCount(1);
-      await expectAccessible(page, phone);
+      await expectReflow(page, phone);
       // Invalid.
       await input.fill("2,5");
       await expect(input).toHaveAttribute("aria-invalid", "true");
       await expect(page.getByText(order.invalid("999"))).toBeVisible();
       await expect(confirm(page)).toHaveAttribute("aria-disabled", "true");
-      await expectAccessible(page, phone);
+      await expectReflow(page, phone);
       // Out of range.
       await input.fill("1000");
       await expect(page.getByText(order.tooLarge("1 000", "999"))).toBeVisible();
@@ -108,6 +108,8 @@ for (const width of [320, 360, 1440]) {
       const border = await page.locator("[data-order-box]").evaluate((el) => [getComputedStyle(el).borderTopColor, getComputedStyle(el).borderTopWidth]);
       // `restordre`, 1.4 px (drawn as whole device pixels by the browser).
       expect(border[0]).toBe("rgb(181, 66, 58)");
+      // The one axe check per width, in the error state (alert, aria-invalid, its description); the
+      // typed preview's markup has its own at each width in `order-confirm.spec.ts`.
       await expectAccessible(page, phone);
       expect(posts).toEqual([]);
     });

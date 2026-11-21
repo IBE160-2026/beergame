@@ -1,14 +1,13 @@
-import AxeBuilder from "@axe-core/playwright";
 import { type APIRequestContext, type Browser, expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { answerTo, demoContext, latestMail, nextMail } from "./support/auth";
+import { axe } from "./support/axe";
 
 /** «Du er invitert» (Story 3.8, FR-1, FR-4, UX-DR61, UX-DR75, NFR-6), on the local stack with the
  * mail worker. Each test invites its own fresh address, so runs never meet and no demo User
  * changes. */
 const copy = nb.auth.invitation;
-const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const CSRF = { "X-Requested-With": "olspillet" };
 const PASSWORD = "mitt-nye-passord";
 
@@ -19,7 +18,7 @@ const VIEWPORTS = [
 ];
 
 async function expectAccessible(page: Page, phone: boolean) {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
+  const results = await axe(page);
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
   const scrolls = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(scrolls).toBe(false);

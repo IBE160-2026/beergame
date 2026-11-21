@@ -1,12 +1,11 @@
-import AxeBuilder from "@axe-core/playwright";
 import { test as base, type Browser, type BrowserContext, expect, type Page } from "@playwright/test";
 
 import { demoSession, latestMail, nextMail, untilFontsLoaded } from "./auth";
+import { axe } from "./axe";
 
 /** Shared by the Class specs (Stories 4.1, 4.2): the viewports of NFR-6, the axe and layout
  * check, and a fresh Lecturer made from an Invitation, so the demo Lecturer's Classes stay as the
  * seed left them. */
-const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const CSRF = { "X-Requested-With": "olspillet" };
 
 export type Viewport = { name: string; width: number; height: number; phone: boolean; text200?: boolean };
@@ -20,8 +19,15 @@ export const VIEWPORTS: Viewport[] = [
 export async function expectAccessible(page: Page, phone: boolean) {
   // The reflow and tap-target checks below measure the layout: measure it in the product's font.
   await untilFontsLoaded(page);
-  const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
+  const results = await axe(page);
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+  await expectReflow(page, phone);
+}
+
+/** The layout half of `expectAccessible`: no page scroll, and on phone every control of `main` a
+ * 44 px tap target. For the further states of a screen whose one axe check is made in another. */
+export async function expectReflow(page: Page, phone: boolean) {
+  await untilFontsLoaded(page);
   const scrolls = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(scrolls).toBe(false);
   if (!phone) return;

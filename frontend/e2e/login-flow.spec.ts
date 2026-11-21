@@ -1,11 +1,10 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { answerTo, DEMO_PASSWORD, DEMO_USERS, type DemoRole, loginByApi, untilHydrated } from "./support/auth";
+import { axe } from "./support/axe";
 
 const copy = nb.auth.login;
-const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const COOKIE = "olspillet_session";
 
 const VIEWPORTS: { name: string; width: number; height: number; role: DemoRole }[] = [
@@ -15,7 +14,7 @@ const VIEWPORTS: { name: string; width: number; height: number; role: DemoRole }
 ];
 
 async function expectAccessible(page: Page) {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
+  const results = await axe(page);
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual(
     [],
   );
