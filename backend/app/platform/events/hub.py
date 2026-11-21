@@ -67,6 +67,25 @@ def _dsn() -> str:
     return url.render_as_string(hide_password=False)
 
 
+QUEUE_MAX = 1000
+"""Events a subscriber may fall behind by. A stream that falls further behind (a stalled tab, a
+half-open connection) is ended instead, so its queue cannot grow with every event of the
+process; the browser reconnects and reads its pages again on `ready`."""
+CONNECT_TIMEOUT_S = 10
+"""How long the LISTEN connection may take to connect, so a database that does not answer fails
+the stream's start instead of leaving it hanging without `ready`."""
+
+
+def _end(queue: asyncio.Queue[Event | None]) -> None:
+    """Hand `queue` the end, dropping what it still holds if it is full."""
+    try:
+        queue.put_nowait(ENDED)
+    except asyncio.QueueFull:
+        while not queue.empty():
+            queue.get_nowait()
+        queue.put_nowait(ENDED)
+
+
 class Hub:
     """Fans the events of one LISTEN connection out to its subscribers."""
 
@@ -80,7 +99,7 @@ class Hub:
     async def subscribe(self) -> AsyncIterator[asyncio.Queue[Event | None]]:
         """A queue of every event from now on, until the block ends. Returns once the LISTEN
         runs, so nothing committed after this is missed; raises if it cannot be started."""
-        queue: asyncio.Queue[Event | None] = asyncio.Queue()
+        queue: asyncio.Queue[Event | None] = asyncio.Queue(QUEUE_MAX)
         self._queues.add(queue)
         try:
             await self._start()
@@ -107,7 +126,7 @@ class Hub:
             # TCP keepalives: a connection lost without a reset (a network drop, a failover) fails
             # within about two minutes instead of waiting silently for notifications.
             async with await psycopg.AsyncConnection.connect(
-                self._dsn(), autocommit=True, **KEEPALIVES
+                self._dsn(), autocommit=True, connect_timeout=CONNECT_TIMEOUT_S, **KEEPALIVES
             ) as conn:
                 await conn.execute(f"LISTEN {CHANNEL}")
                 ready.set()
@@ -117,7 +136,12 @@ class Hub:
                         log.warning("event_payload_refused", error_code="bad_event_payload")
                         continue
                     for queue in list(self._queues):
-                        queue.put_nowait(event)
+                        try:
+                            queue.put_nowait(event)
+                        except asyncio.QueueFull:
+                            # Too far behind: the stream ends and the browser reconnects.
+                            self._queues.discard(queue)
+                            _end(queue)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -129,7 +153,7 @@ class Hub:
 
     def _end_all(self) -> None:
         for queue in list(self._queues):
-            queue.put_nowait(ENDED)
+            _end(queue)
 
     async def close(self) -> None:
         """Stop listening (app shutdown); every subscriber is ended."""

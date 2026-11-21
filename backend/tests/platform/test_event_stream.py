@@ -254,6 +254,27 @@ async def test_the_hub_hands_committed_events_to_every_subscriber(test_database)
         await hub.close()
 
 
+async def test_a_subscriber_too_far_behind_is_ended_and_the_others_go_on(
+    test_database, monkeypatch
+):
+    """Follow-up review of Story 6.4: a stalled stream's queue never grows past `QUEUE_MAX`."""
+    from app.platform.events import hub as hub_module
+
+    monkeypatch.setattr(hub_module, "QUEUE_MAX", 2)
+    hub = Hub()
+    try:
+        async with hub.subscribe() as slow:
+            async with hub.subscribe() as quick:
+                for version in range(3):
+                    async with get_sessionmaker().begin() as s:
+                        await platform_events.emit(s, "game", "g1", version)
+                    assert (await asyncio.wait_for(quick.get(), 2)).version == version
+                assert slow.get_nowait() is ENDED  # what it held is dropped for the end
+                assert slow.empty()
+    finally:
+        await hub.close()
+
+
 async def test_the_hub_refuses_to_start_without_a_database(unreachable_database):
     hub = Hub(lambda: unreachable_database.replace("+psycopg", ""))
     with pytest.raises(ConnectionError):
