@@ -30,7 +30,7 @@
       8
     ],
     "neighbour_numbers": [],
-    "schema_version": 3,
+    "schema_version": 4,
     "week": 11,
     "incoming_order": 10,
     "incoming_delivery": 4,
@@ -71,6 +71,8 @@
     ],
     "week_cost": "20.00",
     "total_cost": "82.00",
+    "total_holding_cost": "40.00",
+    "total_backorder_cost": "42.00",
     "history": [
       {
         "week": 1,
@@ -85,6 +87,9 @@
         "cost": "6.00",
         "holding_cost": "6.00",
         "backorder_cost": "0.00",
+        "total_cost": "6.00",
+        "total_holding_cost": "6.00",
+        "total_backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -100,6 +105,9 @@
         "cost": "6.00",
         "holding_cost": "6.00",
         "backorder_cost": "0.00",
+        "total_cost": "12.00",
+        "total_holding_cost": "12.00",
+        "total_backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -115,6 +123,9 @@
         "cost": "6.00",
         "holding_cost": "6.00",
         "backorder_cost": "0.00",
+        "total_cost": "18.00",
+        "total_holding_cost": "18.00",
+        "total_backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -130,6 +141,9 @@
         "cost": "6.00",
         "holding_cost": "6.00",
         "backorder_cost": "0.00",
+        "total_cost": "24.00",
+        "total_holding_cost": "24.00",
+        "total_backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -145,6 +159,9 @@
         "cost": "6.00",
         "holding_cost": "6.00",
         "backorder_cost": "0.00",
+        "total_cost": "30.00",
+        "total_holding_cost": "30.00",
+        "total_backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -160,6 +177,9 @@
         "cost": "6.00",
         "holding_cost": "6.00",
         "backorder_cost": "0.00",
+        "total_cost": "36.00",
+        "total_holding_cost": "36.00",
+        "total_backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -175,6 +195,9 @@
         "cost": "4.00",
         "holding_cost": "4.00",
         "backorder_cost": "0.00",
+        "total_cost": "40.00",
+        "total_holding_cost": "40.00",
+        "total_backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -190,6 +213,9 @@
         "cost": "0.00",
         "holding_cost": "0.00",
         "backorder_cost": "0.00",
+        "total_cost": "40.00",
+        "total_holding_cost": "40.00",
+        "total_backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -205,6 +231,9 @@
         "cost": "8.00",
         "holding_cost": "0.00",
         "backorder_cost": "8.00",
+        "total_cost": "48.00",
+        "total_holding_cost": "40.00",
+        "total_backorder_cost": "8.00",
         "order": 4
       },
       {
@@ -220,6 +249,9 @@
         "cost": "14.00",
         "holding_cost": "0.00",
         "backorder_cost": "14.00",
+        "total_cost": "62.00",
+        "total_holding_cost": "40.00",
+        "total_backorder_cost": "22.00",
         "order": 8
       }
     ],

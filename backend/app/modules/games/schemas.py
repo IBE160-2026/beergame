@@ -198,10 +198,12 @@ class SeatState(SeatView):
 
     Version 2 (Story 6.6) adds `net_inventory` to the Week and to each `history` row, for the
     play screen's Netto lager. Version 3 (Story 6.7) adds `holding_cost` and `backorder_cost` to
-    each `history` row, for the graph's Kost per uke bars. A stored version-1 or version-2 state
-    reads as version 3."""
+    each `history` row, for the graph's Kost per uke bars. Version 4 (Story 6.16) adds the running
+    sums for «Kostnad så langt»: `total_holding_cost` and `total_backorder_cost` on the Week, and
+    `total_cost`, `total_holding_cost` and `total_backorder_cost` on each `history` row. A stored
+    version 1, 2 or 3 state reads as version 4."""
 
-    schema_version: Literal[3] = 3
+    schema_version: Literal[4] = 4
     week: _Week
     incoming_order: _Count
     """This Week's incoming order; customer demand for the Retailer."""
@@ -219,6 +221,10 @@ class SeatState(SeatView):
     week_cost: _Money
     total_cost: _Money
     """Running Total cost: the earlier Weeks plus this Week's."""
+    total_holding_cost: _Money
+    """The part of `total_cost` charged on inventory (Story 6.16)."""
+    total_backorder_cost: _Money
+    """The part of `total_cost` charged on backlog (Story 6.16)."""
     history: tuple[WeekValues, ...]
     """The Seat's own earlier Weeks with their Orders, oldest first."""
     min_order: _Count
@@ -228,20 +234,25 @@ class SeatState(SeatView):
     @model_validator(mode="before")
     @classmethod
     def _upgrade_stored_versions(cls, data: Any) -> Any:
-        """A state stored as version 1 or 2 (a Decision log row's `state_seen` written before
-        Story 6.6 or 6.7) reads as version 3 with the same numbers.
+        """A state stored as version 1, 2 or 3 (a Decision log row's `state_seen` written before
+        Story 6.6, 6.7 or 6.16) reads as version 4 with the same numbers.
 
         Version 1 → 2: `net_inventory`, on the Week and on each `history` row, is the inventory
         minus the backlog it already holds; a version-1 object that holds it is refused.
         Version 2 → 3: each `history` row's `holding_cost` and `backorder_cost` are its inventory
         and backlog times the rates in the state's own `cost_lines` (a Game's rates never change);
-        an older object that holds them is refused."""
-        if not isinstance(data, dict) or data.get("schema_version") not in (1, 2):
+        an older object that holds them is refused.
+        Version 3 → 4: the running sums are the `history` rows' costs added up in order, and on
+        the Week those plus its `cost_lines` amounts; an older object that holds them is refused."""
+        if not isinstance(data, dict) or data.get("schema_version") not in (1, 2, 3):
             return data
         version = data["schema_version"]
         if type(version) is not int:
             raise ValueError("schema_version must be a whole number")
         rates = _rates(data.get("cost_lines"))
+        for name in _RUNNING:
+            if name in data:
+                raise ValueError(f"schema_version {version} has no {name}")
 
         def upgraded(values: Any, *, row: bool) -> Any:
             if not isinstance(values, dict):
@@ -255,18 +266,79 @@ class SeatState(SeatView):
                 if whole:
                     found["net_inventory"] = inventory - backlog
             if row:
-                if "holding_cost" in values or "backorder_cost" in values:
+                if version < 3 and ("holding_cost" in values or "backorder_cost" in values):
                     raise ValueError(f"schema_version {version} has no cost split")
-                if whole and rates is not None:
+                if version < 3 and whole and rates is not None:
                     found["holding_cost"] = rates[0] * inventory
                     found["backorder_cost"] = rates[1] * backlog
+                if any(name in values for name in ("total_cost", *_RUNNING)):
+                    raise ValueError(f"schema_version {version} has no running sums")
             # Incomplete or malformed values stay as they are: the field checks name what is wrong.
             return found
 
-        found = {**upgraded(data, row=False), "schema_version": 3}
+        found = {**upgraded(data, row=False), "schema_version": 4}
         if isinstance(data.get("history"), (list, tuple)):
-            found["history"] = [upgraded(row, row=True) for row in data["history"]]
+            rows = [upgraded(row, row=True) for row in data["history"]]
+            sums = _running(rows)
+            if sums is not None:
+                for row, (cost, held, owed) in zip(rows, sums[0], strict=True):
+                    row.update(total_cost=cost, total_holding_cost=held, total_backorder_cost=owed)
+                now = _amounts(data.get("cost_lines"))
+                if now is not None:
+                    found["total_holding_cost"] = sums[1][0] + now[0]
+                    found["total_backorder_cost"] = sums[1][1] + now[1]
+            found["history"] = rows
         return found
+
+
+_RUNNING = ("total_holding_cost", "total_backorder_cost")
+
+
+def _decimal(value: Any) -> Decimal | None:
+    if not isinstance(value, (str, Decimal, int)) or isinstance(value, bool):
+        return None
+    try:
+        found = Decimal(value)
+    except ArithmeticError:
+        return None
+    return found if found.is_finite() else None
+
+
+def _running(
+    rows: list[Any],
+) -> tuple[list[tuple[Decimal, Decimal, Decimal]], tuple[Decimal, Decimal]] | None:
+    """The running (total, holding, backorder) of each upgraded `history` row, and the holding
+    and backorder sums after the last; None when a row lacks a readable cost, so the field
+    checks refuse the state."""
+    cost = held = owed = Decimal(0)
+    found: list[tuple[Decimal, Decimal, Decimal]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            return None
+        week, holding, backorder = (
+            _decimal(row.get(name)) for name in ("cost", "holding_cost", "backorder_cost")
+        )
+        if week is None or holding is None or backorder is None:
+            return None
+        cost, held, owed = cost + week, held + holding, owed + backorder
+        found.append((cost, held, owed))
+    return found, (held, owed)
+
+
+def _amounts(cost_lines: Any) -> tuple[Decimal, Decimal] | None:
+    """This Week's holding and backorder amounts in a stored state's `cost_lines`."""
+    if not isinstance(cost_lines, (list, tuple)):
+        return None
+    by_kind: dict[Any, Decimal] = {}
+    for line in cost_lines:
+        if isinstance(line, dict):
+            amount = _decimal(line.get("amount"))
+            if amount is None:
+                return None
+            by_kind[line.get("kind")] = amount
+    if "holding" not in by_kind or "backorder" not in by_kind:
+        return None
+    return by_kind["holding"], by_kind["backorder"]
 
 
 class TurnOverview(BaseModel):

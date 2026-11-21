@@ -169,6 +169,12 @@ class WeekValues(BaseModel):
     """The part of `cost` charged on inventory: the holding rate times `inventory`."""
     backorder_cost: Money
     """The part of `cost` charged on backlog: the backorder rate times `backlog`."""
+    total_cost: Money
+    """The Seat's running Total cost through this Week (Story 6.16): every `cost` up to it."""
+    total_holding_cost: Money
+    """The running sum of `holding_cost` through this Week."""
+    total_backorder_cost: Money
+    """The running sum of `backorder_cost` through this Week."""
     order: Count
 
 
@@ -204,6 +210,10 @@ class SeatDetail(BaseModel):
     week_cost: Money
     total_cost: Money
     """Cost of the earlier Weeks plus this Week's, which Orders cannot change."""
+    total_holding_cost: Money
+    """The part of `total_cost` charged on inventory, this Week's included (Story 6.16)."""
+    total_backorder_cost: Money
+    """The part of `total_cost` charged on backlog, this Week's included."""
     history: tuple[WeekValues, ...]
     min_order: Count
     max_order: Count
@@ -230,11 +240,14 @@ def seat_detail(
     goods_delay = _goods_delay(settings, role)
     start = starting_supply_line(settings, role)
     received = 0
+    held = owed = Decimal(0)
     rows: list[WeekValues] = []
     for number, seat in enumerate(seats, start=1):
         received += seat.incoming_delivery
         supply_line = start + sum(history[: number - 1]) - received
         position = seat.inventory - seat.backlog + supply_line
+        held += settings.holding_cost * seat.inventory
+        owed += settings.backorder_cost * seat.backlog
         if number < week:
             rows.append(
                 WeekValues(
@@ -250,6 +263,9 @@ def seat_detail(
                     cost=seat.cost,
                     holding_cost=settings.holding_cost * seat.inventory,
                     backorder_cost=settings.backorder_cost * seat.backlog,
+                    total_cost=seat.total_cost + seat.cost,
+                    total_holding_cost=held,
+                    total_backorder_cost=owed,
                     order=history[number - 1],
                 )
             )
@@ -293,6 +309,8 @@ def seat_detail(
         ),
         week_cost=now.cost,
         total_cost=now.total_cost + now.cost,
+        total_holding_cost=held,
+        total_backorder_cost=owed,
         history=tuple(rows),
         min_order=0,
         max_order=settings.max_order,

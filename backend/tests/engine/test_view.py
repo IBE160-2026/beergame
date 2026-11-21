@@ -282,6 +282,22 @@ def test_detail_agrees_with_the_pipelines_in_every_week(
             assert detail.preview.order_arrival_week == week + order_delay + goods
             assert detail.total_cost == seat.total_cost + seat.cost
             assert sum(line.amount for line in detail.cost_lines) == detail.week_cost
+            # «Kostnad så langt» (Story 6.16): the running split adds up to the Total cost.
+            holding, backorder = (line.amount for line in detail.cost_lines)
+            assert detail.total_holding_cost == (
+                sum(r.holding_cost for r in detail.history) + holding
+            )
+            assert detail.total_backorder_cost == (
+                sum(r.backorder_cost for r in detail.history) + backorder
+            )
+            assert detail.total_holding_cost + detail.total_backorder_cost == detail.total_cost
+            # Alle rader's column line: the Netto lager to the left, plus Levering, minus Ordre inn.
+            if detail.history:
+                assert detail.net_inventory == (
+                    detail.history[-1].net_inventory
+                    + detail.incoming_delivery
+                    - detail.incoming_order
+                )
             assert [row.order for row in detail.history] == list(view.order_history)
             assert [row.week for row in detail.history] == list(range(1, week))
             for row, earlier in zip(detail.history, states[: week - 1], strict=True):
@@ -291,6 +307,8 @@ def test_detail_agrees_with_the_pipelines_in_every_week(
                 assert row.holding_cost == settings.holding_cost * row.inventory
                 assert row.backorder_cost == settings.backorder_cost * row.backlog
                 assert row.holding_cost + row.backorder_cost == row.cost
+                assert row.total_cost == earlier.seat(role).total_cost + row.cost
+                assert row.total_holding_cost + row.total_backorder_cost == row.total_cost
                 past = seat_detail(settings, states[: row.week], orders[: row.week - 1], role)
                 assert (row.supply_line, row.position) == (
                     past.preview.supply_line_base,

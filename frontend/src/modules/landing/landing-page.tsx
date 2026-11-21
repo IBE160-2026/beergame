@@ -3,8 +3,10 @@ import NextLink from "next/link";
 import { AppHeader } from "@/components/app-header";
 import { buttonClassName } from "@/components/button";
 import { nb } from "@/copy/nb";
+import { CostPanel } from "@/modules/games/cost-panel-view";
 import { GoHome } from "@/modules/identity/go-home";
 
+import { DEMO_SEAT } from "./demo-seat";
 import { SeatFigure } from "./seat-figure";
 
 const copy = nb.landing;
@@ -13,10 +15,12 @@ export const ACCESS_REQUEST_PATH = "/laerertilgang";
 
 /**
  * The Landing at `/` (Story 3.13, UX-DR61, UX-DR9, UX-DR75): the product name, the headline in
- * `display`, the lead and the two ways in, then one Demodata Seat as Graf over tabell (Story 6.8). It renders
- * without waiting for the session; a User who is logged in is sent on to their own home.
- * On laptop the headline stands left of the lead and buttons; on phone everything is one column
- * in the order headline, lead, buttons, Seat figure.
+ * `display`, the lead and the two ways in, then one Demodata Seat as Graf over tabell (Story 6.8) with
+ * its «Kostnad så langt», labelled «Demodata» (Story 6.16, UX-DR70). It renders without waiting for
+ * the session; a User who is logged in is sent on to their own home. On laptop the headline stands
+ * left of the lead and buttons, and the cost panel right of the Seat figure where the row has room
+ * (`01-landing.png`), else under it; on phone everything is one column in the order headline, lead,
+ * buttons, Seat figure, «Kostnad så langt» (EXPERIENCE.md → Responsive & Platform → Landing).
  */
 export function LandingPage() {
   return (
@@ -43,7 +47,16 @@ export function LandingPage() {
           </div>
         </div>
         <section className="mt-12 lg:mt-16">
-          <SeatFigure />
+          <div className="flex flex-wrap items-start justify-between gap-x-12 gap-y-10">
+            <SeatFigure />
+            {/* Level with the graph where it stands beside the figure, as drawn. */}
+            <CostPanel
+              state={DEMO_SEAT}
+              table="toggle"
+              demoData={copy.seat.demoData}
+              className="w-full min-w-0 lg:w-[20rem] xl:mt-14"
+            />
+          </div>
           <p className="mt-8 text-body-phone text-ink-secondary lg:text-body">{copy.seat.classCurves}</p>
         </section>
       </main>

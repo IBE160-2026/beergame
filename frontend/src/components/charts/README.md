@@ -24,6 +24,7 @@ as hand-made SVG here.
 | Stacked bars (Kost per uke) | `<BarChart width={300} height={60}>` renders the same empty wrapper on the server | Hand-made SVG (`cost-bars.tsx`); passes both checks |
 | Axis labels in the sticky column | — (not a Recharts type) | Hand-made SVG (`axis-labels.tsx`) |
 | Kjedebånd (Story 6.9) | — (a flow diagram, not a Recharts type) | Hand-made SVG (`chain-band.tsx`), laid out by the pure `chain-band-layout.ts`; one-Seat variant only, the four-Role variant comes with Story 9.5 |
+| Stacked area (Totalkostnad over tid, Story 6.16) | — (built after the spike; Recharts is not a dependency) | Hand-made SVG (`cost-area.tsx`), `aria-hidden` with a `<title>`; its x is its own (Uke 1 … nå), not table columns, and its table alternative is «Vis som tabell» or the «Sum, kr» row |
 
 ## Kjedebånd scale and labels
 

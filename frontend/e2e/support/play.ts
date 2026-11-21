@@ -21,7 +21,7 @@ export const confirmedWeek11 = {
 
 /** Uke 12 after the Grossist's `ordered` in Uke 11 (Story 6.15): the Uke-overgang's numbers. The
  * engine's next Uke from Uke 11: Levering 4, Ordre inn 11, Sendt 4, Restordre 20 blir 27, Kost
- * 27,00 kr. */
+ * 27,00 kr; so far Lagerkostnad 40,00 kr and Restordrekostnad 69,00 kr (Story 6.16). */
 export function week12(ordered = 24) {
   const state = week11.seat_state;
   return {
@@ -49,6 +49,8 @@ export function week12(ordered = 24) {
       ],
       week_cost: "27.00",
       total_cost: "109.00",
+      total_holding_cost: "40.00",
+      total_backorder_cost: "69.00",
       history: [
         ...state.history,
         {
@@ -64,6 +66,9 @@ export function week12(ordered = 24) {
           cost: "20.00",
           holding_cost: "0.00",
           backorder_cost: "20.00",
+          total_cost: "82.00",
+          total_holding_cost: "40.00",
+          total_backorder_cost: "42.00",
           order: ordered,
         },
       ],

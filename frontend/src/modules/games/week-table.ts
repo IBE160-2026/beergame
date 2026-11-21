@@ -41,7 +41,10 @@ export type RowKey =
   | "supplyLine"
   | "position"
   | "order"
-  | "cost";
+  | "cost"
+  | "inventory"
+  | "backlog"
+  | "totalCost";
 
 export type Row = { key: RowKey; label: string; laptopOnly: boolean };
 
@@ -55,6 +58,25 @@ export const ROWS: readonly Row[] = [
   { key: "position", label: nb.terms.position, laptopOnly: false },
   { key: "order", label: nb.games.play.table.order, laptopOnly: false },
   { key: "cost", label: nb.games.play.table.cost, laptopOnly: false },
+];
+
+/**
+ * Every row, at every width: the phone's «Alle rader og kostnad» (Story 6.16, FR-23, DESIGN.md →
+ * Alle rader og kostnad). Lager and Restordre stand before Netto lager, and «Sum, kr», the
+ * running Totalkostnad per Uke, closes the table: it is the table behind «Totalkostnad over tid».
+ */
+export const ALL_ROWS: readonly Row[] = [
+  { key: "incomingOrder", label: nb.terms.incomingOrder, laptopOnly: false },
+  { key: "incomingDelivery", label: nb.terms.incomingDelivery, laptopOnly: false },
+  { key: "unitsShipped", label: nb.terms.unitsShipped, laptopOnly: false },
+  { key: "inventory", label: nb.terms.inventory, laptopOnly: false },
+  { key: "backlog", label: nb.terms.backlog, laptopOnly: false },
+  { key: "netInventory", label: nb.terms.netInventory, laptopOnly: false },
+  { key: "supplyLine", label: nb.terms.supplyLine, laptopOnly: false },
+  { key: "position", label: nb.terms.position, laptopOnly: false },
+  { key: "order", label: nb.games.play.table.order, laptopOnly: false },
+  { key: "cost", label: nb.terms.costPerWeek, laptopOnly: false },
+  { key: "totalCost", label: nb.games.play.table.sum, laptopOnly: false },
 ];
 
 /** A Netto lager matrix step (DESIGN.md → Colour → Matrix steps): |v| 1–9, 10–19, 20–34, 35+. */
@@ -90,12 +112,14 @@ type Values = {
   incoming_order: number;
   incoming_delivery: number;
   shipped: number;
+  inventory: number;
+  backlog: number;
   net_inventory: number;
   supply_line: number;
   position: number;
 };
 
-function known(values: Values, key: Exclude<RowKey, "order" | "cost">): Cell {
+function known(values: Values, key: Exclude<RowKey, "order" | "cost" | "totalCost">): Cell {
   if (key === "netInventory") {
     return { kind: "net", text: formatNumber(values.net_inventory), step: netStep(values.net_inventory) };
   }
@@ -103,6 +127,8 @@ function known(values: Values, key: Exclude<RowKey, "order" | "cost">): Cell {
     incomingOrder: values.incoming_order,
     incomingDelivery: values.incoming_delivery,
     unitsShipped: values.shipped,
+    inventory: values.inventory,
+    backlog: values.backlog,
     supplyLine: values.supply_line,
     position: values.position,
   }[key];
@@ -171,6 +197,7 @@ export function cellFor(state: SeatState, row: RowKey, week: number, nowOrder?: 
     if (!past) return { kind: "empty" };
     if (row === "order") return { kind: "plain", text: formatNumber(past.order) };
     if (row === "cost") return { kind: "plain", text: formatNumber(past.cost, { narrow: true }) };
+    if (row === "totalCost") return { kind: "plain", text: formatNumber(past.total_cost, { narrow: true }) };
     return known(past, row);
   }
   if (week === state.week) {
@@ -180,6 +207,7 @@ export function cellFor(state: SeatState, row: RowKey, week: number, nowOrder?: 
       return { kind: "order-typed", text: formatNumber(preview.order), ...(preview.confirmed ? { confirmed: true } : {}) };
     }
     if (row === "cost") return { kind: "plain", text: formatNumber(state.week_cost, { narrow: true }) };
+    if (row === "totalCost") return { kind: "plain", text: formatNumber(state.total_cost, { narrow: true }) };
     return known(state, row);
   }
   if (row !== "incomingDelivery") return { kind: "empty" };

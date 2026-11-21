@@ -68,7 +68,7 @@ for (const width of [320, 360, 1440]) {
       await expect(field(page)).not.toHaveAttribute("readonly");
       await expect(status(page)).toHaveText("");
       await expectAccessible(page, phone);
-      const targets = await page.locator("[data-order-field] button").evaluateAll((els) =>
+      const targets = await page.locator("[data-order-field] button:not([data-all-rows-link])").evaluateAll((els) =>
         els.map((el) => Math.min(el.getBoundingClientRect().width, el.getBoundingClientRect().height)),
       );
       for (const size of targets) expect(size).toBeGreaterThanOrEqual(44);

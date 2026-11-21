@@ -42,7 +42,7 @@ for (const width of [320, 360, 1440]) {
       await expect(field(page)).toHaveAttribute("readonly", "");
       await page.keyboard.press("Enter"); // a further press is ignored
       await expect(page.locator("[data-order-field] [data-order-announce]")).toHaveText(order.sending("24"));
-      const targets = await page.locator("[data-order-field] button").evaluateAll((els) =>
+      const targets = await page.locator("[data-order-field] button:not([data-all-rows-link])").evaluateAll((els) =>
         els.map((el) => Math.min(el.getBoundingClientRect().width, el.getBoundingClientRect().height)),
       );
       for (const size of targets) expect(size).toBeGreaterThanOrEqual(44);
@@ -53,7 +53,7 @@ for (const width of [320, 360, 1440]) {
       await expect(sent).toBeFocused();
       await expect(sent).toHaveAttribute("tabindex", "-1");
       await expect(page.getByText(order.next)).toBeVisible();
-      await expect(page.locator("[data-order-field] input, [data-order-field] button")).toHaveCount(0);
+      await expect(page.locator("[data-order-field] input, [data-order-field] button:not([data-all-rows-link])")).toHaveCount(0);
       expect(stub.posts).toEqual([{ order: 24 }]);
       await expect(page.locator('tr[data-row="order"] [data-join="from"]')).toContainText("24");
       await expect(page.locator('tr[data-row="incomingDelivery"] [data-join="to"]')).toHaveText("24");

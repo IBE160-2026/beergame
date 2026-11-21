@@ -3,12 +3,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
+import { LINK_BUTTON } from "@/components/link";
 import { nb } from "@/copy/nb";
 import { ApiRequestError, isSessionExpired } from "@/lib/api/client";
 import { errorCode } from "@/lib/api/mutation";
 import { clearDraft, clearDrafts, loadDraft, saveDraft } from "@/lib/drafts";
 import { formatNumber } from "@/lib/number-format";
 import { usePageState } from "@/lib/page-state";
+import { cn } from "@/lib/utils";
 import { orderPreview } from "@/lib/preview";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
@@ -16,8 +18,10 @@ import { HOME_LINK, HOME_PATH, rulesPath } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { roleName } from "@/modules/sessions/sessions";
 
+import { AllRowsView } from "./all-rows-view";
 import { type MyGame, myGameKey, placeOrder, type PlayEnvelope, playKey, useMyGame, usePlay, viewWeek } from "./api";
 import { ChainBandView } from "./chain-band-view";
+import { CostPanel } from "./cost-panel-view";
 import { GameAction } from "./game-action";
 import { OrderField } from "./order-field";
 import { lastOrder, parseOrder } from "./order-input";
@@ -74,6 +78,7 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
   useEffect(() => {
     if (stopped) void refetchGame();
   }, [stopped, refetchGame]);
+  const allRows = useAllRows();
   const denied = [found.error, envelope.error].some((e) => e instanceof ApiRequestError && e.code === "forbidden");
   if (denied) return <AccessDenied user={user} updatedAt={updatedAt} />;
   const shown = running && envelope.data ? envelope.data : null;
@@ -90,7 +95,14 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
     <PageShell
       user={user}
       title={game ? (running ? copy.week(shown?.seat_state.week ?? game.week!) : gameTitle(game)) : undefined}
-      header={game && shown ? <Topplinje game={game} envelope={shown} /> : undefined}
+      header={
+        game && shown ? (
+          // Kept while Alle rader is open, so its button can take focus back on «Lukk».
+          <div hidden={allRows.open !== null}>
+            <Topplinje game={game} envelope={shown} onOpen={(opener) => allRows.show("top", opener)} />
+          </div>
+        ) : undefined
+      }
       updatedAt={updatedAt}
       phase={pagePhase}
       onRetry={() => {
@@ -99,7 +111,13 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
       }}
       skeleton={SKELETON}
     >
-      {game ? shown ? <Running game={game} envelope={shown} userId={user.id} /> : running ? null : <NotRunning game={game} /> : null}
+      {game ? (
+        shown ? (
+          <Running game={game} envelope={shown} userId={user.id} allRows={allRows} />
+        ) : running ? null : (
+          <NotRunning game={game} />
+        )
+      ) : null}
     </PageShell>
   );
 }
@@ -107,10 +125,58 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
 /** The Skjelett in the week table's real rows («Uke» and the phone's rows) and 12 columns. */
 const SKELETON = { rows: 1 + ROWS.filter((row) => !row.laptopOnly).length, columns: 12 };
 
+type AllRows = ReturnType<typeof useAllRows>;
+
+/**
+ * Whether «Alle rader og kostnad» is open (Story 6.16), and at what: its top or «Kostnad så langt».
+ * The play screen stays mounted under it, hidden, so the typed Order, a send on its way and the
+ * control that opened the screen are all still there on «Lukk», which puts focus back on it.
+ */
+function useAllRows() {
+  const [open, setOpen] = useState<"top" | "cost" | null>(null);
+  const opener = useRef<HTMLElement | null>(null);
+  const [closed, setClosed] = useState(0);
+  useEffect(() => {
+    if (closed === 0) return;
+    // The opener may have been replaced meanwhile (a new Uke, the Order sent): then the Lenke
+    // «Alle rader og kostnad» or the Totalkostnad button shown now, else the Uke heading.
+    const back = opener.current?.isConnected
+      ? opener.current
+      : ([...document.querySelectorAll<HTMLElement>("[data-all-rows-link], button[data-total-cost]")].find(
+          (el) => el.getClientRects().length > 0,
+        ) ?? document.getElementById(WEEK_HEADING));
+    back?.focus();
+    opener.current = null;
+  }, [closed]);
+  return {
+    open,
+    show: (at: "top" | "cost", from: HTMLElement | null) => {
+      opener.current = from;
+      setOpen(at);
+    },
+    close: () => {
+      setOpen(null);
+      setClosed((n) => n + 1);
+    },
+  };
+}
+
 /** The Topplinje (DESIGN.md → Topplinje, UX-DR13): «Uke 11» over «Grossist, Spill 17», and
- * «Totalkostnad» over the amount at the right. Never the number of Uker (FR-14). */
-function Topplinje({ game, envelope }: { game: MyGame; envelope: PlayEnvelope }) {
+ * «Totalkostnad» over the amount at the right. Never the number of Uker (FR-14). Below 1024 px the
+ * Totalkostnad pair is one button, «Totalkostnad 68,00 kr, vis alle rader og kostnad», that opens
+ * «Alle rader og kostnad» (Story 6.16, UX-DR21); from 1024 px «Kostnad så langt» is pinned beside
+ * the order, and the pair is plain text. Both carry `data-total-cost`. */
+function Topplinje({
+  game,
+  envelope,
+  onOpen,
+}: {
+  game: MyGame;
+  envelope: PlayEnvelope;
+  onOpen: (opener: HTMLElement) => void;
+}) {
   const state = envelope.seat_state;
+  const amount = formatNumber(state.total_cost, { kroner: true });
   return (
     <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
       <div className="min-w-0">
@@ -120,11 +186,21 @@ function Topplinje({ game, envelope }: { game: MyGame; envelope: PlayEnvelope })
         </h1>
         <p className={`${LINE} mt-1 text-ink-secondary`}>{copy.roleGame(roleName(game.role), game.number)}</p>
       </div>
-      <p className="text-right">
+      <button
+        type="button"
+        data-total-cost=""
+        aria-label={copy.totalCostButton(amount)}
+        onClick={(event) => onOpen(event.currentTarget)}
+        className="min-h-tap-target-min min-w-tap-target-min cursor-pointer rounded-sm text-right lg:hidden"
+      >
+        {/* The visible pair, «Totalkostnad 68,00 kr» with the space, starts the name, so speech
+            input finds it (WCAG 2.5.3). */}
+        <span className="block text-caption text-ink-secondary">{nb.terms.totalCost}</span>{" "}
+        <span className="block text-figure-total text-ink tabular-nums lining-nums">{amount}</span>
+      </button>
+      <p data-total-cost="" className="hidden text-right lg:block">
         <span className="block text-caption text-ink-secondary">{nb.terms.totalCost}</span>
-        <span className="block text-figure-total text-ink tabular-nums lining-nums">
-          {formatNumber(state.total_cost, { kroner: true })}
-        </span>
+        <span className="block text-figure-total text-ink tabular-nums lining-nums">{amount}</span>
       </p>
     </div>
   );
@@ -136,7 +212,17 @@ const WEEK_HEADING = "play-week";
 const orderDraftPrefix = (gameId: string) => `order:${gameId}:`;
 const orderDraftField = (gameId: string, week: number) => `${orderDraftPrefix(gameId)}${week}`;
 
-function Running({ game, envelope, userId }: { game: MyGame; envelope: PlayEnvelope; userId: string }) {
+function Running({
+  game,
+  envelope,
+  userId,
+  allRows,
+}: {
+  game: MyGame;
+  envelope: PlayEnvelope;
+  userId: string;
+  allRows: AllRows;
+}) {
   useGuidedView(game.id, envelope);
   useRefetchAt(game.id, envelope);
   const now = useServerNow(envelope.server_now);
@@ -169,60 +255,97 @@ function Running({ game, envelope, userId }: { game: MyGame; envelope: PlayEnvel
   const [skip, setSkip] = useState(0);
   const summary = weekSummary(state, turn);
   const dropped = useDroppedDraft(state, text, editable, send.outcome);
+  const nowOrder = turn.guided ? (turn.order ?? undefined) : undefined;
   return (
-    <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12">
-      <div className="min-w-0">
-        {/* Reading and focus order: Topplinje, Kjedebånd, Graf over tabell, the rest (FR-73). */}
-        <ChainBandView state={state} seatRoles={game.seats.map((seat) => seat.role)} typed={preview?.order} />
-        {/* A placed Order (a Veiledet uke's fixed Order) stands in Din ordre at nå; a typed one
-            there and at its arrival Uke. */}
-        <WeekTable
+    <>
+      {allRows.open ? (
+        <AllRowsView
           state={state}
-          nowOrder={turn.guided ? (turn.order ?? undefined) : undefined}
+          subtitle={copy.roleGame(roleName(game.role), game.number)}
+          nowOrder={nowOrder}
           typed={preview ?? undefined}
-          movedFrom={movedFrom}
-          skipMove={skip}
-          onMoving={setMoving}
+          at={allRows.open}
+          onClose={allRows.close}
         />
-      </div>
-      <div>
-        {/* The Uke-overgang over the Ordrefelt, which is usable at once (Story 6.15). */}
-        {summary ? <WeekSummaryView summary={summary} moving={moving} onSkip={() => setSkip((n) => n + 1)} /> : null}
-        {/* Read when the Uke moved on while the page was open, not on load. */}
-        <p aria-live="polite" className="sr-only" data-week-announce="">
-          {summary && movedFrom !== undefined ? summary.spoken : ""}
-        </p>
-        <div aria-live="polite" data-draft-dropped="">
-          {dropped.line ? <p className={`${LINE} mt-8 max-w-md font-bold text-ink lg:mt-0 lg:mb-4`}>{dropped.line}</p> : null}
+      ) : null}
+      {/* Read when the Uke moved on while the page was open, not on load; outside the hidden play
+          screen, so it is heard in Alle rader too. */}
+      <p aria-live="polite" className="sr-only" data-week-announce="">
+        {summary && movedFrom !== undefined ? summary.spoken : ""}
+      </p>
+      {/* Hidden, not gone, while Alle rader is open (`useAllRows`). */}
+      <div hidden={allRows.open !== null}>
+        <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12">
+          <div className="min-w-0">
+            {/* Reading and focus order: Topplinje, Kjedebånd, Graf over tabell, the rest (FR-73). */}
+            <ChainBandView state={state} seatRoles={game.seats.map((seat) => seat.role)} typed={preview?.order} />
+            {/* A placed Order (a Veiledet uke's fixed Order) stands in Din ordre at nå; a typed one
+                there and at its arrival Uke. */}
+            <WeekTable
+              state={state}
+              nowOrder={nowOrder}
+              typed={preview ?? undefined}
+              movedFrom={movedFrom}
+              skipMove={skip}
+              onMoving={setMoving}
+            />
+          </div>
+          <div>
+            {/* The Uke-overgang over the Ordrefelt, which is usable at once (Story 6.15). */}
+            {summary ? (
+              <WeekSummaryView
+                summary={summary}
+                moving={moving}
+                onSkip={() => setSkip((n) => n + 1)}
+                onCost={(opener) => allRows.show("cost", opener)}
+              />
+            ) : null}
+            <div aria-live="polite" data-draft-dropped="">
+              {dropped.line ? <p className={`${LINE} mt-8 max-w-md font-bold text-ink lg:mt-0 lg:mb-4`}>{dropped.line}</p> : null}
+            </div>
+            {/* The Ordrefelt follows the table on phone and tops the right column on laptop. */}
+            <OrderField
+              week={state.week}
+              turn={turn}
+              max={state.max_order}
+              lastOrder={lastOrder(state.history)}
+              text={text}
+              onText={(next) => {
+                setTyped({ game: game.id, week: state.week, text: next });
+                saveDraft(userId, field, next);
+                send.clear(); // a new value is a new Order: the last send's words no longer apply
+                dropped.clear();
+              }}
+              preview={editable ? preview : null}
+              sending={send.sending === state.week}
+              onConfirm={(value) => {
+                dropped.clear();
+                send.confirm(value);
+              }}
+              waitingFor={waitedFor(seats, now, true)}
+              aside={
+                <button
+                  type="button"
+                  data-all-rows-link=""
+                  className={cn(LINK_BUTTON, "justify-end lg:hidden")}
+                  onClick={(event) => allRows.show("top", event.currentTarget)}
+                >
+                  {copy.allRows.link}
+                </button>
+              }
+              {...outcomeProps(send.outcome, state.week)}
+            />
+            {/* «Kostnad så langt» pinned under the Ordrefelt from 1024 px (Story 6.16); on phone it
+                is one tap away in Alle rader. */}
+            <CostPanel state={state} table="toggle" className="mb-8 hidden lg:block" />
+            {/* Through the whole Uke, before and after the own Order, right under the Ordrefelt. */}
+            <GameSeatStatus seats={seats} now={now} titleId={`seats-${game.id}`} className="max-w-md" />
+            <PageLink href={rulesPath(game.id)}>{nb.games.briefing.title}</PageLink>
+            <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
+          </div>
         </div>
-        {/* The Ordrefelt follows the table on phone and tops the right column on laptop. */}
-        <OrderField
-          week={state.week}
-          turn={turn}
-          max={state.max_order}
-          lastOrder={lastOrder(state.history)}
-          text={text}
-          onText={(next) => {
-            setTyped({ game: game.id, week: state.week, text: next });
-            saveDraft(userId, field, next);
-            send.clear(); // a new value is a new Order: the last send's words no longer apply
-            dropped.clear();
-          }}
-          preview={editable ? preview : null}
-          sending={send.sending === state.week}
-          onConfirm={(value) => {
-            dropped.clear();
-            send.confirm(value);
-          }}
-          waitingFor={waitedFor(seats, now, true)}
-          {...outcomeProps(send.outcome, state.week)}
-        />
-        {/* Through the whole Uke, before and after the own Order, right under the Ordrefelt. */}
-        <GameSeatStatus seats={seats} now={now} titleId={`seats-${game.id}`} className="max-w-md" />
-        <PageLink href={rulesPath(game.id)}>{nb.games.briefing.title}</PageLink>
-        <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
       </div>
-    </div>
+    </>
   );
 }
 

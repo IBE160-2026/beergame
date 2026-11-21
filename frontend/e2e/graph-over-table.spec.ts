@@ -113,7 +113,7 @@ test("the marks, labels and key at Uke 11", async ({ page }) => {
   await expect(graph.locator("[data-mark=position]")).toHaveCount(8);
   const cost = page.locator('svg[data-chart="cost"]:visible');
   await expect(cost.locator("[data-mark=cost]")).toHaveCount(8);
-  await expect(page.locator('svg[data-chart="axis"]:visible text')).toHaveText(["−20", "0", "20", "40", "40 kr"]);
+  await expect(page.locator('svg[data-chart="axis"]:visible text')).toHaveText(["−20", "0", "20", "40", "20 kr"]);
   const key = page.getByRole("cell", { name: /Kost per uke/ }).filter({ visible: true });
   await expect(key).toContainText("restordre 1,00");
   await expect(key).toContainText("lager 0,50");
@@ -130,10 +130,10 @@ test("the marks, labels and key at Uke 11", async ({ page }) => {
   await expect(header.filter({ hasText: /^Uke 12$/ })).toHaveCSS("color", "rgb(94, 111, 130)");
 });
 
-test("the late Uke: the cost axis has grown past 40 kr and no bar is cut", async ({ page }) => {
+test("the late Uke: the cost axis has grown past 20 kr and no bar is cut", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openPlay(page, week30 as Envelope);
-  await expect(page.locator('svg[data-chart="axis"]:visible text').last()).toHaveText("80 kr");
+  await expect(page.locator('svg[data-chart="axis"]:visible text').last()).toHaveText("60 kr");
   const cut = await page.evaluate(() => {
     const svg = [...document.querySelectorAll<SVGSVGElement>('svg[data-chart="cost"]')].find((s) => s.getClientRects().length)!;
     const top = svg.getBoundingClientRect().top;

@@ -38,7 +38,8 @@ test("the Uke moves on: the summary from the api's numbers, announced, the now-l
   await expect(block.getByRole("heading", { name: "Uke 11 er ferdig regnet" })).toBeVisible();
   await expect(block.locator("dl > div")).toHaveText(["Levering4", "Ordre inn11", "Sendt4", "Restordre20 blir 27"]);
   await expect(block.getByText("Denne uka: 27 restordre × 1,00 = 27,00 kr")).toBeVisible();
-  await expect(block.getByRole("link")).toHaveCount(0); // «Kostnad så langt» comes with Story 6.16
+  // «Kostnad så langt» opens Alle rader at the panel on phone (Story 6.16, `cost-panel.spec.ts`).
+  await expect(block.getByRole("button", { name: copy.summary.costLink })).toBeVisible();
   await expect(page.locator("[data-week-announce]")).toHaveText(
     "Uke 11 er ferdig regnet. Levering 4. Ordre inn 11. Sendt 4. Restordre 20 blir 27. Denne uka: 27 restordre × 1,00 = 27,00 kr.",
   );

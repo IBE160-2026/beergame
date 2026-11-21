@@ -106,7 +106,8 @@ for (const vp of VIEWPORTS) {
       for (const other of [nb.terms.retailer, nb.terms.distributor, nb.terms.factory]) expect(text).not.toContain(other);
       expect(text).not.toMatch(/kunde/i);
       expect(text).not.toMatch(/uker spilt|\d+\s*uker/i);
-      const demo = page.getByText(landing.seat.demoData, { exact: true });
+      // The figure's «Demodata»; the cost panel's own is `cost-panel.spec.ts` (Story 6.16).
+      const demo = page.locator("figure").getByText(landing.seat.demoData, { exact: true });
       await expect(demo).toBeVisible();
       await expect(demo).toHaveCSS("color", "rgb(94, 111, 130)");
       await expect(page.getByText(landing.seat.classCurves)).toBeVisible();

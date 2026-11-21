@@ -1,32 +1,34 @@
 "use client";
 
+import { LINK_BUTTON } from "@/components/link";
 import { nb } from "@/copy/nb";
+import { cn } from "@/lib/utils";
 
 import type { WeekSummary } from "./week-summary";
 
 const copy = nb.games.play.summary;
-
-/** A Lenke as a button: it skips the move and commits nothing (EXPERIENCE.md → Lenke). */
-const LINK =
-  "inline-flex min-h-tap-target-min min-w-tap-target-min cursor-pointer shrink-0 items-center justify-end whitespace-nowrap text-label text-lager underline underline-offset-2 hover:decoration-2 active:text-ink";
 
 /**
  * The Uke-overgang (`week-summary`, Story 6.15, UX-DR23, `06-spilldynamikk.png` D): «Uke 11 er
  * ferdig regnet» with «Hopp over» at the right while the now-line moves, the rows of the Uke just
  * run («Restordre 13 blir 20») and the Uke's sum. It stands above the Ordrefelt and never takes
  * focus. The play screen's polite region reads it when the Uke moved on while the page was open,
- * not when the page loads. No celebration, no verdict (UX-DR78). The Lenke «Kostnad
- * så langt» comes with its target in Story 6.16.
+ * not when the page loads. No celebration, no verdict (UX-DR78). Below 1024 px the Lenke
+ * «Kostnad så langt» under the Uke's sum opens «Alle rader og kostnad» at that panel (Story 6.16);
+ * from 1024 px the panel is pinned under the Ordrefelt, so the Lenke is not shown.
  */
 export function WeekSummaryView({
   summary,
   moving,
   onSkip,
+  onCost,
 }: {
   summary: WeekSummary;
   /** The now-line is moving: «Hopp over» ends the move at once. */
   moving: boolean;
   onSkip: () => void;
+  /** Opens «Alle rader og kostnad» at «Kostnad så langt» (phone only). */
+  onCost?: (opener: HTMLElement) => void;
 }) {
   return (
     <section aria-labelledby="week-summary-title" data-week-summary="" className="mt-8 max-w-md lg:mt-0 lg:mb-8">
@@ -35,7 +37,7 @@ export function WeekSummaryView({
           {summary.title}
         </h2>
         {moving ? (
-          <button type="button" className={LINK} onClick={onSkip}>
+          <button type="button" className={cn(LINK_BUTTON, "justify-end")} onClick={onSkip}>
             {copy.skip}
           </button>
         ) : null}
@@ -49,6 +51,16 @@ export function WeekSummaryView({
         ))}
       </dl>
       <p className="mt-2 text-caption font-semibold text-ink">{summary.cost}</p>
+      {onCost ? (
+        <button
+          type="button"
+          data-cost-link=""
+          className={cn(LINK_BUTTON, "lg:hidden")}
+          onClick={(event) => onCost(event.currentTarget)}
+        >
+          {copy.costLink}
+        </button>
+      ) : null}
     </section>
   );
 }

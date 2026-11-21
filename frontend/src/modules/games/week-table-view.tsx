@@ -18,6 +18,7 @@ import {
   type Column,
   type GraphSeries,
   graphSeries,
+  ALL_ROWS,
   type NetStep,
   ROWS,
   type TypedOrder,
@@ -181,6 +182,7 @@ export function WeekTable({
   movedFrom,
   skipMove,
   onMoving,
+  allRows = false,
 }: {
   state: SeatState;
   fixed?: FixedLayout;
@@ -198,6 +200,8 @@ export function WeekTable({
   /** Raised by «Hopp over» to end the move at once. */
   skipMove?: number;
   onMoving?: (moving: boolean) => void;
+  /** Every row at every width, with Lager, Restordre and «Sum, kr» (Alle rader, Story 6.16). */
+  allRows?: boolean;
 }) {
   const columns = weekColumns(state.week);
   const series = graphSeries(state);
@@ -248,7 +252,7 @@ export function WeekTable({
           ))}
         </tr>
       }
-      body={ROWS.map((row) => (
+      body={(allRows ? ALL_ROWS : ROWS).map((row) => (
         <tr key={row.key} data-row={row.key} className={cn("border-b border-hairline", row.laptopOnly && "hidden lg:table-row")}>
           <th scope="row" className={ROW_LABEL} style={labelCell}>
             {row.label}

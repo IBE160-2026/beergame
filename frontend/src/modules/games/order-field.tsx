@@ -1,6 +1,6 @@
 "use client";
 
-import { type KeyboardEvent, useId, useRef, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useId, useRef, useState } from "react";
 
 import { Button, guardUnavailable } from "@/components/button";
 import { nb } from "@/copy/nb";
@@ -43,6 +43,9 @@ type Props = {
   /** Whom else the game waits for, in words, once the Order is sent: «Jonas (3 min)» (Story
    * 6.14); null when it waits for no one else. */
   waitingFor?: string | null;
+  /** Right-aligned on the label's line, in every state: the Lenke «Alle rader og kostnad» on phone
+   * (Story 6.16, DESIGN.md → Ordrefelt). */
+  aside?: ReactNode;
 };
 
 /**
@@ -57,8 +60,8 @@ type Props = {
  */
 export function OrderField(props: Props) {
   const { week, turn } = props;
-  if (turn.order != null && turn.guided) return <ReadOnly week={week} order={turn.order} />;
-  if (turn.order != null) return <Confirmed order={turn.order} waitingFor={props.waitingFor ?? null} />;
+  if (turn.order != null && turn.guided) return <ReadOnly week={week} order={turn.order} aside={props.aside} />;
+  if (turn.order != null) return <Confirmed order={turn.order} waitingFor={props.waitingFor ?? null} aside={props.aside} />;
   if (turn.guided) return null;
   // A new Uke starts the field afresh: no reason or announcement carries over.
   return <Editable key={week} {...props} />;
@@ -66,13 +69,15 @@ export function OrderField(props: Props) {
 
 /** A Veiledet uke's fixed Order, read-only, with its reason. It is not a text box to the pointer
  * or the caret either (`cursor: default`, no caret, Issue 128). */
-function ReadOnly({ week, order }: { week: number; order: number }) {
+function ReadOnly({ week, order, aside }: { week: number; order: number; aside?: ReactNode }) {
   const id = useId();
   return (
     <div className="mt-8 mb-8 max-w-md lg:mt-0" data-order-field="guided">
-      <label htmlFor={`${id}-input`} className="block text-label text-ink">
-        {copy.label(week)}
-      </label>
+      <LabelLine aside={aside}>
+        <label htmlFor={`${id}-input`} className="block text-label text-ink">
+          {copy.label(week)}
+        </label>
+      </LabelLine>
       <input
         id={`${id}-input`}
         type="text"
@@ -95,10 +100,11 @@ function ReadOnly({ week, order }: { week: number; order: number }) {
  * next under it. The table and the Kjedebånd keep showing the Order. While the game waits for
  * others it names them with the wait: «Ordren på 24 er sendt. Venter på Jonas (3 min).» (Story
  * 6.14, never «Venter på andre spillere …»). */
-function Confirmed({ order, waitingFor }: { order: number; waitingFor: string | null }) {
+function Confirmed({ order, waitingFor, aside }: { order: number; waitingFor: string | null; aside?: ReactNode }) {
   const value = formatNumber(order);
   return (
     <div className="mt-8 mb-8 max-w-md lg:mt-0" data-order-field="confirmed">
+      {aside ? <div className="flex justify-end">{aside}</div> : null}
       <p data-order-sent="" tabIndex={-1} className="text-body-phone font-bold text-ink outline-none lg:text-body">
         {waitingFor ? copy.sentWaiting(value, waitingFor) : copy.sent(value)}
       </p>
@@ -119,6 +125,7 @@ function Editable({
   checking = false,
   failure = null,
   retry = false,
+  aside,
 }: Props) {
   const id = useId();
   const connection = useConnection();
@@ -191,9 +198,11 @@ function Editable({
   const describedBy = [`${id}-help`, error ? `${id}-error` : null].filter(Boolean).join(" ");
   return (
     <div className="mt-8 mb-8 max-w-md lg:mt-0" data-order-field="editable">
-      <label htmlFor={`${id}-input`} className="block text-label text-ink">
-        {copy.label(week)}
-      </label>
+      <LabelLine aside={aside}>
+        <label htmlFor={`${id}-input`} className="block text-label text-ink">
+          {copy.label(week)}
+        </label>
+      </LabelLine>
       <div
         data-order-box=""
         className={cn(
@@ -272,6 +281,17 @@ function Editable({
       >
         {label}
       </Button>
+    </div>
+  );
+}
+
+/** The label with `aside` right-aligned on its line, as drawn; the label alone without it. */
+function LabelLine({ aside, children }: { aside?: ReactNode; children: ReactNode }) {
+  if (!aside) return <>{children}</>;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-4">
+      {children}
+      {aside}
     </div>
   );
 }

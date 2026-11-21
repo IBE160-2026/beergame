@@ -200,7 +200,7 @@ describe("WeekTable rendered on the server with a fixed layout (the print page)"
     expect(html).toMatch(/data-mark="now" data-week="11" cx="210"/);
     expect(html).toContain("Restordre 20");
     expect(html).toContain(`Posisjon ${MINUS}4`);
-    expect(html).toContain("40 kr");
+    expect(html).toContain("20 kr");
     expect(html).toContain("restordre 1,00");
     expect(html).toContain("lager 0,50");
   });
@@ -214,12 +214,12 @@ describe("WeekTable rendered on the server with a fixed layout (the print page)"
   it("says so in the Uke the Kost per uke axis grows, and only then", () => {
     const grows = renderToStaticMarkup(<WeekTable state={week14.seat_state as SeatState} />);
     expect(html).not.toContain("Aksen går nå til");
-    expect(grows).toContain(nb.games.play.graph.axisGrown("80"));
+    expect(grows).toContain(nb.games.play.graph.axisGrown("60"));
   });
 });
 
 describe("WeekTable in Uke 1 (no history)", () => {
-  it("draws one point per line, one bar and the 40 kr axis, all at nå", () => {
+  it("draws one point per line, one bar and the 20 kr axis, all at nå", () => {
     const html = renderToStaticMarkup(
       <WeekTable state={week1.seat_state as SeatState} fixed={{ labelWidth: 96, columnWidth: 28, fontSize: 13 }} />,
     );
@@ -228,7 +228,7 @@ describe("WeekTable in Uke 1 (no history)", () => {
     expect(html).toContain('data-weeks="1" data-x="14"');
     expect(html.match(/data-mark="position"/g)).toHaveLength(1);
     expect(html.match(/data-mark="cost"/g)).toHaveLength(1);
-    expect(html).toContain(">40 kr</text>");
+    expect(html).toContain(">20 kr</text>");
     expect(html).toContain("Lager 12");
   });
 });

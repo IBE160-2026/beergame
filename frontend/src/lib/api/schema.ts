@@ -3398,8 +3398,10 @@ export interface components {
          *
          *     Version 2 (Story 6.6) adds `net_inventory` to the Week and to each `history` row, for the
          *     play screen's Netto lager. Version 3 (Story 6.7) adds `holding_cost` and `backorder_cost` to
-         *     each `history` row, for the graph's Kost per uke bars. A stored version-1 or version-2 state
-         *     reads as version 3.
+         *     each `history` row, for the graph's Kost per uke bars. Version 4 (Story 6.16) adds the running
+         *     sums for «Kostnad så langt»: `total_holding_cost` and `total_backorder_cost` on the Week, and
+         *     `total_cost`, `total_holding_cost` and `total_backorder_cost` on each `history` row. A stored
+         *     version 1, 2 or 3 state reads as version 4.
          */
         SeatState: {
             /** Backlog */
@@ -3437,18 +3439,22 @@ export interface components {
             role: components["schemas"]["Role"];
             /**
              * Schema Version
-             * @default 3
+             * @default 4
              * @constant
              */
-            schema_version: 3;
+            schema_version: 4;
             /** Shipped */
             shipped: number;
             /** Supply Line */
             supply_line: number;
             /** Supply Line Slots */
             supply_line_slots: components["schemas"]["SupplyLineSlot"][];
+            /** Total Backorder Cost */
+            total_backorder_cost: string;
             /** Total Cost */
             total_cost: string;
+            /** Total Holding Cost */
+            total_holding_cost: string;
             /** Week */
             week: number;
             /** Week Cost */
@@ -3853,6 +3859,12 @@ export interface components {
             shipped: number;
             /** Supply Line */
             supply_line: number;
+            /** Total Backorder Cost */
+            total_backorder_cost: string;
+            /** Total Cost */
+            total_cost: string;
+            /** Total Holding Cost */
+            total_holding_cost: string;
             /** Week */
             week: number;
         };

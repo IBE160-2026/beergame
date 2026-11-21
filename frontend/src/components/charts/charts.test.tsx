@@ -5,15 +5,23 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { ChainBand } from "./chain-band";
+import { CostArea } from "./cost-area";
 import { CostBars } from "./cost-bars";
 import { NetGraph, type NetPoint } from "./net-graph";
-import { costAxisTop, netDomain, netTicks, spreadLabels } from "./scales";
+import { costAxisTop, netDomain, netTicks, spreadLabels, totalAxisTop } from "./scales";
 
-describe("the Kost per uke axis (founder decision 2026-11-14)", () => {
-  it("starts at 40 kr and grows 40 kr at a time to hold the highest Uke", () => {
-    expect([34, 40, 41, 62, 121].map(costAxisTop)).toEqual([40, 40, 80, 80, 160]);
-    expect(costAxisTop(0)).toBe(40);
-    expect(costAxisTop(Number.NaN)).toBe(40);
+describe("the Kost per uke axis (Issue #126)", () => {
+  it("starts at 20 kr and grows 20 kr at a time to hold the highest Uke", () => {
+    expect([6, 20, 21, 34, 41, 62, 121].map(costAxisTop)).toEqual([20, 20, 40, 40, 60, 80, 140]);
+    expect(costAxisTop(0)).toBe(20);
+    expect(costAxisTop(Number.NaN)).toBe(20);
+  });
+});
+
+describe("the Totalkostnad over tid axis (Story 6.16)", () => {
+  it("is the lowest of 50, 100, 200, 500, 1 000 … kr that holds the running total", () => {
+    expect([0, 24, 50, 68, 101, 380, 501, 1954, 2001].map(totalAxisTop)).toEqual([50, 50, 50, 100, 200, 500, 1000, 2000, 5000]);
+    expect(totalAxisTop(Number.NaN)).toBe(50);
   });
 });
 
@@ -202,5 +210,35 @@ describe("the chart module (AD-18)", () => {
     };
     walk(src);
     expect(found).toEqual([]);
+  });
+});
+
+describe("Totalkostnad over tid (Story 6.16)", () => {
+  const props = { width: 240, height: 117, fontSize: 13, title: "t", formatTick: String, firstLabel: "Uke 1", lastLabel: "Uke 4" };
+
+  it("stacks holding under backlog on a true zero, hidden from screen readers", () => {
+    const html = renderToStaticMarkup(
+      <CostArea
+        {...props}
+        points={[
+          { week: 1, holding: 6, backorder: 0 },
+          { week: 2, holding: 6, backorder: 4 },
+        ]}
+      />,
+    );
+    expect(html).toMatch(/<svg[^>]*aria-hidden="true"/);
+    expect(html).toContain("<title>t</title>");
+    expect(html).toContain('data-mark="holding-area"');
+    expect(html).toContain('data-mark="backorder-area"');
+    expect(html).toContain(">0</text>");
+    expect(html).toContain(">50</text>");
+    expect(html).toContain(">Uke 4</text>");
+  });
+
+  it("draws a lone Uke as a short block, with no backlog area while none is owed", () => {
+    const html = renderToStaticMarkup(<CostArea {...props} points={[{ week: 1, holding: 6, backorder: 0 }]} />);
+    expect(html).toMatch(/data-mark="holding-area"/);
+    expect(html).not.toContain("backorder-area");
+    expect(html).not.toContain(">Uke 4</text>");
   });
 });

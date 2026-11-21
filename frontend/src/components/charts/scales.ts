@@ -6,17 +6,36 @@
 
 /** Netto lager and Posisjon ticks sit on multiples of 20 (DESIGN.md: «ticks in steps of 20»). */
 export const NET_STEP = 20;
-/** The Kost per uke axis starts at 40 kr and grows 40 kr at a time (founder decision 2026-11-14). */
-export const COST_STEP = 40;
+/** The Kost per uke axis starts at 20 kr and grows 20 kr at a time (founder decision on GitHub
+ * issue 126, replacing the 40 kr step of 2026-11-14, so a calm Uke's bars are not thin). */
+export const COST_STEP = 20;
 
 /**
- * The top of the Kost per uke axis: the lowest multiple of 40 kr that holds the highest Uke so far,
- * and never below 40 kr. Read from every Uke so far, it can only grow during a game, and no bar is
+ * The top of the Kost per uke axis: the lowest multiple of 20 kr that holds the highest Uke so far,
+ * and never below 20 kr. Read from every Uke so far, it can only grow during a game, and no bar is
  * ever cut.
  */
 export function costAxisTop(highest: number): number {
   if (!Number.isFinite(highest) || highest <= COST_STEP) return COST_STEP;
   return Math.ceil(highest / COST_STEP) * COST_STEP;
+}
+
+/** The lowest top of «Totalkostnad over tid». */
+const TOTAL_LOWEST = 50;
+
+/**
+ * The top of «Totalkostnad over tid» (Story 6.16, `cost-panel`): the lowest of 50, 100, 200, 500,
+ * 1 000, 2 000, … kr that holds the running Total cost, labelled at 0, half and top (`01-landing.png`
+ * draws 0 / 25 / 50, `05-spill.png` 0 / 50 / 100). A display choice only.
+ */
+export function totalAxisTop(highest: number): number {
+  if (!Number.isFinite(highest)) return TOTAL_LOWEST;
+  for (let decade = 10; ; decade *= 10) {
+    for (const step of [1, 2, 5]) {
+      const top = decade * step;
+      if (top >= TOTAL_LOWEST && top >= highest) return top;
+    }
+  }
 }
 
 /** The y-range of the Netto lager field: multiples of 20 that hold a true zero and every value. */

@@ -1553,8 +1553,47 @@ export const nb = {
         holdingPart: (units: string, rate: string) => `${units} lager × ${rate}`,
         weekCost: (parts: string[], sum: string) =>
           parts.length === 0 ? `Denne uka: ${sum}` : `Denne uka: ${parts.join(" + ")} = ${sum}`,
+        /** Opens «Alle rader og kostnad» at «Kostnad så langt» on phone (Story 6.16). */
+        costLink: "Kostnad så langt",
         /** A typed Order that was never sent when its Uke closed. [ASSUMPTION] */
         draftDropped: (week: number, value: string) => `Uke ${week} er over. Du skrev ${value}, men ordren ble ikke sendt.`,
+      },
+      /** The Topplinje's Totalkostnad pair as one button on phone (Story 6.16, EXPERIENCE.md →
+       * Topplinje): «Totalkostnad 68,00 kr, vis alle rader og kostnad». */
+      totalCostButton: (amount: string) => `Totalkostnad ${amount}, vis alle rader og kostnad`,
+      /** «Alle rader og kostnad» (Story 6.16, DESIGN.md → Alle rader og kostnad, `05-spill.png`
+       * middle). The link, title, «Lukk» and the column lines are the spine's; `sumRowNote` is
+       * [ASSUMPTION] draft copy. */
+      allRows: {
+        link: "Alle rader og kostnad",
+        title: (week: number) => `Alle rader, Uke ${week}`,
+        close: "Lukk",
+        netLine: (week: number) => `Netto lager i kolonne ${week}`,
+        positionLine: (week: number) => `Posisjon i kolonne ${week}`,
+        /** Read where «Totalkostnad over tid» stands, which is hidden from screen readers. [ASSUMPTION] */
+        sumRowNote: "Totalkostnad over tid står som tall i raden Sum, kr i tabellen over.",
+      },
+      /** «Kostnad så langt» (`cost-panel`, Story 6.16, DESIGN.md, EXPERIENCE.md → Kostnad så langt).
+       * The labels and «Vis som tabell» are the spine's; «Vis som graf», the table caption and the
+       * chart's `<title>` are [ASSUMPTION] draft copy. */
+      costPanel: {
+        title: "Kostnad så langt",
+        holding: "Lagerkostnad",
+        backorder: "Restordrekostnad",
+        total: "Totalkostnad",
+        overTime: "Totalkostnad over tid",
+        showTable: "Vis som tabell",
+        /** [ASSUMPTION] */
+        showChart: "Vis som graf",
+        /** The table's columns: Uke / Lager / Restordre / «Sum, kr», each a running sum in kroner. */
+        holdingColumn: "Lager",
+        backorderColumn: "Restordre",
+        sumColumn: "Sum, kr",
+        /** [ASSUMPTION] */
+        tableCaption: "Totalkostnad over tid, i kroner",
+        /** [ASSUMPTION] */
+        chartSvg: "Graf over Totalkostnad over tid, lagerkostnad nederst og restordrekostnad øverst.",
+        week: (week: number) => `Uke ${week}`,
       },
       /** The week table (Story 6.6, DESIGN.md → Graf over tabell, UX-DR17, UX-DR18). The region
        * name, «Sveip for tidligere uker», «Din ordre» and «Kost, kr» are the spine's; the label for
@@ -1564,6 +1603,8 @@ export const nb = {
         swipe: "Sveip for tidligere uker",
         order: "Din ordre",
         cost: "Kost, kr",
+        /** The running Totalkostnad per Uke, in Alle rader (Story 6.16, DESIGN.md). */
+        sum: "Sum, kr",
         /** Read with a known arrival's cell: «4, bestilt, ikke garantert». [ASSUMPTION] */
         arrival: "bestilt, ikke garantert",
         /** Read in the empty Din ordre cell at nå. [ASSUMPTION] */

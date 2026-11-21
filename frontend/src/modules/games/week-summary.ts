@@ -46,13 +46,23 @@ export function weekSummary(state: SeatState, turn: PlayTurn): WeekSummary | nul
   if (backlog) {
     rows.push({ label: nb.terms.backlog, value: copy.change(n(before.backlog), n(state.backlog)) });
   }
-  const parts = state.cost_lines
-    .filter((line) => line.units > 0)
-    .map((line) =>
-      (line.kind === "holding" ? copy.holdingPart : copy.backorderPart)(n(line.units), formatNumber(line.rate, { decimals: 2 })),
-    );
-  const cost = copy.weekCost(parts, formatNumber(state.week_cost, { kroner: true }));
+  const cost = weekCostLine(state);
   const title = copy.done(before.week);
   const spoken = [`${title}.`, ...rows.map((row) => `${row.label} ${row.value}.`), `${cost}.`].join(" ");
   return { title, rows, cost, spoken };
+}
+
+/** The open Uke's sum line, «Denne uka: 13 restordre × 1,00 = 13,00 kr»: its non-zero cost lines
+ * with units and rate, joined by « + », then the api's `week_cost`. Shared by the Uke-overgang and
+ * «Kostnad så langt» (Story 6.16). */
+export function weekCostLine(state: SeatState): string {
+  const parts = state.cost_lines
+    .filter((line) => line.units > 0)
+    .map((line) =>
+      (line.kind === "holding" ? copy.holdingPart : copy.backorderPart)(
+        formatNumber(line.units),
+        formatNumber(line.rate, { decimals: 2 }),
+      ),
+    );
+  return copy.weekCost(parts, formatNumber(state.week_cost, { kroner: true }));
 }

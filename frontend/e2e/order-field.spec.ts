@@ -81,8 +81,9 @@ for (const width of [320, 360, 1440]) {
         expect(sizes.button[1]).toBeGreaterThanOrEqual(44);
         expect(sizes.main).toBeGreaterThan(width - 60);
       }
-      // Every control of the field is a tap target of at least 44 px, at every width.
-      const targets = await page.locator("[data-order-field] button").evaluateAll((els) =>
+      // Every control of the field is a tap target of at least 44 px, at every width (the Lenke
+      // «Alle rader og kostnad» on its label line is checked in `cost-panel.spec.ts`).
+      const targets = await page.locator("[data-order-field] button:not([data-all-rows-link])").evaluateAll((els) =>
         els.map((el) => [el.getBoundingClientRect().width, el.getBoundingClientRect().height]),
       );
       expect(targets).toHaveLength(3);
@@ -118,7 +119,7 @@ test("a valid 24 lands in the table and the Kjedebånd; Posisjon and Totalkostna
   const posts = await openPlay(page);
   const position = page.locator('tr[data-row="position"]');
   const positionBefore = await position.innerText();
-  const totalCost = page.getByText(nb.terms.totalCost, { exact: true }).locator("..");
+  const totalCost = page.locator("[data-total-cost]:visible");
   const total = await totalCost.innerText();
   await expect(page.locator("[data-join-line]")).toHaveCount(0);
   await field(page).fill("24");

@@ -14,7 +14,7 @@
       4
     ],
     "neighbour_numbers": [],
-    "schema_version": 3,
+    "schema_version": 4,
     "week": 3,
     "incoming_order": 4,
     "incoming_delivery": 4,
@@ -55,6 +55,8 @@
     ],
     "week_cost": "6.00",
     "total_cost": "18.00",
+    "total_holding_cost": "18.00",
+    "total_backorder_cost": "0.00",
     "history": [
       {
         "week": 1,
@@ -69,6 +71,9 @@
         "cost": "6.00",
         "holding_cost": "6.00",
         "backorder_cost": "0.00",
+        "total_cost": "6.00",
+        "total_holding_cost": "6.00",
+        "total_backorder_cost": "0.00",
         "order": 4
       },
       {
@@ -84,6 +89,9 @@
         "cost": "6.00",
         "holding_cost": "6.00",
         "backorder_cost": "0.00",
+        "total_cost": "12.00",
+        "total_holding_cost": "12.00",
+        "total_backorder_cost": "0.00",
         "order": 4
       }
     ],

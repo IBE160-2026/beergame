@@ -3904,7 +3904,7 @@
       },
       "SeatState": {
         "additionalProperties": false,
-        "description": "What one Seat sees in one opened Week: the single information boundary (AD-3, FR-23).\n\nThe play screen, the LLM player's prompt and the Decision log (`state_seen`) all read this\nmodel, and a field is added here, never beside it. It holds numbers and Roles only: no\nnames, no number of Weeks, no future demand and no other Seat's state beyond the\n`neighbour_numbers` that Information visibility allows (empty until Story 5.16 / 7.x).\nEvery number comes from `engine.seat_view` and `engine.seat_detail`; engine functions that\ntake a `SeatView` accept this model as it is.\n\nVersion 2 (Story 6.6) adds `net_inventory` to the Week and to each `history` row, for the\nplay screen's Netto lager. Version 3 (Story 6.7) adds `holding_cost` and `backorder_cost` to\neach `history` row, for the graph's Kost per uke bars. A stored version-1 or version-2 state\nreads as version 3.",
+        "description": "What one Seat sees in one opened Week: the single information boundary (AD-3, FR-23).\n\nThe play screen, the LLM player's prompt and the Decision log (`state_seen`) all read this\nmodel, and a field is added here, never beside it. It holds numbers and Roles only: no\nnames, no number of Weeks, no future demand and no other Seat's state beyond the\n`neighbour_numbers` that Information visibility allows (empty until Story 5.16 / 7.x).\nEvery number comes from `engine.seat_view` and `engine.seat_detail`; engine functions that\ntake a `SeatView` accept this model as it is.\n\nVersion 2 (Story 6.6) adds `net_inventory` to the Week and to each `history` row, for the\nplay screen's Netto lager. Version 3 (Story 6.7) adds `holding_cost` and `backorder_cost` to\neach `history` row, for the graph's Kost per uke bars. Version 4 (Story 6.16) adds the running\nsums for «Kostnad så langt»: `total_holding_cost` and `total_backorder_cost` on the Week, and\n`total_cost`, `total_holding_cost` and `total_backorder_cost` on each `history` row. A stored\nversion 1, 2 or 3 state reads as version 4.",
         "properties": {
           "backlog": {
             "minimum": 0.0,
@@ -3995,8 +3995,8 @@
             "$ref": "#/components/schemas/Role"
           },
           "schema_version": {
-            "const": 3,
-            "default": 3,
+            "const": 4,
+            "default": 4,
             "title": "Schema Version",
             "type": "integer"
           },
@@ -4017,8 +4017,16 @@
             "title": "Supply Line Slots",
             "type": "array"
           },
+          "total_backorder_cost": {
+            "title": "Total Backorder Cost",
+            "type": "string"
+          },
           "total_cost": {
             "title": "Total Cost",
+            "type": "string"
+          },
+          "total_holding_cost": {
+            "title": "Total Holding Cost",
             "type": "string"
           },
           "week": {
@@ -4049,6 +4057,8 @@
           "cost_lines",
           "week_cost",
           "total_cost",
+          "total_holding_cost",
+          "total_backorder_cost",
           "history",
           "min_order",
           "max_order",
@@ -4970,6 +4980,18 @@
             "title": "Supply Line",
             "type": "integer"
           },
+          "total_backorder_cost": {
+            "title": "Total Backorder Cost",
+            "type": "string"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "total_holding_cost": {
+            "title": "Total Holding Cost",
+            "type": "string"
+          },
           "week": {
             "minimum": 1.0,
             "title": "Week",
@@ -4989,6 +5011,9 @@
           "cost",
           "holding_cost",
           "backorder_cost",
+          "total_cost",
+          "total_holding_cost",
+          "total_backorder_cost",
           "order"
         ],
         "title": "WeekValues",

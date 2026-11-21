@@ -115,8 +115,10 @@ for (const vp of VIEWPORTS) {
       const main = page.getByRole("main");
       await expect(main.getByRole("heading", { level: 1 })).toHaveText(copy.week(11));
       await expect(main.getByText(copy.roleGame("Grossist", 17), { exact: true })).toBeVisible();
-      await expect(main.getByText(nb.terms.totalCost, { exact: true })).toBeVisible();
-      await expect(main.getByText("82,00 kr", { exact: true })).toBeVisible();
+      // The Totalkostnad pair is one button (Story 6.16); «Kostnad så langt» repeats the amount.
+      const total = main.locator("[data-total-cost]:visible");
+      await expect(total.getByText(nb.terms.totalCost, { exact: true })).toBeVisible();
+      await expect(total.getByText("82,00 kr", { exact: true })).toBeVisible();
       const region = main.getByRole("region", { name: copy.table.region });
       await expect(region).toHaveAttribute("tabindex", "0");
       await expect(region.getByRole("columnheader")).toHaveText(
@@ -207,7 +209,7 @@ test("Uke 1: the columns start at Uke 1 and run to Uke 5", async ({ page }) => {
   await page.goto(`/spill/${GAME_ID}`);
   const region = page.getByRole("region", { name: copy.table.region });
   await expect(region.getByRole("columnheader")).toHaveText(["Uke 1", "Uke 2", "Uke 3", "Uke 4", "Uke 5"]);
-  await expect(page.getByText("6,00 kr", { exact: true })).toBeVisible();
+  await expect(page.locator("[data-total-cost]:visible").getByText("6,00 kr", { exact: true })).toBeVisible();
 });
 
 test("on a throttled 4G profile the Skjelett shows in the real columns, then the data within 3 s", async ({
