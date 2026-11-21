@@ -63,7 +63,6 @@ export function MomentsStep({ debrief }: { debrief: Debrief }) {
         </div>
       ) : (
         <>
-          {moments.narration ? <Narration text={moments.narration} /> : null}
           <Paged debrief={debrief} moments={moments} />
         </>
       )}
@@ -71,14 +70,16 @@ export function MomentsStep({ debrief }: { debrief: Debrief }) {
   );
 }
 
-/** The line that ties the moments together (Story 9.14, FR-44): AI text only when `ai_generated`. */
+/** The line that ties the moments together (Story 9.14, FR-44): AI text only when `ai_generated`.
+ * A muted, smaller line at the top of the moment column (`07-debrief.png`), not a block over the
+ * pager. */
 function Narration({ text }: { text: RenderedText }) {
   const id = useId();
   return (
-    <div role="group" aria-labelledby={`${id}-label`} data-moments-narration="" className={`${LINE} mt-4 max-w-3xl text-ink`}>
-      <h3 id={`${id}-label`} className={LABEL}>
+    <div role="group" aria-labelledby={`${id}-label`} data-moments-narration="" className="text-caption text-ink-secondary">
+      <h4 id={`${id}-label`} className={LABEL}>
         {copy.narration}
-      </h3>
+      </h4>
       <p className="mt-1">
         <Text text={text} />
       </p>
@@ -128,6 +129,7 @@ function Paged({ debrief, moments }: { debrief: Debrief; moments: Moments }) {
           </div>
         </div>
         <div className={`${LINE} flex min-w-0 flex-col gap-5 text-ink`}>
+          {moments.narration ? <Narration text={moments.narration} /> : null}
           <div>
             <h4 className={LABEL}>{copy.reckoned}</h4>
             <p className="mt-1" data-moment-reckoning="">
