@@ -97,6 +97,9 @@ export type PlacedLabel = {
   muted: boolean;
   /** Moved into the rows under the band because its own spot had no room. */
   wrapped: boolean;
+  /** Drawn flush with the right end of its box (`x + width`), so a right-edge column of labels
+   * lines up although the real text is narrower than the estimate. */
+  alignEnd?: boolean;
 };
 
 export type BandLayout = {
@@ -315,7 +318,8 @@ export function bandLayout(input: BandInput): BandLayout {
         let x = block.side === "left" ? 0 : Math.max(0, width - block.rowWidth(row));
         for (const item of row) {
           const w = textWidth(item.text, f, item.weight);
-          placed.push(label(item, x, rowBaseline, w, true));
+          // The downstream block keeps flush with the right edge, title and numbers alike.
+          placed.push({ ...label(item, x, rowBaseline, w, true), ...(block.side === "right" ? { alignEnd: true } : {}) });
           x += w + gap;
         }
         bottom = Math.max(bottom, rowBaseline + descent);

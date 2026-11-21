@@ -90,8 +90,10 @@ export function ChainBand({ title, variant = "seat", ...input }: ChainBandProps)
           data-label={label.key}
           data-est={label.width}
           data-wrapped={label.wrapped ? "" : undefined}
-          x={round(label.x)}
+          // Flush right keeps 1 px in from the edge: a glyph's box runs a little past its advance.
+          x={round(label.alignEnd ? Math.min(label.x + label.width, width - 1) : label.x)}
           y={round(label.y)}
+          textAnchor={label.alignEnd ? "end" : undefined}
           fontWeight={label.weight}
           fill={colour(label.muted ? "ink-muted" : "ink")}
         >
