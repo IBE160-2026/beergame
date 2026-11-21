@@ -2750,3 +2750,23 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste b
 
 ### Åpne punkter
 - Issue #175: beslutninger (hvem kan ta pause, frister løper under pause, gruppe på Oversikt).
+
+## Story 9.15: Still avgrensede oppfølgingsspørsmål om spillet mitt (spor 2)
+
+### Oppgave
+Bygge Story 9.15 på `epic-9` i spor 2, den siste storyen i Epic 9, og gjøre testene for fortelling fra 9.14 raskere.
+
+### Plan
+Byggeagent med `bmad-build-auto` mot KI-mocken og fire gjennomgangsagenter på Sonnet, én av dem med vinkel på injeksjon og lekkasje av data. Den visuelle kontrollen gjøres i avslutningen av Epic 9.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-15-ask-bounded-follow-up-questions-about-my-game.md` (på `epic-9`).
+- Commit: d248214. Migrasjon 0113.
+- Oppfølgingsspørsmål i Debrief der svaret alltid er en hint-mal, aldri en påstand; Forklaringen sendes med etter vasking av navn, e-postadresser og lange tall; tidsfrist 20 s og grense på antall spørsmål.
+- Tester: backend 3004 på 106 s, Vitest 785, typecheck, `lint:colours`, `check:copy`, Playwright 141 av 141. Testene for fortelling er raskere (8,6 s ble 5,1 s for den tregeste).
+- Rettet to feil fra 9.14: utfall i dev-mocken traff alle kall i prosessen, og testfikstrer slettet maler som andre tester trengte.
+- Gjennomgang: 51 funn, 8 middels; 2 middels og 15 lave rettet, 2 utsatt.
+- Status: review. Ingen ekte modell har svart ennå (Issue #9).
+
+### Åpne punkter
+- Issue #176: kommandoen for ekte kall, beslutninger og to utsatte punkter.
