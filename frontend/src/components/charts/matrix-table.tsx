@@ -70,7 +70,7 @@ const CELL = "border-b border-hairline px-[0.5em] align-middle";
 const WEEK = "min-w-[2.75em]";
 const ROW_HEAD = "sticky left-0 z-10 bg-paper text-left whitespace-nowrap";
 const FOCUS_RING =
-  "outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink focus-visible:shadow-[inset_0_0_0_3px_var(--color-paper)]";
+  "outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ink focus-visible:shadow-[inset_0_0_0_3px_var(--color-paper)]";
 
 /**
  * «Vis som tabell» (Story 7.3, UX-DR42, NFR-6): the Matrisevegg's rows as an HTML table with a
