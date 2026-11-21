@@ -9,7 +9,42 @@ followup_review_recommended: false
 context:
   - '{project-root}/.docs/implementation-artifacts/epic-7-context.md'
 warnings: ['oversized']
-deferred: []
+deferred:
+  - summary: >-
+      No rebuild or reconcile path for game_summaries outside migration 0051.
+    evidence: |-
+      A row lost or written by a bug is only repaired by the Game's next command; overview.recompute exists but no job or CLI calls it over many Games.
+    location: >-
+      backend/app/modules/games/overview.py
+    severity: low
+  - summary: >-
+      A failed background refetch of the Oversikt keeps the old data with no inline marker.
+    evidence: |-
+      overview-page.tsx shows the error only while there is no data; Story 7.5 (live updates, Tilkoblingslinje) owns stale-state display.
+    location: >-
+      frontend/src/modules/games/overview-page.tsx
+    severity: low
+  - summary: >-
+      A Roster removal or a rename emits no session:<id> event, so an open Oversikt keeps the old name until the next change or reload.
+    evidence: |-
+      Names are resolved at read time and enter the ETag, but nothing invalidates classOverviewKey on a Roster change.
+    location: >-
+      frontend/src/lib/api/topics.ts
+    severity: low
+  - summary: >-
+      game_summaries.occupants and waiting_for hold user ids with no foreign key; an erasure routine (Epic 15 data rights) must cover the table or rebuild it.
+    evidence: |-
+      The ids mirror the append-only seat_occupancy rows, so today they add no new exposure; any later scrub must include this read model.
+    location: >-
+      backend/app/modules/games/models.py
+    severity: low
+  - summary: >-
+      groupsOf drops a row whose status it does not know; Epic 8's paused must add its group (or an exhaustive switch).
+    evidence: |-
+      overview.ts filters rows by the four statuses of Story 7.1 only.
+    location: >-
+      frontend/src/modules/games/overview.ts
+    severity: low
 ---
 
 <intent-contract>
@@ -77,7 +112,7 @@ deferred: []
 - `backend/app/modules/games/service.py` -- `class_overview` read -- for `sessions`.
 - `backend/app/platform/authz.py` -- `class_sessions.overview` -- FR-5.
 - `backend/app/modules/sessions/schemas.py`, `overview.py`, `routes.py` -- endpoint with ETag/304 -- AD-3, AD-25.
-- `backend/tests/games/test_game_status.py`, `test_game_summaries.py`, `backend/tests/sessions/test_overview.py`; update `conftest.py`, `helpers.py`, `test_place_order.py` -- status matrix, recompute after every command, backfill equality, endpoint authz/ETag/AD-13/fixed queries (100 Games).
+- `backend/tests/games/test_game_summaries.py` (with the `game_status` matrix), `backend/tests/sessions/test_overview.py`; update `conftest.py`, `helpers.py`, `test_place_order.py` -- status matrix, recompute after every command, backfill equality, endpoint authz/ETag/AD-13/fixed queries (100 Games).
 - `frontend/src/lib/api/openapi.json`, `schema.ts` -- regenerate.
 - `frontend/src/copy/nb.ts`, `src/modules/games/overview.ts` (+ `overview.test.ts`), `overview-page.tsx`, `src/app/(app)/klasseokter/[sessionId]/oversikt/page.tsx`, `src/modules/identity/homes.ts`, `src/lib/api/topics.ts`, `src/modules/sessions/class-session-page.tsx` -- the page.
 - `frontend/e2e/overview.spec.ts` -- started game, before-start, refusal, axe at 1440/320/200 % text.
@@ -119,6 +154,37 @@ deferred: []
   - `[false]` `[reject]` (edge) Refresh runs for every purpose — intended: the AC asks for one row per Game.
   - `[medium]` `[patch]` (edge) A finished game shows its last Uke, which tells the game's length (FR-14) — the api now sends `week: null` for finished games. The stored row keeps it.
   - `[low]` `[patch]` (edge) Fixed-query test with one Student — duplicate, patched above.
+
+### 2026-11-21 — Review pass (relayed findings)
+- The orchestrator relayed the same two reviewers' full lists (15 blind, 9 + 5 edge). Items already triaged above keep their verdicts (carried).
+- verdicts: 29 findings — high 0, medium 1, low 17, false 8, maybe-false 3
+- findings:
+  - `[low]` `[patch]` (carried) nb.ts orphaned comment — fixed in the first pass.
+  - `[low]` `[patch]` (carried) weak and `*` If-None-Match — fixed in the first pass.
+  - `[low]` `[patch]` e2e asserts «under 1 min» at three widths, which a slow CI could pass beyond — the regex now accepts «under 1 min» or «n min».
+  - `[low]` `[patch]` (carried) fixed-query test with one Student — fixed in the first pass.
+  - `[low]` `[reject]` before_start masking untested, two clocks, early lock — `is_locked` counts `locked_at`, so an early lock counts. The before-start api test asserts week and cost are null. The clock is the Klasseøkt's.
+  - `[low]` `[patch]` The spec named `test_game_status.py` — the Tasks line now names `test_game_summaries.py`. propose/accept stay as rejected (carried).
+  - `[false]` `[reject]` Backfill guided_weeks key missing or other purpose — the same refutation as the first pass. Migration 0051 is unchanged.
+  - `[low]` `[defer]` No rebuild path outside 0051 — deferred.
+  - `[low]` `[defer]` Stale data on a failed refetch — deferred to Story 7.5's live and stale display.
+  - `[false]` `[reject]` The Start-date transition is never re-evaluated — the lock at the Start date runs `set_snapshot` per Class game, which emits `session:<id>`, and the page refetches.
+  - `[low]` `[defer]` A rename or Roster removal emits no event — deferred.
+  - `[false]` `[reject]` The second e2e test never closes its student context — the `ownContextsClosed` auto fixture closes every context a test opens. Long names at 320 px: rows wrap with `overflow-wrap:anywhere`.
+  - `[low]` `[reject]` (carried) Refresh cost under the row lock.
+  - `[false]` `[reject]` NUMERIC(14,4) against the unrounded sum — every `total_cost` has at most 4 decimals, so the sum does too. The every-command test compares stored with recomputed values exactly.
+  - `[low]` `[reject]` Fixtures re-exported through `__all__` — the existing pattern of `tests/sessions/*`.
+  - `[maybe-false]` `[reject]` (carried) waiting with an empty waiting_for.
+  - `[false]` `[reject]` (carried) Backfill ignores policy guided_weeks.
+  - `[low]` `[defer]` user ids in game_summaries on erasure — deferred to Epic 15 data rights.
+  - `[low]` `[defer]` An unknown status (Epic 8 paused) drops rows — deferred to Epic 8.
+  - `[low]` `[reject]` (carried) A 304 with a stale server_now.
+  - `[false]` `[reject]` (carried) number_of returns None.
+  - `[false]` `[reject]` (carried) Refresh for every purpose.
+  - `[medium]` `[patch]` (carried) A finished game reveals its length — fixed in the first pass.
+  - `[maybe-false]` `[reject]` (carried) Confirm waiting_for is never empty.
+  - Remaining relayed rows are duplicates of the rows above (=), each with the same verdict.
+- Follow-up review: not recommended. No high was patched in this pass.
 
 ## Design Notes
 
@@ -191,3 +257,5 @@ Status: done
 **Residual risks.**
 - The backfill SQL mirrors the Python, and a test keeps the two equal. Epic 8 must extend both for `paused`.
 - Waits on turns opened before 0048 show no «Venter på» line.
+
+**Second triage pass (relayed findings):** 2 low patches: the e2e wait regex and the spec's test file name. 5 low deferred, listed in the frontmatter. No change to migration 0051.

@@ -33,7 +33,7 @@ test("the Class's Lecturer sees the game wait for the Student who has not ordere
     const row = group.getByRole("listitem").first();
     await expect(row).toContainText("Spill 1");
     await expect(row).toContainText("Uke 1");
-    await expect(row).toContainText(new RegExp(`Venter på ${second!.name} \\([A-Za-zøå]+\\), under 1 min`));
+    await expect(row).toContainText(new RegExp(`Venter på ${second!.name} \\([A-Za-zøå]+\\), (under 1 min|\\d+ min)`));
     await expect(row.getByRole("list", { name: copy.seatsLabel("Spill 1") }).getByRole("listitem")).toHaveCount(4);
     await expect(row.getByRole("list", { name: copy.seatsLabel("Spill 1") })).toContainText(/^Fabrikk: /);
     await expect(row).toContainText(/0\s?kr/);
