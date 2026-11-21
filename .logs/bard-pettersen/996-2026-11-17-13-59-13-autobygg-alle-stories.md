@@ -2325,3 +2325,25 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #153: beslutninger (midlertidige spørsmål til Issue #16, svar som ikke kan endres, ingen skjerm for lærerne ennå).
+
+## Story 7.6: Se hvem som venter, klassens kostnad og trakten i høyre kolonne (spor 1)
+
+### Oppgave
+Bygge Story 7.6 på `epic-7` i spor 1, og rette at «Venter på …» kuttes ved 390 px.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-6-see-who-waits-the-class-cost-and-the-funnel-in-the-right-rail.md`.
+- Commit: 59f10fe.
+- Høyre kolonne med «Venter ellers», «Klassens kostnad» (Kostnadsfordeling som SVG, tabell, stolper per rolle) og «Trakt». Ny ren funksjon `analysis.class_cost` og `progress.service.funnel` med hurtigbuffer. Kort merknad i veggen ved 390 px. Ingen migrasjon.
+- Tester: backend 2815 på 71 s, Vitest 785, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 48.
+- Gjennomgang: 27 funn, 2 middels (samme uendelige løkke i aksen, funnet av begge, rettet), 6 lave rettet, 1 utsatt.
+- `week-advance` feilet én gang på grensen på 2 s mens gjennomgangsagentene kjørte; tredje gang denne testen er ustabil.
+- Visuell kontroll (Sonnet): 20 skjermbilder i `screenshots/7.6/`. Rettet at høyre kolonne klemte spillradene til én bokstav per linje ved 200 % tekst og at radene var trange ved 1024 px (49153fc). «min» i «Venter ellers» brytes med lange navn; tatt med i lista til slutten av epicen.
+- Orkestratoren satte grensen i `week-advance` til 3 s lokalt og 2 s i CI (d9201b9).
+- Status: done.
+
+### Åpne punkter
+- Issue #154: beslutninger og den ustabile `week-advance`-testen.
