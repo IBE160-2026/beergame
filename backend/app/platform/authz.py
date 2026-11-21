@@ -32,6 +32,8 @@ modules ask `can(user, action, resource)`, they never compare roles themselves.
 - Games (Story 6.1): `own_seat(user, game)` is the scope of a Student's own Class games, the
   Games in which they hold or have held a Seat. `games.read_own` is open to every logged-in User;
   the scope decides.
+- Messages (Story 7.10): `messages_addressed_to(user)` is the scope of a Student's own Messages,
+  those with a recipient row for the User in a Class the User is still a Student in, not archived.
 - Events (Story 6.4): `class_sessions_staffed_by(user)` and `class_games_staffed_by(user)` give the
   `session:` and `game:` topics of a User's Class staff roles; with `own_seat` they decide what
   `GET /api/events` forwards.
@@ -104,6 +106,10 @@ POLICIES: dict[str, frozenset[str]] = {
     # A Message to a Student, a Class game or a whole Class session (Story 7.9, FR-40): the staff
     # of its Class, Lecturers and Assistant lecturers alike.
     "messages.send": frozenset({LECTURER, ASSISTANT}),
+    # The Messages sent in a Class session (Story 7.10): its Class's staff, like the send.
+    "messages.read_sent": frozenset({LECTURER, ASSISTANT}),
+    # A Student's own Messages on Hjem (Story 7.10): any User, held to `messages_addressed_to`.
+    "messages.read_own": frozenset({ANY_USER}),
     # The Class sessions of the Classes a User is a Student in, with their dates (Story 5.2): any
     # User, held to `classes_enrolled_by`.
     "class_sessions.read_enrolled": frozenset({ANY_USER}),
@@ -144,6 +150,7 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "class_sessions.overview": frozenset({OWNER, ASSISTANT_STAFF}),
     "games.insight": frozenset({OWNER, ASSISTANT_STAFF}),
     "messages.send": frozenset({OWNER, ASSISTANT_STAFF}),
+    "messages.read_sent": frozenset({OWNER, ASSISTANT_STAFF}),
 }
 """Class action → the staff roles in the Class that may do it. Later stories add theirs."""
 
@@ -252,6 +259,32 @@ def class_games_staffed_by(user: Principal | uuid.UUID) -> Select:
     """The ids of the Class games of those Class sessions (Story 6.4, AD-8): with `own_seat`, the
     `game:<id>` topics a User's event stream forwards."""
     return select(_games.c.id).where(_games.c.class_session_id.in_(class_sessions_staffed_by(user)))
+
+
+_messages = table("messages", column("id"), column("class_session_id"))
+_classes = table("classes", column("id"), column("archived_at"))
+_message_recipients = table("message_recipients", column("message_id"), column("user_id"))
+"""`messaging.messages` and `messaging.message_recipients` by name only, for the Message scope."""
+
+
+def messages_addressed_to(user: Principal | uuid.UUID) -> Select:
+    """The ids of the Messages written to `user` (Story 7.10, AD-12, FR-5): a recipient row names
+    the User, and the Message's Class session is of a Class the User is a Student in now
+    (`classes_enrolled_by`) and that is not archived (Story 4.10: nothing in an archived Class is
+    open to a Student). A subquery for `WHERE messages.id IN (...)`; every read of a
+    Student's Messages joins through it, so a Message to anyone else reads as none at all."""
+    user_id = user if isinstance(user, uuid.UUID) else user.id
+    return (
+        select(_message_recipients.c.message_id)
+        .join(_messages, _messages.c.id == _message_recipients.c.message_id)
+        .join(_class_sessions, _class_sessions.c.id == _messages.c.class_session_id)
+        .join(_classes, _classes.c.id == _class_sessions.c.class_id)
+        .where(
+            _message_recipients.c.user_id == user_id,
+            _class_sessions.c.class_id.in_(classes_enrolled_by(user_id)),
+            _classes.c.archived_at.is_(None),
+        )
+    )
 
 
 PrincipalLoader = Callable[[uuid.UUID, int], Awaitable[Principal | None]]

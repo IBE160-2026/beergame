@@ -64,6 +64,9 @@ export const messagePath = (sessionId: string, to: { game?: string; student?: st
   return `${classSessionPath(sessionId)}/melding${query ? `?${query}` : ""}`;
 };
 
+/** «Meldinger» (Story 7.10): the Messages a Class session was sent, for its staff. */
+export const sentMessagesPath = (sessionId: string) => `${classSessionPath(sessionId)}/meldinger`;
+
 /** A Student's «Velg spill og sete» in a Class session with Student choice (Story 5.17). */
 export const seatChoicePath = (id: string) => `${classSessionPath(id)}/velg-sete`;
 

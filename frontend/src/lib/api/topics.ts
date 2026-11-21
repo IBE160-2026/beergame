@@ -3,6 +3,7 @@ import type { QueryKey } from "@tanstack/react-query";
 import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
 import { classOverviewKey, gameInsightKey } from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
+import { myMessagesKey, sentMessagesKey } from "@/modules/messaging/api";
 import {
   allocationKey,
   classSessionKey,
@@ -21,7 +22,8 @@ export type ChangeEvent = { topic: string; id: string; version: number | null };
 export function topicKeys(event: ChangeEvent): QueryKey[] {
   switch (event.topic) {
     // The User's own pages: their roles and status, Hjem and «Mine Klasseøkter», «Klassene dine»
-    // and the Lærerhjem, the «Velg spill og sete» list (Story 5.17) and their own games.
+    // and the Lærerhjem, the «Velg spill og sete» list (Story 5.17), their own games, and the
+    // Messages on Hjem (Story 7.10: a Message's notice emits `user:<id>`).
     case "user":
       return [
         meKey,
@@ -31,9 +33,11 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
         lecturerHomeKey,
         ["class-sessions", "seat-choice"],
         ["games", "mine"],
+        myMessagesKey,
       ];
     // A Class session, for its staff: the Klasseøkt, its allocation block, the Lærerhjem parts of
-    // Stories 5.2 and 5.9, the Class page's list of its sessions, and its Oversikt (Story 7.1).
+    // Stories 5.2 and 5.9, the Class page's list of its sessions, its Oversikt (Story 7.1) and its
+    // «Meldinger» (Story 7.10).
     case "session":
       return [
         classSessionKey(event.id),
@@ -41,6 +45,7 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
         lecturerHomeKey,
         ["class-sessions", "of-class"],
         classOverviewKey(event.id),
+        sentMessagesKey(event.id),
       ];
     // A Game: the Student's own game and what hangs under it (briefing, Starting task, the play
     // screen's envelope), Hjem, whose Setestatus shows who has ordered (Story 6.14), and the

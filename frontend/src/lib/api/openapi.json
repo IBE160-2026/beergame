@@ -3627,6 +3627,71 @@
         "title": "MessageSentOut",
         "type": "object"
       },
+      "MyMessageOut": {
+        "description": "One Message on the Student's Hjem (Story 7.10): plain text, shown as written.",
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "sender_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sender Name"
+          },
+          "sent_at": {
+            "format": "date-time",
+            "title": "Sent At",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "class_id",
+          "class_name",
+          "sender_name",
+          "sent_at",
+          "text"
+        ],
+        "title": "MyMessageOut",
+        "type": "object"
+      },
+      "MyMessagesOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MyMessageOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "MyMessagesOut",
+        "type": "object"
+      },
       "NeighbourNumber": {
         "additionalProperties": false,
         "description": "One number about a neighbouring Seat, labelled with its Role and the Week it refers to.",
@@ -5191,6 +5256,148 @@
           "preview"
         ],
         "title": "SeatState",
+        "type": "object"
+      },
+      "SentMessageOut": {
+        "description": "One Message in «Meldinger» (Story 7.10): its recipient, sender, time and reach.",
+        "properties": {
+          "game_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Id"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "student",
+              "class_game",
+              "class_session",
+              "list"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "sender_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sender Name"
+          },
+          "sent_at": {
+            "format": "date-time",
+            "title": "Sent At",
+            "type": "string"
+          },
+          "student_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Id"
+          },
+          "student_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Name"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "game_id",
+          "game_number",
+          "student_id",
+          "student_name",
+          "sender_name",
+          "sent_at",
+          "students",
+          "text"
+        ],
+        "title": "SentMessageOut",
+        "type": "object"
+      },
+      "SentMessagesOut": {
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SentMessageOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "class_id",
+          "class_name",
+          "session_number",
+          "items"
+        ],
+        "title": "SentMessagesOut",
         "type": "object"
       },
       "SessionOut": {
@@ -9146,6 +9353,67 @@
       }
     },
     "/api/class-sessions/{session_id}/messages": {
+      "get": {
+        "description": "«Meldinger» (Story 7.10): every Message of the Class session, newest first, with its\nrecipient, sender, time and the number of Students it went to. 403 `forbidden`, one answer,\nfor anyone who is not staff of the Class and for a Class session that does not exist.",
+        "operationId": "listSentMessages",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SentMessagesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Sent Messages",
+        "tags": [
+          "messaging"
+        ]
+      },
       "post": {
         "description": "«Send Melding» (Story 7.9, FR-40, AD-9): stores the Message with one recipient row per\nStudent and tells each of them in the product and by e-mail. A repeat with the same `key`\nanswers as the first and sends nothing. 422 `message_empty`, `message_too_long` (with\n`fields.max_length`) or `no_recipients`; 409 `message_key_conflict` or `class_archived`; 403\n`forbidden` as the form's read.",
         "operationId": "sendMessage",
@@ -12752,6 +13020,38 @@
         "summary": "View My Game Week",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/me/messages": {
+      "get": {
+        "description": "The Messages written to the User, newest first (Story 7.10, FR-40, FR-73): only those\naddressed to them in a Class they are a Student in (AD-12). Read-only: there is no route by\nwhich a Student writes, replies to or forwards a Message.",
+        "operationId": "listMyMessages",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyMessagesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "summary": "List My Messages",
+        "tags": [
+          "messaging"
         ]
       }
     }

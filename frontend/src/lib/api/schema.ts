@@ -763,7 +763,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Sent Messages
+         * @description «Meldinger» (Story 7.10): every Message of the Class session, newest first, with its
+         *     recipient, sender, time and the number of Students it went to. 403 `forbidden`, one answer,
+         *     for anyone who is not staff of the Class and for a Class session that does not exist.
+         */
+        get: operations["listSentMessages"];
         put?: never;
         /**
          * Send Message
@@ -1845,6 +1851,28 @@ export interface paths {
          *     game, or a Seat the Student no longer holds, answers 403 `forbidden` (FR-5).
          */
         post: operations["viewMyGameWeek"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Messages
+         * @description The Messages written to the User, newest first (Story 7.10, FR-40, FR-73): only those
+         *     addressed to them in a Class they are a Student in (AD-12). Read-only: there is no route by
+         *     which a Student writes, replies to or forwards a Message.
+         */
+        get: operations["listMyMessages"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3457,6 +3485,38 @@ export interface components {
             students: number;
         };
         /**
+         * MyMessageOut
+         * @description One Message on the Student's Hjem (Story 7.10): plain text, shown as written.
+         */
+        MyMessageOut: {
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Sender Name */
+            sender_name: string | null;
+            /**
+             * Sent At
+             * Format: date-time
+             */
+            sent_at: string;
+            /** Text */
+            text: string;
+        };
+        /** MyMessagesOut */
+        MyMessagesOut: {
+            /** Items */
+            items: components["schemas"]["MyMessageOut"][];
+        };
+        /**
          * NeighbourNumber
          * @description One number about a neighbouring Seat, labelled with its Role and the Week it refers to.
          */
@@ -4159,6 +4219,60 @@ export interface components {
             week: number;
             /** Week Cost */
             week_cost: string;
+        };
+        /**
+         * SentMessageOut
+         * @description One Message in «Meldinger» (Story 7.10): its recipient, sender, time and reach.
+         */
+        SentMessageOut: {
+            /** Game Id */
+            game_id: string | null;
+            /** Game Number */
+            game_number: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "student" | "class_game" | "class_session" | "list";
+            /** Sender Name */
+            sender_name: string | null;
+            /**
+             * Sent At
+             * Format: date-time
+             */
+            sent_at: string;
+            /** Student Id */
+            student_id: string | null;
+            /** Student Name */
+            student_name: string | null;
+            /** Students */
+            students: number;
+            /** Text */
+            text: string;
+        };
+        /** SentMessagesOut */
+        SentMessagesOut: {
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Items */
+            items: components["schemas"]["SentMessageOut"][];
+            /** Session Number */
+            session_number: number;
         };
         /** SessionOut */
         SessionOut: {
@@ -6689,6 +6803,55 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listSentMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SentMessagesOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9464,6 +9627,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listMyMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyMessagesOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

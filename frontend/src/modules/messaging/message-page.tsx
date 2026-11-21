@@ -14,7 +14,15 @@ import { formatNumber } from "@/lib/number-format";
 import { usePageState } from "@/lib/page-state";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
-import { classOverviewPath, classPath, classSessionPath, HOME_PATH, messagePath } from "@/modules/identity/homes";
+import { Link } from "@/components/link";
+import {
+  classOverviewPath,
+  classPath,
+  classSessionPath,
+  HOME_PATH,
+  messagePath,
+  sentMessagesPath,
+} from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 
 import { type MessageForm, messageFormKey, type MessageSent, type MessageTo, sendMessage, useMessageForm } from "./api";
@@ -140,6 +148,7 @@ function Composer({ sessionId, to, form }: { sessionId: string; to: MessageTo; f
           {copy.sent(sent.students)}
         </p>
         <p className="text-caption text-ink-secondary">{copy.sentBefore(sent.sent_before)}</p>
+        <SentLink sessionId={sessionId} />
         <Button
           onClick={() => {
             writingAgain.current = true;
@@ -182,6 +191,18 @@ function Composer({ sessionId, to, form }: { sessionId: string; to: MessageTo; f
         <ActionError message={send.errorMessage} />
       </div>
       <p className="text-caption text-ink-secondary">{copy.sentBefore(form.sent_before)}</p>
+      <SentLink sessionId={sessionId} />
     </form>
+  );
+}
+
+/** «Se sendte meldinger»: the Class session's «Meldinger» (Story 7.10). */
+function SentLink({ sessionId }: { sessionId: string }) {
+  return (
+    <p>
+      <Link href={sentMessagesPath(sessionId)} standalone>
+        {copy.sentList.fromForm}
+      </Link>
+    </p>
   );
 }

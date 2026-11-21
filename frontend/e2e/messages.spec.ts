@@ -120,3 +120,98 @@ test("the Meldingsskjema reflows at 320 px and with 200 % text", async ({ browse
     await page.context().close();
   }
 });
+
+/** Story 7.10: a Message sent while the Student has Hjem open, by the api so no live update races
+ * a click; the Student's page reads it from `user:<id>`. */
+async function sendByApi(page: Page, sessionId: string, text: string, to: { student_id?: string } = {}) {
+  const sent = await page.request.post(`/api/class-sessions/${sessionId}/messages`, {
+    data: { key: crypto.randomUUID(), text, ...to },
+    headers: CSRF,
+  });
+  expect(sent.status()).toBe(201);
+}
+
+test("a Student reads Messages on Hjem as they arrive, and the staff read them in «Meldinger»", async ({ browser, lecturerSession }) => {
+  const game = await liveClassGame(browser, lecturerSession, 1, { aiMode: "rule_based", width: 320 });
+  const [student] = game.students as [(typeof game.students)[number]];
+  const lecturer = await lecturerPage(browser, lecturerSession, VIEWPORTS[2]!);
+
+  // Hjem, before any Message: no «Meldinger» section.
+  const hjem = await student.context.newPage();
+  await hjem.goto("/hjem");
+  const home = hjem.getByRole("main");
+  await expect(home.getByRole("heading", { level: 3 }).first()).toBeVisible();
+  await expect(home.getByRole("heading", { name: nb.messages.mine.title })).toHaveCount(0);
+  const focused = home.locator("a, button").first();
+  await focused.focus();
+
+  // Two Messages arrive while Hjem is open: listed newest first, announced, focus kept.
+  const markup = "<b>Hei</b> & velkommen\nhttps://example.com/<script>";
+  await sendByApi(lecturer, game.sessionId, markup);
+  const meldinger = home.getByRole("region", { name: nb.messages.mine.title });
+  await expect(meldinger.getByRole("listitem")).toHaveCount(1);
+  const said = hjem.locator("[data-my-messages-said]");
+  await expect(said).toHaveText(/^Ny melding fra .+\.\s?$/);
+  await expect(focused).toBeFocused();
+  const studentId = (await (await lecturer.request.get(`/api/games/${game.gameId}/insight`, { headers: CSRF })).json()).seats.find(
+    (s: { name: string | null }) => s.name === student.name,
+  ).user_id as string;
+  await sendByApi(lecturer, game.sessionId, "Bare til deg.", { student_id: studentId });
+  await expect(meldinger.getByRole("listitem")).toHaveCount(2);
+  await expect(focused).toBeFocused();
+  const items = meldinger.getByRole("listitem");
+  await expect(items.nth(0)).toContainText("Bare til deg.");
+  // Plain text: the markup is shown as written, its line break kept, and nothing is a link.
+  const text = items.nth(1).locator("p").last();
+  await expect(text).toHaveText(markup);
+  expect(await text.evaluate((p) => (p as HTMLElement).innerText)).toContain("velkommen\nhttps://");
+  await expect(items.nth(1).locator("b, script, a")).toHaveCount(0);
+  await expect(meldinger.getByRole("button")).toHaveCount(0);
+  await expect(meldinger.getByRole("textbox")).toHaveCount(0);
+  await expectAccessible(hjem, true);
+  // And with 200 % text at 1280 px.
+  const larger = await student.context.newPage();
+  await larger.setViewportSize({ width: 1280, height: 800 });
+  await larger.addInitScript(() => {
+    document.addEventListener("DOMContentLoaded", () => {
+      const style = document.createElement("style");
+      style.textContent = "html { font-size: 200% !important; }";
+      document.head.appendChild(style);
+    });
+  });
+  await larger.goto("/hjem");
+  await expect(larger.getByRole("region", { name: nb.messages.mine.title }).getByRole("listitem")).toHaveCount(2);
+  await expectAccessible(larger, false);
+
+  // The staff's «Meldinger», from the Oversikt header: newest first, with a way back to the form.
+  const main = lecturer.getByRole("main");
+  await lecturer.goto(`/klasseokter/${game.sessionId}/oversikt`);
+  await main.getByRole("link", { name: nb.messages.sentList.link, exact: true }).click();
+  await expect(lecturer).toHaveURL(new RegExp(`/klasseokter/${game.sessionId}/meldinger$`));
+  await expect(main.getByRole("heading", { level: 1, name: nb.messages.sentList.title })).toBeVisible();
+  const sent = main.locator("[data-sent-messages] > li");
+  await expect(sent).toHaveCount(2);
+  await expect(sent.nth(0).getByRole("heading", { level: 2 })).toHaveText(`Til ${student.name}`);
+  await expect(sent.nth(0)).toContainText(nb.messages.sentList.reach(1));
+  await expect(sent.nth(1).getByRole("heading", { level: 2 })).toHaveText(/^Til alle i Klasseøkt \d+$/);
+  await expectAccessible(lecturer, false);
+  await sent.nth(0).getByRole("link", { name: `Skriv ny melding til ${student.name}` }).click();
+  await expect(main.getByRole("heading", { level: 1, name: `Melding til ${student.name}` })).toBeVisible();
+  await main.getByRole("link", { name: nb.messages.sentList.fromForm }).click();
+  await expect(lecturer).toHaveURL(new RegExp(`/meldinger$`));
+  await lecturer.context().close();
+});
+
+test("«Meldinger» reflows at 320 px and with 200 % text", async ({ browser, lecturerSession }) => {
+  const game = await liveClassGame(browser, lecturerSession, 1, { aiMode: "rule_based" });
+  const setup = await lecturerPage(browser, lecturerSession, VIEWPORTS[2]!);
+  await sendByApi(setup, game.sessionId, "En lang melding ".repeat(40));
+  await setup.context().close();
+  for (const viewport of [VIEWPORTS[0]!, VIEWPORTS[1]!]) {
+    const page = await lecturerPage(browser, lecturerSession, viewport);
+    await page.goto(`/klasseokter/${game.sessionId}/meldinger`);
+    await expect(page.locator("[data-sent-messages] > li")).toHaveCount(1);
+    await expectAccessible(page, viewport.phone);
+    await page.context().close();
+  }
+});

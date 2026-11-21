@@ -45,3 +45,39 @@ export function sendMessage(sessionId: string, to: MessageTo, text: string, key:
     }),
   );
 }
+
+/** A Message on the Student's Hjem (Story 7.10), and one in the staff's «Meldinger». */
+export type MyMessage = components["schemas"]["MyMessageOut"];
+export type SentMessages = components["schemas"]["SentMessagesOut"];
+export type SentMessage = components["schemas"]["SentMessageOut"];
+
+/** The Student's own Messages; `user:<id>` refetches it (`topics.ts`). */
+export const myMessagesKey = ["messaging", "mine"] as const;
+
+/** `/api/me/messages`: the Messages written to the User, newest first, held to the api's scope. */
+export function useMyMessages() {
+  return useQuery({
+    queryKey: myMessagesKey,
+    queryFn: () => request(() => api.GET("/api/me/messages", { cache: "no-store" })),
+    retry: false,
+  });
+}
+
+/** A Class session's sent Messages; `session:<id>` refetches it (`topics.ts`). */
+export const sentMessagesKey = (sessionId: string) => ["messaging", "sent", sessionId] as const;
+
+/** `/api/class-sessions/{id}/messages`: «Meldinger», for the staff of the Class; anyone else
+ * answers 403 `forbidden`. */
+export function useSentMessages(sessionId: string) {
+  return useQuery({
+    queryKey: sentMessagesKey(sessionId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/messages", {
+          params: { path: { session_id: sessionId } },
+          cache: "no-store",
+        }),
+      ),
+    retry: false,
+  });
+}

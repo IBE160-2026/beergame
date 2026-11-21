@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
 import { classOverviewKey, gameInsightKey, myGameKey, playKey, startingTaskKey } from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
+import { messageFormKey, myMessagesKey, sentMessagesKey } from "@/modules/messaging/api";
 import {
   allocationKey,
   classSessionKey,
@@ -43,10 +44,14 @@ const ALL = [
   classOverviewKey("s2"),
   gameInsightKey("g1"),
   gameInsightKey("g2"),
+  myMessagesKey,
+  sentMessagesKey("s1"),
+  sentMessagesKey("s2"),
+  messageFormKey("s1", {}),
 ] as const;
 
 describe("topicKeys", () => {
-  it("maps user:<id> to Hjem, the enrolled lists, Klassene dine, the Lærerhjem, the seat choice and own games", () => {
+  it("maps user:<id> to Hjem, the enrolled lists, Klassene dine, the Lærerhjem, the seat choice, own games and Messages", () => {
     expect(invalidated({ topic: "user", id: "u1", version: null }, ALL)).toEqual([
       meKey,
       enrolledSessionsKey,
@@ -59,16 +64,18 @@ describe("topicKeys", () => {
       startingTaskKey("g1"),
       playKey("g1"),
       myGameKey("g2"),
+      myMessagesKey,
     ]);
   });
 
-  it("maps session:<id> to that Klasseøkt, its allocation, the Lærerhjem, the Class's session list and its Oversikt", () => {
+  it("maps session:<id> to that Klasseøkt, its allocation, the Lærerhjem, the Class's session list, its Oversikt and «Meldinger»", () => {
     expect(invalidated({ topic: "session", id: "s1", version: null }, ALL)).toEqual([
       lecturerHomeKey,
       classSessionKey("s1"),
       allocationKey("s1"),
       classSessionsKey("c1"),
       classOverviewKey("s1"),
+      sentMessagesKey("s1"),
     ]);
   });
 

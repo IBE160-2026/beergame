@@ -694,6 +694,14 @@ async def class_id_of(session: AsyncSession, session_id: uuid.UUID) -> uuid.UUID
     return None if row is None else row["class_id"]
 
 
+async def class_ids_of(
+    session: AsyncSession, session_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, uuid.UUID]:
+    """The Class of each of these Class sessions in one read, by session id (Story 7.10: a
+    Student's Messages name their Class); an unknown id is left out."""
+    return await repo.class_ids_of(session, list(dict.fromkeys(session_ids)))
+
+
 async def create_session(
     user: authz.Principal, class_id: uuid.UUID, *, now: datetime
 ) -> ClassSessionOut | None:

@@ -22,6 +22,7 @@ import {
   gameInsightPath,
   HOME_PATH,
   messagePath,
+  sentMessagesPath,
 } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 import { osloDateText } from "@/modules/sessions/dates";
@@ -191,6 +192,10 @@ function OverviewHeader({ data, sessionId }: { data: ClassOverview; sessionId: s
           the Varselbånd's «Send Melding». */}
       <Link href={messagePath(sessionId)} data-message-session="" standalone>
         {nb.messages.toSession}
+      </Link>
+      {/* What the Class session was sent (Story 7.10). */}
+      <Link href={sentMessagesPath(sessionId)} data-sent-messages-link="" standalone>
+        {nb.messages.sentList.link}
       </Link>
     </header>
   );

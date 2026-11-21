@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.classes import service as classes
 from app.modules.games import service as games
+from app.modules.identity import service as identity
 from app.modules.messaging.models import message_recipients, messages
 from app.modules.sessions import service as sessions
 from app.platform import authz, events, notify
@@ -33,6 +34,11 @@ from app.platform.db import get_sessionmaker
 
 __all__ = [
     "MESSAGE_KIND",
+    "MY_MESSAGES_LIMIT",
+    "SENT_MESSAGES_LIMIT",
+    "MyMessage",
+    "SentList",
+    "SentListItem",
     "MessageForm",
     "MessageRefused",
     "Recipient",
@@ -40,8 +46,10 @@ __all__ = [
     "SentMessage",
     "message_form",
     "message_mail_context",
+    "my_messages",
     "send",
     "send_message",
+    "sent_messages",
 ]
 
 log = structlog.get_logger(__name__)
@@ -50,6 +58,12 @@ MESSAGE_KIND = "message"
 """The notice kind of a Message (`delivery.KINDS`, immediate)."""
 SEND = "messages.send"
 """The `platform/authz` action: the staff of the Class, Lecturers and Assistant lecturers."""
+READ_SENT = "messages.read_sent"
+"""The staff's list of a Class session's Messages (Story 7.10), held to the same staff roles."""
+MY_MESSAGES_LIMIT = 100
+"""The newest Messages a Student's Hjem lists."""
+SENT_MESSAGES_LIMIT = 200
+"""The newest Messages the staff's «Meldinger» lists."""
 
 
 class RecipientKind(StrEnum):
@@ -387,3 +401,144 @@ async def message_mail_context(
     if user_id not in await classes.registered_students(class_id):
         return None
     return {"lines": row["text"].split("\n"), "class_name": label.name}
+
+
+# Reading Messages (Story 7.10, FR-40, FR-73, AD-12, AD-14): a Student's own on Hjem, and the
+# staff's list of what a Class session was sent. Names are read now, never stored with a Message.
+
+
+@dataclass(frozen=True)
+class MyMessage:
+    id: uuid.UUID
+    class_id: uuid.UUID
+    class_name: str
+    sender_name: str | None
+    """The sender's name now; None when the account is gone."""
+    sent_at: datetime
+    text: str
+
+
+async def my_messages(user: authz.Principal) -> list[MyMessage]:
+    """The Messages written to `user`, newest first, at most `MY_MESSAGES_LIMIT`, read through
+    `authz.messages_addressed_to` only: a Message to anyone else, or of a Class the User is no
+    longer a Student in, is never read (FR-5). Four queries, whatever the number of Messages."""
+    async with get_sessionmaker()() as s:
+        rows = (
+            (
+                await s.execute(
+                    select(
+                        messages.c.id,
+                        messages.c.class_session_id,
+                        messages.c.sender_id,
+                        messages.c.created_at,
+                        messages.c.text,
+                    )
+                    .where(messages.c.id.in_(authz.messages_addressed_to(user)))
+                    .order_by(messages.c.created_at.desc(), messages.c.id.desc())
+                    .limit(MY_MESSAGES_LIMIT)
+                )
+            )
+            .mappings()
+            .all()
+        )
+        if not rows:
+            return []
+        class_of = await sessions.class_ids_of(s, [row["class_session_id"] for row in rows])
+        senders = await identity.people(s, list({row["sender_id"] for row in rows}))
+        enrolled = await classes.enrolled_classes(user, session=s)
+    names = {item.id: item.name for item in enrolled.items}
+    found: list[MyMessage] = []
+    for row in rows:
+        class_id = class_of.get(row["class_session_id"])
+        if class_id is None or class_id not in names:
+            continue
+        sender = senders.get(row["sender_id"])
+        found.append(
+            MyMessage(
+                id=row["id"],
+                class_id=class_id,
+                class_name=names[class_id],
+                sender_name=sender.name if sender else None,
+                sent_at=row["created_at"],
+                text=row["text"],
+            )
+        )
+    return found
+
+
+@dataclass(frozen=True)
+class SentListItem:
+    id: uuid.UUID
+    kind: RecipientKind
+    game_id: uuid.UUID | None
+    game_number: int | None
+    student_id: uuid.UUID | None
+    student_name: str | None
+    """The Student's name while they are a registered Student of the Class; else None."""
+    sender_name: str | None
+    sent_at: datetime
+    students: int
+    text: str
+
+
+@dataclass(frozen=True)
+class SentList:
+    session: sessions.StaffedSession
+    items: list[SentListItem]
+
+
+async def sent_messages(user: authz.Principal, session_id: uuid.UUID) -> SentList | None:
+    """«Meldinger» (Story 7.10): the Messages of the Class session, newest first, at most
+    `SENT_MESSAGES_LIMIT`, each with its recipient, sender, time and the number of Students it
+    went to. None, one answer, when the User is not staff of the Class (FR-5). A fixed number of
+    queries, whatever the number of Messages."""
+    staffed = await sessions.staffed_session(user, session_id, READ_SENT)
+    if staffed is None:
+        return None
+    count = (
+        select(func.count())
+        .where(message_recipients.c.message_id == messages.c.id)
+        .scalar_subquery()
+    )
+    async with get_sessionmaker()() as s:
+        rows = (
+            (
+                await s.execute(
+                    select(messages, count.label("students"))
+                    .where(messages.c.class_session_id == session_id)
+                    .order_by(messages.c.created_at.desc(), messages.c.id.desc())
+                    .limit(SENT_MESSAGES_LIMIT)
+                )
+            )
+            .mappings()
+            .all()
+        )
+        if not rows:
+            return SentList(staffed, [])
+        senders = await identity.people(s, list({row["sender_id"] for row in rows}))
+        named = [row["recipient_user_id"] for row in rows if row["recipient_user_id"]]
+        students = await classes.student_names(staffed.class_id, list(set(named)), session=s)
+        numbers = {
+            uuid.UUID(game_id): number
+            for number, game_id in (await games.class_game_ids(s, session_id)).items()
+        }
+    items = []
+    for row in rows:
+        sender = senders.get(row["sender_id"])
+        student_id = row["recipient_user_id"]
+        game_id = row["recipient_game_id"]
+        items.append(
+            SentListItem(
+                id=row["id"],
+                kind=RecipientKind(row["recipient_kind"]),
+                game_id=game_id,
+                game_number=numbers.get(game_id) if game_id else None,
+                student_id=student_id,
+                student_name=students.get(student_id) if student_id else None,
+                sender_name=sender.name if sender else None,
+                sent_at=row["created_at"],
+                students=row["students"],
+                text=row["text"],
+            )
+        )
+    return SentList(staffed, items)

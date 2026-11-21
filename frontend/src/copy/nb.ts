@@ -2394,6 +2394,37 @@ export const nb = {
     /** The accessible names of those two, which read the same on screen. */
     toGameLabel: (game: number | null) => `Melding til alle i ${gameName(game)}`,
     toStudentLabel: (name: string) => `Melding til ${name}`,
+    /** Story 7.10: the Student's Messages on Hjem. No read state, no reply. [ASSUMPTION] */
+    mine: {
+      title: "Meldinger",
+      /** When the sender's account is gone. */
+      unknownSender: "Faglærer",
+      /** The polite announcement of Messages that arrived while Hjem was open. */
+      arrived: (sender: string, n: number) => (n === 1 ? `Ny melding fra ${sender}.` : `Nye meldinger: ${n}.`),
+    },
+    /** Story 7.10: «Meldinger», what a Class session was sent, for its staff. [ASSUMPTION] */
+    sentList: {
+      title: "Meldinger",
+      crumb: "Meldinger",
+      /** The Lenke in the Oversikt header and under the Meldingsskjema. */
+      link: "Meldinger",
+      fromForm: "Se sendte meldinger",
+      session: (number: number, className: string) => `Klasseøkt ${number} · ${className}`,
+      empty: "Ingen meldinger er sendt i denne Klasseøkten ennå.",
+      to: {
+        student: (name: string, game: number | null) =>
+          game === null ? `Til ${name}` : `Til ${name}, ${gameName(game)}`,
+        formerStudent: "Til en tidligere student",
+        classGame: (game: number | null) => `Til ${gameName(game)}`,
+        classSession: (session: number) => `Til alle i Klasseøkt ${session}`,
+        list: (n: number) => (n === 1 ? "Til 1 student" : `Til ${n} studenter`),
+      },
+      from: (sender: string) => `Fra ${sender}`,
+      reach: (n: number) => (n === 1 ? "Sendt til 1 student" : `Sendt til ${n} studenter`),
+      /** Back to the Meldingsskjema for the same recipient; its accessible name says whom. */
+      writeAgain: "Skriv ny melding",
+      writeAgainLabel: (recipient: string) => `Skriv ny melding ${recipient.charAt(0).toLowerCase()}${recipient.slice(1)}`,
+    },
   },
 
   /** EXPERIENCE.md → State Patterns (UX-DR59). */
