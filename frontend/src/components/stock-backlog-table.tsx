@@ -17,8 +17,9 @@ export type StockBacklogRole = {
 const WEEK_COL = "w-[1.6em] min-w-[1.6em] px-[0.1em] text-center lg:w-[1.65em] lg:min-w-[1.65em]";
 const ROW_LABEL =
   "sticky left-0 z-10 min-w-row-label-phone bg-paper pr-2 text-left align-middle font-normal text-ink lg:min-w-row-label-laptop";
-/** Four bands, each about three lines of `caption` high. */
-const HEIGHT_EM = 14;
+/** Four bands, each about five lines of `caption` high: bars, and a line above and below them for
+ * the band's direct labels (its largest stock and largest backlog). */
+const HEIGHT_EM = 20;
 
 /**
  * «Lager og restordre» over its Uke header (Story 7.8, Spillinnsikt, FR-62, AD-18): one Graf over
@@ -54,7 +55,15 @@ export function StockBacklogTable({
       }));
       return {
         plot: (
-          <StockBacklog width={size.width} height={size.height} xs={size.xs} columnWidth={size.columnWidth} rows={rows} title={texts.svg} />
+          <StockBacklog
+            width={size.width}
+            height={size.height}
+            xs={size.xs}
+            columnWidth={size.columnWidth}
+            rows={rows}
+            title={texts.svg}
+            fontSize={size.fontSize}
+          />
         ),
         axis: (
           <StockBacklogLabels

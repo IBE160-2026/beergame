@@ -91,7 +91,7 @@ describe("the Matrisevegg's layout", () => {
 
   it("draws the short notes when a full one would run past the width, each after its own cells (Story 7.6)", () => {
     const notes = [
-      { cells: 2, full: "Venter på Spiller2 0461 (Distributør), under 1 min", short: "Venter, under 1 min" },
+      { cells: 2, full: "Venter på Spiller2 0461 (Distributør), under 1 min", short: "Venter, under 1 min" },
       { cells: 5, full: "Pågår", short: "Pågår" },
     ];
     // 390 px screen: the full note does not fit; the short one does, and so does the drawing.

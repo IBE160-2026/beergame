@@ -213,3 +213,25 @@ test("a logged-in User who opens the root address goes to their own home", async
   await page.goto("/");
   await expect(page).toHaveURL(new RegExp(`${DEMO_USERS.admin.home}$`));
 });
+
+test("at 200 % text the headline keeps the full width, the lead under it", async ({ browser }) => {
+  // A media query reads the browser's initial size; the Landing's columns follow the enlarged root
+  // size, so the headline never wraps one word per line (Epic 7 close-out).
+  const context = await browser.newContext({ baseURL: test.info().project.use.baseURL, viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    document.addEventListener("DOMContentLoaded", () => {
+      const style = document.createElement("style");
+      style.textContent = "html { font-size: 200% !important; }";
+      document.head.appendChild(style);
+    });
+  });
+  await page.goto("/");
+  const headline = page.getByRole("heading", { level: 1, name: landing.headline });
+  const lead = page.getByText(landing.lead);
+  await untilFontsLoaded(page);
+  const [h, l] = await Promise.all([headline.boundingBox(), lead.boundingBox()]);
+  expect(l!.y).toBeGreaterThanOrEqual(h!.y + h!.height);
+  expect(h!.width).toBeGreaterThan(900);
+  await context.close();
+});

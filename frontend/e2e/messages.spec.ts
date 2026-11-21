@@ -56,7 +56,7 @@ test("a Message goes from the Oversikt, Spillinnsikt and a Seat to its Students,
   await expect(main.getByText(copy.sentBefore(1))).toBeVisible();
   await expect(main.getByRole("textbox", { name: copy.field })).toHaveCount(0);
   for (const [i, student] of [first, second].entries()) {
-    const mail = await nextMail(page, student.email, before[i]!);
+    const mail = await nextMail(page, student.email, before[i]!, "Husk ordren denne uken.");
     expect(mail.text).toContain("Husk ordren denne uken.\nDere er snart ferdige.");
     expect(mail.text).toContain("/hjem");
   }

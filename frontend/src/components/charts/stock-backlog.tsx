@@ -18,6 +18,9 @@ export type StockBacklogProps = {
   rows: readonly StockBacklogRow[];
   /** The SVG `<title>` (AD-18). */
   title: string;
+  /** With a size, each band's largest stock and largest backlog carry their number as a direct
+   * label (DESIGN.md: direct labels), in room kept free at the band's top and foot. */
+  fontSize?: number;
 };
 
 /** The room left free at the top and bottom of each band, in px, so two bands never touch. */
@@ -29,17 +32,17 @@ const GAP = 3;
  * With neither the line sits at the band's foot. A drawing choice, like an axis: the numbers
  * themselves are the api's.
  */
-export function stockBands(height: number, rows: readonly StockBacklogRow[]) {
+export function stockBands(height: number, rows: readonly StockBacklogRow[], labelRoom = 0) {
   const band = height / Math.max(1, rows.length);
   const most = (pick: (row: StockBacklogRow) => readonly (number | null)[]) =>
     Math.max(0, ...rows.flatMap((row) => pick(row).map((value) => value ?? 0)));
   const stock = most((row) => row.stock);
   const backlog = most((row) => row.backlog);
-  const room = Math.max(1, band - 2 * GAP);
+  const room = Math.max(1, band - 2 * GAP - 2 * labelRoom);
   const total = stock + backlog;
   const unit = total > 0 ? room / total : 0;
   return rows.map((_, i) => {
-    const top = i * band + GAP;
+    const top = i * band + GAP + labelRoom;
     return { zero: Math.round(top + (total > 0 ? stock * unit : room)), unit, centre: i * band + band / 2 };
   });
 }
@@ -52,11 +55,20 @@ export function stockBands(height: number, rows: readonly StockBacklogRow[]) {
  * in a Graf over tabell field, so its columns are the Uke header's; `aria-hidden` there, its
  * «Vis som tabell» is the alternative.
  */
-export function StockBacklog({ width, height, xs, columnWidth, rows, title }: StockBacklogProps) {
-  const bands = stockBands(height, rows);
+export function StockBacklog({ width, height, xs, columnWidth, rows, title, fontSize }: StockBacklogProps) {
+  const labelRoom = fontSize ? Math.ceil(fontSize * 1.1) : 0;
+  const bands = stockBands(height, rows, labelRoom);
   const barWidth = Math.max(2, Math.round(columnWidth * 0.7));
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} data-chart="stock-backlog">
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      data-chart="stock-backlog"
+      fontFamily={CHART_FONT}
+      fontSize={fontSize}
+      className="tabular-nums lining-nums"
+    >
       <title>{title}</title>
       {rows.map((row, i) => {
         const band = bands[i]!;
@@ -76,11 +88,35 @@ export function StockBacklog({ width, height, xs, columnWidth, rows, title }: St
             />
           );
         };
+        // The band's largest value of each kind (its first Uke on a tie) names its number.
+        const label = (values: readonly (number | null)[], kind: "stock" | "backlog") => {
+          if (!fontSize) return null;
+          const most = Math.max(0, ...values.map((value) => value ?? 0));
+          const column = values.findIndex((value) => value === most);
+          const x = xs[column];
+          if (most <= 0 || x === undefined) return null;
+          const h = Math.max(1, most * band.unit);
+          return (
+            <text
+              key={`${kind}-label`}
+              data-label={kind}
+              x={round(x)}
+              y={round(kind === "stock" ? band.zero - h - 2 : band.zero + 1 + h + 2)}
+              textAnchor="middle"
+              dominantBaseline={kind === "stock" ? "text-after-edge" : "text-before-edge"}
+              fill={colour("ink")}
+            >
+              {most}
+            </text>
+          );
+        };
         return (
           <g key={i} data-row={i}>
             {row.stock.map((value, column) => bar(value, column, "stock"))}
             {row.backlog.map((value, column) => bar(value, column, "backlog"))}
             <line x1={0} x2={width} y1={band.zero + 0.5} y2={band.zero + 0.5} stroke={colour("axis")} strokeWidth={1} />
+            {label(row.stock, "stock")}
+            {label(row.backlog, "backlog")}
           </g>
         );
       })}

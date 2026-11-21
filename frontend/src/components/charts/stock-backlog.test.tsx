@@ -36,4 +36,20 @@ describe("Lager og restordre (Story 7.8)", () => {
     expect(html).toMatch(new RegExp(`data-mark="stock" x="[\\d.]+" y="3(\\.\\d+)?" width="21" height="${Math.round(12 * band!.unit * 100) / 100}"`));
     expect(html).toMatch(new RegExp(`data-mark="backlog" x="[\\d.]+" y="${band!.zero + 1}"`));
   });
+
+  it("labels each band's largest stock above its bar and largest backlog below it, in kept room", () => {
+    const [band] = stockBands(200, rows, 14);
+    // 100 px a band, 94 − 28 px for the bars: the labels sit in the 14 px kept at top and foot.
+    expect(band!.unit).toBeCloseTo(66 / 18);
+    expect(band!.zero).toBe(Math.round(17 + 12 * (66 / 18)));
+    const html = renderToStaticMarkup(
+      <StockBacklog width={90} height={200} xs={[15, 45, 75]} columnWidth={30} rows={rows} title="t" fontSize={13} />,
+    );
+    expect(html.match(/data-label="stock"/g)).toHaveLength(2);
+    expect(html.match(/data-label="backlog"/g)).toHaveLength(1);
+    expect(html).toMatch(/data-label="stock" x="15"[^>]*>12<\/text>/);
+    expect(html).toMatch(/data-label="backlog" x="45"[^>]*>6<\/text>/);
+    // Without a size, no labels (the server-drawn and unit callers).
+    expect(renderToStaticMarkup(<StockBacklog width={90} height={200} xs={[15, 45, 75]} columnWidth={30} rows={rows} title="t" />)).not.toContain("data-label");
+  });
 });

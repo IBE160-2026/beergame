@@ -40,7 +40,7 @@ test("the Class's Lecturer sees the game wait for the Student who has not ordere
     const row = group.getByRole("listitem").first();
     await expect(row).toContainText("Spill 1");
     await expect(row).toContainText("Uke 1");
-    await expect(row).toContainText(new RegExp(`Venter på ${second!.name} \\([A-Za-zøå]+\\), (under 1 min|\\d+ min)`));
+    await expect(row).toContainText(new RegExp(`Venter på ${second!.name} \\([A-Za-zøå]+\\), (under\\s1\\smin|\\d+\\smin)`));
     await expect(row.getByRole("list", { name: copy.seatsLabel("Spill 1") }).getByRole("listitem")).toHaveCount(4);
     await expect(row.getByRole("list", { name: copy.seatsLabel("Spill 1") })).toContainText(/^Fabrikk: /);
     await expect(row).toContainText(/0\s?kr/);
@@ -421,7 +421,7 @@ test("the right rail shows who waits, the class's cost and the Trakt, beside the
   await phone.goto(`/klasseokter/${game.sessionId}/oversikt`);
   const phoneRegion = phone.getByRole("main").getByRole("region", { name: nb.wall.region });
   const note = phoneRegion.locator("[data-detail]").first();
-  await expect(note).toHaveText(/^Venter, (under 1 min|\d+ min)$/);
+  await expect(note).toHaveText(/^Venter, (under\s1\smin|\d+\smin)$/);
   const [noteBox, regionBox] = [await note.boundingBox(), await phoneRegion.boundingBox()];
   expect(noteBox!.x + noteBox!.width).toBeLessThanOrEqual(regionBox!.x + regionBox!.width);
   const phoneRail = phone.getByRole("complementary", { name: rail.label });

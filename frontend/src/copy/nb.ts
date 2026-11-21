@@ -388,11 +388,12 @@ export const nb = {
       },
       /** A Seat whose LLM player the Play guard switched (FR-79). [ASSUMPTION] */
       guardSwitched: "KI-spiller (regelbasert)",
+      /** With non-breaking spaces, so «min» never wraps away from its number (Epic 7 close-out). */
       duration: {
-        underMinute: "under 1 min",
-        minutes: (n: number) => `${n} min`,
-        hours: (n: number) => `${n} t`,
-        days: (n: number) => `${n} d`,
+        underMinute: "under 1 min",
+        minutes: (n: number) => `${n} min`,
+        hours: (n: number) => `${n} t`,
+        days: (n: number) => `${n} d`,
       },
       /** One waited-for Seat in «Venter på»: «Jonas (3 min)», «Fabrikk», «deg». */
       waitedFor: (who: string, duration: string | null) => (duration ? `${who} (${duration})` : who),

@@ -43,7 +43,7 @@ test("the band names the game that waits, «Send Melding» writes to the Student
   await expect(band).toBeVisible({ timeout: 5_000 });
   const role = "(Fabrikk|Distributør|Grossist|Detaljist)";
   await expect(band.locator("p")).toHaveText(
-    new RegExp(`^Spill 1 venter på ${second!.name} \\(${role}\\) i (under 1 min|\\d+ min)\\.$`),
+    new RegExp(`^Spill 1 venter på ${second!.name} \\(${role}\\) i (under\\s1\\smin|\\d+\\smin)\\.$`),
   );
   await expect(main.locator("[data-attention-announcement]")).toHaveText(
     new RegExp(`^Spill 1 venter på ${second!.name} \\(${role}\\)\\.$`),

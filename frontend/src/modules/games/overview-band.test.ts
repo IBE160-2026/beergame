@@ -41,9 +41,9 @@ function game(number: number, status: OverviewGame["status"], since?: string): O
 }
 
 describe("the Varselbånd", () => {
-  it("reads «Spill 2 venter på Noah (Grossist) i 23 t.», by Role for a Student no longer in the Class", () => {
-    expect(bandText(alert, now)).toBe("Spill 2 venter på Noah (Grossist) i 23 t.");
-    expect(bandText({ ...alert, name: null, user_id: null }, now)).toBe("Spill 2 venter på Grossist i 23 t.");
+  it("reads «Spill 2 venter på Noah (Grossist) i 23 t.», by Role for a Student no longer in the Class", () => {
+    expect(bandText(alert, now)).toBe("Spill 2 venter på Noah (Grossist) i 23 t.");
+    expect(bandText({ ...alert, name: null, user_id: null }, now)).toBe("Spill 2 venter på Grossist i 23 t.");
   });
 
   it("announces the game and Student without the ticking duration, and nothing without a band", () => {

@@ -162,3 +162,41 @@ test("a failed read shows the page error, and «Prøv igjen» loads Hjem", async
   await expect(page.getByRole("heading", { level: 2, name: /class-of-1994/ })).toBeVisible();
   await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
 });
+
+test("a Student in two Classes sees each Message's Class name; in one Class, none (Story 7.10)", async ({ page }) => {
+  await loginByApi(page, "student");
+  const message = (id: string, className: string, text: string) => ({
+    id,
+    class_id: `c-${id}`,
+    class_name: className,
+    sender_name: "Lene Lærer",
+    sent_at: "2026-11-26T13:15:00Z",
+    text,
+  });
+  await page.route("**/api/me/messages", (route) =>
+    route.fulfill({
+      json: { items: [message("m2", "class-of-2027", "Husk fristen."), message("m1", "Logistikk 2", "Velkommen.")] },
+    }),
+  );
+  // The demo Student's one Class, and a second laid over it.
+  let second = true;
+  await page.route("**/api/classes/enrolled", async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    const items = second
+      ? [...body.items, { ...body.items[0], id: "01a1f8ee-0000-7000-8000-000000000002", name: "Logistikk 2" }]
+      : body.items;
+    await route.fulfill({ response, json: { ...body, items } });
+  });
+  await page.goto("/hjem");
+  const meldinger = page.getByRole("main").getByRole("region", { name: nb.messages.mine.title });
+  await expect(meldinger.getByRole("listitem")).toHaveCount(2);
+  await expect(meldinger.getByRole("listitem").nth(0)).toContainText("class-of-2027");
+  await expect(meldinger.getByRole("listitem").nth(1)).toContainText("Logistikk 2");
+
+  second = false;
+  await page.reload();
+  await expect(meldinger.getByRole("listitem")).toHaveCount(2);
+  await expect(meldinger).not.toContainText("class-of-2027");
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
