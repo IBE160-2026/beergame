@@ -1,4 +1,4 @@
-import { expect } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { loginByApi } from "./support/auth";
@@ -12,8 +12,14 @@ import { liveClassGame, orderByApi } from "./support/live-game";
  * a Student is refused. What the api stores and answers is `backend/tests/sessions/test_overview.py`
  * and `backend/tests/games/test_game_summaries.py`. */
 const copy = nb.overview;
+const live = copy.live;
 const CSRF = { "X-Requested-With": "olspillet" };
 const DAY = 24 * 60 * 60 * 1000;
+
+/** Wait until the page's event stream has sent `ready`: from then on no change is missed. */
+async function untilLive(page: Page) {
+  await expect(page.locator("html")).toHaveAttribute("data-live", "live", { timeout: 10_000 });
+}
 
 test("the Class's Lecturer sees the game wait for the Student who has not ordered, at every width", async ({
   browser,
@@ -91,12 +97,18 @@ test("the Matrisevegg reads every game Uke by Uke from the keyboard and keeps fo
     await expect(page.locator("[data-focus-ring]")).toHaveCount(1);
     await expectAccessible(page, viewport.phone);
     if (viewport === VIEWPORTS[0]) {
-      // The game moves on and changes group while a cell has focus: focus stays on Spill 1, Uke 2.
+      // The game moves on and would change group while a cell has focus (Story 7.5, UX-DR44): its
+      // values update in place, the row stays under «Pågår» and focus stays on Spill 1, Uke 2.
+      await untilLive(page);
       await orderByApi(first!, game.gameId, 4, 4);
-      await expect(grid.getByRole("rowheader", { name: `${copy.groups.waiting} 1`, exact: true })).toBeVisible();
+      await expect(main.locator("[data-headline]")).toHaveText("0 ferdig · 0 pågår · 1 venter", { timeout: 5_000 });
+      await expect(grid.getByRole("rowheader", { name: `${copy.groups.running} 1`, exact: true })).toBeVisible();
+      await expect(grid.getByRole("rowheader", { name: /^Spill 1, venter på / })).toBeVisible();
       await expect(page.locator(":focus")).toHaveAccessibleName(/^Spill 1, Uke 2: /);
+      // Once focus leaves the wall, the row moves to its new group.
       await page.keyboard.press("Tab");
       await expect(grid.locator(":focus")).toHaveCount(0);
+      await expect(grid.getByRole("rowheader", { name: `${copy.groups.waiting} 1`, exact: true })).toBeVisible();
     }
     await page.context().close();
   }
@@ -277,6 +289,117 @@ test("Veggfiltre change wall and table at once, with the class median over the w
     await expectAccessible(page, viewport.phone);
     await page.context().close();
   }
+});
+
+test("«Oppdater automatisk» shows an Order within 5 s, holds the page when off, and «Oppdater» applies it", async ({
+  browser,
+  lecturerSession,
+}) => {
+  const game = await liveClassGame(browser, lecturerSession, 2, { aiMode: "rule_based" });
+  const [first, second] = game.students;
+  const page = await lecturerPage(browser, lecturerSession, { width: 1280, height: 800 });
+  const reads: { status: number; revalidated: boolean }[] = [];
+  page.on("response", (response) => {
+    if (new URL(response.url()).pathname.endsWith("/overview")) {
+      reads.push({ status: response.status(), revalidated: Boolean(response.request().headers()["if-none-match"]) });
+    }
+  });
+  await page.goto(`/klasseokter/${game.sessionId}/oversikt`);
+  const main = page.getByRole("main");
+  const headline = main.locator("[data-headline]");
+  const said = page.locator("[data-counts-announcement]");
+  const cells = main.getByRole("region", { name: nb.wall.region }).locator("[data-row] [role=gridcell]");
+  await expect(headline).toHaveText("0 ferdig · 1 pågår · 0 venter");
+  await expect(cells).toHaveCount(1);
+  await untilLive(page);
+  const on = main.getByRole("switch", { name: `${live.label} ${live.on}` });
+  await expect(on).toHaveAttribute("aria-checked", "true");
+  await expect(main.getByText(/^Oppdatert \d\d:\d\d:\d\d$/)).toBeVisible();
+  await expect(said).toHaveText("");
+
+  // On: an Order reaches the page within 5 s through `session:<id>` (coalesced to one per 2 s),
+  // read again with the list's ETag; the counts are said politely.
+  await orderByApi(first!, game.gameId, 1, 4);
+  await expect(headline).toHaveText("0 ferdig · 0 pågår · 1 venter", { timeout: 5_000 });
+  expect(reads.at(-1)).toEqual({ status: 200, revalidated: true });
+  await expect(said).toHaveText("0 ferdig · 0 pågår · 1 venter");
+
+  // Off: the page holds what it shows while the changes are counted.
+  await on.click();
+  const off = main.getByRole("switch", { name: `${live.label} ${live.off}` });
+  await expect(off).toHaveAttribute("aria-checked", "false");
+  await orderByApi(second!, game.gameId, 1, 4); // the Week is complete: Uke 2 opens
+  const waiting = main.getByText(/^1 endring siden \d\d:\d\d$/);
+  await expect(waiting).toBeVisible({ timeout: 5_000 });
+  await expect(headline).toHaveText("0 ferdig · 0 pågår · 1 venter");
+  await expect(cells).toHaveCount(1);
+  await expect(main.getByText(/^Oppdatert \d\d:\d\d:\d\d$/)).toBeVisible();
+  await expectAccessible(page, false);
+  await main.getByRole("button", { name: live.apply, exact: true }).click();
+  await expect(headline).toHaveText("0 ferdig · 1 pågår · 0 venter");
+  await expect(cells).toHaveCount(2);
+  await expect(waiting).toHaveCount(0);
+  await expect(off).toHaveAttribute("aria-checked", "false");
+  // At most once a minute: the change back is not said yet.
+  await expect(said).toHaveText("0 ferdig · 0 pågår · 1 venter");
+
+  // The connection drops and returns: everything visible is read again, the unchanged list
+  // answers 304, and «Tilkoblet igjen.» shows.
+  const before = reads.length;
+  await page.context().setOffline(true);
+  await expect(page.getByRole("status").filter({ hasText: nb.system.offline })).toBeVisible();
+  await page.context().setOffline(false);
+  await expect(page.getByRole("status").filter({ hasText: nb.system.reconnected })).toBeVisible();
+  await expect.poll(() => reads.slice(before).some((read) => read.status === 304 && read.revalidated)).toBe(true);
+  await expect(headline).toHaveText("0 ferdig · 1 pågår · 0 venter");
+  await untilLive(page);
+
+  // A read that fails keeps the page as it is and says so; the next change clears it.
+  await off.click();
+  await expect(on).toHaveAttribute("aria-checked", "true");
+  const failing = `**/api/class-sessions/${game.sessionId}/overview`;
+  await page.route(failing, (route) => route.fulfill({ status: 500, body: "" }));
+  await orderByApi(first!, game.gameId, 2, 4);
+  const failed = page.getByRole("status").filter({ hasText: /^Ikke oppdatert siden \d\d:\d\d\.Prøv igjen$/ });
+  await expect(failed).toBeVisible({ timeout: 5_000 });
+  await expect(headline).toHaveText("0 ferdig · 1 pågår · 0 venter");
+  await expect(cells).toHaveCount(2);
+  await page.unroute(failing);
+  await orderByApi(second!, game.gameId, 2, 4);
+  await expect(failed).toHaveCount(0, { timeout: 5_000 });
+  await expect(cells).toHaveCount(3);
+  await page.context().close();
+
+  // A missed heartbeat: the Oversikt's own Tilkoblingslinje, the wall kept as it is. A failed
+  // week read is tried again by itself.
+  const later = await lecturerPage(browser, lecturerSession, VIEWPORTS[0]!);
+  await later.clock.install();
+  let failedOnce = false;
+  const weeks = "**/api/games/*/weeks";
+  await later.route(weeks, async (route) => {
+    if (failedOnce) return route.continue();
+    failedOnce = true;
+    await route.fulfill({ status: 500, body: "" });
+  });
+  await later.goto(`/klasseokter/${game.sessionId}/oversikt`);
+  const laterMain = later.getByRole("main");
+  const laterCells = laterMain.getByRole("region", { name: nb.wall.region }).locator("[data-row] [role=gridcell]");
+  await expect(laterMain.locator("[data-headline]")).toHaveText("0 ferdig · 1 pågår · 0 venter");
+  await expect.poll(() => failedOnce).toBe(true);
+  await expect(laterCells).toHaveCount(0);
+  await later.clock.fastForward(11_000);
+  await expect(laterCells).toHaveCount(3);
+  await later.unroute(weeks);
+  await untilLive(later);
+  await later.clock.fastForward(25_000);
+  const stale = later
+    .getByRole("status")
+    .filter({ hasText: /^Ikke oppdatert siden \d\d:\d\d\. Prøver igjen\.Last inn på nytt$/ });
+  await expect(stale).toBeVisible();
+  await expect(stale.getByRole("button", { name: live.reload })).toBeVisible();
+  await expect(laterCells).toHaveCount(3);
+  await expectAccessible(later, true);
+  await later.context().close();
 });
 
 test("before the Start date the page lists the allocation only, reached from the Klasseøkt", async ({

@@ -2,17 +2,21 @@ import { describe, expect, it } from "vitest";
 
 import { GROUP, KRONER } from "@/lib/number-format";
 
-import type { GameWeeks, OverviewGame } from "./api";
+import type { ClassOverview, GameWeeks, OverviewGame } from "./api";
 import { sortRows } from "@/components/charts/matrix-table-sort";
 
 import {
   cellValues,
+  changedGames,
   clockWithSeconds,
   costText,
   filterGroups,
   groupsOf,
   headline,
+  holdGroups,
   netValues,
+  orderOf,
+  readAgainAt,
   seatTexts,
   statusCounts,
   TABLE_COLUMNS,
@@ -278,5 +282,65 @@ describe("Veggfiltre on the rows received (Story 7.4, AD-10)", () => {
     expect(cellValues(weeks, "factory", "cost")).toEqual([6, 3.5, 9]);
     const rows = wallGroups(groupsOf([game({ game_number: 1, status: "running" })]), new Map([["g1", { data: weeks, failed: false }]]), "factory", 0, "order");
     expect(rows[0]!.rows[0]!.values).toEqual([4, 8]);
+  });
+});
+
+describe("changedGames (Story 7.5)", () => {
+  const answer = (items: OverviewGame[]) =>
+    ({ items, counts: { waiting: 0, running: 0, not_started: 0, finished: 0 } }) as unknown as ClassOverview;
+  const one = game({ game_number: 1, status: "running" });
+  const two = game({ game_number: 2, status: "running" });
+
+  it("counts the games with another version, added or dropped", () => {
+    const held = answer([one, two]);
+    expect(changedGames(held, answer([{ ...one, version: 2 }, two]), false)).toBe(1);
+    expect(changedGames(held, answer([{ ...one, version: 3 }, { ...two, version: 2 }]), false)).toBe(2);
+    expect(changedGames(held, answer([one]), false)).toBe(1);
+    expect(changedGames(answer([one]), answer([one, two]), false)).toBe(1);
+  });
+
+  it("is 0 for the same answer and at least 1 for any other", () => {
+    const held = answer([one]);
+    expect(changedGames(held, held, true)).toBe(0);
+    expect(changedGames(held, answer([one]), false)).toBe(1);
+  });
+});
+
+describe("holdGroups (Story 7.5)", () => {
+  const one = game({ game_number: 1, status: "running" });
+  const two = game({ game_number: 2, status: "running" });
+  const three = game({ game_number: 3, status: "waiting", wait_started_at: "2026-11-21T10:00:00Z" });
+
+  it("keeps a game that changed status where it stood, with its new values", () => {
+    const held = orderOf(groupsOf([one, two]));
+    const moved = { ...one, status: "waiting" as const, version: 2, wait_started_at: "2026-11-21T10:00:00Z" };
+    const now = groupsOf([moved, two]);
+    expect(now.map((g) => g.name)).toEqual(["waiting", "running"]);
+    const kept = holdGroups(now, held);
+    expect(kept.map((g) => [g.name, g.games.map((x) => x.game_number)])).toEqual([["running", [1, 2]]]);
+    expect(kept[0]!.games[0]!.version).toBe(2);
+  });
+
+  it("drops a game that left and adds a new one at the end of its group, or in a group after", () => {
+    const held = orderOf(groupsOf([one, two]));
+    const kept = holdGroups(groupsOf([two, three, game({ game_number: 4, status: "running" })]), held);
+    expect(kept.map((g) => [g.name, g.games.map((x) => x.game_number)])).toEqual([
+      ["running", [2, 4]],
+      ["waiting", [3]],
+    ]);
+  });
+
+  it("keeps a held game outside the Status filter and lets in only new games the filter admits", () => {
+    const held = orderOf(groupsOf([one, two]));
+    const moved = { ...one, status: "waiting" as const, version: 2, wait_started_at: "2026-11-21T10:00:00Z" };
+    const kept = holdGroups(groupsOf([moved, two, three]), held, (g) => g.status === "running");
+    expect(kept.map((g) => [g.name, g.games.map((x) => x.game_number)])).toEqual([["running", [1, 2]]]);
+  });
+});
+
+describe("readAgainAt (Story 7.5, AD-8)", () => {
+  it("reads again 1 s after the api's clock reaches the Start date, whatever the browser's clock says", () => {
+    // The api says 30 s are left; the answer arrived at browser time 5 000 (its clock is off by hours).
+    expect(readAgainAt("2026-11-21T13:00:30Z", "2026-11-21T13:00:00Z", 5_000)).toBe(36_000);
   });
 });

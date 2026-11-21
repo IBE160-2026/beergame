@@ -40,6 +40,9 @@ async def test_before_the_start_date_the_overview_lists_the_allocation_without_n
     assert response.status_code == 200
     body = response.json()
     assert body["before_start"] is True
+    # The page reads again when the Start date passes (AD-8).
+    assert body["start_at"] is not None
+    assert body["next_change_at"] == body["start_at"]
     assert (body["class_name"], body["session_number"], body["next_cursor"]) == (
         "class-of-1994",
         1,
@@ -74,6 +77,7 @@ async def test_staff_see_whom_a_running_game_waits_for_and_test_games_stay_out(k
     assert first.status_code == 200
     body = first.json()
     assert body["before_start"] is False
+    assert body["next_change_at"] is None
     [item] = body["items"]
     assert (item["status"], item["week"], item["chain_cost"]) == ("running", 1, "0.0000")
     assert body["counts"] == {"waiting": 0, "running": 1, "not_started": 0, "finished": 0}

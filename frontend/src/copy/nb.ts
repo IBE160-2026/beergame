@@ -2083,6 +2083,21 @@ export const nb = {
     empty: "Klasseøkten har ingen klassespill.",
     /** [ASSUMPTION] Story 7.2: the heading of the game list under the Matrisevegg. */
     listTitle: "Spill og seter",
+    /** «Oppdater automatisk» and the Oversikt's Tilkoblingslinje (Story 7.5, EXPERIENCE.md →
+     * Oppdater automatisk and State Patterns → Oversikt). */
+    live: {
+      label: "Oppdater automatisk",
+      /** [ASSUMPTION] the Bryter's state words. */
+      on: "På",
+      off: "Av",
+      /** «3 endringer siden 14:02»; [ASSUMPTION] the singular «1 endring». */
+      changes: (n: number, clock: string) => `${n} ${n === 1 ? "endring" : "endringer"} siden ${clock}`,
+      apply: "Oppdater",
+      stale: (clock: string) => `Ikke oppdatert siden ${clock}. Prøver igjen.`,
+      reload: "Last inn på nytt",
+      /** [ASSUMPTION] a background read failed while the stream is live. */
+      failed: (clock: string) => `Ikke oppdatert siden ${clock}.`,
+    },
   },
 
   /** The Matrisevegg (Story 7.2, DESIGN.md → Components → Matrisevegg, EXPERIENCE.md →

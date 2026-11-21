@@ -53,6 +53,77 @@ export function groupsOf(games: readonly OverviewGame[]): OverviewGroup[] {
   return groups.filter((group) => group.games.length > 0);
 }
 
+/**
+ * How many changes wait while «Oppdater automatisk» is off (Story 7.5, UX-DR44): the games the
+ * latest answer adds, drops or brings with another `version` than the held one. An answer that
+ * differs in something else only (a name, the Start date) counts as one. Counts what it received;
+ * nothing is derived from the games' contents (AD-10).
+ */
+export function changedGames(held: ClassOverview, latest: ClassOverview, sameAnswer: boolean): number {
+  if (sameAnswer) return 0;
+  const before = new Map(held.items.map((game) => [game.game_id, game.version]));
+  let changed = 0;
+  for (const game of latest.items) {
+    if (before.get(game.game_id) !== game.version) changed += 1;
+    before.delete(game.game_id);
+  }
+  changed += before.size;
+  return Math.max(changed, 1);
+}
+
+/**
+ * When (ms on the browser's clock) to read the Oversikt again for its `next_change_at` (Story 7.5,
+ * AD-8): the wait the api's own clock gives, `next_change_at − server_now`, counted from the
+ * answer's arrival, plus 1 s so the api finds the moment passed. The browser's clock only measures.
+ */
+export function readAgainAt(nextChangeAt: string, serverNow: string, receivedAt: number): number {
+  return receivedAt + Date.parse(nextChangeAt) - Date.parse(serverNow) + 1_000;
+}
+
+/** The groups as they stood (by name and game id, in order), for `holdGroups`. */
+export type HeldOrder = readonly { name: GroupName; ids: readonly string[] }[];
+
+export function orderOf(groups: readonly OverviewGroup[]): HeldOrder {
+  return groups.map((group) => ({ name: group.name, ids: group.games.map((game) => game.game_id) }));
+}
+
+/**
+ * The groups with their rows where they stood in `held`, carrying the latest values (Story 7.5,
+ * EXPERIENCE.md → Oppdater automatisk): while keyboard focus is inside the wall no row moves or
+ * re-sorts, even one whose status changed. A game that left is dropped (and a group left empty
+ * with it); a new game `admit` lets in goes at the end of its own group when that group stood,
+ * else into a group of its own after the held ones, in `groups`' order.
+ */
+export function holdGroups(
+  groups: readonly OverviewGroup[],
+  held: HeldOrder,
+  admit: (game: OverviewGame) => boolean = () => true,
+): OverviewGroup[] {
+  const latest = new Map(groups.flatMap((group) => group.games.map((game) => [game.game_id, game] as const)));
+  const placed = new Set(held.flatMap((group) => group.ids));
+  const kept = held.map((group) => ({
+    name: group.name,
+    title: groups.find((g) => g.name === group.name)?.title ?? titleOf(group.name),
+    games: group.ids.flatMap((id) => {
+      const game = latest.get(id);
+      return game ? [game] : [];
+    }),
+  }));
+  const extra: OverviewGroup[] = [];
+  for (const group of groups) {
+    const fresh = group.games.filter((game) => !placed.has(game.game_id) && admit(game));
+    if (fresh.length === 0) continue;
+    const home = kept.find((g) => g.name === group.name);
+    if (home) home.games.push(...fresh);
+    else extra.push({ ...group, games: fresh });
+  }
+  return [...kept, ...extra].filter((group) => group.games.length > 0);
+}
+
+function titleOf(name: GroupName): string {
+  return copy.groups[name];
+}
+
 /** «Venter på Noah (Grossist), 23 t» for each Seat the game waits for, counted at `now` (ms on
  * the server's clock). A Student no longer in the Class is named by Role. */
 export function waitLines(game: OverviewGame, now: number): string[] {

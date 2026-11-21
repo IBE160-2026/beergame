@@ -2208,6 +2208,8 @@ export interface components {
             counts: components["schemas"]["OverviewCountsOut"];
             /** Items */
             items: components["schemas"]["OverviewGameOut"][];
+            /** Next Change At */
+            next_change_at: string | null;
             /** Next Cursor */
             next_cursor: string | null;
             /**

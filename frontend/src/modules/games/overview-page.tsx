@@ -1,9 +1,15 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
 
+import { Button } from "@/components/button";
+import type { LiveLines } from "@/components/connection-notice";
+import { Switch } from "@/components/switch";
 import { nb } from "@/copy/nb";
+import { useThrottledAnnouncement } from "@/lib/announce";
 import { ApiRequestError } from "@/lib/api/client";
+import { formatClock } from "@/lib/connection";
 import { usePageState } from "@/lib/page-state";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
@@ -11,11 +17,22 @@ import { classOverviewPath, classPath, classSessionPath, HOME_PATH } from "@/mod
 import { PageShell } from "@/modules/identity/page-shell";
 import { osloDateText } from "@/modules/sessions/dates";
 
-import { type ClassOverview, classOverviewKey, type OverviewGame, useClassOverview } from "./api";
+import { type ClassOverview, classOverviewKey, type OverviewAnswer, type OverviewGame, useClassOverview } from "./api";
 import { OverviewWall } from "./overview-wall";
-import { clockWithSeconds, costText, groupsOf, headline, type OverviewGroup, seatTexts, waitLines } from "./overview";
+import {
+  changedGames,
+  clockWithSeconds,
+  readAgainAt,
+  costText,
+  groupsOf,
+  headline,
+  type OverviewGroup,
+  seatTexts,
+  waitLines,
+} from "./overview";
 
 const copy = nb.overview;
+const live = copy.live;
 
 /** The shape of a Class session id (a UUID). */
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -49,10 +66,18 @@ export function OverviewPage({ sessionId }: { sessionId: string }) {
 function OverviewView({ sessionId, user, updatedAt }: { sessionId: string; user: SessionUser; updatedAt: number }) {
   const found = useClassOverview(sessionId);
   const { phase, retry } = usePageState(found, classOverviewKey(sessionId));
+  // «Oppdater automatisk» (Story 7.5): on, the page shows each answer as it arrives; off, it holds
+  // the answer it showed when switched off while the query goes on reading, and «Oppdater» moves
+  // the held answer to the latest. Page state only.
+  const [auto, setAuto] = useState(true);
+  const [held, setHeld] = useState<OverviewAnswer | null>(null);
+  const latest = found.data;
+  useReadAt(sessionId, latest);
   if (found.error instanceof ApiRequestError && found.error.code === "forbidden") {
     return <AccessDenied user={user} updatedAt={updatedAt} />;
   }
-  const data = found.data;
+  const shown = latest && !auto && held && !latest.overview.before_start ? held : latest;
+  const data = shown?.overview;
   const crumbs = data
     ? ([
         { label: nb.homes.lecturerHome, href: HOME_PATH.lecturerHome },
@@ -61,6 +86,20 @@ function OverviewView({ sessionId, user, updatedAt }: { sessionId: string; user:
         { label: copy.crumb, href: classOverviewPath(sessionId) },
       ] as const)
     : undefined;
+  // A background read that failed leaves the last answer on screen, said so in the line with the
+  // time of the last read that succeeded (a 304 included); it is tried again by itself too.
+  const readFailed = Boolean(latest) && found.isError && !found.isFetching;
+  const liveLines: LiveLines = {
+    stale: live.stale,
+    staleAction: { label: live.reload, onPress: () => window.location.reload() },
+    failed: readFailed
+      ? { message: live.failed(formatClock(found.dataUpdatedAt)), action: { label: nb.system.retry, onPress: retry } }
+      : undefined,
+  };
+  const switchAuto = (on: boolean) => {
+    setAuto(on);
+    setHeld(on ? null : (latest ?? null));
+  };
   return (
     <PageShell
       user={user}
@@ -71,10 +110,64 @@ function OverviewView({ sessionId, user, updatedAt }: { sessionId: string; user:
       onRetry={retry}
       skeleton={{ rows: 8, columns: 4 }}
       header={data ? <OverviewHeader data={data} /> : undefined}
+      liveLines={liveLines}
     >
-      {data ? <OverviewBody sessionId={sessionId} data={data} receivedAt={found.dataUpdatedAt} /> : null}
+      {shown && latest ? (
+        <OverviewBody
+          sessionId={sessionId}
+          answer={shown}
+          live={{
+            auto,
+            onAuto: switchAuto,
+            changes: held && !auto ? changedGames(held.overview, latest.overview, held === latest) : 0,
+            heldAt: held && !auto ? held : null,
+            onApply: () => setHeld(latest),
+          }}
+        />
+      ) : null}
     </PageShell>
   );
+}
+
+/** How many more reads follow a timed one while the answer stays the same (the api's clock may
+ * pass the moment a little later than ours measured). */
+const READ_AGAIN_TIMES = 6;
+const READ_AGAIN_MS = 5_000;
+/** The longest a timer is set for at once: a longer wait is measured again in steps. */
+const LONGEST_TIMER_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Reads the Oversikt again at the answer's `next_change_at` (the Start date while it has not
+ * passed, Story 7.5, AD-8): the wait is `next_change_at − server_now` counted from the answer's
+ * arrival, so the browser's clock only measures it and never decides a status. While the answer
+ * stays the same after that, it is read a few more times.
+ */
+function useReadAt(sessionId: string, answer: OverviewAnswer | undefined) {
+  const queryClient = useQueryClient();
+  const next = answer?.overview.next_change_at;
+  const serverNow = answer?.overview.server_now;
+  const receivedAt = answer?.receivedAt;
+  useEffect(() => {
+    if (!next || !serverNow || receivedAt === undefined) return;
+    const due = readAgainAt(next, serverNow, receivedAt);
+    let timer: number | undefined;
+    let again = 0;
+    const read = () =>
+      void queryClient.invalidateQueries({
+        queryKey: classOverviewKey(sessionId),
+      });
+    const wait = () => {
+      const left = due - Date.now();
+      if (left > 0) {
+        timer = window.setTimeout(wait, Math.min(left, LONGEST_TIMER_MS));
+        return;
+      }
+      read();
+      if (again++ < READ_AGAIN_TIMES) timer = window.setTimeout(wait, READ_AGAIN_MS);
+    };
+    wait();
+    return () => window.clearTimeout(timer);
+  }, [queryClient, sessionId, next, serverNow, receivedAt]);
 }
 
 function OverviewHeader({ data }: { data: ClassOverview }) {
@@ -99,29 +192,89 @@ function useServerNow(serverNow: string, receivedAt: number): number {
   return Date.parse(serverNow) + Math.max(0, Date.now() - receivedAt);
 }
 
-function OverviewBody({ sessionId, data, receivedAt }: { sessionId: string; data: ClassOverview; receivedAt: number }) {
-  const now = useServerNow(data.server_now, receivedAt);
+type LiveControls = {
+  auto: boolean;
+  onAuto: (on: boolean) => void;
+  /** Changes waiting while held; 0 when none or when on. */
+  changes: number;
+  /** The held answer while «Oppdater automatisk» is off. */
+  heldAt: OverviewAnswer | null;
+  onApply: () => void;
+};
+
+function OverviewBody({
+  sessionId,
+  answer,
+  live: controls,
+}: {
+  sessionId: string;
+  answer: OverviewAnswer;
+  live: LiveControls;
+}) {
+  const data = answer.overview;
+  const now = useServerNow(data.server_now, answer.receivedAt);
+  const counts = headline(data.counts);
+  // The headline counts, read out politely at most once a minute (UX-DR44); nothing else here is.
+  const said = useThrottledAnnouncement(data.before_start ? "" : counts);
   if (data.before_start) return <Allocation data={data} />;
   const groups = groupsOf(data.items);
   return (
     <div className="mt-6">
-      <p className="text-body-phone font-semibold text-ink tabular-nums lining-nums lg:text-body">
-        {headline(data.counts)}
-      </p>
-      <p className="mt-1 text-caption text-ink-secondary tabular-nums lining-nums">
-        {copy.updated(clockWithSeconds(Date.parse(data.server_now)))}
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
+        <div className="min-w-0">
+          <p className="text-body-phone font-semibold text-ink tabular-nums lining-nums lg:text-body" data-headline="">
+            {counts}
+          </p>
+          <p className="mt-1 text-caption text-ink-secondary tabular-nums lining-nums">
+            {copy.updated(clockWithSeconds(Date.parse(data.server_now)))}
+          </p>
+          <p role="status" className="sr-only" data-counts-announcement="">
+            {said}
+          </p>
+        </div>
+        <AutoUpdate controls={controls} />
+      </div>
       {groups.length === 0 ? (
         <p className="mt-8 text-body-phone text-ink lg:text-body">{copy.empty}</p>
       ) : (
         <>
-          <OverviewWall sessionId={sessionId} groups={groups} now={now} />
+          <OverviewWall sessionId={sessionId} groups={groups} now={now} heldAt={controls.heldAt?.receivedAt ?? null} />
           <h2 className="mt-12 text-headline text-ink">{copy.listTitle}</h2>
           {groups.map((group) => (
             <Group key={group.name} group={group} now={now} />
           ))}
         </>
       )}
+    </div>
+  );
+}
+
+/** The Bryter «Oppdater automatisk» with its state word, and while it is off and changes wait,
+ * «3 endringer siden 14:02» with «Oppdater» (DESIGN.md → Oppdater automatisk, UX-DR44). */
+function AutoUpdate({ controls }: { controls: LiveControls }) {
+  const id = useId();
+  const labelId = `${id}-label`;
+  const held = controls.heldAt;
+  return (
+    <div className="flex flex-col items-start lg:items-end" data-auto-update="">
+      <div className="flex flex-wrap items-center gap-x-3">
+        <span id={labelId} className="text-label text-ink">
+          {live.label}
+        </span>
+        <Switch id={`${id}-switch`} checked={controls.auto} labelledBy={labelId} onChange={controls.onAuto}>
+          {controls.auto ? live.on : live.off}
+        </Switch>
+      </div>
+      {held && controls.changes > 0 ? (
+        <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-2 lg:justify-end">
+          <p className="text-body-phone text-ink tabular-nums lining-nums lg:text-body">
+            {live.changes(controls.changes, formatClock(Date.parse(held.overview.server_now)))}
+          </p>
+          <Button variant="secondary" onClick={controls.onApply}>
+            {live.apply}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 
 import { api } from "@/lib/api/client";
@@ -27,21 +27,57 @@ export type ClassOverview = components["schemas"]["ClassOverviewOut"];
 export type OverviewGame = ClassOverview["items"][number];
 export const classOverviewKey = (sessionId: string) => ["games", "overview", sessionId] as const;
 
+/** How long a failed background read of the Oversikt waits before it is tried again. */
+export const OVERVIEW_RETRY_MS = 10_000;
+
+/** One answer of the Oversikt: the body, its ETag and when it arrived (ms on the browser's clock,
+ * only to measure the time since `server_now`). */
+export type OverviewAnswer = { overview: ClassOverview; etag: string | null; receivedAt: number };
+
+/**
+ * Reads the Oversikt, revalidating `previous` with its ETag (Story 7.5, AD-25). An unchanged list
+ * answers 304 and `previous` itself comes back, the same object, so nothing that reads it renders
+ * again and its `server_now` stays tied to the time it arrived. The browser's own cache is passed
+ * by: a body it revalidated would bring an old `server_now` as if new.
+ */
+export async function readOverview(
+  sessionId: string,
+  previous: OverviewAnswer | undefined,
+  client: typeof api = api,
+): Promise<OverviewAnswer> {
+  const sent = previous?.etag;
+  let notModified = false;
+  let etag: string | null = null;
+  const overview = await request(async () => {
+    const result = await client.GET("/api/class-sessions/{session_id}/overview", {
+      params: { path: { session_id: sessionId } },
+      headers: sent ? { "If-None-Match": sent } : undefined,
+      cache: "no-store",
+    });
+    // A 304 is not an error here: it says the list we hold is the current one.
+    if (result.response.status === 304 && previous) {
+      notModified = true;
+      return { data: previous.overview, response: new Response(null, { status: 200 }) };
+    }
+    etag = result.response.headers.get("ETag");
+    return result;
+  });
+  if (notModified && previous) return previous;
+  return { overview, etag, receivedAt: Date.now() };
+}
+
 /** `/api/class-sessions/{id}/overview`, for the Class's staff; anyone else, and a Class session
- * that does not exist, answers 403 `forbidden`. Read past the browser's cache: the answer carries
- * an ETag, and a body the cache revalidated would bring an old `server_now`, so waits and
- * «Oppdatert» would lag. */
+ * that does not exist, answers 403 `forbidden`. Revalidated with its ETag (`readOverview`). */
 export function useClassOverview(sessionId: string) {
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: classOverviewKey(sessionId),
-    queryFn: () =>
-      request(() =>
-        api.GET("/api/class-sessions/{session_id}/overview", {
-          params: { path: { session_id: sessionId } },
-          cache: "no-store",
-        }),
-      ),
+    queryFn: () => readOverview(sessionId, queryClient.getQueryData<OverviewAnswer>(classOverviewKey(sessionId))),
     retry: false,
+    // A background read that failed is tried again while the last answer stays on screen (the
+    // page with no answer yet shows the page error with «Prøv igjen» instead).
+    refetchInterval: (query: { state: { status: string; data: unknown } }) =>
+      query.state.status === "error" && query.state.data !== undefined ? OVERVIEW_RETRY_MS : false,
   });
 }
 
@@ -51,6 +87,9 @@ export type GameWeeks = components["schemas"]["GameWeeksOut"];
 /** Keyed by the Game's `version` too: a version the Oversikt has not seen is a new query, and a
  * Game whose version stands is never fetched again (AD-10, AD-25). */
 export const gameWeeksKey = (gameId: string, version: number) => ["games", "weeks", gameId, version] as const;
+
+/** How long a failed `/weeks` read waits before it is tried again. */
+export const WEEKS_RETRY_MS = 10_000;
 
 /**
  * `/api/games/{id}/weeks` for each game the Oversikt listed, fetched on demand and again only when
@@ -70,6 +109,10 @@ export function useGameWeeks(games: readonly { game_id: string; version: number 
         ),
       staleTime: Number.POSITIVE_INFINITY,
       retry: false,
+      // A read that failed is tried again until it succeeds, so a row is never left empty until
+      // its game changes (Story 7.5); a read that succeeded stands for its version.
+      refetchInterval: (query: { state: { status: string } }) =>
+        query.state.status === "error" ? WEEKS_RETRY_MS : false,
     })),
   });
   const byGame = new Map<string, { data?: GameWeeks; failed: boolean }>();

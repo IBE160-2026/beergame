@@ -898,6 +898,18 @@
             "title": "Items",
             "type": "array"
           },
+          "next_change_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Change At"
+          },
           "next_cursor": {
             "anyOf": [
               {
@@ -938,6 +950,7 @@
           "server_now",
           "before_start",
           "start_at",
+          "next_change_at",
           "class_id",
           "class_name",
           "session_number"

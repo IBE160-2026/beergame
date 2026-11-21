@@ -82,6 +82,7 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
         server_now=now,
         before_start=before_start,
         start_at=row["start_at"],
+        next_change_at=row["start_at"] if before_start else None,
         class_id=found.id,
         class_name=found.name,
         session_number=number,

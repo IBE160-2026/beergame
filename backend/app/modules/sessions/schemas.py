@@ -813,6 +813,9 @@ class ClassOverviewOut(BaseModel):
     """The Start date has not passed and the session is not locked: the games show their
     allocation only, with no Week and no cost."""
     start_at: AwareDatetime | None
+    next_change_at: AwareDatetime | None
+    """When the Oversikt changes by time alone (AD-8): the Start date while it has not passed, so
+    the page reads again then; None otherwise."""
     class_id: uuid.UUID
     class_name: str
     session_number: int
