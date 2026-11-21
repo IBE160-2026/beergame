@@ -271,10 +271,14 @@ function OverviewBody({
  */
 function RailLayout({ children, rail, after }: { children: React.ReactNode; rail: React.ReactNode; after?: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-1 gap-x-10 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <div className="min-w-0 lg:col-start-1 lg:row-start-1">{children}</div>
-      <div className="mt-10 min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-8">{rail}</div>
-      {after ? <div className="min-w-0 lg:col-start-1 lg:row-start-2">{after}</div> : null}
+    // A container query in rem, not a media query: with text enlarged to 200 % the rail would
+    // otherwise squeeze the wall into a few characters; it stands under the wall instead.
+    <div className="@container">
+      <div className="grid grid-cols-1 gap-x-10 @3xl:grid-cols-[minmax(0,1fr)_20rem] @5xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="min-w-0 @3xl:col-start-1 @3xl:row-start-1">{children}</div>
+        <div className="mt-10 min-w-0 @3xl:col-start-2 @3xl:row-span-2 @3xl:row-start-1 @3xl:mt-8">{rail}</div>
+        {after ? <div className="@container min-w-0 @3xl:col-start-1 @3xl:row-start-2">{after}</div> : null}
+      </div>
     </div>
   );
 }
@@ -332,7 +336,7 @@ function GameRow({ game, now }: { game: OverviewGame; now: number }) {
   return (
     <li
       data-game={game.game_id}
-      className="grid grid-cols-1 gap-y-1 border-b border-hairline py-3 lg:grid-cols-[7rem_5rem_minmax(0,1fr)_10rem] lg:gap-x-6"
+      className="grid grid-cols-1 gap-y-1 border-b border-hairline py-3 @2xl:grid-cols-[7rem_5rem_minmax(0,1fr)_10rem] @2xl:gap-x-6"
     >
       <p className="text-label text-ink">{name}</p>
       <p className="text-body-phone text-ink-secondary tabular-nums lining-nums lg:text-body">
@@ -346,10 +350,10 @@ function GameRow({ game, now }: { game: OverviewGame; now: number }) {
         ))}
         <Seats game={game} label={copy.seatsLabel(name)} />
       </div>
-      <p className="text-body-phone text-ink tabular-nums lining-nums lg:text-right lg:text-body">
+      <p className="text-body-phone text-ink tabular-nums lining-nums @2xl:text-right lg:text-body">
         {cost ? (
           <>
-            <span className="text-ink-secondary lg:sr-only">{copy.chainCost} </span>
+            <span className="text-ink-secondary @2xl:sr-only">{copy.chainCost} </span>
             {cost}
           </>
         ) : null}
