@@ -1,8 +1,9 @@
-import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
+import { type Browser, type BrowserContext, expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { DEMO_USERS, demoContext, latestMail, loginByApi, nextMail } from "./support/auth";
 import { axe } from "./support/axe";
+import { test } from "./support/classes";
 
 /** The User list and the role buttons on «Brukere og roller» (Story 3.9, FR-2, FR-3, UX-DR57,
  * UX-DR75, NFR-6), on the local stack with the mail worker. Each test that changes a role makes

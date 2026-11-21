@@ -1,8 +1,8 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { loginByApi } from "./support/auth";
-import { expectAccessible, freshClass, freshLecturer } from "./support/classes";
+import { expectAccessible, freshClass, freshLecturer, test } from "./support/classes";
 
 /** Creating a Class session with the Classic defaults (Story 5.1, FR-5, FR-11, NFR-6, UX-DR48), on
  * the local stack. A fresh Lecturer makes a fresh Class through the api; the flow from the Klasse

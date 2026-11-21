@@ -1,7 +1,7 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { expectAccessible, freshClass, freshLecturer } from "./support/classes";
+import { expectAccessible, freshClass, freshLecturer, test } from "./support/classes";
 
 /** Marking the Klasseøkt obligatory with its required share, and setting «Ventetid før KI tar
  * over» (Story 5.7, FR-17, FR-36, UX-DR12, UX-DR48, UX-DR49, UX-DR78), on the local stack. Each

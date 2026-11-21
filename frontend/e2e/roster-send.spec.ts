@@ -1,8 +1,8 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { latestMail, nextMail } from "./support/auth";
-import { expectAccessible, freshLecturer, type Viewport } from "./support/classes";
+import { expectAccessible, freshLecturer, test, type Viewport } from "./support/classes";
 
 /** Sending Invitations to the Roster (Story 4.4, FR-8, UX-DR47, UX-DR56, NFR-6), on the local
  * stack, by keyboard only, at 320 and 1440 px. Each test makes a fresh Lecturer and Class, so the

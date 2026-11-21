@@ -112,7 +112,20 @@ export async function lecturerPage(
 /** Playwright's `test` with `lecturerSession`: one fresh Lecturer per worker, made once and shared
  * by every test of that worker that asks for it. For specs whose tests each make a Class of their
  * own, where a Lecturer per test would only queue one more mail for the worker. */
-export const test = base.extend<object, { lecturerSession: Session }>({
+export const test = base.extend<{ ownContextsClosed: void }, { lecturerSession: Session }>({
+  /** Every browser context a test opens of its own (a fresh Lecturer, a second Student, a laptop)
+   * closes when the test ends, passed or failed. Left open, its page and its live connection
+   * stayed for the rest of the worker's tests: a hundred pages reading again on every change, and
+   * a slower browser and stack for every test after. */
+  ownContextsClosed: [
+    async ({ browser }, use) => {
+      const before = new Set(browser.contexts());
+      await use();
+      const opened = browser.contexts().filter((context) => !before.has(context));
+      await Promise.all(opened.map((context) => context.close().catch(() => undefined)));
+    },
+    { auto: true },
+  ],
   lecturerSession: [
     async ({ browser }, use, workerInfo) => {
       await use((await invitedLecturer(browser, workerInfo.project.use.baseURL)).session);

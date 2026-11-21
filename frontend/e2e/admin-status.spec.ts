@@ -1,4 +1,4 @@
-import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
+import { type Browser, type BrowserContext, expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import {
@@ -12,6 +12,7 @@ import {
   untilHydrated,
 } from "./support/auth";
 import { axe } from "./support/axe";
+import { test } from "./support/classes";
 
 /** Deactivating and reactivating a User, and the Invitation list with its resend, on «Brukere og
  * roller» (Story 3.10, FR-1, FR-3, UX-DR57, UX-DR61, NFR-6), on the local stack with the mail

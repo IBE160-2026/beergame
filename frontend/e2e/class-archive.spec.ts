@@ -1,8 +1,8 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { latestMail, nextMail } from "./support/auth";
-import { expectAccessible, freshLecturer, VIEWPORTS } from "./support/classes";
+import { expectAccessible, freshLecturer, test, VIEWPORTS } from "./support/classes";
 
 /** Archiving a Class (Story 4.10, FR-6, NFR-6, UX-DR56), on the local stack. A fresh Lecturer
  * archives a fresh Class that has sent one Student Invitation: the consequence stands above the

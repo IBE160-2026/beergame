@@ -1,8 +1,8 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { osloDateText, toOsloInput } from "../src/modules/sessions/dates";
-import { expectAccessible, freshClass, freshLecturer } from "./support/classes";
+import { expectAccessible, freshClass, freshLecturer, test } from "./support/classes";
 
 /** The locked Klasseøkt (Story 5.11, FR-12, FR-18, UX-DR48, GitHub issue 103), on the local stack. Each
  * test makes a fresh Lecturer, Class and Class session through the api. The sweep's lock and its

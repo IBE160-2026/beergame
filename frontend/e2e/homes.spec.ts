@@ -1,8 +1,9 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { DEMO_USERS, type DemoRole, loginByApi } from "./support/auth";
 import { axe } from "./support/axe";
+import { test } from "./support/classes";
 
 const VIEWPORTS = [
   { name: "320 px", width: 320, height: 640 },

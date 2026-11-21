@@ -1,8 +1,8 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { GROUP } from "../src/lib/number-format";
-import { expectAccessible, freshClass, freshLecturer } from "./support/classes";
+import { expectAccessible, freshClass, freshLecturer, test } from "./support/classes";
 
 /** Choosing the Demand pattern and its seed on the Klasseøkt (Story 5.4, FR-13, NFR-6, Issue #98),
  * on the local stack. Each test makes a fresh Lecturer and Class through the api. Every rule and

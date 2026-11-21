@@ -1,8 +1,8 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { answerTo, demoContext, loginByApi, untilHydrated } from "./support/auth";
-import { expectAccessible, freshLecturer, VIEWPORTS } from "./support/classes";
+import { expectAccessible, freshLecturer, test, VIEWPORTS } from "./support/classes";
 
 /** The Lærerhjem and «Lag Klasse» (Story 4.1, FR-5, FR-6, UX-DR11, UX-DR56, NFR-6), on the local
  * stack. Each test makes a fresh Lecturer from an Invitation, so the demo Lecturer's Classes stay

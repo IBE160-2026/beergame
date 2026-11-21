@@ -1,8 +1,9 @@
-import { type Browser, expect, type Page, test } from "@playwright/test";
+import { type Browser, expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { demoContext, latestMail, nextMail, untilHydrated } from "./support/auth";
 import { axe } from "./support/axe";
+import { test } from "./support/classes";
 
 /** «Glemt passord» and «Nytt passord» (Story 3.6, UX-DR61, NFR-6), on the local stack with
  * `worker-batch` sending the mock mail. A reset ends every session of its User (Issue #73), so

@@ -1,9 +1,9 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { fromOsloInput } from "../src/modules/sessions/dates";
 import { labHourLine } from "../src/modules/sessions/lab-hours";
-import { expectAccessible, freshClass, freshLecturer } from "./support/classes";
+import { expectAccessible, freshClass, freshLecturer, test } from "./support/classes";
 
 /** Lab hours on the Klasseøkt (Story 5.6, FR-19, NFR-6, UX-DR51), on the local stack. Each test
  * makes a fresh Lecturer and Class through the api. The rules on the routes (ended, past, too

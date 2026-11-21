@@ -1,7 +1,7 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { expectAccessible, freshClass, freshLecturer } from "./support/classes";
+import { expectAccessible, freshClass, freshLecturer, test } from "./support/classes";
 
 /** Information visibility on the Klasseøkt (Story 5.16, cut list, `FEATURE_INFO_VISIBILITY`, FR-83),
  * on the local stack, where the flag is on. Each test makes a fresh Lecturer and Class through the

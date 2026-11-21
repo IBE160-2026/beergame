@@ -1,7 +1,7 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { expectAccessible, freshClass, freshLecturer } from "./support/classes";
+import { expectAccessible, freshClass, freshLecturer, test } from "./support/classes";
 
 /** A Class session made from an earlier one (Story 5.18, cut list, `FEATURE_RERUN`, FR-66), on the
  * local stack, where the flag is on. A fresh Lecturer makes two fresh Classes through the api; the

@@ -1,8 +1,8 @@
-import { type BrowserContext, expect, type Page, test } from "@playwright/test";
+import { type BrowserContext, expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { answerTo, type DevMail, latestMail, loginByApi, nextMail } from "./support/auth";
-import { expectAccessible, freshLecturer } from "./support/classes";
+import { expectAccessible, freshLecturer, test } from "./support/classes";
 
 /** Registering as a Student through a mailed Invitation (Story 4.5, FR-4, FR-8, NFR-6), on the
  * local stack with `worker-batch`. One fresh Lecturer and Class send three Invitations; each

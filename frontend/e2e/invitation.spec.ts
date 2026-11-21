@@ -1,8 +1,9 @@
-import { type APIRequestContext, type Browser, expect, type Page, test } from "@playwright/test";
+import { type APIRequestContext, type Browser, expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { answerTo, demoContext, latestMail, nextMail } from "./support/auth";
 import { axe } from "./support/axe";
+import { test } from "./support/classes";
 
 /** «Du er invitert» (Story 3.8, FR-1, FR-4, UX-DR61, UX-DR75, NFR-6), on the local stack with the
  * mail worker. Each test invites its own fresh address, so runs never meet and no demo User
