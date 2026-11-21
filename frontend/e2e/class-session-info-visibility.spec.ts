@@ -74,4 +74,7 @@ test("with the flag off nothing about Information visibility shows", async ({ pa
   );
   await lecturer.getByRole("button", { name: copy.save }).click();
   expect((await saved).postDataJSON().game_settings).not.toHaveProperty("info_visibility");
+  // A live re-read after the save may still be inside the handler when the test's pages close;
+  // its disposed response must not fail the test.
+  await lecturer.unrouteAll({ behavior: "ignoreErrors" });
 });

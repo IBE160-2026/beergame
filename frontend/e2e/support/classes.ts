@@ -122,7 +122,17 @@ export const test = base.extend<{ ownContextsClosed: void }, { lecturerSession: 
       const before = new Set(browser.contexts());
       await use();
       const opened = browser.contexts().filter((context) => !before.has(context));
-      await Promise.all(opened.map((context) => context.close().catch(() => undefined)));
+      // A route handler may still be fetching for a live re-read when the test ends; drop the
+      // routes first so its disposed response does not fail the test.
+      await Promise.all(
+        opened.map(async (context) => {
+          await context.unrouteAll({ behavior: "ignoreErrors" }).catch(() => undefined);
+          for (const page of context.pages()) {
+            await page.unrouteAll({ behavior: "ignoreErrors" }).catch(() => undefined);
+          }
+          await context.close().catch(() => undefined);
+        }),
+      );
     },
     { auto: true },
   ],
