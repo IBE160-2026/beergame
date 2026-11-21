@@ -74,6 +74,20 @@ The orchestrator session follows this file when it builds the stories without a 
 - In e2e, never let a live update race a click (commit 07345fa), and remove routes before a test's pages close (commit 1e12ffa).
 - Shared backend fixtures in `backend/tests/games/helpers.py` play a game once per run; new tests reuse them instead of playing weeks over the API.
 
+## Two lanes (from Epic 7, 2026-11-21)
+
+The founder asked for more speed (2026-11-21). From Epic 7 on, two epics are built at once, one story at a time in each lane.
+
+- **Lane 1**, the main folder `D:\IBE160\2026\beergame`: Epic 7, then 8. Default stack: project `olspillet`, port 8080, Postgres 5432.
+- **Lane 2**, the worktree `D:\IBE160\2026\beergame\.claude\worktrees\lane-2`: Epic 9, then 10, 11, 12. It needs only finished games, which exist since Epic 6. Its stack and tests run with these variables in the same shell command: `COMPOSE_PROJECT_NAME=olspillet-lane2`, `IMAGE_TAG=lane2`, `HTTP_PORT=8081`, `POSTGRES_PORT=5433`, `E2E_BASE_URL=http://127.0.0.1:8081`, `DATABASE_URL=postgresql+psycopg://olspillet:olspillet@localhost:5433/olspillet`. `PUBLIC_BASE_URL` stays at its default, so mailed links still read 8080. Lane 2 never touches lane 1's stack.
+- Then Epics 13 and 14, which need both lanes, and 15, which goes in whichever lane is free first.
+- The next story of a lane is the first `backlog` story of that lane's epic. If a story needs work from the other lane that is not on `main` yet, skip it for now and take the next one.
+- Only the orchestrator edits `sprint-status.yaml` and the run log, and only in lane 1's folder and branch. Lane 2's branch carries code, specs and screenshots only.
+- Alembic: before an epic's PR, merge `main` into the epic branch. If there are two heads, set `down_revision` of the branch's first new migration to `main`'s head, and renumber the files to follow it.
+- Shared files (`nb.ts`, the generated api client, routers) conflict at that merge. Resolve them by keeping both sides, then regenerate the api client and run the full suites.
+- Visual check: rebuild only `frontend` (`--build frontend`, the rest from the last build), and skip it for stories with no change under `frontend/`. Review sub-agents and the visual check run on Sonnet; builders stay on Opus. One review sub-agent for low-risk stories, two by default, four for risky ones.
+- Lane 1's visual check of story N may run while lane 1 builds story N+1 only in its own worktree. Default: run it after, as before.
+
 ## Done
 
 The goal is reached when every story outside the skip list is `done`, `review` or (after three attempts) `blocked`, every epic is merged to `main` with CI green, and a final log section lists the `review` and `blocked` stories with their issues.

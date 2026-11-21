@@ -34,7 +34,7 @@ function freshAddress(tag: string) {
 /** Dismiss the open request of `name` as the Admin, in a context of its own, so the test leaves
  * the shared list as it found it. */
 async function dismissRequestOf(page: Page, name: string) {
-  const context = await page.context().browser()!.newContext({ baseURL: "http://127.0.0.1:8080" });
+  const context = await page.context().browser()!.newContext({ baseURL: test.info().project.use.baseURL });
   const admin = await context.newPage();
   try {
     await loginByApi(admin, "admin");

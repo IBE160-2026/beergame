@@ -267,7 +267,7 @@ test("a return address off the site is ignored after login", async ({ page }) =>
   await page.getByLabel(nb.auth.login.email).fill(DEMO_USERS.lecturer.email);
   await page.getByLabel(nb.auth.login.password).fill(DEMO_PASSWORD);
   await page.getByRole("button", { name: nb.auth.login.submit }).click();
-  await expect(page).toHaveURL(/127\.0\.0\.1:8080\/laererhjem$/);
+  await expect(page).toHaveURL(`${test.info().project.use.baseURL}/laererhjem`);
 });
 
 test("with reduced motion no state change is animated", async ({ page, context }) => {

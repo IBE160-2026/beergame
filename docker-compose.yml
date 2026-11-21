@@ -24,7 +24,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    image: olspillet-backend:local
+    image: olspillet-backend:${IMAGE_TAG:-local}
     environment:
       APP_ENV: ${APP_ENV:-local}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-olspillet}:${POSTGRES_PASSWORD:-olspillet}@postgres:5432/${POSTGRES_DB:-olspillet}
@@ -82,7 +82,7 @@ services:
   # mock answers locally). The backend applies the migrations; the workers start once it is
   # healthy.
   worker-ai:
-    image: olspillet-backend:local
+    image: olspillet-backend:${IMAGE_TAG:-local}
     restart: unless-stopped
     command: ["python", "-m", "app.worker", "--queues", "ai-orders"]
     environment: &worker-env
@@ -98,7 +98,7 @@ services:
         condition: service_healthy
 
   worker-batch:
-    image: olspillet-backend:local
+    image: olspillet-backend:${IMAGE_TAG:-local}
     restart: unless-stopped
     # The mail queue and the per-minute sweeper (Story 3.5, AD-9): only this worker sweeps.
     command: ["python", "-m", "app.worker", "--queues", "llm-batch,mail", "--sweeper"]
