@@ -1,6 +1,6 @@
 "use client";
 
-import { type QueryClient, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, type QueryKey, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useSyncExternalStore } from "react";
 
 import { RECONNECTED_MS } from "@/lib/connection";
@@ -66,6 +66,21 @@ export type EventSourceLike = {
 };
 const CLOSED = 2;
 
+/**
+ * Read the queries under `queryKey` again for one change event. One change often sends several
+ * events a few ms apart (`game:` then `user:` of the same transaction), and the second used to
+ * cancel the read the first had started, so the new Uke showed one whole read later (Story 6.15,
+ * measured: about 150 ms of the 600 ms). Now a read already on its way is let finish, and shown,
+ * and one more read follows it: that read may have started before the change, so it is not
+ * trusted to be the last word.
+ */
+export function refresh(queryClient: QueryClient, queryKey: QueryKey) {
+  const busy = queryClient.isFetching({ queryKey }) > 0;
+  // Idle queries under the key are read at once; one on its way is joined, not cancelled.
+  const read = queryClient.invalidateQueries({ queryKey }, { cancelRefetch: false });
+  if (busy) void read.then(() => queryClient.invalidateQueries({ queryKey }, { cancelRefetch: false }));
+}
+
 /** Open the stream and keep it open; returns what closes it. */
 export function connectLive(
   queryClient: QueryClient,
@@ -100,7 +115,7 @@ export function connectLive(
       beat();
       const event = parseEvent(String(message.data));
       if (!event) return;
-      for (const queryKey of topicKeys(event)) void queryClient.invalidateQueries({ queryKey });
+      for (const queryKey of topicKeys(event)) refresh(queryClient, queryKey);
     });
     current.onerror = () => {
       // The browser reconnects by itself unless the server refused the stream.

@@ -24,6 +24,8 @@ import { lastOrder, parseOrder } from "./order-input";
 import { gameTitle } from "./home";
 import { useServerNow, waitedFor } from "./seat-status";
 import { GameSeatStatus } from "./seat-status-view";
+import { weekSummary } from "./week-summary";
+import { WeekSummaryView } from "./week-summary-view";
 import { ROWS } from "./week-table";
 import { WeekTable } from "./week-table-view";
 
@@ -42,7 +44,9 @@ const LINE = "text-body-phone lg:text-body";
  * the Student types the Order, previewed in the table and the Kjedebånd (Story 6.11), kept as a
  * draft in this browser until it is sent, and sends it with «Bekreft ordre på 24» (Story 6.12).
  * Under the Ordrefelt the Setestatus shows who has ordered this Uke and whom the game waits for, for
- * how long (Story 6.14); the envelope is read again at its `next_change_at`. A game that has not started, or that this Student may
+ * how long (Story 6.14); the envelope is read again at its `next_change_at`. When the Uke moves on
+ * (Story 6.15) the Uke-overgang above the Ordrefelt says what the Uke just run did, until the own
+ * Order; on an open page it is announced and the now-line moves one column. A game that has not started, or that this Student may
  * not play before the briefing and Starting task, shows its next action (briefing, «Start spillet» or the not-ready line); a finished one says so. The
  * page follows the game's `game:` events (`topics.ts`). Another Student's game shows the
  * permission-denied page.
@@ -160,6 +164,11 @@ function Running({ game, envelope, userId }: { game: MyGame; envelope: PlayEnvel
       : editable && parsed.kind === "valid"
         ? orderPreview(state.preview, parsed.value)
         : null;
+  const movedFrom = useMovedFrom(state.week);
+  const [moving, setMoving] = useState(false);
+  const [skip, setSkip] = useState(0);
+  const summary = weekSummary(state, turn);
+  const dropped = useDroppedDraft(state, text, editable, send.outcome);
   return (
     <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12">
       <div className="min-w-0">
@@ -167,9 +176,25 @@ function Running({ game, envelope, userId }: { game: MyGame; envelope: PlayEnvel
         <ChainBandView state={state} seatRoles={game.seats.map((seat) => seat.role)} typed={preview?.order} />
         {/* A placed Order (a Veiledet uke's fixed Order) stands in Din ordre at nå; a typed one
             there and at its arrival Uke. */}
-        <WeekTable state={state} nowOrder={turn.guided ? (turn.order ?? undefined) : undefined} typed={preview ?? undefined} />
+        <WeekTable
+          state={state}
+          nowOrder={turn.guided ? (turn.order ?? undefined) : undefined}
+          typed={preview ?? undefined}
+          movedFrom={movedFrom}
+          skipMove={skip}
+          onMoving={setMoving}
+        />
       </div>
       <div>
+        {/* The Uke-overgang over the Ordrefelt, which is usable at once (Story 6.15). */}
+        {summary ? <WeekSummaryView summary={summary} moving={moving} onSkip={() => setSkip((n) => n + 1)} /> : null}
+        {/* Read when the Uke moved on while the page was open, not on load. */}
+        <p aria-live="polite" className="sr-only" data-week-announce="">
+          {summary && movedFrom !== undefined ? summary.spoken : ""}
+        </p>
+        <div aria-live="polite" data-draft-dropped="">
+          {dropped.line ? <p className={`${LINE} mt-8 max-w-md font-bold text-ink lg:mt-0 lg:mb-4`}>{dropped.line}</p> : null}
+        </div>
         {/* The Ordrefelt follows the table on phone and tops the right column on laptop. */}
         <OrderField
           week={state.week}
@@ -181,10 +206,14 @@ function Running({ game, envelope, userId }: { game: MyGame; envelope: PlayEnvel
             setTyped({ game: game.id, week: state.week, text: next });
             saveDraft(userId, field, next);
             send.clear(); // a new value is a new Order: the last send's words no longer apply
+            dropped.clear();
           }}
           preview={editable ? preview : null}
           sending={send.sending === state.week}
-          onConfirm={send.confirm}
+          onConfirm={(value) => {
+            dropped.clear();
+            send.confirm(value);
+          }}
           waitingFor={waitedFor(seats, now, true)}
           {...outcomeProps(send.outcome, state.week)}
         />
@@ -195,6 +224,49 @@ function Running({ game, envelope, userId }: { game: MyGame; envelope: PlayEnvel
       </div>
     </div>
   );
+}
+
+/**
+ * The Uke that was nå before this one, when the page saw the Uke move on (Story 6.15): the
+ * now-line moves from it and the Uke-overgang is announced. Undefined on the Uke the page opened
+ * at (a load, a reload, another device), so nothing moves or is read then.
+ */
+function useMovedFrom(week: number): number | undefined {
+  const [seen, setSeen] = useState<{ week: number; from?: number }>({ week });
+  if (seen.week !== week) {
+    // One Uke on: a jump of several (a reconnect after missed events) moves and reads nothing.
+    const next = { week, from: week === seen.week + 1 ? seen.week : undefined };
+    setSeen(next);
+    return next.from;
+  }
+  return seen.from;
+}
+
+/**
+ * A typed Order that was never sent when its Uke closed on an open page (Story 6.15, NFR-5): the
+ * Seat's Order came from elsewhere (another device), so the draft is dropped (`clearDrafts`) and a
+ * line says so, until the Student types or sends again, or the next Uke comes. Not when the Uke's stored Order is the
+ * typed value, nor when a send of it already said what happened (Story 6.13).
+ */
+function useDroppedDraft(state: PlayEnvelope["seat_state"], text: string, editable: boolean, outcome: SendOutcome | null) {
+  const previous = useRef<{ week: number; text: string; editable: boolean } | null>(null);
+  const [dropped, setDropped] = useState<{ week: number; value: string } | null>(null);
+  useEffect(() => {
+    const was = previous.current;
+    previous.current = { week: state.week, text, editable };
+    // A line about an earlier Uke goes when the Uke moves on again.
+    if (was && state.week !== was.week) setDropped(null);
+    if (!was || state.week <= was.week || !was.editable || outcome?.week === was.week) return;
+    const typed = parseOrder(was.text, state.max_order);
+    if (was.text.trim() === "") return;
+    const stored = state.history.find((row) => row.week === was.week)?.order;
+    if (typed.kind === "valid" && stored === typed.value) return;
+    setDropped({ week: was.week, value: was.text.trim() });
+  }, [state, text, editable, outcome]);
+  return {
+    line: dropped ? copy.summary.draftDropped(dropped.week, dropped.value) : null,
+    clear: () => setDropped(null),
+  };
 }
 
 /** How long a sent Order may go unanswered before the app asks the server whether it arrived

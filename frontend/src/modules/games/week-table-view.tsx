@@ -178,6 +178,9 @@ export function WeekTable({
   typed,
   labelledBy,
   wide = false,
+  movedFrom,
+  skipMove,
+  onMoving,
 }: {
   state: SeatState;
   fixed?: FixedLayout;
@@ -190,6 +193,11 @@ export function WeekTable({
   labelledBy?: string;
   /** Wider week columns from 1024 px (see `WEEK_COL_WIDE`). */
   wide?: boolean;
+  /** The Uke that was nå before a live advance: the now-line moves from it (Story 6.15). */
+  movedFrom?: number;
+  /** Raised by «Hopp over» to end the move at once. */
+  skipMove?: number;
+  onMoving?: (moving: boolean) => void;
 }) {
   const columns = weekColumns(state.week);
   const series = graphSeries(state);
@@ -205,6 +213,9 @@ export function WeekTable({
       labelledBy={labelledBy}
       swipe={copy.swipe}
       joinKey={typed && nowOrder === undefined ? `${typed.order}@${typed.arrivalWeek}` : undefined}
+      movedFrom={movedFrom}
+      skip={skipMove}
+      onMoving={onMoving}
       footer={
         <p className="mt-1 text-caption text-ink-secondary">
           <span aria-hidden="true" className="mr-1 inline-block h-[0.9em] w-[1.2em] border border-ink align-[-0.1em]" />

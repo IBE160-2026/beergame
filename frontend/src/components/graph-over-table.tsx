@@ -25,7 +25,15 @@ import { cn } from "@/lib/utils";
  * Columns flagged `phone: false` show only from 1024 px (`lg`); each field then has a phone row
  * and a laptop row, each drawn over its own columns. The region scrolls so that nå is in view on
  * load, on each new nå and on a changed layout; «Sveip» shows while earlier columns are hidden.
+ *
+ * With `movedFrom` (the Uke that was nå before, Story 6.15, UX-DR23) the now-line slides from that
+ * column's right edge to nå's in `MOVE_MS`, once per move, never blocking input; `skip` ends it at
+ * once and `onMoving` tells when it runs. With reduced motion, or no earlier column shown, it does
+ * not move.
  */
+
+/** How long the now-line takes to move one column (Story 6.15: at most 2 s). */
+export const MOVE_MS = 1500;
 
 export type GraphColumn = { week: number; when: "past" | "now" | "future"; phone: boolean };
 
@@ -133,6 +141,9 @@ export function GraphOverTable({
   swipe,
   footer,
   joinKey,
+  movedFrom,
+  skip = 0,
+  onMoving,
 }: {
   /** The region's accessible name («Graf og tabell»). */
   label: string;
@@ -154,8 +165,15 @@ export function GraphOverTable({
    * It changes whenever this key does; without a key there is no line.
    */
   joinKey?: string;
+  /** The Uke that was nå before the page moved on to this nå: the now-line slides from there. */
+  movedFrom?: number;
+  /** Raised to end a running move at once («Hopp over»). */
+  skip?: number;
+  onMoving?: (moving: boolean) => void;
 }) {
   const region = useRef<HTMLDivElement>(null);
+  const line = useRef<HTMLDivElement>(null);
+  const move = useRef<{ key: string; animation: Animation | null }>({ key: "", animation: null });
   const wrapper = useRef<HTMLDivElement>(null);
   const variants = variantsOf(columns);
   const [measured, setMeasured] = useState<Measured>(EMPTY);
@@ -244,6 +262,44 @@ export function GraphOverTable({
     toNow();
   }, [measure, toNow, nowWeek]);
 
+  // The now-line's move (Story 6.15): measured from the columns themselves, since the stored
+  // `nowLeft` may still be the old nå in this commit.
+  const moving = useRef(onMoving);
+  useLayoutEffect(() => {
+    moving.current = onMoving;
+  });
+  useLayoutEffect(() => {
+    const key = `${movedFrom}>${nowWeek}`;
+    if (fixed || movedFrom === undefined || nowWeek === undefined || movedFrom >= nowWeek || move.current.key === key) return;
+    const box = wrapper.current;
+    const el = line.current;
+    const visible = (selector: string) =>
+      [...(box?.querySelectorAll<HTMLElement>(selector) ?? [])].find((th) => th.getClientRects().length > 0);
+    const from = visible(`th[scope=col][data-col="${movedFrom}"]`);
+    const to = visible("th[scope=col][data-now]");
+    if (!box || !el || !from || !to || typeof el.animate !== "function") return;
+    // A move still running from the Uke before ends here.
+    move.current.animation?.cancel();
+    if (move.current.animation) moving.current?.(false);
+    move.current = { key, animation: null };
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const origin = box.getBoundingClientRect().left;
+    const x = (th: HTMLElement) => `${th.getBoundingClientRect().right - origin - 0.7}px`;
+    const animation = el.animate([{ left: x(from) }, { left: x(to) }], { duration: MOVE_MS, easing: "ease-in-out" });
+    move.current.animation = animation;
+    moving.current?.(true);
+    const done = () => {
+      if (move.current.animation === animation) moving.current?.(false);
+    };
+    animation.finished.then(done, done);
+  }, [fixed, movedFrom, nowWeek, shown.nowLeft]);
+
+  useLayoutEffect(() => {
+    if (skip > 0) move.current.animation?.finish();
+  }, [skip]);
+
+  useLayoutEffect(() => () => move.current.animation?.cancel(), []);
+
   useLayoutEffect(() => {
     const element = region.current;
     const table = wrapper.current;
@@ -331,6 +387,7 @@ export function GraphOverTable({
           </table>
           {shown.nowLeft !== null ? (
             <div
+              ref={line}
               aria-hidden="true"
               data-now-line=""
               className="pointer-events-none absolute top-0 bottom-0 z-[5] w-0 border-l-[1.4px] border-ink"

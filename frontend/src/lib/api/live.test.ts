@@ -1,11 +1,11 @@
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RECONNECTED_MS } from "@/lib/connection";
 import { meKey } from "@/modules/identity/api";
 import { enrolledSessionsKey } from "@/modules/sessions/api";
 
-import { connectLive, EVENTS_PATH, type EventSourceLike, liveState, REOPEN_MS, STALE_MS } from "./live";
+import { connectLive, EVENTS_PATH, type EventSourceLike, liveState, refresh, REOPEN_MS, STALE_MS } from "./live";
 
 /** A stand-in `EventSource` the test drives by hand. */
 class FakeSource implements EventSourceLike {
@@ -64,7 +64,7 @@ describe("connectLive", () => {
     const invalidate = vi.spyOn(client, "invalidateQueries");
     sources[0].emit("ready");
     sources[0].emit("message", '{"topic":"user","id":"u1","version":null}');
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: enrolledSessionsKey });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: enrolledSessionsKey }, { cancelRefetch: false });
     invalidate.mockClear();
     sources[0].emit("message", "nonsense");
     expect(invalidate).not.toHaveBeenCalled();
@@ -116,5 +116,35 @@ describe("connectLive", () => {
     vi.advanceTimersByTime(REOPEN_MS * 4);
     expect(sources).toHaveLength(1);
     stop = () => {};
+  });
+});
+
+describe("refresh", () => {
+  it("lets a read on its way finish and show, then reads once more (Story 6.15)", async () => {
+    vi.useRealTimers();
+    const key = ["games", "mine", "g1"];
+    let release: (value: string) => void = () => undefined;
+    let reads = 0;
+    const queryFn = () => {
+      reads += 1;
+      return reads === 1 ? new Promise<string>((resolve) => (release = resolve)) : Promise.resolve(`read ${reads}`);
+    };
+    const shown: unknown[] = [];
+    const unsubscribe = new QueryObserver(client, { queryKey: key, queryFn }).subscribe((result) => {
+      if (result.data !== undefined && shown.at(-1) !== result.data) shown.push(result.data);
+    });
+    expect(reads).toBe(1);
+    refresh(client, key); // the second event of the same change arrives while the first read runs
+    expect(reads).toBe(1); // not cancelled and started again
+    release("read 1");
+    await vi.waitFor(() => expect(shown).toEqual(["read 1", "read 2"]));
+    expect(reads).toBe(2);
+    unsubscribe();
+  });
+
+  it("reads at once when nothing is on its way", () => {
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    refresh(client, ["games", "mine"]);
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["games", "mine"] }, { cancelRefetch: false });
   });
 });

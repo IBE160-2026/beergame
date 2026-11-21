@@ -1540,6 +1540,22 @@ export const nb = {
         weekGone: (week: number, value: string) => `Uke ${week} er over. Ordren på ${value} ble ikke sendt.`,
         seatGone: (value: string) => `Du har ikke dette setet lenger. Ordren på ${value} ble ikke sendt.`,
       },
+      /** The Uke-overgang (Story 6.15, EXPERIENCE.md → Uke-overgang, UX-DR23): «Uke 11 er ferdig
+       * regnet», «Restordre 13 blir 20», «Denne uka: 20 restordre × 1,00 = 20,00 kr» and «Hopp
+       * over» are the spine's; the Lager part of the cost line and `draftDropped` are [ASSUMPTION]
+       * draft copy. */
+      summary: {
+        done: (week: number) => `Uke ${week} er ferdig regnet`,
+        skip: "Hopp over",
+        change: (from: string, to: string) => `${from} blir ${to}`,
+        backorderPart: (units: string, rate: string) => `${units} restordre × ${rate}`,
+        /** [ASSUMPTION] */
+        holdingPart: (units: string, rate: string) => `${units} lager × ${rate}`,
+        weekCost: (parts: string[], sum: string) =>
+          parts.length === 0 ? `Denne uka: ${sum}` : `Denne uka: ${parts.join(" + ")} = ${sum}`,
+        /** A typed Order that was never sent when its Uke closed. [ASSUMPTION] */
+        draftDropped: (week: number, value: string) => `Uke ${week} er over. Du skrev ${value}, men ordren ble ikke sendt.`,
+      },
       /** The week table (Story 6.6, DESIGN.md → Graf over tabell, UX-DR17, UX-DR18). The region
        * name, «Sveip for tidligere uker», «Din ordre» and «Kost, kr» are the spine's; the label for
        * known arrivals is [ASSUMPTION] draft copy (EXPERIENCE.md gives no string). */

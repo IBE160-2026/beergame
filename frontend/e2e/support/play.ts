@@ -19,6 +19,61 @@ export const confirmedWeek11 = {
   },
 };
 
+/** Uke 12 after the Grossist's `ordered` in Uke 11 (Story 6.15): the Uke-overgang's numbers. The
+ * engine's next Uke from Uke 11: Levering 4, Ordre inn 11, Sendt 4, Restordre 20 blir 27, Kost
+ * 27,00 kr. */
+export function week12(ordered = 24) {
+  const state = week11.seat_state;
+  return {
+    ...week11,
+    seat_state: {
+      ...state,
+      week: 12,
+      backlog: 27,
+      incoming_orders: [...state.incoming_orders, 11],
+      order_history: [...state.order_history, ordered],
+      supply_line: 12 + ordered,
+      incoming_order: 11,
+      incoming_delivery: 4,
+      shipped: 4,
+      supply_line_slots: [
+        { stage: "in_transit", quantity: 4, arrival_week: 13 },
+        { stage: "in_transit", quantity: 8, arrival_week: 14 },
+        { stage: "ordered", quantity: ordered, arrival_week: 15 },
+      ],
+      net_inventory: -27,
+      position: -27 + 12 + ordered,
+      cost_lines: [
+        { kind: "holding", units: 0, rate: "0.50", amount: "0.00" },
+        { kind: "backorder", units: 27, rate: "1.00", amount: "27.00" },
+      ],
+      week_cost: "27.00",
+      total_cost: "109.00",
+      history: [
+        ...state.history,
+        {
+          week: 11,
+          incoming_order: 10,
+          incoming_delivery: 4,
+          shipped: 4,
+          inventory: 0,
+          backlog: 20,
+          net_inventory: -20,
+          supply_line: 16,
+          position: -4,
+          cost: "20.00",
+          holding_cost: "0.00",
+          backorder_cost: "20.00",
+          order: ordered,
+        },
+      ],
+      preview: { order_arrival_week: 16, supply_line_base: 12 + ordered, position_base: -27 + 12 + ordered },
+    },
+    turn: { guided: false, order: null, viewed: false },
+    table_status: { seats: week11.table_status.seats.map((seat) => ({ ...seat, ordered: false, wait_started_at: null })) },
+  };
+}
+
 export type PlayStub = {
   /** What the next read of the play envelope gets. */
   envelope: unknown;
