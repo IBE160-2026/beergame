@@ -11,6 +11,7 @@ from app.engine import (
     CostLine,
     GameSettings,
     OrderPreview,
+    Role,
     SeatView,
     SupplyLineSlot,
     Violation,
@@ -501,6 +502,41 @@ class GameSummary(BaseModel):
     """Decision log rows per `decided_by`, in `DecidedBy` order; zero counts left out."""
     check: GameCheck | None
     """The finished-game check, or None when it has not run."""
+
+
+class CostSum(BaseModel):
+    """Holding and backlog cost and their sum, in kroner (Story 6.18)."""
+
+    model_config = _FROZEN
+
+    holding_cost: _Money
+    backorder_cost: _Money
+    total_cost: _Money
+
+
+class RoleCost(CostSum):
+    """One Role's cost over the whole Game: a row of Kjedens regning, per Role, never per name."""
+
+    role: Role
+
+
+class ChainWeekCost(CostSum):
+    """The chain's cost from Uke 1 through `week`, summed over its Roles."""
+
+    week: int
+
+
+class GameResult(BaseModel):
+    """A finished Game's cost (Story 6.18, FR-28): each Role's, the chain's, and the chain's
+    running cost per Uke. Numbers and Roles only: no names, no demand, no settings."""
+
+    model_config = _FROZEN
+
+    roles: tuple[RoleCost, ...]
+    """Detaljist to Fabrikk, the chain order of the Game's settings."""
+    chain: CostSum
+    weeks: tuple[ChainWeekCost, ...]
+    """Uke 1 to the last Uke, oldest first."""
 
 
 TableHolder = Literal["student", "ai", "free"]

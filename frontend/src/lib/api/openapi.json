@@ -660,6 +660,36 @@
         "title": "BouncedRegistration",
         "type": "string"
       },
+      "ChainWeekCost": {
+        "additionalProperties": false,
+        "description": "The chain's cost from Uke 1 through `week`, summed over its Roles.",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "holding_cost",
+          "backorder_cost",
+          "total_cost",
+          "week"
+        ],
+        "title": "ChainWeekCost",
+        "type": "object"
+      },
       "Choice": {
         "description": "The answers to «Har du spilt et spill som ligner dette før?»; `skipped` is «Hopp over».",
         "enum": [
@@ -1446,6 +1476,31 @@
         "title": "CostLine",
         "type": "object"
       },
+      "CostSum": {
+        "additionalProperties": false,
+        "description": "Holding and backlog cost and their sum, in kroner (Story 6.18).",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "holding_cost",
+          "backorder_cost",
+          "total_cost"
+        ],
+        "title": "CostSum",
+        "type": "object"
+      },
       "DatesIn": {
         "additionalProperties": false,
         "description": "The four dates as the Lecturer set them, each an instant with its offset or None.",
@@ -1943,6 +1998,36 @@
           "choice"
         ],
         "title": "FinalIn",
+        "type": "object"
+      },
+      "GameResult": {
+        "additionalProperties": false,
+        "description": "A finished Game's cost (Story 6.18, FR-28): each Role's, the chain's, and the chain's\nrunning cost per Uke. Numbers and Roles only: no names, no demand, no settings.",
+        "properties": {
+          "chain": {
+            "$ref": "#/components/schemas/CostSum"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleCost"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/ChainWeekCost"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles",
+          "chain",
+          "weeks"
+        ],
+        "title": "GameResult",
         "type": "object"
       },
       "GameRulesOut": {
@@ -3397,6 +3482,35 @@
         ],
         "title": "Role",
         "type": "string"
+      },
+      "RoleCost": {
+        "additionalProperties": false,
+        "description": "One Role's cost over the whole Game: a row of Kjedens regning, per Role, never per name.",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "holding_cost",
+          "backorder_cost",
+          "total_cost",
+          "role"
+        ],
+        "title": "RoleCost",
+        "type": "object"
       },
       "RoleIn": {
         "description": "The account role an Admin grants (Story 3.9).",
@@ -10069,6 +10183,79 @@
           }
         },
         "summary": "Get My Game Play",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/result": {
+      "get": {
+        "description": "«Spillet er ferdig» (Story 6.18, FR-28, AD-3): the chain's cost per Role, Detaljist to\nFabrikk, and per Uke, once the game has finished. Roles, never names, and no demand series.\n409 `game_not_finished` before the end, so no chain number leaks during play (FR-14); any\nother game answers 403 `forbidden` (FR-5).",
+        "operationId": "getMyGameResult",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Game Result",
         "tags": [
           "sessions"
         ]

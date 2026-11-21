@@ -37,6 +37,12 @@ class GamePolicy(BaseModel):
     """Whether a Seat may be held by a Student (`student` occupant with a `user_id`, AD-5)."""
     class_session_game: bool
     """Whether the Game belongs to a Class session: created with its id and a game number."""
+    records_class_game_step: bool
+    """Whether `games.commands.finish` records the `progress` step `class_game` for every
+    Student the Game ever seated (Story 6.18, AD-16)."""
+    pre_play_gate: bool
+    """Whether the rules briefing and the Starting task come before play (Stories 6.2, 6.3,
+    6.5): the Student's start is refused until the `starting_task` step is done."""
 
 
 POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
@@ -51,6 +57,8 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             snapshot="at_creation",
             student_occupants=False,
             class_session_game=False,
+            records_class_game_step=False,
+            pre_play_gate=False,
         ),
         # A Class game (Story 5.9): created when the allocation is confirmed, its snapshot taken
         # at the Class session's lock.
@@ -64,6 +72,8 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             snapshot="at_lock",
             student_occupants=True,
             class_session_game=True,
+            records_class_game_step=True,
+            pre_play_gate=True,
         ),
     }
 )

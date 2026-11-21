@@ -7,6 +7,7 @@ import { nb } from "@/copy/nb";
 import { ActionError } from "./action-error";
 import { AppHeader } from "./app-header";
 import { Breadcrumb } from "./breadcrumb";
+import { ChainBill } from "./chain-bill";
 import { Button, guardUnavailable } from "./button";
 import { ColumnItem } from "./column-item";
 import { ConnectionNotice } from "./connection-notice";
@@ -370,5 +371,42 @@ describe("GameCard (Spillkort, Story 6.17)", () => {
     expect(html).toContain('<p class="sr-only">Netto lager −13 i Uke 11.</p>');
     expect(html.indexOf("Totalkostnad 68,00 kr")).toBeLessThan(html.indexOf("Gå til Uke 11"));
     expect(render()).not.toContain("<a ");
+  });
+});
+
+describe("ChainBill (Kjedens regning, Story 6.18)", () => {
+  const row = (role: string, label: string, own = false) => ({
+    role,
+    label,
+    own,
+    holding: "1,00",
+    backorder: "2,00",
+    total: "3,00",
+    bar: { holding: 0.25, backorder: 0.5 },
+  });
+  const chain = { holding: "901,00", backorder: "1 365,00", total: "2 266,00" };
+
+  it("is a table per Role with the own row marked and Kjeden under a rule, in the given order", () => {
+    const html = renderToStaticMarkup(
+      <ChainBill rows={[row("retailer", "Detaljist"), row("wholesaler", "Grossist (deg)", true)]} chain={chain} titleId="b" />,
+    );
+    expect(html).toContain(">Kjedens regning</h2>");
+    expect(html.indexOf("Detaljist")).toBeLessThan(html.indexOf("Grossist (deg)"));
+    expect(html).toMatch(/<tr[^>]*data-own=""[^>]*class="relative font-semibold"/);
+    expect(html).toMatch(/<tfoot><tr data-chain-row="" class="border-t border-axis font-bold"><th scope="row"[^>]*>Kjeden<\/th>/);
+    expect(html).toContain('<span aria-hidden="true" class="absolute inset-x-0 bottom-1.5 flex" data-bar="">');
+    expect(html).toContain("width:25.00%");
+    expect(html).toContain(">2 266,00</td>");
+  });
+
+  it("keeps the Debrief's slot for extra rows inside the body, empty unless given", () => {
+    const extra = (
+      <tr data-extra="">
+        <th scope="row">Simulert</th>
+      </tr>
+    );
+    const html = renderToStaticMarkup(<ChainBill rows={[row("retailer", "Detaljist")]} chain={chain} titleId="b" extraRows={extra} />);
+    expect(html.indexOf("data-extra")).toBeLessThan(html.indexOf("<tfoot>"));
+    expect(renderToStaticMarkup(<ChainBill rows={[]} chain={chain} titleId="b" />)).not.toContain("data-extra");
   });
 });

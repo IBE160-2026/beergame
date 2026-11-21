@@ -6,6 +6,7 @@ the Decision log read the `SeatState` it returns and nothing else about the Game
 
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from decimal import Decimal
 
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,10 +16,14 @@ from app.modules.games import repo, rules
 from app.modules.games.marks import seat_mark
 from app.modules.games.policy import policy
 from app.modules.games.schemas import (
+    ChainWeekCost,
+    CostSum,
     DecisionLogRow,
+    GameResult,
     Lifecycle,
     OccupancyRow,
     OccupantKind,
+    RoleCost,
     SeatState,
     TableSeat,
     TableStatus,
@@ -29,6 +34,7 @@ from app.platform.db import get_sessionmaker
 __all__ = [
     "ViewError",
     "build_seat_state",
+    "chain_result",
     "decision_log",
     "occupancy_history",
     "open_turn",
@@ -129,6 +135,54 @@ async def seat_state(game_id: str, seat: str, week: int | None = None) -> SeatSt
     week = _week(opened, week)
     settings = GameSettings.model_validate(game["settings"])
     return build_seat_state(settings, opened[:week], orders[: week - 1], row["role"])
+
+
+async def chain_result(game_id: str) -> GameResult:
+    """The finished Game's cost per Role and the chain's cost per Uke (Story 6.18, FR-28), from
+    its snapshot settings, stored Week states and Orders through the engine's `seat_detail`: each
+    Role's running sums in every Uke it played. Only this sums Roles into the chain.
+
+    Refuses (`ViewError`): `game_not_found` 404, `game_not_finished` 409 before the end, so no
+    chain number leaks during play (AD-3, FR-14)."""
+    game_uuid = _uuid(game_id)
+    async with get_sessionmaker()() as session:
+        game = await repo.get_game(session, game_uuid) if game_uuid else None
+        if game is None:
+            raise ViewError("game_not_found", f"no Game {game_id!r}", 404)
+        if game["lifecycle"] != Lifecycle.FINISHED:
+            raise ViewError("game_not_finished", "the Game has not finished", 409)
+        opened = await _opened(session, game["id"])
+        orders = await stored_orders(session, game["id"])
+    settings = GameSettings.model_validate(game["settings"])
+    roles: list[RoleCost] = []
+    per_week: list[list[tuple[Decimal, Decimal, Decimal]]] = []
+    for role in settings.roles:
+        detail = seat_detail(settings, opened, orders[: len(opened) - 1], role)
+        running = [
+            (row.total_holding_cost, row.total_backorder_cost, row.total_cost)
+            for row in detail.history
+        ]
+        last = (detail.total_holding_cost, detail.total_backorder_cost, detail.total_cost)
+        running.append(last)
+        per_week.append(running)
+        roles.append(
+            RoleCost(role=role, holding_cost=last[0], backorder_cost=last[1], total_cost=last[2])
+        )
+    weeks = tuple(
+        ChainWeekCost(
+            week=number,
+            holding_cost=sum((each[number - 1][0] for each in per_week), Decimal(0)),
+            backorder_cost=sum((each[number - 1][1] for each in per_week), Decimal(0)),
+            total_cost=sum((each[number - 1][2] for each in per_week), Decimal(0)),
+        )
+        for number in range(1, len(opened) + 1)
+    )
+    chain = CostSum(
+        holding_cost=sum((r.holding_cost for r in roles), Decimal(0)),
+        backorder_cost=sum((r.backorder_cost for r in roles), Decimal(0)),
+        total_cost=sum((r.total_cost for r in roles), Decimal(0)),
+    )
+    return GameResult(roles=tuple(roles), chain=chain, weeks=weeks)
 
 
 async def open_turn(game_id: str, seat: str, week: int | None = None) -> TurnOverview:

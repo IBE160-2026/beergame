@@ -142,6 +142,7 @@ from app.modules.sessions.schemas import (
     EnrolledLabHourOut,
     EnrolledSessionListOut,
     EnrolledSessionOut,
+    GameResultOut,
     GameRulesOut,
     LabHourIn,
     LabHourOut,
@@ -1239,8 +1240,9 @@ async def _game_out(
         number=found.number,
         role=found.role,
         seats=_seats_out(table),
-        # Story 6.2: the briefing comes first until the Starting task is done (AD-16).
-        briefing_first=progress.Step.STARTING_TASK not in done,
+        # Story 6.2: the briefing comes first until the Starting task is done (AD-16), where
+        # `games.policy` says the pre-play gate applies (Story 6.18).
+        briefing_first=found.pre_play_gate and progress.Step.STARTING_TASK not in done,
         rules=game_rules(row),
         status=play.status,
         week=play.week,
@@ -1349,6 +1351,31 @@ async def student_play_of(user: authz.Principal, game_id: str) -> PlayOut | None
     )
 
 
+class GameNotFinished(Exception):
+    """The game's result was asked for before the game finished (Story 6.18)."""
+
+
+async def student_result_of(user: authz.Principal, game_id: str) -> GameResultOut | None:
+    """«Spillet er ferdig» (Story 6.18, FR-28, AD-3): the chain's cost per Role and per Uke of
+    the Student's own Class game, under `student_game_of`'s checks (None for every other id
+    alike). Raises `GameNotFinished` until the game has finished, so no chain number leaks during
+    play (FR-14). Roles only, never names; no demand."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+        if own is None:
+            return None
+        found, _ = own
+    try:
+        result = await games_service.chain_result(str(found.game_id))
+    except games_service.ViewError as refused:
+        if refused.code == "game_not_finished":
+            raise GameNotFinished from None
+        if refused.status == 404:
+            return None
+        raise
+    return result
+
+
 class ViewRefused(Exception):
     """A view of a Guided Week the api refuses (Story 6.10), with the command's code:
     `week_not_open`, `week_not_guided`, `game_not_started`, `game_finished`, `seat_not_student`
@@ -1436,7 +1463,7 @@ async def start_own_game(user: authz.Principal, game_id: str) -> StudentGameOut 
             return None
         found, row = own
         done = await progress.steps_of(s, user.id, [row["id"]])
-    if progress.Step.STARTING_TASK not in done.get(row["id"], set()):
+    if found.pre_play_gate and progress.Step.STARTING_TASK not in done.get(row["id"], set()):
         raise StartRefused("starting_task_required")
     try:
         await games_commands.start(str(found.game_id))

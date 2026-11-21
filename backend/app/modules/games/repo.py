@@ -150,6 +150,7 @@ async def student_seats(
         select(
             games.c.id.label("game_id"),
             games.c.game_number,
+            games.c.purpose,
             seats.c.role,
             named.c.row_id,
             (latest.c.user_id == user_id).label("holds"),
@@ -588,6 +589,19 @@ async def finished_game_ids(session: AsyncSession) -> list[uuid.UUID]:
     """The id of every finished Game, oldest first (ids are UUIDv7)."""
     result = await session.execute(
         select(games.c.id).where(games.c.lifecycle == "finished").order_by(games.c.id)
+    )
+    return list(result.scalars())
+
+
+async def unchecked_finished_game_ids(session: AsyncSession, limit: int) -> list[uuid.UUID]:
+    """At most `limit` finished Games that have no `game_checks` row yet, oldest first (Story
+    6.18): what the sweep's finished-game check still has to verify."""
+    result = await session.execute(
+        select(games.c.id)
+        .select_from(games.outerjoin(game_checks, game_checks.c.game_id == games.c.id))
+        .where(games.c.lifecycle == "finished", game_checks.c.id.is_(None))
+        .order_by(games.c.id)
+        .limit(limit)
     )
     return list(result.scalars())
 

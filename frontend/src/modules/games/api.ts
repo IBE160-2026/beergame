@@ -99,3 +99,19 @@ export function finishTask(gameId: string, choice: components["schemas"]["Choice
 export function startGame(gameId: string) {
   return request(() => api.POST("/api/me/games/{game_id}/start", { params: { path: { game_id: gameId } } }));
 }
+
+/** «Spillet er ferdig» (Story 6.18): the finished game's cost per Role, the chain's and the
+ * chain's per Uke. The api answers 409 `game_not_finished` before the end. */
+export type GameResult = components["schemas"]["GameResult"];
+
+export const resultKey = (id: string) => ["games", "mine", id, "result"] as const;
+
+/** `/api/me/games/{id}/result`, asked only once the game has finished (`enabled`). */
+export function useGameResult(gameId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: resultKey(gameId),
+    queryFn: () => request(() => api.GET("/api/me/games/{game_id}/result", { params: { path: { game_id: gameId } } })),
+    enabled,
+    retry: false,
+  });
+}

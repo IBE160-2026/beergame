@@ -46,3 +46,17 @@ def test_a_class_game_has_every_lecturer_behaviour_and_its_snapshot_at_the_lock(
 def test_other_purposes_raise(purpose):
     with pytest.raises(PurposeNotSupportedError):
         service.policy(purpose)
+
+
+def test_only_a_class_game_records_its_step_and_has_the_pre_play_gate():
+    """AD-13 (Story 6.18): `finish` records `class_game` and the briefing and Starting task come
+    first only where these columns are on."""
+    assert (
+        service.policy("class").records_class_game_step,
+        service.policy("class").pre_play_gate,
+    ) == (
+        True,
+        True,
+    )
+    simulation = service.policy("simulation")
+    assert (simulation.records_class_game_step, simulation.pre_play_gate) == (False, False)

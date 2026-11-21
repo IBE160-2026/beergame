@@ -1474,6 +1474,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/games/{game_id}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Game Result
+         * @description «Spillet er ferdig» (Story 6.18, FR-28, AD-3): the chain's cost per Role, Detaljist to
+         *     Fabrikk, and per Uke, once the game has finished. Roles, never names, and no demand series.
+         *     409 `game_not_finished` before the end, so no chain number leaks during play (FR-14); any
+         *     other game answers 403 `forbidden` (FR-5).
+         */
+        get: operations["getMyGameResult"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/games/{game_id}/start": {
         parameters: {
             query?: never;
@@ -1924,6 +1947,20 @@ export interface components {
          */
         BouncedRegistration: "bounced";
         /**
+         * ChainWeekCost
+         * @description The chain's cost from Uke 1 through `week`, summed over its Roles.
+         */
+        ChainWeekCost: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Holding Cost */
+            holding_cost: string;
+            /** Total Cost */
+            total_cost: string;
+            /** Week */
+            week: number;
+        };
+        /**
          * Choice
          * @description The answers to «Har du spilt et spill som ligner dette før?»; `skipped` is «Hopp over».
          * @enum {string}
@@ -2236,6 +2273,18 @@ export interface components {
             units: number;
         };
         /**
+         * CostSum
+         * @description Holding and backlog cost and their sum, in kroner (Story 6.18).
+         */
+        CostSum: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Holding Cost */
+            holding_cost: string;
+            /** Total Cost */
+            total_cost: string;
+        };
+        /**
          * DatesIn
          * @description The four dates as the Lecturer set them, each an instant with its offset or None.
          */
@@ -2444,6 +2493,18 @@ export interface components {
         /** FinalIn */
         FinalIn: {
             choice: components["schemas"]["Choice"];
+        };
+        /**
+         * GameResult
+         * @description A finished Game's cost (Story 6.18, FR-28): each Role's, the chain's, and the chain's
+         *     running cost per Uke. Numbers and Roles only: no names, no demand, no settings.
+         */
+        GameResult: {
+            chain: components["schemas"]["CostSum"];
+            /** Roles */
+            roles: components["schemas"]["RoleCost"][];
+            /** Weeks */
+            weeks: components["schemas"]["ChainWeekCost"][];
         };
         /**
          * GameRulesOut
@@ -3167,6 +3228,19 @@ export interface components {
          * @enum {string}
          */
         Role: "retailer" | "wholesaler" | "distributor" | "factory";
+        /**
+         * RoleCost
+         * @description One Role's cost over the whole Game: a row of Kjedens regning, per Role, never per name.
+         */
+        RoleCost: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Holding Cost */
+            holding_cost: string;
+            role: components["schemas"]["Role"];
+            /** Total Cost */
+            total_cost: string;
+        };
         /**
          * RoleIn
          * @description The account role an Admin grants (Story 3.9).
@@ -7658,6 +7732,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlayOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyGameResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameResult"];
                 };
             };
             /** @description Unauthorized */

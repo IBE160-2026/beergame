@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { ChainBand } from "./chain-band";
-import { CostArea } from "./cost-area";
+import { CostArea, endPlaces } from "./cost-area";
 import { CostBars } from "./cost-bars";
 import { NetGraph, type NetPoint } from "./net-graph";
 import { costAxisTop, netDomain, netTicks, spreadLabels, totalAxisTop } from "./scales";
@@ -252,5 +252,38 @@ describe("Totalkostnad over tid (Story 6.16)", () => {
     expect(html).toMatch(/data-mark="holding-area"/);
     expect(html).not.toContain("backorder-area");
     expect(html).not.toContain(">Uke 4</text>");
+  });
+});
+
+describe("Kjedens kostnad over tid's end labels (Story 6.18)", () => {
+  const props = { width: 240, height: 117, fontSize: 13, title: "t", formatTick: String, firstLabel: "Uke 1", lastLabel: "Uke 4" };
+
+  it("labels the final values at the right end, and none without endLabels", () => {
+    const points = [
+      { week: 1, holding: 6, backorder: 0 },
+      { week: 2, holding: 10, backorder: 30 },
+    ];
+    const html = renderToStaticMarkup(
+      <CostArea {...props} points={points} endLabels={{ holding: "Lager 10,00", backorder: "Restordre 30,00" }} />,
+    );
+    expect(html).toContain('data-mark="end-labels"');
+    expect(html).toContain(">Lager 10,00</text>");
+    expect(html).toContain(">Restordre 30,00</text>");
+    expect(renderToStaticMarkup(<CostArea {...props} points={points} />)).not.toContain("end-labels");
+  });
+
+  it("keeps the two labels a line apart and inside the plot, holding below", () => {
+    const y = (value: number) => 100 - value; // base 100, top 0
+    for (const last of [
+      { week: 9, holding: 0, backorder: 0 },
+      { week: 9, holding: 99, backorder: 1 },
+      { week: 9, holding: 1, backorder: 99 },
+      { week: 9, holding: 50, backorder: 50 },
+    ]) {
+      const { holding, backorder } = endPlaces(last, y, 0, 100, 13);
+      expect(holding - backorder).toBeGreaterThanOrEqual(13 * 1.2 - 1e-9);
+      expect(backorder).toBeGreaterThanOrEqual(13 * 0.6);
+      expect(holding).toBeLessThanOrEqual(100 - 13 * 0.6);
+    }
   });
 });

@@ -1,10 +1,11 @@
 "use client";
 
-import { type Ref, type RefObject, useId, useLayoutEffect, useRef, useState } from "react";
+import { type Ref, useId, useRef, useState } from "react";
 
 import { CostArea } from "@/components/charts/cost-area";
 import { LINK_BUTTON } from "@/components/link";
 import { nb } from "@/copy/nb";
+import { useBoxSize } from "@/lib/box-size";
 import { formatNumber } from "@/lib/number-format";
 import { cn } from "@/lib/utils";
 
@@ -49,7 +50,7 @@ export function CostPanel({
   const model = costPanel(state);
   const [asTable, setAsTable] = useState(false);
   const box = useRef<HTMLDivElement>(null);
-  const size = useSize(box);
+  const size = useBoxSize(box, FALLBACK);
   const id = useId();
   const tableId = `${id}-table`;
   return (
@@ -159,24 +160,4 @@ function CostTable({ id, rows }: { id: string; rows: ReturnType<typeof costPanel
       </tbody>
     </table>
   );
-}
-
-/** The box's width and caption size in px, measured again when it resizes (text zoom, a font
- * loading, the breakpoint); the chart takes them as fixed sizes (AD-18). */
-function useSize(box: RefObject<HTMLDivElement | null>) {
-  const [size, setSize] = useState(FALLBACK);
-  useLayoutEffect(() => {
-    const element = box.current;
-    if (!element) return;
-    const measure = () => {
-      const width = Math.floor(element.clientWidth);
-      const fontSize = parseFloat(getComputedStyle(element).fontSize) || FALLBACK.fontSize;
-      if (width > 0) setSize((was) => (was.width === width && was.fontSize === fontSize ? was : { width, fontSize }));
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [box]);
-  return size;
 }

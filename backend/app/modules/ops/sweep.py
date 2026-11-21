@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 
 import structlog
 
+from app.modules.games import service as games
 from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
 from app.modules.sessions import service as sessions
@@ -56,6 +57,21 @@ async def _purge_roster_uploads(at: object, now: datetime) -> int:
     return await identity.purge_expired_roster_uploads(at)
 
 
+FINISHED_CHECKS_PER_SWEEP = 20
+"""The most finished Games one sweep verifies; the next minute's sweep takes the rest."""
+
+
+async def _unchecked_finished_games(now: datetime) -> Sequence[str]:
+    async with get_sessionmaker()() as session:
+        found = await games.unchecked_finished_game_ids(session, FINISHED_CHECKS_PER_SWEEP)
+    return [str(game_id) for game_id in found]
+
+
+async def _verify_finished(game_id: object, now: datetime) -> object:
+    assert isinstance(game_id, str)
+    return await games.verify_finished(game_id)
+
+
 DUE_ACTIONS: tuple[DueAction, ...] = (
     # The first due action (Story 3.5): claim due notices into mails and defer their `mail` jobs.
     DueAction("messaging.mail", messaging.due_items, messaging.claim),  # type: ignore[arg-type]
@@ -85,6 +101,9 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
         sessions.student_choice_offers,
         sessions.offer_student_choice_due,
     ),
+    # Story 6.18: the finished-game check (FR-29, NFR-9, AD-4): replay each finished Game that
+    # has no `game_checks` row yet, one Game per transaction, so the end screen never waits.
+    DueAction("games.verify_finished", _unchecked_finished_games, _verify_finished),
     # Story 5.14: remind every Student of a Play, Debrief or Test deadline 24 hours ahead, once
     # per deadline time (FR-18). The reminders join the next minute's digest claim.
     DueAction(

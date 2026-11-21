@@ -58,9 +58,10 @@ from app.modules.games.schemas import (
     Purpose,
     SessionRuntime,
 )
-from app.modules.games.service import scope_of
+from app.modules.games.service import scope_of, student_game
 from app.modules.games.turns import OpenGame, play_of
 from app.modules.games.views import build_seat_state, stored_orders, stored_play
+from app.modules.progress import service as progress
 from app.platform import events
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
@@ -1574,4 +1575,35 @@ async def finish(session: AsyncSession, game_id: uuid.UUID, state: WeekState) ->
         session, game_id, state.week, state.model_dump(mode="json"), finished=True
     )
     await repo.set_lifecycle(session, game_id, Lifecycle.FINISHED.value)
+    await _record_class_game_step(session, game_id)
     log.info("game_finished", game_id=str(game_id))
+
+
+async def _record_class_game_step(session: AsyncSession, game_id: uuid.UUID) -> None:
+    """Record `progress` `class_game` for every Student the Game ever seated, read from the
+    occupancy history, so one whose Seat an AI player took over counts too (Story 6.18, AD-16),
+    where `games.policy` says the purpose records it. Whether the step counts toward Completion
+    is `analysis.completion`'s to decide. Each new step emits `user:<id>` and `session:<id>` in
+    this transaction."""
+    game = await repo.get_game(session, game_id)
+    if game is None or game["class_session_id"] is None:
+        return
+    if not _policy(game["purpose"]).records_class_game_step:
+        return
+    named = {
+        row["user_id"]
+        for row in await repo.occupancy_history(session, game_id)
+        if row["occupant_kind"] == OccupantKind.STUDENT and row["user_id"] is not None
+    }
+    # A Student moved to another Game of the Class session before the start was named here once;
+    # their Class game is the one `student_game` gives, so only this Game's own Students count.
+    students = []
+    for user_id in sorted(named, key=str):
+        own = await student_game(session, user_id, game["class_session_id"])
+        if own is not None and own.game_id == game_id:
+            students.append(user_id)
+    at = await repo.now(session)
+    for student in students:
+        await progress.record_step(
+            student, game["class_session_id"], progress.Step.CLASS_GAME, at, within=session
+        )

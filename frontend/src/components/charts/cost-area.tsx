@@ -25,6 +25,10 @@ export type CostAreaProps = {
   /** «Uke 1» at the left end and «Uke 11» (bold) at the right end. */
   firstLabel: string;
   lastLabel: string;
+  /** The final values, labelled directly at the right end (Story 6.18, `chain-cost-chart`):
+   * «Lager 901,00» in the holding band and «Restordre 1 365,00» in the backlog band, kept at
+   * least a line apart. Left out, no end labels are drawn (Story 6.16's panel). */
+  endLabels?: { holding: string; backorder: string };
 };
 
 /** Width of a lone Uke (Uke 1): one point has no length, so it is drawn as a short block. */
@@ -38,7 +42,17 @@ const LONE = 6;
  * (see README). It is `aria-hidden`: its numbers are a table elsewhere (the «Sum, kr» row, or
  * «Vis som tabell»), and the `<title>` stays for print.
  */
-export function CostArea({ width, height, fontSize, points, title, formatTick, firstLabel, lastLabel }: CostAreaProps) {
+export function CostArea({
+  width,
+  height,
+  fontSize,
+  points,
+  title,
+  formatTick,
+  firstLabel,
+  lastLabel,
+  endLabels,
+}: CostAreaProps) {
   const highest = Math.max(0, ...points.map((p) => p.holding + p.backorder));
   const top = totalAxisTop(highest);
   const ticks = [0, top / 2, top];
@@ -72,6 +86,7 @@ export function CostArea({ width, height, fontSize, points, title, formatTick, f
     .x((p) => x(p.week))
     .y((p) => y(p.holding + p.backorder))(drawn);
   const owes = points.some((p) => p.backorder > 0);
+  const ends = endLabels ? endPlaces(points[points.length - 1], y, plotTop, base, fontSize) : null;
   return (
     <svg
       width={width}
@@ -108,6 +123,26 @@ export function CostArea({ width, height, fontSize, points, title, formatTick, f
       {holdingEdge ? (
         <path d={holdingEdge} fill="none" stroke={colour("lager")} strokeWidth={1.5} strokeLinejoin="round" />
       ) : null}
+      {endLabels && ends ? (
+        // A `paper` halo under each label keeps it readable on its band (WCAG 1.4.3): the series
+        // colour on the halo, not on the tint.
+        <g
+          textAnchor="end"
+          fontWeight={600}
+          stroke={colour("paper")}
+          strokeWidth={4}
+          strokeLinejoin="round"
+          paintOrder="stroke"
+          data-mark="end-labels"
+        >
+          <text x={right - fontSize * 0.3} y={ends.backorder} dy="0.35em" fill={colour("restordre")}>
+            {endLabels.backorder}
+          </text>
+          <text x={right - fontSize * 0.3} y={ends.holding} dy="0.35em" fill={colour("lager")}>
+            {endLabels.holding}
+          </text>
+        </g>
+      ) : null}
       <text x={left} y={height - fontSize * 0.45} fill={colour("ink-muted")}>
         {firstLabel}
       </text>
@@ -118,4 +153,31 @@ export function CostArea({ width, height, fontSize, points, title, formatTick, f
       ) : null}
     </svg>
   );
+}
+
+/** Where the end labels stand: each in the middle of its band at the last Uke, then pushed apart
+ * to at least a line between them and kept inside the plot (holding below, backlog above). */
+export function endPlaces(
+  last: CostAreaPoint | undefined,
+  y: (value: number) => number,
+  plotTop: number,
+  base: number,
+  fontSize: number,
+): { holding: number; backorder: number } {
+  const holdingTop = y(last?.holding ?? 0);
+  const totalTop = y((last?.holding ?? 0) + (last?.backorder ?? 0));
+  const gap = fontSize * 1.2;
+  const half = fontSize * 0.6;
+  let holding = Math.min(base - half, (base + holdingTop) / 2);
+  let backorder = Math.max(plotTop + half, (holdingTop + totalTop) / 2);
+  if (holding - backorder < gap) {
+    const middle = (holding + backorder) / 2;
+    holding = Math.min(base - half, middle + gap / 2);
+    backorder = holding - gap;
+    if (backorder < plotTop + half) {
+      backorder = plotTop + half;
+      holding = backorder + gap;
+    }
+  }
+  return { holding, backorder };
 }

@@ -22,7 +22,8 @@ const LINE = "text-body-phone text-ink lg:text-body";
  * What the Student does next with their Class game (Story 6.5, FR-22, UX-DR78), on Hjem, on the
  * Startoppgave's done screen and on the play route alike: «Les reglene» until the Starting task is
  * done; then «Start spillet» with its consequence line above it and no second dialog; once the
- * game runs «Gå til Uke n»; before the game has its snapshot only the line that it is not ready.
+ * game runs «Gå til Uke n»; before the game has its snapshot only the line that it is not ready;
+ * once it has finished «Spillet er ferdig.» with a Lenke to the chain's Total cost (Story 6.18).
  * `primary` makes it the screen's one primary control; otherwise it is a Lenke or a secondary
  * button. `homeWhenNotReady` adds «Til Hjem» to the not-ready line (the done screen).
  */
@@ -35,6 +36,18 @@ export function GameAction({
   primary: boolean;
   homeWhenNotReady?: boolean;
 }) {
+  if (game.status === "finished") {
+    // Story 6.18: the game is over; «Spillet er ferdig» holds the chain's Total cost. A Lenke,
+    // never the primary: the Debrief is Stegene's next step (Epic 9).
+    return (
+      <div className="mt-3 flex flex-col items-start gap-1">
+        <p className={LINE}>{nb.homes.student.finished}</p>
+        <Link href={gamePath(game.id)} standalone>
+          {nb.homes.student.toResult}
+        </Link>
+      </div>
+    );
+  }
   switch (nextAction(game)) {
     case "rules":
       return (

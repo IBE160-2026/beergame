@@ -19,10 +19,22 @@ import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { roleName } from "@/modules/sessions/sessions";
 
 import { AllRowsView } from "./all-rows-view";
-import { type MyGame, myGameKey, placeOrder, type PlayEnvelope, playKey, useMyGame, usePlay, viewWeek } from "./api";
+import {
+  type MyGame,
+  myGameKey,
+  placeOrder,
+  type PlayEnvelope,
+  playKey,
+  resultKey,
+  useGameResult,
+  useMyGame,
+  usePlay,
+  viewWeek,
+} from "./api";
 import { ChainBandView } from "./chain-band-view";
 import { CostPanel } from "./cost-panel-view";
 import { GameAction } from "./game-action";
+import { GameEnd, GameEndHeading } from "./game-end";
 import { OrderField } from "./order-field";
 import { lastOrder, parseOrder } from "./order-input";
 import { gameTitle } from "./home";
@@ -51,7 +63,8 @@ const LINE = "text-body-phone lg:text-body";
  * how long (Story 6.14); the envelope is read again at its `next_change_at`. When the Uke moves on
  * (Story 6.15) the Uke-overgang above the Ordrefelt says what the Uke just run did, until the own
  * Order; on an open page it is announced and the now-line moves one column. A game that has not started, or that this Student may
- * not play before the briefing and Starting task, shows its next action (briefing, «Start spillet» or the not-ready line); a finished one says so. The
+ * not play before the briefing and Starting task, shows its next action (briefing, «Start spillet» or the not-ready line). A finished
+ * one shows «Spillet er ferdig» with the chain's Total cost from `/api/me/games/{id}/result` (Story 6.18). The
  * page follows the game's `game:` events (`topics.ts`). Another Student's game shows the
  * permission-denied page.
  */
@@ -71,6 +84,10 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
   // The envelope is asked for only while the game runs; its wait follows the game's.
   const envelope = usePlay(gameId, running);
   const play = usePageState(envelope, playKey(gameId));
+  // Story 6.18: a finished game shows «Spillet er ferdig» from its result.
+  const finished = game?.status === "finished";
+  const resultQuery = useGameResult(gameId, finished);
+  const ended = usePageState(resultQuery, resultKey(gameId));
   // A game that stopped running between the two reads: read the game again, which then shows
   // where it stands (finished, or its next action).
   const stopped = envelope.error instanceof ApiRequestError && envelope.error.code === "game_not_running";
@@ -79,9 +96,12 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
     if (stopped) void refetchGame();
   }, [stopped, refetchGame]);
   const allRows = useAllRows();
-  const denied = [found.error, envelope.error].some((e) => e instanceof ApiRequestError && e.code === "forbidden");
+  const denied = [found.error, envelope.error, resultQuery.error].some(
+    (e) => e instanceof ApiRequestError && e.code === "forbidden",
+  );
   if (denied) return <AccessDenied user={user} updatedAt={updatedAt} />;
   const shown = running && envelope.data ? envelope.data : null;
+  const result = finished ? (resultQuery.data ?? null) : null;
   const pagePhase = !game
     ? phase === "ready"
       ? "loading"
@@ -90,13 +110,27 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
       ? play.phase === "ready"
         ? "loading"
         : play.phase
-      : "ready";
+      : finished && !result
+        ? ended.phase === "ready"
+          ? "loading"
+          : ended.phase
+        : "ready";
   return (
     <PageShell
       user={user}
-      title={game ? (running ? copy.week(shown?.seat_state.week ?? game.week!) : gameTitle(game)) : undefined}
+      title={
+        game
+          ? running
+            ? copy.week(shown?.seat_state.week ?? game.week!)
+            : finished
+              ? copy.end.title
+              : gameTitle(game)
+          : undefined
+      }
       header={
-        game && shown ? (
+        game && result ? (
+          <GameEndHeading game={game} />
+        ) : game && shown ? (
           // Kept while Alle rader is open, so its button can take focus back on «Lukk».
           <div hidden={allRows.open !== null}>
             <Topplinje game={game} envelope={shown} onOpen={(opener) => allRows.show("top", opener)} />
@@ -108,13 +142,16 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
       onRetry={() => {
         retry();
         if (running) play.retry();
+        if (finished) ended.retry();
       }}
       skeleton={SKELETON}
     >
       {game ? (
         shown ? (
           <Running game={game} envelope={shown} userId={user.id} allRows={allRows} />
-        ) : running ? null : (
+        ) : result ? (
+          <GameEnd game={game} result={result} />
+        ) : running || finished ? null : (
           <NotRunning game={game} />
         )
       ) : null}
@@ -592,11 +629,7 @@ function NotRunning({ game }: { game: MyGame }) {
   return (
     <>
       <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
-      {game.status === "finished" ? (
-        <p className={`${LINE} mt-4 text-ink`}>{copy.finished}</p>
-      ) : (
-        <GameAction game={game} primary />
-      )}
+      <GameAction game={game} primary />
       <NotRunningSeats game={game} />
     </>
   );

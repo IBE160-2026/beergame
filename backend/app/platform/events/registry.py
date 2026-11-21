@@ -17,6 +17,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # Game does. An Order with no actor that completes no Week, in a Game no Lecturer overview
         # lists (simulations), emits `game` alone.
         "games.place_order": frozenset({"game", "session", "user"}),
+        # The end of a Game (Story 6.18). A Class game also records `class_game` for every
+        # Student it ever seated, whose `progress.record_step` emits `user` and `session` in the
+        # transaction of the command that completed the last Week.
         "games.finish": frozenset({"game"}),
         "games.advance": frozenset({"game"}),
         "games.switch_to_rule_based": frozenset({"game"}),

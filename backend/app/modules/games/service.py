@@ -25,6 +25,7 @@ from app.modules.games.schemas import (
     Fallback,
     GameCheck,
     GameOverview,
+    GameResult,
     GameSummary,
     Lifecycle,
     OccupancyReason,
@@ -46,6 +47,7 @@ from app.modules.games.summaries import game_summary
 from app.modules.games.turns import OpenGame, llm_turn, pending_turn
 from app.modules.games.views import (
     ViewError,
+    chain_result,
     decision_log,
     occupancy_history,
     open_turn,
@@ -87,6 +89,9 @@ __all__ = [
     "budget_scope",
     "class_game_ids",
     "class_games",
+    "GameResult",
+    "chain_result",
+    "unchecked_finished_game_ids",
     "class_games_of",
     "class_sessions_awaiting_snapshot",
     "class_sessions_with_unstarted_games",
@@ -117,6 +122,12 @@ __all__ = [
     "seat_state",
     "verify_finished",
 ]
+
+
+async def unchecked_finished_game_ids(session: AsyncSession, limit: int) -> list[uuid.UUID]:
+    """At most `limit` finished Games with no finished-game check yet, oldest first (Story
+    6.18), read in the caller's session."""
+    return await repo.unchecked_finished_game_ids(session, limit)
 
 
 async def class_game_ids(session: AsyncSession, class_session_id: uuid.UUID) -> dict[int, str]:
@@ -204,6 +215,8 @@ class StudentGame:
     class_session_id: uuid.UUID
     number: int
     role: str
+    pre_play_gate: bool
+    """Whether the briefing and Starting task come before play (`games.policy`, Story 6.18)."""
 
 
 async def student_game(
@@ -223,6 +236,7 @@ async def student_game(
         class_session_id=class_session_id,
         number=best["game_number"],
         role=best["role"],
+        pre_play_gate=policy(best["purpose"]).pre_play_gate,
     )
 
 

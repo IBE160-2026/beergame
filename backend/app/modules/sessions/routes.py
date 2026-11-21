@@ -39,6 +39,7 @@ from app.modules.sessions.schemas import (
     CopySourceListOut,
     DemandSeriesOut,
     EnrolledSessionListOut,
+    GameResultOut,
     LabHourIn,
     LabHourOut,
     LecturerOverviewOut,
@@ -611,6 +612,29 @@ async def get_my_game_play(
         found = await service.student_play_of(user, game_id)
     except service.GameNotRunning:
         return error_response(409, "game_not_running", "The game is not running.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/me/games/{game_id}/result",
+    response_model=GameResultOut,
+    responses=documented(401, 403, 409),
+    operation_id="getMyGameResult",
+)
+async def get_my_game_result(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.read_own"))],
+) -> Response:
+    """«Spillet er ferdig» (Story 6.18, FR-28, AD-3): the chain's cost per Role, Detaljist to
+    Fabrikk, and per Uke, once the game has finished. Roles, never names, and no demand series.
+    409 `game_not_finished` before the end, so no chain number leaks during play (FR-14); any
+    other game answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.student_result_of(user, game_id)
+    except service.GameNotFinished:
+        return error_response(409, "game_not_finished", "The game has not finished.")
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))

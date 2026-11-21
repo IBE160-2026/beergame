@@ -10,7 +10,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
 
 from app.engine import GameSettings
 from app.engine.settings import Role
-from app.modules.games.service import Lifecycle, SeatMark, SeatState
+from app.modules.games.service import GameResult, Lifecycle, SeatMark, SeatState
 
 
 class AiMode(StrEnum):
@@ -396,6 +396,11 @@ class PlayTurnOut(BaseModel):
     guided: bool
     order: int | None
     viewed: bool
+
+
+GameResultOut = GameResult
+"""«Spillet er ferdig» (Story 6.18): the finished game's cost per Role (Detaljist to Fabrikk),
+the chain's, and the chain's running cost per Uke. Roles, never names; no demand."""
 
 
 class StudentGameOut(BaseModel):

@@ -415,6 +415,11 @@ export const nb = {
       readRules: "Les reglene",
       /** Story 6.2: the briefing's Lenke afterwards, named by its title. */
       rulesLink: "Regler før første ordre",
+      /** A finished game on Hjem (Story 6.18). [ASSUMPTION] draft copy: the spine names no
+       * Hjem string for it; the Lenke leads to «Spillet er ferdig». */
+      finished: "Spillet er ferdig.",
+      /** [ASSUMPTION] */
+      toResult: "Se kjedens totalkostnad",
       /** Spillkort (Story 6.17, UX-DR28, EXPERIENCE.md → Spillkort, State Patterns → Student game).
        * «Spillet venter på deg», «Totalkostnad 68,00 kr» and «Netto lager −13 i Uke 11.» are the
        * spine's; `ordered` and `region` are [ASSUMPTION] draft copy: EXPERIENCE.md has no title for
@@ -1510,11 +1515,19 @@ export const nb = {
       },
     },
     /** The play route (Story 6.5): the Topplinje's «Uke 11» over «Grossist, Spill 17» (DESIGN.md
-     * → Topplinje), and the four Seats. «Spillet er ferdig.» stands until Story 6.18. */
+     * → Topplinje), and the four Seats. A finished game shows «Spillet er ferdig» (Story 6.18). */
     play: {
       week: (week: number) => `Uke ${week}`,
       roleGame: (role: string, number: number) => `${role}, Spill ${number}`,
-      finished: "Spillet er ferdig.",
+      /** «Spillet er ferdig» (Story 6.18, FR-28, UX-DR30, EXPERIENCE.md → Spillet er ferdig): the
+       * spine's strings in the spine's order. `failed` is the page-error line. */
+      end: {
+        title: "Spillet er ferdig",
+        totalLabel: "Kjedens totalkostnad",
+        totalNote: "Fire Roller, to kostnadsarter, hele spillet.",
+        why: "Hvorfor ble den slik? Det finner dere ut i Debriefen, med alle fire Rollene.",
+        toDebrief: "Gå til Debrief",
+      },
       /** Ordrefelt (Story 6.10, DESIGN.md → Ordrefelt, UX-DR20). The label is the spine's; the
        * Veiledet uke line is [ASSUMPTION] draft copy. It never says how many Veiledede uker are
        * left (FR-14): the briefing told that. */
@@ -1608,6 +1621,31 @@ export const nb = {
         tableCaption: "Totalkostnad over tid, i kroner",
         /** [ASSUMPTION] */
         chartSvg: "Graf over Totalkostnad over tid, lagerkostnad nederst og restordrekostnad øverst.",
+        week: (week: number) => `Uke ${week}`,
+      },
+      /** Kjedens regning and Kjedens kostnad over tid (Story 6.18, DESIGN.md `chain-bill`,
+       * `chain-cost-chart`, UX-DR30): shared with the Debrief (Epic 9). The headings, columns,
+       * «Kjeden», «(deg)» and «Vis som tabell» are the spine's; captions and SVG titles are
+       * [ASSUMPTION] draft copy. */
+      chain: {
+        bill: "Kjedens regning",
+        role: "Rolle",
+        holding: "Lager",
+        backorder: "Restordre",
+        sum: "Sum",
+        chain: "Kjeden",
+        /** «Grossist (deg)». */
+        own: (role: string) => `${role} (deg)`,
+        /** [ASSUMPTION] */
+        billCaption: "Kjedens regning per Rolle, i kroner: lagerkostnad, restordrekostnad og sum.",
+        overTime: "Kjedens kostnad over tid",
+        showTable: "Vis som tabell",
+        /** [ASSUMPTION] */
+        showChart: "Vis som graf",
+        /** [ASSUMPTION] */
+        tableCaption: "Kjedens kostnad over tid, i kroner",
+        /** [ASSUMPTION] */
+        chartSvg: "Graf over kjedens kostnad over tid, lagerkostnad nederst og restordrekostnad øverst.",
         week: (week: number) => `Uke ${week}`,
       },
       /** The week table (Story 6.6, DESIGN.md → Graf over tabell, UX-DR17, UX-DR18). The region

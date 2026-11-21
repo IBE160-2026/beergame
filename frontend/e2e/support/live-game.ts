@@ -21,7 +21,16 @@ export async function liveClassGame(
   browser: Browser,
   lecturerSession: Session,
   count: number,
-  { aiMode = "llm", width = 360 }: { aiMode?: "llm" | "rule_based"; width?: number } = {},
+  {
+    aiMode = "llm",
+    width = 360,
+    gameSettings = {},
+  }: {
+    aiMode?: "llm" | "rule_based";
+    width?: number;
+    /** More Game settings for the Class session, over `guided_weeks: 0` (Story 6.18: a short game). */
+    gameSettings?: Record<string, unknown>;
+  } = {},
 ): Promise<LiveGame> {
   const lecturer = await lecturerPage(browser, lecturerSession, { width: 1280, height: 800 });
   try {
@@ -66,7 +75,7 @@ export async function liveClassGame(
       data: {
         ai_mode: aiMode,
         dates: { start_at, play_deadline, debrief_deadline, test_deadline },
-        game_settings: { guided_weeks: 0 },
+        game_settings: { guided_weeks: 0, ...gameSettings },
       },
       headers: CSRF,
     });
