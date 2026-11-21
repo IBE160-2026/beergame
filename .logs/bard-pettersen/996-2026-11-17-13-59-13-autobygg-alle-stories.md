@@ -2202,3 +2202,23 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #147: beslutninger og risiko (tastaturnavigasjon med flere spill bare testet i Vitest).
+
+## Story 9.3: Skriv Forklaringen før avsløringen (spor 2)
+
+### Oppgave
+Bygge Story 9.3 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-3-write-the-explanation-before-the-reveal.md` (på `epic-9`).
+- Commit: 18c2974.
+- Migrasjon 0103 med én Forklaring per student og klasseøkt, lagret én gang og låst. Senere steg krever Forklaringen. Steg 1 viser studentens netto lager over hele spillet med «Vis som tabell», skrivefeltet og «Send Forklaring».
+- Tester: backend 2861 på 72 s, Vitest 725, typecheck, `check:copy`, `lint:colours`, bygg, Playwright 66 med axe.
+- Gjennomgang: 21 funn, 3 rettet (feilmelding og «Prøv igjen» når lesing feiler, test for 409, ødelagte norske tegn i en testfil), 18 avvist.
+- Visuell kontroll (Sonnet, spor 2): 15 skjermbilder i `screenshots/9.3/` (e6c6c85), ingen klare avvik. Ukestripen fra mockupen er utelatt med vilje (beslutning 7). Tabellvisningen har ingen høydegrense og skyver skrivefeltet langt ned på mobil; det går til Story 9.4 på samme side.
+- Status: done.
+
+### Åpne punkter
+- Issue #148: beslutninger (låst Forklaring, maks 5000 tegn, endepunkter for steg 2–5).
