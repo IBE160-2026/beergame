@@ -57,6 +57,7 @@ import {
 } from "./dates";
 import { LabHours } from "./lab-hours-panel";
 import { inactivityProblem, shareProblem, valueErrorsOf } from "./obligatory";
+import { ReplayScenarioBlock } from "./replay-scenario-block";
 import { copyLines } from "./rerun";
 import {
   calibratedText,
@@ -413,6 +414,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
         shareError={shareError}
         onShareLeave={() => setShareChecked(true)}
       />
+      {/* Story 10.1 (FR-49): the Replay scenario, frozen at the Start date like the choices above. */}
+      <ReplayScenarioBlock item={item} />
       {saveShown && !item.locked ? saveRow : null}
       {/* Story 9.10: its own save, since exclusions stay open after the lock until the Test deadline. */}
       <QuizExclusionsBlock classSessionId={item.id} />

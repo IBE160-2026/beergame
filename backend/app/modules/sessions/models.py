@@ -81,7 +81,12 @@ class_sessions = Table(
     # The Debrief's AI text (Story 9.14, FR-15, FR-44): on, or off for a code-only Debrief.
     # Frozen at the Start date and pinned at the lock (`debrief_ai_text`).
     Column("debrief_ai_text", Boolean, nullable=False, server_default=true()),
+    # The Replay scenario (Story 10.1, FR-49): only the choice, `default` so far. The template is
+    # derived from `game_settings` (`engine.default_replay_template`) and pinned at the lock
+    # (`replay_template`), never copied here.
+    Column("replay_scenario", Text, nullable=False, server_default="default"),
     CheckConstraint("(locked_at IS NULL) = (snapshot IS NULL)", name="ck_class_sessions_lock"),
+    CheckConstraint("replay_scenario IN ('default')", name="ck_class_sessions_replay_scenario"),
     CheckConstraint(
         "allocation_method IN ('random', 'student_choice')",
         name="ck_class_sessions_allocation_method",

@@ -2813,6 +2813,12 @@ export interface components {
             play_time_warning: boolean;
             /** Provider Unavailable */
             provider_unavailable: boolean;
+            /**
+             * Replay Scenario
+             * @constant
+             */
+            replay_scenario: "default";
+            replay_template: components["schemas"]["ReplayTemplate"];
             /** Required Share Percent */
             required_share_percent: number;
             /** Saved At */
@@ -3556,6 +3562,16 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+        };
+        /**
+         * IntRange
+         * @description Every whole number from `minimum` to `maximum`, both included; one is drawn per seed.
+         */
+        IntRange: {
+            /** Maximum */
+            maximum: number;
+            /** Minimum */
+            minimum: number;
         };
         /**
          * InvitationBounce
@@ -4334,6 +4350,115 @@ export interface components {
             label: string | null;
             /** Name */
             name: string;
+        };
+        /**
+         * ReplayFixed
+         * @description Each Week's value of `values` as the level, the last one held for Weeks beyond the series,
+         *     with variation of `spread` each Week. Resolves to a `fixed` series of the drawn length.
+         */
+        ReplayFixed: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "fixed";
+            /** Spread */
+            spread: number;
+            /** Values */
+            values: number[];
+        };
+        /**
+         * ReplayRandom
+         * @description Demand around `mean` with variation of `spread` each Week (a `random` pattern).
+         */
+        ReplayRandom: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "random";
+            /** Mean */
+            mean: number;
+            /** Spread */
+            spread: number;
+        };
+        /**
+         * ReplayStep
+         * @description `start` until the change Week, then `new_level`, with variation of `spread` each Week.
+         *     Spread 0 resolves to a `step` pattern, any other to `step+noise`.
+         */
+        ReplayStep: {
+            /** Change Week */
+            change_week: number | components["schemas"]["IntRange"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "step";
+            /** New Level */
+            new_level: number;
+            /** Spread */
+            spread: number;
+            /** Start */
+            start: number;
+        };
+        /**
+         * ReplayTemplate
+         * @description A Replay scenario: every `GameSettings` field (the demand seed aside, which is the
+         *     Student's), whole numbers fixed or ranged.
+         */
+        ReplayTemplate: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Capacity */
+            capacity?: {
+                [key: string]: number;
+            } | null;
+            /** Demand */
+            demand: components["schemas"]["ReplayStep"] | components["schemas"]["ReplayRandom"] | components["schemas"]["ReplayFixed"];
+            /** Guided Weeks */
+            guided_weeks: number | components["schemas"]["IntRange"];
+            /** Holding Cost */
+            holding_cost: string;
+            /**
+             * @default {
+             *       "downstream": false,
+             *       "upstream": false
+             *     }
+             */
+            info_visibility: components["schemas"]["InfoVisibility"];
+            /** Max Order */
+            max_order: number | components["schemas"]["IntRange"];
+            /** Order Delay */
+            order_delay: number | components["schemas"]["IntRange"];
+            /** Production Delay */
+            production_delay: number | components["schemas"]["IntRange"];
+            /**
+             * Roles
+             * @default [
+             *       "retailer",
+             *       "wholesaler",
+             *       "distributor",
+             *       "factory"
+             *     ]
+             */
+            roles: components["schemas"]["Role"][];
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Shipping Delay */
+            shipping_delay: number | components["schemas"]["IntRange"];
+            /** Starting Backlog */
+            starting_backlog: number | components["schemas"]["IntRange"];
+            /** Starting Inventory */
+            starting_inventory: number | components["schemas"]["IntRange"];
+            /** Supply Line */
+            supply_line: number | components["schemas"]["IntRange"];
+            /** Weeks */
+            weeks: number | components["schemas"]["IntRange"];
         };
         /**
          * ResetCheckOut

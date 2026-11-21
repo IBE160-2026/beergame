@@ -1100,6 +1100,33 @@ export const nb = {
       // [ASSUMPTION] the save of a level the model config no longer offers (`invalid_effort_level`).
       effortRefused: "Innsatsnivået kan ikke velges lenger. Last siden på nytt og velg et annet.",
     },
+    /** The Klasseøkt's Replay scenario (Story 10.1, FR-49, FR-72): the default, described in
+     * words; the drawn values stay hidden from the Students. [ASSUMPTION] draft copy. */
+    replay: {
+      title: "Replay-scenario",
+      standard: "Standard",
+      demand: "Etterspørsel",
+      changeWeek: "Uke for endring",
+      weeks: "Antall uker",
+      guidedWeeks: "Veiledede uker",
+      rest: "Resten",
+      restValue: "Som Spillinnstillingene",
+      none: "Ingen",
+      stepDemand: (start: number, newLevel: number) => `${start}, deretter ${newLevel}`,
+      randomDemand: (mean: number) => `Rundt ${mean}`,
+      fixedDemand: "Serien i Spillinnstillingene, siste verdi videre",
+      /** Appended to the demand once it varies: «4, deretter 8, ± 2 hver uke». */
+      spread: (demand: string, spread: number) => `${demand}, ± ${spread} hver uke`,
+      range: (minimum: number, maximum: number) => `${minimum} til ${maximum}`,
+      weekRange: (minimum: number, maximum: number) => `Uke ${minimum} til ${maximum}`,
+      week: (week: number) => `Uke ${week}`,
+      /** Under the list: what is drawn per Student, by which values are ranges. */
+      hiddenBoth:
+        "Uka for endringen og antall uker trekkes for hver student og vises ikke for studentene. Hver student får sin egen etterspørsel, med samme nivåer som i Klassespillet.",
+      hiddenWeeks:
+        "Antall uker trekkes for hver student og vises ikke for studentene. Hver student får sin egen etterspørsel, med samme nivåer som i Klassespillet.",
+      hiddenNone: "Hver student får sin egen etterspørsel, med samme nivåer som i Klassespillet.",
+    },
     save: "Lagre Klasseøkt",
     saving: "Lagrer …",
     saveHint: "Du kan lagre uten å endre noe.",
@@ -1129,9 +1156,9 @@ export const nb = {
     lock: {
       /** Under the title once the lock has frozen the session; `when` as «ti. 24. nov. kl. 10:00». */
       lockedAt: (when: string) =>
-        `Låst ${when}. Spillinnstillinger, etterspørsel, KI-modus, Innsatsnivå, Debrief-modus, Obligatorisk og ventetid er frosset.`,
+        `Låst ${when}. Spillinnstillinger, etterspørsel, KI-modus, Innsatsnivå, Debrief-modus, Replay-scenario, Obligatorisk og ventetid er frosset.`,
       /** The Start date has passed but the lock has not run yet (each minute) or was refused. */
-      pending: "Startdatoen er passert. Spillinnstillinger, etterspørsel, KI-modus, Innsatsnivå, Debrief-modus, Obligatorisk og ventetid kan ikke endres.",
+      pending: "Startdatoen er passert. Spillinnstillinger, etterspørsel, KI-modus, Innsatsnivå, Debrief-modus, Replay-scenario, Obligatorisk og ventetid kan ikke endres.",
       // [ASSUMPTION] GitHub issue 109: the lock was refused, LLM players and no provider key.
       refused:
         "Klasseøkten kan ikke starte: KI-leverandøren for LLM-spillerne er ikke satt opp. Be en Admin ordne det. Låsen prøves igjen hvert minutt.",

@@ -133,7 +133,7 @@ async def test_three_scripted_llm_players(
     # Switched after exactly the minimum number of LLM Orders, from the next Week on.
     assert switches(history) == [("retailer", SWITCH_WEEK, "rule_based")]
     assert llm_weeks == list(range(GUIDED + 1, SWITCH_WEEK))
-    params = commands._play_guard_params("placeholder-0")
+    params = commands._play_guard_params(commands.DEFAULT_PLAY_GUARD_SET)
     assert play_guard.evaluate(guard_rows(log), params).statistic == statistic
     later = [row for row in log if row.week >= SWITCH_WEEK]
     assert len(later) == WEEKS - SWITCH_WEEK + 1
@@ -183,7 +183,7 @@ async def placed_directly(url: str, answer, *, guarded: bool = True) -> str:
 async def test_uncalibrated_settings_apply_only_the_large_deviation(games_db, ai_db):
     """Off by 10 every Week: outside the lower distance (4), so a calibrated Game would switch,
     but inside the large one (16). Off by 20 is a large deviation."""
-    params = commands._play_guard_params("placeholder-0")
+    params = commands._play_guard_params(commands.DEFAULT_PLAY_GUARD_SET)
     assert not play_guard.is_calibrated(GameSettings(**SHORT), params)
     moderate = await placed_directly(games_db, lambda rb, no: rb + 10)
     assert switches(await service.occupancy_history(moderate)) == []
@@ -226,7 +226,7 @@ async def test_a_game_from_before_the_guard_is_not_guarded(short_profile, games_
 async def test_the_game_snapshot_holds_the_guard_set(games_db):
     game_id = await commands.create("simulation", GameSettings(), seed=1)
     runtime = (await service.get_game(game_id)).session_runtime
-    assert (runtime.play_guard_params, runtime.play_guard_params_version) == ("placeholder-0", 1)
+    assert (runtime.play_guard_params, runtime.play_guard_params_version) == ("placeholder-1", 1)
 
 
 async def test_an_unknown_guard_set_is_refused(games_db):

@@ -1336,6 +1336,14 @@
             "title": "Provider Unavailable",
             "type": "boolean"
           },
+          "replay_scenario": {
+            "const": "default",
+            "title": "Replay Scenario",
+            "type": "string"
+          },
+          "replay_template": {
+            "$ref": "#/components/schemas/ReplayTemplate"
+          },
           "required_share_percent": {
             "title": "Required Share Percent",
             "type": "integer"
@@ -1410,6 +1418,8 @@
           "debrief_mode",
           "debrief_release",
           "debrief_ai_text",
+          "replay_scenario",
+          "replay_template",
           "inactivity_limit_hours",
           "obligatory",
           "required_share_percent",
@@ -3006,6 +3016,28 @@
           "created_at"
         ],
         "title": "InstitutionOut",
+        "type": "object"
+      },
+      "IntRange": {
+        "additionalProperties": false,
+        "description": "Every whole number from `minimum` to `maximum`, both included; one is drawn per seed.",
+        "properties": {
+          "maximum": {
+            "minimum": 0.0,
+            "title": "Maximum",
+            "type": "integer"
+          },
+          "minimum": {
+            "minimum": 0.0,
+            "title": "Minimum",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "minimum",
+          "maximum"
+        ],
+        "title": "IntRange",
         "type": "object"
       },
       "InvitationBounce": {
@@ -4721,6 +4753,316 @@
           "label"
         ],
         "title": "ReplacedLevelOut",
+        "type": "object"
+      },
+      "ReplayFixed": {
+        "additionalProperties": false,
+        "description": "Each Week's value of `values` as the level, the last one held for Weeks beyond the series,\nwith variation of `spread` each Week. Resolves to a `fixed` series of the drawn length.",
+        "properties": {
+          "kind": {
+            "const": "fixed",
+            "title": "Kind",
+            "type": "string"
+          },
+          "spread": {
+            "minimum": 0.0,
+            "title": "Spread",
+            "type": "integer"
+          },
+          "values": {
+            "items": {
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "minItems": 1,
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "values",
+          "spread"
+        ],
+        "title": "ReplayFixed",
+        "type": "object"
+      },
+      "ReplayRandom": {
+        "additionalProperties": false,
+        "description": "Demand around `mean` with variation of `spread` each Week (a `random` pattern).",
+        "properties": {
+          "kind": {
+            "const": "random",
+            "title": "Kind",
+            "type": "string"
+          },
+          "mean": {
+            "minimum": 0.0,
+            "title": "Mean",
+            "type": "integer"
+          },
+          "spread": {
+            "minimum": 0.0,
+            "title": "Spread",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "mean",
+          "spread"
+        ],
+        "title": "ReplayRandom",
+        "type": "object"
+      },
+      "ReplayStep": {
+        "additionalProperties": false,
+        "description": "`start` until the change Week, then `new_level`, with variation of `spread` each Week.\nSpread 0 resolves to a `step` pattern, any other to `step+noise`.",
+        "properties": {
+          "change_week": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/IntRange"
+              }
+            ],
+            "title": "Change Week"
+          },
+          "kind": {
+            "const": "step",
+            "title": "Kind",
+            "type": "string"
+          },
+          "new_level": {
+            "minimum": 0.0,
+            "title": "New Level",
+            "type": "integer"
+          },
+          "spread": {
+            "minimum": 0.0,
+            "title": "Spread",
+            "type": "integer"
+          },
+          "start": {
+            "minimum": 0.0,
+            "title": "Start",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "start",
+          "new_level",
+          "change_week",
+          "spread"
+        ],
+        "title": "ReplayStep",
+        "type": "object"
+      },
+      "ReplayTemplate": {
+        "additionalProperties": false,
+        "description": "A Replay scenario: every `GameSettings` field (the demand seed aside, which is the\nStudent's), whole numbers fixed or ranged.",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/Role"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "demand": {
+            "discriminator": {
+              "mapping": {
+                "fixed": "#/components/schemas/ReplayFixed",
+                "random": "#/components/schemas/ReplayRandom",
+                "step": "#/components/schemas/ReplayStep"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReplayStep"
+              },
+              {
+                "$ref": "#/components/schemas/ReplayRandom"
+              },
+              {
+                "$ref": "#/components/schemas/ReplayFixed"
+              }
+            ],
+            "title": "Demand"
+          },
+          "guided_weeks": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/IntRange"
+              }
+            ],
+            "title": "Guided Weeks"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "info_visibility": {
+            "$ref": "#/components/schemas/InfoVisibility",
+            "default": {
+              "downstream": false,
+              "upstream": false
+            }
+          },
+          "max_order": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/IntRange"
+              }
+            ],
+            "title": "Max Order"
+          },
+          "order_delay": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/IntRange"
+              }
+            ],
+            "title": "Order Delay"
+          },
+          "production_delay": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/IntRange"
+              }
+            ],
+            "title": "Production Delay"
+          },
+          "roles": {
+            "default": [
+              "retailer",
+              "wholesaler",
+              "distributor",
+              "factory"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "shipping_delay": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/IntRange"
+              }
+            ],
+            "title": "Shipping Delay"
+          },
+          "starting_backlog": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/IntRange"
+              }
+            ],
+            "title": "Starting Backlog"
+          },
+          "starting_inventory": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/IntRange"
+              }
+            ],
+            "title": "Starting Inventory"
+          },
+          "supply_line": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/IntRange"
+              }
+            ],
+            "title": "Supply Line"
+          },
+          "weeks": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "$ref": "#/components/schemas/IntRange"
+              }
+            ],
+            "title": "Weeks"
+          }
+        },
+        "required": [
+          "starting_inventory",
+          "starting_backlog",
+          "supply_line",
+          "order_delay",
+          "shipping_delay",
+          "production_delay",
+          "demand",
+          "holding_cost",
+          "backorder_cost",
+          "weeks",
+          "guided_weeks",
+          "max_order"
+        ],
+        "title": "ReplayTemplate",
         "type": "object"
       },
       "ResetCheckOut": {

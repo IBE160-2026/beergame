@@ -186,7 +186,8 @@ The stories add draft copy to `nb.ts` for these, because the UX spines have no s
 - the state lines and the Lenke of the allocation block (5.8, 5.9);
 - the Lenke for a Message to the whole Class session in the Oversikt header (7.9);
 - the consequence line over «Sett inn KI-spiller i alle seter som blir ventet på» on one game (8.12);
-- the statement of the time limit on the own-work statement, and the setting on the Klasseøkt (11.12).
+- the statement of the time limit on the own-work statement, and the setting on the Klasseøkt (11.12);
+- the Klasseøkt's «Replay-scenario» block: «Standard», the demand, step Week and length in words, and the line that they differ per Student and stay hidden (10.1).
 
 ### Choices made while fixing, for the founder to confirm
 

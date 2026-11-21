@@ -55,7 +55,9 @@ Subcommands:
   run              play a batch of simulation Games from a JSON batch file (`seed`, `games`,
                    `seats`, optional `settings`, `demand`, `rule_based_params`, and for `llm`
                    Seats `model_config` and `effort_level`; Game i uses demand seed
-                   `seed + i`): each Game is created and started through
+                   `seed + i`; with `"scenario": "replay_default"` and no `demand`, Game i
+                   plays the default Replay scenario of the settings resolved with that seed,
+                   Story 10.1): each Game is created and started through
                    `games.commands`, waited for and checked as `play` does. Prints per Game
                    and for the batch the Total cost per Role and for the chain, the Weeks
                    played, the Orders per `decided_by` and the check result, all read back
@@ -152,7 +154,7 @@ import uuid
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from decimal import Decimal
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from sqlalchemy.exc import DBAPIError, OperationalError
@@ -164,12 +166,15 @@ from app.engine import (
     DemandPattern,
     GameSettings,
     InvalidOrdersError,
+    ReplayTemplate,
     SettingsError,
     SettingsWarning,
     WeekState,
     advance,
+    default_replay_template,
     guided_order,
     initial_state,
+    replay_settings,
     rule_based,
     seat_view,
     validate,
@@ -1046,6 +1051,10 @@ class BatchFile(BaseModel):
     settings: dict[str, Any] = {}
     """GameSettings overrides; missing keys keep the Classic values."""
     demand: DemandPattern | None = None
+    scenario: Literal["replay_default"] | None = None
+    """Story 10.1 (FR-79): `replay_default` plays the default Replay scenario of the settings
+    (`engine.default_replay_template`); Game i plays `engine.replay_settings(template, seed + i)`,
+    so the Play guard band can be calibrated on it. Not with `demand`."""
     rule_based_params: str = DEFAULT_RULE_BASED_PARAMS
     model_config_id: str | None = Field(None, alias="model_config")
     """The model config of the `llm` Seats (its evaluation budget pays their calls)."""
@@ -1063,6 +1072,8 @@ class Batch(BaseModel):
     games: int
     settings: GameSettings
     demand: DemandPattern | None
+    template: ReplayTemplate | None = None
+    """The Replay scenario every Game resolves with its seed (`scenario`), or None."""
     occupants: tuple[Occupant, ...]
     """One occupant per Role, in chain order."""
     rule_based_params: str
@@ -1112,6 +1123,12 @@ def load_batch(path: str, config: str | None = None) -> Batch:
         raise BatchError("settings.demand_seed: use seed (Game i uses seed + i)")
     if spec.seed + spec.games - 1 > SEED_MAX:
         raise BatchError(f"seed + games - 1 must not exceed {SEED_MAX}")
+    if spec.scenario is not None and spec.demand is not None:
+        raise BatchError("demand: the Replay scenario draws its own demand; leave demand out")
+    drawn = sorted({"weeks", "guided_weeks"} & set(spec.settings))
+    if spec.scenario is not None and drawn:
+        raise BatchError(f"settings.{drawn[0]}: the Replay scenario sets it; leave it out")
+    template = default_replay_template(settings) if spec.scenario is not None else None
     roles = [role.value for role in settings.roles]
     if isinstance(spec.seats, str):
         texts = [spec.seats] * len(roles)
@@ -1133,6 +1150,7 @@ def load_batch(path: str, config: str | None = None) -> Batch:
         games=spec.games,
         settings=settings,
         demand=spec.demand,
+        template=template,
         occupants=tuple(occupants),
         rule_based_params=spec.rule_based_params,
         model_config_id=spec.model_config_id,
@@ -1142,15 +1160,24 @@ def load_batch(path: str, config: str | None = None) -> Batch:
     )
 
 
+def game_settings(batch: Batch, index: int) -> tuple[GameSettings, DemandPattern | None]:
+    """The settings and Demand pattern Game `index` of the batch is created with: the batch's,
+    or with a Replay scenario the template resolved with the Game's seed `seed + index`."""
+    if batch.template is None:
+        return batch.settings, batch.demand
+    return replay_settings(batch.template, batch.seed + index), None
+
+
 async def _play_one(
     batch: Batch, index: int, stored: list[str], batch_id: str | None = None, *, worker: bool
 ) -> str:
     """Create, start, play and check Game `index` of the batch; returns its id. The id is
     appended to `stored` as soon as the Game is stored."""
+    settings, demand = game_settings(batch, index)
     game_id = await game_commands.create(
         "simulation",
-        batch.settings,
-        batch.demand,
+        settings,
+        demand,
         seed=batch.seed + index,
         rule_based_params=batch.rule_based_params,
         model_config_id=batch.model_config_id,

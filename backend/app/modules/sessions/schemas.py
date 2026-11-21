@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
 
-from app.engine import GameSettings
+from app.engine import GameSettings, ReplayTemplate
 from app.engine.settings import Role
 from app.modules.games.service import GameResult, Lifecycle, SeatMark, SeatState
 
@@ -204,6 +204,12 @@ class ClassSessionOut(BaseModel):
     debrief_ai_text: bool
     """Story 9.14: whether the Debrief shows AI text (narration, quiz lines); off, it is
     code-only and no Debrief call reaches the AI gateway."""
+    replay_scenario: Literal["default"]
+    """Story 10.1 (FR-49): the Replay scenario choice. Only `default` so far."""
+    replay_template: ReplayTemplate
+    """The Replay scenario in force: before the lock derived from the current Game settings, after
+    it the template the lock pinned. Its ranged values are drawn per Student; staff see the
+    ranges, no Student surface shows them."""
     inactivity_limit_hours: int
     """«Ventetid før KI tar over» in whole hours, never under 20 (Story 5.7, FR-36)."""
     obligatory: bool

@@ -114,7 +114,7 @@ HEAD_TABLES = (
     | NARRATION_TABLES
     | FOLLOW_UP_TABLES
 )
-HEAD = "0113"  # 0113 stores the Debrief's follow-up questions and their hints (Story 9.15)
+HEAD = "0114"  # 0114 stores a Class session's Replay scenario choice (Story 10.1)
 
 
 def reset_schema(url: str) -> None:
@@ -296,6 +296,12 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0114 (Story 10.1): the Replay scenario choice, `default` only, never a template.
+    assert "replay_scenario" in columns(url, "class_sessions")
+    assert "'default'" in definition(url, "ck_class_sessions_replay_scenario")
+    command.downgrade(cfg, "0113")
+    assert "replay_scenario" not in columns(url, "class_sessions")
 
     # 0113 (Story 9.15): version 2 of the narration templates with the hints, the follow-up
     # questions (stored once) and their closures.

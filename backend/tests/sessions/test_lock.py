@@ -10,7 +10,7 @@ from datetime import timedelta
 import pytest
 
 from app.ai import config
-from app.engine import RULES_VERSION, GameSettings
+from app.engine import RULES_VERSION, GameSettings, default_replay_template
 from app.engine.settings import demand_series
 from app.modules.games.commands import default_runtime
 from app.modules.games.schemas import SessionRuntime
@@ -98,6 +98,8 @@ async def test_two_sweeps_over_a_due_session_lock_it_once(klass, emitted):
             "debrief_quiz": {"version": 1},
             "narration_templates": {"version": 2},
             "debrief_ai_text": {"enabled": False, "model_config_id": None, "effort_level": None},
+            # Story 10.1: the Replay scenario template derived from the frozen settings.
+            "replay_template": default_replay_template(settings).model_dump(mode="json"),
         },
     )
     assert runtime["rule_based_params"] and runtime["play_guard_params"]

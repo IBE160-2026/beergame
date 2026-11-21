@@ -108,9 +108,13 @@ ASSIGNABLE = frozenset(
 )
 """Occupant kinds `assign_seat` takes; `student` where the purpose's policy allows it (5.9)."""
 
-DEFAULT_PLAY_GUARD_SET = "placeholder-0"
+DEFAULT_PLAY_GUARD_SET = "placeholder-1"
 """The Play guard parameter set a new Game freezes when the caller names none (FR-79). A new
-set, or a new settings profile in one, is a configuration file, not a change in `analysis`."""
+set, or a new settings profile in one, is a configuration file, not a change in `analysis`.
+`placeholder-1` (Story 10.1) is `placeholder-0` with the default Replay scenario calibrated; it
+is a new set rather than version 2 of `placeholder-0`, because a Game that froze version 1 is
+refused once that file says otherwise (`parameter_set_changed`), and Games frozen on
+`placeholder-0` keep it."""
 
 
 class CommandError(Exception):

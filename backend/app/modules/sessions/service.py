@@ -87,7 +87,7 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget, config
-from app.engine import RULES_VERSION, GameSettings
+from app.engine import RULES_VERSION, GameSettings, ReplayTemplate, default_replay_template
 from app.engine.demand import DemandFixed, DemandRandom, DemandStep, DemandStepNoise, new_seed
 from app.engine.settings import (
     CAPACITY_RANGE,
@@ -776,6 +776,8 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         debrief_mode=DebriefMode(row["debrief_mode"]),
         debrief_release=DebriefRelease(row["debrief_release"]),
         debrief_ai_text=row["debrief_ai_text"],
+        replay_scenario=row["replay_scenario"],
+        replay_template=replay_template(row),
         inactivity_limit_hours=row["inactivity_limit_hours"],
         obligatory=row["obligatory"],
         required_share_percent=row["required_share_percent"],
@@ -2936,6 +2938,36 @@ async def debrief_ai_text_pin(session: AsyncSession, class_session: Mapping[str,
 
 
 register_pin_provider(DEBRIEF_AI_TEXT_PIN, debrief_ai_text_pin)
+
+
+REPLAY_TEMPLATE_PIN = "replay_template"
+"""The pin of the Replay scenario template in `SessionRuntime.pins` (Story 10.1): the only template
+a Replay of the Class session reads."""
+
+
+def replay_template(class_session: Mapping[str, Any]) -> ReplayTemplate:
+    """The Replay scenario template of a Class session row (Story 10.1, FR-49, AD-4): once locked
+    the one its lock pinned; otherwise, and for a session locked before Story 10.1, the default
+    derived from its Game settings, so an edit before the Start date never leaves a stale one."""
+    snapshot = class_session.get("snapshot")
+    pins = ((snapshot or {}).get("session_runtime") or {}).get("pins") or {}
+    pinned = pins.get(REPLAY_TEMPLATE_PIN)
+    if pinned is not None:
+        return ReplayTemplate.model_validate(pinned)
+    return default_replay_template(GameSettings.model_validate(class_session["game_settings"]))
+
+
+async def replay_template_pin(session: AsyncSession, class_session: Mapping[str, Any]) -> Any:
+    """The lock's pin provider (Story 10.1, AD-4): the template derived from the Game settings
+    being frozen, as JSON. Only the choice `default` exists so far (Story 10.2 adds an own one)."""
+    choice = class_session.get("replay_scenario", "default")
+    if choice != "default":
+        raise ValueError(f"unknown Replay scenario {choice!r}")
+    settings = GameSettings.model_validate(class_session["game_settings"])
+    return default_replay_template(settings).model_dump(mode="json")
+
+
+register_pin_provider(REPLAY_TEMPLATE_PIN, replay_template_pin)
 
 
 class ProviderKeyMissing(Exception):

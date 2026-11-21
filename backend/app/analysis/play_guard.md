@@ -15,9 +15,13 @@ The window is the Seat's newest `window_weeks` `llm` Orders. With fewer than `mi
 
 ## Uncalibrated settings
 
-The band is calibrated only for the settings profiles named in the set (`calibrated_profiles`; `classic` = `GameSettings()`, the demand seed ignored). Under any other settings the upper limit is not applied. Only a large deviation switches: the lower limit with `large_distance` instead of `lower_distance` (statistic `large_deviation`). The profile `replay_default` comes with Story 10.1, as a new version of the set.
+The band is calibrated only for the settings profiles named in the set (`calibrated_profiles`; `classic` = `GameSettings()`, the demand seed ignored). Under any other settings the upper limit is not applied. Only a large deviation switches: the lower limit with `large_distance` instead of `lower_distance` (statistic `large_deviation`).
 
-## Placeholder values (`placeholder-0`)
+Story 10.1 added the profile `replay_default` in the set `placeholder-1` (the default for new Games): a profile may be a `ReplayTemplate` instead of one `GameSettings`, and then every draw of it counts as calibrated (`engine.replay_template_admits`). `replay_default` is `engine.default_replay_template(GameSettings())`: the Classic settings with demand 4 then 8 and a spread of 2, the step Week 5 to 12, 30 to 40 Weeks and no Guided Weeks. An own Replay scenario with other settings is not calibrated. `placeholder-1` is a new set rather than version 2 of `placeholder-0`, so Games that froze `placeholder-0` version 1 keep running; its other values are `placeholder-0`'s.
+
+## Placeholder values (`placeholder-0` and `placeholder-1`)
+
+Both sets hold these values; `placeholder-1` only adds the `replay_default` profile (a test keeps the two equal). Calibrating the band (issue #20) is a new set that the default then names.
 
 | Parameter | Value |
 |---|---|
