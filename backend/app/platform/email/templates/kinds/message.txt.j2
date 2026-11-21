@@ -1,0 +1,10 @@
+{# A Message from the staff of a Class (Story 7.9, FR-40, FR-72), an immediate kind. `lines` (the
+   text by line) and `class_name` come from `messaging.messages.message_mail_context` at send
+   time. Plain text: the lines as written. Draft copy. #}
+{% set subject = "Melding fra Klassen " ~ class_name %}
+Du har fått en melding i Klassen {{ class_name }}:
+
+{{ lines | join("\n") }}
+
+Du finner meldingen også på Hjem: {{ url("/hjem") }}
+Meldingen kan ikke besvares.

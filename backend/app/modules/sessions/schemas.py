@@ -10,7 +10,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
 
 from app.engine import GameSettings
 from app.engine.settings import Role
-from app.modules.games.service import GameResult, Lifecycle, SeatMark, SeatState
+from app.modules.games.service import GameResult, GameStatus, Lifecycle, SeatMark, SeatState
 
 
 class AiMode(StrEnum):
@@ -751,3 +751,299 @@ class SeatChoiceOut(BaseModel):
     drawn: bool
     """The Student's Seat came from the draw at the lock, not from their own choice."""
     games: list[SeatChoiceGameOut]
+
+
+class OverviewSeatOut(BaseModel):
+    """A Seat of a Class game on the Oversikt (Story 7.1): its Role and who holds it, a Student
+    by the name they have now, any AI player as «KI-spiller» (`ai`), or free."""
+
+    role: Role
+    holder: TableHolder
+    name: str | None
+    """The Student's name now; None for an AI player, a free Seat, or a Student no longer in the
+    Class."""
+
+
+class OverviewWaitOut(BaseModel):
+    """A Student Seat the Class game waits for (FR-25), and since when on the database clock; the
+    web app counts the wait from `server_now`."""
+
+    role: Role
+    name: str | None
+    since: AwareDatetime
+
+
+class OverviewAlertOut(BaseModel):
+    """The Varselbånd (Story 7.11, FR-39, UX-DR45): the Class game chosen by the api, the Seat it
+    waits for longest and since when. Epic 8 changes the choice to the game closest to Takeover."""
+
+    game_id: uuid.UUID
+    game_number: int | None
+    role: Role
+    name: str | None
+    """The Student's name now; None for a Student no longer in the Class."""
+    user_id: uuid.UUID | None
+    """The Student, for «Send Melding»; None when `name` is None."""
+    since: AwareDatetime
+
+
+class OverviewGameOut(BaseModel):
+    """One Class game on the Oversikt, from its `game_summaries` row (Story 7.1, AD-25)."""
+
+    game_id: uuid.UUID
+    game_number: int | None
+    status: GameStatus
+    week: int | None
+    """The open Week while the game runs; None before the start, before the Start date and once
+    it has finished, whose last Week would tell the game's length (FR-14)."""
+    version: int
+    chain_cost: Decimal | None
+    """The chain's Total cost so far, as a decimal string; None before the start and before the
+    Start date."""
+    wait_started_at: AwareDatetime | None
+    waiting_for: list[OverviewWaitOut]
+    seats: list[OverviewSeatOut]
+    """Fabrikk first (UX-DR73)."""
+
+
+class OverviewCountsOut(BaseModel):
+    """The headline counts by status (FR-39)."""
+
+    waiting: int
+    running: int
+    not_started: int
+    finished: int
+
+
+class OverviewAiOut(BaseModel):
+    """The AI players on the Oversikt (Story 7.6, UX-DR69): the Seats an AI player holds now and
+    the Class games with at least one («22 KI-spillere i 17 spill, alle merket.»)."""
+
+    seats: int
+    games: int
+
+
+class RoleCostOut(BaseModel):
+    """One Role's mean cost per finished Class game, split into lager and restordre (Story 7.6,
+    UX-DR72), in kroner rounded to the øre, as decimal strings; `total_cost` is their sum."""
+
+    role: Role
+    holding_cost: Decimal
+    backorder_cost: Decimal
+    total_cost: Decimal
+
+
+class ClassCostOut(BaseModel):
+    """«Klassens kostnad» (Story 7.6, FR-39, AD-10): over the finished Class games, the median and
+    quartiles of their chain costs for the Kostnadsfordeling, the chain's mean lager and restordre
+    per game and each Role's mean, Detaljist first. Computed by `analysis.class_cost`."""
+
+    games: int
+    median: Decimal
+    lower_quartile: Decimal
+    upper_quartile: Decimal
+    holding_cost: Decimal
+    backorder_cost: Decimal
+    roles: list[RoleCostOut]
+
+
+FunnelStage = Literal[
+    "registered",
+    "class_game",
+    "debrief",
+    "quiz_passed",
+    "replay",
+    "test_submitted",
+    "assessment_ready",
+]
+
+
+class FunnelStageOut(BaseModel):
+    """One stage of the Trakt (Story 7.6, FR-39): how many registered Students reached it."""
+
+    stage: FunnelStage
+    count: int
+
+
+class ClassOverviewOut(BaseModel):
+    """The Oversikt of a Class session (Story 7.1, FR-39, AD-25): its Class games in the list
+    envelope, by game number, the headline counts and the database clock (`server_now`)."""
+
+    items: list[OverviewGameOut]
+    next_cursor: str | None
+    counts: OverviewCountsOut
+    server_now: AwareDatetime
+    before_start: bool
+    """The Start date has not passed and the session is not locked: the games show their
+    allocation only, with no Week and no cost."""
+    start_at: AwareDatetime | None
+    next_change_at: AwareDatetime | None
+    """When the Oversikt changes by time alone (AD-8): the Start date while it has not passed, so
+    the page reads again then; None otherwise."""
+    ai: OverviewAiOut
+    cost: ClassCostOut | None
+    """None before the Start date and while no Class game has finished."""
+    funnel: list[FunnelStageOut]
+    """The Trakt's stages in order, «Registrert» first; a stage nobody records yet is 0."""
+    alert: OverviewAlertOut | None
+    """The Varselbånd's game (Story 7.11): the longest-waiting Class game; None before the Start
+    date and while no Class game waits for a Student."""
+    class_id: uuid.UUID
+    class_name: str
+    session_number: int
+
+
+class WeekSeatOut(BaseModel):
+    """One Seat in one opened Week as the engine stored it (Story 7.2, AD-1)."""
+
+    role: Role
+    net_inventory: int
+    """Netto lager: the stored inventory minus backlog, in units."""
+    order: int | None
+    """The Seat's Order in that Week; None while it has not been placed."""
+    cost: Decimal
+    """That Week's cost (Kost per uke), as a decimal string."""
+
+
+class GameWeekOut(BaseModel):
+    week: int
+    seats: list[WeekSeatOut]
+    """In chain order."""
+
+
+class GameWeeksOut(BaseModel):
+    """Every opened Week of a Class game (Story 7.2, AD-25): the Matrisevegg's cells, read
+    on demand per Game. The finished state after the last Week is not a Week and is left out."""
+
+    game_id: uuid.UUID
+    version: int
+    """The Game's version; the `ETag` is tied to it."""
+    weeks: list[GameWeekOut]
+
+
+class InsightLinkOut(BaseModel):
+    """A link for one Seat's Student on Spillinnsikt (FR-62), from a provider a later module
+    registered (`games.service.register_insight_links`, Epic 9): `kind` names it, the page words
+    it; `href` is a path in the web app."""
+
+    kind: str
+    href: str
+
+
+class InsightSeatOut(BaseModel):
+    """A Seat of the Game on Spillinnsikt as held now, like the Oversikt's, with its links."""
+
+    role: Role
+    holder: TableHolder
+    name: str | None
+    """The Student's name now; None for an AI player, a free Seat, or a Student no longer in the
+    Class."""
+    user_id: uuid.UUID | None = None
+    """The Student's id when `name` is set, for the Seat's «Melding» (Story 7.9); else None."""
+    links: list[InsightLinkOut]
+    """Only on a Student-held Seat; empty until Epic 9 registers a provider."""
+
+
+class InsightWeekOut(BaseModel):
+    """One Seat in one opened Week (Story 7.7, FR-62, AD-1): the values the engine stored in the
+    Week state, the Order from the Decision log, who held the Seat and its marks (AD-15)."""
+
+    week: int
+    holder: TableHolder
+    """Who held the Seat that Week: a Student, any AI player (`ai`), or nobody (`free`)."""
+    name: str | None
+    """The Student's name now; None for an AI player or a Student no longer in the Class."""
+    incoming_order: int
+    incoming_delivery: int
+    inventory: int
+    backlog: int
+    order: int | None
+    """None while the Order has not been placed."""
+    cost: Decimal
+    """That Week's cost, as a decimal string."""
+    marks: list[SeatMark]
+    """The seat mark in the Week its occupancy began (a Takeover, a switch), then the Order's
+    (a fallback); from `games.service.seat_mark` only."""
+
+
+class InsightRoleOut(BaseModel):
+    role: Role
+    weeks: list[InsightWeekOut]
+    """Every opened Week, Week 1 first; empty before the start."""
+    first_large_order_week: int | None
+    """The first Week whose Order is 10 or more (Story 7.8, Ordrestolper); null with none."""
+
+
+class DemandWeekOut(BaseModel):
+    week: int
+    demand: int
+    """The customer demand the first Role received that Week, as stored."""
+
+
+class GameInsightOut(BaseModel):
+    """Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Game week by week, for the staff of its
+    Class only. The only answer that gives the staff the full chain, the demand series and the
+    number of Weeks. Seats and Roles in chain order, the Role serving the customer first."""
+
+    game_id: uuid.UUID
+    class_session_id: uuid.UUID
+    class_id: uuid.UUID
+    class_name: str
+    session_number: int
+    game_number: int | None
+    status: GameStatus
+    version: int
+    weeks_total: int | None
+    """The number of Weeks in the Game's snapshot; None before it has one."""
+    demand: list[DemandWeekOut]
+    seats: list[InsightSeatOut]
+    roles: list[InsightRoleOut]
+
+
+class WallCells(StrEnum):
+    """What the Matrisevegg's cells show (Story 7.4, the Celler filter)."""
+
+    NET = "net"
+    ORDER = "order"
+    COST = "cost"
+
+
+class WallStatus(StrEnum):
+    """Which Class games the wall shows (Story 7.4, the Status filter): all, one status, or
+    those with a Seat held by an AI player."""
+
+    ALL = "all"
+    WAITING = "waiting"
+    RUNNING = "running"
+    NOT_STARTED = "not_started"
+    FINISHED = "finished"
+    WITH_AI = "with_ai"
+
+
+class WallWeekOut(BaseModel):
+    """One Uke of the wall's bottom rows and its class median graph (Story 7.4, UX-DR40)."""
+
+    week: int
+    games: int
+    """The Games with a cell value that Uke: the median's base."""
+    median: Decimal | None
+    lower_quartile: Decimal | None
+    upper_quartile: Decimal | None
+    """With `lower_quartile`, the middle half of the Games (the graph's band)."""
+    chain_games: int
+    """The Games that reached the Uke: the mean's base."""
+    chain_cost_mean: Decimal | None
+    """«Kjedekost/uke, snitt»: the chain's Kost per uke, mean over the Games, in kroner."""
+
+
+class WallAggregatesOut(BaseModel):
+    """The class median and mean chain cost rows for one filter combination (Story 7.4, AD-10):
+    the web app draws them and computes none of them."""
+
+    role: Role
+    cells: WallCells
+    status: WallStatus
+    games: int
+    """The Class games the Status filter matched."""
+    weeks: list[WallWeekOut]
+    """Uke 1 to the furthest any matched Game has reached; empty for no Game."""

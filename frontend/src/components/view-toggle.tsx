@@ -14,6 +14,7 @@ export function ViewToggle<T extends string>({
   value,
   onChange,
   className,
+  inline,
 }: {
   name: string;
   legend: string;
@@ -21,6 +22,8 @@ export function ViewToggle<T extends string>({
   value: T;
   onChange: (value: T) => void;
   className?: string;
+  /** Legend beside the segments, each as wide as its text (`SegmentedChoice`). */
+  inline?: boolean;
 }) {
   return (
     <SegmentedChoice
@@ -30,6 +33,7 @@ export function ViewToggle<T extends string>({
       value={value}
       onChange={onChange}
       className={className}
+      inline={inline}
     />
   );
 }

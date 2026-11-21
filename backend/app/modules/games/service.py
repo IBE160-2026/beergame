@@ -4,12 +4,14 @@ import uuid
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget as ai_budget
-from app.engine import GameSettings
+from app.analysis.wall import PlayedGame
+from app.engine import GameSettings, WeekState
 from app.modules.games import repo
 from app.modules.games.batches import create_batch, get_batch
 from app.modules.games.checks import (
@@ -17,8 +19,19 @@ from app.modules.games.checks import (
     rules_versions_without_package,
     verify_finished,
 )
+from app.modules.games.insight import (
+    GameInsight,
+    InsightLink,
+    InsightLinkProvider,
+    InsightRole,
+    InsightSeat,
+    InsightWeek,
+    game_insight,
+    register_insight_links,
+    unregister_insight_links,
+)
 from app.modules.games.marks import seat_mark
-from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, policy
+from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, policy, purposes_with
 from app.modules.games.schemas import (
     DecidedBy,
     DecisionLogRow,
@@ -26,6 +39,7 @@ from app.modules.games.schemas import (
     GameCheck,
     GameOverview,
     GameResult,
+    GameStatus,
     GameSummary,
     Lifecycle,
     OccupancyReason,
@@ -57,12 +71,32 @@ from app.modules.games.views import (
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "GameInsight",
+    "InsightLink",
+    "InsightLinkProvider",
+    "InsightRole",
+    "InsightSeat",
+    "InsightWeek",
+    "game_insight",
+    "register_insight_links",
+    "unregister_insight_links",
+    "ClassGameSummary",
+    "ClassGameWeeks",
+    "WeekSeatValues",
+    "assigned_students",
+    "class_game_head",
+    "class_game_students",
+    "ClassGameStudents",
+    "class_game_weeks",
+    "class_played",
+    "cost_parts",
     "DecidedBy",
     "DecisionLogRow",
     "Fallback",
     "GameCheck",
     "GameOverview",
     "GamePolicy",
+    "GameStatus",
     "GameSummary",
     "Lifecycle",
     "OccupancyReason",
@@ -512,3 +546,229 @@ async def complete_running_games() -> list[str]:
     process stopped between an Order and the advance (NFR-4)."""
     async with get_sessionmaker()() as session:
         return [str(game_id) for game_id in await repo.complete_running_games(session)]
+
+
+@dataclass(frozen=True)
+class SummarySeat:
+    role: str
+    occupant_kind: str | None
+    user_id: uuid.UUID | None
+
+
+@dataclass(frozen=True)
+class SummaryWait:
+    role: str
+    user_id: uuid.UUID | None
+    since: datetime
+
+
+@dataclass(frozen=True)
+class ClassGameSummary:
+    """A Class game's `game_summaries` row (Story 7.1, AD-25): ids only, never a name."""
+
+    game_id: uuid.UUID
+    game_number: int | None
+    status: GameStatus
+    week: int | None
+    version: int
+    chain_cost: Decimal | None
+    wait_started_at: datetime | None
+    waiting_for: tuple[SummaryWait, ...]
+    """The Student Seats the Game waits for, in chain order."""
+    seats: tuple[SummarySeat, ...]
+    """Every Seat in chain order with its latest occupant; `occupant_kind` None is free."""
+
+
+def _user(value: object) -> uuid.UUID | None:
+    return None if value is None else uuid.UUID(str(value))
+
+
+async def class_overview(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> list[ClassGameSummary]:
+    """The summary rows of the Class session's Games that the Lecturer overview lists (AD-13), by
+    game number, read only from `game_summaries` in one query (NFR-3). The caller has checked the
+    User may see them and resolves names at read time."""
+    return [
+        ClassGameSummary(
+            game_id=row["game_id"],
+            game_number=row["game_number"],
+            status=GameStatus(row["status"]),
+            week=row["week"],
+            version=row["version"],
+            chain_cost=row["chain_cost"],
+            wait_started_at=row["wait_started_at"],
+            waiting_for=tuple(
+                SummaryWait(
+                    role=wait["role"],
+                    user_id=_user(wait["user_id"]),
+                    since=datetime.fromisoformat(wait["since"]),
+                )
+                for wait in row["waiting_for"]
+            ),
+            seats=tuple(
+                SummarySeat(
+                    role=seat["role"],
+                    occupant_kind=seat["occupant_kind"],
+                    user_id=_user(seat["user_id"]),
+                )
+                for seat in row["occupants"]
+            ),
+        )
+        for row in await repo.class_summaries(session, class_session_id)
+    ]
+
+
+async def cost_parts(
+    session: AsyncSession, game_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, dict[str, tuple[Decimal, Decimal]]]:
+    """Each Game's Total cost per Role split into (lager, restordre) (Story 7.6, FR-39), for
+    finished Games the caller has chosen: what the Game's result (`views.chain_result`) shows, in
+    one read whatever their number (NFR-3). A Game with no Week is left out."""
+    found: dict[uuid.UUID, dict[str, tuple[Decimal, Decimal]]] = {}
+    for row in await repo.cost_parts_of(session, game_ids):
+        found.setdefault(row["game_id"], {})[row["role"]] = (
+            row["holding_cost"],
+            row["backorder_cost"],
+        )
+    return found
+
+
+@dataclass(frozen=True)
+class ClassGameHead:
+    """What the staff's week read checks before it reads any Week (Story 7.2): the Game's Class
+    session, whether the Lecturer overview lists its purpose (AD-13) and its `version`."""
+
+    game_id: uuid.UUID
+    class_session_id: uuid.UUID | None
+    listed: bool
+    version: int
+
+
+@dataclass(frozen=True)
+class WeekSeatValues:
+    """One Seat in one opened Week as the engine stored it (AD-1): Netto lager is the stored
+    inventory minus backlog, `cost` that Week's cost; `order` is None until it is placed."""
+
+    role: str
+    net_inventory: int
+    order: int | None
+    cost: Decimal
+
+
+@dataclass(frozen=True)
+class ClassGameWeeks:
+    """Every opened Week of a Game, Week 1 first, its Seats in chain order (Story 7.2)."""
+
+    game_id: uuid.UUID
+    version: int
+    weeks: tuple[tuple[int, tuple[WeekSeatValues, ...]], ...]
+
+
+async def class_game_head(session: AsyncSession, game_id: uuid.UUID) -> ClassGameHead | None:
+    """The Game's Class session, listing rule and version, or None for no such Game."""
+    game = await repo.get_game(session, game_id)
+    if game is None:
+        return None
+    return ClassGameHead(
+        game_id=game["id"],
+        class_session_id=game["class_session_id"],
+        listed=str(game["purpose"]) in purposes_with("lecturer_overview"),
+        version=game["version"],
+    )
+
+
+@dataclass(frozen=True)
+class ClassGameStudents:
+    """A Class game as a Message to it sees it (Story 7.9): its Class session, number, whether
+    the Lecturer overview lists it (AD-13), and its Students."""
+
+    game_id: uuid.UUID
+    class_session_id: uuid.UUID | None
+    game_number: int | None
+    listed: bool
+    students: tuple[uuid.UUID, ...]
+    """Per Seat in chain order its Student now, or, where an AI player holds it now, the Student
+    who held it last. A free row (a Student moved away before the start) ends a Student's claim,
+    so a moved Student belongs to the game they were moved to."""
+
+
+def assigned_students(rows) -> tuple[uuid.UUID, ...]:
+    """`ClassGameStudents.students` from `repo.occupancy_history` rows (one rule, tested)."""
+    held: dict[uuid.UUID, uuid.UUID | None] = {}
+    for row in rows:
+        if row["occupant_kind"] == OccupantKind.STUDENT and row["user_id"] is not None:
+            held[row["seat_id"]] = row["user_id"]
+        elif row["occupant_kind"] is None:
+            held[row["seat_id"]] = None
+        else:
+            held.setdefault(row["seat_id"], None)
+    found: list[uuid.UUID] = []
+    for user_id in held.values():
+        if user_id is not None and user_id not in found:
+            found.append(user_id)
+    return tuple(found)
+
+
+async def class_game_students(
+    session: AsyncSession, game_id: uuid.UUID
+) -> ClassGameStudents | None:
+    """The Game with its Students for a Message (Story 7.9), or None for no such Game. Read in the
+    caller's transaction; the caller checks the User and the Class session."""
+    game = await repo.get_game(session, game_id)
+    if game is None:
+        return None
+    return ClassGameStudents(
+        game_id=game["id"],
+        class_session_id=game["class_session_id"],
+        game_number=game["game_number"],
+        listed=str(game["purpose"]) in purposes_with("lecturer_overview"),
+        students=assigned_students(await repo.occupancy_history(session, game_id)),
+    )
+
+
+async def class_game_weeks(session: AsyncSession, game_id: uuid.UUID) -> ClassGameWeeks | None:
+    """The stored values of every opened Week of the Game (Story 7.2, AD-1, AD-10), read in a
+    fixed number of queries: the Game, its Week states and its placed Orders. The finished state
+    after the last Week is no Week of its own and is left out. The caller has checked the User."""
+    game = await repo.get_game(session, game_id)
+    if game is None:
+        return None
+    placed = await repo.placed_orders(session, game_id)
+    orders = {(row["week"], row["role"]): row["order"] for row in placed}
+    weeks: list[tuple[int, tuple[WeekSeatValues, ...]]] = []
+    for stored in await repo.week_states(session, game_id):
+        state = WeekState.model_validate(stored)
+        if state.finished:
+            continue
+        weeks.append(
+            (
+                state.week,
+                tuple(
+                    WeekSeatValues(
+                        role=str(seat.role),
+                        net_inventory=seat.inventory - seat.backlog,
+                        order=orders.get((state.week, str(seat.role))),
+                        cost=seat.cost,
+                    )
+                    for seat in state.seats
+                ),
+            )
+        )
+    return ClassGameWeeks(game_id=game["id"], version=game["version"], weeks=tuple(weeks))
+
+
+async def class_played(
+    session: AsyncSession, game_ids: Sequence[uuid.UUID], with_orders: bool
+) -> list[PlayedGame]:
+    """The stored play of the Games for the wall's aggregates (Story 7.4, AD-1): each Game's
+    opened Week states and, when `with_orders`, its placed Orders, in two reads whatever the
+    number of Games (NFR-3). The caller has checked the User and chosen the Games."""
+    states: dict[uuid.UUID, list[WeekState]] = {game_id: [] for game_id in game_ids}
+    for row in await repo.week_states_of(session, game_ids):
+        states[row["game_id"]].append(WeekState.model_validate(row["state"]))
+    orders: dict[uuid.UUID, dict[tuple[int, str], int]] = {game_id: {} for game_id in game_ids}
+    if with_orders:
+        for row in await repo.placed_orders_of(session, game_ids):
+            orders[row["game_id"]][(row["week"], str(row["role"]))] = row["order"]
+    return [PlayedGame(states=tuple(states[g]), orders=orders[g]) for g in game_ids]

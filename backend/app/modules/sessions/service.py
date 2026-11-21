@@ -652,6 +652,56 @@ async def _class_for(
     return found
 
 
+@dataclass(frozen=True)
+class StaffedSession:
+    """A Class session as a module acting for its staff sees it (Story 7.9): its Class and its
+    number within the Class."""
+
+    id: uuid.UUID
+    class_id: uuid.UUID
+    class_name: str
+    archived: bool
+    number: int
+
+
+async def staffed_session(
+    user: authz.Principal, session_id: uuid.UUID, action: str
+) -> StaffedSession | None:
+    """The Class session when `user` may do the Class action `action` on it, else None: one answer
+    for a Class session that does not exist, one of another Class and a role that may not
+    (FR-5, AD-12)."""
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, session_id)
+    if row is None:
+        return None
+    found = await _class_for(user, row["class_id"], action)
+    if found is None:
+        return None
+    async with get_sessionmaker()() as s:
+        number = await repo.number_of(s, session_id, row["class_id"])
+    return StaffedSession(
+        id=session_id,
+        class_id=found.id,
+        class_name=found.name,
+        archived=found.archived,
+        number=number,
+    )
+
+
+async def class_id_of(session: AsyncSession, session_id: uuid.UUID) -> uuid.UUID | None:
+    """The Class of a Class session, read in the caller's transaction; None for no such session."""
+    row = await repo.session_row(session, session_id)
+    return None if row is None else row["class_id"]
+
+
+async def class_ids_of(
+    session: AsyncSession, session_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, uuid.UUID]:
+    """The Class of each of these Class sessions in one read, by session id (Story 7.10: a
+    Student's Messages name their Class); an unknown id is left out."""
+    return await repo.class_ids_of(session, list(dict.fromkeys(session_ids)))
+
+
 async def create_session(
     user: authz.Principal, class_id: uuid.UUID, *, now: datetime
 ) -> ClassSessionOut | None:

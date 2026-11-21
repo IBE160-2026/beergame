@@ -36,6 +36,16 @@ class Lifecycle(StrEnum):
     FINISHED = "finished"
 
 
+class GameStatus(StrEnum):
+    """A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2); Epic 8
+    adds `paused`."""
+
+    NOT_STARTED = "not_started"
+    RUNNING = "running"
+    WAITING = "waiting"
+    FINISHED = "finished"
+
+
 class OccupantKind(StrEnum):
     """Who holds a Seat from a Week on (AD-5)."""
 
@@ -61,10 +71,31 @@ class OccupancyReason(StrEnum):
 
 class SeatMark(StrEnum):
     """What a Seat's row says beyond its holder (AD-15, Story 6.14), from the one mapping
-    `games.service.seat_mark`. Later stories add the marks they need."""
+    `games.service.seat_mark`. Story 7.7 adds a mark for every other occupancy `reason` and every
+    `fallback` (FR-34, FR-62)."""
 
     GUARD_SWITCH = "guard_switch"
     """The Play guard switched the Seat's LLM player to a Rule-based player (FR-79)."""
+    COST_LIMIT = "cost_limit"
+    """The cost limit switched the Seat's LLM player to a Rule-based player."""
+    TAKEOVER_INACTIVITY = "takeover_inactivity"
+    """An AI player took the Seat over after the Inactivity limit (FR-37)."""
+    TAKEOVER_STAFF = "takeover_staff"
+    """A Lecturer or Assistant lecturer put an AI player in the Seat (Epic 8)."""
+    TAKEOVER_PEER = "takeover_peer"
+    """The other Students of the game put an AI player in the Seat (Epic 8)."""
+    RECLAIM = "reclaim"
+    """The Student took the Seat back from an AI player."""
+    PLAYOUT = "playout"
+    """An AI player played the game out to its end."""
+    FALLBACK_TIMEOUT = "fallback_timeout"
+    """The Order is the Rule-based reference: the LLM call timed out (FR-32)."""
+    FALLBACK_INVALID_OUTPUT = "fallback_invalid_output"
+    """The Order is the Rule-based reference: the LLM answer was not a valid Order."""
+    FALLBACK_BUDGET_EXHAUSTED = "fallback_budget_exhausted"
+    """The Order is the Rule-based reference: the AI budget was used up."""
+    FALLBACK_PROVIDER_ERROR = "fallback_provider_error"
+    """The Order is the Rule-based reference: the model provider failed."""
 
 
 class DecidedBy(StrEnum):

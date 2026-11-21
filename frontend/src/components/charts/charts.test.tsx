@@ -7,6 +7,8 @@ import { describe, expect, it } from "vitest";
 import { ChainBand } from "./chain-band";
 import { CostArea, endPlaces } from "./cost-area";
 import { CostBars } from "./cost-bars";
+import { textWidth } from "./chain-band-layout";
+import { CostDistribution, distributionAxis } from "./cost-distribution";
 import { NetGraph, type NetPoint } from "./net-graph";
 import { costAxisTop, netDomain, netTicks, spreadLabels, totalAxisTop } from "./scales";
 
@@ -284,6 +286,47 @@ describe("Kjedens kostnad over tid's end labels (Story 6.18)", () => {
       expect(holding - backorder).toBeGreaterThanOrEqual(13 * 1.2 - 1e-9);
       expect(backorder).toBeGreaterThanOrEqual(13 * 0.6);
       expect(holding).toBeLessThanOrEqual(100 - 13 * 0.6);
+    }
+  });
+});
+
+describe("Kostnadsfordeling (Story 7.6)", () => {
+  const props = {
+    fontSize: 13,
+    values: [660, 1954, 1500, 2600, 3532],
+    median: 1954,
+    lower: 1500,
+    upper: 2600,
+    medianLabel: "Median 1 954",
+    title: "Kjedekost i hvert ferdige spill, 5 spill",
+    formatTick: (value: number) => value.toLocaleString("nb-NO"),
+  };
+
+  it("runs its axis from 0 in 1–2–2,5–5 steps whose labels have room", () => {
+    const label = () => 40; // 1.6 labels: 64 px between ticks at least
+    expect(distributionAxis(3532, 400, label)).toEqual([0, 1000, 2000, 3000, 4000]);
+    expect(distributionAxis(3532, 120, label)).toEqual([0, 5000]);
+    expect(distributionAxis(800, 400, label)).toEqual([0, 200, 400, 600, 800]);
+    expect(distributionAxis(0, 400, label)).toEqual([0, 1]);
+    // Narrower than two labels: no step fits, so 0 and the lowest top that holds the values.
+    expect(distributionAxis(3532, 20, label)).toEqual([0, 5000]);
+    expect(distributionAxis(3532, 0, label)).toEqual([0, 5000]);
+  });
+
+  it("draws one tick per game, the middle-half box, the labelled median and a title, all inside", () => {
+    for (const width of [288, 352]) {
+      const html = renderToStaticMarkup(<CostDistribution {...props} width={width} />);
+      expect(html.match(/data-mark="game"/g)).toHaveLength(5);
+      expect(html).toContain('data-mark="box"');
+      expect(html).toContain('data-mark="median"');
+      expect(html).toContain(">Median 1 954</text>");
+      expect(html).toContain("<title>Kjedekost i hvert ferdige spill, 5 spill</title>");
+      expect(html).toContain('aria-hidden="true"');
+      // Every label inside the drawing, by the same upper-bound width the layout uses.
+      for (const [, x, weight, text] of html.matchAll(/<text x="([\d.]+)"[^>]*?(?:font-weight="(\d+)")?[^>]*>([^<]+)<\/text>/g)) {
+        expect(Number(x)).toBeGreaterThanOrEqual(0);
+        expect(Number(x) + textWidth(text!, 13, weight === "600" ? 600 : 400)).toBeLessThanOrEqual(width + 0.5);
+      }
     }
   });
 });

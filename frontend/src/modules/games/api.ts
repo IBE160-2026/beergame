@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRef } from "react";
 
 import { api } from "@/lib/api/client";
 import { request } from "@/lib/api/mutation";
@@ -17,6 +18,163 @@ export function useMyGame(gameId: string) {
   return useQuery({
     queryKey: myGameKey(gameId),
     queryFn: () => request(() => api.GET("/api/me/games/{game_id}", { params: { path: { game_id: gameId } } })),
+    retry: false,
+  });
+}
+
+/** The Oversikt of a Class session (Story 7.1): every Class game from its maintained summary. */
+export type ClassOverview = components["schemas"]["ClassOverviewOut"];
+export type OverviewGame = ClassOverview["items"][number];
+export const classOverviewKey = (sessionId: string) => ["games", "overview", sessionId] as const;
+
+/** How long a failed background read of the Oversikt waits before it is tried again. */
+export const OVERVIEW_RETRY_MS = 10_000;
+
+/** One answer of the Oversikt: the body, its ETag and when it arrived (ms on the browser's clock,
+ * only to measure the time since `server_now`). */
+export type OverviewAnswer = { overview: ClassOverview; etag: string | null; receivedAt: number };
+
+/**
+ * Reads the Oversikt, revalidating `previous` with its ETag (Story 7.5, AD-25). An unchanged list
+ * answers 304 and `previous` itself comes back, the same object, so nothing that reads it renders
+ * again and its `server_now` stays tied to the time it arrived. The browser's own cache is passed
+ * by: a body it revalidated would bring an old `server_now` as if new.
+ */
+export async function readOverview(
+  sessionId: string,
+  previous: OverviewAnswer | undefined,
+  client: typeof api = api,
+): Promise<OverviewAnswer> {
+  const sent = previous?.etag;
+  let notModified = false;
+  let etag: string | null = null;
+  const overview = await request(async () => {
+    const result = await client.GET("/api/class-sessions/{session_id}/overview", {
+      params: { path: { session_id: sessionId } },
+      headers: sent ? { "If-None-Match": sent } : undefined,
+      cache: "no-store",
+    });
+    // A 304 is not an error here: it says the list we hold is the current one.
+    if (result.response.status === 304 && previous) {
+      notModified = true;
+      return { data: previous.overview, response: new Response(null, { status: 200 }) };
+    }
+    etag = result.response.headers.get("ETag");
+    return result;
+  });
+  if (notModified && previous) return previous;
+  return { overview, etag, receivedAt: Date.now() };
+}
+
+/** `/api/class-sessions/{id}/overview`, for the Class's staff; anyone else, and a Class session
+ * that does not exist, answers 403 `forbidden`. Revalidated with its ETag (`readOverview`). */
+export function useClassOverview(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useQuery({
+    queryKey: classOverviewKey(sessionId),
+    queryFn: () => readOverview(sessionId, queryClient.getQueryData<OverviewAnswer>(classOverviewKey(sessionId))),
+    retry: false,
+    // A background read that failed is tried again while the last answer stays on screen (the
+    // page with no answer yet shows the page error with «Prøv igjen» instead).
+    refetchInterval: (query: { state: { status: string; data: unknown } }) =>
+      query.state.status === "error" && query.state.data !== undefined ? OVERVIEW_RETRY_MS : false,
+  });
+}
+
+/** Spillinnsikt (Story 7.7): one Class game week by week, for the staff of its Class. */
+export type GameInsight = components["schemas"]["GameInsightOut"];
+export type InsightSeat = GameInsight["seats"][number];
+export type InsightRole = GameInsight["roles"][number];
+export type InsightWeek = InsightRole["weeks"][number];
+export type SeatMark = InsightWeek["marks"][number];
+export const gameInsightKey = (gameId: string) => ["games", "insight", gameId] as const;
+
+/** `/api/games/{id}/insight`: anyone but the staff of the game's Class, and a game that does not
+ * exist, answers 403 `forbidden`. Read again on the game's `game:<id>` event (`topics.ts`). */
+export function useGameInsight(gameId: string) {
+  return useQuery({
+    queryKey: gameInsightKey(gameId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/games/{game_id}/insight", { params: { path: { game_id: gameId } }, cache: "no-store" }),
+      ),
+    retry: false,
+  });
+}
+
+/** A Class game's opened Weeks, per Role (Story 7.2): the Matrisevegg's cells. */
+export type GameWeeks = components["schemas"]["GameWeeksOut"];
+
+/** Keyed by the Game's `version` too: a version the Oversikt has not seen is a new query, and a
+ * Game whose version stands is never fetched again (AD-10, AD-25). */
+export const gameWeeksKey = (gameId: string, version: number) => ["games", "weeks", gameId, version] as const;
+
+/** How long a failed `/weeks` read waits before it is tried again. */
+export const WEEKS_RETRY_MS = 10_000;
+
+/**
+ * `/api/games/{id}/weeks` for each game the Oversikt listed, fetched on demand and again only when
+ * the summary list brings that game a new `version`. While a new version loads, the last one's
+ * weeks stay on screen. Returns the weeks by game id; a game still loading has none yet.
+ */
+export function useGameWeeks(games: readonly { game_id: string; version: number }[]) {
+  // A new version is a new query with no data of its own (`useQueries` matches by key), so the
+  // last weeks each game had stand in until it arrives: the cells never empty and focus stays.
+  const last = useRef(new Map<string, GameWeeks>());
+  const results = useQueries({
+    queries: games.map((game) => ({
+      queryKey: gameWeeksKey(game.game_id, game.version),
+      queryFn: () =>
+        request(() =>
+          api.GET("/api/games/{game_id}/weeks", { params: { path: { game_id: game.game_id } }, cache: "no-store" }),
+        ),
+      staleTime: Number.POSITIVE_INFINITY,
+      retry: false,
+      // A read that failed is tried again until it succeeds, so a row is never left empty until
+      // its game changes (Story 7.5); a read that succeeded stands for its version.
+      refetchInterval: (query: { state: { status: string } }) =>
+        query.state.status === "error" ? WEEKS_RETRY_MS : false,
+    })),
+  });
+  const byGame = new Map<string, { data?: GameWeeks; failed: boolean }>();
+  results.forEach((result, i) => {
+    const id = games[i]!.game_id;
+    if (result.data) last.current.set(id, result.data);
+    const data = result.data ?? last.current.get(id);
+    byGame.set(id, { data, failed: result.isError && !data });
+  });
+  return byGame;
+}
+
+/** The class median rows for one Veggfiltre combination (Story 7.4). */
+export type WallAggregates = components["schemas"]["WallAggregatesOut"];
+export type WallFilter = {
+  role: WallAggregates["role"];
+  cells: WallAggregates["cells"];
+  status: WallAggregates["status"];
+};
+
+/** Under the Oversikt's key, so a `session:<id>` event (`topics.ts`) refetches it with the list. */
+export const wallAggregatesKey = (sessionId: string, filter: WallFilter) =>
+  [...classOverviewKey(sessionId), "aggregates", filter.role, filter.cells, filter.status] as const;
+
+/**
+ * `/api/class-sessions/{id}/overview/aggregates` for one filter combination (Story 7.4, AD-10):
+ * the median, middle half and mean chain cost per Uke, computed by the api. While a new
+ * combination loads, the last one's rows stay on screen. Revalidated with its ETag, so an
+ * unchanged class answers 304.
+ */
+export function useWallAggregates(sessionId: string, filter: WallFilter) {
+  return useQuery({
+    queryKey: wallAggregatesKey(sessionId, filter),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/overview/aggregates", {
+          params: { path: { session_id: sessionId }, query: filter },
+          cache: "no-cache",
+        }),
+      ),
+    placeholderData: keepPreviousData,
     retry: false,
   });
 }

@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-21-2026 07:02
+last_updated: 11-21-2026 19:04
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -118,7 +118,7 @@ development_status:
   5-18-create-a-class-session-from-an-earlier-one-cut-list-feature_: done
   epic-5-retrospective: optional
 
-  epic-6: in-progress
+  epic-6: done
   6-1-see-my-class-game-role-and-seats-on-hjem: done
   6-2-read-the-rules-before-the-first-order: done
   6-3-do-the-starting-task: done
@@ -143,18 +143,18 @@ development_status:
   6-22-see-the-capacity-in-the-briefing-and-on-a-capped-seat-cut-li: done
   epic-6-retrospective: optional
 
-  epic-7: backlog
-  7-1-see-the-status-of-every-class-game-on-the-oversikt: backlog
-  7-2-read-all-class-games-week-by-week-on-the-matrisevegg: backlog
-  7-3-switch-the-wall-to-vis-som-tabell: backlog
-  7-4-filter-the-wall-and-compare-with-the-class-median: backlog
-  7-5-follow-the-games-live-with-oppdater-automatisk: backlog
-  7-6-see-who-waits-the-class-s-cost-and-the-funnel-in-the-right-r: backlog
-  7-7-open-one-game-week-by-week-in-spillinnsikt: backlog
-  7-8-see-all-four-roles-orders-inventory-and-backlog-as-charts-in: backlog
-  7-9-send-a-message-to-a-student-a-class-game-or-the-whole-class: backlog
-  7-10-read-messages-in-the-product: backlog
-  7-11-act-on-the-longest-waiting-game-from-the-varselbånd: backlog
+  epic-7: in-progress
+  7-1-see-the-status-of-every-class-game-on-the-oversikt: done
+  7-2-read-all-class-games-week-by-week-on-the-matrisevegg: done
+  7-3-switch-the-wall-to-vis-som-tabell: done
+  7-4-filter-the-wall-and-compare-with-the-class-median: done
+  7-5-follow-the-games-live-with-oppdater-automatisk: done
+  7-6-see-who-waits-the-class-s-cost-and-the-funnel-in-the-right-r: done
+  7-7-open-one-game-week-by-week-in-spillinnsikt: done
+  7-8-see-all-four-roles-orders-inventory-and-backlog-as-charts-in: done
+  7-9-send-a-message-to-a-student-a-class-game-or-the-whole-class: done
+  7-10-read-messages-in-the-product: done
+  7-11-act-on-the-longest-waiting-game-from-the-varselbånd: done
   epic-7-retrospective: optional
 
   epic-8: backlog
@@ -174,18 +174,18 @@ development_status:
   8-14-finish-every-unfinished-class-game-at-the-play-deadline: backlog
   epic-8-retrospective: optional
 
-  epic-9: backlog
-  9-1-compute-the-facts-of-a-finished-game: backlog
-  9-2-open-the-debrief-when-the-class-game-has-ended: backlog
-  9-3-write-the-explanation-before-the-reveal: backlog
-  9-4-see-the-reveal-of-customer-demand: backlog
-  9-5-scrub-the-whole-chain-and-see-the-amplification: backlog
-  9-6-answer-the-reflection-questions: backlog
-  9-7-see-my-own-moments-rendered-from-the-facts: backlog
-  9-8-see-the-chain-s-bill-and-finish-the-debrief: backlog
-  9-9-pass-the-debrief-quiz: backlog
-  9-10-exclude-a-quiz-question-and-see-quiz-attempts: backlog
-  9-11-go-through-the-debrief-together-as-a-group: backlog
+  epic-9: in-progress
+  9-1-compute-the-facts-of-a-finished-game: done
+  9-2-open-the-debrief-when-the-class-game-has-ended: done
+  9-3-write-the-explanation-before-the-reveal: done
+  9-4-see-the-reveal-of-customer-demand: done
+  9-5-scrub-the-whole-chain-and-see-the-amplification: done
+  9-6-answer-the-reflection-questions: done
+  9-7-see-my-own-moments-rendered-from-the-facts: done
+  9-8-see-the-chain-s-bill-and-finish-the-debrief: done
+  9-9-pass-the-debrief-quiz: done
+  9-10-exclude-a-quiz-question-and-see-quiz-attempts: done
+  9-11-go-through-the-debrief-together-as-a-group: in-progress
   9-12-continue-alone-when-the-group-is-not-there: backlog
   9-13-show-the-group-debrief-on-a-shared-screen: backlog
   9-14-read-ai-narration-that-only-connects-computed-facts: backlog

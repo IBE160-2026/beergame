@@ -122,6 +122,9 @@ class Settings(BaseSettings):
     # The required share of Weeks a new Class session starts with (Story 5.7, FR-17), a whole
     # percent. PLACEHOLDER from FR-17's assumption; Completion itself is Epic 13's.
     completion_default_share_percent: int = Field(80, ge=1, le=100)
+    # Messages from staff to Students (Story 7.9, FR-40). PLACEHOLDER: the most characters a
+    # Message may hold; a longer one is refused with `message_too_long` and this limit.
+    message_max_length: int = Field(2000, ge=1, le=20000)
 
     # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
     # to the `[email:mock]` sender; the compose file never passes a key.

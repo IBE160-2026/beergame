@@ -131,13 +131,14 @@ async def test_a_seat_the_play_guard_switched_is_marked(klass):
     assert {shown[r]["mark"] for r in by_role} == {None}
 
 
-def test_the_one_mapping_marks_only_a_guard_switch():
+def test_the_one_mapping_marks_a_guard_switch_of_a_rule_based_player():
+    """Every other reason and fallback: `tests/games/test_marks.py` (Story 7.7)."""
     mark = games_service.seat_mark
     assert mark(None, None, OccupantKind.RULE_BASED, OccupancyReason.GUARD_SWITCH) == "guard_switch"
     assert mark(DecidedBy.RULE_BASED, Fallback.NONE, "rule_based", "guard_switch") == "guard_switch"
     for kind, reason in [
         (OccupantKind.RULE_BASED, OccupancyReason.INITIAL),
-        (OccupantKind.RULE_BASED, OccupancyReason.COST_LIMIT),
+        (OccupantKind.LLM, OccupancyReason.GUARD_SWITCH),
         (OccupantKind.LLM, OccupancyReason.INITIAL),
         (OccupantKind.STUDENT, OccupancyReason.INITIAL),
         (None, OccupancyReason.MOVED),

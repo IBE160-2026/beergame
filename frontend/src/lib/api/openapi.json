@@ -701,6 +701,53 @@
         "title": "Choice",
         "type": "string"
       },
+      "ClassCostOut": {
+        "description": "«Klassens kostnad» (Story 7.6, FR-39, AD-10): over the finished Class games, the median and\nquartiles of their chain costs for the Kostnadsfordeling, the chain's mean lager and restordre\nper game and each Role's mean, Detaljist first. Computed by `analysis.class_cost`.",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "lower_quartile": {
+            "title": "Lower Quartile",
+            "type": "string"
+          },
+          "median": {
+            "title": "Median",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleCostOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "upper_quartile": {
+            "title": "Upper Quartile",
+            "type": "string"
+          }
+        },
+        "required": [
+          "games",
+          "median",
+          "lower_quartile",
+          "upper_quartile",
+          "holding_cost",
+          "backorder_cost",
+          "roles"
+        ],
+        "title": "ClassCostOut",
+        "type": "object"
+      },
       "ClassIn": {
         "description": "A new Class (Story 4.1). The service checks the fields and answers every refused one in\n`fields`: `name`, `institution_id` (`institution_missing`, `institution_unknown`) and\n`course_code`.",
         "properties": {
@@ -870,6 +917,126 @@
           "roster_count"
         ],
         "title": "ClassOut",
+        "type": "object"
+      },
+      "ClassOverviewOut": {
+        "description": "The Oversikt of a Class session (Story 7.1, FR-39, AD-25): its Class games in the list\nenvelope, by game number, the headline counts and the database clock (`server_now`).",
+        "properties": {
+          "ai": {
+            "$ref": "#/components/schemas/OverviewAiOut"
+          },
+          "alert": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OverviewAlertOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "before_start": {
+            "title": "Before Start",
+            "type": "boolean"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassCostOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "counts": {
+            "$ref": "#/components/schemas/OverviewCountsOut"
+          },
+          "funnel": {
+            "items": {
+              "$ref": "#/components/schemas/FunnelStageOut"
+            },
+            "title": "Funnel",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewGameOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_change_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Change At"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "server_now": {
+            "format": "date-time",
+            "title": "Server Now",
+            "type": "string"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "counts",
+          "server_now",
+          "before_start",
+          "start_at",
+          "next_change_at",
+          "ai",
+          "cost",
+          "funnel",
+          "alert",
+          "class_id",
+          "class_name",
+          "session_number"
+        ],
+        "title": "ClassOverviewOut",
         "type": "object"
       },
       "ClassSessionListItem": {
@@ -1730,6 +1897,24 @@
         "title": "DemandStepNoise",
         "type": "object"
       },
+      "DemandWeekOut": {
+        "properties": {
+          "demand": {
+            "title": "Demand",
+            "type": "integer"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "demand"
+        ],
+        "title": "DemandWeekOut",
+        "type": "object"
+      },
       "EnrolledClassListOut": {
         "description": "The Classes the User is a Student in, by name. No paging: a Student has a handful.",
         "properties": {
@@ -2015,6 +2200,128 @@
         "title": "FinalIn",
         "type": "object"
       },
+      "FunnelStageOut": {
+        "description": "One stage of the Trakt (Story 7.6, FR-39): how many registered Students reached it.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "stage": {
+            "enum": [
+              "registered",
+              "class_game",
+              "debrief",
+              "quiz_passed",
+              "replay",
+              "test_submitted",
+              "assessment_ready"
+            ],
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "count"
+        ],
+        "title": "FunnelStageOut",
+        "type": "object"
+      },
+      "GameInsightOut": {
+        "description": "Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Game week by week, for the staff of its\nClass only. The only answer that gives the staff the full chain, the demand series and the\nnumber of Weeks. Seats and Roles in chain order, the Role serving the customer first.",
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "demand": {
+            "items": {
+              "$ref": "#/components/schemas/DemandWeekOut"
+            },
+            "title": "Demand",
+            "type": "array"
+          },
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/InsightRoleOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/InsightSeatOut"
+            },
+            "title": "Seats",
+            "type": "array"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GameStatus"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "weeks_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weeks Total"
+          }
+        },
+        "required": [
+          "game_id",
+          "class_session_id",
+          "class_id",
+          "class_name",
+          "session_number",
+          "game_number",
+          "status",
+          "version",
+          "weeks_total",
+          "demand",
+          "seats",
+          "roles"
+        ],
+        "title": "GameInsightOut",
+        "type": "object"
+      },
       "GameResult": {
         "additionalProperties": false,
         "description": "A finished Game's cost (Story 6.18, FR-28): each Role's, the chain's, and the chain's\nrunning cost per Uke. Numbers and Roles only: no names, no demand, no settings.",
@@ -2253,6 +2560,66 @@
         "title": "GameSettings",
         "type": "object"
       },
+      "GameStatus": {
+        "description": "A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2); Epic 8\nadds `paused`.",
+        "enum": [
+          "not_started",
+          "running",
+          "waiting",
+          "finished"
+        ],
+        "title": "GameStatus",
+        "type": "string"
+      },
+      "GameWeekOut": {
+        "properties": {
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/WeekSeatOut"
+            },
+            "title": "Seats",
+            "type": "array"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "seats"
+        ],
+        "title": "GameWeekOut",
+        "type": "object"
+      },
+      "GameWeeksOut": {
+        "description": "Every opened Week of a Class game (Story 7.2, AD-25): the Matrisevegg's cells, read\non demand per Game. The finished state after the last Week is not a Week and is left out.",
+        "properties": {
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/GameWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "game_id",
+          "version",
+          "weeks"
+        ],
+        "title": "GameWeeksOut",
+        "type": "object"
+      },
       "GivenRowOut": {
         "properties": {
           "label": {
@@ -2300,6 +2667,193 @@
           }
         },
         "title": "InfoVisibility",
+        "type": "object"
+      },
+      "InsightLinkOut": {
+        "description": "A link for one Seat's Student on Spillinnsikt (FR-62), from a provider a later module\nregistered (`games.service.register_insight_links`, Epic 9): `kind` names it, the page words\nit; `href` is a path in the web app.",
+        "properties": {
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "href"
+        ],
+        "title": "InsightLinkOut",
+        "type": "object"
+      },
+      "InsightRoleOut": {
+        "properties": {
+          "first_large_order_week": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Large Order Week"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/InsightWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "role",
+          "weeks",
+          "first_large_order_week"
+        ],
+        "title": "InsightRoleOut",
+        "type": "object"
+      },
+      "InsightSeatOut": {
+        "description": "A Seat of the Game on Spillinnsikt as held now, like the Oversikt's, with its links.",
+        "properties": {
+          "holder": {
+            "enum": [
+              "student",
+              "ai",
+              "free"
+            ],
+            "title": "Holder",
+            "type": "string"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/InsightLinkOut"
+            },
+            "title": "Links",
+            "type": "array"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "role",
+          "holder",
+          "name",
+          "links"
+        ],
+        "title": "InsightSeatOut",
+        "type": "object"
+      },
+      "InsightWeekOut": {
+        "description": "One Seat in one opened Week (Story 7.7, FR-62, AD-1): the values the engine stored in the\nWeek state, the Order from the Decision log, who held the Seat and its marks (AD-15).",
+        "properties": {
+          "backlog": {
+            "title": "Backlog",
+            "type": "integer"
+          },
+          "cost": {
+            "title": "Cost",
+            "type": "string"
+          },
+          "holder": {
+            "enum": [
+              "student",
+              "ai",
+              "free"
+            ],
+            "title": "Holder",
+            "type": "string"
+          },
+          "incoming_delivery": {
+            "title": "Incoming Delivery",
+            "type": "integer"
+          },
+          "incoming_order": {
+            "title": "Incoming Order",
+            "type": "integer"
+          },
+          "inventory": {
+            "title": "Inventory",
+            "type": "integer"
+          },
+          "marks": {
+            "items": {
+              "$ref": "#/components/schemas/SeatMark"
+            },
+            "title": "Marks",
+            "type": "array"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "holder",
+          "name",
+          "incoming_order",
+          "incoming_delivery",
+          "inventory",
+          "backlog",
+          "order",
+          "cost",
+          "marks"
+        ],
+        "title": "InsightWeekOut",
         "type": "object"
       },
       "InstitutionChoice": {
@@ -2923,6 +3477,232 @@
         "title": "ManualRegistrationIn",
         "type": "object"
       },
+      "MessageFormOut": {
+        "description": "What the Meldingsskjema shows before a send (UX-DR46).",
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "game_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Id"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "kind": {
+            "enum": [
+              "student",
+              "class_game",
+              "class_session"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "max_length": {
+            "title": "Max Length",
+            "type": "integer"
+          },
+          "sent_before": {
+            "title": "Sent Before",
+            "type": "integer"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          },
+          "student_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Name"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "class_session_id",
+          "class_id",
+          "class_name",
+          "session_number",
+          "game_id",
+          "game_number",
+          "student_name",
+          "students",
+          "sent_before",
+          "max_length"
+        ],
+        "title": "MessageFormOut",
+        "type": "object"
+      },
+      "MessageIn": {
+        "properties": {
+          "game_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Id"
+          },
+          "key": {
+            "format": "uuid",
+            "title": "Key",
+            "type": "string"
+          },
+          "student_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Id"
+          },
+          "text": {
+            "maxLength": 100000,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "text"
+        ],
+        "title": "MessageIn",
+        "type": "object"
+      },
+      "MessageSentOut": {
+        "properties": {
+          "message_id": {
+            "format": "uuid",
+            "title": "Message Id",
+            "type": "string"
+          },
+          "sent_before": {
+            "title": "Sent Before",
+            "type": "integer"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "message_id",
+          "students",
+          "sent_before"
+        ],
+        "title": "MessageSentOut",
+        "type": "object"
+      },
+      "MyMessageOut": {
+        "description": "One Message on the Student's Hjem (Story 7.10): plain text, shown as written.",
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "sender_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sender Name"
+          },
+          "sent_at": {
+            "format": "date-time",
+            "title": "Sent At",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "class_id",
+          "class_name",
+          "sender_name",
+          "sent_at",
+          "text"
+        ],
+        "title": "MyMessageOut",
+        "type": "object"
+      },
+      "MyMessagesOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MyMessageOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "MyMessagesOut",
+        "type": "object"
+      },
       "NeighbourNumber": {
         "additionalProperties": false,
         "description": "One number about a neighbouring Seat, labelled with its Role and the Week it refers to.",
@@ -3158,6 +3938,271 @@
           "position_base"
         ],
         "title": "OrderPreview",
+        "type": "object"
+      },
+      "OverviewAiOut": {
+        "description": "The AI players on the Oversikt (Story 7.6, UX-DR69): the Seats an AI player holds now and\nthe Class games with at least one («22 KI-spillere i 17 spill, alle merket.»).",
+        "properties": {
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "seats": {
+            "title": "Seats",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seats",
+          "games"
+        ],
+        "title": "OverviewAiOut",
+        "type": "object"
+      },
+      "OverviewAlertOut": {
+        "description": "The Varselbånd (Story 7.11, FR-39, UX-DR45): the Class game chosen by the api, the Seat it\nwaits for longest and since when. Epic 8 changes the choice to the game closest to Takeover.",
+        "properties": {
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "since": {
+            "format": "date-time",
+            "title": "Since",
+            "type": "string"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "game_id",
+          "game_number",
+          "role",
+          "name",
+          "user_id",
+          "since"
+        ],
+        "title": "OverviewAlertOut",
+        "type": "object"
+      },
+      "OverviewCountsOut": {
+        "description": "The headline counts by status (FR-39).",
+        "properties": {
+          "finished": {
+            "title": "Finished",
+            "type": "integer"
+          },
+          "not_started": {
+            "title": "Not Started",
+            "type": "integer"
+          },
+          "running": {
+            "title": "Running",
+            "type": "integer"
+          },
+          "waiting": {
+            "title": "Waiting",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "waiting",
+          "running",
+          "not_started",
+          "finished"
+        ],
+        "title": "OverviewCountsOut",
+        "type": "object"
+      },
+      "OverviewGameOut": {
+        "description": "One Class game on the Oversikt, from its `game_summaries` row (Story 7.1, AD-25).",
+        "properties": {
+          "chain_cost": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Cost"
+          },
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewSeatOut"
+            },
+            "title": "Seats",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GameStatus"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "wait_started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait Started At"
+          },
+          "waiting_for": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewWaitOut"
+            },
+            "title": "Waiting For",
+            "type": "array"
+          },
+          "week": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week"
+          }
+        },
+        "required": [
+          "game_id",
+          "game_number",
+          "status",
+          "week",
+          "version",
+          "chain_cost",
+          "wait_started_at",
+          "waiting_for",
+          "seats"
+        ],
+        "title": "OverviewGameOut",
+        "type": "object"
+      },
+      "OverviewSeatOut": {
+        "description": "A Seat of a Class game on the Oversikt (Story 7.1): its Role and who holds it, a Student\nby the name they have now, any AI player as «KI-spiller» (`ai`), or free.",
+        "properties": {
+          "holder": {
+            "enum": [
+              "student",
+              "ai",
+              "free"
+            ],
+            "title": "Holder",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role",
+          "holder",
+          "name"
+        ],
+        "title": "OverviewSeatOut",
+        "type": "object"
+      },
+      "OverviewWaitOut": {
+        "description": "A Student Seat the Class game waits for (FR-25), and since when on the database clock; the\nweb app counts the wait from `server_now`.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "since": {
+            "format": "date-time",
+            "title": "Since",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "name",
+          "since"
+        ],
+        "title": "OverviewWaitOut",
         "type": "object"
       },
       "PasswordResetIn": {
@@ -3577,6 +4622,34 @@
           "role"
         ],
         "title": "RoleCost",
+        "type": "object"
+      },
+      "RoleCostOut": {
+        "description": "One Role's mean cost per finished Class game, split into lager and restordre (Story 7.6,\nUX-DR72), in kroner rounded to the øre, as decimal strings; `total_cost` is their sum.",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "holding_cost",
+          "backorder_cost",
+          "total_cost"
+        ],
+        "title": "RoleCostOut",
         "type": "object"
       },
       "RoleIn": {
@@ -4058,9 +5131,19 @@
         "type": "object"
       },
       "SeatMark": {
-        "description": "What a Seat's row says beyond its holder (AD-15, Story 6.14), from the one mapping\n`games.service.seat_mark`. Later stories add the marks they need.",
+        "description": "What a Seat's row says beyond its holder (AD-15, Story 6.14), from the one mapping\n`games.service.seat_mark`. Story 7.7 adds a mark for every other occupancy `reason` and every\n`fallback` (FR-34, FR-62).",
         "enum": [
-          "guard_switch"
+          "guard_switch",
+          "cost_limit",
+          "takeover_inactivity",
+          "takeover_staff",
+          "takeover_peer",
+          "reclaim",
+          "playout",
+          "fallback_timeout",
+          "fallback_invalid_output",
+          "fallback_budget_exhausted",
+          "fallback_provider_error"
         ],
         "title": "SeatMark",
         "type": "string"
@@ -4246,6 +5329,148 @@
           "preview"
         ],
         "title": "SeatState",
+        "type": "object"
+      },
+      "SentMessageOut": {
+        "description": "One Message in «Meldinger» (Story 7.10): its recipient, sender, time and reach.",
+        "properties": {
+          "game_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Id"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "student",
+              "class_game",
+              "class_session",
+              "list"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "sender_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sender Name"
+          },
+          "sent_at": {
+            "format": "date-time",
+            "title": "Sent At",
+            "type": "string"
+          },
+          "student_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Id"
+          },
+          "student_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Name"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "game_id",
+          "game_number",
+          "student_id",
+          "student_name",
+          "sender_name",
+          "sent_at",
+          "students",
+          "text"
+        ],
+        "title": "SentMessageOut",
+        "type": "object"
+      },
+      "SentMessagesOut": {
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SentMessageOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "class_id",
+          "class_name",
+          "session_number",
+          "items"
+        ],
+        "title": "SentMessagesOut",
         "type": "object"
       },
       "SessionOut": {
@@ -5259,6 +6484,170 @@
           "sessions"
         ],
         "title": "WaitingClass",
+        "type": "object"
+      },
+      "WallAggregatesOut": {
+        "description": "The class median and mean chain cost rows for one filter combination (Story 7.4, AD-10):\nthe web app draws them and computes none of them.",
+        "properties": {
+          "cells": {
+            "$ref": "#/components/schemas/WallCells"
+          },
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WallStatus"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/WallWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "role",
+          "cells",
+          "status",
+          "games",
+          "weeks"
+        ],
+        "title": "WallAggregatesOut",
+        "type": "object"
+      },
+      "WallCells": {
+        "description": "What the Matrisevegg's cells show (Story 7.4, the Celler filter).",
+        "enum": [
+          "net",
+          "order",
+          "cost"
+        ],
+        "title": "WallCells",
+        "type": "string"
+      },
+      "WallStatus": {
+        "description": "Which Class games the wall shows (Story 7.4, the Status filter): all, one status, or\nthose with a Seat held by an AI player.",
+        "enum": [
+          "all",
+          "waiting",
+          "running",
+          "not_started",
+          "finished",
+          "with_ai"
+        ],
+        "title": "WallStatus",
+        "type": "string"
+      },
+      "WallWeekOut": {
+        "description": "One Uke of the wall's bottom rows and its class median graph (Story 7.4, UX-DR40).",
+        "properties": {
+          "chain_cost_mean": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Cost Mean"
+          },
+          "chain_games": {
+            "title": "Chain Games",
+            "type": "integer"
+          },
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "lower_quartile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lower Quartile"
+          },
+          "median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median"
+          },
+          "upper_quartile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upper Quartile"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "games",
+          "median",
+          "lower_quartile",
+          "upper_quartile",
+          "chain_games",
+          "chain_cost_mean"
+        ],
+        "title": "WallWeekOut",
+        "type": "object"
+      },
+      "WeekSeatOut": {
+        "description": "One Seat in one opened Week as the engine stored it (Story 7.2, AD-1).",
+        "properties": {
+          "cost": {
+            "title": "Cost",
+            "type": "string"
+          },
+          "net_inventory": {
+            "title": "Net Inventory",
+            "type": "integer"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role",
+          "net_inventory",
+          "order",
+          "cost"
+        ],
+        "title": "WeekSeatOut",
         "type": "object"
       },
       "WeekValues": {
@@ -8036,6 +9425,406 @@
         ]
       }
     },
+    "/api/class-sessions/{session_id}/messages": {
+      "get": {
+        "description": "«Meldinger» (Story 7.10): every Message of the Class session, newest first, with its\nrecipient, sender, time and the number of Students it went to. 403 `forbidden`, one answer,\nfor anyone who is not staff of the Class and for a Class session that does not exist.",
+        "operationId": "listSentMessages",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SentMessagesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Sent Messages",
+        "tags": [
+          "messaging"
+        ]
+      },
+      "post": {
+        "description": "«Send Melding» (Story 7.9, FR-40, AD-9): stores the Message with one recipient row per\nStudent and tells each of them in the product and by e-mail. A repeat with the same `key`\nanswers as the first and sends nothing. 422 `message_empty`, `message_too_long` (with\n`fields.max_length`) or `no_recipients`; 409 `message_key_conflict` or `class_archived`; 403\n`forbidden` as the form's read.",
+        "operationId": "sendMessage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageSentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Send Message",
+        "tags": [
+          "messaging"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/messages/form": {
+      "get": {
+        "description": "The Meldingsskjema's recipient (Story 7.9): its title's parts, the Students it reaches now,\nthe earlier Messages to it and the length limit. 403 `forbidden`, one answer, for anyone who\nis not staff of the Class and for a Class session, game or Student outside it (FR-5).",
+        "operationId": "getMessageForm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "game_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Game Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "student_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageFormOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Message Form",
+        "tags": [
+          "messaging"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/overview": {
+      "get": {
+        "description": "The Oversikt (Story 7.1, FR-39, AD-25): every Class game of the session with its status,\nWeek, whom it waits for, its Seats and chain cost, the headline counts and `server_now`, read\nfrom the maintained summaries. With an `ETag`; a request whose `If-None-Match` names it is\nanswered 304 with no body. 403 `forbidden` for anyone who is not staff of the Class, and for\na Class session that does not exist (FR-5, NFR-7).",
+        "operationId": "getClassOverview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassOverviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified since the ETag."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Class Overview",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/overview/aggregates": {
+      "get": {
+        "description": "The Matrisevegg's class median rows for one Veggfiltre combination (Story 7.4, AD-10,\nAD-25): per Uke the median of `role`'s `cells` value with the middle half of the Games, and\nthe mean chain cost, over the Class games `status` matches that reached the Uke. The overview\ncarries no aggregates. With an `ETag` over the filter and the matched Games' versions; a\nrequest whose `If-None-Match` names it is answered 304 before any Week is read. 403\n`forbidden` for anyone who is not staff of the Class and for a Class session that does not\nexist (FR-5, NFR-7).",
+        "operationId": "getWallAggregates",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "role",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Role",
+              "default": "factory"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cells",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/WallCells",
+              "default": "net"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/WallStatus",
+              "default": "all"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WallAggregatesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified since the ETag."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Get Wall Aggregates",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/class-sessions/{session_id}/settings-check": {
       "post": {
         "description": "The engine's errors and warnings on a draft of the Game settings, as the Lecturer leaves a\nfield (FR-12, AD-1). Stores nothing. Once locked it answers 409 `session_locked`.",
@@ -10115,6 +11904,138 @@
         "summary": "Stream Events"
       }
     },
+    "/api/games/{game_id}/insight": {
+      "get": {
+        "description": "Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Class game week by week for the staff of\nits Class — per Role and opened Week the incoming order and delivery, inventory, backlog,\nOrder and cost as stored, who held the Seat and its marks (AD-15), the Seats with their link\nslots, the customer demand series and the number of Weeks. With an `ETag`; a request whose\n`If-None-Match` names it is answered 304. 403 `forbidden`, one answer, for anyone who is not\nstaff of the Game's Class, a Student included, and for a Game that does not exist or that\nthe Oversikt does not list (FR-5, NFR-7).",
+        "operationId": "getGameInsight",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameInsightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified since the ETag."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Game Insight",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/games/{game_id}/weeks": {
+      "get": {
+        "description": "Every opened Week of a Class game (Story 7.2, FR-39, AD-1, AD-25): per Week and Role the\nNetto lager, the Order and the Kost per uke as the engine stored them, for the Matrisevegg.\nThe `ETag` is tied to the Game's `version`; a request whose `If-None-Match` names it is\nanswered 304 before any Week is read. 403 `forbidden` for anyone who is not staff of the\nGame's Class, and for a Game that does not exist or that the Oversikt does not list (FR-5).",
+        "operationId": "getGameWeeks",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameWeeksOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified since the ETag."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Game Weeks",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "health_api_health_get",
@@ -11172,6 +13093,38 @@
         "summary": "View My Game Week",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/me/messages": {
+      "get": {
+        "description": "The Messages written to the User, newest first (Story 7.10, FR-40, FR-73): only those\naddressed to them in a Class they are a Student in (AD-12). Read-only: there is no route by\nwhich a Student writes, replies to or forwards a Message.",
+        "operationId": "listMyMessages",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyMessagesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "summary": "List My Messages",
+        "tags": [
+          "messaging"
         ]
       }
     }

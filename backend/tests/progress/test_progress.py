@@ -39,3 +39,42 @@ async def test_a_step_outside_the_catalogue_is_refused(klass):
     session_id = uuid.UUID(await dated(klass))
     with pytest.raises(ValueError):
         await progress.record_step(user_id, session_id, "bullwhip", NOW)
+
+
+async def test_the_funnel_counts_the_given_students_steps_and_sees_every_new_one(klass):
+    """Story 7.6: registered is the number of ids given; each stage counts those of them with the
+    step; another Student's step is left out; a step recorded here drops the cached funnel, and
+    one written past `record_step` (as another process would) is seen by the stamp."""
+    first = await student_of(klass, "f1@x.no")
+    second = await student_of(klass, "f2@x.no")
+    outside = await student_of(klass, "f3@x.no")
+    session_id = uuid.UUID(await dated(klass))
+
+    async def read(ids):
+        async with get_sessionmaker()() as s:
+            found = await progress.funnel(s, session_id, ids)
+        return found.registered, dict(found.steps)
+
+    assert await read([first, second]) == (2, dict.fromkeys(progress.FUNNEL_STEPS, 0))
+    await progress.record_step(first, session_id, "class_game", NOW)
+    await progress.record_step(outside, session_id, "class_game", NOW)
+    await progress.record_step(first, session_id, "starting_task", NOW)  # not a Trakt stage
+    registered, steps = await read([first, second])
+    assert (registered, steps[progress.Step.CLASS_GAME], steps[progress.Step.DEBRIEF]) == (2, 1, 0)
+
+    # Written past `record_step`, so nothing here drops the cache: the stamp shows it.
+    async with get_sessionmaker().begin() as s:
+        await s.execute(
+            progress.progress_steps.insert().values(
+                id=uuid.uuid7(),
+                user_id=second,
+                class_session_id=session_id,
+                step="debrief",
+                at=NOW,
+            )
+        )
+    _, steps = await read([first, second])
+    assert steps[progress.Step.DEBRIEF] == 1
+    # Other Students given: counted again for them.
+    assert (await read([outside]))[1][progress.Step.CLASS_GAME] == 1
+    assert (await read([]))[0] == 0

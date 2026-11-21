@@ -41,6 +41,32 @@ export const classStaffPath = (id: string) => `${classPath(id)}/faglaerere`;
 /** A Class session's Klasseøkt screen (Story 5.1). */
 export const classSessionPath = (id: string) => `/klasseokter/${encodeURIComponent(id)}`;
 
+/** The Oversikt of a Class session's Class games, for its staff (Story 7.1). */
+export const classOverviewPath = (id: string) => `${classSessionPath(id)}/oversikt`;
+
+/** The Oversikt again, back from Spillinnsikt (Story 7.7): focus returns to the game `gameId`, in
+ * the wall or, with `view` «tabell», in «Vis som tabell». */
+export const overviewReturnPath = (id: string, gameId: string, view: "wall" | "table" = "wall") =>
+  `${classOverviewPath(id)}?spill=${encodeURIComponent(gameId)}${view === "table" ? "&visning=tabell" : ""}`;
+
+/** Spillinnsikt: one Class game week by week, for the staff (Story 7.7); opened from «Vis som
+ * tabell», it says so, so its Oversikt crumb returns to the table. */
+export const gameInsightPath = (sessionId: string, gameId: string, view: "wall" | "table" = "wall") =>
+  `${classOverviewPath(sessionId)}/spill/${encodeURIComponent(gameId)}${view === "table" ? "?visning=tabell" : ""}`;
+
+/** The Meldingsskjema (Story 7.9): to the whole Class session, a Class game (`game`), or one
+ * Student (`student`, with the game it is written from, if any). */
+export const messagePath = (sessionId: string, to: { game?: string; student?: string } = {}) => {
+  const params = new URLSearchParams();
+  if (to.game) params.set("spill", to.game);
+  if (to.student) params.set("student", to.student);
+  const query = params.toString();
+  return `${classSessionPath(sessionId)}/melding${query ? `?${query}` : ""}`;
+};
+
+/** «Meldinger» (Story 7.10): the Messages a Class session was sent, for its staff. */
+export const sentMessagesPath = (sessionId: string) => `${classSessionPath(sessionId)}/meldinger`;
+
 /** A Student's «Velg spill og sete» in a Class session with Student choice (Story 5.17). */
 export const seatChoicePath = (id: string) => `${classSessionPath(id)}/velg-sete`;
 
