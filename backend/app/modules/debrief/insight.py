@@ -13,7 +13,6 @@ Story 7.7 is built on another branch: until it is merged, `games.service` has no
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,27 +39,27 @@ def summary_path(class_session_id: object, student_id: object) -> str:
     return f"/klasseokter/{class_session_id}/studenter/{student_id}/debrief"
 
 
-async def links(session: AsyncSession, game_id: uuid.UUID) -> Sequence[Any]:
+async def links(session: AsyncSession, game_id: uuid.UUID) -> Sequence[DebriefLink]:
     """The Explanation and Debrief summary links of every Student-held Seat of the Game; none for
     a Game outside a Class session. `session` is the caller's; the Game is read through
     `games.service`."""
     found = await games.get_game(str(game_id))
     if found is None or found.class_session_id is None:
         return []
-    make = getattr(games, "InsightLink", DebriefLink)
     offered = []
     for seat in found.seats:
         if seat.user_id is None:
             continue
         path = summary_path(found.class_session_id, seat.user_id)
-        offered.append(make(role=seat.role, kind=EXPLANATION, href=f"{path}#forklaring"))
-        offered.append(make(role=seat.role, kind=SUMMARY, href=path))
+        offered.append(DebriefLink(role=seat.role, kind=EXPLANATION, href=f"{path}#forklaring"))
+        offered.append(DebriefLink(role=seat.role, kind=SUMMARY, href=path))
     return offered
 
 
 def register() -> bool:
     """Registers `links` with Spillinnsikt when `games.service` offers the hook (Story 7.7);
-    False while it does not."""
+    False while it does not. The one place the Debrief checks for Story 7.7."""
+    # TODO(merge epic-7): register unconditionally
     hook = getattr(games, "register_insight_links", None)
     if hook is None:
         return False

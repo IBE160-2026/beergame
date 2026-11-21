@@ -9,7 +9,14 @@ followup_review_recommended: false
 context:
   - '{project-root}/.docs/implementation-artifacts/epic-9-context.md'
 warnings: ['oversized']
-deferred: []
+deferred:
+  - summary: >-
+      Register the Debrief's Spillinnsikt link provider unconditionally and add the wiring test once epic-7 (Story 7.7) and epic-9 meet.
+    evidence: |-
+      register_insight_links exists only on epic-7. Until the merge, debrief.insight.register() registers only when games.service exposes the hook (one guard, marked TODO(merge epic-7)). The provider function insight.links is tested directly in tests/debrief/test_explanation.py. The team lead takes the change at the merge.
+    location: >-
+      backend/app/modules/debrief/insight.py:register
+    severity: low
 ---
 
 <intent-contract>
