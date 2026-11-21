@@ -35,6 +35,9 @@
   `due_dropouts`/`drop_out_due` and `due_fallbacks`/`fallback_due`.
 - Story 9.13: `shared_mine` («Delt skjerm: hele kjeden»), the anonymised shared charts for a
   joined Student, locked until every joined Student has sent.
+- Story 9.14: step 4 carries `narration` and a wrong quiz answer `ai_explanation`, each the AI
+  text stored by `debrief.narration`'s `llm-batch` job before the Student first saw it, else the
+  code text; `due_narrations`/`narrate_due` are the sweep's re-enqueue of a lost job.
 - Story 9.10: `staff_quiz(user, class_session_id)` (the Class session's Debrief quiz with its
   answer keys and exclusions, `debrief_quiz.read`) and `set_quiz_exclusions` (raises
   `InvalidExclusions`, `commands.LastQuestion`, `commands.TestDeadlinePassed`); every attempt
@@ -52,19 +55,22 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy import func, select
 
 from app.analysis import moments as moment_text
+from app.analysis import narration as narration_rules
 from app.analysis import quiz as quiz_rules
 from app.analysis import sentences
 from app.analysis.facts import LARGE_ORDER
 from app.engine.settings import Role
 from app.modules.content import service as content
-from app.modules.debrief import commands, insight, rules
+from app.modules.debrief import commands, insight, narration, rules
 from app.modules.debrief.models import (
     ANSWER_MAX,
     DROPOUT_AFTER,
     EXPLANATION_MAX,
     INDIVIDUAL_STEP,
+    debrief_ai_texts,
     debrief_alone,
     debrief_explanations,
+    debrief_fact_sets,
     debrief_members,
     debrief_reflection_answers,
     debrief_releases,
@@ -147,6 +153,8 @@ __all__ = [
     "move_on_wait",
     "require_step",
     "due_releases",
+    "due_narrations",
+    "narrate_due",
     "finish_mine",
     "judge_explanation",
     "mine",
@@ -171,6 +179,11 @@ __all__ = [
 
 # Spillinnsikt's links to the Explanation and Debrief summary (registered on import).
 _LINKS = insight.links
+
+# Story 9.14: the narration's finish hook is registered on import of `narration`; the sweep's
+# re-enqueue of a lost job.
+due_narrations = narration.due_narrations
+narrate_due = narration.narrate_due
 
 
 class NotAvailable(Exception):
@@ -658,7 +671,61 @@ async def _moments(
         mostly_ai=seat.sm_excluded,
         heading=text(rendered.heading) if rendered.heading else None,
         moments=shown,
+        narration=await _narration(user_id, row, stored) if shown else None,
     )
+
+
+async def _ai_text(
+    fact_set_id: uuid.UUID, subject: str, before: datetime
+) -> RenderedTextOut | None:
+    """The facts set's stored AI text of `subject` when it was stored at or before `before`
+    (database time), so what a reader saw first never changes under them."""
+    async with get_sessionmaker()() as s:
+        found = (
+            await s.execute(
+                select(
+                    debrief_ai_texts.c.text,
+                    debrief_ai_texts.c.ai_generated,
+                    debrief_ai_texts.c.llm_call_id,
+                ).where(
+                    debrief_ai_texts.c.fact_set_id == fact_set_id,
+                    debrief_ai_texts.c.subject == subject,
+                    debrief_ai_texts.c.created_at <= before,
+                )
+            )
+        ).one_or_none()
+    if found is None or not found.text:
+        return None
+    return RenderedTextOut(
+        text=found.text, ai_generated=found.ai_generated, llm_call_id=found.llm_call_id
+    )
+
+
+async def _narration(
+    user_id: uuid.UUID, row: commands.DebriefRow, stored: games.StoredFactSet
+) -> RenderedTextOut | None:
+    """Step 4's narration (Story 9.14, FR-44, AD-7): the stored text (AI, or the code text a
+    failed call stored) when it was stored before the Student's first view of the step, the time
+    `record_facts` stored; else the code text, from the templates the Class session pinned (the
+    latest for a session locked before the pin). Fixed from that first view on."""
+    async with get_sessionmaker()() as s:
+        first_view = await s.scalar(
+            select(debrief_fact_sets.c.recorded_at).where(
+                debrief_fact_sets.c.user_id == user_id,
+                debrief_fact_sets.c.class_session_id == row.class_session_id,
+            )
+        )
+    if first_view is not None:
+        found = await _ai_text(uuid.UUID(stored.id), narration.NARRATION, first_view)
+        if found is not None:
+            return found
+    game = await games.get_game(str(row.game_id))
+    pins = game.session_runtime.pins if game and game.session_runtime else None
+    _, templates = await content.narration_templates(
+        content.pinned_version(pins, content.Kind.NARRATION_TEMPLATES)
+    )
+    code = narration_rules.render(stored.facts, templates)
+    return None if code is None else RenderedTextOut(text=code.text)
 
 
 def _text(rendered_text: sentences.RenderedText) -> RenderedTextOut:
@@ -1190,13 +1257,19 @@ async def _result(game_id: uuid.UUID, role: str, attempt: commands.AttemptRow) -
     results = []
     for answer in attempt.answers:
         question = quiz.question(answer["question_id"])
-        explanation = None
+        explanation = ai_line = None
         if not answer["correct"]:
             if stored is None and question.in_your_game is not None:
                 stored = await games.fact_set(str(game_id), role)
             own = quiz_rules.render_in_your_game(stored.facts, question) if stored else None
             text = question.explanation if own is None else f"{question.explanation} {own.text}"
             explanation = RenderedTextOut(text=text)
+            if stored is not None and question.in_your_game is not None:
+                # Story 9.14: the AI's own-game line, when stored before this attempt.
+                found = await _ai_text(
+                    uuid.UUID(stored.id), narration.quiz_subject(question.id), attempt.submitted_at
+                )
+                ai_line = found if found is not None and found.ai_generated else None
         results.append(
             QuizResultOut(
                 question_id=question.id,
@@ -1206,6 +1279,7 @@ async def _result(game_id: uuid.UUID, role: str, attempt: commands.AttemptRow) -
                 right_choice=question.answer,
                 correct=answer["correct"],
                 explanation=explanation,
+                ai_explanation=ai_line,
             )
         )
     return QuizAttemptOut(

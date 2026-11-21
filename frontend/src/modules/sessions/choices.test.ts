@@ -28,6 +28,7 @@ function session(changes: Partial<ClassSession> = {}): ClassSession {
     effort_levels: LEVELS,
     debrief_mode: "group",
     debrief_release: "open",
+    debrief_ai_text: true,
     obligatory: false,
     required_share_percent: 80,
     ...changes,
@@ -35,7 +36,7 @@ function session(changes: Partial<ClassSession> = {}): ClassSession {
 }
 
 const MARK = { obligatory: false, requiredShare: "80" };
-const OPEN = { debriefRelease: "open" as const };
+const OPEN = { debriefRelease: "open" as const, debriefAiText: true };
 
 describe("choices", () => {
   it("start from the api's values, the default level when none is in force", () => {
@@ -58,18 +59,21 @@ describe("choices", () => {
       effort_level: "careful",
       debrief_mode: "personal",
       debrief_release: "open",
+      debrief_ai_text: true,
       obligatory: false,
     });
     expect(choicesBody({ ...draft, aiMode: "rule_based" })).toEqual({
       ai_mode: "rule_based",
       debrief_mode: "personal",
       debrief_release: "open",
+      debrief_ai_text: true,
       obligatory: false,
     });
     expect(choicesBody({ ...draft, effortLevel: null })).toEqual({
       ai_mode: "llm",
       debrief_mode: "personal",
       debrief_release: "open",
+      debrief_ai_text: true,
       obligatory: false,
     });
   });
@@ -80,12 +84,19 @@ describe("choices", () => {
     expect(choicesBody(draft).debrief_release).toBe("hold");
   });
 
+  it("start from and send the Debrief's AI text (Story 9.14)", () => {
+    expect(choicesOf(session({ debrief_ai_text: false })).debriefAiText).toBe(false);
+    const draft = { ...choicesOf(session()), debriefAiText: false };
+    expect(choicesBody(draft).debrief_ai_text).toBe(false);
+  });
+
   it("send the required share only while Obligatorisk is on", () => {
     const draft = { aiMode: "rule_based" as const, effortLevel: null, debriefMode: "group" as const, ...OPEN };
     expect(choicesBody({ ...draft, obligatory: true, requiredShare: " 75 " })).toEqual({
       ai_mode: "rule_based",
       debrief_mode: "group",
       debrief_release: "open",
+      debrief_ai_text: true,
       obligatory: true,
       required_share_percent: 75,
     });

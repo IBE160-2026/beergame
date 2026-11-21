@@ -3,7 +3,7 @@
 A record is never changed: `publish` stores a new version (the next number of its kind) and a
 trigger refuses every UPDATE. The lock pins the version a Class session uses (`starting_task_pin`,
 `detected_patterns_pin`, `sentence_templates_pin`, `reflection_questions_pin` and
-`moment_templates_pin` and `debrief_quiz_pin`, registered by
+`moment_templates_pin`, `debrief_quiz_pin` and `narration_templates_pin`, registered by
 `sessions`); readers ask for
 that version, or the latest for a session locked before the pin existed. This module imports no
 feature module."""
@@ -19,6 +19,7 @@ from app.modules.content.models import Kind, content_records
 from app.modules.content.schemas import (
     DebriefQuiz,
     MomentTemplates,
+    NarrationTemplates,
     PatternSet,
     ReflectionQuestion,
     ReflectionQuestions,
@@ -32,6 +33,7 @@ __all__ = [
     "DebriefQuiz",
     "Kind",
     "MomentTemplates",
+    "NarrationTemplates",
     "PatternSet",
     "ReflectionQuestion",
     "ReflectionQuestions",
@@ -45,6 +47,8 @@ __all__ = [
     "latest_version",
     "moment_templates",
     "moment_templates_pin",
+    "narration_templates",
+    "narration_templates_pin",
     "pinned_version",
     "publish",
     "reflection_questions",
@@ -62,6 +66,7 @@ type Body = (
     | ReflectionQuestions
     | MomentTemplates
     | DebriefQuiz
+    | NarrationTemplates
 )
 
 _SCHEMAS: dict[
@@ -71,7 +76,8 @@ _SCHEMAS: dict[
     | type[SentenceTemplates]
     | type[ReflectionQuestions]
     | type[MomentTemplates]
-    | type[DebriefQuiz],
+    | type[DebriefQuiz]
+    | type[NarrationTemplates],
 ] = {
     Kind.STARTING_TASK: StartingTask,
     Kind.DETECTED_PATTERNS: PatternSet,
@@ -79,6 +85,7 @@ _SCHEMAS: dict[
     Kind.REFLECTION_QUESTIONS: ReflectionQuestions,
     Kind.MOMENT_TEMPLATES: MomentTemplates,
     Kind.DEBRIEF_QUIZ: DebriefQuiz,
+    Kind.NARRATION_TEMPLATES: NarrationTemplates,
 }
 
 
@@ -193,6 +200,15 @@ async def debrief_quiz(version: int | None) -> tuple[int, DebriefQuiz]:
     return version, quiz
 
 
+async def narration_templates(version: int | None) -> tuple[int, NarrationTemplates]:
+    """The narration templates at the pinned `version`, or the latest when None: (version, body)
+    (Story 9.14)."""
+    if version is None:
+        version = await latest_version(Kind.NARRATION_TEMPLATES)
+    templates: NarrationTemplates = await get(Kind.NARRATION_TEMPLATES, version)
+    return version, templates
+
+
 async def starting_task_pin(session: AsyncSession, _class_session: Any) -> dict[str, int]:
     """The lock's pin provider (Story 6.3, AD-23): the Starting task version a Class session
     uses from its lock on, under `SessionRuntime.pins["starting_task"]`."""
@@ -227,6 +243,12 @@ async def debrief_quiz_pin(session: AsyncSession, _class_session: Any) -> dict[s
     """The lock's pin provider (Story 9.9, AD-23): the Debrief quiz version a Class session uses
     from its lock on, under `SessionRuntime.pins["debrief_quiz"]`."""
     return {"version": await latest_version(Kind.DEBRIEF_QUIZ, session)}
+
+
+async def narration_templates_pin(session: AsyncSession, _class_session: Any) -> dict[str, int]:
+    """The lock's pin provider (Story 9.14, AD-23): the narration-template version a Class
+    session uses from its lock on, under `SessionRuntime.pins["narration_templates"]`."""
+    return {"version": await latest_version(Kind.NARRATION_TEMPLATES, session)}
 
 
 def pinned_version(pins: Any, kind: Kind | str = Kind.STARTING_TASK) -> int | None:

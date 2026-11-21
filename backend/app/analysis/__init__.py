@@ -13,4 +13,11 @@
   the facts set.
 - `quiz`: the Debrief quiz's shape, its scoring by answer key and the own-game sentence of an
   explanation from a stored facts set (`score`, `render_in_your_game`, Story 9.9, FR-46).
+- `narration`: AI text that only connects computed facts (Story 9.14, FR-44, AD-7): the output
+  schema of fact ids and template ids, `validate_ai_text` and the code narration `render`, both
+  re-exported here as `analysis.validate_ai_text` and `analysis.render`.
 """
+
+from app.analysis.narration import render, validate_ai_text
+
+__all__ = ["render", "validate_ai_text"]

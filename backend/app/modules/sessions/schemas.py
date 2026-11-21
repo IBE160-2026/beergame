@@ -201,6 +201,9 @@ class ClassSessionOut(BaseModel):
     debrief_mode: DebriefMode
     debrief_release: DebriefRelease
     """Story 9.2: whether the Debriefs open per finished game or are held until all have ended."""
+    debrief_ai_text: bool
+    """Story 9.14: whether the Debrief shows AI text (narration, quiz lines); off, it is
+    code-only and no Debrief call reaches the AI gateway."""
     inactivity_limit_hours: int
     """«Ventetid før KI tar over» in whole hours, never under 20 (Story 5.7, FR-36)."""
     obligatory: bool
@@ -366,6 +369,8 @@ class ClassSessionSaveIn(BaseModel):
     debrief_mode: DebriefMode | None = None
     debrief_release: DebriefRelease | None = None
     """Story 9.2: left out, the stored choice is kept; frozen at the Start date like the others."""
+    debrief_ai_text: bool | None = None
+    """Story 9.14: the Debrief's AI text on or off; left out, kept; frozen at the Start date."""
     dates: DatesIn | None = None
     game_settings: dict[str, Any] | None = None
     obligatory: bool | None = None

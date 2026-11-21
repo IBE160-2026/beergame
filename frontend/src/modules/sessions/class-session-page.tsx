@@ -426,7 +426,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
 const CONTENT_SIZED = "lg:[&_label]:flex-none";
 
 /**
- * KI-modus, Debrief-modus with «Når Debriefen åpner» (Story 9.2, FR-42) and Obligatorisk (Story
+ * KI-modus, Debrief-modus with «Når Debriefen åpner» (Story 9.2, FR-42) and the Bryter «KI-tekst i
+ * Debriefen» (Story 9.14, FR-15, FR-44), and Obligatorisk (Story
  * 5.5, FR-15, FR-16, FR-78, UX-DR48, UX-DR49). The
  * first two are Valgknapper while the session is unlocked and the User may change it; «Innsatsnivå»
  * shows only with LLM players, with the levels the api offers. Locked, or for an Assistant, the
@@ -573,6 +574,31 @@ function Choices({
           )}
           <p id={releaseHelpId} className="mt-2 text-body-phone text-ink-secondary">
             {shown.debriefRelease === "hold" ? c.releaseHoldHelp : c.releaseOpenHelp}
+          </p>
+        </div>
+        {/* Story 9.14 (FR-15, FR-44): the Debrief's AI text, a Bryter frozen at the Start date. */}
+        <div role="group" aria-labelledby={`${ids}-ai-text`} className="mt-6" data-debrief-ai-text="">
+          <h3 id={`${ids}-ai-text`} className="text-label text-ink">
+            {c.debriefAiText}
+          </h3>
+          {editable ? (
+            <Switch
+              id={`${ids}-ai-text-switch`}
+              className="mt-1"
+              checked={draft.debriefAiText}
+              onChange={(debriefAiText) => onChange({ ...draft, debriefAiText })}
+              labelledBy={`${ids}-ai-text`}
+              describedBy={`${ids}-ai-text-help`}
+            >
+              {draft.debriefAiText ? c.debriefAiTextOn : c.debriefAiTextOff}
+            </Switch>
+          ) : (
+            <p className="mt-2 text-body-phone text-ink lg:text-body">
+              {shown.debriefAiText ? c.debriefAiTextOn : c.debriefAiTextOff}
+            </p>
+          )}
+          <p id={`${ids}-ai-text-help`} className="mt-2 text-body-phone text-ink-secondary">
+            {shown.debriefAiText ? c.debriefAiTextOnHelp : c.debriefAiTextOffHelp}
           </p>
         </div>
       </section>

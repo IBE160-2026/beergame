@@ -19,6 +19,8 @@ export type ChoicesDraft = {
   effortLevel: string | null;
   debriefMode: DebriefMode;
   debriefRelease: DebriefRelease;
+  /** «KI-tekst i Debriefen» (Story 9.14): on, or a code-only Debrief. */
+  debriefAiText: boolean;
   obligatory: boolean;
   /** «Andel uker som kreves» as typed. */
   requiredShare: string;
@@ -38,6 +40,7 @@ export function choicesOf(item: ClassSession): ChoicesDraft {
     effortLevel: offered ? item.effort_level : (defaultLevel(item.effort_levels) ?? item.effort_level),
     debriefMode: item.debrief_mode,
     debriefRelease: item.debrief_release,
+    debriefAiText: item.debrief_ai_text,
     obligatory: item.obligatory,
     requiredShare: String(item.required_share_percent),
   };
@@ -58,6 +61,7 @@ export function choicesBody(draft: ChoicesDraft): {
   effort_level?: string;
   debrief_mode: DebriefMode;
   debrief_release: DebriefRelease;
+  debrief_ai_text: boolean;
   obligatory: boolean;
   required_share_percent?: number;
 } {
@@ -66,6 +70,7 @@ export function choicesBody(draft: ChoicesDraft): {
     ...(draft.aiMode === "llm" && draft.effortLevel ? { effort_level: draft.effortLevel } : {}),
     debrief_mode: draft.debriefMode,
     debrief_release: draft.debriefRelease,
+    debrief_ai_text: draft.debriefAiText,
     obligatory: draft.obligatory,
     ...(draft.obligatory ? { required_share_percent: Number(draft.requiredShare.trim()) } : {}),
   };

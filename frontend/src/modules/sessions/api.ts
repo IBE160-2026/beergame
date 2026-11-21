@@ -67,7 +67,14 @@ export type SettingsDraftBody = Record<string, unknown>;
  * Obligatorisk with its required share (Story 5.7). */
 export type ChoicesBody = Pick<
   ClassSessionSaveIn,
-  "ai_mode" | "effort_level" | "debrief_mode" | "debrief_release" | "obligatory" | "required_share_percent" | "allocation_method"
+  | "ai_mode"
+  | "effort_level"
+  | "debrief_mode"
+  | "debrief_release"
+  | "debrief_ai_text"
+  | "obligatory"
+  | "required_share_percent"
+  | "allocation_method"
 >;
 export type AllocationMethod = ClassSession["allocation_method"];
 type ClassSessionSaveIn = components["schemas"]["ClassSessionSaveIn"];

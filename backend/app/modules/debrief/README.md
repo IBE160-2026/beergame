@@ -202,3 +202,33 @@ The Debrief (Epic 9, FR-41 to FR-47, AD-21). Never imports `modules/players`
   same 403 `forbidden`. No Debrief write and no event (the facts set is read through
   `games.fact_set`, which stores it on its first use, as step 3 does); the screen refetches on
   `debrief:<id>`.
+
+## AI narration that only connects computed facts (Story 9.14, FR-44, FR-46, FR-34, AD-6, AD-7, AD-9)
+
+- Timing (the spine's deferred decision, closed): narration is generated on `llm-batch` in
+  `worker-batch`, deferred inside the Class game's `finish` transaction by the
+  `games.service.on_game_finished` hook `narration.py` registers (so `games` imports nothing from
+  `debrief`): one idempotent job `debrief.narrate(game_id, seat_id)` per Seat a Student ever held,
+  queueing lock `narration:<game>:<seat>`, ids only. The narration is the Seat's facts set's, so one
+  job serves every Student assigned to it. Nothing is deferred when the Class session's pinned
+  `debrief_ai_text` is off (or the session was locked before the pin). The sweep's
+  `debrief.narration` (`due_narrations`/`narrate_due`) defers the job of a Seat with no narration
+  row again 10 minutes after the finish, for 48 hours.
+- The job (`narration.narrate`): the facts set through `games.fact_set`; one `quiz_explanation`
+  call per pinned quiz question with an own-game sentence, then the `debrief_narration` call, each
+  through `app.ai.text.worded` with `analysis.validate_ai_text` as validator and the code text
+  (`analysis.render`) as fallback, scope `BudgetScope.class_session(<session>, model_config_id=
+  <the pin's config>)`; mock answer: the code's own choice of sentences (AD-17). Each result is
+  stored once in `debrief_ai_texts` (`commands.store_ai_text`, no lock, no event; registry
+  `debrief.store_ai_text` → nothing); the narration row last marks the Seat done.
+- Reads: step 4's `moments.narration` is the stored text when it was stored before the Student's
+  first view of step 4 (`debrief_fact_sets.recorded_at`), else the code text, so it never changes
+  under a reader. A wrong quiz answer's `ai_explanation` is the stored AI line when it was stored
+  before the attempt (`submitted_at`). Both database times. `ai_generated` alone drives the
+  «KI-generert, kan ta feil:» marking.
+- Dev only: `POST /api/dev/games/{game_id}/seats/{seat}/narrate[?outage=true]` runs the job now in
+  the api process; with `outage` the Seat's AI texts are deleted first and the mock fails.
+- Production setup of a model config: `python -m app.ai.cli config edit <id> --prompt
+  debrief_narration=1 --prompt quiz_explanation=1`, then measure and pin the new row; in
+  `local`/`test`/`ci` the zero-config seed does the same for the mock config.
+

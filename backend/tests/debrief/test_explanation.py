@@ -477,6 +477,7 @@ async def momented(me: str, mate: str, path: str, debrief: dict, game_id: str, e
         "mostly_ai": True,
         "heading": None,
         "moments": [],
+        "narration": None,
     }
     assert (await games.fact_set(game_id, mate_role)).facts.seat.sm_excluded
     assert len(cited()) == 2

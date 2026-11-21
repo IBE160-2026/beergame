@@ -233,6 +233,7 @@ async def save(
     debrief_mode: str,
     dates: dict[str, datetime | None] | None,
     debrief_release: str | None = None,
+    debrief_ai_text: bool | None = None,
     game_settings: dict[str, Any] | None = None,
     obligatory: bool,
     required_share_percent: int,
@@ -246,6 +247,8 @@ async def save(
         values["allocation_method"] = allocation_method
     if debrief_release is not None:
         values["debrief_release"] = debrief_release
+    if debrief_ai_text is not None:
+        values["debrief_ai_text"] = debrief_ai_text
     await session.execute(
         update(class_sessions)
         .where(class_sessions.c.id == session_id)

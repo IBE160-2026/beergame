@@ -1,10 +1,10 @@
 """What other modules may use from `games`. Writes go through `games.commands` only."""
 
 import uuid
-from collections.abc import Collection, Sequence
+from collections.abc import Awaitable, Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -107,6 +107,12 @@ __all__ = [
     "create_batch",
     "database_now",
     "finished_at",
+    "FinishedGame",
+    "FinishHook",
+    "on_game_finished",
+    "run_finish_hooks",
+    "FinishedSeat",
+    "finished_student_seats",
     "demand_series",
     "fact_set",
     "StoredFactSet",
@@ -574,3 +580,85 @@ async def complete_running_games() -> list[str]:
     process stopped between an Order and the advance (NFR-4)."""
     async with get_sessionmaker()() as session:
         return [str(game_id) for game_id in await repo.complete_running_games(session)]
+
+
+# The finish hooks (Story 9.14, AD-9): the pattern of the lock's pin providers (Story 5.11).
+
+
+@dataclass(frozen=True)
+class FinishedGame:
+    """What a finish hook is told about the Game that has just finished, ids only: its purpose,
+    its Class session (None outside one), its snapshot's pins and the Seats a Student ever held,
+    from the occupancy history (so one whose Seat an AI player took over counts too)."""
+
+    game_id: uuid.UUID
+    purpose: str
+    class_session_id: uuid.UUID | None
+    pins: Mapping[str, Any]
+    student_seat_ids: tuple[uuid.UUID, ...]
+
+
+type FinishHook = Callable[[AsyncSession, FinishedGame], Awaitable[None]]
+"""`(session, finished)`: runs inside the finishing command's transaction."""
+
+_finish_hooks: dict[str, FinishHook] = {}
+
+
+def on_game_finished(name: str, hook: FinishHook) -> None:
+    """Run `hook` inside the transaction that finishes every Game from now on (Story 9.14): the
+    Debrief defers its narration jobs there, so `games` imports nothing from the module that
+    registers. Registering the same hook again changes nothing; another under a taken name is
+    refused."""
+    known = _finish_hooks.get(name)
+    if known is not None and known is not hook:
+        raise ValueError(f"a finish hook named {name!r} is registered already")
+    _finish_hooks[name] = hook
+
+
+async def run_finish_hooks(session: AsyncSession, game_id: uuid.UUID) -> None:
+    """Called by `games.commands.finish` once the Game is finished, in its transaction: every
+    registered hook, by name. A hook's exception rolls the finish back, so hooks only defer."""
+    if not _finish_hooks:
+        return
+    game = await repo.get_game(session, game_id)
+    if game is None:
+        return
+    runtime = game["session_runtime"] or {}
+    seats = []
+    for row in await repo.occupancy_history(session, game_id):
+        if row["occupant_kind"] == OccupantKind.STUDENT and row["seat_id"] not in seats:
+            seats.append(row["seat_id"])
+    finished = FinishedGame(
+        game_id=game_id,
+        purpose=game["purpose"],
+        class_session_id=game["class_session_id"],
+        pins=runtime.get("pins") or {},
+        student_seat_ids=tuple(seats),
+    )
+    for _, hook in sorted(_finish_hooks.items()):
+        await hook(session, finished)
+
+
+@dataclass(frozen=True)
+class FinishedSeat:
+    """A Seat a Student held in a finished Class game (Story 9.14): ids, the snapshot's pins and
+    the Seat's stored facts set id (None before one is stored)."""
+
+    game_id: uuid.UUID
+    seat_id: uuid.UUID
+    pins: Mapping[str, Any]
+    fact_set_id: uuid.UUID | None
+
+
+async def finished_student_seats(
+    finished_after: datetime, finished_before: datetime
+) -> list[FinishedSeat]:
+    """Each Seat a Student ever held in a Class game that finished after `finished_after` and at
+    or before `finished_before` (database time), oldest finish first: for the Debrief's sweep,
+    which defers a lost narration job again."""
+    async with get_sessionmaker()() as session:
+        rows = await repo.finished_student_seats(session, finished_after, finished_before)
+    return [
+        FinishedSeat(row["game_id"], row["seat_id"], row["pins"] or {}, row["fact_set_id"])
+        for row in rows
+    ]

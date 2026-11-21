@@ -97,6 +97,9 @@ def test_the_worker_knows_the_llm_order_task_by_its_name():
     jobs.load_tasks()
     assert "players.place_llm_order" in jobs.app.tasks
     assert jobs.app.tasks["players.place_llm_order"].queue == jobs.AI_ORDERS
+    # Story 9.14: the Debrief's narration job, on `llm-batch` (`worker-batch`).
+    assert "app.modules.debrief.jobs" in jobs.TASK_MODULES
+    assert jobs.app.tasks["debrief.narrate"].queue == jobs.LLM_BATCH
 
 
 async def test_run_until_idle_returns_when_no_job_waits(games_db):

@@ -282,6 +282,10 @@ class MomentsOut(BaseModel):
     """Rendered from the first moment («Ditt øyeblikk: Uke 11. …»)."""
     moments: list[MomentOut]
     """By Uke; three when not `mostly_ai`."""
+    narration: RenderedTextOut | None = None
+    """Story 9.14: the line that ties the moments together. The AI's (`ai_generated`, with its
+    `llm_call_id`) when it was stored before the Student's first view of this step, else the code
+    text, fixed from that view on; None without moments."""
 
 
 class SimulatedRowOut(BaseModel):
@@ -480,6 +484,10 @@ class QuizResultOut(BaseModel):
     right_choice: str
     correct: bool
     explanation: RenderedTextOut | None
+    ai_explanation: RenderedTextOut | None = None
+    """Story 9.14 (FR-46): under a wrong answer's explanation, the AI's line tying it to the
+    Student's own Game (always `ai_generated`), when one was stored before this attempt; None
+    otherwise, and the content's explanation stands alone."""
 
 
 class QuizAttemptOut(BaseModel):

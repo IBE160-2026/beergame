@@ -1056,6 +1056,13 @@ export const nb = {
       releaseOpenHelp:
         "Studentene kan starte Debriefen så snart deres eget spill er ferdig. Da kan de fortelle om etterspørselen til Studenter som fortsatt spiller.",
       releaseHoldHelp: "Alle Debriefer åpner når det siste Klassespillet er ferdig.",
+      /** Story 9.14 (FR-15, FR-44): the Debrief's AI text, a Bryter. [ASSUMPTION] draft copy. */
+      debriefAiText: "KI-tekst i Debriefen",
+      debriefAiTextOn: "På",
+      debriefAiTextOff: "Av",
+      debriefAiTextOnHelp:
+        "En KI setter sammen en kort tekst om øyeblikkene til hver Student, merket som KI-generert. Tallene regnes alltid ut av koden.",
+      debriefAiTextOffHelp: "Debriefen viser bare tekst som er regnet ut av koden. Ingen tekst går til en KI.",
       obligatory: "Obligatorisk",
       obligatoryYes: "Ja, står i emneplanen",
       // [ASSUMPTION]
@@ -2168,6 +2175,10 @@ export const nb = {
     /** The spine's prefix of every AI text in the Debrief (driven only by `ai_generated`, Story
      * 9.14); code-rendered text never carries it. */
     aiPrefix: "KI-generert, kan ta feil:",
+    /** Story 9.14: an AI text as shown, «KI-generert, kan ta feil: «…»» (FR-34, UX-DR69). */
+    aiText: (text: string) => `KI-generert, kan ta feil: «${text}»`,
+    /** [ASSUMPTION] under an AI text: the AI may be wrong; every number is the code's (FR-44). */
+    aiNote: "Teksten er satt sammen av en KI fra tallene i spillet ditt, og kan ta feil. Tallene er regnet ut av koden.",
     /** Step 2, the reveal of customer demand (`07-debrief.png`). Its heading comes from the api,
      * rendered from the demand series. «Ordre inn: det eneste du så», «Din ordre, 24 i Uke 11», the
      * table rows and «Øvelsen heter Beer Game.» are the spine's; the rest is [ASSUMPTION] draft. */
@@ -2352,6 +2363,8 @@ export const nb = {
       explanationNote: "Det du skrev før avsløringen, slik du sendte den.",
       /** [ASSUMPTION] the moments could not be read; «Prøv igjen» beside it. */
       loadFailed: "Øyeblikkene kunne ikke hentes.",
+      /** [ASSUMPTION] Story 9.14: the label of the line that ties the moments together. */
+      narration: "Øyeblikkene sammen",
     },
     /** The end of step 4: Kjedens regning with the Debrief's rows and lines, and «Fullfør
      * Debriefen» (Story 9.8, UX-DR36, EXPERIENCE.md → Debrief). «Simulert, samme kunder», the

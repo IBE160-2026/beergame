@@ -113,6 +113,12 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
 - `register_debrief_state` holds `debrief.rules.state`; Hjem's `game.debrief` and Stegene's
   `held` come from it. `debrief_session_of`, `held_debrief_sessions` and
   `debrief_released_mail_context` serve `modules/debrief` and `messaging`.
+- `class_sessions.debrief_ai_text` (migration 0112, Story 9.14): the Debrief's AI text, on by
+  default. «Lagre Klasseøkt» takes `debrief_ai_text`; left out it is kept; once locked a change is
+  409 `session_locked` (`{"debrief_ai_text": "locked"}`). The lock pins
+  `SessionRuntime.pins["debrief_ai_text"] = {enabled, model_config_id, effort_level}`
+  (`debrief_ai_text_pin`): on only with the switch on and a model config on the session, whose
+  row it marks referenced. The narration templates are pinned too (`narration_templates`).
 
 ## AI mode, Effort level and Debrief mode (Story 5.5)
 

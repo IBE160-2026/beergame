@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import type { ChainBillRow, ChainBillTotal } from "@/components/chain-bill";
+import { nb } from "@/copy/nb";
 import { api } from "@/lib/api/client";
 import { request } from "@/lib/api/mutation";
 import type { components } from "@/lib/api/schema";
@@ -205,6 +206,12 @@ export type Moments = components["schemas"]["MomentsOut"];
 export type Moment = components["schemas"]["MomentOut"];
 /** Text the Debrief shows as written: `ai_generated` alone decides the «KI-generert» prefix. */
 export type RenderedText = components["schemas"]["RenderedTextOut"];
+
+/** The text as shown (Story 9.14, FR-34, UX-DR69): AI text as «KI-generert, kan ta feil: «…»»,
+ * code-rendered text as written. Driven only by `ai_generated`. */
+export function shownText(text: RenderedText): string {
+  return text.ai_generated ? nb.debrief.aiText(text.text) : text.text;
+}
 
 export const debriefStepKey = (debriefId: string, step: number) => [...debriefsKey, debriefId, "steps", step] as const;
 

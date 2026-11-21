@@ -10,6 +10,7 @@ import { formatNumber } from "@/lib/number-format";
 import { WeekTable } from "@/modules/games/week-table-view";
 import { roleName } from "@/modules/sessions/sessions";
 
+import { AiNote, DebriefText as Text } from "./ai-text";
 import { DEBRIEF_STEPS, type Debrief, type Moment, type Moments, type RenderedText, useDebriefStep, useMyExplanation } from "./api";
 
 const copy = nb.debrief.moments;
@@ -21,7 +22,9 @@ const CELL = "py-1 pr-3 text-right tabular-nums lining-nums";
  * Debrief step 4, the Student's own moments (Story 9.7, FR-44, FR-41, UX-DR31, `07-debrief.png`):
  * shown once every reflection question is answered; the api checks the gate. The heading and every
  * sentence are the api's, rendered by code from the stored facts (`ai_generated` false, so no
- * «KI-generert» prefix). The moments are paged one at a time; «Forrige» and «Neste» move focus to
+ * «KI-generert» prefix). Under the heading, the line that ties the moments together (Story 9.14):
+ * the AI's, marked «KI-generert, kan ta feil: «…»» with the note that it can be wrong, or the code's
+ * own; whichever the api fixed at this Student's first view. The moments are paged one at a time; «Forrige» and «Neste» move focus to
  * the new moment's heading. Each shows «Dette så du» (the play screen's Graf over tabell at that
  * Uke, with the Order at nå), «Dette regnet du», «Dette kostet det senere», the pattern of the
  * Uke and «Dette så de andre i Uke N», beside the Student's own Explanation, which only they see
@@ -59,15 +62,29 @@ export function MomentsStep({ debrief }: { debrief: Debrief }) {
           <p>{copy.mostlyAiChain}</p>
         </div>
       ) : (
-        <Paged debrief={debrief} moments={moments} />
+        <>
+          {moments.narration ? <Narration text={moments.narration} /> : null}
+          <Paged debrief={debrief} moments={moments} />
+        </>
       )}
     </section>
   );
 }
 
-/** Code-rendered text as written; AI text (Story 9.14) gets its prefix from `ai_generated` only. */
-function Text({ text }: { text: RenderedText }) {
-  return <>{text.ai_generated ? `${nb.debrief.aiPrefix} ${text.text}` : text.text}</>;
+/** The line that ties the moments together (Story 9.14, FR-44): AI text only when `ai_generated`. */
+function Narration({ text }: { text: RenderedText }) {
+  const id = useId();
+  return (
+    <div role="group" aria-labelledby={`${id}-label`} data-moments-narration="" className={`${LINE} mt-4 max-w-3xl text-ink`}>
+      <h3 id={`${id}-label`} className={LABEL}>
+        {copy.narration}
+      </h3>
+      <p className="mt-1">
+        <Text text={text} />
+      </p>
+      <AiNote text={text} className="mt-1" />
+    </div>
+  );
 }
 
 function Paged({ debrief, moments }: { debrief: Debrief; moments: Moments }) {

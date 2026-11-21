@@ -13,8 +13,10 @@ that evaluates the joined set settles it first (dropouts, the opener's hand-over
 the Class session's release once and tells each Student who holds a Seat through
 `platform/notify` (`debrief.release`). `set_quiz_exclusions` (Story 9.10) locks the Class
 session row instead, records the change through `platform/audit`, emits `session:<id>` and tells
-each Student whose last attempt it covers (`debrief.set_quiz_exclusions`). Arguments are ids and
-the Student's text only."""
+each Student whose last attempt it covers (`debrief.set_quiz_exclusions`). `store_ai_text`
+(Story 9.14) stores a facts set's narration or quiz line once, from the `llm-batch` job: no lock
+and no event, since no reader's text changes (it is fixed at the first view). Arguments are ids
+and the Student's text only."""
 
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
@@ -31,6 +33,7 @@ from app.modules.debrief.models import (
     DROPOUT_AFTER,
     FALLBACK_AFTER,
     INDIVIDUAL_STEP,
+    debrief_ai_texts,
     debrief_alone,
     debrief_explanations,
     debrief_fact_sets,
@@ -1148,3 +1151,48 @@ async def set_quiz_exclusions(
 
 # Story 9.12: presence. Registered at import, which the app does at startup through the routes.
 events.on_heartbeat(touch)
+
+
+async def store_ai_text(
+    fact_set_id: uuid.UUID,
+    subject: str,
+    text: str,
+    *,
+    ai_generated: bool,
+    llm_call_id: uuid.UUID | None,
+) -> bool:
+    """Store a facts set's AI text once (Story 9.14, AD-7): the narration (`narration`) or a quiz
+    question's line (`quiz:<question_id>`), as `{text, ai_generated, llm_call_id}`. A row already
+    stored stays (a job delivered twice); returns whether this call stored it. No lock and no
+    event: the text a Student reads is fixed at their first view, so no open page changes."""
+    async with get_sessionmaker().begin() as session:
+        stored = await session.scalar(
+            insert(debrief_ai_texts)
+            .values(
+                fact_set_id=fact_set_id,
+                subject=subject,
+                text=text,
+                ai_generated=ai_generated,
+                llm_call_id=llm_call_id,
+                # The time of the insert, not of the transaction's start, so a Student's first
+                # view that comes before this row commits never counts as after it.
+                created_at=func.clock_timestamp(),
+            )
+            .on_conflict_do_nothing(
+                index_elements=[debrief_ai_texts.c.fact_set_id, debrief_ai_texts.c.subject]
+            )
+            .returning(debrief_ai_texts.c.subject)
+        )
+    if stored is not None:
+        log.info("debrief_ai_text_stored", subject=subject.split(":")[0], ai_generated=ai_generated)
+    return stored is not None
+
+
+async def clear_ai_texts(fact_set_id: uuid.UUID) -> None:
+    """Delete a facts set's AI texts: the local dev narration (`debrief.dev`) only, so an
+    end-to-end test can narrate a Seat again with the mock failing. Never in production (the dev
+    router is not mounted there)."""
+    async with get_sessionmaker().begin() as session:
+        await session.execute(
+            debrief_ai_texts.delete().where(debrief_ai_texts.c.fact_set_id == fact_set_id)
+        )

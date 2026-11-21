@@ -894,3 +894,43 @@ async def insert_fact_set(session: AsyncSession, values: dict[str, Any]) -> None
         .values(**values)
         .on_conflict_do_nothing(index_elements=[fact_sets.c.game_id, fact_sets.c.seat_id])
     )
+
+
+async def finished_student_seats(
+    session: AsyncSession, finished_after: datetime, finished_before: datetime
+) -> list[RowMapping]:
+    """Each Seat a Student ever held in a Class game that finished inside the window (database
+    time), oldest finish first: `game_id`, `seat_id`, the snapshot's `pins` and the Seat's stored
+    `fact_set_id` (None before one is stored) (Story 9.14)."""
+    held = (
+        select(seat_occupancy.c.seat_id)
+        .where(
+            seat_occupancy.c.seat_id == seats.c.id,
+            seat_occupancy.c.occupant_kind == "student",
+        )
+        .exists()
+    )
+    result = await session.execute(
+        select(
+            games.c.id.label("game_id"),
+            seats.c.id.label("seat_id"),
+            games.c.session_runtime["pins"].label("pins"),
+            fact_sets.c.id.label("fact_set_id"),
+        )
+        .select_from(
+            games.join(game_weeks, (game_weeks.c.game_id == games.c.id) & game_weeks.c.finished)
+            .join(seats, seats.c.game_id == games.c.id)
+            .outerjoin(
+                fact_sets,
+                (fact_sets.c.game_id == games.c.id) & (fact_sets.c.seat_id == seats.c.id),
+            )
+        )
+        .where(
+            games.c.class_session_id.is_not(None),
+            game_weeks.c.created_at > finished_after,
+            game_weeks.c.created_at <= finished_before,
+            held,
+        )
+        .order_by(game_weeks.c.created_at, games.c.id, seats.c.position)
+    )
+    return list(result.mappings())

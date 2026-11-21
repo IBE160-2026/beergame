@@ -32,6 +32,7 @@ import {
   sharedCostRows,
   sharedNetRows,
   sharedPath,
+  shownText,
   waitingFor,
   withAnswer,
   withAttempt,
@@ -236,6 +237,19 @@ describe("the own moments (Story 9.7)", () => {
     for (const line of [copy.heading, copy.mostlyAi, copy.mostlyAiChain, copy.previous, copy.next, copy.explanationNote, copy.loadFailed]) {
       expect(line).not.toMatch(/!|flink|bra jobbet|feil av/i);
     }
+  });
+});
+
+describe("AI text in the Debrief (Story 9.14)", () => {
+  it("marks AI text by `ai_generated` alone, with the text in «», and leaves code text as written", () => {
+    expect(shownText({ text: "I Uke 3 bestilte du 12.", ai_generated: true, llm_call_id: "01a1" })).toBe(
+      "KI-generert, kan ta feil: «I Uke 3 bestilte du 12.»",
+    );
+    expect(shownText({ text: "I Uke 3 bestilte du 12.", ai_generated: false, llm_call_id: null })).toBe(
+      "I Uke 3 bestilte du 12.",
+    );
+    expect(nb.debrief.aiText("x").startsWith(nb.debrief.aiPrefix)).toBe(true);
+    for (const line of [nb.debrief.aiNote, nb.debrief.moments.narration]) expect(line).not.toMatch(/!|flink|bra jobbet/i);
   });
 });
 

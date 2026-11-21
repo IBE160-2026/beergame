@@ -91,6 +91,8 @@ GROUP_TABLES = {"debrief_members", "debrief_step_marks"}
 """The tables of revision 0110 (Story 9.11)."""
 ALONE_TABLES = {"debrief_alone"}
 """The table of revision 0111 (Story 9.12)."""
+NARRATION_TABLES = {"debrief_ai_texts"}
+"""The table of revision 0112 (Story 9.14)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -107,8 +109,9 @@ HEAD_TABLES = (
     | EXCLUSION_TABLES
     | GROUP_TABLES
     | ALONE_TABLES
+    | NARRATION_TABLES
 )
-HEAD = "0111"  # 0111 lets a Student of a Group debrief go on alone (Story 9.12)
+HEAD = "0112"  # 0112 stores the Debrief's AI text and its switch (Story 9.14)
 
 
 def reset_schema(url: str) -> None:
@@ -291,6 +294,19 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
 
+    # 0112 (Story 9.14): the narration templates, the AI-text switch and the stored AI texts.
+    assert "debrief_ai_text" in columns(url, "class_sessions")
+    found = "SELECT body FROM content_records WHERE kind = 'narration_templates'"
+    [(narration,)] = rows(url, found)
+    assert "narration-orders" in [t["id"] for t in narration["templates"]]
+
+    command.downgrade(cfg, "0111")
+    assert NARRATION_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "debrief_ai_texts_immutable")
+    assert "debrief_ai_text" not in columns(url, "class_sessions")
+    assert "narration_templates" not in definition(url, "ck_content_records_kind")
+    gone = "SELECT count(*) FROM content_records WHERE kind = 'narration_templates'"
+    assert rows(url, gone) == [(0,)]
     command.downgrade(cfg, "0110")
     assert ALONE_TABLES.isdisjoint(tables(url))
     assert "last_seen_at" not in columns(url, "debrief_members")

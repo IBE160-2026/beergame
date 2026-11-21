@@ -1,4 +1,4 @@
-"""The tables owned by `modules/debrief` (Stories 9.2, 9.3, 9.6 to 9.10, AD-21). Written by
+"""The tables owned by `modules/debrief` (Stories 9.2, 9.3, 9.6 to 9.10, 9.14, AD-21). Written by
 `debrief.commands` only."""
 
 from datetime import timedelta
@@ -210,6 +210,25 @@ debrief_fact_sets = Table(
     Column("game_id", Uuid, ForeignKey("games.id", ondelete="CASCADE"), nullable=False),
     Column("fact_set_id", Uuid, ForeignKey("fact_sets.id", ondelete="CASCADE"), nullable=False),
     Column("recorded_at", DateTime(timezone=True), nullable=False),
+)
+
+debrief_ai_texts = Table(
+    "debrief_ai_texts",
+    metadata,
+    # The AI text of a facts set (Story 9.14, FR-44, FR-46, AD-7): the narration (`narration`) and
+    # each Debrief quiz question's own-game line (`quiz:<question_id>`), as
+    # `{text, ai_generated, llm_call_id}`; a rejected or failed call stores the code text. Written
+    # once by the `llm-batch` job and never changed (a trigger refuses updates).
+    Column("fact_set_id", Uuid, ForeignKey("fact_sets.id", ondelete="CASCADE"), primary_key=True),
+    Column("subject", Text, primary_key=True),
+    Column("text", Text, nullable=False),
+    Column("ai_generated", Boolean, nullable=False),
+    Column("llm_call_id", Uuid, nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint(
+        "subject = 'narration' OR subject LIKE 'quiz:%'", name="ck_debrief_ai_texts_subject"
+    ),
+    CheckConstraint("ai_generated = (llm_call_id IS NOT NULL)", name="ck_debrief_ai_texts_marking"),
 )
 
 debrief_summaries = Table(

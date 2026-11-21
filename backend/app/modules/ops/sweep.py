@@ -150,6 +150,9 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # falls back to a Personal debrief for each Student who has not finished.
     DueAction("debrief.dropouts", debrief.due_dropouts, debrief.drop_out_due),
     DueAction("debrief.fallback", debrief.due_fallbacks, debrief.fallback_due),
+    # Story 9.14 (AD-9): defer the narration job of a Seat again when it was lost (no narration
+    # stored ten minutes after its Class game finished).
+    DueAction("debrief.narration", debrief.due_narrations, debrief.narrate_due),
     # Story 5.14: remind every Student of a Play, Debrief or Test deadline 24 hours ahead, once
     # per deadline time (FR-18). The reminders join the next minute's digest claim.
     DueAction(

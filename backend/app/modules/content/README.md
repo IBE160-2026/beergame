@@ -34,3 +34,10 @@ schema (`schemas.py`). Kinds: `starting_task` (Story 6.3), `detected_patterns` (
   of `MOMENT_TEMPLATES`, each using only its values, no exclamation mark and no cause word;
   `analysis.moments.render` fills them (AD-7). The lock pins the version under
   `SessionRuntime.pins["moment_templates"]` (`moment_templates_pin`).
+- Version 1 of the narration templates (Story 9.14) is stored by migration 0112 (draft copy): the
+  sentences an LLM may connect with fact ids (`narration-orders`, `narration-supply-line`,
+  `narration-later-cost`, `narration-weeks`). Their shape is
+  `analysis.narration.NarrationTemplates`: exactly those ids, slots `<value>_<n>` for the `n`-th
+  cited fact, every cited fact used, no cause word. The lock pins the version under
+  `SessionRuntime.pins["narration_templates"]` (`narration_templates_pin`).
+

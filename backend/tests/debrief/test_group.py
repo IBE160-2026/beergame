@@ -46,7 +46,9 @@ SHORT = {
 """Two Uker the Students order themselves; the game finishes with the second."""
 
 
-async def played(klass: str, n: int, ordering: int, mode: str = "group") -> tuple[str, str]:
+async def played(
+    klass: str, n: int, ordering: int, mode: str = "group", **saved: object
+) -> tuple[str, str]:
     """A locked Class session with `n` Students in one Class game of two Uker, played (the first
     `ordering` Students order themselves, the rest of the Seats by rule) to its end. Returns the
     session and game ids."""
@@ -56,7 +58,7 @@ async def played(klass: str, n: int, ordering: int, mode: str = "group") -> tupl
         LECTURER,
         "PUT",
         f"/api/class-sessions/{session_id}",
-        json={"ai_mode": "rule_based", "debrief_mode": mode, "game_settings": SHORT},
+        json={"ai_mode": "rule_based", "debrief_mode": mode, "game_settings": SHORT, **saved},
     )
     assert saved.status_code == 200, saved.text
     assert (await confirm(session_id, (await draw(session_id)).json()["draft"])).status_code == 200

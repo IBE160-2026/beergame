@@ -775,6 +775,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         ai_mode=AiMode(row["ai_mode"]),
         debrief_mode=DebriefMode(row["debrief_mode"]),
         debrief_release=DebriefRelease(row["debrief_release"]),
+        debrief_ai_text=row["debrief_ai_text"],
         inactivity_limit_hours=row["inactivity_limit_hours"],
         obligatory=row["obligatory"],
         required_share_percent=row["required_share_percent"],
@@ -848,6 +849,7 @@ async def save_session(
     effort_level: str | None = None,
     debrief_mode: DebriefMode | None = None,
     debrief_release: DebriefRelease | None = None,
+    debrief_ai_text: bool | None = None,
     dates: DatesIn | None = None,
     game_settings: Mapping[str, Any] | None = None,
     obligatory: bool | None = None,
@@ -860,17 +862,18 @@ async def save_session(
     in the same transaction, or raise `LlmUnavailableError` and change nothing. With LLM players
     the Effort level is `effort_level`, else the one in force, else the config's default; a
     changed level the config does not offer raises `InvalidEffortLevel`. With Rule-based players
-    no level is in force. `debrief_mode` and `debrief_release` (Story 9.2), None, keep the stored
-    ones. With `game_settings` the
+    no level is in force. `debrief_mode` and `debrief_release` (Story 9.2) and `debrief_ai_text`
+    (Story 9.14), None, keep the stored ones. With `game_settings` the
     draft is judged by `judge_settings` and stored, or `InvalidSettings` is raised. With `dates`
     the four dates are replaced under the rules of `judge_dates`; a change emits `user:<id>`
     once per registered Student of the Class. `obligatory`, `required_share_percent` and
     `inactivity_limit_hours` (Story 5.7), None, keep their values; a changed share outside 1 to
     100 or limit under 20 raises `InvalidSessionValues`, and switching the mark on enqueues one
     `OBLIGATORY_NOTICE` per registered Student. Once locked, a changed AI mode, Effort level,
-    Debrief mode, Debrief release, Game settings, obligatory mark, share or Inactivity limit raise
-    `SessionLocked`. `allocation_method` (Story 5.17), None, keeps the method; a change to
-    `student_choice` is judged by `_judge_method` and opens the choice (`_open_student_choice`).
+    Debrief mode, Debrief release, Debrief AI text, Game settings, obligatory mark, share or
+    Inactivity limit raise `SessionLocked`. `allocation_method` (Story 5.17), None, keeps the
+    method; a change to `student_choice` is judged by `_judge_method` and opens the choice
+    (`_open_student_choice`).
     None when the User may not manage the Class; raises `ClassArchived`."""
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, session_id)
@@ -890,6 +893,7 @@ async def save_session(
         new_settings: GameSettings | None = None
         debrief = debrief_mode.value if debrief_mode is not None else row["debrief_mode"]
         release = debrief_release.value if debrief_release is not None else row["debrief_release"]
+        ai_text = row["debrief_ai_text"] if debrief_ai_text is None else debrief_ai_text
         config_id = row["model_config_id"]
         offered = (
             await config.offered_effort_levels(config_id, session=s)
@@ -927,6 +931,7 @@ async def save_session(
                         ),
                         ("debrief_mode", debrief != row["debrief_mode"]),
                         ("debrief_release", release != row["debrief_release"]),
+                        ("debrief_ai_text", ai_text != row["debrief_ai_text"]),
                         ("obligatory", marked != row["obligatory"]),
                         ("required_share_percent", share != row["required_share_percent"]),
                         ("inactivity_limit_hours", limit != row["inactivity_limit_hours"]),
@@ -987,6 +992,7 @@ async def save_session(
             effort_level=level,
             debrief_mode=debrief,
             debrief_release=release,
+            debrief_ai_text=ai_text,
             dates=changed,
             game_settings=new_settings.model_dump(mode="json") if new_settings else None,
             obligatory=marked,
@@ -2897,6 +2903,39 @@ register_pin_provider(content.Kind.REFLECTION_QUESTIONS.value, content.reflectio
 register_pin_provider(content.Kind.MOMENT_TEMPLATES.value, content.moment_templates_pin)
 # Story 9.9: the Debrief quiz.
 register_pin_provider(content.Kind.DEBRIEF_QUIZ.value, content.debrief_quiz_pin)
+# Story 9.14: the narration templates, and whether the Debrief shows AI text, with the model
+# config and Effort level its calls use.
+register_pin_provider(content.Kind.NARRATION_TEMPLATES.value, content.narration_templates_pin)
+
+
+DEBRIEF_AI_TEXT_PIN = "debrief_ai_text"
+"""The pin of the Debrief's AI-text switch in `SessionRuntime.pins` (Story 9.14)."""
+
+DEBRIEF_NARRATION = "debrief_narration"
+"""The purpose a model config must name a prompt for before the Debrief uses it (Story 9.14)."""
+
+
+async def debrief_ai_text_pin(session: AsyncSession, class_session: Mapping[str, Any]) -> Any:
+    """The lock's pin provider (Story 9.14, FR-15, FR-44, AD-4): `{enabled, model_config_id,
+    effort_level}`. On only when the Lecturer left the switch on and the Class session holds a
+    model config whose `prompts` map names the Debrief's narration (a config made before Story
+    9.14 does not: its Debrief stays code-only); that config is then marked referenced, so the
+    prompts it names never change."""
+    config_id = class_session.get("model_config_id")
+    enabled = bool(class_session.get("debrief_ai_text", True)) and config_id is not None
+    if enabled:
+        found = await config.get(config_id, session=session)
+        enabled = found is not None and DEBRIEF_NARRATION in found.spec.prompts
+    if enabled:
+        await config.mark_referenced(config_id, session=session)
+    return {
+        "enabled": enabled,
+        "model_config_id": str(config_id) if enabled else None,
+        "effort_level": class_session["effort_level"] if enabled else None,
+    }
+
+
+register_pin_provider(DEBRIEF_AI_TEXT_PIN, debrief_ai_text_pin)
 
 
 class ProviderKeyMissing(Exception):

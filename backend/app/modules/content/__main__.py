@@ -5,6 +5,7 @@
     uv run python -m app.modules.content sentence_templates path/to/templates.json
     uv run python -m app.modules.content moment_templates path/to/moment-templates.json
     uv run python -m app.modules.content debrief_quiz path/to/debrief-quiz.json
+    uv run python -m app.modules.content narration_templates path/to/narration-templates.json
 
 The file is validated like every record; the new version is printed. Class sessions locked from
 then on pin it; sessions locked before keep theirs. No code change is needed for new items."""

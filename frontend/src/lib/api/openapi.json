@@ -1180,6 +1180,10 @@
             "title": "Created At",
             "type": "string"
           },
+          "debrief_ai_text": {
+            "title": "Debrief Ai Text",
+            "type": "boolean"
+          },
           "debrief_deadline": {
             "anyOf": [
               {
@@ -1405,6 +1409,7 @@
           "ai_mode",
           "debrief_mode",
           "debrief_release",
+          "debrief_ai_text",
           "inactivity_limit_hours",
           "obligatory",
           "required_share_percent",
@@ -1463,6 +1468,17 @@
                 "type": "null"
               }
             ]
+          },
+          "debrief_ai_text": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debrief Ai Text"
           },
           "debrief_mode": {
             "anyOf": [
@@ -3528,6 +3544,16 @@
             "title": "Mostly Ai",
             "type": "boolean"
           },
+          "narration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenderedTextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "role": {
             "$ref": "#/components/schemas/Role"
           },
@@ -4202,6 +4228,16 @@
       "QuizResultOut": {
         "description": "One question of a scored attempt, in the order shown: the Student's choice, the right one\nand, when the choice was wrong, the explanation (the content's text, then the sentence about\nthe Student's own Game rendered by code from the facts set of their Seat, AD-7).",
         "properties": {
+          "ai_explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenderedTextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "choices": {
             "items": {
               "$ref": "#/components/schemas/QuizChoiceOut"
@@ -9085,7 +9121,7 @@
         ]
       },
       "put": {
-        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level`, `debrief_mode` and `debrief_release` (FR-16, FR-42, FR-78), left out, keep\ntheir values; a changed `debrief_release` once locked answers 409 `session_locked` too. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).\n\n`game_settings.capacity` (Story 5.15) is `{role: units}` or null: one Role or every Role\ncapped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a\nnon-empty capacity answers 422 `feature_disabled` (`{\"capacity\": \"feature_disabled\"}`).\n\n`game_settings.info_visibility` (Story 5.16) is `{upstream, downstream}`, two booleans that\nlet each Seat see its neighbour's inventory and backlog; anything else is `info_visibility`\n`invalid`. While `FEATURE_INFO_VISIBILITY` is off a view switched on answers 422\n`feature_disabled` (`{\"info_visibility\": \"feature_disabled\"}`).\n\n`obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,\nFR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit\nunder 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once\nlocked a changed one answers 409 `session_locked`. Switching the mark on tells each\nregistered Student through the day's digest mail.\n\n`allocation_method` (Story 5.17, FR-21), left out, keeps the method. `student_choice` creates\nempty Class games for the registered Students and tells each of them through the day's digest\nmail that they may choose a Class game and a Seat. A changed method answers 422\n`feature_disabled` (`{\"allocation_method\": \"feature_disabled\"}`) for Student choice while\n`FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409\n`allocation_confirmed` (`{\"allocation_method\": \"confirmed\"}`) once an allocation is confirmed:\nStudent choice is final once saved.",
+        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level`, `debrief_mode`, `debrief_release` and `debrief_ai_text` (FR-15, FR-16, FR-42,\nFR-78), left out, keep their values; a changed `debrief_release` or `debrief_ai_text` once\nlocked answers 409 `session_locked` too. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).\n\n`game_settings.capacity` (Story 5.15) is `{role: units}` or null: one Role or every Role\ncapped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a\nnon-empty capacity answers 422 `feature_disabled` (`{\"capacity\": \"feature_disabled\"}`).\n\n`game_settings.info_visibility` (Story 5.16) is `{upstream, downstream}`, two booleans that\nlet each Seat see its neighbour's inventory and backlog; anything else is `info_visibility`\n`invalid`. While `FEATURE_INFO_VISIBILITY` is off a view switched on answers 422\n`feature_disabled` (`{\"info_visibility\": \"feature_disabled\"}`).\n\n`obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,\nFR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit\nunder 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once\nlocked a changed one answers 409 `session_locked`. Switching the mark on tells each\nregistered Student through the day's digest mail.\n\n`allocation_method` (Story 5.17, FR-21), left out, keeps the method. `student_choice` creates\nempty Class games for the registered Students and tells each of them through the day's digest\nmail that they may choose a Class game and a Seat. A changed method answers 422\n`feature_disabled` (`{\"allocation_method\": \"feature_disabled\"}`) for Student choice while\n`FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409\n`allocation_confirmed` (`{\"allocation_method\": \"confirmed\"}`) once an allocation is confirmed:\nStudent choice is final once saved.",
         "operationId": "saveClassSession",
         "parameters": [
           {

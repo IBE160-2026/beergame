@@ -25,8 +25,11 @@ export async function liveClassGame(
     aiMode = "llm",
     width = 360,
     gameSettings = {},
+    debriefMode,
   }: {
     aiMode?: "llm" | "rule_based";
+    /** The Class session's Debrief mode; left out, the session's default (Story 9.14). */
+    debriefMode?: "group" | "personal";
     width?: number;
     /** More Game settings for the Class session, over `guided_weeks: 0` (Story 6.18: a short game). */
     gameSettings?: Record<string, unknown>;
@@ -74,6 +77,7 @@ export async function liveClassGame(
     const saved = await lecturer.request.put(`/api/class-sessions/${sessionId}`, {
       data: {
         ai_mode: aiMode,
+        ...(debriefMode ? { debrief_mode: debriefMode } : {}),
         dates: { start_at, play_deadline, debrief_deadline, test_deadline },
         game_settings: { guided_weeks: 0, ...gameSettings },
       },

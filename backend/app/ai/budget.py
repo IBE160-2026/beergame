@@ -47,6 +47,10 @@ class BudgetScope:
     kind: ScopeKind
     id: uuid.UUID
     effort_level: str | None = field(default=None, compare=False)
+    model_config_id: uuid.UUID | None = field(default=None, compare=False)
+    """The model config a Class session's call uses, as its caller pinned it (the Debrief's
+    `debrief_ai_text` pin, Story 9.14); not part of equality. Without it a Class session scope
+    has no config (`scope_unresolved`)."""
 
     @classmethod
     def evaluation(
@@ -56,9 +60,14 @@ class BudgetScope:
 
     @classmethod
     def class_session(
-        cls, class_session_id: uuid.UUID | str, *, effort_level: str | None = None
+        cls,
+        class_session_id: uuid.UUID | str,
+        *,
+        effort_level: str | None = None,
+        model_config_id: uuid.UUID | str | None = None,
     ) -> BudgetScope:
-        return cls("class_session", uuid.UUID(str(class_session_id)), effort_level)
+        config_id = None if model_config_id is None else uuid.UUID(str(model_config_id))
+        return cls("class_session", uuid.UUID(str(class_session_id)), effort_level, config_id)
 
 
 @dataclass(frozen=True)

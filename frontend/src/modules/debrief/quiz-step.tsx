@@ -10,6 +10,7 @@ import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 import { useAction } from "@/lib/api/mutation";
 
+import { AiNote, DebriefText as Text } from "./ai-text";
 import {
   DEBRIEF_STEPS,
   type Debrief,
@@ -17,7 +18,6 @@ import {
   type QuizAttempt,
   quizAnswers,
   quizKey,
-  type RenderedText,
   submitQuiz,
   useMyQuiz,
   useMySummary,
@@ -229,6 +229,15 @@ function Result({
                 <Text text={each.explanation} />
               </p>
             ) : null}
+            {/* Story 9.14 (FR-46): the AI's line tying the answer to the Student's own game. */}
+            {each.explanation && each.ai_explanation ? (
+              <div data-quiz-ai-explanation="" className="mt-2">
+                <p className={`${LINE} text-ink`}>
+                  <Text text={each.ai_explanation} />
+                </p>
+                <AiNote text={each.ai_explanation} className="mt-1" />
+              </div>
+            ) : null}
           </QuizChoice>
         ))}
       </div>
@@ -237,7 +246,3 @@ function Result({
   );
 }
 
-/** Code-rendered text as written; AI text (Story 9.14) gets its prefix from `ai_generated` only. */
-function Text({ text }: { text: RenderedText }) {
-  return <>{text.ai_generated ? `${nb.debrief.aiPrefix} ${text.text}` : text.text}</>;
-}

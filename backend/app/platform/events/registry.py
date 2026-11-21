@@ -125,6 +125,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # The facts set of a Student's own moments recorded at their first view of step 4
         # (Story 9.7, AD-7): the Debrief row locked; one recorded already emits nothing.
         "debrief.record_facts": frozenset({"debrief"}),
+        # A facts set's narration or quiz line stored by the `llm-batch` job (Story 9.14): no
+        # event, since the text a Student reads is fixed at their first view.
+        "debrief.store_ai_text": frozenset(),
         # A Debrief finished (Story 9.8, FR-47, AD-16): the Debrief row locked; the `debrief`
         # step recorded in the same transaction emits `user` and `session`. A summary stored
         # already emits nothing.

@@ -525,8 +525,9 @@ export interface paths {
          *     the earlier one when only it changed, `required` once locked), 409 `deadline_passed`
          *     (`passed`). Dates count to the whole minute.
          *
-         *     `effort_level`, `debrief_mode` and `debrief_release` (FR-16, FR-42, FR-78), left out, keep
-         *     their values; a changed `debrief_release` once locked answers 409 `session_locked` too. With LLM
+         *     `effort_level`, `debrief_mode`, `debrief_release` and `debrief_ai_text` (FR-15, FR-16, FR-42,
+         *     FR-78), left out, keep their values; a changed `debrief_release` or `debrief_ai_text` once
+         *     locked answers 409 `session_locked` too. With LLM
          *     players a changed Effort level the model config does not offer answers 422
          *     `invalid_effort_level` (`{"effort_level": "not_offered"}`); with Rule-based players no level
          *     is in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,
@@ -2724,6 +2725,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Debrief Ai Text */
+            debrief_ai_text: boolean;
             /** Debrief Deadline */
             debrief_deadline: string | null;
             debrief_mode: components["schemas"]["DebriefMode"];
@@ -2806,6 +2809,8 @@ export interface components {
             /** Allocation Method */
             allocation_method?: ("random" | "student_choice") | null;
             dates?: components["schemas"]["DatesIn"] | null;
+            /** Debrief Ai Text */
+            debrief_ai_text?: boolean | null;
             debrief_mode?: components["schemas"]["DebriefMode"] | null;
             debrief_release?: components["schemas"]["DebriefRelease"] | null;
             /** Effort Level */
@@ -3756,6 +3761,7 @@ export interface components {
             moments: components["schemas"]["MomentOut"][];
             /** Mostly Ai */
             mostly_ai: boolean;
+            narration?: components["schemas"]["RenderedTextOut"] | null;
             role: components["schemas"]["Role"];
             /** Student Orders */
             student_orders: number;
@@ -4056,6 +4062,7 @@ export interface components {
          *     the Student's own Game rendered by code from the facts set of their Seat, AD-7).
          */
         QuizResultOut: {
+            ai_explanation?: components["schemas"]["RenderedTextOut"] | null;
             /** Choices */
             choices: components["schemas"]["QuizChoiceOut"][];
             /** Chosen */
