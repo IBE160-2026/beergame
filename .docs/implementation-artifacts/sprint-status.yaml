@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-21-2026 11:56
+last_updated: 11-21-2026 12:44
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -144,7 +144,7 @@ development_status:
   epic-6-retrospective: optional
 
   epic-7: in-progress
-  7-1-see-the-status-of-every-class-game-on-the-oversikt: in-progress
+  7-1-see-the-status-of-every-class-game-on-the-oversikt: done
   7-2-read-all-class-games-week-by-week-on-the-matrisevegg: backlog
   7-3-switch-the-wall-to-vis-som-tabell: backlog
   7-4-filter-the-wall-and-compare-with-the-class-median: backlog
