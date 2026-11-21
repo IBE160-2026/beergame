@@ -2162,3 +2162,23 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet som også sk
 
 ### Åpne punkter
 - Issue #145: beslutninger og risiko (tom rad ved feilet henting til Story 7.5, skjermleser bare sjekket i Chromium).
+
+## Story 9.2: Åpne Debrief når klassespillet er slutt (spor 2)
+
+### Oppgave
+Bygge Story 9.2 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2 (port 8081).
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-2-open-the-debrief-when-the-class-game-has-ended.md` (på `epic-9`).
+- Commit: 1d9bad6.
+- Modulen `debrief` med én regel for når Debrief er åpen, valget «Når Debriefen åpner» på Klasseøkt, frigjøring i sweepen med samlet e-post, og lenker fra «Spillet er ferdig», Stegene og Hjem. Migrasjon 0102.
+- Tester: backend 2864 på 69 s, Vitest 719, typecheck, `check:copy`, `lint:colours`, bygg, Playwright 78 på port 8081 med axe i tre bredder.
+- Gjennomgang: 19 funn, 4 rettet (blant dem at Debrief-id-er ikke lekker), 1 utsatt, resten avvist med begrunnelse.
+- Visuell kontroll (Sonnet, spor 2): 22 skjermbilder i `screenshots/9.2/` (commit e8ae6b9 på `epic-9`), ingen avvik. Valgknappene for «Når Debriefen åpner» står uten mellomrom når de stables; tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #146: beslutninger, og at en tilbakeholdt Debrief blir stående hvis et klassespill aldri blir ferdig (Epic 8).
