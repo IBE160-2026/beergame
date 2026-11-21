@@ -3668,6 +3668,7 @@ export interface components {
             number: number;
             role: components["schemas"]["Role"];
             rules: components["schemas"]["GameRulesOut"];
+            seat_state: components["schemas"]["SeatState"] | null;
             /** Seats */
             seats: components["schemas"]["TableSeatOut"][];
             /**
@@ -3680,6 +3681,7 @@ export interface components {
              * @enum {string}
              */
             status: "not_ready" | "ready" | "running" | "finished";
+            turn: components["schemas"]["PlayTurnOut"] | null;
             /** Week */
             week: number | null;
         };

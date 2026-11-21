@@ -4537,6 +4537,16 @@
           "rules": {
             "$ref": "#/components/schemas/GameRulesOut"
           },
+          "seat_state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeatState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "seats": {
             "items": {
               "$ref": "#/components/schemas/TableSeatOut"
@@ -4559,6 +4569,16 @@
             "title": "Status",
             "type": "string"
           },
+          "turn": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlayTurnOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "week": {
             "anyOf": [
               {
@@ -4580,7 +4600,9 @@
           "rules",
           "status",
           "week",
-          "server_now"
+          "server_now",
+          "seat_state",
+          "turn"
         ],
         "title": "StudentGameOut",
         "type": "object"

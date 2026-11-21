@@ -415,6 +415,21 @@ export const nb = {
       readRules: "Les reglene",
       /** Story 6.2: the briefing's Lenke afterwards, named by its title. */
       rulesLink: "Regler før første ordre",
+      /** Spillkort (Story 6.17, UX-DR28, EXPERIENCE.md → Spillkort, State Patterns → Student game).
+       * «Spillet venter på deg», «Totalkostnad 68,00 kr» and «Netto lager −13 i Uke 11.» are the
+       * spine's; `ordered` and `region` are [ASSUMPTION] draft copy: EXPERIENCE.md has no title for
+       * a game that waits for others. */
+      card: {
+        waitsForYou: "Spillet venter på deg",
+        /** [ASSUMPTION] The Student has ordered this Uke; the game waits for the others. */
+        ordered: "Du har bestilt",
+        week: (week: number) => `Uke ${week}`,
+        total: (amount: string) => `Totalkostnad ${amount}`,
+        /** Read in place of the mini graph, which is hidden from screen readers. */
+        net: (value: string, week: number) => `Netto lager ${value} i Uke ${week}.`,
+        /** The mini table's scroll region. [ASSUMPTION] */
+        region: (number: number) => `Graf og tabell, Spill ${number}`,
+      },
     },
   },
 
@@ -1640,6 +1655,9 @@ export const nb = {
         /** The charts' `<title>`s, the alternative text a PDF reader gets (AD-18). [ASSUMPTION] */
         netSvg: "Graf over Netto lager og Posisjon per uke. Tallene står i tabellen under.",
         netAxisSvg: "Akse for Netto lager og Posisjon, i enheter.",
+        /** The Spillkort's mini graph (Story 6.17). [ASSUMPTION] */
+        netMiniSvg: "Graf over Netto lager per uke. Tallene står i tabellen under.",
+        netMiniAxisSvg: "Akse for Netto lager, i enheter.",
         costSvg: "Graf over Kost per uke, lagerkostnad nederst og restordrekostnad øverst. Tallene står i raden Kost, kr.",
         costAxisSvg: "Akse for Kost per uke, i kroner.",
       },

@@ -11,7 +11,7 @@ import week14 from "./fixtures/play-week-14.json";
 import week30 from "./fixtures/play-week-30.json";
 import type { SeatState } from "./api";
 import { cellFor, graphSeries, netStep, ROWS, weekColumns } from "./week-table";
-import { WeekTable } from "./week-table-view";
+import { MiniWeekTable, WeekTable } from "./week-table-view";
 
 // The engine's Grossist in Uke 11 of a Classic game (pinned by `backend/tests/games/test_play_fixture.py`).
 const state = fixture.seat_state as SeatState;
@@ -230,5 +230,29 @@ describe("WeekTable in Uke 1 (no history)", () => {
     expect(html.match(/data-mark="cost"/g)).toHaveLength(1);
     expect(html).toContain(">20 kr</text>");
     expect(html).toContain("Lager 12");
+  });
+});
+
+describe("MiniWeekTable (Hjem's Spillkort, Story 6.17)", () => {
+  const cols = (html: string) => [...html.matchAll(/data-col="(\d+)"/g)].map((m) => Number(m[1]));
+
+  it("shows nå − 7 … nå + 4 at every width, with only the rows Uke, Netto lager and Din ordre", () => {
+    const html = renderToStaticMarkup(<MiniWeekTable state={state} label="Graf og tabell, Spill 17" />);
+    expect(cols(html)).toEqual([4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    expect(html).not.toContain("hidden lg:table-cell");
+    expect([...html.matchAll(/data-row="(\w+)"/g)].map((m) => m[1])).toEqual(["netInventory", "order"]);
+    expect(html).toContain('aria-label="Graf og tabell, Spill 17"');
+    expect(html).toContain(nb.games.play.table.noOrderYet);
+  });
+
+  it("in Uke 1 shows Uke 1 … 5 only", () => {
+    const html = renderToStaticMarkup(<MiniWeekTable state={week1.seat_state as SeatState} label="x" />);
+    expect(cols(html)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it("writes the own Order at nå as placed (a Veiledet uke's fixed Order, or one sent)", () => {
+    const html = renderToStaticMarkup(<MiniWeekTable state={state} nowOrder={24} label="x" />);
+    expect(html).toMatch(/bg-ink font-bold text-paper[^>]*>24</);
+    expect(html).not.toContain(nb.games.play.table.noOrderYet);
   });
 });

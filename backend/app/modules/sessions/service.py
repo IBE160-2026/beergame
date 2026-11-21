@@ -1228,6 +1228,12 @@ async def _game_out(
 ) -> StudentGameOut:
     table = await games_service.table_status(s, found.game_id, user_id, _names_in(row["class_id"]))
     play = await games_service.play_status(s, found.game_id)
+    state: games_service.SeatState | None = None
+    turn: PlayTurnOut | None = None
+    if play.status == "running":
+        # Story 6.17 (AD-3): Hjem's Spillkort reads the numbers from the play envelope's sources,
+        # in the same Week as `week`, so Hjem and the play screen never disagree.
+        state, turn = await _own_week(found, play.week)
     return StudentGameOut(
         id=found.game_id,
         number=found.number,
@@ -1239,6 +1245,20 @@ async def _game_out(
         status=play.status,
         week=play.week,
         server_now=await games_service.database_now(s),
+        seat_state=state,
+        turn=turn,
+    )
+
+
+async def _own_week(
+    found: games_service.StudentGame, week: int | None
+) -> tuple[games_service.SeatState, PlayTurnOut]:
+    """The own Seat's `seat_state` and turn in the open `week` (Stories 6.6 and 6.17), the
+    play envelope's numbers, read through `games.views` only."""
+    state = await games_service.seat_state(str(found.game_id), found.role, week)
+    turn = await games_service.open_turn(str(found.game_id), found.role, week)
+    return state, PlayTurnOut(
+        guided=turn.guided, order=turn.order, viewed=turn.viewed_at is not None
     )
 
 
@@ -1316,12 +1336,11 @@ async def student_play_of(user: authz.Principal, game_id: str) -> PlayOut | None
         table = await games_service.table_status(
             s, found.game_id, user.id, _names_in(row["class_id"])
         )
-        state = await games_service.seat_state(str(found.game_id), found.role, play.week)
-        turn = await games_service.open_turn(str(found.game_id), found.role, play.week)
+        state, turn = await _own_week(found, play.week)
         now = await games_service.database_now(s)
     return PlayOut(
         seat_state=state,
-        turn=PlayTurnOut(guided=turn.guided, order=turn.order, viewed=turn.viewed_at is not None),
+        turn=turn,
         table_status=TableStatusOut(seats=_seats_out(table)),
         server_now=now,
         # Read again when an AI player's Order falls due (AD-8, AD-20); one already past is the

@@ -190,6 +190,8 @@ test.describe("1440 px", () => {
           status: "running",
           week: 11,
           server_now: week11.server_now,
+          seat_state: week11.seat_state,
+          turn: week11.turn,
         },
       };
       await route.fulfill({ response, json: { items: [item] } });

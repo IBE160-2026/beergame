@@ -1,24 +1,46 @@
 "use client";
 
-import { Button } from "@/components/button";
+import NextLink from "next/link";
+
+import { Button, buttonClassName } from "@/components/button";
+import { GameCard } from "@/components/game-card";
 import { Link } from "@/components/link";
 import { LoadingNote, Skeleton } from "@/components/skeleton";
 import { Stegene } from "@/components/stegene";
 import { nb } from "@/copy/nb";
+import { formatNumber } from "@/lib/number-format";
 import { usePageState } from "@/lib/page-state";
 import { enrolledClassesKey, useEnrolledClasses } from "@/modules/classes/api";
-import { rulesPath, seatChoicePath } from "@/modules/identity/homes";
+import { gamePath, rulesPath, seatChoicePath } from "@/modules/identity/homes";
 import { type EnrolledSession, enrolledSessionsKey, useEnrolledSessions } from "@/modules/sessions/api";
 import { homeLine } from "@/modules/sessions/seat-choice";
-import { roleName } from "@/modules/sessions/sessions";
 
 import { GameAction } from "./game-action";
-import { deadlineText, gameTitle, labHourText, type NextAction, nextAction, stepItems } from "./home";
+import {
+  cardState,
+  deadlineText,
+  gameTitle,
+  labHourText,
+  type NextAction,
+  netSentence,
+  nextAction,
+  stepItems,
+  toWeekText,
+} from "./home";
 import { useServerNow } from "./seat-status";
 import { GameSeatStatus } from "./seat-status-view";
+import { MiniWeekTable } from "./week-table-view";
 
 /** The next actions that are a control; «not ready» is a line only. */
 const PRIMARY_ACTIONS: ReadonlySet<NextAction> = new Set(["rules", "start", "play"]);
+
+type StudentGame = NonNullable<EnrolledSession["game"]>;
+
+/** Whether the game asks for Hjem's one primary button: its next action is a control, except a
+ * game the Student has ordered in, whose Spillkort has no primary action (Story 6.17, UX-DR28). */
+function wantsPrimary(game: StudentGame): boolean {
+  return PRIMARY_ACTIONS.has(nextAction(game)) && cardState(game) !== "ordered";
+}
 
 const copy = nb.homes.student;
 
@@ -72,7 +94,7 @@ export function StudentHjem() {
   // any further one is a Lenke or a secondary button.
   const listed = items.flatMap((item) => all.filter((session) => session.class_id === item.id));
   const primaryGame =
-    listed.find((session) => PRIMARY_ACTIONS.has(session.game ? nextAction(session.game) : null))?.id ?? null;
+    listed.find((session) => (session.game ? wantsPrimary(session.game) : false))?.id ?? null;
   return (
     <ul className="mt-8 flex max-w-md flex-col border-t border-hairline">
       {items.map((item) => {
@@ -123,7 +145,7 @@ function SessionBlock({
             .join(" · ")}
         </p>
       ) : null}
-      {game ? <GameCard game={game} session={session} primary={primary} /> : <BeforeStart session={session} />}
+      {game ? <GameBlock game={game} session={session} primary={primary} /> : <BeforeStart session={session} />}
       <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps)} />
       {deadline || labs.length > 0 ? (
         <dl className="mt-6 flex flex-col gap-2 border-t border-hairline pt-4 text-body-phone lg:text-body">
@@ -145,20 +167,15 @@ function SessionBlock({
   );
 }
 
-/** «Spill 17 · Du er Grossist» and «Setene»: each Seat's Role, who holds it and, while the game
- * runs, whether it has ordered this Uke and how long the game has waited for it (Story 6.14). */
-function GameCard({
-  game,
-  session,
-  primary,
-}: {
-  game: NonNullable<EnrolledSession["game"]>;
-  session: EnrolledSession;
-  primary: boolean;
-}) {
+/** «Spill 17 · Du er Grossist», while the game runs its Spillkort (Story 6.17), and «Setene»: each
+ * Seat's Role, who holds it and, while the game runs, whether it has ordered this Uke and how long
+ * the game has waited for it (Story 6.14). The Spillkort holds the game's action and stands above
+ * Setene, as in `04-student-hjem.png`; without it the action stays under Setene. */
+function GameBlock({ game, session, primary }: { game: StudentGame; session: EnrolledSession; primary: boolean }) {
   const seatsId = `seats-${session.id}`;
   const now = useServerNow(game.server_now);
   const drawn = homeLine(session);
+  const card = cardState(game);
   return (
     <div className="mt-2">
       <h3 className="text-step-title font-semibold text-ink">{gameTitle(game)}</h3>
@@ -166,9 +183,12 @@ function GameCard({
       {drawn?.kind === "drawn" ? (
         <p className="mt-1 text-body-phone text-ink-secondary lg:text-body">{drawn.text}</p>
       ) : null}
+      {card && game.seat_state ? (
+        <PlayCard game={game} state={game.seat_state} card={card} primary={primary} titleId={`card-${session.id}`} />
+      ) : null}
       {/* Story 6.14: the Setestatus, as on the play screen. */}
       <GameSeatStatus seats={game.seats} now={now} titleId={seatsId} level={4} className="mt-4" />
-      <GameAction game={game} primary={primary} />
+      {card ? null : <GameAction game={game} primary={primary} />}
       {/* Story 6.2: once the briefing no longer comes first, it stays a Lenke. */}
       {game.briefing_first ? null : (
         <p className="mt-3">
@@ -178,6 +198,52 @@ function GameCard({
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * The Spillkort of a running game (Story 6.17, FR-25, UX-DR28): «Spillet venter på deg» with the
+ * one primary «Gå til Uke 11», or, once the Student has ordered, the draft title and «Gå til Uke 11»
+ * as a Lenke only. The numbers are the api's `seat_state`, the play screen's own source (AD-3).
+ */
+function PlayCard({
+  game,
+  state,
+  card,
+  primary,
+  titleId,
+}: {
+  game: StudentGame;
+  state: NonNullable<StudentGame["seat_state"]>;
+  card: "waitsForYou" | "ordered";
+  primary: boolean;
+  titleId: string;
+}) {
+  const href = gamePath(game.id);
+  const label = toWeekText({ week: state.week });
+  const action =
+    card === "waitsForYou" && primary ? (
+      <NextLink href={href} className={buttonClassName("primary")}>
+        {label}
+      </NextLink>
+    ) : (
+      <Link href={href} standalone>
+        {label}
+      </Link>
+    );
+  return (
+    <GameCard
+      className="mt-4"
+      title={card === "waitsForYou" ? copy.card.waitsForYou : copy.card.ordered}
+      titleId={titleId}
+      week={copy.card.week(state.week)}
+      figure={
+        <MiniWeekTable state={state} nowOrder={game.turn?.order ?? undefined} label={copy.card.region(game.number)} />
+      }
+      total={copy.card.total(formatNumber(state.total_cost, { kroner: true }))}
+      summary={netSentence(state)}
+      action={action}
+    />
   );
 }
 

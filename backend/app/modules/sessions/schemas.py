@@ -388,6 +388,16 @@ class GameRulesOut(BaseModel):
 GamePlayStatus = Literal["not_ready", "ready", "running", "finished"]
 
 
+class PlayTurnOut(BaseModel):
+    """The Student's own turn in the open Week (Story 6.10): whether it is a Guided Week, the
+    Seat's Order once placed (in a Guided Week the fixed Order, placed when the Week opened) and
+    whether the Student has opened the Guided Week. Never how many Guided Weeks there are."""
+
+    guided: bool
+    order: int | None
+    viewed: bool
+
+
 class StudentGameOut(BaseModel):
     """The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four
     Seats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`)."""
@@ -407,6 +417,13 @@ class StudentGameOut(BaseModel):
     """The open Week while `running`, else None. Never the number of Weeks (FR-14)."""
     server_now: AwareDatetime
     """The database clock when the game was read (Story 6.14): the Seats' waits count from it."""
+    seat_state: SeatState | None
+    """Story 6.17 (AD-3): what the Student's own Seat sees in the open Week while the game runs,
+    from the same `games.views.seat_state` as the play envelope, so Hjem's Spillkort and the play
+    screen never disagree; None unless `running`."""
+    turn: PlayTurnOut | None
+    """Story 6.17: the own turn in the open Week (the Order once placed), as in the play envelope;
+    None unless `running`."""
 
 
 class TableStatusOut(BaseModel):
@@ -422,16 +439,6 @@ class OrderIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     order: StrictInt
-
-
-class PlayTurnOut(BaseModel):
-    """The Student's own turn in the open Week (Story 6.10): whether it is a Guided Week, the
-    Seat's Order once placed (in a Guided Week the fixed Order, placed when the Week opened) and
-    whether the Student has opened the Guided Week. Never how many Guided Weeks there are."""
-
-    guided: bool
-    order: int | None
-    viewed: bool
 
 
 class PlayOut(BaseModel):

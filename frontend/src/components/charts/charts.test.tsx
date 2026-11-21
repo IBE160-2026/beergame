@@ -94,6 +94,18 @@ describe("NetGraph", () => {
     expect(net({ projection: [{ x: 52, value: -20 }, { x: 94, value: -5 }] })).toContain('data-mark="projection"');
   });
 
+  it("at mini scale (Spillkort, Story 6.17) draws the Netto lager line, its dot and «Nå» only", () => {
+    const html = net({ mini: true });
+    expect(html).toContain('data-mark="net"');
+    expect(html).toContain('data-mark="now"');
+    expect(html).toContain(">Nå</text>");
+    expect(html).not.toContain('data-mark="position"');
+    expect(html).not.toContain("data-label=\"net\"");
+    expect(html).not.toContain("data-label=\"position\"");
+    // No Posisjon path: only the two fills and the line's two halves (above and below zero).
+    expect(html.match(/<path /g)).toHaveLength(4);
+  });
+
   it("paints from the theme tokens, never with classes or CSS variables", () => {
     const html = net();
     expect(html).not.toMatch(/class=|var\(--/);

@@ -144,6 +144,7 @@ export function GraphOverTable({
   movedFrom,
   skip = 0,
   onMoving,
+  bleed = true,
 }: {
   /** The region's accessible name («Graf og tabell»). */
   label: string;
@@ -170,6 +171,9 @@ export function GraphOverTable({
   /** Raised to end a running move at once («Hopp over»). */
   skip?: number;
   onMoving?: (moving: boolean) => void;
+  /** On phone the region runs into the page gutter, to the chart gutter (the play screen). Off
+   * inside a bordered card (Hjem's Spillkort, Story 6.17), where it stays in the card. */
+  bleed?: boolean;
 }) {
   const region = useRef<HTMLDivElement>(null);
   const line = useRef<HTMLDivElement>(null);
@@ -329,7 +333,7 @@ export function GraphOverTable({
         };
 
   return (
-    <div className={fixed ? undefined : "-mx-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] lg:mx-0"}>
+    <div className={fixed || !bleed ? undefined : "-mx-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] lg:mx-0"}>
       <div
         ref={region}
         role="region"
@@ -411,7 +415,7 @@ export function GraphOverTable({
         <div
           className={cn(
             "flex flex-wrap justify-between gap-x-4",
-            !fixed && "px-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] lg:px-0",
+            !fixed && bleed && "px-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] lg:px-0",
           )}
         >
           {footer ?? <span />}

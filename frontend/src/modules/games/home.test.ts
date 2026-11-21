@@ -3,7 +3,18 @@ import { describe, expect, it } from "vitest";
 import { nb } from "@/copy/nb";
 import type { EnrolledSession } from "@/modules/sessions/api";
 
-import { deadlineText, gameTitle, holderText, labHourText, nextAction, stepItems, toWeekText } from "./home";
+import week11 from "./fixtures/play-week-11.json";
+import {
+  cardState,
+  deadlineText,
+  gameTitle,
+  holderText,
+  labHourText,
+  netSentence,
+  nextAction,
+  stepItems,
+  toWeekText,
+} from "./home";
 
 const copy = nb.homes.student;
 type Game = NonNullable<EnrolledSession["game"]>;
@@ -39,6 +50,8 @@ describe("Hjem's game card (Story 6.1)", () => {
       status: "ready",
       week: null,
       server_now: "2026-11-21T10:00:00Z",
+      seat_state: null,
+      turn: null,
     };
     expect(gameTitle(game)).toBe("Spill 17 · Du er Grossist");
   });
@@ -101,5 +114,35 @@ describe("the game's next action (Story 6.5)", () => {
   it("names the open Week", () => {
     expect(toWeekText({ week: 11 })).toBe("Gå til Uke 11");
     expect(toWeekText({ week: null })).toBe("Gå til Uke 1");
+  });
+});
+
+describe("Hjem's Spillkort state (Story 6.17, UX-DR28)", () => {
+  const state = week11.seat_state as NonNullable<Game["seat_state"]>;
+  const running = (own: Seat["ordered"], over: Partial<Game> = {}) => ({
+    status: "running" as const,
+    briefing_first: false,
+    seats: [seat({ role: "factory", ordered: true }), seat({ mine: true, ordered: own })],
+    seat_state: state,
+    ...over,
+  });
+
+  it("waits for the Student until their own Seat has ordered, then waits for the others", () => {
+    expect(cardState(running(false))).toBe("waitsForYou");
+    expect(cardState(running(true))).toBe("ordered");
+  });
+
+  it("has no card unless the game runs with a seat_state and the briefing is behind the Student", () => {
+    expect(cardState(running(false, { status: "ready" }))).toBeNull();
+    expect(cardState(running(false, { status: "finished" }))).toBeNull();
+    expect(cardState(running(false, { seat_state: null }))).toBeNull();
+    expect(cardState(running(false, { briefing_first: true }))).toBeNull();
+    expect(cardState(running(null))).toBeNull();
+    expect(cardState({ ...running(false), seats: [seat({ ordered: false })] })).toBeNull();
+  });
+
+  it("says the hidden graph's value at nå in words, with a true minus", () => {
+    expect(netSentence({ ...state, net_inventory: -13, week: 11 })).toBe("Netto lager −13 i Uke 11.");
+    expect(netSentence({ ...state, net_inventory: 4, week: 2 })).toBe("Netto lager 4 i Uke 2.");
   });
 });

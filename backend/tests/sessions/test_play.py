@@ -172,3 +172,35 @@ async def test_any_other_game_is_refused_alike(klass):
     ]
     assert {r.status_code for r in refusals} == {403}
     assert len({r.content for r in refusals}) == 1
+
+
+async def test_hjem_carries_the_envelopes_own_seat_and_turn_while_running(klass):
+    """Story 6.17 (AD-3): Hjem's Spillkort reads the play envelope's `seat_state` and own turn,
+    so Hjem and the play screen never disagree; before the start and once finished, neither."""
+    session_id, seated = await confirmed(klass, 2)
+    await sweep.run(START + MINUTE)
+    ready = await home(email(0))
+    assert (ready["game"]["status"], ready["game"]["seat_state"], ready["game"]["turn"]) == (
+        "ready",
+        None,
+        None,
+    )
+    game_id = ready["game"]["id"]
+    await task_done(seated[0], session_id)
+    assert (await start(email(0), game_id)).status_code == 200
+    roles = [(await home(email(i)))["game"]["role"] for i in range(2)]
+    await played_to(game_id, roles, 6)
+    await commands.place_order(game_id, roles[0], 6, 9, "student")
+    for i, ordered in ((0, 9), (1, None)):
+        game = (await home(email(i)))["game"]
+        envelope = (await play(email(i), game_id)).json()
+        assert game["week"] == game["seat_state"]["week"] == 6
+        assert game["seat_state"] == envelope["seat_state"]
+        assert (
+            game["turn"] == envelope["turn"] == {"guided": False, "order": ordered, "viewed": False}
+        )
+        assert [s["ordered"] for s in game["seats"] if s["mine"]] == [ordered is not None]
+        assert not keys([game["seat_state"], game["turn"]]) & FORBIDDEN
+    execute("UPDATE games SET lifecycle = 'finished' WHERE id = %s", game_id)
+    finished = (await home(email(0)))["game"]
+    assert (finished["seat_state"], finished["turn"]) == (None, None)

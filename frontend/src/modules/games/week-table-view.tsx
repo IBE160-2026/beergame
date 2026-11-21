@@ -20,6 +20,7 @@ import {
   graphSeries,
   ALL_ROWS,
   type NetStep,
+  type Row,
   ROWS,
   type TypedOrder,
   weekColumns,
@@ -265,6 +266,104 @@ export function WeekTable({
               weekCol={weekCol}
               style={weekCell}
             />
+          ))}
+        </tr>
+      ))}
+    />
+  );
+}
+
+/** The Netto lager field's height in Hjem's Spillkort, in em of the caption size. */
+const MINI_NET_HEIGHT_EM = 6.5;
+
+/** The Spillkort's three rows (DESIGN.md → Spillkort): Uke (the header row), Netto lager, Din ordre. */
+const MINI_ROWS: readonly Row[] = ROWS.filter((row) => row.key === "netInventory" || row.key === "order");
+
+/**
+ * Graf over tabell at mini scale, for Hjem's Spillkort (Story 6.17, UX-DR28, DESIGN.md → Spillkort):
+ * the phone's window nå − 7 … nå + 4 at every width, never further right than nå + 4. Over the
+ * rows Uke, Netto lager and Din ordre stands the Netto lager line alone (`NetGraph` `mini`). It
+ * reuses the play screen's cells and graph tokens and adds no mark. `nowOrder` is the own Order
+ * at nå once placed. The graph is `aria-hidden`; the table is real text.
+ */
+export function MiniWeekTable({ state, nowOrder, label }: { state: SeatState; nowOrder?: number; label: string }) {
+  // The phone's columns only: each is flagged `phone`, so no column is hidden at any width.
+  const columns = weekColumns(state.week).filter((column) => column.phone);
+  const series = graphSeries(state);
+  const byWeek = new Map(series.weeks.map((week) => [week.week, week]));
+  const field: GraphField = {
+    key: "net",
+    heightEm: MINI_NET_HEIGHT_EM,
+    render: (size) => {
+      const points = size.columns.flatMap((column, i) => {
+        const week = column.when === "future" ? undefined : byWeek.get(column.week);
+        return week ? [{ ...week, x: size.xs[i]! }] : [];
+      });
+      const scale = netScale({ height: size.height, fontSize: size.fontSize, points, mini: true });
+      return {
+        plot: (
+          <NetGraph
+            mini
+            width={size.width}
+            height={size.height}
+            fontSize={size.fontSize}
+            points={points}
+            nowX={size.nowX}
+            title={graphCopy.netMiniSvg}
+            netLabel=""
+            positionLabel=""
+            nowLabel={graphCopy.now}
+          />
+        ),
+        axis: (
+          <AxisLabels
+            width={size.labelWidth}
+            height={size.height}
+            fontSize={size.fontSize}
+            title={graphCopy.netMiniAxisSvg}
+            ticks={scale.ticks.map((tick) => ({ y: scale.y(tick), text: formatNumber(tick) }))}
+          />
+        ),
+      };
+    },
+  };
+  return (
+    <GraphOverTable
+      label={label}
+      columns={columns}
+      fields={[field]}
+      bleed={false}
+      head={
+        <tr className="border-b border-axis">
+          <th scope="row" className={ROW_LABEL}>
+            {nb.terms.week}
+          </th>
+          {columns.map((column) => (
+            <th
+              key={column.week}
+              scope="col"
+              data-col={column.week}
+              data-now={column.when === "now" ? "" : undefined}
+              className={cn(
+                WEEK_COL,
+                "h-row-phone lg:h-row-laptop",
+                column.when === "now" ? "font-bold text-ink" : "font-normal text-ink-muted",
+                columnClass(column),
+              )}
+            >
+              <span className="sr-only">{nb.terms.week} </span>
+              {column.week}
+            </th>
+          ))}
+        </tr>
+      }
+      body={MINI_ROWS.map((row) => (
+        <tr key={row.key} data-row={row.key} className="border-b border-hairline">
+          <th scope="row" className={ROW_LABEL}>
+            {row.label}
+          </th>
+          {columns.map((column) => (
+            <WeekCell key={column.week} column={column} cell={cellFor(state, row.key, column.week, nowOrder)} weekCol={WEEK_COL} />
           ))}
         </tr>
       ))}

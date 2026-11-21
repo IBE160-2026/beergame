@@ -10,6 +10,7 @@ import { Breadcrumb } from "./breadcrumb";
 import { Button, guardUnavailable } from "./button";
 import { ColumnItem } from "./column-item";
 import { ConnectionNotice } from "./connection-notice";
+import { GameCard } from "./game-card";
 import { SegmentedChoice } from "./segmented-choice";
 import { Stegene } from "./stegene";
 import { Switch } from "./switch";
@@ -340,5 +341,34 @@ describe("ColumnItem", () => {
     expect(html).not.toContain("<input");
     expect(html).toContain("Ikke riktig. Svaret er 3: 0 − 13 + 16.");
     expect(html).toContain('tabindex="-1"');
+  });
+});
+
+describe("GameCard (Spillkort, Story 6.17)", () => {
+  const render = (action?: React.ReactNode) =>
+    renderToStaticMarkup(
+      <GameCard
+        title="Oppfølgingsspill"
+        titleId="card-1"
+        week="Uke 11"
+        figure={<table />}
+        total="Totalkostnad 68,00 kr"
+        summary="Netto lager −13 i Uke 11."
+        action={action}
+      />,
+    );
+
+  it("takes its title as the variant, with the Uke beside it in the one heading", () => {
+    const html = render();
+    expect(html).toContain('aria-labelledby="card-1"');
+    expect(html).toMatch(/<h4 id="card-1"[^>]*><span>Oppfølgingsspill<\/span><span><span class="sr-only">, <\/span>Uke 11<\/span><\/h4>/);
+    expect(html).toContain("border-axis");
+  });
+
+  it("reads the summary in place of the hidden graph, then the Totalkostnad and the caller's action", () => {
+    const html = render(<a href="/spill/g">Gå til Uke 11</a>);
+    expect(html).toContain('<p class="sr-only">Netto lager −13 i Uke 11.</p>');
+    expect(html.indexOf("Totalkostnad 68,00 kr")).toBeLessThan(html.indexOf("Gå til Uke 11"));
+    expect(render()).not.toContain("<a ");
   });
 });

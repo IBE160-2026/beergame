@@ -30,12 +30,21 @@ export type NetGraphProps = {
    * Klassespill never passes it, so nothing of it is drawn (UX-DR19).
    */
   projection?: readonly { x: number; value: number }[];
+  /**
+   * Hjem's Spillkort (Story 6.17, DESIGN.md → Spillkort): Netto lager at mini scale, as drawn in
+   * `04-student-hjem.png`: the line, its fills, the dot at nå and «Nå» only. No Posisjon and no
+   * direct labels, so it adds no mark of its own; `netLabel` and `positionLabel` are unused.
+   */
+  mini?: boolean;
 };
 
 /** The y-scale and ticks the field and its sticky axis share. */
-export function netScale(props: Pick<NetGraphProps, "height" | "fontSize" | "points" | "projection">) {
-  const { height, fontSize, points, projection } = props;
-  const values = [...points.flatMap((p) => [p.net, p.position]), ...(projection ?? []).map((p) => p.value)];
+export function netScale(props: Pick<NetGraphProps, "height" | "fontSize" | "points" | "projection" | "mini">) {
+  const { height, fontSize, points, projection, mini = false } = props;
+  const values = [
+    ...points.flatMap((p) => (mini ? [p.net] : [p.net, p.position])),
+    ...(projection ?? []).map((p) => p.value),
+  ];
   const domain = netDomain(values);
   // Room above for «Nå» and half a label below, so the outermost labels stay inside.
   const top = Math.round(fontSize * 1.7);
@@ -57,7 +66,7 @@ const LABEL_HALF = 0.85;
  * README). The marks carry `data-mark`/`data-week` for the alignment checks.
  */
 export function NetGraph(props: NetGraphProps) {
-  const { width, height, fontSize, points, nowX, title, netLabel, positionLabel, nowLabel, projection } = props;
+  const { width, height, fontSize, points, nowX, title, netLabel, positionLabel, nowLabel, projection, mini = false } = props;
   const clip = useId().replace(/:/g, "");
   const { y, ticks } = netScale(props);
   const zero = y(0);
@@ -70,9 +79,11 @@ export function NetGraph(props: NetGraphProps) {
     .x((p) => p.x)
     .y0(zero)
     .y1((p) => y(p.net))(points);
-  const positionLine = line<NetPoint>()
-    .x((p) => p.x)
-    .y((p) => y(p.position))(points);
+  const positionLine = mini
+    ? null
+    : line<NetPoint>()
+        .x((p) => p.x)
+        .y((p) => y(p.position))(points);
 
   // Direct labels start right of the now-line; one too long for the room left ends at the edge.
   const labelAt = (text: string) => {
@@ -142,7 +153,7 @@ export function NetGraph(props: NetGraphProps) {
       {positionLine ? (
         <path d={positionLine} fill="none" stroke={colour("ink-secondary")} strokeWidth={1.5} strokeLinejoin="round" />
       ) : null}
-      {points.map((p) => (
+      {(mini ? [] : points).map((p) => (
         <rect
           key={p.week}
           data-mark="position"
@@ -165,12 +176,16 @@ export function NetGraph(props: NetGraphProps) {
             r={3.5}
             fill={colour(now.net < 0 ? "restordre" : now.net > 0 ? "lager" : "ink")}
           />
-          <text {...labelAt(netLabel)} y={netY} dy="0.35em" fill={colour("ink")} data-label="net">
-            {netLabel}
-          </text>
-          <text {...labelAt(positionLabel)} y={positionY} dy="0.35em" fill={colour("ink-secondary")} data-label="position">
-            {positionLabel}
-          </text>
+          {mini ? null : (
+            <>
+              <text {...labelAt(netLabel)} y={netY} dy="0.35em" fill={colour("ink")} data-label="net">
+                {netLabel}
+              </text>
+              <text {...labelAt(positionLabel)} y={positionY} dy="0.35em" fill={colour("ink-secondary")} data-label="position">
+                {positionLabel}
+              </text>
+            </>
+          )}
         </>
       ) : null}
       <text x={nowX + fontSize * 0.3} y={fontSize * 1.15} fontWeight={600} fill={colour("ink")} data-label="now">

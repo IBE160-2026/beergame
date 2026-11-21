@@ -1,5 +1,6 @@
 import type { StegeneItem } from "@/components/stegene";
 import { nb } from "@/copy/nb";
+import { formatNumber } from "@/lib/number-format";
 import type { EnrolledSession } from "@/modules/sessions/api";
 import { osloDayAndTime } from "@/modules/sessions/dates";
 import { roleName } from "@/modules/sessions/sessions";
@@ -72,4 +73,22 @@ export function nextAction(game: Pick<StudentGame, "briefing_first" | "status">)
 /** «Gå til Uke 11»: the open Week, or Uke 1 while the api has not opened one yet. */
 export function toWeekText(game: Pick<StudentGame, "week">): string {
   return nb.games.start.toWeek(game.week ?? 1);
+}
+
+/** Hjem's Spillkort (Story 6.17, UX-DR28): `waitsForYou` while the running game waits for this
+ * Student's Order (or view, in a Veiledet uke), `ordered` once they have ordered and it waits for
+ * others; null with no card: the game does not run, the api sent no `seat_state`, or the briefing
+ * still comes first (the pre-play gate leads, with «Les reglene»). From the api's fields alone. */
+export type CardState = "waitsForYou" | "ordered";
+
+export function cardState(game: Pick<StudentGame, "status" | "briefing_first" | "seats" | "seat_state">): CardState | null {
+  if (game.status !== "running" || game.briefing_first || !game.seat_state) return null;
+  const own = game.seats.find((seat) => seat.mine);
+  if (!own || own.ordered === null || own.ordered === undefined) return null;
+  return own.ordered ? "ordered" : "waitsForYou";
+}
+
+/** «Netto lager −13 i Uke 11.»: what the Spillkort's hidden mini graph shows at nå, in words. */
+export function netSentence(state: NonNullable<StudentGame["seat_state"]>): string {
+  return copy.card.net(formatNumber(state.net_inventory), state.week);
 }
