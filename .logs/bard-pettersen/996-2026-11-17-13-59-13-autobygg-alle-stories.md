@@ -2305,3 +2305,23 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #152: beslutninger, felles komponenter for Story 7.8, og to ustabile tester.
+
+## Story 9.6: Svar på refleksjonsspørsmålene (spor 2)
+
+### Oppgave
+Bygge Story 9.6 på `epic-9` i spor 2, og la Kjedebåndet på steg 3 få full bredde (fra den visuelle kontrollen av 9.5).
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-6-answer-the-reflection-questions.md` (på `epic-9`).
+- Commit: 0688d38.
+- Tre refleksjonsspørsmål som innhold med versjon (migrasjon 0105), ett om gangen, med utkast som blir tatt vare på. Svar kan ikke endres. Kjedebåndet på steg 3 har nå full bredde.
+- Tester: backend 2886 på 70 s, Vitest 750, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 129, ingen ustabile tester.
+- Gjennomgang: 28 funn, ingen høye eller middels, 4 rettet.
+- Visuell kontroll (Sonnet, spor 2): 13 skjermbilder i `screenshots/9.6/` (1ef3c11), ingen avvik. Kjedebåndet har bekreftet full bredde. Refleksjonsdelen står i en smal kolonne som steg 1; skrivefelt i lesebredde er et rimelig valg.
+- Status: done.
+
+### Åpne punkter
+- Issue #153: beslutninger (midlertidige spørsmål til Issue #16, svar som ikke kan endres, ingen skjerm for lærerne ennå).
