@@ -68,7 +68,11 @@ The orchestrator session follows this file when it builds the stories without a 
 - If a builder has no spec after about 30 minutes, send a status message; it unblocks a stuck step 1.
 - The full Playwright suite reached 7 minutes (395 tests, `--workers=2`). From Story 6.14 on, builders run the Playwright files for the screens they touch plus the play-screen and `homes` specs, and keep axe to one check per width. The full suite runs in CI on every push, in a visual check when shared components change, and at the end of each epic.
 - Keep a running list of items for the end-of-epic review in the scratchpad while the epic is built (small UX fixes, slow tests, specs with `followup_review_recommended: true`).
-- A real started Class game needs the Start date passed and the lock sweep. The end-to-end journeys (GOAL item 4) need an early lock (Epic 8) or a local developer tool to start one.
+- A real started Class game needs the Start date passed and the lock sweep. For local e2e and the end-to-end journeys (GOAL item 4), use the local-only `POST /api/dev/class-sessions/{id}/lock` (Story 6.15).
+- From Story 6.15 on, builders use two review sub-agents (blind and edge case), four only for risky changes. This cut a story from about 50 to 20–40 minutes with no visible loss.
+- Compose for e2e is `timeout 900 docker compose up -d --build --wait proxy worker-batch worker-ai` (CI starts `worker-ai` too). Playwright launches Chromium with `--lang=nb-NO`, so native date fields show Norwegian format.
+- In e2e, never let a live update race a click (commit 07345fa), and remove routes before a test's pages close (commit 1e12ffa).
+- Shared backend fixtures in `backend/tests/games/helpers.py` play a game once per run; new tests reuse them instead of playing weeks over the API.
 
 ## Done
 
