@@ -1,5 +1,5 @@
-"""The tables owned by `modules/debrief` (Stories 9.2, 9.3, AD-21). Written by `debrief.commands`
-only."""
+"""The tables owned by `modules/debrief` (Stories 9.2, 9.3, 9.6, AD-21). Written by
+`debrief.commands` only."""
 
 from sqlalchemy import (
     CheckConstraint,
@@ -76,5 +76,33 @@ debrief_explanations = Table(
     CheckConstraint(
         f"length = char_length(text) AND length BETWEEN 1 AND {EXPLANATION_MAX}",
         name="ck_debrief_explanations_length",
+    ),
+)
+
+ANSWER_MAX = 2000
+"""The longest reflection answer, in characters (Story 9.6)."""
+
+debrief_reflection_answers = Table(
+    "debrief_reflection_answers",
+    metadata,
+    # A Student's answer to one reflection question in a Class session (FR-45, AD-14), stored once
+    # as typed and never changed (a trigger refuses updates).
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    # The question's id in the pinned content version.
+    Column("question_id", Text, primary_key=True),
+    Column("game_id", Uuid, ForeignKey("games.id", ondelete="CASCADE"), nullable=False),
+    Column("questions_version", Integer, nullable=False),
+    Column("text", Text, nullable=False),
+    Column("length", Integer, nullable=False),
+    Column("saved_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        f"length = char_length(text) AND length BETWEEN 1 AND {ANSWER_MAX}",
+        name="ck_debrief_reflection_answers_length",
     ),
 )

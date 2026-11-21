@@ -2680,6 +2680,8 @@ register_pin_provider(content.Kind.STARTING_TASK.value, content.starting_task_pi
 register_pin_provider(content.Kind.DETECTED_PATTERNS.value, content.detected_patterns_pin)
 # Story 9.4: and the sentence templates its Debriefs render their text with (AD-23).
 register_pin_provider(content.Kind.SENTENCE_TEMPLATES.value, content.sentence_templates_pin)
+# Story 9.6: the reflection questions.
+register_pin_provider(content.Kind.REFLECTION_QUESTIONS.value, content.reflection_questions_pin)
 
 
 class ProviderKeyMissing(Exception):

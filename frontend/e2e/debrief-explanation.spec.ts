@@ -3,6 +3,7 @@ import { expect, type Page } from "@playwright/test";
 import { nb } from "../src/copy/nb";
 import { loginByApi } from "./support/auth";
 import { expectAccessible, expectReflow, test } from "./support/classes";
+import { NO_REFLECTION } from "./support/reflection";
 import { liveClassGame, orderByApi } from "./support/live-game";
 import { REVEAL } from "./support/reveal";
 
@@ -61,6 +62,8 @@ async function stepOne(page: Page, send: "saved" | "failed" | "exists" = "saved"
   await page.route(`**/api/debriefs/${DEBRIEF}/steps/3`, (route) =>
     route.fulfill(stored || posts.length ? { json: { debrief_id: DEBRIEF, step: 3, reveal: null, chain: null } } : error(403, "explanation_required")),
   );
+  // The reflection questions (Story 9.6) are `debrief-reflection.spec.ts`; here there are none.
+  await page.route(`**/api/debriefs/${DEBRIEF}/reflection`, (route) => route.fulfill({ json: NO_REFLECTION }));
   return { posts, unroute: () => page.unrouteAll({ behavior: "ignoreErrors" }) };
 }
 

@@ -2181,6 +2181,32 @@ export const nb = {
       /** [ASSUMPTION] the step could not be read; «Prøv igjen» beside it. */
       loadFailed: "Kjeden kunne ikke hentes.",
     },
+    /** The reflection questions between steps 3 and 4 (Story 9.6, FR-45, EXPERIENCE.md → Debrief
+     * sequence: not drawn). The questions are content from the api; «Det ble ikke lagret. Prøv
+     * igjen.» is the spine's; the rest is [ASSUMPTION] draft copy. */
+    reflection: {
+      /** [ASSUMPTION] unnumbered: the spine's five steps keep their numbers. */
+      heading: "Spørsmål til ettertanke",
+      /** [ASSUMPTION] «Spørsmål 2 av 3». */
+      counter: (at: number, of: number) => `Spørsmål ${at} av ${of}`,
+      /** [ASSUMPTION] who reads the answers, under the field (FR-58 adds the report's line). */
+      privacy: "Bare du og de som underviser Klassen, kan lese svarene. Et svar kan ikke endres etter at du har gått videre.",
+      /** [ASSUMPTION] */
+      next: "Fortsett",
+      /** [ASSUMPTION] beside the field while it is empty. */
+      empty: "Skriv et svar før du går videre.",
+      failed: "Det ble ikke lagret. Prøv igjen.",
+      /** [ASSUMPTION] a second device answered further already: the page shows where it stands. */
+      outOfOrder: "Dette spørsmålet var allerede besvart. Her er neste.",
+      /** [ASSUMPTION] a second device answered this question first: its stored answer stays. */
+      answeredElsewhere: "Spørsmålet var allerede besvart på en annen enhet. Svaret som er lagret, står over.",
+      /** [ASSUMPTION] over each stored answer. */
+      answered: "Ditt svar",
+      /** [ASSUMPTION] once every question is answered. */
+      done: "Du har svart på alle spørsmålene. Svarene er lagret slik du skrev dem.",
+      /** [ASSUMPTION] the questions could not be read; «Prøv igjen» beside it. */
+      loadFailed: "Spørsmålene kunne ikke hentes.",
+    },
   },
 
   /** Links between pages (Story 3.3). Each names where it goes. */

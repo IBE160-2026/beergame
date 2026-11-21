@@ -1,4 +1,4 @@
-"""What other modules and the routes use of `debrief` (Stories 9.2, 9.3, 9.4).
+"""What other modules and the routes use of `debrief` (Stories 9.2 to 9.6).
 
 - `open_mine(user, class_session_id)`: the Student's Debrief, opened on first use; raises
   `NotAvailable` with the code the route answers (`debrief_not_open`, `debrief_held`), and None
@@ -11,6 +11,9 @@
   goes through (raises `ExplanationRequired`, 403 `explanation_required`, FR-41, FR-43);
   `step(user, debrief_id, n)` is the step endpoint behind it; step 2 carries the reveal of
   customer demand (Story 9.4, `reveal`), step 3 the whole chain (Story 9.5, `chain`).
+- Between steps 3 and 4 (Story 9.6): `own_reflection` (the pinned reflection questions with the
+  Student's own answers) and `answer_mine` (raises `InvalidAnswer`, `UnknownQuestion`,
+  `commands.AnswerOutOfOrder`), both behind the gate.
 - `staff_explanation(user, class_session_id, student_id)`: the Explanation for the Class's staff
   (`explanations.read`, AD-12); None for everyone else.
 """
@@ -27,8 +30,10 @@ from app.engine.settings import Role
 from app.modules.content import service as content
 from app.modules.debrief import commands, rules
 from app.modules.debrief.models import (
+    ANSWER_MAX,
     EXPLANATION_MAX,
     debrief_explanations,
+    debrief_reflection_answers,
     debrief_releases,
     debrief_sessions,
 )
@@ -43,6 +48,9 @@ from app.modules.debrief.schemas import (
     MyExplanationOut,
     NetInventoryOut,
     NetWeekOut,
+    ReflectionAnswerOut,
+    ReflectionOut,
+    ReflectionQuestionOut,
     RevealOut,
     RevealWeekOut,
 )
@@ -55,15 +63,19 @@ from app.platform.db import get_sessionmaker
 
 __all__ = [
     "ExplanationRequired",
+    "InvalidAnswer",
     "InvalidExplanation",
     "NoExplanation",
     "NotAvailable",
+    "UnknownQuestion",
+    "answer_mine",
     "due_releases",
     "judge_explanation",
     "mine",
     "open_mine",
     "own_explanation",
     "own_net_inventory",
+    "own_reflection",
     "release_due",
     "require_explanation",
     "save_mine",
@@ -92,6 +104,19 @@ class InvalidExplanation(Exception):
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
+
+
+class InvalidAnswer(Exception):
+    """A reflection answer that may not be stored: `blank` (white space only) or `too_long`."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+class UnknownQuestion(Exception):
+    """No reflection question of that id in the Class session's pinned version (404
+    `not_found`)."""
 
 
 class NoExplanation(Exception):
@@ -324,6 +349,101 @@ async def _reveal(game_id: uuid.UUID, role: str) -> RevealOut:
         weeks=weeks,
         largest_order=LargestOrderOut(week=largest.week, order=largest.order) if largest else None,
     )
+
+
+async def _questions(game_id: uuid.UUID) -> tuple[int, content.ReflectionQuestions]:
+    """The reflection questions the Game's Class session pinned at the lock (the latest for a
+    session locked before the pin)."""
+    found = await games.get_game(str(game_id))
+    pins = found.session_runtime.pins if found and found.session_runtime else None
+    return await content.reflection_questions(
+        content.pinned_version(pins, content.Kind.REFLECTION_QUESTIONS)
+    )
+
+
+async def _answers(
+    user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> dict[str, ReflectionAnswerOut]:
+    async with get_sessionmaker()() as s:
+        found = (
+            await s.execute(
+                select(debrief_reflection_answers).where(
+                    debrief_reflection_answers.c.user_id == user_id,
+                    debrief_reflection_answers.c.class_session_id == class_session_id,
+                )
+            )
+        ).mappings()
+        return {
+            row["question_id"]: ReflectionAnswerOut(
+                text=row["text"], length=row["length"], saved_at=row["saved_at"]
+            )
+            for row in found
+        }
+
+
+def _question(
+    question: content.ReflectionQuestion, answer: ReflectionAnswerOut | None
+) -> ReflectionQuestionOut:
+    return ReflectionQuestionOut(
+        id=question.id,
+        kind=question.kind,
+        prompt=question.prompt,
+        hint=question.hint,
+        answer=answer,
+    )
+
+
+async def own_reflection(user: authz.Principal, debrief_id: uuid.UUID) -> ReflectionOut | None:
+    """The reflection questions between steps 3 and 4 (Story 9.6, FR-45), in the order asked,
+    with the Student's own answers only (FR-43, AD-14). Behind the Explanation gate."""
+    found = await _own(user, debrief_id)
+    if found is None:
+        return None
+    row, _ = found
+    await require_explanation(user.id, row.class_session_id)
+    version, questions = await _questions(row.game_id)
+    answers = await _answers(user.id, row.class_session_id)
+    return ReflectionOut(
+        version=version, questions=[_question(q, answers.get(q.id)) for q in questions.questions]
+    )
+
+
+def judge_answer(text: str) -> None:
+    """Raises `InvalidAnswer` for white space only or more than 2000 characters."""
+    if not text.strip():
+        raise InvalidAnswer("blank")
+    if len(text) > ANSWER_MAX:
+        raise InvalidAnswer("too_long")
+
+
+async def answer_mine(
+    user: authz.Principal, debrief_id: uuid.UUID, question_id: str, text: str
+) -> ReflectionQuestionOut | None:
+    """«Fortsett» on a reflection question: `debrief.commands.complete_step` for the Student's
+    own Debrief, behind the gate; answers the question with its stored answer.
+    Raises `NotAvailable`, `ExplanationRequired`, `UnknownQuestion`, `InvalidAnswer` or
+    `commands.AnswerOutOfOrder`."""
+    found = await _own(user, debrief_id)
+    if found is None:
+        return None
+    row, _ = found
+    await require_explanation(user.id, row.class_session_id)
+    version, questions = await _questions(row.game_id)
+    ids = [q.id for q in questions.questions]
+    if question_id not in ids:
+        raise UnknownQuestion
+    asked = questions.questions[ids.index(question_id)]
+    # An answered question answers its stored answer whatever is sent again (a retry, a second
+    # device): it never changes, so the new text is not judged.
+    stored = (await _answers(user.id, row.class_session_id)).get(question_id)
+    if stored is not None:
+        return _question(asked, stored)
+    judge_answer(text)
+    saved = await commands.complete_step(
+        row.game_id, row.class_session_id, user.id, version, ids, question_id, text
+    )
+    answer = ReflectionAnswerOut(text=saved.text, length=saved.length, saved_at=saved.saved_at)
+    return _question(asked, answer)
 
 
 async def staff_explanation(

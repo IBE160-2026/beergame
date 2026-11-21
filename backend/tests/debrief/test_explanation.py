@@ -52,6 +52,13 @@ def explanations() -> list[tuple]:
     return rows("SELECT user_id, text, length FROM debrief_explanations ORDER BY user_id")
 
 
+def answers() -> list[tuple]:
+    return rows(
+        "SELECT user_id, question_id, questions_version, text, length "
+        "FROM debrief_reflection_answers ORDER BY saved_at, question_id"
+    )
+
+
 async def played(klass: str) -> tuple[str, str, dict, dict[str, str], str]:
     """A Class session with two Class games (five Students); the game of a Student who shares it
     with another (the allocation is random) played a few Uker and finished, its Debrief opened.
@@ -114,6 +121,10 @@ async def test_step_one_the_one_send_the_gate_and_the_readers(klass, emitted):
         holds_no_reveal(response.json(), role)
     for step in range(2, 6):
         refused(await call(me, "GET", f"{path}/steps/{step}"), "explanation_required")
+    refused(await call(me, "GET", f"{path}/reflection"), "explanation_required")
+    early = await call(me, "POST", f"{path}/reflection/feelings", json={"text": "Tidlig."})
+    refused(early, "explanation_required")
+    assert answers() == []
     assert (await call(me, "GET", f"{path}/explanation")).json() == {"explanation": None}
 
     # White space only and too long are refused and store nothing.
@@ -158,11 +169,13 @@ async def test_step_one_the_one_send_the_gate_and_the_readers(klass, emitted):
         }
     await revealed(me, path, debrief, game_id)
     await chained(me, path, debrief, game_id)
+    await reflected(me, mate, path, debrief, emitted)
 
     # Another Student of the same game reads only their own (none) and is still gated.
     other = mate
     assert (await call(other, "GET", f"{path}/explanation")).json() == {"explanation": None}
     refused(await call(other, "GET", f"{path}/steps/2"), "explanation_required")
+    refused(await call(other, "GET", f"{path}/reflection"), "explanation_required")
 
     await readers(session_id, game_id, path, klass, body, me, mate, stranger)
 
@@ -272,6 +285,80 @@ async def chained(me: str, path: str, debrief: dict, game_id: str) -> None:
         execute("UPDATE games SET settings = settings - 'capacity' WHERE id = %s", game_id)
 
 
+async def reflected(me: str, mate: str, path: str, debrief: dict, emitted) -> None:
+    """The reflection questions between steps 3 and 4 (Story 9.6, FR-43, FR-45, AD-14, AD-21):
+    the pinned version in the order feelings, evidence, structure, answered one at a time, each
+    stored once through `complete_step`, and read back by their own Student only. Part of the
+    test above."""
+    shown = await call(me, "GET", f"{path}/reflection")
+    assert shown.status_code == 200
+    body = shown.json()
+    assert body["version"] == 1
+    assert [(q["id"], q["kind"], q["answer"]) for q in body["questions"]] == [
+        ("feelings", "feelings", None),
+        ("evidence", "evidence", None),
+        ("structure", "structure", None),
+    ]
+    answer = f"{path}/reflection"
+
+    # Refused, storing nothing: blank, too long, an unknown id, and any but the next question.
+    for text, reason in (("  \n ", "blank"), ("x" * 2001, "too_long")):
+        bad = await call(me, "POST", f"{answer}/feelings", json={"text": text})
+        assert bad.status_code == 422 and bad.json()["error"]["fields"] == {"text": reason}
+    unknown = await call(me, "POST", f"{answer}/nope", json={"text": "Svar."})
+    assert unknown.status_code == 404 and unknown.json()["error"]["code"] == "not_found"
+    for later in ("evidence", "structure"):
+        ahead = await call(me, "POST", f"{answer}/{later}", json={"text": "Svar."})
+        assert ahead.status_code == 409
+        assert ahead.json()["error"]["code"] == "reflection_out_of_order"
+    assert answers() == []
+
+    # The next question: stored as typed, through the locked Debrief row, which emits.
+    emitted.clear()
+    first = await call(me, "POST", f"{answer}/feelings", json={"text": " Stressende. "})
+    assert first.status_code == 200
+    saved = first.json()
+    assert (saved["id"], saved["kind"]) == ("feelings", "feelings")
+    assert (saved["answer"]["text"], saved["answer"]["length"]) == (" Stressende. ", 13)
+    assert {topic for topic, _ in emitted} == COMMAND_TOPICS["debrief.complete_step"]
+    assert ("debrief", debrief["id"]) in emitted
+
+    # Again, with other text: the stored answer, unchanged, and no event.
+    emitted.clear()
+    again = await call(me, "POST", f"{answer}/feelings", json={"text": "Noe annet."})
+    assert again.status_code == 200 and again.json() == saved
+    blank = await call(me, "POST", f"{answer}/feelings", json={"text": " "})
+    assert blank.status_code == 200 and blank.json() == saved
+    assert emitted == []
+    with pytest.raises(psycopg.errors.RestrictViolation):
+        execute("UPDATE debrief_reflection_answers SET text = 'endret', length = 6")
+    refused_last = await call(me, "POST", f"{answer}/structure", json={"text": "Svar."})
+    assert refused_last.json()["error"]["code"] == "reflection_out_of_order"
+    for qid, text in (("evidence", "Fabrikken svingte mest."), ("structure", "Forsinkelser.")):
+        assert (await call(me, "POST", f"{answer}/{qid}", json={"text": text})).status_code == 200
+    mine = user_id(me)
+    assert answers() == [
+        (mine, "feelings", 1, " Stressende. ", 13),
+        (mine, "evidence", 1, "Fabrikken svingte mest.", 23),
+        (mine, "structure", 1, "Forsinkelser.", 13),
+    ]
+    read = (await call(me, "GET", f"{path}/reflection")).json()
+    assert [q["answer"]["text"] for q in read["questions"]] == [
+        " Stressende. ",
+        "Fabrikken svingte mest.",
+        "Forsinkelser.",
+    ]
+
+    # Another Student of the same game, once past their own Explanation, sees none of them.
+    sent = await call(mate, "POST", f"{path}/explanation", json={"text": "Min egen."})
+    assert sent.status_code == 201
+    theirs = (await call(mate, "GET", f"{path}/reflection")).json()
+    assert [q["answer"] for q in theirs["questions"]] == [None, None, None]
+    assert "Stressende" not in json.dumps(theirs)
+    execute("DELETE FROM debrief_explanations WHERE user_id = %s", user_id(mate))
+    execute("DELETE FROM progress_steps WHERE user_id = %s AND step = 'explanation'", user_id(mate))
+
+
 async def readers(
     session_id: str,
     game_id: str,
@@ -313,6 +400,8 @@ async def readers(
             ("POST", f"{path}/explanation"),
             ("GET", f"{path}/steps/2"),
             ("GET", f"{path}/steps/3"),
+            ("GET", f"{path}/reflection"),
+            ("POST", f"{path}/reflection/feelings"),
         ):
             kw = {"json": {"text": "x"}} if method == "POST" else {}
             refused(await call(who, method, url, **kw), "forbidden")
@@ -324,5 +413,8 @@ async def readers(
         f"{path}/explanation",
         f"{path}/steps/2",
         f"{path}/steps/3",
+        f"{path}/reflection",
     ):
         refused(await call(me, "GET", url), "debrief_not_open")
+    late = await call(me, "POST", f"{path}/reflection/feelings", json={"text": "x"})
+    refused(late, "debrief_not_open")

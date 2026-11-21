@@ -126,3 +126,47 @@ export function downstreamRole(role: Debrief["role"]): Debrief["role"] | null {
   const at = chain.indexOf(role);
   return at >= 0 && at < chain.length - 1 ? chain[at + 1]! : null;
 }
+
+/** The reflection questions between steps 3 and 4 (Story 9.6, FR-45): the pinned version's
+ * questions, feelings, then evidence, then structure, each with the Student's own answer. */
+export type Reflection = components["schemas"]["ReflectionOut"];
+export type ReflectionQuestion = components["schemas"]["ReflectionQuestionOut"];
+
+export const reflectionKey = (debriefId: string) => [...debriefsKey, debriefId, "reflection"] as const;
+
+/** The reflection questions, read once the Explanation is saved (`enabled`): the api checks the
+ * gate. */
+export function useMyReflection(debriefId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: reflectionKey(debriefId),
+    queryFn: () =>
+      request(() => api.GET("/api/debriefs/{debrief_id}/reflection", { params: { path: { debrief_id: debriefId } } })),
+    enabled,
+    retry: false,
+  });
+}
+
+/** «Fortsett»: stores the answer to one question once (FR-45). Nothing here sends on its own. */
+export function answerReflection(debriefId: string, questionId: string, text: string): Promise<ReflectionQuestion> {
+  return request(() =>
+    api.POST("/api/debriefs/{debrief_id}/reflection/{question_id}", {
+      params: { path: { debrief_id: debriefId, question_id: questionId } },
+      body: { text },
+    }),
+  );
+}
+
+/** The draft field of one reflection answer in a Class session (`lib/drafts.ts`). */
+export const reflectionDraftField = (classSessionId: string, questionId: string) =>
+  `debrief-reflection:${classSessionId}:${questionId}`;
+
+/** The question to answer now: the first without an answer; null once all are answered. The api
+ * takes only this one (409 `reflection_out_of_order`). */
+export function currentQuestion(reflection: Reflection): ReflectionQuestion | null {
+  return reflection.questions.find((q) => q.answer === null) ?? null;
+}
+
+/** The reflection with one question's stored answer put in, as the api answered it. */
+export function withAnswer(reflection: Reflection, answered: ReflectionQuestion): Reflection {
+  return { ...reflection, questions: reflection.questions.map((q) => (q.id === answered.id ? answered : q)) };
+}

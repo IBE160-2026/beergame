@@ -65,3 +65,17 @@ The Debrief (Epic 9, FR-41 to FR-47, AD-21). Never imports `modules/players`
   racing second read return the stored row; the Debrief never computes facts itself). `capacity` is the Game's cap per Role while
   `FEATURE_CAPACITY` is on, null otherwise. `last_week` is the scrubber's range. Steps 4 and 5
   answer `chain: null` until their stories.
+
+## The reflection questions (Story 9.6, FR-45, FR-43, AD-14, AD-21, AD-23)
+
+- The questions are content of kind `reflection_questions` (`modules/content`), pinned at the
+  lock under `pins["reflection_questions"]`; version 1 (migration 0105) holds three placeholders,
+  feelings, evidence, structure, until issue #16.
+- `GET /api/debriefs/{id}/reflection` answers the pinned version's questions in order, each with
+  the caller's own answer or null; never another Student's. Behind `require_explanation`.
+- `POST /api/debriefs/{id}/reflection/{question_id}` `{text}` stores one answer through
+  `commands.complete_step` (Debrief row locked, `debrief:<id>` emitted) in
+  `debrief_reflection_answers`, keyed by `user_id`, Class session and question, with the
+  questions' version; never changed (trigger). Only the first unanswered question may be answered
+  (409 `reflection_out_of_order`); an answered one answers its stored answer unchanged and emits
+  nothing. 404 `not_found` for an unknown id, 422 for blank or over 2000 characters.

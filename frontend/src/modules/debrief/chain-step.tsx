@@ -205,7 +205,8 @@ function ChainView({ chain }: { chain: Chain }) {
 
 type Size = { width: number; fontSize: number };
 
-/** The four-Role Kjedebånd at the chosen Uke, at the width it is given and the current text size,
+/** The four-Role Kjedebånd at the chosen Uke, across the step's full width like the bars under it
+ * (`07-debrief.png`), at the width it is given and the current text size,
  * measured again whenever either changes. Hidden from screen readers: the live reading and the
  * Rolle × Uke table carry its numbers. */
 function FourRoleBand({ chain, week }: { chain: Chain; week: number }) {
@@ -224,7 +225,7 @@ function FourRoleBand({ chain, week }: { chain: Chain; week: number }) {
     return () => observer.disconnect();
   }, []);
   return (
-    <div data-chain-band="chain" className="mt-4 max-w-[56rem]">
+    <div data-chain-band="chain" className="mt-4">
       <p className="text-caption text-ink-secondary">{copy.bandKey}</p>
       <div ref={box} aria-hidden="true" className="mt-1 min-h-[8em] text-caption">
         {size && size.width > 0 ? <ChainBand variant="chain" title={copy.bandSvg} {...chainBandInput(chain, week, size.width, size.fontSize)} /> : null}

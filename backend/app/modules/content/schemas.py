@@ -2,7 +2,7 @@
 
 The Detected pattern definitions (Story 9.1) are `analysis.patterns.PatternSet`: the pure layer
 that applies the thresholds owns their shape; so are the sentence templates (Story 9.4,
-`analysis.sentences.SentenceTemplates`)."""
+`analysis.sentences.SentenceTemplates`). The reflection questions (Story 9.6) are shaped here."""
 
 import re
 from typing import Annotated, Literal
@@ -14,7 +14,10 @@ from app.analysis.sentences import SentenceTemplates
 
 __all__ = [
     "ColumnRow",
+    "REFLECTION_KINDS",
     "PatternSet",
+    "ReflectionQuestion",
+    "ReflectionQuestions",
     "SentenceTemplates",
     "StartingTask",
     "StartingTaskItem",
@@ -82,6 +85,53 @@ class StartingTaskItem(BaseModel):
             raise ValueError("row keys repeat")
         if any(term.row not in keys for term in self.terms):
             raise ValueError("a term names no row of the column")
+        return self
+
+
+REFLECTION_KINDS = ("feelings", "evidence", "structure")
+"""The reflection questions' kinds, in the order they are asked (FR-45)."""
+
+
+class ReflectionQuestion(BaseModel):
+    """One reflection question of the Debrief (Story 9.6): asked after the whole chain, answered
+    in the Student's own words."""
+
+    model_config = _FROZEN
+
+    id: _Key
+    kind: Literal["feelings", "evidence", "structure"]
+    prompt: _Text
+    hint: _Text | None = None
+
+
+class ReflectionQuestions(BaseModel):
+    """The reflection questions (Story 9.6, FR-45, UX-DR74): feelings, then evidence, then
+    structure, each kind at least once. Shown after the reveal, so the exercise may be named, but
+    the copy rules hold: no exclamation mark."""
+
+    model_config = _FROZEN
+
+    questions: Annotated[tuple[ReflectionQuestion, ...], Field(min_length=1, max_length=12)]
+
+    @model_validator(mode="after")
+    def _ids_unique(self) -> ReflectionQuestions:
+        ids = [question.id for question in self.questions]
+        if len(set(ids)) != len(ids):
+            raise ValueError("question ids repeat")
+        return self
+
+    @model_validator(mode="after")
+    def _feelings_evidence_structure(self) -> ReflectionQuestions:
+        order = [REFLECTION_KINDS.index(question.kind) for question in self.questions]
+        if order != sorted(order) or set(order) != set(range(len(REFLECTION_KINDS))):
+            raise ValueError("questions run feelings, evidence, structure, each at least once")
+        return self
+
+    @model_validator(mode="after")
+    def _no_exclamation(self) -> ReflectionQuestions:
+        for question in self.questions:
+            if "!" in question.prompt or "!" in (question.hint or ""):
+                raise ValueError(f"a reflection question may not say {question.prompt!r}")
         return self
 
 

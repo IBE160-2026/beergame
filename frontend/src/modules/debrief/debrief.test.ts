@@ -3,7 +3,18 @@ import { describe, expect, it } from "vitest";
 import { nb } from "@/copy/nb";
 import { DEBRIEF_PATH } from "@/modules/identity/homes";
 
-import { type Chain, type Debrief, debriefView, downstreamRole, explanationDraftField, hasText } from "./api";
+import {
+  type Chain,
+  currentQuestion,
+  type Debrief,
+  debriefView,
+  downstreamRole,
+  explanationDraftField,
+  hasText,
+  type Reflection,
+  reflectionDraftField,
+  withAnswer,
+} from "./api";
 import { amplificationLine, chainBandInput, chainReading } from "./chain-step";
 
 const copy = nb.debriefEntry;
@@ -135,5 +146,41 @@ describe("the whole chain at a Uke (Story 9.5)", () => {
     expect(amplificationLine(CHAIN)).toBe("Forsterkning fra kundene og oppover: Detaljist –, Grossist 4,1×, Distributør 6,0×, Fabrikk 7,6×.");
     expect(nb.debrief.chain.heading).toBe("Hele kjeden: svingningene vokser oppstrøms og kommer senere");
     expect(nb.debrief.chain.at(15)).toBe("Kjeden i Uke 15. Dra i skrubberen for å spole.");
+  });
+});
+
+describe("the reflection questions (Story 9.6)", () => {
+  const answer = { text: "Stressende.", length: 11, saved_at: "2026-11-21T12:00:00Z" };
+  const REFLECTION: Reflection = {
+    version: 1,
+    questions: [
+      { id: "feelings", kind: "feelings", prompt: "Hvordan?", hint: null, answer },
+      { id: "evidence", kind: "evidence", prompt: "Hva?", hint: null, answer: null },
+      { id: "structure", kind: "structure", prompt: "Hvorfor?", hint: "Struktur.", answer: null },
+    ],
+  };
+
+  it("asks the first unanswered question, and none once all are answered", () => {
+    expect(currentQuestion(REFLECTION)?.id).toBe("evidence");
+    const evidence = { ...REFLECTION.questions[1]!, answer };
+    const next = withAnswer(REFLECTION, evidence);
+    expect(currentQuestion(next)?.id).toBe("structure");
+    expect(next.questions[1]).toBe(evidence);
+    expect(REFLECTION.questions[1]!.answer).toBeNull();
+    expect(currentQuestion(withAnswer(next, { ...REFLECTION.questions[2]!, answer }))).toBeNull();
+  });
+
+  it("keeps a draft per question and Class session", () => {
+    expect(reflectionDraftField("s1", "feelings")).toBe("debrief-reflection:s1:feelings");
+    expect(reflectionDraftField("s1", "feelings")).not.toBe(explanationDraftField("s1"));
+  });
+
+  it("words the step without praise, blame or exclamation marks", () => {
+    const copy = nb.debrief.reflection;
+    expect(copy.counter(2, 3)).toBe("Spørsmål 2 av 3");
+    expect(copy.failed).toBe("Det ble ikke lagret. Prøv igjen.");
+    for (const line of [copy.heading, copy.privacy, copy.next, copy.empty, copy.outOfOrder, copy.done, copy.loadFailed]) {
+      expect(line).not.toMatch(/!|flink|bra jobbet|feil av/i);
+    }
   });
 });

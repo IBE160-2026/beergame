@@ -1,11 +1,12 @@
-"""The only writer of the Debrief tables (Stories 9.2, 9.3, AD-21, AD-8).
+"""The only writer of the Debrief tables (Stories 9.2, 9.3, 9.6, AD-21, AD-8).
 
 Each command on a Debrief session locks its row and emits `debrief:<id>` (`platform/events`
-registry: `debrief.open`, `debrief.save_explanation`). `release` writes the Class session's
-release once and tells each Student who holds a Seat through `platform/notify`
-(`debrief.release`). Arguments are ids only."""
+registry: `debrief.open`, `debrief.save_explanation`, `debrief.complete_step`). `release` writes
+the Class session's release once and tells each Student who holds a Seat through
+`platform/notify` (`debrief.release`). Arguments are ids and the Student's text only."""
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -14,7 +15,12 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.debrief.models import debrief_explanations, debrief_releases, debrief_sessions
+from app.modules.debrief.models import (
+    debrief_explanations,
+    debrief_reflection_answers,
+    debrief_releases,
+    debrief_sessions,
+)
 from app.modules.debrief.rules import all_class_games_finished
 from app.modules.progress import service as progress
 from app.platform import events, notify
@@ -29,6 +35,11 @@ RELEASED_NOTICE = "debrief_released"
 class ExplanationExists(Exception):
     """The Student has sent their Explanation in this Class session already (409
     `explanation_exists`): it is stored once and never changed (FR-41)."""
+
+
+class AnswerOutOfOrder(Exception):
+    """A reflection answer to a question that is not the Student's next one (409
+    `reflection_out_of_order`): the questions are answered one at a time, in order (FR-45)."""
 
 
 @dataclass(frozen=True)
@@ -164,3 +175,66 @@ async def save_explanation(
         await events.emit(session, "debrief", str(debrief.id))
     log.info("explanation_saved", debrief_id=str(debrief.id), length=stored["length"])
     return ExplanationRow(stored["text"], stored["length"], stored["saved_at"])
+
+
+@dataclass(frozen=True)
+class AnswerRow:
+    question_id: str
+    text: str
+    length: int
+    saved_at: datetime
+
+
+async def complete_step(
+    game_id: uuid.UUID,
+    class_session_id: uuid.UUID,
+    user_id: uuid.UUID,
+    questions_version: int,
+    question_ids: Sequence[str],
+    question_id: str,
+    text: str,
+) -> AnswerRow:
+    """«Fortsett» on a reflection question (Story 9.6, FR-45, AD-14, AD-21): store the Student's
+    answer to `question_id`, as typed, with its length and the database time. The Debrief row of
+    the Game is locked, so the order is judged against what is stored; a new answer emits
+    `debrief:<id>`. `question_ids` are the pinned version's questions in the order asked, and the
+    caller has judged that `question_id` is one of them and the text. An answered question
+    returns the stored answer unchanged and emits nothing (a retry, a second device); any other
+    question than the first unanswered one raises `AnswerOutOfOrder`."""
+    async with get_sessionmaker().begin() as session:
+        debrief = await _locked(session, game_id)
+        stored = {
+            row["question_id"]: AnswerRow(
+                row["question_id"], row["text"], row["length"], row["saved_at"]
+            )
+            for row in (
+                await session.execute(
+                    select(debrief_reflection_answers).where(
+                        debrief_reflection_answers.c.user_id == user_id,
+                        debrief_reflection_answers.c.class_session_id == class_session_id,
+                    )
+                )
+            ).mappings()
+        }
+        if question_id in stored:
+            return stored[question_id]
+        following = next((each for each in question_ids if each not in stored), None)
+        if question_id != following:
+            raise AnswerOutOfOrder
+        saved_at = await session.scalar(
+            insert(debrief_reflection_answers)
+            .values(
+                user_id=user_id,
+                class_session_id=class_session_id,
+                question_id=question_id,
+                game_id=game_id,
+                questions_version=questions_version,
+                text=text,
+                length=len(text),
+                saved_at=func.now(),
+            )
+            .returning(debrief_reflection_answers.c.saved_at)
+        )
+        await events.emit(session, "debrief", str(debrief.id))
+    log.info("reflection_answered", debrief_id=str(debrief.id), question_id=question_id)
+    return AnswerRow(question_id, text, len(text), saved_at)

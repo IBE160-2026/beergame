@@ -4,6 +4,7 @@ import { nb } from "../src/copy/nb";
 import { loginByApi } from "./support/auth";
 import { CHAIN, chainAnswer } from "./support/chain";
 import { expectAccessible, expectReflow, test } from "./support/classes";
+import { NO_REFLECTION } from "./support/reflection";
 import { REVEAL } from "./support/reveal";
 
 /** Debrief step 3, the whole chain (Story 9.5, FR-44, FR-73, NFR-6, UX-DR33, UX-DR34, UX-DR75,
@@ -40,6 +41,8 @@ async function chained(page: Page, { sent = true, chain = CHAIN as unknown } = {
     asked.push(route.request().url());
     return route.fulfill({ json: { debrief_id: DEBRIEF, step: 3, reveal: null, chain } });
   });
+  // The reflection questions (Story 9.6) are `debrief-reflection.spec.ts`; here there are none.
+  await page.route(`**/api/debriefs/${DEBRIEF}/reflection`, (route) => route.fulfill({ json: NO_REFLECTION }));
   return { asked, unroute: () => page.unrouteAll({ behavior: "ignoreErrors" }) };
 }
 
@@ -197,4 +200,20 @@ test("without a sent Explanation there is no step 3, and it is not asked for", a
   await expect(page.locator("[data-debrief-chain]")).toHaveCount(0);
   expect(stub.asked).toEqual([]);
   await stub.unroute();
+});
+
+test.describe("1280 px", () => {
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  test("the four-Role band spans the step like the bars under it", async ({ page }) => {
+    await loginByApi(page, "student");
+    const stub = await chained(page);
+    await page.goto(`/debrief/${SESSION}`);
+    const step = page.locator("[data-debrief-chain]");
+    const band = (await step.locator("svg[data-variant=chain]").boundingBox())!;
+    const bars = (await step.getByRole("region", { name: copy.region }).boundingBox())!;
+    expect(Math.abs(band.x - bars.x)).toBeLessThanOrEqual(2);
+    expect(Math.abs(band.x + band.width - (bars.x + bars.width))).toBeLessThanOrEqual(2);
+    await stub.unroute();
+  });
 });

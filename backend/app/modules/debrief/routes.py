@@ -1,4 +1,4 @@
-"""The Debrief routes (Stories 9.2, 9.3, FR-41, FR-42, AD-3, AD-12).
+"""The Debrief routes (Stories 9.2 to 9.6, FR-41, FR-42, FR-45, AD-3, AD-12).
 
 - `POST /api/me/class-sessions/{id}/debrief`: «Gå til Debrief» and Stegene's Debrief step open
   the Student's Debrief session (created at step 1 the first time) and answer it.
@@ -10,6 +10,9 @@
   Explanation gate (403 `explanation_required`). Step 2 is the reveal of customer demand
   (Story 9.4), step 3 the whole chain (Story 9.5); later stories add each other step's content
   here.
+- Between steps 3 and 4 (Story 9.6): `GET /api/debriefs/{id}/reflection` (the reflection
+  questions with the Student's own answers) and `POST /api/debriefs/{id}/reflection/{question_id}`
+  (one answer, stored once, in order; 409 `reflection_out_of_order`), behind the same gate.
 - `GET /api/class-sessions/{id}/students/{user_id}/explanation`: a Student's Explanation for the
   Class's owners and Assistant lecturers (`explanations.read`).
 
@@ -34,6 +37,9 @@ from app.modules.debrief.schemas import (
     ExplanationOut,
     MyExplanationOut,
     NetInventoryOut,
+    ReflectionAnswerIn,
+    ReflectionOut,
+    ReflectionQuestionOut,
 )
 from app.platform import authz
 from app.platform.errors import documented, error_response
@@ -121,6 +127,16 @@ async def _answer(read, status: int = 200) -> Response:
         )
     except commands.ExplanationExists:
         return error_response(409, "explanation_exists", "Your Explanation is already sent.")
+    except service.InvalidAnswer as invalid:
+        return error_response(
+            422, "validation_error", "The answer is empty or too long.", {"text": invalid.reason}
+        )
+    except service.UnknownQuestion:
+        return error_response(404, "not_found", "No such reflection question.")
+    except commands.AnswerOutOfOrder:
+        return error_response(
+            409, "reflection_out_of_order", "Answer the reflection questions in order."
+        )
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"), status_code=status)
@@ -181,6 +197,38 @@ async def get_debrief_step(
     states, Fabrikk first, with Forsterkning and the first large Order from the stored facts set
     (Story 9.5, FR-44, AD-7)."""
     return await _answer(service.step(user, _id(debrief_id), step))
+
+
+@router.get(
+    "/debriefs/{debrief_id}/reflection",
+    response_model=ReflectionOut,
+    responses=documented(401, 403),
+    operation_id="getMyReflection",
+)
+async def get_my_reflection(debrief_id: str, user: OWN) -> Response:
+    """The reflection questions between steps 3 and 4 (Story 9.6, FR-45): the Class session's
+    pinned version, feelings, then evidence, then structure, each with the Student's own answer
+    (null until answered); never another Student's (FR-43). 403 `explanation_required` until the
+    Explanation is saved."""
+    return await _answer(service.own_reflection(user, _id(debrief_id)))
+
+
+@router.post(
+    "/debriefs/{debrief_id}/reflection/{question_id}",
+    response_model=ReflectionQuestionOut,
+    responses=documented(401, 403, 404, 409, 422),
+    operation_id="answerReflectionQuestion",
+)
+async def answer_reflection_question(
+    debrief_id: str, question_id: str, body: ReflectionAnswerIn, user: OWN
+) -> Response:
+    """«Fortsett»: stores the Student's answer to one reflection question once, as typed, and
+    answers the question with it. The questions are answered in order: any other than the first
+    unanswered one is 409 `reflection_out_of_order`; an answered one answers its stored answer
+    unchanged. 404 `not_found` for an id not in the pinned version, 422 `validation_error` for
+    white space only or more than 2000 characters, 403 `explanation_required` before the
+    Explanation."""
+    return await _answer(service.answer_mine(user, _id(debrief_id), question_id, body.text))
 
 
 @router.get(

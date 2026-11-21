@@ -3623,6 +3623,119 @@
         "title": "ProposalPersonOut",
         "type": "object"
       },
+      "ReflectionAnswerIn": {
+        "description": "«Fortsett» on a reflection question: the answer as typed. It must hold more than white\nspace and at most 2000 characters (422 `validation_error`).",
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ReflectionAnswerIn",
+        "type": "object"
+      },
+      "ReflectionAnswerOut": {
+        "description": "A stored reflection answer (FR-45, AD-14): as typed, its length in characters and when it\nwas saved. Never changed after it is stored.",
+        "properties": {
+          "length": {
+            "title": "Length",
+            "type": "integer"
+          },
+          "saved_at": {
+            "format": "date-time",
+            "title": "Saved At",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "length",
+          "saved_at"
+        ],
+        "title": "ReflectionAnswerOut",
+        "type": "object"
+      },
+      "ReflectionOut": {
+        "description": "The reflection questions between steps 3 and 4 (Story 9.6, FR-45): the version the Class\nsession pinned at the lock, its questions in the order asked (feelings, evidence, structure),\neach with the caller's own answer only (FR-43).",
+        "properties": {
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/ReflectionQuestionOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "questions"
+        ],
+        "title": "ReflectionOut",
+        "type": "object"
+      },
+      "ReflectionQuestionOut": {
+        "description": "One reflection question (Story 9.6) with the Student's own answer, None until answered.",
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReflectionAnswerOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "feelings",
+              "evidence",
+              "structure"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "prompt",
+          "hint",
+          "answer"
+        ],
+        "title": "ReflectionQuestionOut",
+        "type": "object"
+      },
       "RegistrationOut": {
         "description": "One address on the Roster with its status. `id` names the Roster entry for a reminder to\nit alone; `remindable` is whether a reminder would go to it (not registered, not a hard\nbounce).",
         "properties": {
@@ -10872,6 +10985,171 @@
           }
         },
         "summary": "Get My Net Inventory",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/reflection": {
+      "get": {
+        "description": "The reflection questions between steps 3 and 4 (Story 9.6, FR-45): the Class session's\npinned version, feelings, then evidence, then structure, each with the Student's own answer\n(null until answered); never another Student's (FR-43). 403 `explanation_required` until the\nExplanation is saved.",
+        "operationId": "getMyReflection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReflectionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Reflection",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/reflection/{question_id}": {
+      "post": {
+        "description": "«Fortsett»: stores the Student's answer to one reflection question once, as typed, and\nanswers the question with it. The questions are answered in order: any other than the first\nunanswered one is 409 `reflection_out_of_order`; an answered one answers its stored answer\nunchanged. 404 `not_found` for an id not in the pinned version, 422 `validation_error` for\nwhite space only or more than 2000 characters, 403 `explanation_required` before the\nExplanation.",
+        "operationId": "answerReflectionQuestion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "title": "Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReflectionAnswerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReflectionQuestionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Answer Reflection Question",
         "tags": [
           "debrief"
         ]

@@ -1430,6 +1430,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/debriefs/{debrief_id}/reflection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Reflection
+         * @description The reflection questions between steps 3 and 4 (Story 9.6, FR-45): the Class session's
+         *     pinned version, feelings, then evidence, then structure, each with the Student's own answer
+         *     (null until answered); never another Student's (FR-43). 403 `explanation_required` until the
+         *     Explanation is saved.
+         */
+        get: operations["getMyReflection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/reflection/{question_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer Reflection Question
+         * @description «Fortsett»: stores the Student's answer to one reflection question once, as typed, and
+         *     answers the question with it. The questions are answered in order: any other than the first
+         *     unanswered one is 409 `reflection_out_of_order`; an answered one answers its stored answer
+         *     unchanged. 404 `not_found` for an id not in the pinned version, 422 `validation_error` for
+         *     white space only or more than 2000 characters, 403 `explanation_required` before the
+         *     Explanation.
+         */
+        post: operations["answerReflectionQuestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/debriefs/{debrief_id}/steps/{step}": {
         parameters: {
             query?: never;
@@ -3488,6 +3536,61 @@ export interface components {
             mine: boolean;
             /** Name */
             name: string | null;
+        };
+        /**
+         * ReflectionAnswerIn
+         * @description «Fortsett» on a reflection question: the answer as typed. It must hold more than white
+         *     space and at most 2000 characters (422 `validation_error`).
+         */
+        ReflectionAnswerIn: {
+            /** Text */
+            text: string;
+        };
+        /**
+         * ReflectionAnswerOut
+         * @description A stored reflection answer (FR-45, AD-14): as typed, its length in characters and when it
+         *     was saved. Never changed after it is stored.
+         */
+        ReflectionAnswerOut: {
+            /** Length */
+            length: number;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * ReflectionOut
+         * @description The reflection questions between steps 3 and 4 (Story 9.6, FR-45): the version the Class
+         *     session pinned at the lock, its questions in the order asked (feelings, evidence, structure),
+         *     each with the caller's own answer only (FR-43).
+         */
+        ReflectionOut: {
+            /** Questions */
+            questions: components["schemas"]["ReflectionQuestionOut"][];
+            /** Version */
+            version: number;
+        };
+        /**
+         * ReflectionQuestionOut
+         * @description One reflection question (Story 9.6) with the Student's own answer, None until answered.
+         */
+        ReflectionQuestionOut: {
+            answer: components["schemas"]["ReflectionAnswerOut"] | null;
+            /** Hint */
+            hint: string | null;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "feelings" | "evidence" | "structure";
+            /** Prompt */
+            prompt: string;
         };
         /**
          * RegistrationOut
@@ -8308,6 +8411,127 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyReflection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReflectionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answerReflectionQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReflectionAnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReflectionQuestionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

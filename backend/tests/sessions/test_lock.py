@@ -86,11 +86,12 @@ async def test_two_sweeps_over_a_due_session_lock_it_once(klass, emitted):
         24,
         None,
         # Story 6.3: the Starting task's pin; Story 9.1: the Detected patterns'; Story 9.4: the
-        # sentence templates'.
+        # sentence templates'; Story 9.6: the reflection questions'.
         {
             "starting_task": {"version": 1},
             "detected_patterns": {"version": 1},
             "sentence_templates": {"version": 1},
+            "reflection_questions": {"version": 1},
         },
     )
     assert runtime["rule_based_params"] and runtime["play_guard_params"]

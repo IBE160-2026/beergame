@@ -3,6 +3,7 @@ import { expect, type Page } from "@playwright/test";
 import { nb } from "../src/copy/nb";
 import { loginByApi } from "./support/auth";
 import { expectAccessible, expectReflow, test } from "./support/classes";
+import { NO_REFLECTION } from "./support/reflection";
 import { REVEAL } from "./support/reveal";
 
 /** Debrief step 2, the reveal of customer demand (Story 9.4, FR-44, FR-73, FR-84, NFR-6, UX-DR31,
@@ -44,6 +45,8 @@ async function revealed(page: Page, { failures = 0, sent = true } = {}) {
   await page.route(`**/api/debriefs/${DEBRIEF}/steps/3`, (route) =>
     route.fulfill({ json: { debrief_id: DEBRIEF, step: 3, reveal: null, chain: null } }),
   );
+  // The reflection questions (Story 9.6) are `debrief-reflection.spec.ts`; here there are none.
+  await page.route(`**/api/debriefs/${DEBRIEF}/reflection`, (route) => route.fulfill({ json: NO_REFLECTION }));
   return { asked, unroute: () => page.unrouteAll({ behavior: "ignoreErrors" }) };
 }
 

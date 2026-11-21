@@ -77,6 +77,8 @@ DEBRIEF_TABLES = {"debrief_sessions", "debrief_releases"}
 """The tables of revision 0102 (Story 9.2)."""
 EXPLANATION_TABLES = {"debrief_explanations"}
 """The table of revision 0103 (Story 9.3)."""
+REFLECTION_TABLES = {"debrief_reflection_answers"}
+"""The table of revision 0105 (Story 9.6)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -86,8 +88,9 @@ HEAD_TABLES = (
     | FACT_SET_TABLES
     | DEBRIEF_TABLES
     | EXPLANATION_TABLES
+    | REFLECTION_TABLES
 )
-HEAD = "0104"  # 0104 stores the sentence templates (Story 9.4)
+HEAD = "0105"  # 0105 stores the reflection questions and their answers (Story 9.6)
 
 
 def reset_schema(url: str) -> None:
@@ -236,6 +239,21 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     [(templates,)] = rows(url, "SELECT body FROM content_records WHERE kind = 'sentence_templates'")
     assert "demand-step" in [t["id"] for t in templates["templates"]]
 
+    # 0105 (Story 9.6): version 1 of the reflection questions; an answer is never changed.
+    [(questions,)] = rows(
+        url, "SELECT body FROM content_records WHERE kind = 'reflection_questions'"
+    )
+    assert [q["kind"] for q in questions["questions"]] == ["feelings", "evidence", "structure"]
+    answers = constraints(url, "debrief_reflection_answers")
+    assert "char_length(text)" in answers["ck_debrief_reflection_answers_length"]
+    assert function_names(url, "debrief_reflection_answers_immutable")
+
+    command.downgrade(cfg, "0104")
+    assert REFLECTION_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "debrief_reflection_answers_immutable")
+    assert "reflection_questions" not in definition(url, "ck_content_records_kind")
+    left = "SELECT count(*) FROM content_records WHERE kind = 'reflection_questions'"
+    assert rows(url, left) == [(0,)]
     command.downgrade(cfg, "0103")
     assert rows(url, "SELECT count(*) FROM content_records WHERE kind = 'sentence_templates'") == [
         (0,)

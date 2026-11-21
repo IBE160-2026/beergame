@@ -1,8 +1,9 @@
-"""What the Debrief routes answer (Stories 9.2, 9.3, 9.4, AD-3)."""
+"""What the Debrief routes answer (Stories 9.2 to 9.6, AD-3)."""
 
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -149,3 +150,38 @@ class DebriefStepOut(BaseModel):
     """Step 2 only."""
     chain: ChainOut | None = None
     """Step 3 only."""
+
+
+class ReflectionAnswerIn(BaseModel):
+    """«Fortsett» on a reflection question: the answer as typed. It must hold more than white
+    space and at most 2000 characters (422 `validation_error`)."""
+
+    text: str
+
+
+class ReflectionAnswerOut(BaseModel):
+    """A stored reflection answer (FR-45, AD-14): as typed, its length in characters and when it
+    was saved. Never changed after it is stored."""
+
+    text: str
+    length: int
+    saved_at: datetime
+
+
+class ReflectionQuestionOut(BaseModel):
+    """One reflection question (Story 9.6) with the Student's own answer, None until answered."""
+
+    id: str
+    kind: Literal["feelings", "evidence", "structure"]
+    prompt: str
+    hint: str | None
+    answer: ReflectionAnswerOut | None
+
+
+class ReflectionOut(BaseModel):
+    """The reflection questions between steps 3 and 4 (Story 9.6, FR-45): the version the Class
+    session pinned at the lock, its questions in the order asked (feelings, evidence, structure),
+    each with the caller's own answer only (FR-43)."""
+
+    version: int
+    questions: list[ReflectionQuestionOut]
