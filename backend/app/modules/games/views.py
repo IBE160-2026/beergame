@@ -315,6 +315,7 @@ async def table_status(
     }
     found = await names(sorted(named))
     turns, guided = await _open_turns(session, game_id)
+    queued = await repo.queued_reclaims(session, game_id)
     seats = []
     for row in reversed(rows):  # chain order serves the customer first; Fabrikk leads here
         kind = row["occupant_kind"]
@@ -346,6 +347,8 @@ async def table_status(
                 taken_over=taken_over,
                 ordering_for=found.get(history["last_student"]) if taken_over else None,
                 guard_switched=kind == OccupantKind.RULE_BASED and history["guard_switched"],
+                # Story 8.4: only the Student who asked sees their queued Reclaim.
+                reclaim_queued=mine and taken_over and queued.get(row["id"]) == viewer_id,
             )
         )
     due = sorted(

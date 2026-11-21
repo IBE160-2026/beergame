@@ -31,6 +31,7 @@ const seat = (over: Partial<Seat>): Seat => ({
   taken_over: false,
   ordering_for: null,
   guard_switched: false,
+  reclaim_queued: false,
   ...over,
 });
 

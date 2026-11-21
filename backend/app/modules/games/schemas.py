@@ -606,6 +606,9 @@ class TableSeat(BaseModel):
     guard_switched: bool = False
     """An AI player that is Rule-based because the Play guard switched the Seat once, also when
     that switch came before a later Takeover or Reclaim (Story 8.2, FR-79)."""
+    reclaim_queued: bool = False
+    """The viewer's own Seat, taken over, with their «Ta tilbake setet» queued: it is theirs
+    again when the next Week opens (Story 8.4, FR-37). False on every other Seat."""
 
 
 class TableStatus(BaseModel):

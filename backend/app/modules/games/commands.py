@@ -91,6 +91,7 @@ __all__ = [
     "move_seat",
     "place_order",
     "propose_time",
+    "request_reclaim",
     "set_snapshot",
     "start",
     "switch_to_rule_based",
@@ -1139,13 +1140,46 @@ async def _step(
     orders, week_orders = all_orders[: week - 1], all_orders[week - 1]
     following = engine_advance(settings, states[-1], week_orders, game["rules_version"])
     if following.finished:
+        # A Reclaim queued in the last Week has no Week to take effect in (Story 8.4).
+        await repo.delete_reclaims(session, game_uuid)
         await finish(session, game_uuid, following)
         return Lifecycle.FINISHED, None
+    await _apply_reclaims(session, game_uuid, following.week)
     seat_rows = await repo.seats_with_occupant(session, game_uuid)
     await _open_week(
         session, game, settings, params, [*states, following], [*orders, week_orders], seat_rows
     )
     return Lifecycle.RUNNING, following.week
+
+
+async def _apply_reclaims(session: AsyncSession, game_id: uuid.UUID, week: int) -> None:
+    """Hand each queued Reclaim's Seat back to its Student from the Week about to open (Story 8.4,
+    FR-37, AD-5): one appended occupancy row, occupant `student`, reason `reclaim`, the Student as
+    `actor_user_id`, in the transaction that opens the Week; the request is deleted either way. A
+    Seat a Student holds already (none today) is left as it is. Its new turn starts with no clock
+    running: the wait starts only when another Student orders (`_start_waits`)."""
+    queued = await repo.queued_reclaims(session, game_id)
+    if not queued:
+        return
+    holders = {row["id"]: row for row in await repo.seats_with_occupant(session, game_id)}
+    for seat_id, user_id in sorted(queued.items(), key=lambda item: str(item[0])):
+        holder = holders.get(seat_id)
+        if holder is not None and holder["occupant_kind"] not in (None, OccupantKind.STUDENT):
+            await repo.append_occupancy(
+                session,
+                {
+                    "id": uuid.uuid7(),
+                    "seat_id": seat_id,
+                    "from_week": week,
+                    "occupant_kind": OccupantKind.STUDENT.value,
+                    "policy_id": None,
+                    "reason": OccupancyReason.RECLAIM.value,
+                    "user_id": user_id,
+                    "actor_user_id": user_id,
+                },
+            )
+            log.info("seat_reclaimed", game_id=str(game_id), seat_id=str(seat_id), week=week)
+        await repo.delete_reclaim(session, seat_id)
 
 
 async def _place(
@@ -1469,13 +1503,8 @@ async def view_week(game_id: str, seat: Role | str, week: int, *, actor: uuid.UU
             await _step(session, game, settings, params, states)
         await _commit_change(session, game_uuid)
         told = {actor_id}
-        if advanced:  # a new Week opens for every Student of the Game
-            told |= {
-                seat_row["user_id"]
-                for seat_row in seat_rows
-                if seat_row["occupant_kind"] == OccupantKind.STUDENT
-                and seat_row["user_id"] is not None
-            }
+        if advanced:  # a new Week opens for every Student of the Game, one back by a Reclaim too
+            told |= seated_students(await repo.seats_with_occupant(session, game_uuid))
         for student in sorted(str(each) for each in told):
             await events.emit(session, "user", student)
     log.info("week_viewed", game_id=game_id, seat_id=str(row["id"]), week=week, advanced=advanced)
@@ -1757,6 +1786,45 @@ async def takeover(
     )
     await _settle(game_id)
     return str(occupancy_id)
+
+
+async def request_reclaim(game_id: str, seat: Role | str, *, actor: uuid.UUID | str) -> bool:
+    """«Ta tilbake setet» (Story 8.4, FR-37, AD-2): the Student `actor` asks for the Seat an AI
+    player took over from them. The request is queued and changes no occupancy; the command that
+    opens the next Week hands the Seat back (`_apply_reclaims`). Returns True when it queued the
+    request; False, writing nothing, when one is queued already or a Reclaim gave the Seat back.
+
+    One transaction under the Game row lock with a version bump: `game:<id>`, `session:<id>` and
+    `user:<actor>` (AD-8). Refuses `game_not_found`, `seat_not_found` (404) and 409
+    `game_finished`, `game_not_running` (not started) and `seat_not_yours`: anyone but the Student
+    of the Seat's latest Student row, or a Seat no Takeover holds since that row."""
+    game_uuid = _game_uuid(game_id)
+    actor_id = _actor(actor)
+    async with get_sessionmaker().begin() as session:
+        game = await repo.lock_game(session, game_uuid)
+        if game is None:
+            raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
+        row = _seat_row(await repo.seats_with_occupant(session, game_uuid), seat)
+        if game["lifecycle"] == Lifecycle.FINISHED:
+            raise CommandError("game_finished", "the Game has finished", 409)
+        if game["lifecycle"] != Lifecycle.RUNNING:
+            raise CommandError("game_not_running", "the Game is not running", 409)
+        history = (await repo.seat_histories(session, game_uuid)).get(row["id"])
+        if actor_id is None or history is None or history["last_student"] != actor_id:
+            raise CommandError("seat_not_yours", "the Seat was never the actor's", 409)
+        if (
+            row["occupant_kind"] == OccupantKind.STUDENT
+            and row["reason"] == OccupancyReason.RECLAIM
+        ):
+            return False  # theirs again: a repeat after the Reclaim took effect
+        if row["occupant_kind"] == OccupantKind.STUDENT or not history["taken_over"]:
+            raise CommandError("seat_not_yours", "no Takeover holds the Seat", 409)
+        if not await repo.queue_reclaim(session, game_uuid, row["id"], actor_id):
+            return False
+        await _commit_change(session, game_uuid)
+        await events.emit(session, "user", str(actor_id))
+    log.info("reclaim_requested", game_id=game_id, seat_id=str(row["id"]))
+    return True
 
 
 async def _takeover_occupant(

@@ -405,6 +405,16 @@ export const nb = {
          * or «uke» here. */
         requirementWarning:
           "Klassespillet er obligatorisk. At en KI-spiller bestiller for deg, kan påvirke om du oppfyller kravet.",
+        /** «Ta tilbake setet» (Story 8.4, FR-37) is the spine's; the line that replaces it, the
+         * refusals and the failure are [ASSUMPTION] draft copy. Never how many Uker remain. */
+        reclaim: "Ta tilbake setet",
+        reclaimQueued: "Du får setet tilbake når neste Uke åpner.",
+        reclaimRefusals: {
+          seat_not_yours: "Setet er ikke ditt å ta tilbake.",
+          game_finished: "Spillet er ferdig.",
+          game_not_running: "Spillet er ikke i gang.",
+        } as Record<string, string>,
+        reclaimFailed: "Setet ble ikke tatt tilbake. Prøv igjen.",
       },
       /** With non-breaking spaces, so «min» never wraps away from its number (Epic 7 close-out). */
       duration: {
@@ -1818,6 +1828,9 @@ export const nb = {
         production: "Produksjon",
         customers: "Kundene",
         order: "Din ordre",
+        /** The Order of the KI-spiller that took the own Seat over (Story 8.4): «KI-ordre 9», never
+         * «Din ordre». [ASSUMPTION] */
+        aiOrder: "KI-ordre",
         labelled: (term: string, value: string) => `${term} ${value}`,
         /** With a typed Order (Story 6.11, UX-DR14): «På vei 16 + 24» drawn, «På vei 16 pluss 24»
          * read. */

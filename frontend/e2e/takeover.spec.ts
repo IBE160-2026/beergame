@@ -172,7 +172,9 @@ test("a Guided Uke of a Seat taken over is never reported as opened", async ({ p
 
 test("outside an Obligatorisk Class session the warning is left out", async ({ page }) => {
   await openTakenOver(page, ownTakenOver, false);
-  await expect(page.locator("[data-taken-over]")).toHaveText(copy.takeover.takenOver);
+  const note = page.locator("[data-taken-over]");
+  await expect(note).toContainText(copy.takeover.takenOver);
+  await expect(note).not.toContainText(copy.takeover.requirementWarning);
 });
 
 test("on Hjem the Student whose Seat it was reads the line instead of the Spillkort", async ({ page }) => {

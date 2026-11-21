@@ -321,7 +321,12 @@ function Running({
         <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12 xl:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="min-w-0">
             {/* Reading and focus order: Topplinje, Kjedebånd, Graf over tabell, the rest (FR-73). */}
-            <ChainBandView state={state} seatRoles={game.seats.map((seat) => seat.role)} typed={preview?.order} />
+            <ChainBandView
+              state={state}
+              seatRoles={game.seats.map((seat) => seat.role)}
+              typed={preview?.order}
+              byAi={takenOver}
+            />
             {/* A placed Order (a Veiledet uke's fixed Order) stands in Din ordre at nå; a typed one
                 there and at its arrival Uke. */}
             <WeekTable
@@ -350,17 +355,20 @@ function Running({
             {/* The Ordrefelt follows the table on phone and tops the right column on laptop. A Seat
                 an AI player took over has none: the Student is told so instead (Story 8.2). */}
             {takenOver ? (
-              <div className="mb-8">
-                <TakenOverNote obligatory={game.obligatory} />
-                {/* Alle rader stays one tap away on phone, as beside the Ordrefelt. */}
-                <button
-                  type="button"
-                  data-all-rows-link=""
-                  className={cn(LINK_BUTTON, "mt-2 lg:hidden")}
-                  onClick={(event) => allRows.show("top", event.currentTarget)}
-                >
-                  {copy.allRows.link}
-                </button>
+              <div className="mt-8 mb-8 max-w-md lg:mt-0">
+                {/* Alle rader stays one tap away at every width, right-aligned over the note as over
+                    the Ordrefelt (Story 8.4, the visual check of Story 8.2). */}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    data-all-rows-link=""
+                    className={LINK_BUTTON}
+                    onClick={(event) => allRows.show("top", event.currentTarget)}
+                  >
+                    {copy.allRows.link}
+                  </button>
+                </div>
+                <TakenOverNote obligatory={game.obligatory} gameId={game.id} seats={seats} className="mt-2" />
               </div>
             ) : (
               <OrderField

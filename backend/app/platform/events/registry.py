@@ -30,6 +30,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # their Class session hears of it, and every Student of the Game and the one whose Seat
         # it was read it again, each through a `takeover_notice` too.
         "games.takeover": frozenset({"game", "session", "user"}),
+        # A Student asked for their Seat back (Story 8.4): only Class games take over, so their
+        # Class session hears of it, and the Student's pages read the queued request. The Week
+        # opening that hands the Seat back emits under its own command (place_order, advance).
+        "games.request_reclaim": frozenset({"game", "session", "user"}),
         # A Student opened a Guided Week (Story 6.10): only Class games take Students, so their
         # Class session hears of it; the viewer's waiting status changes, and when the view
         # completes the Week every Student of the Game sees the next one.

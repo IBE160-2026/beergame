@@ -162,6 +162,19 @@ seat_occupancy = Table(
 """Append-only (AD-5): a trigger refuses UPDATE and DELETE. The latest row by `id` (UUIDv7) is
 the current occupant."""
 
+seat_reclaims = Table(
+    "seat_reclaims",
+    metadata,
+    Column("seat_id", Uuid, ForeignKey("seats.id"), primary_key=True),
+    Column("game_id", Uuid, ForeignKey("games.id"), nullable=False, index=True),
+    # The Student who pressed «Ta tilbake setet»: the id only (AD-14), no foreign key, like
+    # `seat_occupancy.user_id`.
+    Column("user_id", Uuid, nullable=False),
+    Column("requested_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+"""A queued Reclaim (Story 8.4, FR-37): at most one per Seat. It changes no occupancy; the command
+that opens the next Week appends the `reclaim` row and deletes it (`games.commands._step`)."""
+
 game_weeks = Table(
     "game_weeks",
     metadata,

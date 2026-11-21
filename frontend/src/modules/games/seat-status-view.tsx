@@ -4,6 +4,7 @@ import { SeatStatus } from "@/components/seat-status";
 import { nb } from "@/copy/nb";
 import { cn } from "@/lib/utils";
 
+import { ReclaimControl } from "./reclaim-view";
 import { seatRows, type StatusSeat, useWaitAnnouncement } from "./seat-status";
 
 const copy = nb.homes.student;
@@ -46,14 +47,29 @@ export function GameSeatStatus({
  * and on Hjem. In an Obligatorisk Class session the warning that it may affect the requirement
  * follows; it never says how many Uker (FR-17, FR-14). The Setestatus's polite line announces
  * the Takeover («Grossist: KI-spiller bestiller for deg.»), so this note is not a live region.
+ * «Ta tilbake setet» follows under it (Story 8.4).
  */
-export function TakenOverNote({ obligatory, className }: { obligatory: boolean; className?: string }) {
+export function TakenOverNote({
+  obligatory,
+  gameId,
+  seats,
+  className,
+}: {
+  obligatory: boolean;
+  gameId: string;
+  /** The game's Seats: the own one, taken over, carries its Role and whether a Reclaim is queued. */
+  seats: StatusSeat[];
+  className?: string;
+}) {
+  const own = seats.find((seat) => seat.mine && seat.taken_over);
   return (
     <div data-taken-over="" className={cn("max-w-md", className)}>
       <p className="text-body-phone font-semibold text-ink lg:text-body">{copy.takeover.takenOver}</p>
       {obligatory ? (
         <p className="mt-1 text-body-phone text-ink-secondary lg:text-body">{copy.takeover.requirementWarning}</p>
       ) : null}
+      {/* Story 8.4: «Ta tilbake setet» under the line, then the line that replaces it. */}
+      {own ? <ReclaimControl gameId={gameId} role={own.role} queued={own.reclaim_queued} /> : null}
     </div>
   );
 }

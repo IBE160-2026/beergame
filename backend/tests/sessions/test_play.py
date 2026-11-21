@@ -138,6 +138,8 @@ async def test_the_envelope_is_the_own_seat_in_the_open_week_for_every_role(klas
                 "taken_over",
                 "ordering_for",
                 "guard_switched",
+                # Story 8.4: the own Seat's queued Reclaim.
+                "reclaim_queued",
             }
             for seat in seats
         )

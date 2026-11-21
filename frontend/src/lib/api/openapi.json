@@ -6238,6 +6238,11 @@
             ],
             "title": "Ordering For"
           },
+          "reclaim_queued": {
+            "default": false,
+            "title": "Reclaim Queued",
+            "type": "boolean"
+          },
           "role": {
             "$ref": "#/components/schemas/Role"
           },
@@ -12558,6 +12563,87 @@
           }
         },
         "summary": "Get My Game Result",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/seats/{role}/reclaim": {
+      "post": {
+        "description": "«Ta tilbake setet» (Story 8.4, FR-37, AD-2): the Student whose Seat an AI player took over\nasks for it back. The request is queued and the Seat is theirs again when the next Uke opens;\na second press, or a repeat, changes nothing. Answers the game as it now stands. 409\n`seat_not_yours` (another Student's Seat, or one no AI player took over from this Student),\n`game_finished` or `game_not_running`; any other game answers 403 `forbidden` (FR-5).",
+        "operationId": "reclaimMySeat",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Role"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentGameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reclaim My Seat",
         "tags": [
           "sessions"
         ]

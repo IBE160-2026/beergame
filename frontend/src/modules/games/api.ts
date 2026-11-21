@@ -277,6 +277,17 @@ export function acceptTime(gameId: string, proposalId: string) {
   );
 }
 
+/** «Ta tilbake setet» (Story 8.4, FR-37): asks for the own Seat `role` back from the next Uke and
+ * answers the game as it now stands; a repeat answers the same. 409 `seat_not_yours`,
+ * `game_finished` or `game_not_running`. */
+export function reclaimSeat(gameId: string, role: components["schemas"]["Role"]) {
+  return request(() =>
+    api.POST("/api/me/games/{game_id}/seats/{role}/reclaim", {
+      params: { path: { game_id: gameId, role } },
+    }),
+  );
+}
+
 /** «Spillet er ferdig» (Story 6.18): the finished game's cost per Role, the chain's and the
  * chain's per Uke. The api answers 409 `game_not_finished` before the end. */
 export type GameResult = components["schemas"]["GameResult"];

@@ -40,6 +40,8 @@ export type BandLabels = {
   downstream: string;
   /** «Din ordre», along the order line going out (no number until one is typed, Story 6.11). */
   order: string;
+  /** The Order is a KI-spiller's, not the Student's (Story 8.4): drawn at regular weight. */
+  orderByAi?: boolean;
   /** «Ordre inn 8», along the order line coming in. */
   incoming: string;
   /** «Levering 4» into the node, «Sendt 4» out of it. */
@@ -221,7 +223,7 @@ export function bandLayout(input: BandInput): BandLayout {
   const wanted: Wanted[] = [
     // Row by row, the numbers first: an end label gives way to them.
     { key: "incoming", text: labels.incoming, weight: 600, row: 0, at: rightMin, anchor: "start", min: rightMin, max: width },
-    { key: "order", text: labels.order, weight: 600, row: 0, at: leftMax, anchor: "end", min: 0, max: leftMax },
+    { key: "order", text: labels.order, weight: labels.orderByAi ? 400 : 600, row: 0, at: leftMax, anchor: "end", min: 0, max: leftMax },
     { key: "delivery", text: labels.delivery, weight: 400, row: 1, at: leftMax, anchor: "end", min: 0, max: leftMax },
     { key: "shipped", text: labels.shipped, weight: 400, row: 1, at: rightMin, anchor: "start", min: rightMin, max: width },
   ];

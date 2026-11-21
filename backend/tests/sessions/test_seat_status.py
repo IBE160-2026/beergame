@@ -60,6 +60,7 @@ async def test_the_first_students_order_starts_the_wait_for_the_seats_that_have_
         "taken_over": False,
         "ordering_for": None,
         "guard_switched": False,
+        "reclaim_queued": False,
     }
     assert all(t[2] is None for t in turns(game_id, week).values())
 

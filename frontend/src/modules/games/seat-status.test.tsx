@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -25,6 +26,7 @@ const seat = (over: Partial<StatusSeat>): StatusSeat => ({
   taken_over: false,
   ordering_for: null,
   guard_switched: false,
+  reclaim_queued: false,
   ...over,
 });
 
@@ -158,13 +160,34 @@ describe("Setestatus after a Takeover (Story 8.2, UX-DR62, UX-DR69)", () => {
     expect(row.holder).toBe(copy.guardSwitched);
   });
 
+  const note = (props: { obligatory: boolean; queued?: boolean }) =>
+    renderToStaticMarkup(
+      <QueryClientProvider client={new QueryClient()}>
+        <TakenOverNote
+          obligatory={props.obligatory}
+          gameId="g"
+          seats={[taken({ mine: true, ordering_for: null, reclaim_queued: props.queued ?? false })]}
+        />
+      </QueryClientProvider>,
+    );
+
   it("tells the Student whose Seat it was, with the warning only when obligatory", () => {
-    const plain = renderToStaticMarkup(<TakenOverNote obligatory={false} />);
+    const plain = note({ obligatory: false });
     expect(plain).toContain("KI-spiller har bestilt for deg.");
     expect(plain).not.toContain(copy.takeover.requirementWarning);
-    const obligatory = renderToStaticMarkup(<TakenOverNote obligatory />);
+    const obligatory = note({ obligatory: true });
     expect(obligatory).toContain(copy.takeover.requirementWarning);
     expect(copy.takeover.requirementWarning).not.toMatch(/\d|uke/i);
+  });
+
+  it("offers «Ta tilbake setet» under the line, and once queued says when the Seat comes back", () => {
+    const offered = note({ obligatory: true });
+    expect(offered.indexOf(copy.takeover.reclaim)).toBeGreaterThan(offered.indexOf(copy.takeover.requirementWarning));
+    expect(offered).not.toContain(copy.takeover.reclaimQueued);
+    const queued = note({ obligatory: false, queued: true });
+    expect(queued).toContain(copy.takeover.reclaimQueued);
+    expect(queued).not.toContain(copy.takeover.reclaim + "<");
+    expect(copy.takeover.reclaimQueued).not.toMatch(/\d/);
   });
 
   it("says the same warning as the Takeover notice mail", () => {

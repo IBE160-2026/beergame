@@ -75,6 +75,8 @@ SUMMARY_TABLES = {"game_summaries"}
 """The tables of revision 0051 (Story 7.1)."""
 MESSAGE_TABLES = {"messages", "message_recipients"}
 """The tables of revision 0052 (Story 7.9)."""
+RECLAIM_TABLES = {"seat_reclaims"}
+"""The table of revision 0055 (Story 8.4)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -83,8 +85,9 @@ HEAD_TABLES = (
     | TIME_PROPOSAL_TABLES
     | SUMMARY_TABLES
     | MESSAGE_TABLES
+    | RECLAIM_TABLES
 )
-HEAD = "0054"  # 0054 adds the occupancy row's actor (Story 8.2)
+HEAD = "0055"  # 0055 adds the queued Reclaims (Story 8.4)
 
 
 def reset_schema(url: str) -> None:
@@ -217,6 +220,10 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "UNIQUE (key)" in sent["messages_key_key"]
     assert "'class_session'" in sent["ck_messages_recipient_kind"]
 
+    # 0055 (Story 8.4): at most one queued Reclaim per Seat.
+    assert definition(url, "seat_reclaims_pkey") == "PRIMARY KEY (seat_id)"
+    command.downgrade(cfg, "0054")
+    assert RECLAIM_TABLES.isdisjoint(tables(url))
     command.downgrade(cfg, "0051")
     assert MESSAGE_TABLES.isdisjoint(tables(url))
     command.downgrade(cfg, "0050")

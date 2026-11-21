@@ -895,6 +895,31 @@ async def start_my_game(
 
 
 @router.post(
+    "/me/games/{game_id}/seats/{role}/reclaim",
+    response_model=StudentGameOut,
+    responses=documented(401, 403, 409),
+    operation_id="reclaimMySeat",
+)
+async def reclaim_my_seat(
+    game_id: str,
+    role: Role,
+    user: Annotated[authz.Principal, Depends(authz.require("games.play_own"))],
+) -> Response:
+    """«Ta tilbake setet» (Story 8.4, FR-37, AD-2): the Student whose Seat an AI player took over
+    asks for it back. The request is queued and the Seat is theirs again when the next Uke opens;
+    a second press, or a repeat, changes nothing. Answers the game as it now stands. 409
+    `seat_not_yours` (another Student's Seat, or one no AI player took over from this Student),
+    `game_finished` or `game_not_running`; any other game answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.reclaim_own_seat(user, game_id, role)
+    except service.ReclaimRefused as refused:
+        return error_response(refused.status, refused.code, "The Seat was not reclaimed.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
     "/me/games/{game_id}/time-proposal",
     response_model=StudentGameOut,
     responses=documented(401, 403, 409, 422),

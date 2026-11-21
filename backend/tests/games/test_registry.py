@@ -215,6 +215,16 @@ async def _run_takeover() -> str:
     return game_id
 
 
+async def _run_request_reclaim() -> str:
+    """The Student whose Seat was taken over asks for it back (Story 8.4): its Class session and
+    that Student hear of it."""
+    from tests.games.test_reclaim import taken_over
+
+    game_id, students = await taken_over()
+    await commands.request_reclaim(game_id, "factory", actor=students["factory"])
+    return game_id
+
+
 RUNNERS = {
     "create": _run_create,
     "assign_seat": _run_assign_seat,
@@ -229,11 +239,16 @@ RUNNERS = {
     "propose_time": _run_propose_time,
     "accept_time": _run_accept_time,
     "takeover": _run_takeover,
+    "request_reclaim": _run_request_reclaim,
 }
 """How to run each command once; a command added without a runner fails the test below."""
 
 TAKEOVER_SETUP = 17
 """create 2, two Student Seats 2 each, snapshot 4, start 4, the first Order 3."""
+
+RECLAIM_SETUP = -3
+"""Counted from the end: `request_reclaim` emits exactly `game`, `session` and the Student's
+`user`; its setup's Takeover also settles a Week, whose events vary with the order source."""
 
 CLASS_SETUP_EVENTS = {
     "move_seat": 4,
@@ -247,6 +262,7 @@ CLASS_SETUP_EVENTS = {
     "propose_time": 6,
     "accept_time": 10,
     "takeover": TAKEOVER_SETUP,
+    "request_reclaim": RECLAIM_SETUP,
 }
 """Runners on a Class game, and how many events their setup emits before the command's own."""
 
@@ -269,6 +285,7 @@ def test_every_command_is_exported_and_registered():
             "propose_time",
             "accept_time",
             "takeover",
+            "request_reclaim",
         }
         == set(RUNNERS)
     )

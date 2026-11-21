@@ -4,7 +4,7 @@ import uuid
 from collections.abc import Collection, Sequence
 from typing import Any
 
-from sqlalchemy import Numeric, RowMapping, func, select, text, update
+from sqlalchemy import Numeric, RowMapping, delete, func, select, text, update
 from sqlalchemy.dialects.postgresql import distinct_on, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,7 @@ from app.modules.games.models import (
     game_weeks,
     games,
     seat_occupancy,
+    seat_reclaims,
     seat_turns,
     seat_weeks,
     seats,
@@ -568,6 +569,39 @@ async def seat_histories(session: AsyncSession, game_id: uuid.UUID) -> dict[uuid
         if row["reason"] == "guard_switch":
             entry["guard_switched"] = True
     return found
+
+
+async def queue_reclaim(
+    session: AsyncSession, game_id: uuid.UUID, seat_id: uuid.UUID, user_id: uuid.UUID
+) -> bool:
+    """Queue the Student's Reclaim of the Seat (Story 8.4); False, writing nothing, when one is
+    queued already (one per Seat)."""
+    result = await session.execute(
+        insert(seat_reclaims)
+        .values(seat_id=seat_id, game_id=game_id, user_id=user_id)
+        .on_conflict_do_nothing(index_elements=[seat_reclaims.c.seat_id])
+        .returning(seat_reclaims.c.seat_id)
+    )
+    return result.first() is not None
+
+
+async def queued_reclaims(session: AsyncSession, game_id: uuid.UUID) -> dict[uuid.UUID, uuid.UUID]:
+    """The Game's queued Reclaims: Seat id to the Student who asked (Story 8.4)."""
+    result = await session.execute(
+        select(seat_reclaims.c.seat_id, seat_reclaims.c.user_id).where(
+            seat_reclaims.c.game_id == game_id
+        )
+    )
+    return {row.seat_id: row.user_id for row in result}
+
+
+async def delete_reclaim(session: AsyncSession, seat_id: uuid.UUID) -> None:
+    await session.execute(delete(seat_reclaims).where(seat_reclaims.c.seat_id == seat_id))
+
+
+async def delete_reclaims(session: AsyncSession, game_id: uuid.UUID) -> None:
+    """Drop every queued Reclaim of the Game (it finished: no Week opens again)."""
+    await session.execute(delete(seat_reclaims).where(seat_reclaims.c.game_id == game_id))
 
 
 async def takeover_row(session: AsyncSession, occupancy_id: uuid.UUID) -> RowMapping | None:

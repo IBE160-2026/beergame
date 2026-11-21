@@ -1673,6 +1673,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/games/{game_id}/seats/{role}/reclaim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reclaim My Seat
+         * @description «Ta tilbake setet» (Story 8.4, FR-37, AD-2): the Student whose Seat an AI player took over
+         *     asks for it back. The request is queued and the Seat is theirs again when the next Uke opens;
+         *     a second press, or a repeat, changes nothing. Answers the game as it now stands. 409
+         *     `seat_not_yours` (another Student's Seat, or one no AI player took over from this Student),
+         *     `game_finished` or `game_not_running`; any other game answers 403 `forbidden` (FR-5).
+         */
+        post: operations["reclaimMySeat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/games/{game_id}/start": {
         parameters: {
             query?: never;
@@ -4617,6 +4641,11 @@ export interface components {
             ordered: boolean | null;
             /** Ordering For */
             ordering_for?: string | null;
+            /**
+             * Reclaim Queued
+             * @default false
+             */
+            reclaim_queued: boolean;
             role: components["schemas"]["Role"];
             /**
              * Taken Over
@@ -9181,6 +9210,65 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GameResult"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reclaimMySeat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+                role: components["schemas"]["Role"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentGameOut"];
                 };
             };
             /** @description Unauthorized */

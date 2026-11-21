@@ -404,6 +404,9 @@ class TableSeatOut(BaseModel):
     guard_switched: bool = False
     """Story 8.2 (FR-79): a Rule-based AI player because the Play guard switched the Seat once,
     also before a later Takeover or Reclaim."""
+    reclaim_queued: bool = False
+    """Story 8.4 (FR-37): the reader's own Seat, taken over, with «Ta tilbake setet» pressed: the
+    Seat is theirs again when the next Uke opens. False on every other Seat."""
 
 
 class RoleCapacityOut(BaseModel):

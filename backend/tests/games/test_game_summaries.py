@@ -168,6 +168,23 @@ async def test_a_takeover_leaves_the_row_equal_to_a_recomputation(games_db, mail
     ]
 
 
+async def test_a_reclaim_leaves_the_row_equal_to_a_recomputation(games_db, mail_db):
+    """Story 8.4: `request_reclaim` joins the recomputation test, and the Week opening that hands
+    the Seat back rewrites the row with the Student in it."""
+    from tests.games.test_reclaim import taken_over
+
+    game_id, students = await taken_over()
+    await commands.request_reclaim(game_id, "factory", actor=students["factory"])
+    row = await check(game_id)  # request_reclaim: nothing changes hands yet
+    assert [o["occupant_kind"] for o in row["occupants"] if o["role"] == "factory"] == [
+        "rule_based"
+    ]
+    await commands.place_order(game_id, "retailer", 2, 4, "student", actor=students["retailer"])
+    row = await check(game_id)
+    [factory] = [o for o in row["occupants"] if o["role"] == "factory"]
+    assert (factory["occupant_kind"], factory["reason"]) == ("student", "reclaim")
+
+
 async def test_a_command_that_changes_nothing_writes_no_row(games_db):
     game_id = await class_game(1)
     await commands.assign_seat(game_id, "retailer", "student", user_id=A)

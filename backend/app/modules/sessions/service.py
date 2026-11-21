@@ -1386,6 +1386,7 @@ def _seats_out(table: games_service.TableStatus) -> list[TableSeatOut]:
             taken_over=seat.taken_over,
             ordering_for=seat.ordering_for,
             guard_switched=seat.guard_switched,
+            reclaim_queued=seat.reclaim_queued,
         )
         for seat in table.seats
     ]
@@ -1574,6 +1575,36 @@ async def place_own_order(
             return None
         raise OrderRefused(refused.code, refused.status) from None
     return True
+
+
+class ReclaimRefused(Exception):
+    """A «Ta tilbake setet» the api refuses (Story 8.4), with the command's code: 409
+    `seat_not_yours`, `game_finished` or `game_not_running`."""
+
+    def __init__(self, code: str, status: int) -> None:
+        super().__init__(code)
+        self.code = code
+        self.status = status
+
+
+async def reclaim_own_seat(user: authz.Principal, game_id: str, role: str) -> StudentGameOut | None:
+    """«Ta tilbake setet» (Story 8.4, FR-37, AD-2): the Student asks for the Seat `role` of their
+    own Class game back, under `student_game_of`'s checks (None for every other game alike, FR-5).
+    Only `games.commands.request_reclaim` queues it, with the Student as actor, so the Seat of
+    another Student, or one no AI player took over from this Student, is refused there
+    (`seat_not_yours`); a repeat changes nothing. Returns the game as it now stands."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+    if own is None:
+        return None
+    found, _ = own
+    try:
+        await games_commands.request_reclaim(str(found.game_id), role, actor=user.id)
+    except games_commands.CommandError as refused:
+        if refused.status == 404:
+            return None
+        raise ReclaimRefused(refused.code, refused.status) from None
+    return await student_game_of(user, game_id)
 
 
 class StartRefused(Exception):

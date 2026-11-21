@@ -227,7 +227,7 @@ function GameBlock({
       ) : null}
       {/* Story 8.2: an AI player took the Student's Seat over while the game runs. */}
       {game.status === "running" && ownSeatTakenOver(game.seats) ? (
-        <TakenOverNote obligatory={game.obligatory} className="mt-4" />
+        <TakenOverNote obligatory={game.obligatory} gameId={game.id} seats={game.seats} className="mt-4" />
       ) : null}
       {/* Story 6.14: the Setestatus, as on the play screen. */}
       <GameSeatStatus seats={seats} now={now} titleId={seatsId} level={4} className="mt-4" />
