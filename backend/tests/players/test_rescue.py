@@ -313,7 +313,10 @@ async def test_time_per_attempt_and_per_order_are_read_per_effort_level_from_row
     )
     assert [(level, count) for level, count, _ in attempts] == [("standard", 8)]
     assert [(level, count) for level, count, _ in orders] == [("standard", 8)]
-    assert attempts[0][2] >= 0 and orders[0][2] >= 0
+    # Latency is measured on the process's monotonic clock; the span per Order is two stamps of
+    # the database clock, which may step back between them (Issue #63, `SLACK_S`): it must be
+    # readable, its sign is no property of the code.
+    assert attempts[0][2] >= 0 and orders[0][2] is not None
     assert len(rows(games_db, game_id)) == 12
 
 

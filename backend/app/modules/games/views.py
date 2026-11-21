@@ -5,30 +5,49 @@ the Decision log read the `SeatState` it returns and nothing else about the Game
 """
 
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from decimal import Decimal
 
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.engine import GameSettings, Role, WeekState, seat_detail, seat_view
+from app.engine import (
+    GameSettings,
+    Role,
+    WeekState,
+    neighbour_numbers,
+    seat_detail,
+    seat_view,
+)
 from app.modules.games import repo, rules
+from app.modules.games.marks import seat_mark
 from app.modules.games.policy import policy
 from app.modules.games.schemas import (
+    ChainWeekCost,
+    CostSum,
     DecisionLogRow,
+    GameResult,
     Lifecycle,
     OccupancyRow,
+    OccupantKind,
+    RoleCost,
     SeatState,
+    TableSeat,
+    TableStatus,
     TurnOverview,
 )
-from app.platform.db import get_sessionmaker
+from app.platform.config import get_settings
+from app.platform.db import get_sessionmaker, reading
 
 __all__ = [
     "ViewError",
     "build_seat_state",
+    "chain_result",
     "decision_log",
     "occupancy_history",
     "open_turn",
     "seat_state",
+    "table_status",
 ]
 
 
@@ -47,12 +66,22 @@ def build_seat_state(
     states: Sequence[WeekState],
     orders: Sequence[Mapping[str, int]],
     role: Role | str,
+    *,
+    neighbours: bool | None = None,
 ) -> SeatState:
     """The `SeatState` of `role` in the last of the opened Weeks `states`, given the Order maps
-    of the earlier Weeks. Reads only that Role's Seat."""
+    of the earlier Weeks. Reads only that Role's Seat, and with `neighbours` the inventory and
+    backlog of the neighbours whose view `settings.info_visibility` switches on (Story 6.21).
+
+    `neighbours` None follows `FEATURE_INFO_VISIBILITY` now: with the flag off no neighbour
+    number is filled, whatever the snapshot says (AD-17). Only the Game check passes it, to
+    rebuild a state as it was recorded."""
     view = seat_view(settings, states, orders, role)
     detail = seat_detail(settings, states, orders, role)
-    return SeatState.model_validate({**dict(view), **dict(detail)})
+    if neighbours is None:
+        neighbours = get_settings().feature_info_visibility
+    shown = neighbour_numbers(settings, states[-1], role) if neighbours else ()
+    return SeatState.model_validate({**dict(view), **dict(detail), "neighbour_numbers": shown})
 
 
 def _uuid(value: str) -> uuid.UUID | None:
@@ -114,24 +143,79 @@ def _week(opened: Sequence[WeekState], week: int | None) -> int:
     return week
 
 
-async def seat_state(game_id: str, seat: str, week: int | None = None) -> SeatState:
+async def seat_state(
+    game_id: str, seat: str, week: int | None = None, *, session: AsyncSession | None = None
+) -> SeatState:
     """What `seat` (a Role or a Seat id) sees in `week`, by default the newest opened Week.
 
-    Built from the Game's snapshot settings and its stored Week states only."""
-    async with get_sessionmaker()() as session:
-        game, row = await _game_and_seat(session, game_id, seat)
-        opened, orders = await stored_play(session, game["id"])
+    Built from the Game's snapshot settings and its stored Week states only. In the caller's
+    `session` when given."""
+    async with reading(session) as s:
+        game, row = await _game_and_seat(s, game_id, seat)
+        opened, orders = await stored_play(s, game["id"])
     week = _week(opened, week)
     settings = GameSettings.model_validate(game["settings"])
     return build_seat_state(settings, opened[:week], orders[: week - 1], row["role"])
 
 
-async def open_turn(game_id: str, seat: str, week: int | None = None) -> TurnOverview:
-    """The turn of `seat` (a Role or a Seat id) in `week`, by default the newest opened Week."""
+async def chain_result(game_id: str) -> GameResult:
+    """The finished Game's cost per Role and the chain's cost per Uke (Story 6.18, FR-28), from
+    its snapshot settings, stored Week states and Orders through the engine's `seat_detail`: each
+    Role's running sums in every Uke it played. Only this sums Roles into the chain.
+
+    Refuses (`ViewError`): `game_not_found` 404, `game_not_finished` 409 before the end, so no
+    chain number leaks during play (AD-3, FR-14)."""
+    game_uuid = _uuid(game_id)
     async with get_sessionmaker()() as session:
-        game, row = await _game_and_seat(session, game_id, seat)
-        week = _week(await _opened(session, game["id"]), week)
-        turn = await repo.turn(session, game["id"], row["id"], week)
+        game = await repo.get_game(session, game_uuid) if game_uuid else None
+        if game is None:
+            raise ViewError("game_not_found", f"no Game {game_id!r}", 404)
+        if game["lifecycle"] != Lifecycle.FINISHED:
+            raise ViewError("game_not_finished", "the Game has not finished", 409)
+        opened = await _opened(session, game["id"])
+        orders = await stored_orders(session, game["id"])
+    settings = GameSettings.model_validate(game["settings"])
+    roles: list[RoleCost] = []
+    per_week: list[list[tuple[Decimal, Decimal, Decimal]]] = []
+    for role in settings.roles:
+        detail = seat_detail(settings, opened, orders[: len(opened) - 1], role)
+        running = [
+            (row.total_holding_cost, row.total_backorder_cost, row.total_cost)
+            for row in detail.history
+        ]
+        last = (detail.total_holding_cost, detail.total_backorder_cost, detail.total_cost)
+        running.append(last)
+        per_week.append(running)
+        roles.append(
+            RoleCost(role=role, holding_cost=last[0], backorder_cost=last[1], total_cost=last[2])
+        )
+    weeks = tuple(
+        ChainWeekCost(
+            week=number,
+            holding_cost=sum((each[number - 1][0] for each in per_week), Decimal(0)),
+            backorder_cost=sum((each[number - 1][1] for each in per_week), Decimal(0)),
+            total_cost=sum((each[number - 1][2] for each in per_week), Decimal(0)),
+        )
+        for number in range(1, len(opened) + 1)
+    )
+    chain = CostSum(
+        holding_cost=sum((r.holding_cost for r in roles), Decimal(0)),
+        backorder_cost=sum((r.backorder_cost for r in roles), Decimal(0)),
+        total_cost=sum((r.total_cost for r in roles), Decimal(0)),
+    )
+    return GameResult(roles=tuple(roles), chain=chain, weeks=weeks)
+
+
+async def open_turn(
+    game_id: str, seat: str, week: int | None = None, *, session: AsyncSession | None = None
+) -> TurnOverview:
+    """The turn of `seat` (a Role or a Seat id) in `week`, by default the newest opened Week. In
+    the caller's `session` when given."""
+    async with reading(session) as s:
+        game, row = await _game_and_seat(s, game_id, seat)
+        week = _week(await _opened(s, game["id"]), week)
+        turn = await repo.turn(s, game["id"], row["id"], week)
+        order = await repo.seat_week_order(s, game["id"], week, row["id"])
     if turn is None:
         raise ViewError("week_not_open", f"the Seat has no turn in Week {week}", 409)
     settings = GameSettings.model_validate(game["settings"])
@@ -140,6 +224,8 @@ async def open_turn(game_id: str, seat: str, week: int | None = None) -> TurnOve
         guided=rules.guided_week(policy(game["purpose"]), settings, turn["week"]),
         opened_at=turn["opened_at"],
         ordered_at=turn["ordered_at"],
+        viewed_at=turn["viewed_at"],
+        order=order,
         rule_based_reference_order=turn["rule_based_reference_order"],
         near_optimal_reference_order=turn["near_optimal_reference_order"],
         near_optimal_algorithm_version=turn["near_optimal_algorithm_version"],
@@ -199,3 +285,74 @@ async def occupancy_history(game_id: str) -> tuple[OccupancyRow, ...]:
         )
         for row in rows
     )
+
+
+NameResolver = Callable[[list[uuid.UUID]], Awaitable[Mapping[uuid.UUID, str]]]
+"""Given Student ids, their names now; an id left out has no name to show (no longer in the
+Class). `games` imports no feature module, so the caller passes it (`classes.student_names`)."""
+
+
+async def table_status(
+    session: AsyncSession, game_id: uuid.UUID, viewer_id: uuid.UUID, names: NameResolver
+) -> TableStatus:
+    """Who sits in each Seat of the Game, as `viewer_id` sees it (Story 6.1, AD-3): Fabrikk first
+    (UX-DR73), a Student by the name `names` gives now, every AI player as an AI player with no
+    kind, a Seat with no occupant as free. The viewer's own Seat is the one they hold now, else
+    the one they held last. Built at read time; never stored and never sent to an LLM.
+
+    While the Game runs, each Seat also says whether it has ordered in the open Week
+    (`rules.has_ordered`), the stored wait start of a Seat that has not, and its mark
+    (`marks.seat_mark`); and the stored AI deadlines still open (Story 6.14, AD-20).
+    Nothing here computes a wait."""
+    rows = await repo.seats_with_occupant(session, game_id)
+    held = {row["role"]: row["user_id"] for row in rows}
+    own = await repo.last_seat_of(session, game_id, viewer_id)
+    found = await names(sorted({u for u in held.values() if u is not None}))
+    turns, guided = await _open_turns(session, game_id)
+    seats = []
+    for row in reversed(rows):  # chain order serves the customer first; Fabrikk leads here
+        kind = row["occupant_kind"]
+        if kind is None:
+            holder, name = "free", None
+        elif kind == OccupantKind.STUDENT:
+            holder, name = "student", found.get(row["user_id"])
+        else:
+            holder, name = "ai", None
+        # A Seat another Student holds now is never the viewer's, even if the viewer held it once.
+        mine = row["role"] == own and (holder != "student" or row["user_id"] == viewer_id)
+        turn = turns.get(row["id"])
+        ordered = None if turn is None else rules.has_ordered(turn, guided=guided)
+        seats.append(
+            TableSeat(
+                role=row["role"],
+                holder=holder,
+                name=name,
+                mine=mine,
+                ordered=ordered,
+                wait_started_at=turn["wait_started_at"] if ordered is False else None,
+                mark=seat_mark(None, None, kind, row["reason"]),
+            )
+        )
+    due = sorted(
+        turn["ai_deadline_at"]
+        for turn in turns.values()
+        if turn["ai_deadline_at"] is not None and not rules.has_ordered(turn, guided=guided)
+    )
+    return TableStatus(seats=tuple(seats), due_times=tuple(due))
+
+
+async def _open_turns(
+    session: AsyncSession, game_id: uuid.UUID
+) -> tuple[dict[uuid.UUID, RowMapping], bool]:
+    """The open Week's turns by Seat id, each with its occupant in force, and whether it is a
+    Guided Week; none when the Game is not running."""
+    game = await repo.get_game(session, game_id)
+    if game is None or game["lifecycle"] not in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT):
+        return {}, False
+    week = await repo.open_week(session, game_id)
+    if week is None:
+        return {}, False
+    settings = GameSettings.model_validate(game["settings"])
+    guided = rules.guided_week(policy(game["purpose"]), settings, week)
+    turns = await repo.week_turns_with_occupant(session, game_id, week)
+    return {turn["seat_id"]: turn for turn in turns}, guided

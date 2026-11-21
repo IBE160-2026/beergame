@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any, Literal
 
@@ -9,7 +10,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
 
 from app.engine import GameSettings
 from app.engine.settings import Role
-from app.modules.games.service import Lifecycle
+from app.modules.games.service import GameResult, Lifecycle, SeatMark, SeatState
 
 
 class AiMode(StrEnum):
@@ -163,6 +164,13 @@ class ReplacedLevelOut(BaseModel):
     label: str | None
 
 
+class TestGameRefOut(BaseModel):
+    """A Lecturer's test Game (Story 6.20): where the play route stands for it."""
+
+    id: uuid.UUID
+    status: Literal["not_ready", "ready", "running", "finished"]
+
+
 class ClassSessionOut(BaseModel):
     """One Class session as its Class's staff read it."""
 
@@ -248,6 +256,25 @@ class ClassSessionOut(BaseModel):
     effort_level_replaced: ReplacedLevelOut | None = None
     """The source's Effort level when the new model config did not offer it, so the copy took
     that config's default (Story 5.18, FR-78)."""
+    lecturer_test_enabled: bool = False
+    """`FEATURE_LECTURER_TEST_GAME` (Story 6.20, AD-17): the Klasseøkt offers «Testspill». Off,
+    the screen shows nothing about it and the route answers 404 `not_found`."""
+    test_game: TestGameRefOut | None = None
+    """Story 6.20: the reader's latest test Game in this session, while the flag is on."""
+
+
+class TestGameIn(BaseModel):
+    """«Start testspill» (Story 6.20): the Role the Lecturer plays."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    role: Role
+
+
+class StartedTestGameOut(BaseModel):
+    """The test Game just started (Story 6.20); the web app opens its play route."""
+
+    id: uuid.UUID
 
 
 class CopyIn(BaseModel):
@@ -348,6 +375,179 @@ class SeatRef(BaseModel):
     role: Role
 
 
+TableHolder = Literal["student", "ai", "free"]
+
+
+class TableSeatOut(BaseModel):
+    """A Seat of the Student's Class game (Story 6.1, FR-22, FR-34): its Role and who holds it,
+    a Student by name, any AI player as «KI-spiller» (`ai`, never which kind), or free."""
+
+    role: Role
+    holder: TableHolder
+    name: str | None
+    """The Student's name now; None for an AI player, a free Seat, or a Student no longer in the
+    Class."""
+    mine: bool
+    ordered: bool | None
+    """Story 6.14 (FR-25): whether the Seat has ordered in the open Week (in a Guided Week the
+    Student's view counts); None when the game is not running."""
+    wait_started_at: AwareDatetime | None
+    """When the game began to wait for the Seat (the stored time; the web app counts the wait
+    from `server_now`); None once ordered, before any Student ordered, or not running."""
+    mark: SeatMark | None
+    """`guard_switch`: an AI Seat the Play guard gave a rule-based KI-spiller; else None."""
+
+
+class RoleCapacityOut(BaseModel):
+    """A capped Role (Story 6.22, FR-12): the most it ships per Week, a rule of the game."""
+
+    role: Role
+    units: int
+
+
+class GameRulesOut(BaseModel):
+    """The rules «Regler før første ordre» states (Story 6.2, FR-84), from the Class session's
+    frozen settings: the delays, the number of Veiledede uker and the two cost rates. Never the
+    number of Weeks, the demand, its seed or the largest Order (FR-14, AD-3)."""
+
+    order_delay: int
+    shipping_delay: int
+    production_delay: int
+    guided_weeks: int
+    holding_cost: Decimal
+    backorder_cost: Decimal
+    capacity: list[RoleCapacityOut] = []
+    """Story 6.22 (cut list, `FEATURE_CAPACITY`, AD-17): each capped Role of the snapshot with its
+    capacity, Detaljist first; empty while the flag is off or no Role is capped. Rules only, never
+    another Seat's state (AD-3)."""
+
+
+GamePlayStatus = Literal["not_ready", "ready", "running", "finished"]
+
+
+class PlayTurnOut(BaseModel):
+    """The Student's own turn in the open Week (Story 6.10): whether it is a Guided Week, the
+    Seat's Order once placed (in a Guided Week the fixed Order, placed when the Week opened) and
+    whether the Student has opened the Guided Week. Never how many Guided Weeks there are."""
+
+    guided: bool
+    order: int | None
+    viewed: bool
+
+
+GameResultOut = GameResult
+"""«Spillet er ferdig» (Story 6.18): the finished game's cost per Role (Detaljist to Fabrikk),
+the chain's, and the chain's running cost per Uke. Roles, never names; no demand."""
+
+
+class ProposalPersonOut(BaseModel):
+    """A Student named by the scheduling aid (Story 6.19): the name now, and whether it is the
+    reader. None as name for a Student no longer in the Class."""
+
+    name: str | None
+    mine: bool
+
+
+class TimeProposalOut(BaseModel):
+    """The game's open proposal of a time to play (Story 6.19, FR-22): who proposed which time
+    and who accepted, in the order they did. Never free text."""
+
+    id: uuid.UUID
+    at: AwareDatetime
+    proposed_by: ProposalPersonOut
+    accepted_by: list[ProposalPersonOut]
+    can_accept: bool
+    """The reader holds a Seat, did not propose this time and has not accepted it."""
+
+
+class TimeProposalIn(BaseModel):
+    """«Send forslaget til gruppen» (Story 6.19): a date and a time as one instant, nothing else."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    at: AwareDatetime
+
+
+class StudentGameOut(BaseModel):
+    """The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four
+    Seats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`)."""
+
+    id: uuid.UUID
+    number: int | None
+    """The game number; None on a Lecturer's test Game, which reads «Testspill» (Story 6.20)."""
+    role: Role
+    test_game: bool = False
+    """Story 6.20: a Lecturer's test Game, reached from and leading back to the Klasseøkt."""
+    class_session_id: uuid.UUID
+    seats: list[TableSeatOut]
+    briefing_first: bool
+    """Story 6.2: the briefing comes first, until the Student has done the Starting task
+    (`progress` `starting_task`). Nothing is stored for "briefing read"."""
+    rules: GameRulesOut
+    status: GamePlayStatus
+    """Story 6.5: `not_ready` before the lock has given the Game its snapshot, `ready` to start,
+    `running` (also while it plays out), or `finished`."""
+    week: int | None
+    """The open Week while `running`, else None. Never the number of Weeks (FR-14)."""
+    server_now: AwareDatetime
+    """The database clock when the game was read (Story 6.14): the Seats' waits count from it."""
+    seat_state: SeatState | None
+    """Story 6.17 (AD-3): what the Student's own Seat sees in the open Week while the game runs,
+    from the same `games.views.seat_state` as the play envelope, so Hjem's Spillkort and the play
+    screen never disagree; None unless `running`."""
+    turn: PlayTurnOut | None
+    """Story 6.17: the own turn in the open Week (the Order once placed), as in the play envelope;
+    None unless `running`."""
+    time_proposal: TimeProposalOut | None = None
+    """Story 6.19: the open proposal of a time to play; None when there is none, its time has
+    passed or the game has finished."""
+
+
+class TableStatusOut(BaseModel):
+    """Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers."""
+
+    seats: list[TableSeatOut]
+
+
+class OrderIn(BaseModel):
+    """The Student's Order for the open Week (Story 6.12): one whole number; the command checks
+    it lies from 0 to the Game settings maximum (`order_invalid`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    order: StrictInt
+
+
+class PlayOut(BaseModel):
+    """The play screen's one envelope (Story 6.6, AD-3): what the Student's own Seat sees in the
+    open Week (`seat_state`, numbers and Roles only), the own turn (`turn`, Story 6.10) and who
+    sits where (`table_status`), with the server's clock. Never the number of Weeks, future
+    demand, another Seat's numbers or a reference Order (FR-14, FR-23)."""
+
+    seat_state: SeatState
+    turn: PlayTurnOut
+    table_status: TableStatusOut
+    server_now: AwareDatetime
+    """The database clock when the envelope was read, the clock every stored time is on (AD-20):
+    durations are counted from it, never from the browser's clock."""
+    next_change_at: AwareDatetime | None
+    """The nearest time at which the envelope changes by time alone (Story 6.14): the earliest
+    stored AI deadline of a Seat that has not ordered, while it lies after `server_now`; None
+    while nothing is due. The web app reads the envelope again then."""
+
+
+StegeneStep = Literal["class_game", "debrief", "quiz", "replay", "test", "report"]
+StepState = Literal["done", "current", "locked"]
+
+
+class StepOut(BaseModel):
+    """A step of Stegene (Story 6.1, UX-DR29, AD-10, AD-16), its state computed here: the web app
+    holds no rule for which step is open."""
+
+    step: StegeneStep
+    state: StepState
+
+
 class EnrolledSessionOut(BaseModel):
     """A Class session as its Student reads it (Story 5.2, FR-18, AD-3): the dates and the next
     deadline that applies. Never the Game settings, the number of Weeks or the demand."""
@@ -373,6 +573,12 @@ class EnrolledSessionOut(BaseModel):
     drawn_seat: SeatRef | None = None
     """Story 5.17: once locked, the Seat the draw gave this Student because they chose none
     («Du fikk et sete ved trekning: Grossist i Spill 17.»); None otherwise and with the flag off."""
+    game: StudentGameOut | None = None
+    """Story 6.1: the Student's Class game, from the Start date (`is_locked`) and once they hold
+    or have held a Seat in it; None before, also after a confirmed allocation."""
+    steps: list[StepOut] = []
+    """Story 6.1: Stegene's six steps in order, Klassespill first. With no game every step not
+    done is `locked`; with one, the first step not done is `current`."""
 
 
 class EnrolledSessionListOut(BaseModel):

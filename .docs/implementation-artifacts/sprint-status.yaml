@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-20-2026 10:52
+last_updated: 11-21-2026 07:02
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -97,7 +97,7 @@ development_status:
   4-10-archive-a-class: done
   epic-4-retrospective: optional
 
-  epic-5: in-progress
+  epic-5: done
   5-1-create-a-class-session-with-the-classic-defaults: done
   5-2-set-the-four-dates-on-the-datolinje: done
   5-3-change-game-settings-with-range-errors-and-warnings: done
@@ -118,29 +118,29 @@ development_status:
   5-18-create-a-class-session-from-an-earlier-one-cut-list-feature_: done
   epic-5-retrospective: optional
 
-  epic-6: backlog
-  6-1-see-my-class-game-role-and-seats-on-hjem: backlog
-  6-2-read-the-rules-before-the-first-order: backlog
-  6-3-do-the-starting-task: backlog
-  6-4-see-changes-without-reloading: backlog
-  6-5-start-the-class-game: backlog
-  6-6-see-my-seat-s-week-in-the-week-table: backlog
-  6-7-see-netto-lager-posisjon-and-cost-as-a-graph-over-the-table: backlog
-  6-8-see-the-landing-s-demodata-seat-as-a-graph-over-its-table: backlog
-  6-9-see-my-link-of-the-chain-in-the-kjedebånd: backlog
-  6-10-play-the-guided-weeks: backlog
-  6-11-type-an-order-and-see-where-it-lands: backlog
-  6-12-confirm-the-order-and-keep-what-i-typed: backlog
-  6-13-never-lose-or-double-an-order-on-a-bad-connection: backlog
-  6-14-see-which-seats-have-ordered-and-whom-the-game-waits-for: backlog
-  6-15-see-the-new-week-within-two-seconds-on-any-device: backlog
-  6-16-see-what-my-seat-has-cost-so-far: backlog
-  6-17-see-on-hjem-whether-the-game-waits-for-me: backlog
-  6-18-see-the-chain-s-total-cost-when-the-game-ends: backlog
-  6-19-propose-and-accept-a-time-to-play: backlog
-  6-20-play-a-private-test-game-as-a-lecturer-cut-list-behind-featu: backlog
-  6-21-see-the-neighbour-numbers-the-lecturer-switched-on-cut-list: backlog
-  6-22-see-the-capacity-in-the-briefing-and-on-a-capped-seat-cut-li: backlog
+  epic-6: in-progress
+  6-1-see-my-class-game-role-and-seats-on-hjem: done
+  6-2-read-the-rules-before-the-first-order: done
+  6-3-do-the-starting-task: done
+  6-4-see-changes-without-reloading: done
+  6-5-start-the-class-game: done
+  6-6-see-my-seat-s-week-in-the-week-table: done
+  6-7-see-netto-lager-posisjon-and-cost-as-a-graph-over-the-table: done
+  6-8-see-the-landing-s-demodata-seat-as-a-graph-over-its-table: done
+  6-9-see-my-link-of-the-chain-in-the-kjedebånd: done
+  6-10-play-the-guided-weeks: done
+  6-11-type-an-order-and-see-where-it-lands: done
+  6-12-confirm-the-order-and-keep-what-i-typed: done
+  6-13-never-lose-or-double-an-order-on-a-bad-connection: done
+  6-14-see-which-seats-have-ordered-and-whom-the-game-waits-for: done
+  6-15-see-the-new-week-within-two-seconds-on-any-device: done
+  6-16-see-what-my-seat-has-cost-so-far: done
+  6-17-see-on-hjem-whether-the-game-waits-for-me: done
+  6-18-see-the-chain-s-total-cost-when-the-game-ends: done
+  6-19-propose-and-accept-a-time-to-play: done
+  6-20-play-a-private-test-game-as-a-lecturer-cut-list-behind-featu: done
+  6-21-see-the-neighbour-numbers-the-lecturer-switched-on-cut-list: done
+  6-22-see-the-capacity-in-the-briefing-and-on-a-capped-seat-cut-li: done
   epic-6-retrospective: optional
 
   epic-7: backlog

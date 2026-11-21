@@ -131,6 +131,23 @@ describe("copy check", () => {
     }
   });
 
+  // Story 6.2 (FR-84, AD-19): the briefing, in nb.ts's `games` section, is shown before the
+  // Debrief; only the product name «ØL-spillet» is allowed.
+  it("holds the briefing to the pre-Debrief rules", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "copy-check-"));
+    const copy = path.join(root, "frontend", "src", "copy");
+    fs.mkdirSync(copy, { recursive: true });
+    fs.writeFileSync(
+      path.join(copy, "nb.ts"),
+      `export const nb = { games: { briefing: { a: "Som i Beer Game", b: "Bullwhip-effekten", c: "Lykke til!", d: "ØL-spillet" } } };`,
+    );
+    try {
+      expect(checkRepo(root).map((f) => f.rule)).toEqual(["beer-game", "bullwhip", "exclamation"]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("finds a breach in a mail template and in nb.ts of a repo", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "copy-check-"));
     const tpl = path.join(root, "backend", "app", "platform", "email", "templates");

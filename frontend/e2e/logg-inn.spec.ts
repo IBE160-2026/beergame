@@ -1,9 +1,9 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import tokens from "../src/theme/tokens.json";
 import { untilFontsLoaded, untilHydrated } from "./support/auth";
+import { axe } from "./support/axe";
 
 const copy = nb.auth.login;
 
@@ -12,8 +12,6 @@ function rgb(token: keyof typeof tokens.colors) {
   const n = Number.parseInt(tokens.colors[token].slice(1), 16);
   return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
 }
-const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
-
 /** Widths from the story. 400 % zoom on a 1280 × 1024 screen is a 320 × 256 CSS-pixel viewport. */
 const VIEWPORTS = [
   { name: "320 px", width: 320, height: 640, phone: true },
@@ -23,7 +21,7 @@ const VIEWPORTS = [
 ];
 
 async function axeViolations(page: Page) {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
+  const results = await axe(page);
   return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
 }
 

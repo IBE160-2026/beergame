@@ -85,7 +85,7 @@ async def test_two_sweeps_over_a_due_session_lock_it_once(klass, emitted):
     assert (runtime["inactivity_limit_hours"], runtime["prompt_versions"], runtime["pins"]) == (
         24,
         None,
-        {},
+        {"starting_task": {"version": 1}},  # Story 6.3: the Starting task's pin
     )
     assert runtime["rule_based_params"] and runtime["play_guard_params"]
     body = (await call(LECTURER, "GET", f"/api/class-sessions/{session_id}")).json()

@@ -105,8 +105,9 @@ def seat_view(
     """The view of `role` in the last opened Week of `states`.
 
     `states` are the opened Weeks 1..t (as `initial_state` and `advance` return them) and
-    `orders` the Order maps of Weeks 1..t-1. Neighbour numbers stay empty: no Information
-    visibility setting exists yet.
+    `orders` the Order maps of Weeks 1..t-1. Neighbour numbers stay empty here: the Rule-based
+    player reads this view and never uses them; `neighbour_numbers` gives them to the caller
+    that may show them (Story 6.21).
     """
     role, seats, history = _checked(settings, states, orders, role)
     received = sum(seat.incoming_delivery for seat in seats)
@@ -119,6 +120,41 @@ def seat_view(
         supply_line=starting_supply_line(settings, role) + sum(history) - received,
         order_history=history,
     )
+
+
+def neighbour_numbers(
+    settings: GameSettings, state: WeekState, role: Role | str
+) -> tuple[NeighbourNumber, ...]:
+    """The numbers of `role`'s neighbours that Information visibility shows in the opened Week
+    `state` (FR-83, Story 6.21): for each view that is on, the neighbour Seat's inventory, then
+    its backlog, as they stand in that Week. The upstream neighbour (the Role it orders from)
+    comes first, then the downstream one (the Role that orders from it). The last Role has no
+    upstream neighbour and the first none downstream, so their view on that side gives nothing.
+    Nothing else of any Seat is read."""
+    role = Role(role)
+    if role not in settings.roles:
+        raise ValueError(f"{role} is not a Role in this Game")
+    if state.finished:
+        raise ValueError(f"Week {state.week} is not an opened Week")
+    roles, views = settings.roles, settings.info_visibility
+    index = roles.index(role)
+    shown: list[Role] = []
+    if views.upstream and index < len(roles) - 1:
+        shown.append(roles[index + 1])
+    if views.downstream and index > 0:
+        shown.append(roles[index - 1])
+    numbers: list[NeighbourNumber] = []
+    for neighbour in shown:
+        seat = state.seat(neighbour)
+        numbers.append(
+            NeighbourNumber(
+                role=neighbour, week=state.week, quantity="inventory", value=seat.inventory
+            )
+        )
+        numbers.append(
+            NeighbourNumber(role=neighbour, week=state.week, quantity="backlog", value=seat.backlog)
+        )
+    return tuple(numbers)
 
 
 Money = Annotated[Decimal, Field(allow_inf_nan=False)]
@@ -160,9 +196,21 @@ class WeekValues(BaseModel):
     shipped: Count
     inventory: Count
     backlog: Count
+    net_inventory: int
+    """Netto lager: inventory minus backlog (FR-23)."""
     supply_line: Count
     position: int
     cost: Money
+    holding_cost: Money
+    """The part of `cost` charged on inventory: the holding rate times `inventory`."""
+    backorder_cost: Money
+    """The part of `cost` charged on backlog: the backorder rate times `backlog`."""
+    total_cost: Money
+    """The Seat's running Total cost through this Week (Story 6.16): every `cost` up to it."""
+    total_holding_cost: Money
+    """The running sum of `holding_cost` through this Week."""
+    total_backorder_cost: Money
+    """The running sum of `backorder_cost` through this Week."""
     order: Count
 
 
@@ -190,12 +238,18 @@ class SeatDetail(BaseModel):
     supply_line_slots: tuple[SupplyLineSlot, ...]
     overdue: Count
     """Units ordered that the upstream Seat received but has not shipped (its backlog)."""
+    net_inventory: int
+    """Netto lager: inventory minus backlog (FR-23)."""
     position: int
     """Inventory minus backlog plus the supply line (Posisjon, FR-23)."""
     cost_lines: tuple[CostLine, ...]
     week_cost: Money
     total_cost: Money
     """Cost of the earlier Weeks plus this Week's, which Orders cannot change."""
+    total_holding_cost: Money
+    """The part of `total_cost` charged on inventory, this Week's included (Story 6.16)."""
+    total_backorder_cost: Money
+    """The part of `total_cost` charged on backlog, this Week's included."""
     history: tuple[WeekValues, ...]
     min_order: Count
     max_order: Count
@@ -222,11 +276,14 @@ def seat_detail(
     goods_delay = _goods_delay(settings, role)
     start = starting_supply_line(settings, role)
     received = 0
+    held = owed = Decimal(0)
     rows: list[WeekValues] = []
     for number, seat in enumerate(seats, start=1):
         received += seat.incoming_delivery
         supply_line = start + sum(history[: number - 1]) - received
         position = seat.inventory - seat.backlog + supply_line
+        held += settings.holding_cost * seat.inventory
+        owed += settings.backorder_cost * seat.backlog
         if number < week:
             rows.append(
                 WeekValues(
@@ -236,9 +293,15 @@ def seat_detail(
                     shipped=seat.shipped,
                     inventory=seat.inventory,
                     backlog=seat.backlog,
+                    net_inventory=seat.inventory - seat.backlog,
                     supply_line=supply_line,
                     position=position,
                     cost=seat.cost,
+                    holding_cost=settings.holding_cost * seat.inventory,
+                    backorder_cost=settings.backorder_cost * seat.backlog,
+                    total_cost=seat.total_cost + seat.cost,
+                    total_holding_cost=held,
+                    total_backorder_cost=owed,
                     order=history[number - 1],
                 )
             )
@@ -264,6 +327,7 @@ def seat_detail(
         shipped=now.shipped,
         supply_line_slots=slots,
         overdue=supply_line - sum(slot.quantity for slot in slots),
+        net_inventory=now.inventory - now.backlog,
         position=position,
         cost_lines=(
             CostLine(
@@ -281,6 +345,8 @@ def seat_detail(
         ),
         week_cost=now.cost,
         total_cost=now.total_cost + now.cost,
+        total_holding_cost=held,
+        total_backorder_cost=owed,
         history=tuple(rows),
         min_order=0,
         max_order=settings.max_order,

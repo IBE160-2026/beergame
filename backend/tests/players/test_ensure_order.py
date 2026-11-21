@@ -10,7 +10,7 @@ from app.engine import GameSettings
 from app.modules.games import commands, service
 from app.modules.players import service as players
 from app.platform.db import get_engine, get_sessionmaker
-from tests.games.helpers import listening, query, seat_student
+from tests.games.helpers import listening, query, seat_student, view
 
 ROLES = ("retailer", "wholesaler", "distributor", "factory")
 SHORT = {"weeks": 8, "guided_weeks": 2}
@@ -57,17 +57,19 @@ def occupancy(url: str, game_id: str, role: str) -> list[tuple]:
 
 
 async def student_orders(game_id: str, role: str, until_week: int) -> None:
-    """Place the Student's Orders (Guided Order or reference Order) until `until_week` is open."""
+    """Play the Student's Weeks until `until_week` is open: view a Guided Week (its Order was
+    placed when it opened, Story 6.10), else place the reference Order."""
     while True:
         state = await service.seat_state(game_id, role)
         if state.week >= until_week:
             return
         turn = await service.open_turn(game_id, role, state.week)
         if turn.guided:
-            order, by = 4, "guided"
+            await view(game_id, role, state.week)
         else:
-            order, by = turn.rule_based_reference_order, "student"
-        await commands.place_order(game_id, role, state.week, order, by)
+            await commands.place_order(
+                game_id, role, state.week, turn.rule_based_reference_order, "student"
+            )
 
 
 async def test_start_plays_a_game_of_four_rule_based_players_one_week_per_transaction(games_db):
@@ -136,7 +138,8 @@ async def test_advance_does_nothing_when_there_is_nothing_to_advance(games_db):
         before = version(games_db, game_id)
         assert await commands.advance(game_id) is False  # Week 1 waits for the Student
         assert version(games_db, game_id) == before
-        assert len(events.drain()) == 1  # the start only
+        # The start only: the Game and its one Student (Story 6.5).
+        assert [item["topic"] for item in events.drain()] == ["game", "user"]
     with pytest.raises(commands.CommandError) as caught:
         await commands.advance(str(uuid.uuid7()))
     assert caught.value.code == "game_not_found"
@@ -151,14 +154,17 @@ async def test_a_student_week_waits_and_the_ai_seats_order_when_it_opens(games_d
     )
     await commands.start(game_id)
     week_1 = log(games_db, game_id, week=1)
+    # Every Seat's Guided Order, the Student's too (Story 6.10); the Week waits for the view.
     assert [(row[1], row[3]) for row in week_1] == [
+        ("retailer", "guided"),
         ("wholesaler", "guided"),
         ("distributor", "guided"),
         ("factory", "guided"),
     ]
-    placed = await commands.place_order(game_id, "retailer", 1, 4, "guided")
-    assert (placed.week, placed.open_week, placed.lifecycle) == (1, 2, "running")
-    assert len(log(games_db, game_id, week=2)) == 3  # the next Week's AI Orders are placed
+    assert await commands.advance(game_id) is False
+    assert await view(game_id, "retailer", 1)
+    assert (await service.seat_state(game_id, "retailer")).week == 2
+    assert len(log(games_db, game_id, week=2)) == 4  # the next Week's Guided Orders are placed
     await student_orders(game_id, "retailer", 4)
     week_3 = {row[1]: row for row in log(games_db, game_id, week=3)}
     assert week_3["distributor"][3] == "rule_based"
@@ -180,7 +186,7 @@ async def test_ensure_order_called_again_does_nothing(games_db):
     before = (len(log(games_db, game_id)), version(games_db, game_id))
     async with get_sessionmaker().begin() as session:
         open_game = service.OpenGame(session=session, game_id=uuid.UUID(game_id))
-        for seat in game.seats:  # three have ordered; the Student's Seat is not the source's
+        for seat in game.seats:  # all four have ordered: a Guided Week (Story 6.10)
             await players.ensure_order(open_game, seat.id)
     assert (len(log(games_db, game_id)), version(games_db, game_id)) == before
 
@@ -215,18 +221,35 @@ async def test_switch_mid_week_places_the_reference_order_and_the_game_moves_on(
 
 
 async def test_switch_after_the_order_starts_next_week_and_places_nothing(games_db):
-    game_id = await created(games_db, students=["retailer", "wholesaler"], **SHORT)
+    game_id = await created(games_db, students=["retailer", "wholesaler"], weeks=8, guided_weeks=0)
     await commands.start(game_id)
-    await commands.place_order(game_id, "retailer", 1, 4, "guided")
+    await commands.place_order(game_id, "retailer", 1, 4, "student")
     rows, before = len(log(games_db, game_id)), version(games_db, game_id)
     with listening(games_db) as events:
         await commands.switch_to_rule_based(game_id, "retailer", "guard_switch")
         assert len(events.drain()) == 1
     assert occupancy(games_db, game_id, "retailer")[-1] == (2, "rule_based", "guard_switch")
     assert (len(log(games_db, game_id)), version(games_db, game_id)) == (rows, before + 1)
-    await commands.place_order(game_id, "wholesaler", 1, 4, "guided")
+    await commands.place_order(game_id, "wholesaler", 1, 4, "student")
     week_2 = {row[1]: row for row in log(games_db, game_id, week=2)}
-    assert week_2["retailer"][3:6] == ("guided", "rule_based", "guard_switch")
+    assert week_2["retailer"][3:6] == ("rule_based", "rule_based", "guard_switch")
+
+
+async def test_in_a_guided_week_the_view_counts_as_the_order_for_a_switch(games_db):
+    """Story 6.10: a Student who has viewed the Guided Week has ordered, so a switch starts next
+    Week; one who has not switches this Week, and the Week no longer waits for them."""
+    game_id = await created(games_db, students=["retailer", "wholesaler"], **SHORT)
+    await commands.start(game_id)
+    await view(game_id, "retailer", 1)
+    await commands.switch_to_rule_based(game_id, "retailer", "guard_switch")
+    assert occupancy(games_db, game_id, "retailer")[-1] == (2, "rule_based", "guard_switch")
+    assert (await service.seat_state(game_id, "retailer")).week == 1  # waits for the Grossist
+    await commands.switch_to_rule_based(game_id, "wholesaler", "takeover_staff")
+    assert occupancy(games_db, game_id, "wholesaler")[-1] == (1, "rule_based", "takeover_staff")
+    # Week 1 completed without the Grossist's view; its Guided Order stays the one placed.
+    assert lifecycle(games_db, game_id) == "finished"  # no Student left: the Game plays out
+    week_1 = {row[1]: row for row in log(games_db, game_id, week=1)}
+    assert week_1["wholesaler"][3:5] == ("guided", "student")
 
 
 @pytest.mark.parametrize(
@@ -291,14 +314,14 @@ async def test_a_scripted_occupant_without_a_known_policy_is_refused(games_db):
 
 
 async def test_a_failed_advance_after_the_commit_leaves_the_command_standing(games_db, monkeypatch):
-    game_id = await created(games_db, students=["retailer"], **SHORT)
+    game_id = await created(games_db, students=["retailer"], weeks=8, guided_weeks=0)
     await commands.start(game_id)
 
     async def broken(game: str) -> bool:
         raise RuntimeError("database gone")
 
     monkeypatch.setattr(commands, "_advance_once", broken)
-    placed = await commands.place_order(game_id, "retailer", 1, 4, "guided")
+    placed = await commands.place_order(game_id, "retailer", 1, 4, "student")
     assert (placed.week, placed.open_week) == (1, 2)  # its own transaction committed
     monkeypatch.undo()
     assert len(log(games_db, game_id, week=1)) == 4

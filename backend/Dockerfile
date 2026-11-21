@@ -14,6 +14,11 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /app
 
+# Pango for WeasyPrint (AD-18): the chart print check (Story 6.7) and, later, the report PDFs.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY backend/pyproject.toml backend/uv.lock backend/.python-version ./
 RUN uv sync --locked --no-dev --no-install-project
 

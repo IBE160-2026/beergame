@@ -65,6 +65,7 @@ import {
   hasClassicDelays,
   problemsOf, type SettingProblem, settingsBody, warningsBySetting } from "./settings";
 import { SettingsBlock } from "./settings-form";
+import { TestGameBlock } from "./test-game-panel";
 
 const copy = nb.sessions;
 
@@ -412,6 +413,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
         onShareLeave={() => setShareChecked(true)}
       />
       {saveShown && !item.locked ? saveRow : null}
+      <TestGameBlock item={item} />
     </>
   );
 }

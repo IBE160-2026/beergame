@@ -1,7 +1,7 @@
 """SQL for the games tables. Writers here are called only from `games.commands`."""
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from typing import Any
 
 from sqlalchemy import RowMapping, func, select, update
@@ -17,7 +17,17 @@ from app.modules.games.models import (
     seat_weeks,
     seats,
     simulation_batches,
+    time_acceptances,
+    time_proposals,
 )
+from app.modules.games.policy import purposes_with
+from app.platform import authz
+
+
+def _listed() -> Any:
+    """The Games the Class session's lists count (Story 6.20): those of a purpose the Lecturer
+    overview lists, so a Lecturer's test Game is in none of them (AD-13)."""
+    return games.c.purpose.in_(purposes_with("lecturer_overview"))
 
 
 async def insert_game(session: AsyncSession, values: dict[str, Any]) -> None:
@@ -96,6 +106,7 @@ async def seats_with_occupant(session: AsyncSession, game_id: uuid.UUID) -> list
             latest.c.occupant_kind,
             latest.c.policy_id,
             latest.c.user_id,
+            latest.c.reason,
         )
         .select_from(seats.outerjoin(latest, latest.c.seat_id == seats.c.id))
         .where(seats.c.game_id == game_id)
@@ -113,6 +124,7 @@ def _latest_occupancy(*where: Any) -> Any:
             seat_occupancy.c.occupant_kind,
             seat_occupancy.c.policy_id,
             seat_occupancy.c.user_id,
+            seat_occupancy.c.reason,
         )
         .where(*where)
         .ext(distinct_on(seat_occupancy.c.seat_id))
@@ -128,6 +140,120 @@ async def student_seated(
     return await student_seat_count(session, class_session_id, user_id) > 0
 
 
+async def student_seats(
+    session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> list[RowMapping]:
+    """Every Seat of the Class session's Games that the Student holds or has held (Story 6.1),
+    joined through `authz.own_seat`: game id, game number, Role, the id of the last occupancy row
+    naming the Student, whether they hold the Seat now (the Seat's latest row names them), and
+    whether another Student held it after them (`later_student`)."""
+    later = seat_occupancy.alias("later")
+    named = (
+        select(
+            seat_occupancy.c.seat_id,
+            seat_occupancy.c.id.label("row_id"),
+        )
+        .where(seat_occupancy.c.user_id == user_id)
+        .subquery()
+    )
+    latest = _latest_occupancy(seat_occupancy.c.seat_id.in_(select(named.c.seat_id)))
+    result = await session.execute(
+        select(
+            games.c.id.label("game_id"),
+            games.c.game_number,
+            games.c.purpose,
+            seats.c.role,
+            named.c.row_id,
+            (latest.c.user_id == user_id).label("holds"),
+            select(later.c.id)
+            .where(
+                later.c.seat_id == named.c.seat_id,
+                later.c.id > named.c.row_id,
+                later.c.occupant_kind == "student",
+                later.c.user_id != user_id,
+            )
+            .exists()
+            .label("later_student"),
+        )
+        .select_from(
+            named.join(seats, seats.c.id == named.c.seat_id)
+            .join(games, games.c.id == seats.c.game_id)
+            .outerjoin(latest, latest.c.seat_id == seats.c.id)
+        )
+        .where(
+            games.c.class_session_id == class_session_id,
+            _listed(),
+            games.c.id.in_(authz.own_seat(user_id)),
+        )
+    )
+    return list(result.mappings())
+
+
+async def own_game(
+    session: AsyncSession, user_id: uuid.UUID, game_id: uuid.UUID
+) -> RowMapping | None:
+    """The Game, when the User holds or has held a Seat in it (`authz.own_seat`); None for any
+    other Game, so another's reads as one that does not exist (Story 6.1, FR-5)."""
+    result = await session.execute(
+        select(games).where(games.c.id == game_id, games.c.id.in_(authz.own_seat(user_id, game_id)))
+    )
+    return result.mappings().one_or_none()
+
+
+async def staff_test_games(
+    session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> list[RowMapping]:
+    """The Games of the Class session that a Lecturer plays in a Student Seat (Story 6.20) and in
+    which `user_id` holds or has held a Seat (`authz.own_seat`), newest first: id and lifecycle."""
+    result = await session.execute(
+        select(games.c.id, games.c.lifecycle)
+        .where(
+            games.c.class_session_id == class_session_id,
+            games.c.purpose.in_(purposes_with("played_by_staff")),
+            games.c.id.in_(authz.own_seat(user_id)),
+        )
+        .order_by(games.c.id.desc())
+    )
+    return list(result.mappings())
+
+
+async def held_role(session: AsyncSession, game_id: uuid.UUID, user_id: uuid.UUID) -> str | None:
+    """The Role of the Game's Seat the User holds now (its latest occupancy row names them)."""
+    game_seats = select(seats.c.id).where(seats.c.game_id == game_id)
+    latest = _latest_occupancy(seat_occupancy.c.seat_id.in_(game_seats))
+    result = await session.execute(
+        select(seats.c.role)
+        .join(latest, latest.c.seat_id == seats.c.id)
+        .where(seats.c.game_id == game_id, latest.c.user_id == user_id)
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def last_seat_of(session: AsyncSession, game_id: uuid.UUID, user_id: uuid.UUID) -> str | None:
+    """The Role of the Game's Seat the User holds now, else of the one they held last; None when
+    they never held one (Story 6.1)."""
+    game_seats = select(seats.c.id).where(seats.c.game_id == game_id)
+    latest = _latest_occupancy(seat_occupancy.c.seat_id.in_(game_seats))
+    held_now = await session.execute(
+        select(seats.c.role)
+        .join(latest, latest.c.seat_id == seats.c.id)
+        .where(seats.c.game_id == game_id, latest.c.user_id == user_id)
+        .limit(1)
+    )
+    role = held_now.scalar_one_or_none()
+    if role is not None:
+        return role
+    last = await session.execute(
+        select(seats.c.role)
+        .join(seat_occupancy, seat_occupancy.c.seat_id == seats.c.id)
+        .where(seats.c.game_id == game_id, seat_occupancy.c.user_id == user_id)
+        .order_by(seat_occupancy.c.id.desc())
+        .limit(1)
+    )
+    return last.scalar_one_or_none()
+
+
 async def student_seat_count(
     session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
 ) -> int:
@@ -136,7 +262,7 @@ async def student_seat_count(
     session_seats = (
         select(seats.c.id)
         .join(games, games.c.id == seats.c.game_id)
-        .where(games.c.class_session_id == class_session_id)
+        .where(games.c.class_session_id == class_session_id, _listed())
     )
     latest = _latest_occupancy(seat_occupancy.c.seat_id.in_(session_seats))
     result = await session.execute(
@@ -148,6 +274,7 @@ async def student_seat_count(
         )
         .where(
             games.c.class_session_id == class_session_id,
+            _listed(),
             latest.c.occupant_kind == "student",
             latest.c.user_id == user_id,
         )
@@ -160,7 +287,9 @@ async def class_game_ids(
 ) -> dict[int, uuid.UUID]:
     """The Class session's Games by game number (Story 5.10)."""
     result = await session.execute(
-        select(games.c.game_number, games.c.id).where(games.c.class_session_id == class_session_id)
+        select(games.c.game_number, games.c.id).where(
+            games.c.class_session_id == class_session_id, _listed()
+        )
     )
     return {number: game_id for number, game_id in result.all()}
 
@@ -176,6 +305,7 @@ async def class_sessions_awaiting_snapshot(session: AsyncSession) -> list[uuid.U
         select(games.c.class_session_id)
         .where(
             games.c.class_session_id.is_not(None),
+            _listed(),
             games.c.settings.is_(None),
             games.c.lifecycle == "not_started",
         )
@@ -191,6 +321,7 @@ async def class_sessions_with_unstarted_games(session: AsyncSession) -> list[uui
         select(games.c.class_session_id)
         .where(
             games.c.class_session_id.is_not(None),
+            _listed(),
             games.c.settings.is_not(None),
             games.c.lifecycle == "not_started",
         )
@@ -214,7 +345,7 @@ async def class_games(
             games.c.lifecycle,
             games.c.settings.is_not(None).label("has_snapshot"),
         )
-        .where(games.c.class_session_id.in_(list(class_session_ids)))
+        .where(games.c.class_session_id.in_(list(class_session_ids)), _listed())
         .order_by(games.c.class_session_id, games.c.game_number)
     )
     return list(result.mappings())
@@ -225,7 +356,7 @@ async def class_session_seats(
 ) -> list[RowMapping]:
     """Every Seat of these Class sessions' Games in one read, by Game and chain order, with its
     latest occupancy row (None when free), as `seats_with_occupant` gives one Game's (5.12)."""
-    in_sessions = games.c.class_session_id.in_(list(class_session_ids))
+    in_sessions = games.c.class_session_id.in_(list(class_session_ids)) & _listed()
     session_seats = select(seats.c.id).join(games, games.c.id == seats.c.game_id).where(in_sessions)
     latest = _latest_occupancy(seat_occupancy.c.seat_id.in_(session_seats))
     result = await session.execute(
@@ -313,12 +444,49 @@ async def turn(
     return result.mappings().one_or_none()
 
 
-async def week_turns(session: AsyncSession, game_id: uuid.UUID, week: int) -> list[RowMapping]:
-    """The turns of every Seat in `week`."""
+async def week_turns_with_occupant(
+    session: AsyncSession, game_id: uuid.UUID, week: int
+) -> list[RowMapping]:
+    """The turns of every Seat in `week`, each with `occupant_kind` and `user_id` of the
+    occupancy row in force in that Week (`occupancy_in_force`), for `rules.week_complete`."""
+    in_force = (
+        select(seat_occupancy.c.seat_id, seat_occupancy.c.occupant_kind, seat_occupancy.c.user_id)
+        .where(
+            seat_occupancy.c.from_week <= week,
+            seat_occupancy.c.seat_id.in_(select(seats.c.id).where(seats.c.game_id == game_id)),
+        )
+        .ext(distinct_on(seat_occupancy.c.seat_id))
+        .order_by(
+            seat_occupancy.c.seat_id, seat_occupancy.c.from_week.desc(), seat_occupancy.c.id.desc()
+        )
+        .subquery()
+    )
     result = await session.execute(
-        select(seat_turns).where(seat_turns.c.game_id == game_id, seat_turns.c.week == week)
+        select(seat_turns, in_force.c.occupant_kind, in_force.c.user_id)
+        .select_from(seat_turns.outerjoin(in_force, in_force.c.seat_id == seat_turns.c.seat_id))
+        .where(seat_turns.c.game_id == game_id, seat_turns.c.week == week)
     )
     return list(result.mappings())
+
+
+async def set_viewed_at(session: AsyncSession, turn_id: uuid.UUID) -> Any:
+    """Mark the turn as viewed at the transaction's `now()`; returns that time."""
+    result = await session.execute(
+        update(seat_turns)
+        .where(seat_turns.c.id == turn_id)
+        .values(viewed_at=func.now())
+        .returning(seat_turns.c.viewed_at)
+    )
+    return result.scalar_one()
+
+
+async def set_wait_started_at(session: AsyncSession, turn_id: uuid.UUID, at: Any) -> None:
+    """Store when the game began to wait for the turn's Seat (Story 6.14), only while unset."""
+    await session.execute(
+        update(seat_turns)
+        .where(seat_turns.c.id == turn_id, seat_turns.c.wait_started_at.is_(None))
+        .values(wait_started_at=at)
+    )
 
 
 async def set_ordered_at(session: AsyncSession, turn_id: uuid.UUID) -> Any:
@@ -358,6 +526,20 @@ async def has_seat_week(
         .limit(1)
     )
     return result.first() is not None
+
+
+async def seat_week_order(
+    session: AsyncSession, game_id: uuid.UUID, week: int, seat_id: uuid.UUID
+) -> int | None:
+    """The Seat's Order in `week`, or None before it has ordered."""
+    result = await session.execute(
+        select(seat_weeks.c.order).where(
+            seat_weeks.c.game_id == game_id,
+            seat_weeks.c.week == week,
+            seat_weeks.c.seat_id == seat_id,
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 async def insert_seat_week(session: AsyncSession, values: dict[str, Any]) -> None:
@@ -464,6 +646,22 @@ async def finished_game_ids(session: AsyncSession) -> list[uuid.UUID]:
     result = await session.execute(
         select(games.c.id).where(games.c.lifecycle == "finished").order_by(games.c.id)
     )
+    return list(result.scalars())
+
+
+async def unchecked_finished_game_ids(
+    session: AsyncSession, limit: int, exclude: Collection[uuid.UUID] = ()
+) -> list[uuid.UUID]:
+    """At most `limit` finished Games that have no `game_checks` row yet, oldest first (Story
+    6.18): what the sweep's finished-game check still has to verify, but those in `exclude`."""
+    query = (
+        select(games.c.id)
+        .select_from(games.outerjoin(game_checks, game_checks.c.game_id == games.c.id))
+        .where(games.c.lifecycle == "finished", game_checks.c.id.is_(None))
+    )
+    if exclude:
+        query = query.where(games.c.id.not_in(list(exclude)))
+    result = await session.execute(query.order_by(games.c.id).limit(limit))
     return list(result.scalars())
 
 
@@ -576,5 +774,63 @@ async def batch_game_ids(session: AsyncSession, batch_id: uuid.UUID) -> list[uui
     """The id of every Game of the batch, in the order they were created (ids are UUIDv7)."""
     result = await session.execute(
         select(games.c.id).where(games.c.batch_id == batch_id).order_by(games.c.id)
+    )
+    return list(result.scalars())
+
+
+# The scheduling aid (Story 6.19, FR-22): one open proposal per Game and who accepted it.
+
+
+async def time_proposal(session: AsyncSession, game_id: uuid.UUID) -> RowMapping | None:
+    """The Game's proposal of a time to play, whether or not its time has passed."""
+    result = await session.execute(
+        select(time_proposals).where(time_proposals.c.game_id == game_id)
+    )
+    return result.mappings().one_or_none()
+
+
+async def time_proposal_by_id(session: AsyncSession, proposal_id: uuid.UUID) -> RowMapping | None:
+    result = await session.execute(select(time_proposals).where(time_proposals.c.id == proposal_id))
+    return result.mappings().one_or_none()
+
+
+async def replace_time_proposal(
+    session: AsyncSession,
+    game_id: uuid.UUID,
+    proposal_id: uuid.UUID,
+    proposed_by: uuid.UUID,
+    at: Any,
+) -> None:
+    """The Game's one proposal becomes this one: the earlier proposal goes, and its acceptances
+    with it (`ON DELETE CASCADE`)."""
+    await session.execute(time_proposals.delete().where(time_proposals.c.game_id == game_id))
+    await session.execute(
+        time_proposals.insert().values(
+            id=proposal_id, game_id=game_id, proposed_by=proposed_by, at=at
+        )
+    )
+
+
+async def accept_time_proposal(
+    session: AsyncSession, proposal_id: uuid.UUID, user_id: uuid.UUID
+) -> bool:
+    """Record that `user_id` accepted the proposal; False, changing nothing, when they had."""
+    result = await session.execute(
+        insert(time_acceptances)
+        .values(proposal_id=proposal_id, user_id=user_id)
+        .on_conflict_do_nothing(
+            index_elements=[time_acceptances.c.proposal_id, time_acceptances.c.user_id]
+        )
+        .returning(time_acceptances.c.user_id)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def time_acceptors(session: AsyncSession, proposal_id: uuid.UUID) -> list[uuid.UUID]:
+    """Who accepted the proposal, in the order they did."""
+    result = await session.execute(
+        select(time_acceptances.c.user_id)
+        .where(time_acceptances.c.proposal_id == proposal_id)
+        .order_by(time_acceptances.c.accepted_at, time_acceptances.c.user_id)
     )
     return list(result.scalars())

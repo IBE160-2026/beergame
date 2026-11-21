@@ -1,8 +1,8 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { nextMail } from "./support/auth";
-import { expectAccessible, freshLecturer, type Viewport } from "./support/classes";
+import { expectAccessible, freshLecturer, test, type Viewport } from "./support/classes";
 
 /** What became of the Invitations (Story 4.6, FR-8, NFR-6, NFR-10), on the local stack at 320 and
  * 1440 px. A fresh Lecturer sends three Invitations; two of the mails then bounce, one hard and

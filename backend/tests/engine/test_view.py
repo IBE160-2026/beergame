@@ -13,6 +13,7 @@ from app.engine import (
     SupplyLineSlot,
     advance,
     initial_state,
+    neighbour_numbers,
     placed_orders,
     seat_detail,
     seat_view,
@@ -274,18 +275,41 @@ def test_detail_agrees_with_the_pipelines_in_every_week(
             assert arrivals == sorted(arrivals) and min(arrivals, default=week + 1) > week
             upstream_backlog = 0 if role == last else states[week - 1].seats[index + 1].backlog
             assert detail.overdue == upstream_backlog
-            assert detail.position == seat.inventory - seat.backlog + view.supply_line
+            assert detail.net_inventory == seat.inventory - seat.backlog
+            assert detail.position == detail.net_inventory + view.supply_line
             assert detail.preview.supply_line_base == view.supply_line
             assert detail.preview.position_base == detail.position
             goods = production_delay if role == last else shipping_delay
             assert detail.preview.order_arrival_week == week + order_delay + goods
             assert detail.total_cost == seat.total_cost + seat.cost
             assert sum(line.amount for line in detail.cost_lines) == detail.week_cost
+            # «Kostnad så langt» (Story 6.16): the running split adds up to the Total cost.
+            holding, backorder = (line.amount for line in detail.cost_lines)
+            assert detail.total_holding_cost == (
+                sum(r.holding_cost for r in detail.history) + holding
+            )
+            assert detail.total_backorder_cost == (
+                sum(r.backorder_cost for r in detail.history) + backorder
+            )
+            assert detail.total_holding_cost + detail.total_backorder_cost == detail.total_cost
+            # Alle rader's column line: the Netto lager to the left, plus Levering, minus Ordre inn.
+            if detail.history:
+                assert detail.net_inventory == (
+                    detail.history[-1].net_inventory
+                    + detail.incoming_delivery
+                    - detail.incoming_order
+                )
             assert [row.order for row in detail.history] == list(view.order_history)
             assert [row.week for row in detail.history] == list(range(1, week))
             for row, earlier in zip(detail.history, states[: week - 1], strict=True):
                 assert row.inventory == earlier.seat(role).inventory
+                assert row.net_inventory == row.inventory - row.backlog
                 assert row.cost == earlier.seat(role).cost
+                assert row.holding_cost == settings.holding_cost * row.inventory
+                assert row.backorder_cost == settings.backorder_cost * row.backlog
+                assert row.holding_cost + row.backorder_cost == row.cost
+                assert row.total_cost == earlier.seat(role).total_cost + row.cost
+                assert row.total_holding_cost + row.total_backorder_cost == row.total_cost
                 past = seat_detail(settings, states[: row.week], orders[: row.week - 1], role)
                 assert (row.supply_line, row.position) == (
                     past.preview.supply_line_base,
@@ -323,3 +347,62 @@ def test_detail_and_placed_orders_check_their_input():
         placed_orders(settings, [])
     with pytest.raises(ValueError, match="item 1"):
         placed_orders(settings, [states[0], states[0]])
+
+
+# Information visibility (Story 6.21, FR-83): the neighbours' inventory and backlog only.
+
+
+def _uneven(state):
+    return {"retailer": 0, "wholesaler": 9, "distributor": 2, "factory": 14}
+
+
+def _numbers(state, role, week):
+    seat = state.seat(role)
+    return [
+        NeighbourNumber(role=role, week=week, quantity="inventory", value=seat.inventory),
+        NeighbourNumber(role=role, week=week, quantity="backlog", value=seat.backlog),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("upstream", "downstream", "role", "shown"),
+    [
+        (False, False, Role.WHOLESALER, []),
+        (True, False, Role.WHOLESALER, [Role.DISTRIBUTOR]),
+        (False, True, Role.WHOLESALER, [Role.RETAILER]),
+        (True, True, Role.WHOLESALER, [Role.DISTRIBUTOR, Role.RETAILER]),
+        (True, True, Role.FACTORY, [Role.DISTRIBUTOR]),
+        (True, True, Role.RETAILER, [Role.WHOLESALER]),
+        (True, False, Role.FACTORY, []),
+        (False, True, Role.RETAILER, []),
+    ],
+)
+def test_neighbour_numbers_follow_the_views(upstream, downstream, role, shown):
+    settings = GameSettings(info_visibility={"upstream": upstream, "downstream": downstream})
+    states, _ = play(settings, 7, _uneven)
+    state = states[-1]
+    expected = [number for neighbour in shown for number in _numbers(state, neighbour, 7)]
+    assert list(neighbour_numbers(settings, state, role.value)) == expected
+
+
+def test_neighbour_numbers_are_the_neighbours_own_view():
+    settings = GameSettings(info_visibility={"upstream": True, "downstream": True})
+    states, orders = play(settings, 9, _uneven)
+    numbers = neighbour_numbers(settings, states[-1], Role.WHOLESALER)
+    for neighbour in (Role.DISTRIBUTOR, Role.RETAILER):
+        own = seat_view(settings, states, orders, neighbour)
+        found = {n.quantity: n.value for n in numbers if n.role == neighbour}
+        assert found == {"inventory": own.inventory, "backlog": own.backlog}
+    assert any(n.value > 0 for n in numbers if n.quantity == "backlog")
+
+
+def test_neighbour_numbers_refuse_an_unknown_role_or_a_finished_week():
+    settings = GameSettings(info_visibility={"upstream": True, "downstream": False})
+    state = initial_state(settings)
+    with pytest.raises(ValueError, match="not a Role"):
+        neighbour_numbers(
+            settings.model_copy(update={"roles": settings.roles[:2]}), state, "factory"
+        )
+    finished = state.model_copy(update={"finished": True})
+    with pytest.raises(ValueError, match="not an opened Week"):
+        neighbour_numbers(settings, finished, Role.RETAILER)

@@ -1,0 +1,6 @@
+{# Another Student proposed a time to play (Story 6.19, FR-22), a digest kind. `class_name`,
+   `game_number`, `proposer` (None for a Student no longer in the Class) and `at` (Europe/Oslo)
+   come from `sessions.service.time_proposal_mail_context` at send time. Draft copy. #}
+{% import "kinds/_deadline.j2" as d %}
+{% set subject = "Forslag om tidspunkt" %}
+{{ proposer or "En Student" }} foreslår å spille Spill {{ game_number }} i Klassen {{ class_name }} {{ d.when(at) }}. Du kan godta tidspunktet på Hjem.

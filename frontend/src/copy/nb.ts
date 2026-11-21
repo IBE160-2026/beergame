@@ -26,9 +26,33 @@ function countWord(count: number): string {
   return COUNT_WORDS[count] ?? String(count);
 }
 
+/** «1 enhet», «6 enheter» (a capacity is 1 to 100, so no digit grouping). */
+const unitsText = (units: number) => `${units} ${units === 1 ? "enhet" : "enheter"}`;
+
 /** The Start-date line of «Du er invitert» and Hjem (Story 4.5). [ASSUMPTION] EXPERIENCE.md's draft:
  * a Student sees game, Role and Seats from the Start date (founder decision 2026-11-12). */
 const START_DATE_LINE = "Du får Rolle og spill på startdatoen.";
+
+/** Story 6.20: the plain-text label of a Lecturer's test Game, where a Class game reads «Spill 17»
+ * (UX-DR70); never «Demodata». [ASSUMPTION] draft copy, not in the spine. */
+const TEST_GAME = "Testspill";
+
+/** «Spill 17», or «Testspill» for a test Game, which has no number (Story 6.20). */
+const gameName = (number: number | null) => (number === null ? TEST_GAME : `Spill ${number}`);
+
+/** Story 6.5: a game the lock has not given its snapshot yet. [ASSUMPTION] */
+const NOT_READY = "Spillet er ikke klart til å starte ennå.";
+
+/** The numbers the briefing's worked Uke writes into its lines (Story 6.2). */
+type WorkedWeekCopy = {
+  inventoryBefore: number;
+  backlogBefore: number;
+  onHand: number;
+  owed: number;
+  shipped: number;
+  inventoryAfter: number;
+  backlogAfter: number;
+};
 
 /** What a Class session on the Lærerhjem still lacks, in words (Stories 5.2, 5.9). */
 const LACKS = { dates: "datoer", allocation: "bekreftet fordeling" } as const;
@@ -138,11 +162,9 @@ export const nb = {
     login: "Logg inn",
     seat: {
       caption: "Ett sete, Grossist, Uke 4. Veiledet uke.",
-      week: "Uke",
-      // The mockup's row label for the Seat's own order (01-landing.png).
-      yourOrder: "Din ordre",
-      // [ASSUMPTION] Story 3.13: the mockup's note, without the line about the graph's time axis.
-      ownNumbers: "Studenten ser bare sine egne tall.",
+      // The mockup's note (01-landing.png); Story 6.8 brings back its line about the graph's time
+      // axis, now that the figure has one. [ASSUMPTION]
+      ownNumbers: "Studenten ser bare sine egne tall. Tidsaksen slutter fire uker etter nå.",
       demoData: "Demodata",
       classCurves: "Lagerkurvene for hele klassen ser du først når du er logget inn.",
     },
@@ -330,6 +352,102 @@ export const nb = {
     startDate: START_DATE_LINE,
     // [ASSUMPTION] Issue #93: Hjem with no Class (none yet, removed, or archived).
     noClass: "Du er ikke med i noen Klasse nå. Når en Faglærer legger deg til, står Klassen her.",
+    /** Hjem from the Start date (Story 6.1, UX-DR29, EXPERIENCE.md → Hjem (Student), mockup
+     * `04-student-hjem.png`). «Spill 17 · Du er Grossist», «Setene», «Stegene», «pågår», «Neste
+     * frist», the Replay and Individuell test lock lines are the spine's; the rest is
+     * [ASSUMPTION] draft copy for review. */
+    student: {
+      /** «Spill 17 · Du er Grossist». */
+      game: (number: number | null, role: string) => `${gameName(number)} · Du er ${role}`,
+      /** Shown above a session's block only when the Class has more than one: «Klasseøkt 2». */
+      session: (number: number) => `Klasseøkt ${number}`,
+      seats: "Setene",
+      aiPlayer: "KI-spiller",
+      // [ASSUMPTION]
+      free: "ledig",
+      // [ASSUMPTION] A classmate removed from the Class since the start.
+      removed: "Ikke lenger i Klassen",
+      /** After the Student's own name on their Seat: «Sara (deg)». [ASSUMPTION] */
+      you: (name: string) => `${name} (deg)`,
+      /** The own Seat of a Lecturer's test Game, who is no Student of the Class (Story 6.20).
+       * [ASSUMPTION] */
+      youAlone: "Deg",
+      /** Setestatus (Story 6.14, FR-25, UX-DR25, EXPERIENCE.md → Setestatus): the status words and
+       * «Venter på: Jonas (3 min) og deg.» are the spine's; `guardSwitched` and the duration units
+       * are [ASSUMPTION] draft copy. */
+      status: {
+        ordered: "har bestilt",
+        waiting: "venter",
+        waitingFor: (duration: string) => `venter, ${duration}`,
+      },
+      /** A Seat whose LLM player the Play guard switched (FR-79). [ASSUMPTION] */
+      guardSwitched: "KI-spiller (regelbasert)",
+      duration: {
+        underMinute: "under 1 min",
+        minutes: (n: number) => `${n} min`,
+        hours: (n: number) => `${n} t`,
+        days: (n: number) => `${n} d`,
+      },
+      /** One waited-for Seat in «Venter på»: «Jonas (3 min)», «Fabrikk», «deg». */
+      waitedFor: (who: string, duration: string | null) => (duration ? `${who} (${duration})` : who),
+      waitingYou: "deg",
+      waitingOn: (who: string) => `Venter på: ${who}.`,
+      steps: "Stegene",
+      stepNames: {
+        class_game: "Klassespill",
+        debrief: "Debrief",
+        quiz: "Quiz",
+        replay: "Replay",
+        test: "Individuell test",
+        report: "Rapport",
+      },
+      /** The current step's mark, in text. */
+      current: "pågår",
+      // [ASSUMPTION] A step that is done.
+      done: "ferdig",
+      /** What opens each later step. Replay's and Individuell test's are the spine's; the other
+       * four are [ASSUMPTION] in their pattern. */
+      locked: {
+        class_game: "Klassespill, åpnes på startdatoen.",
+        debrief: "Debrief, åpnes når Klassespillet er ferdig.",
+        quiz: "Quiz, åpnes når du har fullført Debriefen.",
+        replay: "Replay, åpnes når du har bestått Debrief-quizen.",
+        test: "Individuell test, åpnes når du har fullført Replay.",
+        report: "Rapport, åpnes når den individuelle testen er vurdert.",
+      },
+      nextDeadline: "Neste frist",
+      /** «Spillfrist ti. 8. des.» */
+      deadline: (kind: string, day: string) => `${kind} ${day}`,
+      labHour: "Labtime",
+      /** «to. 26. nov. 14:15, Datalab A2». */
+      labHourItem: (day: string, time: string, place: string) => `${day} ${time}, ${place}`,
+      obligatory: "Obligatorisk",
+      /** Story 6.2: Hjem's primary button to the briefing, until the Starting task is done. The
+       * story's draft. [ASSUMPTION] */
+      readRules: "Les reglene",
+      /** Story 6.2: the briefing's Lenke afterwards, named by its title. */
+      rulesLink: "Regler før første ordre",
+      /** A finished game on Hjem (Story 6.18). [ASSUMPTION] draft copy: the spine names no
+       * Hjem string for it; the Lenke leads to «Spillet er ferdig». */
+      finished: "Spillet er ferdig.",
+      /** [ASSUMPTION] */
+      toResult: "Se kjedens totalkostnad",
+      /** Spillkort (Story 6.17, UX-DR28, EXPERIENCE.md → Spillkort, State Patterns → Student game).
+       * «Spillet venter på deg», «Totalkostnad 68,00 kr» and «Netto lager −13 i Uke 11.» are the
+       * spine's; `ordered` and `region` are [ASSUMPTION] draft copy: EXPERIENCE.md has no title for
+       * a game that waits for others. */
+      card: {
+        waitsForYou: "Spillet venter på deg",
+        /** [ASSUMPTION] The Student has ordered this Uke; the game waits for the others. */
+        ordered: "Du har bestilt",
+        week: (week: number) => `Uke ${week}`,
+        total: (amount: string) => `Totalkostnad ${amount}`,
+        /** Read in place of the mini graph, which is hidden from screen readers. */
+        net: (value: string, week: number) => `Netto lager ${value} i Uke ${week}.`,
+        /** The mini table's scroll region. [ASSUMPTION] */
+        region: (number: number | null) => `Graf og tabell, ${gameName(number)}`,
+      },
+    },
   },
 
   /** The Lecturer's Classes (Epic 4). «Klassene dine», «Ny Klasse», «Lag Klasse», «Navn» and
@@ -962,6 +1080,26 @@ export const nb = {
     saveHint: "Du kan lagre uten å endre noe.",
     // [ASSUMPTION]
     saved: "Klasseøkten er lagret.",
+    /** «Testspill» on the Klasseøkt (Story 6.20, FR-87): the Lecturer plays the stored settings
+     * against three AI players before the Start date. [ASSUMPTION] draft copy, not in the spine. */
+    testGame: {
+      title: TEST_GAME,
+      lead: "Spill mot tre KI-spillere med innstillingene slik de er lagret nå. Testspillet teller ikke i noen oversikt.",
+      role: "Din rolle",
+      start: "Start testspill",
+      starting: "Starter testspill …",
+      running: "Du har et testspill i gang.",
+      resume: "Fortsett testspillet",
+      previous: "Se forrige testspill",
+      closed: "Testspill kan bare startes før Startdato.",
+      refused: {
+        session_locked: "Startdatoen er passert. Testspill kan bare startes før den.",
+        test_game_running: "Du har allerede et testspill i gang her.",
+        llm_unavailable: "LLM-spillerne kan ikke svare nå. Velg Regelbaserte spillere, eller be en Admin ordne det.",
+        not_found: "Testspill er slått av.",
+        unknown_role: "Spillinnstillingene har ikke denne rollen lenger. Velg en annen.",
+      },
+    },
     /** The locked Klasseøkt (Story 5.11, FR-18, GitHub issue 103). [ASSUMPTION] draft copy. */
     lock: {
       /** Under the title once the lock has frozen the session; `when` as «ti. 24. nov. kl. 10:00». */
@@ -1046,7 +1184,8 @@ export const nb = {
       // [ASSUMPTION] beside a date that has passed and no longer moves.
       passed: "Passert. Datoen kan ikke flyttes.",
       // [ASSUMPTION] Story 5.11: a date that can no longer change, as text: «ti. 24. nov. kl. 10:00».
-      dateText: (day: string, time: string) => `${day} kl. ${time}`,
+      // A no-break space keeps «kl.» on the line of its time.
+      dateText: (day: string, time: string) => `${day} kl. ${time}`,
       // [ASSUMPTION] a date not set, shown as text.
       notSet: "Ikke satt",
       // [ASSUMPTION] Story 5.11: the Startdato of a session locked before it (an early start).
@@ -1284,6 +1423,392 @@ export const nb = {
         `${className}: Klasseøkt ${number} mangler ${what.map((item) => LACKS[item]).join(" og ")}`,
       nextDate: (dateName: string, number: number, className: string) =>
         `${dateName}, Klasseøkt ${number}, ${className}`,
+    },
+  },
+
+  /** The Student's Class game (Epic 6). Shown before the Debrief: `npm run check:copy` holds it to
+   * the pre-Debrief rules. */
+  games: {
+    /** «Regler før første ordre» (Story 6.2, FR-84, FR-14, UX-DR63, UX-DR70). The title is the
+     * spine's; everything else is [ASSUMPTION] draft copy for the founder's review. It states the
+     * game's own delays, Veiledede uker and rates, never the number of Weeks, and recommends no
+     * Order. */
+    briefing: {
+      title: "Regler før første ordre",
+      lead: (role: string, number: number | null) =>
+        `Du er ${role} i ${gameName(number)}. Kjeden har fire roller: Fabrikk, Distributør, Grossist og Detaljist. Hver uke sender du enheter til den som bestiller fra deg, og legger inn én egen ordre.`,
+      goal: {
+        title: "Målet",
+        text: "Dere skal få lavest mulig totalkostnad for hele kjeden, ikke bare for ditt eget sete.",
+        rates: (holding: string, backorder: string) =>
+          `Hver enhet på lager koster ${holding} kr per uke. Hver enhet i restordre koster ${backorder} kr per uke.`,
+      },
+      week: {
+        title: "Slik går en uke",
+        same: "Alle setene legger inn ordre for den samme uka. Når alle har lagt inn sin ordre, regnes uka, og neste uke åpner.",
+        ship: "Det du har på lager, må du sende, opp til det som er bestilt fra deg. Du kan ikke holde enheter tilbake.",
+        backlog: "Det du ikke kan sende, blir restordre. Restordre sendes så snart du har enheter.",
+      },
+      /** [ASSUMPTION] Story 6.22 (cut list, FEATURE_CAPACITY, FR-12): draft copy for the founder's
+       * review. Shown only when the game's snapshot caps a Role. Never a number of Weeks. */
+      capacity: {
+        title: "Kapasitet",
+        /** «Grossisten kan sende høyst 6 enheter per uke.» */
+        role: (role: string, units: number) => `${role} kan sende høyst ${unitsText(units)} per uke.`,
+        every: (units: number) => `Hver rolle kan sende høyst ${unitsText(units)} per uke.`,
+        both: "En rolle med kapasitet kan ha lager og restordre samtidig: enhetene ligger på lager mens ordrene venter.",
+        mine: "Rollen din har kapasitet. Tabellen i spillet viser derfor Lager og Restordre hver for seg, over Netto lager.",
+        /** The Role, definite: «Grossisten». */
+        definite: { retailer: "Detaljisten", wholesaler: "Grossisten", distributor: "Distributøren", factory: "Fabrikken" },
+      },
+      delays: {
+        title: "Forsinkelsene",
+        /** Every Role but Fabrikk: the order reaches the supplier, then the goods travel back. */
+        order: (weeks: string, supplier: string) => `Ordren din kommer fram til ${supplier} ${weeks} etter at du la den inn.`,
+        shipping: (weeks: string) => `Det som sendes til deg, er ${weeks} på vei før det kommer fram.`,
+        /** Fabrikk orders from its own production. */
+        production: (orderWeeks: string, productionWeeks: string) =>
+          `Ordren din går til produksjon ${orderWeeks} etter at du la den inn. Produksjonen tar ${productionWeeks}.`,
+        /** No sum of the delays: the web app works out no game quantity (AD-1). */
+        earliest:
+          "Det du bestiller nå, kommer altså tidligst fram etter begge forsinkelsene, og senere hvis leverandøren mangler enheter.",
+        earliestFactory: "Det du bestiller nå, kommer altså tidligst fram etter begge forsinkelsene.",
+        onTheWay: "Enheter du har bestilt og ennå ikke fått, står som På vei.",
+        /** The supplier, definite: «Distributøren». */
+        supplier: { wholesaler: "Grossisten", distributor: "Distributøren", factory: "Fabrikken" },
+        weeks: (count: number) => (count === 1 ? "én uke" : `${countWord(count)} uker`),
+      },
+      guided: {
+        title: "Veiledede uker",
+        some: (count: number) =>
+          `${count === 1 ? "Den første uka er en veiledet uke." : `De første ${countWord(count)} ukene er veiledede uker.`} Ordren er fast og legges inn for deg, så du kan bli kjent med tallene. Uka går videre når alle har åpnet den.`,
+        none: "Dette spillet har ingen veiledede uker. Du legger inn din egen ordre fra første uke.",
+      },
+      together: {
+        title: "Slik spiller dere",
+        continues: "Spill som om virksomheten fortsetter.",
+        arrange: "Dere kan avtale når dere spiller, men dere skal ikke snakke om ordrer eller tall med de andre i kjeden.",
+      },
+      example: {
+        title: "Én uke forklart",
+        // [ASSUMPTION] Epic 6: the graph strip over the worked Uke (`09-alle-sider.png`).
+        strip: "Slik viser spillet ukene: grafen over tabellen, én kolonne per uke, og nå-streken ved uka du spiller. Her Uke 4 for en Grossist.",
+        caption: "Uke 11 for en Grossist",
+        term: "Rad",
+        value: "Tall",
+        meaning: "Hva det betyr",
+        /** The worked Uke's rows, top to bottom (Demodata, Design Notes of Story 6.2), each with the
+         * numbers of `EXAMPLE` in `modules/games/briefing.ts`. */
+        rows: {
+          incomingOrder: (w: WorkedWeekCopy) =>
+            `Det Detaljisten bestilte. Med ${w.backlogBefore} i restordre fra før må Grossisten sende ${w.owed}.`,
+          incomingDelivery: (w: WorkedWeekCopy) =>
+            `Enheter som kom fram denne uka. Med ${w.inventoryBefore} på lager fra før har Grossisten ${w.onHand}.`,
+          unitsShipped: () => "Grossisten sender alt den har, opp til det den skal sende.",
+          inventory: (w: WorkedWeekCopy) => `Det som er igjen etter sendingen: ${w.onHand} − ${w.shipped}.`,
+          backlog: (w: WorkedWeekCopy) =>
+            `Det Grossisten ikke kunne sende: ${w.owed} − ${w.shipped}. Det sendes så snart enhetene finnes.`,
+          netInventory: (w: WorkedWeekCopy) =>
+            `Lager minus restordre: ${w.inventoryAfter} − ${w.backlogAfter}. Under null betyr restordre. Spillets tabell viser denne raden.`,
+          supplyLine: () => "Enheter Grossisten har bestilt og ennå ikke fått.",
+        },
+        /** «Denne uka: 13 enheter i restordre, hver til 1,00 kr. Lager 0 gir ingen lagerkostnad.» No
+         * product: the web app computes no cost (AD-1). */
+        cost: (backlog: number, inventory: number, rate: string) =>
+          `Denne uka: ${backlog} enheter i restordre, hver til ${rate} kr. Lager ${inventory} gir ingen lagerkostnad.`,
+        demoData: "Demodata",
+      },
+      /** Opens the Startoppgave (Story 6.3). */
+      done: "Jeg har lest reglene",
+    },
+    /** The Startoppgave (Story 6.3, FR-85, UX-DR63, UX-DR70). The title, the error, the right and
+     * wrong lines, the final question with its four answers and the done line are the spine's
+     * (epics, EXPERIENCE.md → States); the rest is [ASSUMPTION] draft copy for the founder's
+     * review. The items' own prompts are content (`modules/content`), not copy. It never names
+     * the game. */
+    startingTask: {
+      // A soft hyphen: where the heading must break (200 % text), it breaks as «Start-oppgave».
+      title: "Start­oppgave",
+      lead: "Noen korte regnestykker med tallene fra én kolonne i ukestabellen. Oppgaven teller ikke, og du går videre uansett hva du svarer.",
+      demoData: "Demodata",
+      progress: (n: number, of: number) => `Oppgave ${n} av ${of}`,
+      notWhole: "Skriv et helt tall.",
+      send: "Send svar",
+      /** «Riktig. Svaret er 3: 0 − 13 + 16.» The sum is the api's terms, written out. */
+      right: (expected: string, sum: string) => `Riktig. Svaret er ${expected}: ${sum}.`,
+      wrong: (expected: string, sum: string) => `Ikke riktig. Svaret er ${expected}: ${sum}.`,
+      final: {
+        question: "Har du spilt et spill som ligner dette før?",
+        optional: "Svaret er frivillig.",
+        choices: { yes: "Ja", no: "Nei", unknown: "Vet ikke" },
+        skip: "Hopp over",
+        none: "Velg et svar, eller hopp over.",
+      },
+      done: "Ferdig. Gå til Uke 1.",
+      toHome: "Til Hjem",
+    },
+    /** Starting the Class game (Story 6.5, FR-22, UX-DR78). «Start spillet», its consequence line
+     * and «Gå til Uke 1» are the spine's (EXPERIENCE.md → Start); the rest is [ASSUMPTION] draft
+     * copy for the founder's review. */
+    start: {
+      start: "Start spillet",
+      consequence: "Spillet starter for alle fire. Reglene for ventetid gjelder fra nå.",
+      /** «Gå til Uke 11». */
+      toWeek: (week: number) => `Gå til Uke ${week}`,
+      notReady: NOT_READY,
+      failed: "Spillet ble ikke startet. Prøv igjen.",
+      errors: {
+        starting_task_required: "Gjør Startoppgaven først.",
+        game_not_ready: NOT_READY,
+      },
+    },
+    /** The scheduling aid (Story 6.19, FR-22): a date and a time to play, never text. «Foreslå
+     * tidspunkt» and the range error are the epic's; the rest is [ASSUMPTION] draft copy for the
+     * founder's review (EXPERIENCE.md leaves the surface undrawn). */
+    timeProposal: {
+      open: "Foreslå tidspunkt",
+      title: "Foreslå tidspunkt",
+      date: "Dato",
+      time: "Klokkeslett",
+      consequence: "De andre i spillet får beskjed og kan godta tidspunktet.",
+      replaces: "Forslaget erstatter det som står nå.",
+      send: "Send forslaget til gruppen",
+      sending: "Sender …",
+      cancel: "Avbryt",
+      sent: "Forslaget er sendt.",
+      /** «Kari Nordmann foreslår å spille to. 26. nov. kl. 14:15.» */
+      proposed: (name: string, when: string) => `${name} foreslår å spille ${when}.`,
+      proposedMine: (when: string) => `Du foreslår å spille ${when}.`,
+      someone: "En Student",
+      /** «Godtatt av Per Hansen og deg.» */
+      acceptedBy: (names: string) => `Godtatt av ${names}.`,
+      you: "deg",
+      noneAccepted: "Ingen har godtatt ennå.",
+      accept: "Godta tidspunktet",
+      accepting: "Godtar …",
+      failed: "Det gikk ikke. Prøv igjen.",
+      errors: {
+        dateMissing: "Velg en dato.",
+        timeMissing: "Velg et klokkeslett.",
+        /** The epic's: «Velg et tidspunkt mellom nå og Spillfristen, ti. 8. des. kl. 14:00.» */
+        range: (deadline: string) => `Velg et tidspunkt mellom nå og Spillfristen, ${deadline}.`,
+      },
+      refusals: {
+        game_finished: "Spillet er ferdig.",
+        proposal_gone: "Forslaget er byttet ut eller har gått ut.",
+        own_proposal: "Du foreslo selv dette tidspunktet.",
+      },
+    },
+    /** The play route (Story 6.5): the Topplinje's «Uke 11» over «Grossist, Spill 17» (DESIGN.md
+     * → Topplinje), and the four Seats. A finished game shows «Spillet er ferdig» (Story 6.18). */
+    play: {
+      week: (week: number) => `Uke ${week}`,
+      roleGame: (role: string, number: number | null) => `${role}, ${gameName(number)}`,
+      /** Story 6.20: a test Game leads back to where it was started. [ASSUMPTION] */
+      toClassSession: "Tilbake til Klasseøkta",
+      /** «Spillet er ferdig» (Story 6.18, FR-28, UX-DR30, EXPERIENCE.md → Spillet er ferdig): the
+       * spine's strings in the spine's order. `failed` is the page-error line. */
+      end: {
+        title: "Spillet er ferdig",
+        totalLabel: "Kjedens totalkostnad",
+        totalNote: "Fire Roller, to kostnadsarter, hele spillet.",
+        why: "Hvorfor ble den slik? Det finner dere ut i Debriefen, med alle fire Rollene.",
+        toDebrief: "Gå til Debrief",
+      },
+      /** Ordrefelt (Story 6.10, DESIGN.md → Ordrefelt, UX-DR20). The label is the spine's; the
+       * Veiledet uke line is [ASSUMPTION] draft copy. It never says how many Veiledede uker are
+       * left (FR-14): the briefing told that. */
+      order: {
+        label: (week: number) => `Din ordre for Uke ${week}`,
+        guided: "Veiledet uke. Ordren er fast og legges inn automatisk.",
+        /** The editable states (Story 6.11, EXPERIENCE.md → Ordrefelt). Every string is the
+         * spine's except `stepped`, which is [ASSUMPTION] draft copy. */
+        placeholder: "Antall enheter",
+        help: (max: string) => `Hele tall fra 0 til ${max}.`,
+        last: (order: string) => `Sist Uke bestilte du ${order}.`,
+        invalid: (max: string) => `Skriv et helt tall fra 0 til ${max}.`,
+        tooLarge: (value: string, max: string) => `${value} er mer enn ${max}. Skriv et helt tall fra 0 til ${max}.`,
+        fewer: "Én færre",
+        more: "Én flere",
+        /** Announced politely after − or +: «24 enheter». [ASSUMPTION] */
+        stepped: (value: string) => `${value} enheter`,
+        confirm: "Bekreft ordre",
+        confirmOn: (value: string) => `Bekreft ordre på ${value}`,
+        arrives: (week: number) => `Kommer fram om lag Uke ${week}. Kan ikke endres etter at du har bekreftet.`,
+        /** Submitting and Confirmed (Story 6.12, EXPERIENCE.md → State Patterns → Spill). `next`
+         * is [ASSUMPTION] draft copy of 2026-11-14 (open-assumptions.md). */
+        sending: (value: string) => `Sender ordre på ${value} …`,
+        sent: (value: string) => `Ordren på ${value} er sendt.`,
+        /** Confirmed while the game waits for others (Story 6.14): «Ordren på 24 er sendt. Venter
+         * på Jonas (3 min).» */
+        sentWaiting: (value: string, who: string) => `Ordren på ${value} er sendt. Venter på ${who}.`,
+        next: "Skjermen går videre når alle har bestilt. Du får e-post hvis spillet venter på deg.",
+        /** A send that failed, timed out or found the device offline (Story 6.13, EXPERIENCE.md →
+         * State Patterns → Spill, UX-DR60). The spine's strings, except `weekGone` and `seatGone`,
+         * which are [ASSUMPTION] draft copy for `409 week_not_open` and `409 seat_not_yours`. A
+         * non-breaking space keeps «…» on the line of the word before it (GitHub issue 130). */
+        failed: "Ordren ble ikke sendt. Ingenting er bestilt ennå.",
+        retry: (value: string) => `Prøv å sende ${value} igjen`,
+        checking: "Vi vet ikke om ordren kom fram. Sjekker …",
+        offline: (value: string) => `Ordren på ${value} er ikke sendt.`,
+        reconnected: "Tilkoblet igjen. Ordren er ikke sendt ennå.",
+        weekGone: (week: number, value: string) => `Uke ${week} er over. Ordren på ${value} ble ikke sendt.`,
+        seatGone: (value: string) => `Du har ikke dette setet lenger. Ordren på ${value} ble ikke sendt.`,
+      },
+      /** The Uke-overgang (Story 6.15, EXPERIENCE.md → Uke-overgang, UX-DR23): «Uke 11 er ferdig
+       * regnet», «Restordre 13 blir 20», «Denne uka: 20 restordre × 1,00 = 20,00 kr» and «Hopp
+       * over» are the spine's; the Lager part of the cost line and `draftDropped` are [ASSUMPTION]
+       * draft copy. */
+      summary: {
+        done: (week: number) => `Uke ${week} er ferdig regnet`,
+        skip: "Hopp over",
+        change: (from: string, to: string) => `${from} blir ${to}`,
+        backorderPart: (units: string, rate: string) => `${units} restordre × ${rate}`,
+        /** [ASSUMPTION] */
+        holdingPart: (units: string, rate: string) => `${units} lager × ${rate}`,
+        weekCost: (parts: string[], sum: string) =>
+          parts.length === 0 ? `Denne uka: ${sum}` : `Denne uka: ${parts.join(" + ")} = ${sum}`,
+        /** Opens «Alle rader og kostnad» at «Kostnad så langt» on phone (Story 6.16). */
+        costLink: "Kostnad så langt",
+        /** A typed Order that was never sent when its Uke closed. [ASSUMPTION] */
+        draftDropped: (week: number, value: string) => `Uke ${week} er over. Du skrev ${value}, men ordren ble ikke sendt.`,
+      },
+      /** The Topplinje's Totalkostnad pair as one button on phone (Story 6.16, EXPERIENCE.md →
+       * Topplinje): «Totalkostnad 68,00 kr, vis alle rader og kostnad». */
+      totalCostButton: (amount: string) => `Totalkostnad ${amount}, vis alle rader og kostnad`,
+      /** «Alle rader og kostnad» (Story 6.16, DESIGN.md → Alle rader og kostnad, `05-spill.png`
+       * middle). The link, title, «Lukk» and the column lines are the spine's; `sumRowNote` is
+       * [ASSUMPTION] draft copy. */
+      allRows: {
+        link: "Alle rader og kostnad",
+        title: (week: number) => `Alle rader, Uke ${week}`,
+        close: "Lukk",
+        netLine: (week: number) => `Netto lager i kolonne ${week}`,
+        positionLine: (week: number) => `Posisjon i kolonne ${week}`,
+        /** Read where «Totalkostnad over tid» stands, which is hidden from screen readers. [ASSUMPTION] */
+        sumRowNote: "Totalkostnad over tid står som tall i raden Sum, kr i tabellen over.",
+      },
+      /** «Kostnad så langt» (`cost-panel`, Story 6.16, DESIGN.md, EXPERIENCE.md → Kostnad så langt).
+       * The labels and «Vis som tabell» are the spine's; «Vis som graf», the table caption and the
+       * chart's `<title>` are [ASSUMPTION] draft copy. */
+      costPanel: {
+        title: "Kostnad så langt",
+        holding: "Lagerkostnad",
+        backorder: "Restordrekostnad",
+        total: "Totalkostnad",
+        overTime: "Totalkostnad over tid",
+        showTable: "Vis som tabell",
+        /** [ASSUMPTION] */
+        showChart: "Vis som graf",
+        /** The table's columns: Uke / Lager / Restordre / «Sum, kr», each a running sum in kroner. */
+        holdingColumn: "Lager",
+        backorderColumn: "Restordre",
+        sumColumn: "Sum, kr",
+        /** [ASSUMPTION] */
+        tableCaption: "Totalkostnad over tid, i kroner",
+        /** [ASSUMPTION] */
+        chartSvg: "Graf over Totalkostnad over tid, lagerkostnad nederst og restordrekostnad øverst.",
+        week: (week: number) => `Uke ${week}`,
+      },
+      /** Kjedens regning and Kjedens kostnad over tid (Story 6.18, DESIGN.md `chain-bill`,
+       * `chain-cost-chart`, UX-DR30): shared with the Debrief (Epic 9). The headings, columns,
+       * «Kjeden», «(deg)» and «Vis som tabell» are the spine's; captions and SVG titles are
+       * [ASSUMPTION] draft copy. */
+      chain: {
+        bill: "Kjedens regning",
+        role: "Rolle",
+        holding: "Lager",
+        backorder: "Restordre",
+        sum: "Sum",
+        chain: "Kjeden",
+        /** «Grossist (deg)». */
+        own: (role: string) => `${role} (deg)`,
+        /** [ASSUMPTION] */
+        billCaption: "Kjedens regning per Rolle, i kroner: lagerkostnad, restordrekostnad og sum.",
+        overTime: "Kjedens kostnad over tid",
+        showTable: "Vis som tabell",
+        /** [ASSUMPTION] */
+        showChart: "Vis som graf",
+        /** [ASSUMPTION] */
+        tableCaption: "Kjedens kostnad over tid, i kroner",
+        /** [ASSUMPTION] */
+        chartSvg: "Graf over kjedens kostnad over tid, lagerkostnad nederst og restordrekostnad øverst.",
+        week: (week: number) => `Uke ${week}`,
+      },
+      /** The week table (Story 6.6, DESIGN.md → Graf over tabell, UX-DR17, UX-DR18). The region
+       * name, «Sveip for tidligere uker», «Din ordre» and «Kost, kr» are the spine's; the label for
+       * known arrivals is [ASSUMPTION] draft copy (EXPERIENCE.md gives no string). */
+      table: {
+        region: "Graf og tabell",
+        swipe: "Sveip for tidligere uker",
+        order: "Din ordre",
+        cost: "Kost, kr",
+        /** The running Totalkostnad per Uke, in Alle rader (Story 6.16, DESIGN.md). */
+        sum: "Sum, kr",
+        /** Read with a known arrival's cell: «4, bestilt, ikke garantert». [ASSUMPTION] */
+        arrival: "bestilt, ikke garantert",
+        /** Read in the empty Din ordre cell at nå. [ASSUMPTION] */
+        noOrderYet: "ingen ordre ennå",
+        /** Read with the typed Order's two cells, Din ordre at nå and its arrival in Levering:
+         * «24, din ordre, ikke bekreftet» (Story 6.11). [ASSUMPTION] */
+        typed: "din ordre, ikke bekreftet",
+        /** Read with the same two cells once the Order is sent: «24, din ordre» (Story 6.12).
+         * [ASSUMPTION] */
+        confirmed: "din ordre",
+        /** The visible key under the table. [ASSUMPTION] */
+        arrivalKey: "Tall i ramme: bestilt, ikke garantert.",
+      },
+      /** The graph over the table (Story 6.7, DESIGN.md → Graf over tabell, UX-DR16). «Nå»,
+       * «Kost per uke», the key «restordre 1,00 / lager 0,50» and the direct labels («Restordre
+       * 13», «Posisjon 3») are the spine's; the rest is [ASSUMPTION] draft copy. */
+      graph: {
+        /** The Netto lager field's title, as drawn in `05-spill.png`. [ASSUMPTION] */
+        netTitle: "Lager over null, restordre under",
+        costTitle: "Kost per uke",
+        /** The key's two parts, each after its colour square: «restordre 1,00 / lager 0,50». */
+        backorderKey: (rate: string) => `restordre ${rate}`,
+        holdingKey: (rate: string) => `lager ${rate}`,
+        /** Shown by the key in the Uke the Kost per uke axis grows. [ASSUMPTION] (DESIGN.md) */
+        axisGrown: (top: string) => `Aksen går nå til ${top} kr.`,
+        costTick: (top: string) => `${top} kr`,
+        now: "Nå",
+        /** Direct labels at the now-point, by the sign of Netto lager («Restordre 13», «Lager 12»,
+         * «Netto lager 0»). The 0 and Lager forms are [ASSUMPTION]. */
+        netLabel: (net: number, text: string) =>
+          net < 0 ? `Restordre ${text}` : net > 0 ? `Lager ${text}` : `Netto lager ${text}`,
+        positionLabel: (text: string) => `Posisjon ${text}`,
+        /** The charts' `<title>`s, the alternative text a PDF reader gets (AD-18). [ASSUMPTION] */
+        netSvg: "Graf over Netto lager og Posisjon per uke. Tallene står i tabellen under.",
+        netAxisSvg: "Akse for Netto lager og Posisjon, i enheter.",
+        /** The Spillkort's mini graph (Story 6.17). [ASSUMPTION] */
+        netMiniSvg: "Graf over Netto lager per uke. Tallene står i tabellen under.",
+        netMiniAxisSvg: "Akse for Netto lager, i enheter.",
+        costSvg: "Graf over Kost per uke, lagerkostnad nederst og restordrekostnad øverst. Tallene står i raden Kost, kr.",
+        costAxisSvg: "Akse for Kost per uke, i kroner.",
+      },
+      /** Kjedebånd (Story 6.9, DESIGN.md → Kjedebånd, UX-DR14, UX-DR73). The labels («Ordre inn
+       * 8», «Din ordre», «Levering 4», «Sendt 4», «Lager 12», «Restordre 13», «På vei 16») and the
+       * end labels «Produksjon» and «Kundene» are the spine's; the rest is [ASSUMPTION] draft copy. */
+      band: {
+        production: "Produksjon",
+        customers: "Kundene",
+        order: "Din ordre",
+        labelled: (term: string, value: string) => `${term} ${value}`,
+        /** With a typed Order (Story 6.11, UX-DR14): «På vei 16 + 24» drawn, «På vei 16 pluss 24»
+         * read. */
+        withTyped: (label: string, typed: string) => `${label} + ${typed}`,
+        withTypedRead: (label: string, typed: string) => `${label} pluss ${typed}`,
+        /** Read after «På vei 16» when units are overdue: «På vei 16, av dem 7 uten kjent uke».
+         * [ASSUMPTION] */
+        overdue: (value: string) => `av dem ${value} uten kjent uke`,
+        /** The SVG `<title>` (AD-18). [ASSUMPTION] */
+        svg: "Kjedebånd: din del av kjeden. Ordre går mot venstre, varer mot høyre.",
+        /** Information visibility (Story 6.21, UX-DR24): the end label of a neighbour whose numbers
+         * show, «Distributør, Uke 11», and its numbers read after the Seat's own: «Distributør,
+         * Uke 11: Lager 12, Restordre 3». [ASSUMPTION] */
+        neighbour: (role: string, week: string) => `${role}, Uke ${week}`,
+        neighbourRead: (label: string, numbers: string) => `${label}: ${numbers}`,
+      },
     },
   },
 
@@ -1526,6 +2051,9 @@ export const nb = {
     loading: "Laster …",
     offline: "Frakoblet. Det du har skrevet, er tatt vare på på denne enheten.",
     reconnected: "Tilkoblet igjen.",
+    /** Story 6.4: the event stream missed its heartbeat, so the page may not show the latest
+     * changes; followed by «Sist oppdatert 21:14». [ASSUMPTION] */
+    stale: "Siden oppdateres ikke av seg selv akkurat nå.",
     pageError: "Siden kunne ikke lastes.",
     retry: "Prøv igjen",
     /** «Sist oppdatert 21:14»: the time live values were last read. */

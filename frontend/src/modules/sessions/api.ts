@@ -47,6 +47,18 @@ export function createClassSession(classId: string) {
   );
 }
 
+/** «Start testspill» (Story 6.20): a test Game on the session's stored settings, the Lecturer in
+ * `role`, started at once. 404 `not_found` while the flag is off; 409 `session_locked`,
+ * `test_game_running` or `llm_unavailable`. */
+export function startTestGame(sessionId: string, role: components["schemas"]["Role"]) {
+  return request(() =>
+    api.POST("/api/class-sessions/{session_id}/test-game", {
+      params: { path: { session_id: sessionId } },
+      body: { role },
+    }),
+  );
+}
+
 export type SettingsCheck = components["schemas"]["SettingsCheckOut"];
 /** A draft of the Game settings as sent: any field, laid over the stored settings by the api. */
 export type SettingsDraftBody = Record<string, unknown>;

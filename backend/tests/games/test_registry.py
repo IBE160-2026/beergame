@@ -10,12 +10,15 @@ from sqlalchemy import event
 
 from app.engine import GameSettings
 from app.modules.games import commands
-from app.platform.db import get_engine
+from app.modules.games.service import OpenGame
+from app.platform.db import get_engine, get_sessionmaker
 from app.platform.events.registry import COMMAND_TOPICS
 from tests.conftest import TEST_DATABASE_URL
-from tests.games.helpers import listening, play_to_end, seat_student
+from tests.games.helpers import execute, listening, play_to_end, query, seat_student
 
 SHORT = GameSettings(weeks=8, guided_weeks=2)
+FREE = GameSettings(weeks=8, guided_weeks=0)
+"""No Guided Weeks: the Students' own Orders complete each Week (Story 6.10)."""
 
 
 def public_commands() -> set[str]:
@@ -38,36 +41,79 @@ async def _run_assign_seat() -> str:
     return game_id
 
 
+async def _started_simulation() -> str:
+    """A Student holds every Seat, so the Game waits in Week 1; with no Student ids, its start
+    tells no Student (`user:`) and only the commands' own topics remain."""
+    game_id = await commands.create("simulation", FREE, seed=1)
+    seat_student(TEST_DATABASE_URL, game_id, *(role.value for role in FREE.roles), anonymous=True)
+    await commands.start(game_id)
+    return game_id
+
+
 async def _run_start() -> str:
-    """A Student holds every Seat, so the Game waits in Week 1."""
-    game_id = await _run_create()
-    seat_student(TEST_DATABASE_URL, game_id, *(role.value for role in SHORT.roles))
+    """A Class game with its snapshot and one Student starts (Story 6.5): its Class session and
+    the Student hear of it. The setup emits seven events (create 2, assign 2, snapshot 3)."""
+    from tests.games.test_set_snapshot import snapshot
+
+    game_id = await commands.create("class", class_session_id=uuid.uuid7(), game_number=1)
+    student = uuid.uuid7()
+    await commands.assign_seat(game_id, "retailer", "student", user_id=student)
+    await commands.set_snapshot(game_id, snapshot(), keep_students=[student])
     await commands.start(game_id)
     return game_id
 
 
 async def _run_place_order() -> str:
-    game_id = await _run_start()
-    await commands.place_order(game_id, "retailer", 1, 4, "guided")
+    """The one Student of a started Class game without Guided Weeks orders in Week 1 (Story
+    6.12): the Week completes and advances, so the Class session and the Student hear of it."""
+    from tests.games.test_set_snapshot import snapshot
+
+    game_id = await commands.create("class", class_session_id=uuid.uuid7(), game_number=1)
+    student = uuid.uuid7()
+    await commands.assign_seat(game_id, "retailer", "student", user_id=student)
+    from tests.games.test_set_snapshot import SETTINGS
+
+    free = {
+        **snapshot(),
+        "settings": SETTINGS.model_copy(update={"guided_weeks": 0}).model_dump(mode="json"),
+    }
+    await commands.set_snapshot(game_id, free, keep_students=[student])
+    await commands.start(game_id)
+    await commands.place_order(game_id, "retailer", 1, 4, "student", actor=student)
     return game_id
 
 
 async def _run_finish() -> str:
     """`finish` runs inside the `place_order` that completes the last Week."""
-    game_id = await _run_start()
+    game_id = await _started_simulation()
     await play_to_end(game_id)
     return game_id
 
 
 async def _run_advance() -> str:
-    """`start` leaves Week 1 complete but open when its own advances are held back."""
-    game_id = await _run_create()
-    settle = commands._settle
-    commands._settle = _no_settle
-    try:
-        await commands.start(game_id)
-    finally:
-        commands._settle = settle
+    """The one Student's Order of a started Class game is written in a caller's transaction,
+    which advances nothing (the order source's way), so `advance` runs Week 1: its Class session
+    and the Student, who waits on Week 2, hear of it."""
+    from tests.games.test_set_snapshot import SETTINGS, snapshot
+
+    game_id = await commands.create("class", class_session_id=uuid.uuid7(), game_number=1)
+    student = uuid.uuid7()
+    await commands.assign_seat(game_id, "retailer", "student", user_id=student)
+    free = {
+        **snapshot(),
+        "settings": SETTINGS.model_copy(update={"guided_weeks": 0}).model_dump(mode="json"),
+    }
+    await commands.set_snapshot(game_id, free, keep_students=[student])
+    await commands.start(game_id)
+    async with get_sessionmaker().begin() as session:
+        await commands.place_order(
+            game_id,
+            "retailer",
+            1,
+            4,
+            "student",
+            within=OpenGame(session=session, game_id=uuid.UUID(game_id)),
+        )
     assert await commands.advance(game_id)
     return game_id
 
@@ -77,8 +123,22 @@ async def _no_settle(game_id: str) -> None:
 
 
 async def _run_switch_to_rule_based() -> str:
-    game_id = await _run_start()
+    game_id = await _started_simulation()
     await commands.switch_to_rule_based(game_id, "retailer", "takeover_staff")
+    return game_id
+
+
+async def _run_view_week() -> str:
+    """The one Student of a started Class game opens Guided Week 1 (Story 6.10): the Week
+    completes and advances, so the Class session and the Student hear of it."""
+    from tests.games.test_set_snapshot import snapshot
+
+    game_id = await commands.create("class", class_session_id=uuid.uuid7(), game_number=1)
+    student = uuid.uuid7()
+    await commands.assign_seat(game_id, "retailer", "student", user_id=student)
+    await commands.set_snapshot(game_id, snapshot(), keep_students=[student])
+    await commands.start(game_id)
+    assert await commands.view_week(game_id, "retailer", 1, actor=student)
     return game_id
 
 
@@ -100,6 +160,43 @@ async def _run_set_snapshot() -> str:
     return game_id
 
 
+TOMORROW = "SELECT now() + interval '1 day'"
+"""A time to propose, read from the database clock (Issue #63)."""
+
+
+async def _two_students() -> tuple[str, uuid.UUID, uuid.UUID]:
+    """A Class game with two Students seated, not started: the scheduling aid works from the
+    Start date on, whether or not the game has started (Story 6.19)."""
+    game_id = await commands.create("class", class_session_id=uuid.uuid7(), game_number=1)
+    first, second = uuid.uuid7(), uuid.uuid7()
+    for user in (first, second):  # a notice names a User that exists
+        execute(
+            TEST_DATABASE_URL,
+            "INSERT INTO users (id, email, name, password_hash) VALUES (%s, %s, 'S', NULL)",
+            (user, f"registry-{user}@x.no"),
+        )
+    await commands.assign_seat(game_id, "retailer", "student", user_id=first)
+    await commands.assign_seat(game_id, "factory", "student", user_id=second)
+    return game_id, first, second
+
+
+async def _run_propose_time() -> str:
+    """One Student proposes a time (Story 6.19): the other's notice emits `user`."""
+    game_id, first, _ = await _two_students()
+    [(at,)] = query(TEST_DATABASE_URL, TOMORROW)
+    await commands.propose_time(game_id, at, actor=first, latest=None)
+    return game_id
+
+
+async def _run_accept_time() -> str:
+    """The other Student accepts it: every seated Student hears of it."""
+    game_id, first, second = await _two_students()
+    [(at,)] = query(TEST_DATABASE_URL, TOMORROW)
+    proposal_id = await commands.propose_time(game_id, at, actor=first, latest=None)
+    assert await commands.accept_time(game_id, proposal_id, actor=second)
+    return game_id
+
+
 RUNNERS = {
     "create": _run_create,
     "assign_seat": _run_assign_seat,
@@ -110,8 +207,25 @@ RUNNERS = {
     "switch_to_rule_based": _run_switch_to_rule_based,
     "move_seat": _run_move_seat,
     "set_snapshot": _run_set_snapshot,
+    "view_week": _run_view_week,
+    "propose_time": _run_propose_time,
+    "accept_time": _run_accept_time,
 }
 """How to run each command once; a command added without a runner fails the test below."""
+
+CLASS_SETUP_EVENTS = {
+    "move_seat": 4,
+    "set_snapshot": 4,
+    "start": 7,
+    "view_week": 10,
+    "place_order": 10,
+    "advance": 10,
+    # create 2 + two Student Seats 2 each; `accept_time` also runs `propose_time` (4: game,
+    # session, the proposer, the other Student's notice).
+    "propose_time": 6,
+    "accept_time": 10,
+}
+"""Runners on a Class game, and how many events their setup emits before the command's own."""
 
 
 def test_every_command_is_exported_and_registered():
@@ -128,6 +242,9 @@ def test_every_command_is_exported_and_registered():
             "switch_to_rule_based",
             "move_seat",
             "set_snapshot",
+            "view_week",
+            "propose_time",
+            "accept_time",
         }
         == set(RUNNERS)
     )
@@ -143,9 +260,9 @@ async def test_each_command_emits_exactly_its_registered_topics(games_db):
         with listening(games_db) as events:
             game_id = await runner()
             received = events.drain()
-        if name in ("move_seat", "set_snapshot"):
+        if name in CLASS_SETUP_EVENTS:
             # A Class game (its Class session hears of each command): only this command's events.
-            received = received[4:]
+            received = received[CLASS_SETUP_EVENTS[name] :]
             assert {item["topic"] for item in received} == COMMAND_TOPICS[f"games.{name}"]
             assert {item["id"] for item in received if item["topic"] == "game"} == {game_id}
             continue

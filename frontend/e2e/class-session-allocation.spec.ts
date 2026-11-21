@@ -289,6 +289,9 @@ test("«Bekreft fordeling» commits the draft shown and closes to the confirmed 
 test("a draft drawn again meanwhile is shown, not confirmed", async ({ browser, lecturerSession }) => {
   const lecturer = await lecturerPage(browser, lecturerSession, { width: 1440, height: 900 });
   const { id } = await sessionWithStudents(lecturer, 6);
+  // No event stream (Story 6.4): the page must still show the old draft when the change lands, as
+  // on a connection whose events lag, so the refusal path is what is tested here.
+  await lecturer.route("**/api/events", (route) => route.abort());
   await lecturer.goto(`/klasseokter/${id}`);
   await opener(lecturer).click();
   await expect(heading(lecturer, 2)).toBeFocused();
@@ -474,6 +477,8 @@ test("a move on a draft changed meanwhile is refused, and the current draft is s
 }) => {
   const lecturer = await lecturerPage(browser, lecturerSession, { width: 1440, height: 900 });
   const { id } = await sessionWithStudents(lecturer, 5);
+  // No event stream (Story 6.4), as in the test above.
+  await lecturer.route("**/api/events", (route) => route.abort());
   await lecturer.goto(`/klasseokter/${id}`);
   await opener(lecturer).click();
   await expect(heading(lecturer, 2)).toBeFocused();

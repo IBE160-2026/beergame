@@ -60,7 +60,7 @@ from app.modules.identity.schemas import (
 )
 from app.platform import audit, auth, email, events, notify, ratelimit
 from app.platform.config import get_settings
-from app.platform.db import get_sessionmaker
+from app.platform.db import get_sessionmaker, reading
 
 log = structlog.get_logger(__name__)
 
@@ -2084,10 +2084,12 @@ async def registered_users_of(class_ids: list[uuid.UUID]) -> dict[uuid.UUID, set
     return found
 
 
-async def student_names(class_id: uuid.UUID, ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+async def student_names(
+    class_id: uuid.UUID, ids: list[uuid.UUID], *, session: AsyncSession | None = None
+) -> dict[uuid.UUID, str]:
     """The names of those of `ids` who are Students in the Class now (registered, not removed),
-    by User id; any other id is left out (AD-12)."""
-    async with get_sessionmaker().begin() as s:
+    by User id; any other id is left out (AD-12). In the caller's `session` when given."""
+    async with reading(session) as s:
         rows = await repo.student_names(s, class_id, [r.value for r in REGISTERED], ids)
     return {row["id"]: row["name"] for row in rows}
 

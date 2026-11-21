@@ -62,6 +62,14 @@ The orchestrator session follows this file when it builds the stories without a 
 - At the end of each epic: one follow-up review agent (late patches, collected UX items, races), one e2e stabilisation pass, then the PR.
 - The OpenRouter key in `.env` is blocked for agents by the safety filter. Stories that need a real call are built against the mock and set to `review` with the exact commands (Issues #56, #60).
 
+## Lessons from Epics 5–6 (2026-11-21)
+
+- Builders sometimes end their turn while their review sub-agents run, which loses the review. Say in the prompt that this counts as a hand-back; when it happens, resume the builder with SendMessage to read the reviewers' transcripts and finish.
+- If a builder has no spec after about 30 minutes, send a status message; it unblocks a stuck step 1.
+- The full Playwright suite reached 7 minutes (395 tests, `--workers=2`). From Story 6.14 on, builders run the Playwright files for the screens they touch plus the play-screen and `homes` specs, and keep axe to one check per width. The full suite runs in CI on every push, in a visual check when shared components change, and at the end of each epic.
+- Keep a running list of items for the end-of-epic review in the scratchpad while the epic is built (small UX fixes, slow tests, specs with `followup_review_recommended: true`).
+- A real started Class game needs the Start date passed and the lock sweep. The end-to-end journeys (GOAL item 4) need an early lock (Epic 8) or a local developer tool to start one.
+
 ## Done
 
 The goal is reached when every story outside the skip list is `done`, `review` or (after three attempts) `blocked`, every epic is merged to `main` with CI green, and a final log section lists the `review` and `blocked` stories with their issues.

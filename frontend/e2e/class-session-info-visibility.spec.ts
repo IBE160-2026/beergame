@@ -1,7 +1,7 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { expectAccessible, freshClass, freshLecturer } from "./support/classes";
+import { expectAccessible, freshClass, freshLecturer, test } from "./support/classes";
 
 /** Information visibility on the Klasseøkt (Story 5.16, cut list, `FEATURE_INFO_VISIBILITY`, FR-83),
  * on the local stack, where the flag is on. Each test makes a fresh Lecturer and Class through the
@@ -74,4 +74,7 @@ test("with the flag off nothing about Information visibility shows", async ({ pa
   );
   await lecturer.getByRole("button", { name: copy.save }).click();
   expect((await saved).postDataJSON().game_settings).not.toHaveProperty("info_visibility");
+  // A live re-read after the save may still be inside the handler when the test's pages close;
+  // its disposed response must not fail the test.
+  await lecturer.unrouteAll({ behavior: "ignoreErrors" });
 });

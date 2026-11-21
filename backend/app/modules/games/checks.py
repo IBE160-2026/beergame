@@ -159,8 +159,16 @@ def _decision_log(
     for row in rows:
         week, role = row["week"], Role(row["role"])
         try:
-            expected = build_seat_state(settings, opened[:week], orders[: week - 1], role)
             seen = SeatState.model_validate(row["state_seen"])
+            # Neighbour numbers depend on the flag at play time (Story 6.21): a state recorded
+            # with them or without them is checked as it was recorded.
+            expected = build_seat_state(
+                settings,
+                opened[:week],
+                orders[: week - 1],
+                role,
+                neighbours=bool(seen.neighbour_numbers),
+            )
         except ValidationError, ValueError, KeyError, IndexError:
             differs = ["state_seen"]
         else:

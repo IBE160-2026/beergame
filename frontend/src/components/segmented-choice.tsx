@@ -17,7 +17,8 @@ export type SegmentedOption<T extends string> = {
  * radio buttons in a `fieldset`, so the legend names the group, the arrow keys move the choice and
  * a screen reader reads «1 av 2». Each radio covers its whole segment (transparent), so the tap
  * target is the segment (44 px at least); the focus ring is drawn on the segment. An unavailable
- * option keeps its focus (UX-DR8) but never becomes the choice.
+ * option keeps its focus (UX-DR8) but never becomes the choice. Four options stand 2 + 2 on a
+ * phone, never 3 + 1.
  */
 export function SegmentedChoice<T extends string>({
   name,
@@ -37,10 +38,11 @@ export function SegmentedChoice<T extends string>({
   describedBy?: string;
   className?: string;
 }) {
+  const quad = options.length === 4;
   return (
     <fieldset className={cn("m-0 min-w-0 border-0 p-0", className)} aria-describedby={describedBy}>
       <legend className="mb-field-gap text-label text-ink">{legend}</legend>
-      <div className="flex flex-wrap">
+      <div className={cn("flex flex-wrap", quad && "max-sm:grid max-sm:grid-cols-2")}>
         {options.map((option, i) => (
           <label
             key={option.value}
@@ -52,6 +54,11 @@ export function SegmentedChoice<T extends string>({
                 "cursor-not-allowed border-axis bg-future-tint text-ink-muted hover:border-axis active:bg-future-tint",
               i === 0 && "rounded-l-sm",
               i === options.length - 1 && "rounded-r-sm",
+              // 2 + 2: the second row overlaps the first by its border, and each corner is rounded.
+              quad && i === 0 && "max-sm:rounded-bl-none",
+              quad && i === 1 && "max-sm:rounded-tr-sm",
+              quad && i === 2 && "max-sm:-mt-px max-sm:ml-0 max-sm:rounded-bl-sm",
+              quad && i === 3 && "max-sm:-mt-px max-sm:rounded-tr-none",
             )}
           >
             <input

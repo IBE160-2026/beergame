@@ -18,7 +18,8 @@ confirmation, `/api/class-sessions/{id}/allocation/confirm`, and Story 5.10 movi
 Students in it, `/api/class-sessions/{id}/allocation/move`. Story 5.17 adds the allocation method
 to the save and the Student's «Velg spill og sete», `/api/me/class-sessions/{id}/seat-choice`.
 Story 5.18 adds making one from an earlier one, `/api/classes/{class_id}/class-sessions/copy`
-with its sources `…/copy-sources`."""
+with its sources `…/copy-sources`. Story 6.1 adds the Student's game card and Stegene to
+`/api/me/class-sessions` and the Student's own game, `/api/me/games/{game_id}`."""
 
 import uuid
 from typing import Annotated
@@ -38,13 +39,20 @@ from app.modules.sessions.schemas import (
     CopySourceListOut,
     DemandSeriesOut,
     EnrolledSessionListOut,
+    GameResultOut,
     LabHourIn,
     LabHourOut,
     LecturerOverviewOut,
+    OrderIn,
+    PlayOut,
     SeatChoiceIn,
     SeatChoiceOut,
     SettingsCheckIn,
     SettingsCheckOut,
+    StartedTestGameOut,
+    StudentGameOut,
+    TestGameIn,
+    TimeProposalIn,
 )
 from app.platform import auth, authz
 from app.platform.errors import documented, error_response
@@ -175,6 +183,41 @@ async def get_class_session(
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))
+
+
+TEST_GAME_REFUSED = {
+    "not_found": "Not found.",
+    "session_locked": "A test game starts only before the Start date.",
+    "test_game_running": "Your test game here has not finished yet.",
+    "llm_unavailable": "The LLM players cannot answer now.",
+    "unknown_role": "The game settings have no Seat for this Role.",
+}
+
+
+@router.post(
+    "/class-sessions/{session_id}/test-game",
+    status_code=201,
+    response_model=StartedTestGameOut,
+    responses=documented(401, 403, 404, 409, 422),
+    operation_id="startTestGame",
+)
+async def start_test_game(
+    session_id: str,
+    body: TestGameIn,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """«Start testspill» (Story 6.20, FR-87): the Lecturer plays a private test Game on the Class
+    session's current settings, in the chosen Role against three AI players; it starts at once.
+    404 `not_found` while `FEATURE_LECTURER_TEST_GAME` is off (AD-17); 409 `session_locked` from
+    the Start date, `test_game_running` while their last test Game here runs, `llm_unavailable`;
+    422 `unknown_role`; 403 `forbidden` for a session the User may not manage (FR-5)."""
+    try:
+        game_id = await service.start_test_game(user, _id(session_id), body.role.value)
+    except service.TestGameRefused as refused:
+        return error_response(refused.status, refused.code, TEST_GAME_REFUSED[refused.code])
+    if game_id is None:
+        raise authz.Forbidden
+    return JSONResponse(StartedTestGameOut(id=game_id).model_dump(mode="json"), status_code=201)
 
 
 @router.put(
@@ -566,6 +609,203 @@ async def list_my_class_sessions(
     """The Class sessions of the Classes the User is a Student in: dates and the next deadline,
     never the Game settings (FR-18). Empty for a User who is no Student."""
     found = await service.enrolled_sessions(user)
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/me/games/{game_id}",
+    response_model=StudentGameOut,
+    responses=documented(401, 403),
+    operation_id="getMyGame",
+)
+async def get_my_game(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.read_own"))],
+) -> Response:
+    """The Student's own Class game (Story 6.1): number, Role and the four Seats, from the Start
+    date. Any other game, one that does not exist and an id that is not one all answer the same
+    403 `forbidden`, which never says whether the game exists (FR-5)."""
+    found = await service.student_game_of(user, game_id)
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/me/games/{game_id}/play",
+    response_model=PlayOut,
+    responses=documented(401, 403, 409),
+    operation_id="getMyGamePlay",
+)
+async def get_my_game_play(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.read_own"))],
+) -> Response:
+    """The play screen's one envelope (Story 6.6, AD-3): `seat_state`, what the Student's own Seat
+    sees in the open Week (numbers and Roles only), `table_status`, who sits where, and the
+    server's clock. Never the number of Weeks, future demand, another Seat's numbers or a
+    reference Order (FR-14, FR-23). 409 `game_not_running` before the start and after the end;
+    any other game answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.student_play_of(user, game_id)
+    except service.GameNotRunning:
+        return error_response(409, "game_not_running", "The game is not running.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/me/games/{game_id}/result",
+    response_model=GameResultOut,
+    responses=documented(401, 403, 409),
+    operation_id="getMyGameResult",
+)
+async def get_my_game_result(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.read_own"))],
+) -> Response:
+    """«Spillet er ferdig» (Story 6.18, FR-28, AD-3): the chain's cost per Role, Detaljist to
+    Fabrikk, and per Uke, once the game has finished. Roles, never names, and no demand series.
+    409 `game_not_finished` before the end, so no chain number leaks during play (FR-14); any
+    other game answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.student_result_of(user, game_id)
+    except service.GameNotFinished:
+        return error_response(409, "game_not_finished", "The game has not finished.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
+    "/me/games/{game_id}/weeks/{week}/view",
+    status_code=204,
+    responses=documented(401, 403, 409),
+    operation_id="viewMyGameWeek",
+)
+async def view_my_game_week(
+    game_id: str,
+    week: int,
+    user: Annotated[authz.Principal, Depends(authz.require("games.play_own"))],
+) -> Response:
+    """The Student has the Guided Week `week` on screen (Story 6.10, FR-24): it counts as their
+    Order there, and the view that leaves no Student to wait for opens the next Week. 204 also
+    when the Week was viewed already. 409 `week_not_open` (the game has moved on),
+    `week_not_guided`, `game_not_started`, `game_finished` or `seat_not_student`; any other
+    game, or a Seat the Student no longer holds, answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.view_own_week(user, game_id, week)
+    except service.ViewRefused as refused:
+        return error_response(409, refused.code, "The Week cannot be viewed.")
+    if found is None:
+        raise authz.Forbidden
+    return Response(status_code=204)
+
+
+@router.post(
+    "/me/games/{game_id}/weeks/{week}/order",
+    status_code=204,
+    responses=documented(401, 403, 409, 422),
+    operation_id="placeMyGameOrder",
+)
+async def place_my_game_order(
+    game_id: str,
+    week: int,
+    body: OrderIn,
+    user: Annotated[authz.Principal, Depends(authz.require("games.play_own"))],
+) -> Response:
+    """«Bekreft ordre på 24» (Story 6.12, FR-24, AD-2): the Student's Order for the open Week of
+    their own Seat, placed once through `games.commands.place_order` with the Student as actor;
+    the client sends no `version`. 409 `order_exists` (also in a Guided Week, whose fixed Order
+    is placed when it opens), `week_not_open`, `game_not_started`, `game_finished` or
+    `seat_not_yours` (the Seat changed hands between the ownership check and the write); 422
+    `order_invalid` (not a whole number from 0 to the maximum). Any other game, or a Seat the
+    Student no longer holds, answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.place_own_order(user, game_id, week, body.order)
+    except service.OrderRefused as refused:
+        return error_response(refused.status, refused.code, "The Order was not placed.")
+    if found is None:
+        raise authz.Forbidden
+    return Response(status_code=204)
+
+
+@router.post(
+    "/me/games/{game_id}/start",
+    response_model=StudentGameOut,
+    responses=documented(401, 403, 409),
+    operation_id="startMyGame",
+)
+async def start_my_game(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.start_own"))],
+) -> Response:
+    """«Start spillet» (Story 6.5, FR-22): the Student starts their own Class game for all four
+    Seats and gets the game as it now stands. A game already started counts as done. 409
+    `starting_task_required` before the Starting task is done, 409 `game_not_ready` before the
+    lock has given the game its snapshot; any other game answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.start_own_game(user, game_id)
+    except service.StartRefused as refused:
+        message = (
+            "Do the Starting task first."
+            if refused.code == "starting_task_required"
+            else "The game is not ready to start yet."
+        )
+        return error_response(409, refused.code, message)
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
+    "/me/games/{game_id}/time-proposal",
+    response_model=StudentGameOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="proposeMyGameTime",
+)
+async def propose_my_game_time(
+    game_id: str,
+    body: TimeProposalIn,
+    user: Annotated[authz.Principal, Depends(authz.require("games.play_own"))],
+) -> Response:
+    """«Send forslaget til gruppen» (Story 6.19, FR-22): the Student proposes a time to play, a
+    date and a time and nothing else. It replaces the game's open proposal and its acceptances,
+    and each other Student of the game is told. Answers the game as it now stands. 422
+    `time_out_of_range` unless the time lies after now and not after the Play deadline; 409
+    `game_finished`; any other game, or a Seat the Student no longer holds, answers 403
+    `forbidden` (FR-5)."""
+    try:
+        found = await service.propose_own_time(user, game_id, body.at)
+    except service.ProposalRefused as refused:
+        return error_response(refused.status, refused.code, "The time was not proposed.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
+    "/me/games/{game_id}/time-proposal/{proposal_id}/accept",
+    response_model=StudentGameOut,
+    responses=documented(401, 403, 409),
+    operation_id="acceptMyGameTime",
+)
+async def accept_my_game_time(
+    game_id: str,
+    proposal_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.play_own"))],
+) -> Response:
+    """«Godta tidspunktet» (Story 6.19, FR-22): the Student accepts the game's open proposal with
+    one press; an acceptance already stored counts as done. Answers the game as it now stands.
+    409 `proposal_gone` (replaced, or its time has passed), `own_proposal` or `game_finished`;
+    any other game, or a Seat the Student no longer holds, answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.accept_own_time(user, game_id, proposal_id)
+    except service.ProposalRefused as refused:
+        return error_response(refused.status, refused.code, "The time was not accepted.")
+    if found is None:
+        raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))
 
 

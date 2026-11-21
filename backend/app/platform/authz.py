@@ -29,6 +29,12 @@ modules ask `can(user, action, resource)`, they never compare roles themselves.
 - Students (Story 4.5): `classes_enrolled_by(user)` is the scope of a Student's own Classes, from
   the Roster entries linked to the User and not removed. `classes.read_enrolled` is open to every
   logged-in User; the scope decides what they see.
+- Games (Story 6.1): `own_seat(user, game)` is the scope of a Student's own Class games, the
+  Games in which they hold or have held a Seat. `games.read_own` is open to every logged-in User;
+  the scope decides.
+- Events (Story 6.4): `class_sessions_staffed_by(user)` and `class_games_staffed_by(user)` give the
+  `session:` and `game:` topics of a User's Class staff roles; with `own_seat` they decide what
+  `GET /api/events` forwards.
 
 This module imports no `app.modules` code.
 """
@@ -94,8 +100,21 @@ POLICIES: dict[str, frozenset[str]] = {
     "class_sessions.read_enrolled": frozenset({ANY_USER}),
     # The Classes a User is a Student in (Story 4.5): any User, held to `classes_enrolled_by`.
     "classes.read_enrolled": frozenset({ANY_USER}),
+    # A Student's own Class game (Story 6.1): any User, held to `own_seat`; any other game is
+    # refused the same as one that does not exist (FR-5).
+    "games.read_own": frozenset({ANY_USER}),
+    # Story 6.5: a Student starts their own Class game; the service checks it is theirs.
+    "games.start_own": frozenset({ANY_USER}),
+    # Story 6.10: a Student plays their own Class game (opens a Guided Week; Orders from 6.12);
+    # the service checks the Seat is theirs.
+    "games.play_own": frozenset({ANY_USER}),
+    # The Starting task in the Student's own Class game (Story 6.3): any User, held to
+    # `own_seat` like the game itself.
+    "starting_task.answer_own": frozenset({ANY_USER}),
     # The own session.
     "session.read": frozenset({ANY_USER}),
+    # The live event stream (Story 6.4, AD-8): any User; the scope decides which topics it sends.
+    "events.read": frozenset({ANY_USER}),
     # FR-5: no account role grants these. Epic 4+ adds the Class-scoped grants.
     "student_answers.read": frozenset(),
     "ai_assessments.read": frozenset(),
@@ -163,6 +182,66 @@ def classes_enrolled_by(user: Principal | uuid.UUID) -> Select:
     )
 
 
+_seats = table("seats", column("id"), column("game_id"))
+_seat_occupancy = table("seat_occupancy", column("id"), column("seat_id"), column("user_id"))
+"""`games.seats` and `games.seat_occupancy` by name only, for the own-Seat scope."""
+
+
+def own_seat(user: Principal | uuid.UUID, game: uuid.UUID | None = None) -> Select:
+    """The ids of the Games in which `user` holds or has held a Seat (Story 6.1, AD-12, FR-5):
+    a Seat with an occupancy row naming the User. A subquery for `WHERE games.id IN (...)`; every
+    query on a Student's own game joins through it, so another game reads as one that does not
+    exist. `game` narrows it to one Game."""
+    user_id = user if isinstance(user, uuid.UUID) else user.id
+    query = (
+        select(_seats.c.game_id)
+        .join(_seat_occupancy, _seat_occupancy.c.seat_id == _seats.c.id)
+        .where(_seat_occupancy.c.user_id == user_id)
+    )
+    if game is not None:
+        query = query.where(_seats.c.game_id == game)
+    return query
+
+
+def seat_held_by(user: Principal | uuid.UUID) -> Select:
+    """The ids of the Games in which `user` holds a Seat now: the Seat's latest occupancy row (by
+    UUIDv7 id) names the User. Narrower than `own_seat`, which also keeps Games the User left
+    (a move, Student choice, a removal): the `game:<id>` topics a Student's event stream forwards
+    (follow-up review of Story 6.4, FR-5)."""
+    user_id = user if isinstance(user, uuid.UUID) else user.id
+    later = _seat_occupancy.alias("later")
+    return (
+        select(_seats.c.game_id)
+        .join(_seat_occupancy, _seat_occupancy.c.seat_id == _seats.c.id)
+        .where(
+            _seat_occupancy.c.user_id == user_id,
+            ~select(later.c.id)
+            .where(later.c.seat_id == _seat_occupancy.c.seat_id, later.c.id > _seat_occupancy.c.id)
+            .exists(),
+        )
+    )
+
+
+_class_sessions = table("class_sessions", column("id"), column("class_id"))
+_games = table("games", column("id"), column("class_session_id"))
+"""`sessions.class_sessions` and `games.games` by name only, for the staff event scope."""
+
+
+def class_sessions_staffed_by(user: Principal | uuid.UUID) -> Select:
+    """The ids of the Class sessions of the Classes `user` is staff of (Story 6.4, AD-8): the
+    `session:<id>` topics their event stream forwards. A Student is never staff, so never gets
+    one."""
+    return select(_class_sessions.c.id).where(
+        _class_sessions.c.class_id.in_(classes_visible_to(user))
+    )
+
+
+def class_games_staffed_by(user: Principal | uuid.UUID) -> Select:
+    """The ids of the Class games of those Class sessions (Story 6.4, AD-8): with `own_seat`, the
+    `game:<id>` topics a User's event stream forwards."""
+    return select(_games.c.id).where(_games.c.class_session_id.in_(class_sessions_staffed_by(user)))
+
+
 PrincipalLoader = Callable[[uuid.UUID, int], Awaitable[Principal | None]]
 """`(user_id, session_version)` → the active User, or None when the User is gone, deactivated, or
 the session is older than the User's session version."""
@@ -173,6 +252,14 @@ def register_principal_loader(loader: PrincipalLoader) -> None:
     """Called once by `create_app()` with `identity.service.load_user`."""
     global _loader
     _loader = loader
+
+
+async def load_principal(user_id: uuid.UUID, session_version: int) -> Principal | None:
+    """The active User through the registered loader, or None: what a long-lived request (the
+    event stream, Story 6.4) asks again when the User may have been deactivated meanwhile."""
+    if _loader is None:  # pragma: no cover - create_app() always registers it
+        raise RuntimeError("no principal loader registered")
+    return await _loader(user_id, session_version)
 
 
 async def current_principal(request: Request) -> Principal:

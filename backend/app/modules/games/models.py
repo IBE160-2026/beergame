@@ -78,7 +78,8 @@ games = Table(
     Column("demand_seed", BigInteger, nullable=True),
     Column("rules_version", Integer, nullable=True),
     Column("session_runtime", JSONB(none_as_null=True), nullable=True),
-    # The Class session and its game number (Story 5.9), on Class games only. No foreign key:
+    # The Class session and its game number (Story 5.9): both on a Class game, the session only
+    # on a Lecturer's test Game (Story 6.20). No foreign key:
     # `games` sits below `sessions`, which owns the Class session.
     Column("class_session_id", Uuid, nullable=True),
     Column("game_number", Integer, nullable=True),
@@ -95,8 +96,9 @@ games = Table(
     CheckConstraint(_in("lifecycle", Lifecycle), name="ck_games_lifecycle"),
     CheckConstraint("version >= 0", name="ck_games_version"),
     CheckConstraint(SNAPSHOT_TOGETHER, name="ck_games_snapshot"),
+    # A game number needs its Class session; a test Game has the session and no number (6.20).
     CheckConstraint(
-        "(class_session_id IS NULL) = (game_number IS NULL)", name="ck_games_class_session"
+        "game_number IS NULL OR class_session_id IS NOT NULL", name="ck_games_class_session"
     ),
     CheckConstraint("game_number >= 1", name="ck_games_game_number"),
     UniqueConstraint("class_session_id", "game_number", name="uq_games_class_session_number"),
@@ -171,6 +173,13 @@ seat_turns = Table(
     # FR-67, FR-79); NULL only on turns opened before revision 0012.
     Column("near_optimal_reference_order", Integer, nullable=True),
     Column("near_optimal_algorithm_version", Text, nullable=True),
+    # When the Student holding the Seat opened a Guided Week (Story 6.10): set once by
+    # `games.commands.view_week`; there it counts as ordering (FR-24).
+    Column("viewed_at", DateTime(timezone=True), nullable=True),
+    # When the game began to wait for the Seat in this Week (Story 6.14, FR-25): set once by
+    # `games.commands` when the first Student orders (or views a Guided Week) while this turn has
+    # not ordered, from `games.rules.turn_times`; every wait is counted from it.
+    Column("wait_started_at", DateTime(timezone=True), nullable=True),
     CheckConstraint("week >= 1", name="ck_seat_turns_week"),
     CheckConstraint("rule_based_reference_order >= 0", name="ck_seat_turns_reference_order"),
     CheckConstraint("near_optimal_reference_order >= 0", name="ck_seat_turns_near_optimal_order"),
@@ -186,9 +195,9 @@ seat_turns = Table(
     ),
 )
 """One row per Seat per opened Week (AD-20). A trigger refuses DELETE and any UPDATE of the
-Week, the Seat, `opened_at`, an `ordered_at` already set, an `ai_deadline_at` already set, the
-Rule-based reference Order, or a near-optimal reference already set: both references are
-computed once when the Week opens (AD-5)."""
+Week, the Seat, `opened_at`, an `ordered_at`, `viewed_at`, `wait_started_at` or `ai_deadline_at`
+already set, the Rule-based reference Order, or a near-optimal reference already set: both
+references are computed once when the Week opens (AD-5)."""
 
 seat_weeks = Table(
     "seat_weeks",
@@ -251,3 +260,35 @@ game_checks = Table(
 )
 """The finished-game check (AD-9, FR-29): one row per finished Game, written once by
 `games.service.verify_finished`. A trigger refuses UPDATE and DELETE."""
+
+time_proposals = Table(
+    "time_proposals",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("game_id", Uuid, ForeignKey("games.id"), nullable=False),
+    # The Student who proposed: the id only, never a name (AD-14). No foreign key, as in
+    # `seat_occupancy`.
+    Column("proposed_by", Uuid, nullable=False),
+    # The proposed time to play: a date and a time, never free text (FR-22).
+    Column("at", DateTime(timezone=True), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("game_id", name="uq_time_proposals_game"),
+)
+"""The scheduling aid (Story 6.19, FR-22): a Class game's one open proposal of a time to play,
+written by `games.commands.propose_time`; a new one replaces it. It is never an input of
+`games.rules.turn_times`: it starts, pauses or shortens no Inactivity limit (AD-20)."""
+
+time_acceptances = Table(
+    "time_acceptances",
+    metadata,
+    Column(
+        "proposal_id",
+        Uuid,
+        ForeignKey("time_proposals.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("user_id", Uuid, primary_key=True),
+    Column("accepted_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+"""Who accepted a proposal (Story 6.19), written by `games.commands.accept_time`; a replaced
+proposal takes its acceptances with it."""

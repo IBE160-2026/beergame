@@ -315,11 +315,45 @@ def _no_real_endpoint() -> Iterator[None]:
     ratelimit.limiter.reset()
 
 
+RUN_TMP = "OLSPILLET_TEST_RUN_TMP"
+"""Names the temporary directory every pytest-xdist worker of the run shares (unset without
+workers): `tests/games/helpers.py` keeps the Games it plays once per run there."""
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    # pytest-xdist gives each worker `<the run's basetemp>/<worker id>`; pytest keeps the last
+    # few runs' basetemps and removes older ones.
+    basetemp = config.option.basetemp
+    if _worker and basetemp:
+        os.environ[RUN_TMP] = str(Path(basetemp).parent)
+
+
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """The files directly under `tests/` first: they hold the long tests (whole simulated
-    batches, the migration walk, programs run as processes), which otherwise came last and left
-    one worker running them while the others had finished. pytest-xdist's `worksteal` hands each
-    worker a slice of this order and lets the others steal from a slice's end, so long tests at
-    the start run early and the short ones behind them even the workers out. The sort is stable:
-    the order inside each group stays as collected."""
-    items.sort(key=lambda item: item.path.parent.name != "tests")
+    """The files directly under `tests/` hold the long tests (whole simulated batches, the
+    migration walk, programs run as processes); they must run early, or one worker is still
+    running them after the others have finished. pytest-xdist's `worksteal` hands each worker one
+    contiguous slice of this order (slice `i` holds `remaining // (workers - i)` items) and lets
+    the others steal from a slice's end. So the long tests are dealt round-robin to the head of
+    every slice, each followed by its share of the short ones, which even the workers out. The
+    migration tests stay together at the head of the first slice: run side by side, their
+    schema rebuilds slowed each other several times over. Every worker computes the same order.
+    Without workers the long tests simply come first. Each group keeps its collected order."""
+    top = [item for item in items if item.path.parent.name == "tests"]
+    migrations = [item for item in top if item.path.name == "test_migrations.py"]
+    long = [item for item in top if item.path.name != "test_migrations.py"]
+    short = [item for item in items if item.path.parent.name != "tests"]
+    workers = int(os.environ.get("PYTEST_XDIST_WORKER_COUNT", "0"))
+    if workers < 2:
+        items[:] = migrations + long + short
+        return
+    heads = [migrations] + [long[i :: workers - 1] for i in range(workers - 1)]
+    ordered: list[pytest.Item] = []
+    remaining = len(items)
+    for i in range(workers):
+        size = remaining // (workers - i)
+        remaining -= size
+        head = heads[i]
+        taken = max(size - len(head), 0)
+        ordered += head + short[:taken]
+        del short[:taken]
+    items[:] = ordered + short

@@ -76,6 +76,7 @@ archived Class. Who may do what is `platform/authz`'s: `class_sessions.read`,
 import secrets
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -100,10 +101,12 @@ from app.engine.settings import (
     warnings,
 )
 from app.modules.classes import service as classes
+from app.modules.content import service as content
 from app.modules.games import commands as games_commands
 from app.modules.games import service as games_service
 from app.modules.identity import service as identity
 from app.modules.players import service as players
+from app.modules.progress import service as progress
 from app.modules.sessions import allocation, repo
 from app.modules.sessions.models import (
     DATE_NAMES,
@@ -139,6 +142,8 @@ from app.modules.sessions.schemas import (
     EnrolledLabHourOut,
     EnrolledSessionListOut,
     EnrolledSessionOut,
+    GameResultOut,
+    GameRulesOut,
     LabHourIn,
     LabHourOut,
     LecturerOverviewOut,
@@ -146,7 +151,11 @@ from app.modules.sessions.schemas import (
     NextDate,
     NextDeadline,
     OfferedEffortLevelOut,
+    PlayOut,
+    PlayTurnOut,
+    ProposalPersonOut,
     ReplacedLevelOut,
+    RoleCapacityOut,
     SeatChoiceGameOut,
     SeatChoiceIn,
     SeatChoiceOut,
@@ -156,6 +165,12 @@ from app.modules.sessions.schemas import (
     SettingProblem,
     SettingsCheckOut,
     SettingWarning,
+    StepOut,
+    StudentGameOut,
+    TableSeatOut,
+    TableStatusOut,
+    TestGameRefOut,
+    TimeProposalOut,
     WaitingClass,
     WaitingReason,
 )
@@ -734,6 +749,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
     found = await _class_for(user, row["class_id"], "class_sessions.read")
     if found is None:
         return None
+    test_game = await _latest_test_game(user, session_id) if lecturer_test_enabled() else None
     unavailable = None
     config_id = row["model_config_id"]
     if config_id is None:
@@ -787,7 +803,19 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         student_choice_enabled=student_choice_enabled(),
         copied_from=copied_from,
         effort_level_replaced=effort_level_replaced,
+        lecturer_test_enabled=lecturer_test_enabled(),
+        test_game=test_game,
     )
+
+
+async def _latest_test_game(user: authz.Principal, session_id: uuid.UUID) -> TestGameRefOut | None:
+    """The User's newest test Game in the Class session and where it stands (Story 6.20)."""
+    async with get_sessionmaker()() as s:
+        found = await games_service.staff_test_games(s, session_id, user.id)
+        if not found:
+            return None
+        play = await games_service.play_status(s, found[0].id)
+    return TestGameRefOut(id=found[0].id, status=play.status)
 
 
 async def list_sessions(user: authz.Principal, class_id: uuid.UUID) -> ClassSessionListOut | None:
@@ -1105,6 +1133,12 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
             if choice
             else {}
         )
+        locked = [row for row in rows if row["class_id"] in names and is_locked(row, now=now)]
+        done = await progress.steps_of(s, user.id, [row["id"] for row in rows])
+        cards = {
+            row["id"]: await _student_card(s, user.id, row, done.get(row["id"], set()))
+            for row in locked
+        }
     upcoming: dict[uuid.UUID, list[EnrolledLabHourOut]] = {}
     for lab in labs:
         upcoming.setdefault(lab["class_session_id"], []).append(
@@ -1130,11 +1164,534 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                 and row["allocation_method"] == "student_choice"
                 and not is_locked(row, now=now),
                 drawn_seat=_drawn_seat(drafts.get(row["id"]), user.id),
+                game=cards.get(row["id"]),
+                steps=stegene(cards.get(row["id"]) is not None, done.get(row["id"], set())),
             )
             for row in rows
             if row["class_id"] in names
         ]
     )
+
+
+STEGENE: tuple[tuple[str, progress.Step], ...] = (
+    ("class_game", progress.Step.CLASS_GAME),
+    ("debrief", progress.Step.DEBRIEF),
+    ("quiz", progress.Step.QUIZ_PASSED),
+    ("replay", progress.Step.REPLAY),
+    ("test", progress.Step.TEST_SUBMITTED),
+    ("report", progress.Step.ASSESSMENT_READY),
+)
+"""Stegene's six steps in order (UX-DR29) and the `progress` step that marks each done."""
+
+
+def stegene(has_game: bool, done: set[progress.Step]) -> list[StepOut]:
+    """The state of each of Stegene's steps (Story 6.1, AD-10): a done step is `done`; with a
+    game the first step not done is `current` and the later ones `locked`; with no game (before
+    the Start date, or no Seat yet) every step not done is `locked`."""
+    steps: list[StepOut] = []
+    current_given = not has_game
+    for name, step in STEGENE:
+        if step in done:
+            state = "done"
+        elif not current_given:
+            state, current_given = "current", True
+        else:
+            state = "locked"
+        steps.append(StepOut(step=name, state=state))
+    return steps
+
+
+def _names_in(
+    class_id: uuid.UUID, s: AsyncSession
+) -> Callable[[list[uuid.UUID]], Awaitable[dict[uuid.UUID, str]]]:
+    """`classes.student_names` for one Class: the names `table_status` shows, read now, in the
+    caller's session `s` (one connection per request, `db.reading`)."""
+
+    async def resolve(user_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+        return await classes.student_names(class_id, user_ids, session=s)
+
+    return resolve
+
+
+async def _student_card(
+    s: AsyncSession, user_id: uuid.UUID, row: Mapping[str, Any], done: set[progress.Step]
+) -> StudentGameOut | None:
+    """The Student's Class game in a locked Class session, through `games.service.student_game`
+    and `table_status` (Story 6.1, AD-3); None when they never held a Seat in it."""
+    found = await games_service.student_game(s, user_id, row["id"])
+    if found is None:
+        return None
+    return await _game_out(s, user_id, found, row, done)
+
+
+def game_rules(row: Mapping[str, Any]) -> GameRulesOut:
+    """The rules the briefing states (Story 6.2, FR-84), from the Class session's frozen snapshot
+    or, until the lock has stored it, its settings, which a locked session no longer changes
+    (`SessionLocked`). Only the delays, the Veiledede uker, the cost rates and, while
+    `FEATURE_CAPACITY` is on (read now, Story 6.22), each capped Role's capacity (FR-14, AD-3)."""
+    frozen = row["snapshot_settings"]
+    settings = GameSettings.model_validate(frozen if frozen is not None else row["game_settings"])
+    capacity: list[RoleCapacityOut] = []
+    if capacity_enabled():
+        for role in settings.roles:
+            units = settings.capacity_of(role)
+            if units is not None:
+                capacity.append(RoleCapacityOut(role=role, units=units))
+    return GameRulesOut(
+        capacity=capacity,
+        order_delay=settings.order_delay,
+        shipping_delay=settings.shipping_delay,
+        production_delay=settings.production_delay,
+        guided_weeks=settings.guided_weeks,
+        holding_cost=settings.holding_cost,
+        backorder_cost=settings.backorder_cost,
+    )
+
+
+async def _game_out(
+    s: AsyncSession,
+    user_id: uuid.UUID,
+    found: games_service.StudentGame,
+    row: Mapping[str, Any],
+    done: set[progress.Step],
+) -> StudentGameOut:
+    table = await games_service.table_status(
+        s, found.game_id, user_id, _names_in(row["class_id"], s)
+    )
+    play = await games_service.play_status(s, found.game_id)
+    state: games_service.SeatState | None = None
+    turn: PlayTurnOut | None = None
+    if play.status == "running":
+        # Story 6.17 (AD-3): Hjem's Spillkort reads the numbers from the play envelope's sources,
+        # in the same Week as `week`, so Hjem and the play screen never disagree.
+        state, turn = await _own_week(s, found, play.week)
+    return StudentGameOut(
+        id=found.game_id,
+        number=found.number,
+        role=found.role,
+        test_game=found.test_game,
+        class_session_id=found.class_session_id,
+        seats=_seats_out(table),
+        # Story 6.2: the briefing comes first until the Starting task is done (AD-16), where
+        # `games.policy` says the pre-play gate applies (Story 6.18).
+        briefing_first=found.pre_play_gate and progress.Step.STARTING_TASK not in done,
+        rules=game_rules(row),
+        status=play.status,
+        week=play.week,
+        server_now=await games_service.database_now(s),
+        seat_state=state,
+        turn=turn,
+        time_proposal=await _time_proposal_out(s, user_id, found.game_id, row["class_id"]),
+    )
+
+
+async def _time_proposal_out(
+    s: AsyncSession, user_id: uuid.UUID, game_id: uuid.UUID, class_id: uuid.UUID
+) -> TimeProposalOut | None:
+    """The game's open proposal of a time to play as the reader sees it (Story 6.19, FR-22):
+    the names read now, never stored (AD-14)."""
+    proposal = await games_service.open_time_proposal(s, game_id)
+    if proposal is None:
+        return None
+    names = await _names_in(class_id, s)([proposal.proposed_by, *proposal.accepted_by])
+
+    def person(other: uuid.UUID) -> ProposalPersonOut:
+        return ProposalPersonOut(name=names.get(other), mine=other == user_id)
+
+    return TimeProposalOut(
+        id=proposal.id,
+        at=proposal.at,
+        proposed_by=person(proposal.proposed_by),
+        accepted_by=[person(other) for other in proposal.accepted_by],
+        can_accept=user_id in proposal.seated
+        and user_id != proposal.proposed_by
+        and user_id not in proposal.accepted_by,
+    )
+
+
+async def _own_week(
+    s: AsyncSession, found: games_service.StudentGame, week: int | None
+) -> tuple[games_service.SeatState, PlayTurnOut]:
+    """The own Seat's `seat_state` and turn in the open `week` (Stories 6.6 and 6.17), the
+    play envelope's numbers, read through `games.views` only, in the caller's session `s`."""
+    state = await games_service.seat_state(str(found.game_id), found.role, week, session=s)
+    turn = await games_service.open_turn(str(found.game_id), found.role, week, session=s)
+    return state, PlayTurnOut(
+        guided=turn.guided, order=turn.order, viewed=turn.viewed_at is not None
+    )
+
+
+def _seats_out(table: games_service.TableStatus) -> list[TableSeatOut]:
+    return [
+        TableSeatOut(
+            role=seat.role,
+            holder=seat.holder,
+            name=seat.name,
+            mine=seat.mine,
+            ordered=seat.ordered,
+            wait_started_at=seat.wait_started_at,
+            mark=seat.mark,
+        )
+        for seat in table.seats
+    ]
+
+
+async def _own_locked_game(
+    s: AsyncSession, user: authz.Principal, game_id: str
+) -> tuple[games_service.StudentGame, Mapping[str, Any]] | None:
+    """The Student's own Class game by id and its Class session row, through `authz.own_seat`,
+    once the session is locked, in a Class the User is still a Student in (Story 6.1, FR-5);
+    None for every other case alike."""
+    try:
+        game_uuid = uuid.UUID(game_id)
+    except ValueError:
+        return None
+    found = await games_service.own_game(s, user.id, game_uuid)
+    if found is None:
+        return None
+    if found.test_game:
+        return await _own_test_game(s, user, found)
+    # The Classes Hjem lists: those the User is a Student in and that are not archived.
+    listed = {item.id for item in (await classes.enrolled_classes(user, session=s)).items}
+    # The Class session among the User's own (`authz.classes_enrolled_by`), locked.
+    rows = {row["id"]: row for row in await repo.enrolled_sessions(s, user)}
+    row = rows.get(found.class_session_id)
+    if row is None or row["class_id"] not in listed or not is_locked(row):
+        return None
+    return found, row
+
+
+async def _own_test_game(
+    s: AsyncSession, user: authz.Principal, found: games_service.StudentGame
+) -> tuple[games_service.StudentGame, Mapping[str, Any]] | None:
+    """A Lecturer's test Game (Story 6.20, AD-12): theirs through `authz.own_seat` (the caller's
+    `own_game`), while they are staff of its Class who may read its sessions; at any time, since
+    it runs on its own snapshot. The session row it returns states the Game's own settings as the
+    rules (`game_rules`), never the session's, which may have changed since."""
+    row = await repo.session_row(s, found.class_session_id)
+    # The reads below open sessions of their own: give `s`'s connection back first, so the request
+    # never holds two (`db.reading`). `s` is a plain read session; its next read takes one again.
+    await s.commit()
+    if row is None or await _class_for(user, row["class_id"], "class_sessions.read") is None:
+        return None
+    game = await games_service.get_game(str(found.game_id))
+    if game is None or game.settings is None:
+        return None
+    return found, {**row, "snapshot_settings": game.settings.model_dump(mode="json")}
+
+
+async def student_game_of(user: authz.Principal, game_id: str) -> StudentGameOut | None:
+    """The Student's own Class game by id (Story 6.1, AD-12, FR-5), through `authz.own_seat`, and
+    only once its Class session is locked (a Student sees the game from the Start date). None for
+    an id that is not one, a Game that does not exist, another Student's game, a Game whose Class
+    session has not reached the Start date, or a Class the User is no longer a Student in: the
+    route answers each the same."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+        if own is None:
+            return None
+        found, row = own
+        done = await progress.steps_of(s, user.id, [row["id"]])
+        return await _game_out(s, user.id, found, row, done.get(row["id"], set()))
+
+
+class GameNotRunning(Exception):
+    """The play screen's envelope asked for a game that is not running (Story 6.6)."""
+
+
+async def student_play_of(user: authz.Principal, game_id: str) -> PlayOut | None:
+    """The play screen's envelope (Story 6.6, AD-3) for the Student's own Class game, under
+    `student_game_of`'s checks (None for every other id alike): what the Student's own Seat sees
+    in the open Week, `games.views.seat_state` and nothing else about the numbers, and who sits
+    where, `games.views.table_status`. Raises `GameNotRunning` unless the game is running (or
+    playing out)."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+        if own is None:
+            return None
+        found, row = own
+        play = await games_service.play_status(s, found.game_id)
+        if play.status != "running":
+            raise GameNotRunning
+        table = await games_service.table_status(
+            s, found.game_id, user.id, _names_in(row["class_id"], s)
+        )
+        state, turn = await _own_week(s, found, play.week)
+        now = await games_service.database_now(s)
+    return PlayOut(
+        seat_state=state,
+        turn=turn,
+        table_status=TableStatusOut(seats=_seats_out(table)),
+        server_now=now,
+        # Read again when an AI player's Order falls due (AD-8, AD-20); one already past is the
+        # rescue loop's to place, and its event says so.
+        next_change_at=next((due for due in table.due_times if due > now), None),
+    )
+
+
+class GameNotFinished(Exception):
+    """The game's result was asked for before the game finished (Story 6.18)."""
+
+
+async def student_result_of(user: authz.Principal, game_id: str) -> GameResultOut | None:
+    """«Spillet er ferdig» (Story 6.18, FR-28, AD-3): the chain's cost per Role and per Uke of
+    the Student's own Class game, under `student_game_of`'s checks (None for every other id
+    alike). Raises `GameNotFinished` until the game has finished, so no chain number leaks during
+    play (FR-14). Roles only, never names; no demand."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+        if own is None:
+            return None
+        found, _ = own
+    try:
+        result = await games_service.chain_result(str(found.game_id))
+    except games_service.ViewError as refused:
+        if refused.code == "game_not_finished":
+            raise GameNotFinished from None
+        if refused.status == 404:
+            return None
+        raise
+    return result
+
+
+class ViewRefused(Exception):
+    """A view of a Guided Week the api refuses (Story 6.10), with the command's code:
+    `week_not_open`, `week_not_guided`, `game_not_started`, `game_finished`, `seat_not_student`
+    or `seat_not_yours`."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+async def view_own_week(user: authz.Principal, game_id: str, week: int) -> bool | None:
+    """The Student has the Guided Week `week` of their own Class game on screen (Story 6.10,
+    FR-24), under `student_game_of`'s checks (None for every other id alike). Only
+    `games.commands.view_week` records it; a Week already viewed counts as done. A Seat the
+    Student no longer holds (`seat_not_yours`, a move after the check) and a not-found refusal
+    answer None like any other game (FR-5). Raises `ViewRefused` with the command's code
+    otherwise: `week_not_open`, `week_not_guided`, `game_not_started`, `game_finished` or
+    `seat_not_student`."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+    if own is None:
+        return None
+    found, _ = own
+    try:
+        await games_commands.view_week(str(found.game_id), found.role, week, actor=user.id)
+    except games_commands.CommandError as refused:
+        if refused.status == 404 or refused.code == "seat_not_yours":
+            return None
+        raise ViewRefused(refused.code) from None
+    return True
+
+
+class OrderRefused(Exception):
+    """A Student's Order the api refuses (Story 6.12), with the command's code and status:
+    409 `order_exists`, `week_not_open`, `game_not_started`, `game_finished`, `seat_not_yours`
+    (the Seat changed hands after `_own_locked_game`); 422 `order_invalid`."""
+
+    def __init__(self, code: str, status: int) -> None:
+        super().__init__(code)
+        self.code = code
+        self.status = status
+
+
+async def place_own_order(
+    user: authz.Principal, game_id: str, week: int, order: int
+) -> bool | None:
+    """The Student's Order for the open `week` of their own Class game (Story 6.12, FR-24, AD-2),
+    under `student_game_of`'s checks (None for every other id alike). Only
+    `games.commands.place_order` writes it, with the Student as `actor`, so a Seat the Student
+    no longer holds is refused there (`seat_not_yours`). A not-found refusal answers None like
+    any other game (FR-5); every other refusal raises `OrderRefused` with the command's code."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+    if own is None:
+        return None
+    found, _ = own
+    try:
+        await games_commands.place_order(
+            str(found.game_id), found.role, week, order, "student", actor=user.id
+        )
+    except games_commands.CommandError as refused:
+        if refused.status == 404:
+            return None
+        raise OrderRefused(refused.code, refused.status) from None
+    return True
+
+
+class StartRefused(Exception):
+    """A Student's start the api refuses (Story 6.5): `starting_task_required` before the
+    Starting task is done, `game_not_ready` before the lock has given the Game its snapshot."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+async def start_own_game(user: authz.Principal, game_id: str) -> StudentGameOut | None:
+    """«Start spillet» (Story 6.5, FR-22, AD-2): the Student starts their own Class game, under
+    `student_game_of`'s checks (None for every other id alike), once they have done the Starting
+    task (the pre-play gate). Only `games.commands.start` starts it; a Game another Student or the
+    Lecturer started first counts as done. Returns the game as it now stands."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+        if own is None:
+            return None
+        found, row = own
+        done = await progress.steps_of(s, user.id, [row["id"]])
+    if found.pre_play_gate and progress.Step.STARTING_TASK not in done.get(row["id"], set()):
+        raise StartRefused("starting_task_required")
+    try:
+        await games_commands.start(str(found.game_id))
+    except games_commands.CommandError as refused:
+        if refused.code == "game_not_ready":
+            raise StartRefused(refused.code) from None
+        if refused.code != "game_already_started":
+            raise
+    else:
+        log.info("student_started_game", game_id=str(found.game_id), user_id=str(user.id))
+    return await student_game_of(user, game_id)
+
+
+class ProposalRefused(Exception):
+    """A proposal or acceptance of a time to play the api refuses (Story 6.19), with the
+    command's code and status: 409 `game_finished`, `proposal_gone`, `own_proposal`; 422
+    `time_out_of_range`."""
+
+    def __init__(self, code: str, status: int) -> None:
+        super().__init__(code)
+        self.code = code
+        self.status = status
+
+
+def _proposal_refusal(refused: Exception) -> None:
+    """None for a refusal that reads as any other game (not found, a Seat no longer held, FR-5);
+    every other refusal raises `ProposalRefused`."""
+    if not isinstance(refused, games_commands.CommandError):
+        raise refused
+    if refused.status == 404 or refused.code == "seat_not_yours":
+        return None
+    raise ProposalRefused(refused.code, refused.status) from None
+
+
+async def propose_own_time(
+    user: authz.Principal, game_id: str, at: datetime
+) -> StudentGameOut | None:
+    """«Send forslaget til gruppen» (Story 6.19, FR-22): the Student proposes a time to play in
+    their own Class game, under `student_game_of`'s checks (None for every other id alike).
+    Only `games.commands.propose_time` stores it, between now and the Class session's Play
+    deadline. Returns the game as it now stands."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+    # A test Game has no group to agree a time with (Story 6.20).
+    if own is None or own[0].test_game:
+        return None
+    found, row = own
+    try:
+        await games_commands.propose_time(
+            str(found.game_id), at, actor=user.id, latest=_play_deadline_of(row["id"])
+        )
+    except games_commands.CommandError as refused:
+        return _proposal_refusal(refused)
+    return await student_game_of(user, game_id)
+
+
+def _play_deadline_of(
+    session_id: uuid.UUID,
+) -> Callable[[AsyncSession], Awaitable[datetime | None]]:
+    """The Class session's Play deadline, read share-locked in the proposal's transaction before
+    the Game row lock, so a deadline the Lecturer moves meanwhile is not passed (Story 6.19)."""
+
+    async def read(s: AsyncSession) -> datetime | None:
+        row = await repo.session_row(s, session_id, share=True)
+        return None if row is None else row["play_deadline"]
+
+    return read
+
+
+async def accept_own_time(
+    user: authz.Principal, game_id: str, proposal_id: str
+) -> StudentGameOut | None:
+    """«Godta tidspunktet» (Story 6.19, FR-22): the Student accepts the open proposal of their
+    own Class game with one press, under `student_game_of`'s checks (None for every other id
+    alike). An acceptance already stored counts as done. Returns the game as it now stands."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+    if own is None or own[0].test_game:
+        return None
+    found, _ = own
+    try:
+        await games_commands.accept_time(str(found.game_id), proposal_id, actor=user.id)
+    except games_commands.CommandError as refused:
+        return _proposal_refusal(refused)
+    return await student_game_of(user, game_id)
+
+
+TIME_PROPOSED_NOTICE = games_commands.TIME_PROPOSED_NOTICE
+"""The `digest` notice of a proposed time to play (Story 6.19); its mail is read at send time by
+`time_proposal_mail_context`."""
+
+
+async def time_proposal_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `TIME_PROPOSED_NOTICE`, for `messaging` at send time (Story
+    6.19, AD-9): the Class's name, the game number, the proposer's name and the time in
+    Europe/Oslo. None, so the notice is left out, when the proposal was replaced, its time has
+    passed, the User accepted it or holds no Seat any more, the game has finished, the Class is
+    archived or the User is no longer a registered Student of it."""
+    if ref is None:
+        return None
+    proposal = await games_service.time_proposal_by_id(session, ref)
+    if proposal is None or proposal.at <= now:
+        return None
+    # Nothing left to ask of a Student who accepted meanwhile or no longer holds a Seat.
+    if user_id in proposal.accepted_by or user_id not in proposal.seated:
+        return None
+    info = await games_service.game_class_info(session, proposal.game_id)
+    if info is None or info[2]:
+        return None
+    class_session_id, number, _ = info
+    row = await repo.session_row(session, class_session_id)
+    if row is None:
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None or label.archived:
+        return None
+    if user_id not in await classes.registered_students(row["class_id"]):
+        return None
+    names = await classes.student_names(row["class_id"], [proposal.proposed_by])
+    return {
+        "class_name": label.name,
+        "game_number": number,
+        "proposer": names.get(proposal.proposed_by),
+        "at": proposal.at.astimezone(OSLO),
+    }
+
+
+@dataclass(frozen=True)
+class OwnGameSession:
+    """The Class session of a Student's own game, and the Starting task version its lock pinned
+    (None for a session locked before the pin existed) (Story 6.3)."""
+
+    class_session_id: uuid.UUID
+    starting_task_version: int | None
+
+
+async def own_game_session(user: authz.Principal, game_id: str) -> OwnGameSession | None:
+    """The Class session of the Student's own locked Class game, under the same checks as
+    `student_game_of`, for the Starting task routes (Story 6.3); None for every other id alike.
+    The game's status is not asked: a finished game still offers the Starting task (FR-85)."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+        # A test Game has no Starting task, and no step is ever recorded for it (Story 6.20).
+        if own is None or own[0].test_game:
+            return None
+        session_id = own[1]["id"]
+        pins = await repo.session_pins(s, session_id)
+    return OwnGameSession(session_id, content.pinned_version(pins))
 
 
 async def lecturer_overview(user: authz.Principal) -> LecturerOverviewOut:
@@ -1998,6 +2555,10 @@ def register_pin_provider(name: str, provider: PinProvider) -> None:
     if known is not None and known is not provider:
         raise ValueError(f"a pin provider named {name!r} is registered already")
     _pin_providers[name] = provider
+
+
+# Story 6.3: every lock from now on pins the Starting task version (AD-23).
+register_pin_provider(content.Kind.STARTING_TASK.value, content.starting_task_pin)
 
 
 class ProviderKeyMissing(Exception):
@@ -3140,6 +3701,99 @@ async def student_choice_mail_context(
 # Rerun (Story 5.18, FR-66, FR-78, AD-4, AD-6, AD-12, AD-17).
 
 RERUN_DISABLED = {"rerun": "feature_disabled"}
+
+
+def lecturer_test_enabled() -> bool:
+    """`FEATURE_LECTURER_TEST_GAME` (AD-17): whether a Lecturer may play a test Game (6.20)."""
+    return get_settings().feature_lecturer_test_game
+
+
+class TestGameRefused(Exception):
+    """«Start testspill» refused (Story 6.20): 404 `not_found` while the flag is off; 409
+    `session_locked` from the Start date, `test_game_running` while the Lecturer's last test Game
+    here has not finished, `llm_unavailable` when its LLM players' provider may not answer; 422
+    `unknown_role` for a Role the session's settings have no Seat for."""
+
+    def __init__(self, code: str, status: int) -> None:
+        super().__init__(code)
+        self.code = code
+        self.status = status
+
+
+async def start_test_game(
+    user: authz.Principal, session_id: uuid.UUID, role: str
+) -> uuid.UUID | None:
+    """«Start testspill» (Story 6.20, FR-87, AD-4, AD-13): a `lecturer_test` Game on the Class
+    session's current settings, snapshotted now by `build_snapshot` (so its demand series, seed,
+    `rules_version` and `SessionRuntime` are the session's as they stand), with the Lecturer in
+    the `role` Seat as a `student` occupant and AI players of the session's AI mode in the others;
+    then started. Created and seated in one transaction under the session's row lock, so two
+    presses make one Game, and started in the next; a test Game whose start failed after that
+    commit is started by the next press instead of blocking it. The session row itself is never
+    written, so its settings stay editable. None when the User may not manage the session (the
+    route's 403). Returns the Game id."""
+    if not lecturer_test_enabled():
+        raise TestGameRefused("not_found", 404)
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, session_id)
+    if row is None or await _class_for(user, row["class_id"], "class_sessions.manage") is None:
+        return None
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, session_id, lock=True)
+        if row is None:
+            return None
+        if is_locked(row):
+            raise TestGameRefused("session_locked", 409)
+        earlier = await games_service.staff_test_games(s, session_id, user.id)
+        unstarted = (
+            str(earlier[0].id)
+            if earlier and earlier[0].lifecycle == games_service.Lifecycle.NOT_STARTED
+            else None
+        )
+        if (
+            earlier
+            and unstarted is None
+            and earlier[0].lifecycle != games_service.Lifecycle.FINISHED
+        ):
+            raise TestGameRefused("test_game_running", 409)
+        # A test Game whose start failed after its commit is started now, never made twice.
+        game_id = unstarted
+        if game_id is None:
+            if row["ai_mode"] == AiMode.llm.value:
+                found = (
+                    await config.get(row["model_config_id"], session=s)
+                    if row["model_config_id"] is not None
+                    else None
+                )
+                if found is None or not config.may_answer(found):
+                    raise TestGameRefused("llm_unavailable", 409)
+            snapshot = await build_snapshot(row, session=s)
+            ai = (
+                games_service.OccupantKind.LLM
+                if snapshot["session_runtime"]["model_config_id"] is not None
+                else games_service.OccupantKind.RULE_BASED
+            )
+            roles = GameSettings.model_validate(snapshot["settings"]).roles
+            if role not in {seat_role.value for seat_role in roles}:
+                raise TestGameRefused("unknown_role", 422)
+            game_id = await games_commands.create(
+                "lecturer_test", snapshot=snapshot, class_session_id=session_id, within=s
+            )
+            for seat_role in roles:
+                if seat_role.value == role:
+                    await games_commands.assign_seat(
+                        game_id, seat_role, "student", user_id=user.id, within=s
+                    )
+                else:
+                    await games_commands.assign_seat(game_id, seat_role, ai.value, within=s)
+    try:
+        await games_commands.start(game_id)
+    except games_commands.CommandError as refused:
+        # Two presses on a Game whose start failed: the other one started it.
+        if refused.code != "game_already_started":
+            raise
+    log.info("test_game_started", game_id=game_id, class_session_id=str(session_id))
+    return uuid.UUID(game_id)
 
 
 def rerun_enabled() -> bool:

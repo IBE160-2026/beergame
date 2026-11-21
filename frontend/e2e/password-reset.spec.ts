@@ -1,8 +1,9 @@
-import AxeBuilder from "@axe-core/playwright";
-import { type Browser, expect, type Page, test } from "@playwright/test";
+import { type Browser, expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { demoContext, latestMail, nextMail, untilHydrated } from "./support/auth";
+import { axe } from "./support/axe";
+import { test } from "./support/classes";
 
 /** «Glemt passord» and «Nytt passord» (Story 3.6, UX-DR61, NFR-6), on the local stack with
  * `worker-batch` sending the mock mail. A reset ends every session of its User (Issue #73), so
@@ -10,7 +11,6 @@ import { demoContext, latestMail, nextMail, untilHydrated } from "./support/auth
  * logged in as one at the same time keep their session. */
 const forgot = nb.auth.forgot;
 const reset = nb.auth.reset;
-const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const CSRF = { "X-Requested-With": "olspillet" };
 const FIRST_PASSWORD = "et-godt-passord";
 const NEW_PASSWORD = "et-nytt-godt-passord";
@@ -54,7 +54,7 @@ async function freshUser(page: Page, browser: Browser, roles: Roles) {
 }
 
 async function expectAccessible(page: Page, phone: boolean) {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
+  const results = await axe(page);
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual(
     [],
   );

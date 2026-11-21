@@ -7,9 +7,13 @@ import { nb } from "@/copy/nb";
 import { ActionError } from "./action-error";
 import { AppHeader } from "./app-header";
 import { Breadcrumb } from "./breadcrumb";
+import { ChainBill } from "./chain-bill";
 import { Button, guardUnavailable } from "./button";
+import { ColumnItem } from "./column-item";
 import { ConnectionNotice } from "./connection-notice";
+import { GameCard } from "./game-card";
 import { SegmentedChoice } from "./segmented-choice";
+import { Stegene } from "./stegene";
 import { Switch } from "./switch";
 import { ViewToggle } from "./view-toggle";
 import { LoadingNote, Skeleton } from "./skeleton";
@@ -283,5 +287,126 @@ describe("ViewToggle", () => {
     expect(html.match(/type="radio"/g)).toHaveLength(2);
     expect(html).toMatch(/checked="" value="list"/);
     expect(html).toMatch(/min-h-control-height-phone/);
+  });
+});
+
+describe("Stegene", () => {
+  const html = renderToStaticMarkup(
+    <Stegene
+      title="Stegene"
+      titleId="st"
+      items={[
+        { key: "a", name: "Klassespill", state: "current", note: "pågår" },
+        { key: "b", name: "Replay", state: "locked", note: "Replay, åpnes når du har bestått Debrief-quizen." },
+      ]}
+    />,
+  );
+
+  it("is an ordered list named by its heading, with the state of each step in words", () => {
+    expect(html).toContain('aria-labelledby="st"');
+    expect(html).toContain("<ol");
+    expect(html).toContain("pågår");
+    expect(html).toContain("Replay, åpnes når du har bestått Debrief-quizen.");
+    expect(html).toContain('data-state="current"');
+    expect(html).toContain('data-state="locked"');
+  });
+
+  it("keeps its markers out of the accessibility tree", () => {
+    expect(html.match(/aria-hidden="true"/g)?.length).toBe(3);
+  });
+});
+
+describe("ColumnItem", () => {
+  const rows = [
+    { label: "Lager", value: 0 },
+    { label: "Restordre", value: 13 },
+    { label: "På vei", value: 16 },
+  ];
+
+  it("asks one row of the column with a labelled number field and announces its error", () => {
+    const html = renderToStaticMarkup(
+      <ColumnItem id="p" caption="Uke 11" rows={rows} askedLabel="Posisjon" hint="Posisjon = …" value="x" error="Skriv et helt tall." />,
+    );
+    expect(html).toContain("<caption");
+    expect(html).toContain('<label for="p-answer">Posisjon</label>');
+    expect(html).toMatch(/inputmode="numeric"/i);
+    expect(html).toContain('aria-invalid="true"');
+    expect(html).toContain('aria-describedby="p-hint p-error"');
+    expect(html).toMatch(/<p id="p-error" role="alert"[^>]*>Skriv et helt tall\.<\/p>/);
+  });
+
+  it("shows the stored answer and the result in words, without a field", () => {
+    const html = renderToStaticMarkup(
+      <ColumnItem id="p" caption="Uke 11" rows={rows} askedLabel="Posisjon" answer="5" result="Ikke riktig. Svaret er 3: 0 − 13 + 16." />,
+    );
+    expect(html).not.toContain("<input");
+    expect(html).toContain("Ikke riktig. Svaret er 3: 0 − 13 + 16.");
+    expect(html).toContain('tabindex="-1"');
+  });
+});
+
+describe("GameCard (Spillkort, Story 6.17)", () => {
+  const render = (action?: React.ReactNode) =>
+    renderToStaticMarkup(
+      <GameCard
+        title="Oppfølgingsspill"
+        titleId="card-1"
+        week="Uke 11"
+        figure={<table />}
+        total="Totalkostnad 68,00 kr"
+        summary="Netto lager −13 i Uke 11."
+        action={action}
+      />,
+    );
+
+  it("takes its title as the variant, with the Uke beside it in the one heading", () => {
+    const html = render();
+    expect(html).toContain('aria-labelledby="card-1"');
+    expect(html).toMatch(/<h4 id="card-1"[^>]*><span>Oppfølgingsspill<\/span><span><span class="sr-only">, <\/span>Uke 11<\/span><\/h4>/);
+    expect(html).toContain("border-axis");
+  });
+
+  it("reads the summary in place of the hidden graph, then the Totalkostnad and the caller's action", () => {
+    const html = render(<a href="/spill/g">Gå til Uke 11</a>);
+    expect(html).toContain('<p class="sr-only">Netto lager −13 i Uke 11.</p>');
+    expect(html.indexOf("Totalkostnad 68,00 kr")).toBeLessThan(html.indexOf("Gå til Uke 11"));
+    expect(render()).not.toContain("<a ");
+  });
+});
+
+describe("ChainBill (Kjedens regning, Story 6.18)", () => {
+  const row = (role: string, label: string, own = false) => ({
+    role,
+    label,
+    own,
+    holding: "1,00",
+    backorder: "2,00",
+    total: "3,00",
+    bar: { holding: 0.25, backorder: 0.5 },
+  });
+  const chain = { holding: "901,00", backorder: "1 365,00", total: "2 266,00" };
+
+  it("is a table per Role with the own row marked and Kjeden under a rule, in the given order", () => {
+    const html = renderToStaticMarkup(
+      <ChainBill rows={[row("retailer", "Detaljist"), row("wholesaler", "Grossist (deg)", true)]} chain={chain} titleId="b" />,
+    );
+    expect(html).toContain(">Kjedens regning</h2>");
+    expect(html.indexOf("Detaljist")).toBeLessThan(html.indexOf("Grossist (deg)"));
+    expect(html).toMatch(/<tr[^>]*data-own=""[^>]*class="relative font-semibold"/);
+    expect(html).toMatch(/<tfoot><tr data-chain-row="" class="border-t border-axis font-bold"><th scope="row"[^>]*>Kjeden<\/th>/);
+    expect(html).toContain('<span aria-hidden="true" class="absolute inset-x-0 bottom-1.5 flex" data-bar="">');
+    expect(html).toContain("width:25.00%");
+    expect(html).toContain(">2 266,00</td>");
+  });
+
+  it("keeps the Debrief's slot for extra rows inside the body, empty unless given", () => {
+    const extra = (
+      <tr data-extra="">
+        <th scope="row">Simulert</th>
+      </tr>
+    );
+    const html = renderToStaticMarkup(<ChainBill rows={[row("retailer", "Detaljist")]} chain={chain} titleId="b" extraRows={extra} />);
+    expect(html.indexOf("data-extra")).toBeLessThan(html.indexOf("<tfoot>"));
+    expect(renderToStaticMarkup(<ChainBill rows={[]} chain={chain} titleId="b" />)).not.toContain("data-extra");
   });
 });

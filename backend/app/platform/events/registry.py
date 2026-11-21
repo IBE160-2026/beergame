@@ -8,17 +8,39 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
     {
         "games.create": frozenset({"game"}),
         "games.assign_seat": frozenset({"game"}),
-        "games.start": frozenset({"game"}),
-        "games.place_order": frozenset({"game"}),
+        # A Game started (Story 6.5): a Class game's session hears of it, and each Student who
+        # holds a Seat reads Hjem and the game again. A simulation Game takes no Student
+        # (`games.policy`), so it emits `game` alone.
+        "games.start": frozenset({"game", "session", "user"}),
+        # An Order placed (Story 6.12): a Class game's session hears of it, the Student who
+        # ordered reads Hjem again, and when the Order completed the Week every Student of the
+        # Game does. An Order with no actor that completes no Week, in a Game no Lecturer overview
+        # lists (simulations), emits `game` alone.
+        "games.place_order": frozenset({"game", "session", "user"}),
+        # The end of a Game (Story 6.18). A Class game also records `class_game` for every
+        # Student it ever seated, whose `progress.record_step` emits `user` and `session` in the
+        # transaction of the command that completed the last Week.
         "games.finish": frozenset({"game"}),
-        "games.advance": frozenset({"game"}),
+        # An advance by the rescue loop or a settle (follow-up review of Story 6.13): a Class
+        # game's session hears of it, and every Student of the Game waits on a new Week, so each
+        # reads Hjem again. A simulation emits `game` alone.
+        "games.advance": frozenset({"game", "session", "user"}),
         "games.switch_to_rule_based": frozenset({"game"}),
+        # A Student opened a Guided Week (Story 6.10): only Class games take Students, so their
+        # Class session hears of it; the viewer's waiting status changes, and when the view
+        # completes the Week every Student of the Game sees the next one.
+        "games.view_week": frozenset({"game", "session", "user"}),
         # A Student moved or two swapped before the start (Story 5.10): only Class games take
         # Students, so their Class session hears of it, and each moved Student's pages reload.
         "games.move_seat": frozenset({"game", "session", "user"}),
         # A Class game gets its Class session's snapshot and AI players at the lock (Story 5.12):
         # the Class session hears of it, and each Student who held a Seat reads it again.
         "games.set_snapshot": frozenset({"game", "session", "user"}),
+        # The scheduling aid (Story 6.19, FR-22): a Student proposes a time to play, which the
+        # Class session hears of and each other seated Student's `time_proposed` notice emits as
+        # `user`; an acceptance tells every seated Student, so all see who accepted.
+        "games.propose_time": frozenset({"game", "session", "user"}),
+        "games.accept_time": frozenset({"game", "session", "user"}),
         # A notice to a User (Story 3.5, AD-9); a notice addressed by reference emits nothing.
         "notify.enqueue": frozenset({"user"}),
         # A role the Admin grants or revokes (Story 3.9): the User's open pages reload it.
@@ -70,6 +92,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "sessions.open_student_choice": frozenset({"game", "session", "user"}),
         "sessions.choose_seat": frozenset({"game", "session", "user"}),
         "sessions.offer_student_choice": frozenset({"game", "session", "user"}),
+        # A step a Student has done (Story 6.1, AD-16): their Hjem and Stegene read it again, and
+        # so does the Class session's overview. A step already recorded emits nothing.
+        "progress.record_step": frozenset({"session", "user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

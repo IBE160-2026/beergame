@@ -1,10 +1,9 @@
-import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { DEMO_USERS, type DemoRole, loginByApi } from "./support/auth";
-
-const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
+import { axe } from "./support/axe";
+import { test } from "./support/classes";
 
 const VIEWPORTS = [
   { name: "320 px", width: 320, height: 640 },
@@ -21,7 +20,7 @@ const TITLE: Record<DemoRole, string> = {
 };
 
 async function expectAccessible(page: Page) {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
+  const results = await axe(page);
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual(
     [],
   );

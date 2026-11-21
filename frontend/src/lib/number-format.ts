@@ -11,9 +11,17 @@ export const GROUP = " ";
 
 const DECIMAL = /^-?\d+(\.\d+)?$/;
 
+/** «kr» after an amount, joined by a no-break space so the two never part at a line end. */
+export const KRONER = " kr";
+
 export type NumberFormatOptions = {
   /** Exactly this many decimals, padded or rounded («0.5» → «0,50» with 2). */
   decimals?: number;
+  /** An amount in kroner: two decimals and «kr» («68.0000» → «68,00 kr», Story 6.6). */
+  kroner?: boolean;
+  /** A narrow table cell: the decimals that are zero are dropped («6.0000» → «6», «6.5000» →
+   * «6,5», DESIGN.md → Typography). */
+  narrow?: boolean;
 };
 
 function fixed(text: string, decimals: number | undefined): string {
@@ -42,10 +50,12 @@ export function formatNumber(value: number | string, options: NumberFormatOption
   const text = typeof value === "number" ? (Number.isFinite(value) ? String(value) : "") : value.trim();
   if (!DECIMAL.test(text)) return typeof value === "number" ? String(value) : value;
   const negative = text.startsWith("-");
-  const [whole, fraction] = fixed(negative ? text.slice(1) : text, options.decimals).split(".");
+  const decimals = options.kroner ? 2 : options.decimals;
+  const [whole, fixedFraction] = fixed(negative ? text.slice(1) : text, decimals).split(".");
+  const fraction = options.narrow && fixedFraction !== undefined ? fixedFraction.replace(/0+$/, "") || undefined : fixedFraction;
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, GROUP);
   const sign = negative && /[1-9]/.test(whole + (fraction ?? "")) ? MINUS : "";
-  return `${sign}${grouped}${fraction !== undefined ? `,${fraction}` : ""}`;
+  return `${sign}${grouped}${fraction !== undefined ? `,${fraction}` : ""}${options.kroner ? KRONER : ""}`;
 }
 
 /** The api's decimal string of a number typed the Norwegian way («1 000,5» → «1000.5», «−2» →

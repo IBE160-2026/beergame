@@ -1,0 +1,44 @@
+# Story 6.20 screenshots
+
+Full-page, Chromium `--lang=nb-NO`, locale nb-NO, Europe/Oslo, demo Faglærer on a fresh Class and Klasseøkt (3 Uker, Rule-based).
+
+- `klasseokt-testspill-before-320.png`: Klasseøkt, «Testspill» before the Start date: lead, Valgknapper «Din rolle» (Detaljist chosen by default), secondary «Start testspill» (320 px).
+- `klasseokt-testspill-before-390.png`: Klasseøkt, «Testspill» before the Start date: lead, Valgknapper «Din rolle» (Detaljist chosen by default), secondary «Start testspill» (390 px).
+- `klasseokt-testspill-before-768.png`: Klasseøkt, «Testspill» before the Start date: lead, Valgknapper «Din rolle» (Detaljist chosen by default), secondary «Start testspill» (768 px).
+- `klasseokt-testspill-before-1280.png`: Klasseøkt, «Testspill» before the Start date: lead, Valgknapper «Din rolle» (Detaljist chosen by default), secondary «Start testspill» (1280 px).
+- `klasseokt-testspill-before-390-text200.png`: Klasseøkt, «Testspill» before the Start date: lead, Valgknapper «Din rolle» (Detaljist chosen by default), secondary «Start testspill» (390 px, 200 % text).
+- `klasseokt-testspill-role-320.png`: Klasseøkt, «Testspill» with Grossist chosen (320 px).
+- `klasseokt-testspill-role-390.png`: Klasseøkt, «Testspill» with Grossist chosen (390 px).
+- `klasseokt-testspill-role-768.png`: Klasseøkt, «Testspill» with Grossist chosen (768 px).
+- `klasseokt-testspill-role-1280.png`: Klasseøkt, «Testspill» with Grossist chosen (1280 px).
+- `klasseokt-testspill-role-390-text200.png`: Klasseøkt, «Testspill» with Grossist chosen (390 px, 200 % text).
+- `spill-uke1-320.png`: Play screen of the test game, Uke 1: Topplinje «Grossist, Testspill», three «KI-spiller» and «Deg», Lenke «Tilbake til Klasseøkta» (320 px).
+- `spill-uke1-390.png`: Play screen of the test game, Uke 1: Topplinje «Grossist, Testspill», three «KI-spiller» and «Deg», Lenke «Tilbake til Klasseøkta» (390 px).
+- `spill-uke1-768.png`: Play screen of the test game, Uke 1: Topplinje «Grossist, Testspill», three «KI-spiller» and «Deg», Lenke «Tilbake til Klasseøkta» (768 px).
+- `spill-uke1-1280.png`: Play screen of the test game, Uke 1: Topplinje «Grossist, Testspill», three «KI-spiller» and «Deg», Lenke «Tilbake til Klasseøkta» (1280 px).
+- `spill-uke1-390-text200.png`: Play screen of the test game, Uke 1: Topplinje «Grossist, Testspill», three «KI-spiller» and «Deg», Lenke «Tilbake til Klasseøkta» (390 px, 200 % text).
+- `spill-uke2-320.png`: Play screen of the test game, Uke 2 after the Uke-overgang (320 px).
+- `spill-uke2-390.png`: Play screen of the test game, Uke 2 after the Uke-overgang (390 px).
+- `spill-uke2-768.png`: Play screen of the test game, Uke 2 after the Uke-overgang (768 px).
+- `spill-uke2-1280.png`: Play screen of the test game, Uke 2 after the Uke-overgang (1280 px).
+- `spill-uke2-390-text200.png`: Play screen of the test game, Uke 2 after the Uke-overgang (390 px, 200 % text).
+- `klasseokt-testspill-running-320.png`: Klasseøkt with an unfinished test game: «Du har et testspill i gang.» and Lenke «Fortsett testspillet» (320 px).
+- `klasseokt-testspill-running-390.png`: Klasseøkt with an unfinished test game: «Du har et testspill i gang.» and Lenke «Fortsett testspillet» (390 px).
+- `klasseokt-testspill-running-768.png`: Klasseøkt with an unfinished test game: «Du har et testspill i gang.» and Lenke «Fortsett testspillet» (768 px).
+- `klasseokt-testspill-running-1280.png`: Klasseøkt with an unfinished test game: «Du har et testspill i gang.» and Lenke «Fortsett testspillet» (1280 px).
+- `klasseokt-testspill-running-390-text200.png`: Klasseøkt with an unfinished test game: «Du har et testspill i gang.» and Lenke «Fortsett testspillet» (390 px, 200 % text).
+- `spill-end-320.png`: «Spillet er ferdig» of the test game: «Grossist, Testspill», no Debrief line, primary «Tilbake til Klasseøkta» (320 px).
+- `spill-end-390.png`: «Spillet er ferdig» of the test game: «Grossist, Testspill», no Debrief line, primary «Tilbake til Klasseøkta» (390 px).
+- `spill-end-768.png`: «Spillet er ferdig» of the test game: «Grossist, Testspill», no Debrief line, primary «Tilbake til Klasseøkta» (768 px).
+- `spill-end-1280.png`: «Spillet er ferdig» of the test game: «Grossist, Testspill», no Debrief line, primary «Tilbake til Klasseøkta» (1280 px).
+- `spill-end-390-text200.png`: «Spillet er ferdig» of the test game: «Grossist, Testspill», no Debrief line, primary «Tilbake til Klasseøkta» (390 px, 200 % text).
+- `klasseokt-testspill-finished-320.png`: Klasseøkt after a finished test game: Valgknapper and «Start testspill» back, Lenke «Se forrige testspill» (320 px).
+- `klasseokt-testspill-finished-390.png`: Klasseøkt after a finished test game: Valgknapper and «Start testspill» back, Lenke «Se forrige testspill» (390 px).
+- `klasseokt-testspill-finished-768.png`: Klasseøkt after a finished test game: Valgknapper and «Start testspill» back, Lenke «Se forrige testspill» (768 px).
+- `klasseokt-testspill-finished-1280.png`: Klasseøkt after a finished test game: Valgknapper and «Start testspill» back, Lenke «Se forrige testspill» (1280 px).
+- `klasseokt-testspill-finished-390-text200.png`: Klasseøkt after a finished test game: Valgknapper and «Start testspill» back, Lenke «Se forrige testspill» (390 px, 200 % text).
+- `klasseokt-testspill-locked-320.png`: Klasseøkt after the Start date (locked answer laid over by route): «Testspill kan bare startes før Startdato.» and «Se forrige testspill» (320 px).
+- `klasseokt-testspill-locked-390.png`: Klasseøkt after the Start date (locked answer laid over by route): «Testspill kan bare startes før Startdato.» and «Se forrige testspill» (390 px).
+- `klasseokt-testspill-locked-768.png`: Klasseøkt after the Start date (locked answer laid over by route): «Testspill kan bare startes før Startdato.» and «Se forrige testspill» (768 px).
+- `klasseokt-testspill-locked-1280.png`: Klasseøkt after the Start date (locked answer laid over by route): «Testspill kan bare startes før Startdato.» and «Se forrige testspill» (1280 px).
+- `klasseokt-testspill-locked-390-text200.png`: Klasseøkt after the Start date (locked answer laid over by route): «Testspill kan bare startes før Startdato.» and «Se forrige testspill» (390 px, 200 % text).

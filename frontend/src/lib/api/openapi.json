@@ -445,6 +445,29 @@
         "title": "AllocationStudentOut",
         "type": "object"
       },
+      "AnswerIn": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "maximum": 1000000.0,
+            "minimum": -1000000.0,
+            "title": "Answer",
+            "type": "integer"
+          },
+          "item_id": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id",
+          "answer"
+        ],
+        "title": "AnswerIn",
+        "type": "object"
+      },
       "AuditActor": {
         "description": "An actor of the log for the filter: a User with their name, or the system (both null).",
         "properties": {
@@ -635,6 +658,47 @@
           "bounced"
         ],
         "title": "BouncedRegistration",
+        "type": "string"
+      },
+      "ChainWeekCost": {
+        "additionalProperties": false,
+        "description": "The chain's cost from Uke 1 through `week`, summed over its Roles.",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "holding_cost",
+          "backorder_cost",
+          "total_cost",
+          "week"
+        ],
+        "title": "ChainWeekCost",
+        "type": "object"
+      },
+      "Choice": {
+        "description": "The answers to «Har du spilt et spill som ligner dette før?»; `skipped` is «Hopp over».",
+        "enum": [
+          "yes",
+          "no",
+          "unknown",
+          "skipped"
+        ],
+        "title": "Choice",
         "type": "string"
       },
       "ClassIn": {
@@ -991,6 +1055,11 @@
             "title": "Lab Hours",
             "type": "array"
           },
+          "lecturer_test_enabled": {
+            "default": false,
+            "title": "Lecturer Test Enabled",
+            "type": "boolean"
+          },
           "llm_unavailable": {
             "anyOf": [
               {
@@ -1116,6 +1185,16 @@
               }
             ],
             "title": "Test Deadline"
+          },
+          "test_game": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TestGameRefOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -1375,6 +1454,66 @@
           "archived"
         ],
         "title": "CopySourceOut",
+        "type": "object"
+      },
+      "CostLine": {
+        "additionalProperties": false,
+        "description": "One part of this Week's cost: units on the end-of-Week balance times the rate.",
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "holding",
+              "backorder"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "string"
+          },
+          "units": {
+            "minimum": 0.0,
+            "title": "Units",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "units",
+          "rate",
+          "amount"
+        ],
+        "title": "CostLine",
+        "type": "object"
+      },
+      "CostSum": {
+        "additionalProperties": false,
+        "description": "Holding and backlog cost and their sum, in kroner (Story 6.18).",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "holding_cost",
+          "backorder_cost",
+          "total_cost"
+        ],
+        "title": "CostSum",
         "type": "object"
       },
       "DatesIn": {
@@ -1722,6 +1861,16 @@
               }
             ]
           },
+          "game": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StudentGameOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -1780,6 +1929,14 @@
               }
             ],
             "title": "Start At"
+          },
+          "steps": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/StepOut"
+            },
+            "title": "Steps",
+            "type": "array"
           },
           "test_deadline": {
             "anyOf": [
@@ -1843,6 +2000,96 @@
           "error"
         ],
         "title": "ErrorEnvelope",
+        "type": "object"
+      },
+      "FinalIn": {
+        "additionalProperties": false,
+        "properties": {
+          "choice": {
+            "$ref": "#/components/schemas/Choice"
+          }
+        },
+        "required": [
+          "choice"
+        ],
+        "title": "FinalIn",
+        "type": "object"
+      },
+      "GameResult": {
+        "additionalProperties": false,
+        "description": "A finished Game's cost (Story 6.18, FR-28): each Role's, the chain's, and the chain's\nrunning cost per Uke. Numbers and Roles only: no names, no demand, no settings.",
+        "properties": {
+          "chain": {
+            "$ref": "#/components/schemas/CostSum"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleCost"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/ChainWeekCost"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles",
+          "chain",
+          "weeks"
+        ],
+        "title": "GameResult",
+        "type": "object"
+      },
+      "GameRulesOut": {
+        "description": "The rules «Regler før første ordre» states (Story 6.2, FR-84), from the Class session's\nfrozen settings: the delays, the number of Veiledede uker and the two cost rates. Never the\nnumber of Weeks, the demand, its seed or the largest Order (FR-14, AD-3).",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "capacity": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RoleCapacityOut"
+            },
+            "title": "Capacity",
+            "type": "array"
+          },
+          "guided_weeks": {
+            "title": "Guided Weeks",
+            "type": "integer"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "order_delay": {
+            "title": "Order Delay",
+            "type": "integer"
+          },
+          "production_delay": {
+            "title": "Production Delay",
+            "type": "integer"
+          },
+          "shipping_delay": {
+            "title": "Shipping Delay",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "order_delay",
+          "shipping_delay",
+          "production_delay",
+          "guided_weeks",
+          "holding_cost",
+          "backorder_cost"
+        ],
+        "title": "GameRulesOut",
         "type": "object"
       },
       "GameSettings": {
@@ -2004,6 +2251,24 @@
           }
         },
         "title": "GameSettings",
+        "type": "object"
+      },
+      "GivenRowOut": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "GivenRowOut",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -2460,6 +2725,38 @@
         "title": "InvitationTokenIn",
         "type": "object"
       },
+      "ItemResultOut": {
+        "description": "The stored answer and its score. Only for an answered item: the answer key is never sent\nbefore.",
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "integer"
+          },
+          "correct": {
+            "title": "Correct",
+            "type": "boolean"
+          },
+          "expected": {
+            "title": "Expected",
+            "type": "integer"
+          },
+          "terms": {
+            "items": {
+              "$ref": "#/components/schemas/SumTermOut"
+            },
+            "title": "Terms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "answer",
+          "correct",
+          "expected",
+          "terms"
+        ],
+        "title": "ItemResultOut",
+        "type": "object"
+      },
       "LabHourIn": {
         "additionalProperties": false,
         "description": "A Lab hour as the Lecturer adds or changes it (Story 5.6, FR-19): its start and end as\ninstants with their offset, and its place. The service judges the rules (`invalid_lab_hour`),\nso a blank or long place gets its reason rather than a schema error.",
@@ -2626,6 +2923,41 @@
         "title": "ManualRegistrationIn",
         "type": "object"
       },
+      "NeighbourNumber": {
+        "additionalProperties": false,
+        "description": "One number about a neighbouring Seat, labelled with its Role and the Week it refers to.",
+        "properties": {
+          "quantity": {
+            "enum": [
+              "inventory",
+              "backlog"
+            ],
+            "title": "Quantity",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "value": {
+            "minimum": 0.0,
+            "title": "Value",
+            "type": "integer"
+          },
+          "week": {
+            "minimum": 1.0,
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "role",
+          "week",
+          "quantity",
+          "value"
+        ],
+        "title": "NeighbourNumber",
+        "type": "object"
+      },
       "NewPasswordIn": {
         "properties": {
           "password": {
@@ -2786,6 +3118,48 @@
         "title": "OfferedEffortLevelOut",
         "type": "object"
       },
+      "OrderIn": {
+        "additionalProperties": false,
+        "description": "The Student's Order for the open Week (Story 6.12): one whole number; the command checks\nit lies from 0 to the Game settings maximum (`order_invalid`).",
+        "properties": {
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "order"
+        ],
+        "title": "OrderIn",
+        "type": "object"
+      },
+      "OrderPreview": {
+        "additionalProperties": false,
+        "description": "Coefficients for the live Order preview (AD-10): with a typed Order x, the supply line\nbecomes `supply_line_base + x` and the position `position_base + x`; the Order reaches\ninventory in `order_arrival_week` if the upstream Seat ships it in full.",
+        "properties": {
+          "order_arrival_week": {
+            "minimum": 1.0,
+            "title": "Order Arrival Week",
+            "type": "integer"
+          },
+          "position_base": {
+            "title": "Position Base",
+            "type": "integer"
+          },
+          "supply_line_base": {
+            "minimum": 0.0,
+            "title": "Supply Line Base",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "order_arrival_week",
+          "supply_line_base",
+          "position_base"
+        ],
+        "title": "OrderPreview",
+        "type": "object"
+      },
       "PasswordResetIn": {
         "properties": {
           "email": {
@@ -2798,6 +3172,103 @@
           "email"
         ],
         "title": "PasswordResetIn",
+        "type": "object"
+      },
+      "PlayOut": {
+        "description": "The play screen's one envelope (Story 6.6, AD-3): what the Student's own Seat sees in the\nopen Week (`seat_state`, numbers and Roles only), the own turn (`turn`, Story 6.10) and who\nsits where (`table_status`), with the server's clock. Never the number of Weeks, future\ndemand, another Seat's numbers or a reference Order (FR-14, FR-23).",
+        "properties": {
+          "next_change_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Change At"
+          },
+          "seat_state": {
+            "$ref": "#/components/schemas/SeatState"
+          },
+          "server_now": {
+            "format": "date-time",
+            "title": "Server Now",
+            "type": "string"
+          },
+          "table_status": {
+            "$ref": "#/components/schemas/TableStatusOut"
+          },
+          "turn": {
+            "$ref": "#/components/schemas/PlayTurnOut"
+          }
+        },
+        "required": [
+          "seat_state",
+          "turn",
+          "table_status",
+          "server_now",
+          "next_change_at"
+        ],
+        "title": "PlayOut",
+        "type": "object"
+      },
+      "PlayTurnOut": {
+        "description": "The Student's own turn in the open Week (Story 6.10): whether it is a Guided Week, the\nSeat's Order once placed (in a Guided Week the fixed Order, placed when the Week opened) and\nwhether the Student has opened the Guided Week. Never how many Guided Weeks there are.",
+        "properties": {
+          "guided": {
+            "title": "Guided",
+            "type": "boolean"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order"
+          },
+          "viewed": {
+            "title": "Viewed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "guided",
+          "order",
+          "viewed"
+        ],
+        "title": "PlayTurnOut",
+        "type": "object"
+      },
+      "ProposalPersonOut": {
+        "description": "A Student named by the scheduling aid (Story 6.19): the name now, and whether it is the\nreader. None as name for a Student no longer in the Class.",
+        "properties": {
+          "mine": {
+            "title": "Mine",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "name",
+          "mine"
+        ],
+        "title": "ProposalPersonOut",
         "type": "object"
       },
       "RegistrationOut": {
@@ -3060,6 +3531,53 @@
         ],
         "title": "Role",
         "type": "string"
+      },
+      "RoleCapacityOut": {
+        "description": "A capped Role (Story 6.22, FR-12): the most it ships per Week, a rule of the game.",
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "units": {
+            "title": "Units",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "role",
+          "units"
+        ],
+        "title": "RoleCapacityOut",
+        "type": "object"
+      },
+      "RoleCost": {
+        "additionalProperties": false,
+        "description": "One Role's cost over the whole Game: a row of Kjedens regning, per Role, never per name.",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "holding_cost",
+          "backorder_cost",
+          "total_cost",
+          "role"
+        ],
+        "title": "RoleCost",
+        "type": "object"
       },
       "RoleIn": {
         "description": "The account role an Admin grants (Story 3.9).",
@@ -3539,6 +4057,14 @@
         "title": "SeatChoiceSeatOut",
         "type": "object"
       },
+      "SeatMark": {
+        "description": "What a Seat's row says beyond its holder (AD-15, Story 6.14), from the one mapping\n`games.service.seat_mark`. Later stories add the marks they need.",
+        "enum": [
+          "guard_switch"
+        ],
+        "title": "SeatMark",
+        "type": "string"
+      },
       "SeatRef": {
         "description": "A Seat named by its Class game's number and its Role: «Grossist i Spill 17».",
         "properties": {
@@ -3555,6 +4081,171 @@
           "role"
         ],
         "title": "SeatRef",
+        "type": "object"
+      },
+      "SeatState": {
+        "additionalProperties": false,
+        "description": "What one Seat sees in one opened Week: the single information boundary (AD-3, FR-23).\n\nThe play screen, the LLM player's prompt and the Decision log (`state_seen`) all read this\nmodel, and a field is added here, never beside it. It holds numbers and Roles only: no\nnames, no number of Weeks, no future demand and no other Seat's state beyond the\n`neighbour_numbers` that Information visibility allows: the direct neighbours' inventory and\nbacklog in the open Week, filled by `games.views.build_seat_state` while\n`FEATURE_INFO_VISIBILITY` is on (Story 6.21).\nEvery number comes from `engine.seat_view` and `engine.seat_detail`; engine functions that\ntake a `SeatView` accept this model as it is.\n\nVersion 2 (Story 6.6) adds `net_inventory` to the Week and to each `history` row, for the\nplay screen's Netto lager. Version 3 (Story 6.7) adds `holding_cost` and `backorder_cost` to\neach `history` row, for the graph's Kost per uke bars. Version 4 (Story 6.16) adds the running\nsums for «Kostnad så langt»: `total_holding_cost` and `total_backorder_cost` on the Week, and\n`total_cost`, `total_holding_cost` and `total_backorder_cost` on each `history` row. A stored\nversion 1, 2 or 3 state reads as version 4.",
+        "properties": {
+          "backlog": {
+            "minimum": 0.0,
+            "title": "Backlog",
+            "type": "integer"
+          },
+          "cost_lines": {
+            "items": {
+              "$ref": "#/components/schemas/CostLine"
+            },
+            "title": "Cost Lines",
+            "type": "array"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/WeekValues"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "incoming_delivery": {
+            "minimum": 0.0,
+            "title": "Incoming Delivery",
+            "type": "integer"
+          },
+          "incoming_order": {
+            "minimum": 0.0,
+            "title": "Incoming Order",
+            "type": "integer"
+          },
+          "incoming_orders": {
+            "items": {
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "minItems": 1,
+            "title": "Incoming Orders",
+            "type": "array"
+          },
+          "inventory": {
+            "minimum": 0.0,
+            "title": "Inventory",
+            "type": "integer"
+          },
+          "max_order": {
+            "minimum": 0.0,
+            "title": "Max Order",
+            "type": "integer"
+          },
+          "min_order": {
+            "minimum": 0.0,
+            "title": "Min Order",
+            "type": "integer"
+          },
+          "neighbour_numbers": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/NeighbourNumber"
+            },
+            "title": "Neighbour Numbers",
+            "type": "array"
+          },
+          "net_inventory": {
+            "title": "Net Inventory",
+            "type": "integer"
+          },
+          "order_history": {
+            "items": {
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Order History",
+            "type": "array"
+          },
+          "overdue": {
+            "minimum": 0.0,
+            "title": "Overdue",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "preview": {
+            "$ref": "#/components/schemas/OrderPreview"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "schema_version": {
+            "const": 4,
+            "default": 4,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "shipped": {
+            "minimum": 0.0,
+            "title": "Shipped",
+            "type": "integer"
+          },
+          "supply_line": {
+            "minimum": 0.0,
+            "title": "Supply Line",
+            "type": "integer"
+          },
+          "supply_line_slots": {
+            "items": {
+              "$ref": "#/components/schemas/SupplyLineSlot"
+            },
+            "title": "Supply Line Slots",
+            "type": "array"
+          },
+          "total_backorder_cost": {
+            "title": "Total Backorder Cost",
+            "type": "string"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "total_holding_cost": {
+            "title": "Total Holding Cost",
+            "type": "string"
+          },
+          "week": {
+            "minimum": 1.0,
+            "title": "Week",
+            "type": "integer"
+          },
+          "week_cost": {
+            "title": "Week Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "inventory",
+          "backlog",
+          "incoming_orders",
+          "supply_line",
+          "order_history",
+          "week",
+          "incoming_order",
+          "incoming_delivery",
+          "shipped",
+          "supply_line_slots",
+          "overdue",
+          "net_inventory",
+          "position",
+          "cost_lines",
+          "week_cost",
+          "total_cost",
+          "total_holding_cost",
+          "total_backorder_cost",
+          "history",
+          "min_order",
+          "max_order",
+          "preview"
+        ],
+        "title": "SeatState",
         "type": "object"
       },
       "SessionOut": {
@@ -3876,6 +4567,512 @@
         "title": "StaffStatus",
         "type": "string"
       },
+      "StartedTestGameOut": {
+        "description": "The test Game just started (Story 6.20); the web app opens its play route.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "StartedTestGameOut",
+        "type": "object"
+      },
+      "StartingTaskItemOut": {
+        "properties": {
+          "asked_label": {
+            "title": "Asked Label",
+            "type": "string"
+          },
+          "column": {
+            "title": "Column",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ItemResultOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/GivenRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "prompt",
+          "hint",
+          "column",
+          "rows",
+          "asked_label",
+          "result"
+        ],
+        "title": "StartingTaskItemOut",
+        "type": "object"
+      },
+      "StartingTaskOut": {
+        "description": "The Student's Starting task: the pinned content version, the items in order (answered\nones with their result), the final question's choice and whether the task is done. The web\napp resumes at the first item without a result.",
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StartingTaskItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "played_before": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Choice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "items",
+          "played_before",
+          "done"
+        ],
+        "title": "StartingTaskOut",
+        "type": "object"
+      },
+      "StepOut": {
+        "description": "A step of Stegene (Story 6.1, UX-DR29, AD-10, AD-16), its state computed here: the web app\nholds no rule for which step is open.",
+        "properties": {
+          "state": {
+            "enum": [
+              "done",
+              "current",
+              "locked"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "step": {
+            "enum": [
+              "class_game",
+              "debrief",
+              "quiz",
+              "replay",
+              "test",
+              "report"
+            ],
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "state"
+        ],
+        "title": "StepOut",
+        "type": "object"
+      },
+      "StudentGameOut": {
+        "description": "The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four\nSeats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`).",
+        "properties": {
+          "briefing_first": {
+            "title": "Briefing First",
+            "type": "boolean"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/GameRulesOut"
+          },
+          "seat_state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeatState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/TableSeatOut"
+            },
+            "title": "Seats",
+            "type": "array"
+          },
+          "server_now": {
+            "format": "date-time",
+            "title": "Server Now",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "not_ready",
+              "ready",
+              "running",
+              "finished"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "test_game": {
+            "default": false,
+            "title": "Test Game",
+            "type": "boolean"
+          },
+          "time_proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimeProposalOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "turn": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlayTurnOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "week": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "role",
+          "class_session_id",
+          "seats",
+          "briefing_first",
+          "rules",
+          "status",
+          "week",
+          "server_now",
+          "seat_state",
+          "turn"
+        ],
+        "title": "StudentGameOut",
+        "type": "object"
+      },
+      "SumTermOut": {
+        "description": "One part of the sum the result shows: «0 − 13 + 16» is (+1, 0), (−1, 13), (+1, 16).",
+        "properties": {
+          "sign": {
+            "enum": [
+              1,
+              -1
+            ],
+            "title": "Sign",
+            "type": "integer"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sign",
+          "value"
+        ],
+        "title": "SumTermOut",
+        "type": "object"
+      },
+      "SupplyLineSlot": {
+        "additionalProperties": false,
+        "description": "Units the Seat has ordered and not received, with the Week they can reach inventory.\n\n`ordered`: an Order the upstream Seat (or production, for the last Role) has not received\nyet; its arrival Week assumes the upstream Seat ships it in full. `in_transit` (shipping)\nand `in_production` (last Role) are goods on their way.",
+        "properties": {
+          "arrival_week": {
+            "minimum": 1.0,
+            "title": "Arrival Week",
+            "type": "integer"
+          },
+          "quantity": {
+            "minimum": 0.0,
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "stage": {
+            "enum": [
+              "ordered",
+              "in_transit",
+              "in_production"
+            ],
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "quantity",
+          "arrival_week"
+        ],
+        "title": "SupplyLineSlot",
+        "type": "object"
+      },
+      "TableSeatOut": {
+        "description": "A Seat of the Student's Class game (Story 6.1, FR-22, FR-34): its Role and who holds it,\na Student by name, any AI player as «KI-spiller» (`ai`, never which kind), or free.",
+        "properties": {
+          "holder": {
+            "enum": [
+              "student",
+              "ai",
+              "free"
+            ],
+            "title": "Holder",
+            "type": "string"
+          },
+          "mark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeatMark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mine": {
+            "title": "Mine",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "ordered": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordered"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "wait_started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait Started At"
+          }
+        },
+        "required": [
+          "role",
+          "holder",
+          "name",
+          "mine",
+          "ordered",
+          "wait_started_at",
+          "mark"
+        ],
+        "title": "TableSeatOut",
+        "type": "object"
+      },
+      "TableStatusOut": {
+        "description": "Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers.",
+        "properties": {
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/TableSeatOut"
+            },
+            "title": "Seats",
+            "type": "array"
+          }
+        },
+        "required": [
+          "seats"
+        ],
+        "title": "TableStatusOut",
+        "type": "object"
+      },
+      "TestGameIn": {
+        "additionalProperties": false,
+        "description": "«Start testspill» (Story 6.20): the Role the Lecturer plays.",
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "TestGameIn",
+        "type": "object"
+      },
+      "TestGameRefOut": {
+        "description": "A Lecturer's test Game (Story 6.20): where the play route stands for it.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "not_ready",
+              "ready",
+              "running",
+              "finished"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "TestGameRefOut",
+        "type": "object"
+      },
+      "TimeProposalIn": {
+        "additionalProperties": false,
+        "description": "«Send forslaget til gruppen» (Story 6.19): a date and a time as one instant, nothing else.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at"
+        ],
+        "title": "TimeProposalIn",
+        "type": "object"
+      },
+      "TimeProposalOut": {
+        "description": "The game's open proposal of a time to play (Story 6.19, FR-22): who proposed which time\nand who accepted, in the order they did. Never free text.",
+        "properties": {
+          "accepted_by": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalPersonOut"
+            },
+            "title": "Accepted By",
+            "type": "array"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "can_accept": {
+            "title": "Can Accept",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "proposed_by": {
+            "$ref": "#/components/schemas/ProposalPersonOut"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "proposed_by",
+          "accepted_by",
+          "can_accept"
+        ],
+        "title": "TimeProposalOut",
+        "type": "object"
+      },
       "UploadRow": {
         "description": "A row of the Class's staged upload: the invalid row a manual registration corrects.",
         "properties": {
@@ -4062,6 +5259,104 @@
           "sessions"
         ],
         "title": "WaitingClass",
+        "type": "object"
+      },
+      "WeekValues": {
+        "additionalProperties": false,
+        "description": "One earlier Week of the Seat, as it stood when its Order was placed.",
+        "properties": {
+          "backlog": {
+            "minimum": 0.0,
+            "title": "Backlog",
+            "type": "integer"
+          },
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "cost": {
+            "title": "Cost",
+            "type": "string"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "incoming_delivery": {
+            "minimum": 0.0,
+            "title": "Incoming Delivery",
+            "type": "integer"
+          },
+          "incoming_order": {
+            "minimum": 0.0,
+            "title": "Incoming Order",
+            "type": "integer"
+          },
+          "inventory": {
+            "minimum": 0.0,
+            "title": "Inventory",
+            "type": "integer"
+          },
+          "net_inventory": {
+            "title": "Net Inventory",
+            "type": "integer"
+          },
+          "order": {
+            "minimum": 0.0,
+            "title": "Order",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "shipped": {
+            "minimum": 0.0,
+            "title": "Shipped",
+            "type": "integer"
+          },
+          "supply_line": {
+            "minimum": 0.0,
+            "title": "Supply Line",
+            "type": "integer"
+          },
+          "total_backorder_cost": {
+            "title": "Total Backorder Cost",
+            "type": "string"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "total_holding_cost": {
+            "title": "Total Holding Cost",
+            "type": "string"
+          },
+          "week": {
+            "minimum": 1.0,
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "incoming_order",
+          "incoming_delivery",
+          "shipped",
+          "inventory",
+          "backlog",
+          "net_inventory",
+          "supply_line",
+          "position",
+          "cost",
+          "holding_cost",
+          "backorder_cost",
+          "total_cost",
+          "total_holding_cost",
+          "total_backorder_cost",
+          "order"
+        ],
+        "title": "WeekValues",
         "type": "object"
       }
     }
@@ -6824,6 +8119,99 @@
         ]
       }
     },
+    "/api/class-sessions/{session_id}/test-game": {
+      "post": {
+        "description": "«Start testspill» (Story 6.20, FR-87): the Lecturer plays a private test Game on the Class\nsession's current settings, in the chosen Role against three AI players; it starts at once.\n404 `not_found` while `FEATURE_LECTURER_TEST_GAME` is off (AD-17); 409 `session_locked` from\nthe Start date, `test_game_running` while their last test Game here runs, `llm_unavailable`;\n422 `unknown_role`; 403 `forbidden` for a session the User may not manage (FR-5).",
+        "operationId": "startTestGame",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestGameIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedTestGameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Start Test Game",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/classes": {
       "get": {
         "description": "The Classes the User is staff of, by name: «Klassene dine» on the Lærerhjem.",
@@ -8693,6 +10081,40 @@
         ]
       }
     },
+    "/api/events": {
+      "get": {
+        "description": "The live event stream (AD-8): `ready`, then `{topic, id, version}` for each change the\nUser may see, and `heartbeat` every 15 s. 401 without a valid session.",
+        "operationId": "streamEvents",
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "itemSchema": {
+                  "properties": {
+                    "data": {
+                      "type": "string"
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "retry": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stream Events"
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "health_api_health_get",
@@ -8922,6 +10344,832 @@
           }
         },
         "summary": "Take Seat",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}": {
+      "get": {
+        "description": "The Student's own Class game (Story 6.1): number, Role and the four Seats, from the Start\ndate. Any other game, one that does not exist and an id that is not one all answer the same\n403 `forbidden`, which never says whether the game exists (FR-5).",
+        "operationId": "getMyGame",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentGameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Game",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/play": {
+      "get": {
+        "description": "The play screen's one envelope (Story 6.6, AD-3): `seat_state`, what the Student's own Seat\nsees in the open Week (numbers and Roles only), `table_status`, who sits where, and the\nserver's clock. Never the number of Weeks, future demand, another Seat's numbers or a\nreference Order (FR-14, FR-23). 409 `game_not_running` before the start and after the end;\nany other game answers 403 `forbidden` (FR-5).",
+        "operationId": "getMyGamePlay",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Game Play",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/result": {
+      "get": {
+        "description": "«Spillet er ferdig» (Story 6.18, FR-28, AD-3): the chain's cost per Role, Detaljist to\nFabrikk, and per Uke, once the game has finished. Roles, never names, and no demand series.\n409 `game_not_finished` before the end, so no chain number leaks during play (FR-14); any\nother game answers 403 `forbidden` (FR-5).",
+        "operationId": "getMyGameResult",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Game Result",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/start": {
+      "post": {
+        "description": "«Start spillet» (Story 6.5, FR-22): the Student starts their own Class game for all four\nSeats and gets the game as it now stands. A game already started counts as done. 409\n`starting_task_required` before the Starting task is done, 409 `game_not_ready` before the\nlock has given the game its snapshot; any other game answers 403 `forbidden` (FR-5).",
+        "operationId": "startMyGame",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentGameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start My Game",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/starting-task": {
+      "get": {
+        "description": "The Student's Starting task: the items in order, each answered one with its result, the\nfinal question's choice and whether the task is done.",
+        "operationId": "getMyStartingTask",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartingTaskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Starting Task",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/starting-task/answers": {
+      "post": {
+        "description": "Send the answer to one item: scored by computed rules and stored once (a repeat keeps\nthe first answer). 422 `unknown_item` for an item the task does not have.",
+        "operationId": "answerStartingTaskItem",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartingTaskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Answer Starting Task Item",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/starting-task/final": {
+      "post": {
+        "description": "Answer or skip the final question; the task is then done and `starting_task` recorded.\n409 `items_open` while an item has no answer.",
+        "operationId": "finishStartingTask",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartingTaskOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Finish Starting Task",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/time-proposal": {
+      "post": {
+        "description": "«Send forslaget til gruppen» (Story 6.19, FR-22): the Student proposes a time to play, a\ndate and a time and nothing else. It replaces the game's open proposal and its acceptances,\nand each other Student of the game is told. Answers the game as it now stands. 422\n`time_out_of_range` unless the time lies after now and not after the Play deadline; 409\n`game_finished`; any other game, or a Seat the Student no longer holds, answers 403\n`forbidden` (FR-5).",
+        "operationId": "proposeMyGameTime",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimeProposalIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentGameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Propose My Game Time",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/time-proposal/{proposal_id}/accept": {
+      "post": {
+        "description": "«Godta tidspunktet» (Story 6.19, FR-22): the Student accepts the game's open proposal with\none press; an acceptance already stored counts as done. Answers the game as it now stands.\n409 `proposal_gone` (replaced, or its time has passed), `own_proposal` or `game_finished`;\nany other game, or a Seat the Student no longer holds, answers 403 `forbidden` (FR-5).",
+        "operationId": "acceptMyGameTime",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentGameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept My Game Time",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/weeks/{week}/order": {
+      "post": {
+        "description": "«Bekreft ordre på 24» (Story 6.12, FR-24, AD-2): the Student's Order for the open Week of\ntheir own Seat, placed once through `games.commands.place_order` with the Student as actor;\nthe client sends no `version`. 409 `order_exists` (also in a Guided Week, whose fixed Order\nis placed when it opens), `week_not_open`, `game_not_started`, `game_finished` or\n`seat_not_yours` (the Seat changed hands between the ownership check and the write); 422\n`order_invalid` (not a whole number from 0 to the maximum). Any other game, or a Seat the\nStudent no longer holds, answers 403 `forbidden` (FR-5).",
+        "operationId": "placeMyGameOrder",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "week",
+            "required": true,
+            "schema": {
+              "title": "Week",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Place My Game Order",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/weeks/{week}/view": {
+      "post": {
+        "description": "The Student has the Guided Week `week` on screen (Story 6.10, FR-24): it counts as their\nOrder there, and the view that leaves no Student to wait for opens the next Week. 204 also\nwhen the Week was viewed already. 409 `week_not_open` (the game has moved on),\n`week_not_guided`, `game_not_started`, `game_finished` or `seat_not_student`; any other\ngame, or a Seat the Student no longer holds, answers 403 `forbidden` (FR-5).",
+        "operationId": "viewMyGameWeek",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "week",
+            "required": true,
+            "schema": {
+              "title": "Week",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View My Game Week",
         "tags": [
           "sessions"
         ]

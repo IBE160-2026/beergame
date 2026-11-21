@@ -1511,3 +1511,550 @@ Avslutte Epic 5 etter kjøreboka: én oppfølgende gjennomgang, én stabiliserin
 - Issue #117: to punkter som er avgjort til senere (spill som aldri åpnes, og spill med bare KI-spillere når studentene velger).
 - Issue #56 og #60: Story 2.7 og 2.11 står i `review`.
 - Issue #31: tekstgjennomgang av alle [ASSUMPTION]-tekster.
+
+## Story 6.1: Se klassespill, rolle og plasser på Hjem (2026-11-20)
+
+### Oppgave
+Bygge Story 6.1, den første storyen i Epic 6, etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-1-see-class-game-role-seats-on-hjem.md`. I tillegg er `epic-6-context.md` laget.
+- **Commit 1e17fda:**
+  - `game` og `steps` i `/api/me/class-sessions`, og modulen `progress` (migrasjon 0045);
+  - `own_seat` og `GET /api/me/games/{id}`;
+  - ny Hjem for studenten.
+- **Tester:**
+  - backend: 2610 tester (64 s);
+  - frontend: Vitest 467, typecheck og bygg;
+  - Playwright: 288 tester med 2 arbeidere.
+- **Gjennomgang:** 47 funn, 4 middels. 3 ble rettet.
+- **Visuell kontroll:** 18 skjermbilder i `screenshots/6.1/`. Tre avvik er rettet (bd3cb91).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 119: beslutninger i Story 6.1.
+
+## Story 6.2: Lese reglene før første ordre (2026-11-20)
+
+### Oppgave
+Bygge Story 6.2 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-2-read-rules-before-first-order.md`.
+- **Commit 7aaf91b:** regelsiden `/spill/{id}/regler`, `briefing_first` og `rules` i spillkortet, og «Les reglene» på Hjem.
+- **Tester:**
+  - backend: 2613 tester;
+  - frontend: Vitest 473 og bygg;
+  - Playwright: 297 tester med 2 arbeidere.
+- **Gjennomgang:** to runder. Grafstripa er utsatt til 6.6 og 6.7.
+- **Visuell kontroll:** 9 skjermbilder i `screenshots/6.2/`. To avvik er rettet (6ca3ac6).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 120: beslutninger i Story 6.2.
+
+## Story 6.3: Gjøre startoppgaven (2026-11-20)
+
+### Oppgave
+Bygge Story 6.3 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-3-do-the-starting-task.md`.
+- **Commit 4a5c3a7:**
+  - modulene `content` og `tests`, migrasjon 0046 og `score_sum`;
+  - tre ruter for startoppgaven og siden `/spill/{id}/startoppgave`;
+  - komponenten `column-item`.
+- **Tester:**
+  - backend: 2628 tester;
+  - frontend: Vitest 480 og bygg;
+  - Playwright: 305 tester med 2 arbeidere;
+  - én ny test tar 1,1 s.
+- **Gjennomgang:** 55 funn. 2 middels grupper ble rettet.
+- **Visuell kontroll:** 19 skjermbilder i `screenshots/6.3/`. Ingen klare avvik; tre punkter er samlet til avslutningen av epicet.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 121: beslutninger i Story 6.3.
+
+## Story 6.4: Se endringer uten å laste siden på nytt (2026-11-20)
+
+### Oppgave
+Bygge Story 6.4 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`. Ingen egen visuell kontroll, fordi den eneste synlige endringen er linja om tilkoblingen.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-4-see-changes-without-reloading.md`.
+- **Commit 851bf88:** SSE på `GET /api/events` med `LISTEN` i Postgres, ny henting etter `topics.ts` i webappen, og linja som viser at siden er utdatert.
+- **Tester:**
+  - backend: 2651 tester;
+  - frontend: Vitest 493 og bygg;
+  - Playwright: 309 tester med 2 arbeidere, uten faste pauser.
+- **Gjennomgang:** 46 funn, 5 middels. 2 ble rettet, og 1 er utsatt. Byggeagenten anbefaler en oppfølgende gjennomgang.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 122: beslutninger i Story 6.4.
+
+## Story 6.5: Starte klassespillet (2026-11-20)
+
+### Oppgave
+Bygge Story 6.5 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-5-start-the-class-game.md`.
+- **Commit 81538f1:**
+  - `POST /api/me/games/{id}/start`, og `status` og `week` på spillet;
+  - neste steg på Hjem, på ferdigskjermen og på den nye spillsiden `/spill/{id}`.
+- **Tester:**
+  - backend: 2659 tester;
+  - frontend: Vitest 495 og bygg;
+  - Playwright: 319 tester med 2 arbeidere.
+- **Gjennomgang:** 37 funn, 4 middels. Alle er rettet. Byggeagenten anbefaler en oppfølgende gjennomgang.
+- **Visuell kontroll:** 29 skjermbilder i `screenshots/6.5/`. Ingen klare avvik.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 123: beslutninger i Story 6.5, og en merknad om hvordan et helt spill kan kjøres i de siste reisene.
+
+## Story 6.6: Se uka til plassen min i uketabellen (2026-11-20)
+
+### Oppgave
+Bygge Story 6.6 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-6-see-my-seat-week-in-week-table.md`.
+- **Commit 1243a70:**
+  - `GET /api/me/games/{id}/play`, og Netto lager i motoren (`SeatState` v2);
+  - Topplinja og uketabellen på `/spill/{id}`, med oppsett for telefon, nettbrett og laptop.
+- **Tester:**
+  - backend: 2674 tester (65 s), og dekningen av motoren er 100 %;
+  - frontend: Vitest 504 og bygg;
+  - Playwright: 330 tester med 2 arbeidere.
+- **Gjennomgang:** 33 lave funn. 11 ble rettet.
+- **Visuell kontroll:** 24 skjermbilder i `screenshots/6.6/`. Tre avvik er rettet (94d50db).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 124: beslutninger i Story 6.6.
+
+## Story 6.7: Se Netto lager, Posisjon og kostnad som graf over tabellen (2026-11-20)
+
+### Oppgave
+Bygge Story 6.7 etter kjøreboka, og gjøre ukenumrene grå unntatt inneværende uke (Issue #124).
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-7-graph-over-table.md`.
+- **Commit 548c08f:**
+  - graf over tabellen i SVG laget for hånd, med «Nå»-linje og fremtid i tonet bakgrunn;
+  - kostnadsdelingen i motoren (`SeatState` v3);
+  - PDF-sjekk med WeasyPrint i CI.
+- **Tester:**
+  - backend: 2693 tester, og dekningen av motoren er 100 %;
+  - frontend: Vitest 523 og bygg;
+  - Playwright: 349 tester med 2 arbeidere;
+  - PDF-sjekken passerer.
+- **Gjennomgang:** 31 lave funn. 6 ble rettet.
+- **Visuell kontroll:** 20 skjermbilder i `screenshots/6.7/`. Ett avvik er rettet (e960af9).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 125: beslutninger i Story 6.7.
+
+## Story 6.8: Se plassen med Demodata på forsiden som graf over tabellen (2026-11-20)
+
+### Oppgave
+Bygge Story 6.8 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-8-landing-demodata-graph-over-table.md`.
+- **Commit 2e950e5:** `seat-figure.tsx` med samme `WeekTable` som spillskjermen, data fra motoren i `demo-seat.json`, og felles sjekker for justering i `e2e/support/graph.ts`.
+- **Tester:**
+  - backend: 2694 tester;
+  - frontend: Vitest 525 og bygg;
+  - Playwright: 348 av 349 passerte. 1 mailtest feilet under last og passerte alene.
+- **Gjennomgang:** 32 funn. 15 lave ble rettet.
+- **Visuell kontroll:** 6 skjermbilder i `screenshots/6.8/`. To avvik er rettet (d1c33b4).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 126: beslutninger i Story 6.8.
+
+## Story 6.9: Se mitt ledd i kjeden i Kjedebåndet (2026-11-20)
+
+### Oppgave
+Bygge Story 6.9 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-9-kjedeband-own-link.md`.
+- **Commit dd227c6:** Kjedebåndet i SVG med en egen utregning av oppsettet, plassert mellom Topplinja og grafen. Ingen endringer i backend.
+- **Tester:**
+  - backend: 2695 tester;
+  - frontend: Vitest 544 og bygg;
+  - Playwright: 357 tester med 2 arbeidere.
+- **Gjennomgang:** 36 lave funn. 6 ble rettet.
+- **Visuell kontroll:** 40 skjermbilder i `screenshots/6.9/`. Ett avvik er rettet (c7287ef).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 127: beslutninger i Story 6.9.
+
+## Story 6.10: Spille de veiledede ukene (2026-11-20)
+
+### Oppgave
+Bygge Story 6.10 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-10-play-the-guided-weeks.md`.
+- **Commit e0db96f:** fast ordre for alle plasser i veiledede uker, visning som ordre (migrasjon 0047), og felt som bare kan leses på spillskjermen.
+- **Tester:**
+  - backend: 2704 tester (76 s), og resultatene fra golden batch er uendret;
+  - frontend: Vitest 547 og bygg;
+  - Playwright: 364 tester før rettingene, og 55 tester for spillskjermen etter dem.
+- **Gjennomgang:** 30 funn, 1 middels. 4 ble rettet.
+- **Visuell kontroll:** 14 skjermbilder i `screenshots/6.10/`. Ett avvik er rettet (e1ddf85).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 128: beslutninger i Story 6.10.
+
+## Story 6.11: Skrive en ordre og se hvor den kommer fram (2026-11-20)
+
+### Oppgave
+Bygge Story 6.11 etter kjøreboka, og fjerne tekstmarkøren i ordrefeltet når det bare kan leses (Issue #128).
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-11-type-an-order-and-see-where-it-lands.md`.
+- **Commit f31ace1:** ordrefelt med − og + og validering, forhåndsvisning i tabellen med en tynn linje, og en boks i Kjedebåndet.
+- **Tester:**
+  - backend: 2705 tester (75 s);
+  - frontend: Vitest 631 og bygg;
+  - Playwright: 370 tester.
+- **Gjennomgang:** 33 lave funn. 7 ble rettet, og 1 er utsatt til 6.12.
+- **Visuell kontroll:** 30 skjermbilder i `screenshots/6.11/`. Ingen klare avvik.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 129: beslutninger i Story 6.11.
+
+## Story 6.12: Bekrefte ordren og beholde det som er skrevet (2026-11-20)
+
+### Oppgave
+Bygge Story 6.12 etter kjøreboka, med testen som ble utsatt fra 6.11.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-12-confirm-the-order-and-keep-what-i-typed.md`.
+- **Commit 77f6111:** ordreruten med `actor` i `place_order`, tilstandene «sender» og «bekreftet» i ordrefeltet, og utkast som tåler ny lasting (`drafts.ts`).
+- **Tester:**
+  - backend: 2712 tester;
+  - frontend: Vitest 638 og bygg;
+  - Playwright: 382 tester.
+- **Gjennomgang:** 31 lave funn. 6 ble rettet.
+- **Visuell kontroll:** 22 skjermbilder i `screenshots/6.12/`. Ett avvik er rettet (7c2e91c).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 130: beslutninger i Story 6.12.
+
+## Story 6.13: Aldri miste eller doble en ordre ved dårlig forbindelse (2026-11-21)
+
+### Oppgave
+Bygge Story 6.13 etter kjøreboka, og rette bruddet før «…» fra Issue #130.
+
+### Plan
+Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-13-never-lose-or-double-an-order-on-a-bad-connection.md`.
+- **Commit 8821dcd:** sjekk av lagret ordre etter feil, tidsavbrudd etter 10 s med sjekk, tilstand uten nett, og en API-test for kappløp. Ingen endringer i backend-koden.
+- **Tester:**
+  - backend: 2713 tester;
+  - frontend: Vitest 644 og bygg;
+  - Playwright: 390 passerte og 1 feilet på en lokator, som er rettet.
+- **Gjennomgang:** 37 funn, 5 middels. Byggeagenten anbefaler en oppfølgende gjennomgang.
+- **Visuell kontroll:** 26 skjermbilder i `screenshots/6.13/`. Ingen avvik. Hele Playwright-pakken passerte 395/395.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 131: beslutninger i Story 6.13.
+
+## Story 6.14: Se hvilke plasser som har bestilt, og hvem spillet venter på (2026-11-21)
+
+### Oppgave
+Bygge Story 6.14 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, og kjøre bare e2e-filene for de berørte skjermene (ny regel). Gjøre en visuell kontroll med full backend-kjøring og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-14-see-which-seats-have-ordered-and-whom-the-game-waits-for.md`.
+- **Commit 1230594:** migrasjon 0048 `wait_started_at`, `next_change_at` fra fristene til KI-spillerne, og Setestatus på spillskjermen og Hjem.
+- **Tester:**
+  - backend: hele pakken passerte i den visuelle kontrollen;
+  - frontend: Vitest 653 og bygg;
+  - Playwright: 145 målrettede tester.
+- **Gjennomgang:** 36 funn, 1 middels. Det middels er rettet.
+- **Visuell kontroll:** 23 skjermbilder i `screenshots/6.14/`. Ingen klare avvik; to punkter er samlet til avslutningen av epicet.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 132: beslutninger i Story 6.14.
+
+## Story 6.15: Se den nye uka innen to sekunder, på alle enheter (2026-11-21)
+
+### Oppgave
+Bygge Story 6.15 etter kjøreboka.
+
+### Plan
+Måle først, så rette. Gjøre en visuell kontroll og avslutte. To gjennomgangsagenter i stedet for fire.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-15-see-new-week-within-two-seconds-on-any-device.md`.
+- **Commit a95c4cb:**
+  - rettingen i `live.ts`; ny uke vises nå etter 385–820 ms, mot 590–706 ms før;
+  - oppsummering av ukeovergangen og nå-linja som glir;
+  - ruten for lokal lås (`/api/dev/…/lock`).
+- **Tester:**
+  - backend: 2731 tester (96 s, over grensen);
+  - frontend: Vitest 658 og bygg;
+  - Playwright: 406 tester i full kjøring.
+- **Gjennomgang:** 31 funn, 1 middels. 8 ble rettet.
+- **Visuell kontroll:** 29 skjermbilder i `screenshots/6.15/`. Ett avvik er rettet (b1e1c18).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 133: beslutninger i Story 6.15.
+- Backend-pakken er gjort raskere: fra 78,7 s til 59,8 s (commit 17af926).
+
+## Story 6.16: Se hva plassen har kostet så langt (2026-11-21)
+
+### Oppgave
+Bygge Story 6.16 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en visuell kontroll og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-16-see-what-my-seat-has-cost-so-far.md`.
+- **Commit 4f3b9cc:**
+  - løpende kostnad i motoren (`SeatState` v4);
+  - «Kostnad så langt» med graf og tabell, og Alle rader på telefon;
+  - panelet på forsiden, og kostnadsaksen i steg på 20 kr.
+- **Tester:**
+  - backend: 2742 tester (63–69 s);
+  - frontend: Vitest 669 og bygg;
+  - Playwright: 155 målrettede tester.
+- **Gjennomgang:** 23 funn, 1 middels. 5 ble rettet.
+- **Visuell kontroll:** 11 skjermbilder i `screenshots/6.16/`. Ett avvik er rettet (ce44a40).
+- **CI:** e2e var rød på `student-choice` og `worker-ai`, og er rettet i 07345fa.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 134: beslutninger i Story 6.16.
+
+## Story 6.17: Se på Hjem om spillet venter på meg (2026-11-21)
+
+### Oppgave
+Bygge Story 6.17 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en visuell kontroll og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-17-see-on-hjem-whether-the-game-waits-for-me.md`.
+- **Commit 6885186:** felles spillkort med liten graf og tre rader, tallene for egen plass i Hjem-dataene, og «Spillet venter på deg».
+- **Tester:**
+  - backend: hele pakken (68 s);
+  - frontend: Vitest og bygg;
+  - Playwright: de berørte filene.
+- **Gjennomgang:** 17 lave funn. 6 ble rettet.
+- **Visuell kontroll:** 21 skjermbilder i `screenshots/6.17/`. Ingen klare avvik.
+- **CI:** grønn igjen etter rettingen i 07345fa.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 135: beslutninger i Story 6.17.
+
+## Story 6.18: Se kjedens totalkostnad når spillet er ferdig (2026-11-21)
+
+### Oppgave
+Bygge Story 6.18 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en visuell kontroll og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-18-see-the-chains-total-cost-when-the-game-ends.md`.
+- **Commit 36d86e2:**
+  - slutten av spillet og steget «klassespill»;
+  - resultatruten;
+  - sluttskjermen med Kjedens regning og kostnad over tid;
+  - linja på Hjem.
+- **Tester:**
+  - backend: 2746 tester (65 s);
+  - frontend: Vitest 687 og bygg;
+  - Playwright: de berørte filene.
+- **Gjennomgang:** 25 funn, 2 middels. Begge er rettet.
+- **Visuell kontroll:** 21 skjermbilder i `screenshots/6.18/`. Ett avvik er rettet (696697e).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 136: beslutninger i Story 6.18.
+
+## Story 6.19: Foreslå og godta et tidspunkt å spille (2026-11-21)
+
+### Oppgave
+Bygge Story 6.19 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en visuell kontroll og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-19-propose-and-accept-a-time-to-play.md`.
+- **Commit 744510f:** migrasjon 0049, `propose_time` og `accept_time`, mail i den daglige oppsummeringen, og forslaget på Hjem og spillsiden.
+- **Tester:**
+  - backend: 2744 tester (63 s);
+  - frontend: Vitest 692 og bygg;
+  - Playwright: 57 målrettede tester.
+- **Gjennomgang:** 24 funn, 1 middels. Det er rettet.
+- **Visuell kontroll:** 29 skjermbilder i `screenshots/6.19/`. Ingen klare avvik.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 137: beslutninger i Story 6.19.
+
+## Story 6.20: Spille et privat testspill som faglærer (kuttliste, `FEATURE_LECTURER_TEST_GAME`) (2026-11-21)
+
+### Oppgave
+Bygge Story 6.20 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en visuell kontroll og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-20-play-a-private-test-game-as-a-lecturer.md`.
+- **Commit 88d136b:** blokken «Testspill» på Klasseøkta, testspill med KI-spillere på spillskjermen til studentene, utelatelse fra lister og sveip (migrasjon 0050), og flagg.
+- **Tester:**
+  - backend: 2754 tester (70,8 s);
+  - frontend: Vitest 692 og bygg;
+  - Playwright: 66 målrettede tester.
+- **Gjennomgang:** 28 funn. Ett problem ble rettet.
+- **Visuell kontroll:** 40 skjermbilder i `screenshots/6.20/`. Ett avvik er rettet (8723631).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 138: beslutninger i Story 6.20.
+
+## Story 6.21: Se nabotallene som faglæreren har slått på (kuttliste, `FEATURE_INFO_VISIBILITY`) (2026-11-21)
+
+### Oppgave
+Bygge Story 6.21 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en kort visuell kontroll og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-21-see-the-neighbour-numbers-the-lecturer-switched-on.md`.
+- **Commit 5596450:** nabotall i `seat_state`, filtrert på serveren, promptversjonen `player_order/v2`, og blokker med nabotall i Kjedebåndet.
+- **Tester:**
+  - backend: 2770 tester (66 s);
+  - frontend: Vitest 699 og bygg;
+  - Playwright: 119 målrettede tester.
+- **Gjennomgang:** 22 lave funn. 6 ble rettet.
+- **Visuell kontroll:** 21 skjermbilder i `screenshots/6.21/`. Ett avvik er rettet (887a1e4).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 139: beslutninger i Story 6.21. LLM-spillere ser ikke nabotallene før konfigurasjonen flyttes til v2 (sammen med Issue #60).
+
+## Story 6.22: Se kapasiteten i reglene og på en plass med kapasitet (kuttliste, `FEATURE_CAPACITY`) (2026-11-21)
+
+### Oppgave
+Bygge Story 6.22, den siste storyen i Epic 6, etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en kort visuell kontroll og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-22-see-the-capacity-in-the-briefing-and-on-a-capped-seat.md`.
+- **Commit da35783:** `rules.capacity` i API-et, seksjonen «Kapasitet» i reglene, og radene Lager og Restordre for plassen med kapasitet.
+- **Tester:**
+  - backend: 2774 tester (66,8 s);
+  - frontend: Vitest 713 og bygg;
+  - Playwright: 138 målrettede tester.
+- **Gjennomgang:** 18 lave funn. 3 ble rettet.
+- **Visuell kontroll:** 14 skjermbilder i `screenshots/6.22/`. Ingen avvik.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 140: beslutninger i Story 6.22.
+
+## Avslutning av Epic 6 (2026-11-21)
+
+### Oppgave
+Avslutte Epic 6 etter kjøreboka: oppfølgende gjennomgang, de samlede UX-punktene, testfart og stabil e2e, og deretter PR og merge.
+
+### Plan
+1. Gjennomgå logikken i 6.1, 6.4, 6.5 og 6.13 og fem logikkpunkter, og rette de 17 UX-punktene. Disse to delene gikk i parallell.
+2. Gjøre e2e raskere og stabil.
+3. Lage en PR mot `main`.
+
+### Resultat
+- **Oppfølgende gjennomgang:** commits 59824a4–8ab777b.
+  - SSE dekket ikke lenger spill studenten har forlatt.
+  - API-et viste ikke lenger en plass en annen student hadde overtatt.
+  - `order_exists` svarer før `week_not_open`.
+  - En medeier ser nye økter uten å koble til på nytt.
+  - Sjekken av ferdige spill venter lenger og lenger mellom forsøk når den feiler.
+  - Fristen leses under lås.
+  - `test_rescue` avhenger ikke lenger av klokka.
+- **UX-rettinger:** commits fbd4728, 2950cee, 1c458af og 4603cb7.
+  - 16 av 17 punkter er rettet, blant dem norsk datoformat (`--lang=nb-NO`) og feilen der et ferdig spill viste plassene som «venter».
+  - Grafstripa i reglene og totalaksen med steget 2,5 er på plass.
+  - Skjermbildene ligger i `screenshots/epic-6-avslutning/`.
+- **Stabilisering:** commits efc9cb3, 7d86933 og 2ace2cb.
+  - En ekte feil i backend: rutene for studenter holdt to tilkoblinger til databasen samtidig, og poolen låste seg når mange sider leste på nytt. Rettet, med en test.
+  - Nettleserkontekster som ble liggende åpne etter testene, lukkes nå.
+  - En ustabil test for opplasting av klasseliste er rettet.
+  - Hele Playwright-pakken gikk fra 7,6 til 4,3 minutter (444 tester), og passerte to ganger på rad rett etter bygget. Backend-pakken tar 66,7 s.
+- **Issues:** #119–#140 er lukket.
+
+### Åpne punkter
+- Issue #141: tre punkter som er avgjort til senere. Det viktigste er en mulig fastlåsing av LLM-turer, og den hører til Epic 8.
+- Issue #139: LLM-spillere bruker `player_order/v2` først etter målingen mot OpenRouter (Issue #60).
+- Issue #56 og #60: Story 2.7 og 2.11 står i `review`.
+- Issue #31: tekstgjennomgang av alle [ASSUMPTION]-tekster.

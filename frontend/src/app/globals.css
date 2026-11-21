@@ -29,6 +29,16 @@
     }
   }
 
+  /* Headings wrap between words. A word that may not fit a line at 200 % text («Startoppgave»,
+     «Studentene» at 320 px) is hyphenated by the page language (`lang="nb"`) rather than cut
+     anywhere; words under eight letters are never split. */
+  h1,
+  h2,
+  h3 {
+    hyphens: auto;
+    hyphenate-limit-chars: 8 4 3;
+  }
+
   /* Fokusring: 2 px `ink` ring with a 2 px gap that shows the `paper` background. */
   :focus-visible {
     outline: 2px solid var(--color-ink);

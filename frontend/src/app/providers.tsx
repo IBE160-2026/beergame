@@ -4,6 +4,7 @@ import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@ta
 import { type ReactNode, useEffect, useState } from "react";
 
 import { isSessionExpired } from "@/lib/api/client";
+import { LiveUpdates } from "@/lib/api/live";
 import { errorCode } from "@/lib/api/mutation";
 import { LOGIN_PATH, loginPath } from "@/lib/return-path";
 
@@ -52,5 +53,11 @@ export function Providers({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("online", refetch);
   }, [queryClient]);
 
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      {/* Open pages follow changes by themselves (Story 6.4, AD-8). */}
+      <LiveUpdates />
+      {children}
+    </QueryClientProvider>
+  );
 }

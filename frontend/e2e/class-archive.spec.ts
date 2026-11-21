@@ -1,8 +1,8 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { latestMail, nextMail } from "./support/auth";
-import { expectAccessible, freshLecturer, VIEWPORTS } from "./support/classes";
+import { expectAccessible, freshLecturer, test, VIEWPORTS } from "./support/classes";
 
 /** Archiving a Class (Story 4.10, FR-6, NFR-6, UX-DR56), on the local stack. A fresh Lecturer
  * archives a fresh Class that has sent one Student Invitation: the consequence stands above the
@@ -138,6 +138,9 @@ test("a Student whose only Class is archived is told so on Hjem", async ({ page,
 test("a page left open turns read-only when another Faglærer has archived the Class", async ({ page, browser }) => {
   const lecturer = await freshLecturer(page, browser);
   const klass = await freshClass(lecturer, "stale");
+  // No event stream (Story 6.4): the page must still show the form when the archive lands, as on
+  // a connection whose events lag, so the refusal path is what is tested here.
+  await lecturer.route("**/api/events", (route) => route.abort());
   await lecturer.goto(`/klasser/${klass.id}`);
   await lecturer.getByRole("button", { name: nb.classes.entries.add }).click();
   // Archived meanwhile, as by a co-owner in another browser.

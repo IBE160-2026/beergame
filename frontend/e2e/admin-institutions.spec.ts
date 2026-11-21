@@ -1,15 +1,13 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { loginByApi } from "./support/auth";
+import { axe } from "./support/axe";
 
 /** «Institusjoner» in the Admin-område (Story 3.11, FR-3, FR-72, NFR-6), on the local stack. The
  * database is shared between runs, so every test makes names of its own; the empty state is
  * answered by the test, not the api. */
 const copy = nb.admin.institutions;
-const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
-
 type Viewport = { name: string; width: number; height: number; phone: boolean };
 
 const VIEWPORTS: Viewport[] = [
@@ -18,7 +16,7 @@ const VIEWPORTS: Viewport[] = [
 ];
 
 async function expectAccessible(page: Page, phone: boolean) {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
+  const results = await axe(page);
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
   const scrolls = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(scrolls).toBe(false);

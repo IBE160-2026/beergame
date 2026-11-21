@@ -1,0 +1,44 @@
+# Story 6.9: visual check of the Kjedebånd on the play screen (`/spill/{id}`)
+
+Taken after the visual fix (c7287ef: the band is at most 28 rem wide at every width, not only on laptop). Demo Student, faked `/api/me/games/{id}` and `/play` answers. Chromium, `nb-NO`, `Europe/Oslo`, full page. Every shot: no page-level sideways scroll, no band label outside the SVG, no two band labels overlapping, no text < 13 px. The Role shots put the engine's `chain-band-classic.json` Uke 14 band fields into the Grossist's Uke 14 envelope, so the graph and table under the band still show the Grossist's history (only the band is per Role).
+
+- `spill-fabrikk-uke14-320.png`: Fabrikk; «Produksjon» left, «Distributør» right, both end labels wrap under the band; Restordre 12, På vei 42.
+- `spill-fabrikk-uke14-390.png`: same at 390; end labels on the order line's row as in `05-spill.png`.
+- `spill-fabrikk-uke14-768.png`: same, phone layout, band 448 px over the narrower graph.
+- `spill-fabrikk-uke14-1280.png`: same, laptop left column.
+- `spill-distributor-uke14-320.png`: Distributør; «Fabrikk» left, «Grossist» right (wrapped); Lager 14 blue bar; overdue box «12».
+- `spill-distributor-uke14-390.png`: same at 390.
+- `spill-distributor-uke14-768.png`: same, phone layout.
+- `spill-distributor-uke14-1280.png`: same, laptop.
+- `spill-grossist-uke14-320.png`: Grossist; Restordre 44, tallest red bar of the set; På vei 24.
+- `spill-grossist-uke14-390.png`: same at 390.
+- `spill-grossist-uke14-768.png`: same, phone layout.
+- `spill-grossist-uke14-1280.png`: same, laptop.
+- `spill-detaljist-uke14-320.png`: Detaljist; «Kundene» right; overdue «44», På vei 70.
+- `spill-detaljist-uke14-390.png`: same at 390.
+- `spill-detaljist-uke14-768.png`: same, phone layout.
+- `spill-detaljist-uke14-1280.png`: same, laptop.
+- `spill-grossist-restordre-320.png`: Uke 11 fixture (as mockup): Restordre 20, boxes 4/4/8, På vei 16.
+- `spill-grossist-restordre-390.png`: same at 390; compare with `05-spill.png` left.
+- `spill-grossist-restordre-768.png`: same, phone layout.
+- `spill-grossist-restordre-1280.png`: same, laptop; compare with `05-spill.png` right.
+- `spill-grossist-lager-og-restordre-320.png`: Lager 9 and Restordre 6 both held: blue bar above, red below; «Restordre 6» wraps under the band.
+- `spill-grossist-lager-og-restordre-390.png`: same; both labels side by side.
+- `spill-grossist-lager-og-restordre-768.png`: same, phone layout.
+- `spill-grossist-lager-og-restordre-1280.png`: same, laptop.
+- `spill-grossist-lager0-320.png`: inventory 0, backlog 0: empty node, «Lager 0».
+- `spill-grossist-lager0-390.png`: same at 390.
+- `spill-grossist-lager0-768.png`: same, phone layout.
+- `spill-grossist-lager0-1280.png`: same, laptop.
+- `spill-grossist-overdue-320.png`: overdue 7: dashed box with two slashes at the far left, «7» above, SR clause «av dem 7 uten kjent uke».
+- `spill-grossist-overdue-390.png`: same at 390.
+- `spill-grossist-overdue-768.png`: same, phone layout.
+- `spill-grossist-overdue-1280.png`: same, laptop.
+- `spill-grossist-paavei-over80-320.png`: 84 known units (24/30/30) plus 12 overdue (På vei 96): the Uke shrinks, pipe fills to the overdue box, nothing past the band.
+- `spill-grossist-paavei-over80-390.png`: same at 390.
+- `spill-grossist-paavei-over80-768.png`: same, phone layout.
+- `spill-grossist-paavei-over80-1280.png`: same, laptop.
+- `spill-tekst200-overdue-320.png`: 200 % text (26 px), Grossist with overdue 7: most labels wrap into three rows under the band, each on its own side; marks stay at pixel scale.
+- `spill-tekst200-overdue-390.png`: same at 390; fewer labels wrap.
+- `spill-tekst200-fabrikk-320.png`: 200 % text, Fabrikk Uke 14; «Distributør»/«Produksjon» wrap.
+- `spill-tekst200-fabrikk-390.png`: same at 390.

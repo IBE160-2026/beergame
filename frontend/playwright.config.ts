@@ -12,11 +12,24 @@ export default defineConfig({
   reporter: process.env.CI ? [["list"], ["github"]] : "list",
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:8080",
-    trace: "retain-on-failure",
+    // A failed test keeps its trace (actions, network, console, the screencast) and a screenshot.
+    // The trace's DOM snapshots are left out: taken at every action of every test, they cost about
+    // a sixth of the suite's time.
+    trace: { mode: "retain-on-failure", snapshots: false, screenshots: true, sources: true },
+    screenshot: "only-on-failure",
   },
   // The browser as a Norwegian user has it (GitHub issue 100): Norwegian locale, Oslo time. After
-  // the device, which brings its own locale.
+  // the device, which brings its own locale. `--lang` sets the browser UI language, which native
+  // date and time fields follow (the locale alone leaves them in English).
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"], locale: "nb-NO", timezoneId: "Europe/Oslo" } },
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        locale: "nb-NO",
+        timezoneId: "Europe/Oslo",
+        launchOptions: { args: ["--lang=nb-NO"] },
+      },
+    },
   ],
 });

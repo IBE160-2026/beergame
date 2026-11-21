@@ -1,7 +1,7 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { expectAccessible, freshClass, freshLecturer } from "./support/classes";
+import { expectAccessible, freshClass, freshLecturer, test } from "./support/classes";
 
 /** The four dates on the Datolinje (Story 5.2, FR-18, NFR-6, UX-DR51, UX-DR56, UX-DR75) and the
  * fixes of Issue #98, on the local stack. Each test makes a fresh Lecturer and Class through the

@@ -1,9 +1,10 @@
 """What other modules may use from `games`. Writes go through `games.commands` only."""
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +17,7 @@ from app.modules.games.checks import (
     rules_versions_without_package,
     verify_finished,
 )
+from app.modules.games.marks import seat_mark
 from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, policy
 from app.modules.games.schemas import (
     DecidedBy,
@@ -23,6 +25,7 @@ from app.modules.games.schemas import (
     Fallback,
     GameCheck,
     GameOverview,
+    GameResult,
     GameSummary,
     Lifecycle,
     OccupancyReason,
@@ -31,20 +34,25 @@ from app.modules.games.schemas import (
     OrderPlaced,
     PendingTurn,
     Purpose,
+    SeatMark,
     SeatOverview,
     SeatState,
     SessionRuntime,
     SimulationBatch,
+    TableSeat,
+    TableStatus,
     TurnOverview,
 )
 from app.modules.games.summaries import game_summary
 from app.modules.games.turns import OpenGame, llm_turn, pending_turn
 from app.modules.games.views import (
     ViewError,
+    chain_result,
     decision_log,
     occupancy_history,
     open_turn,
     seat_state,
+    table_status,
 )
 from app.platform.db import get_sessionmaker
 
@@ -66,25 +74,45 @@ __all__ = [
     "PendingTurn",
     "Purpose",
     "PurposeNotSupportedError",
+    "SeatMark",
     "SeatOverview",
     "SeatState",
     "SessionRuntime",
     "SimulationBatch",
+    "StudentGame",
+    "TestGameRef",
+    "staff_test_games",
+    "TableSeat",
+    "TableStatus",
+    "TimeProposal",
     "TurnOverview",
+    "game_class_info",
+    "open_time_proposal",
+    "seated_students",
+    "time_proposal_by_id",
     "ViewError",
     "ClassGame",
     "ClassGameSeat",
     "budget_scope",
     "class_game_ids",
     "class_games",
+    "GameResult",
+    "chain_result",
+    "unchecked_finished_game_ids",
     "class_games_of",
     "class_sessions_awaiting_snapshot",
     "class_sessions_with_unstarted_games",
     "complete_running_games",
     "create_batch",
+    "database_now",
     "games_charged_to",
     "scope_of",
+    "own_game",
+    "PlayStatus",
+    "play_status",
+    "student_game",
     "student_seated",
+    "table_status",
     "decision_log",
     "finished_game_ids",
     "game_summary",
@@ -97,9 +125,18 @@ __all__ = [
     "pending_turn",
     "policy",
     "rules_versions_without_package",
+    "seat_mark",
     "seat_state",
     "verify_finished",
 ]
+
+
+async def unchecked_finished_game_ids(
+    session: AsyncSession, limit: int, exclude: Collection[uuid.UUID] = ()
+) -> list[uuid.UUID]:
+    """At most `limit` finished Games with no finished-game check yet, oldest first (Story
+    6.18), but those in `exclude`, read in the caller's session."""
+    return await repo.unchecked_finished_game_ids(session, limit, exclude)
 
 
 async def class_game_ids(session: AsyncSession, class_session_id: uuid.UUID) -> dict[int, str]:
@@ -176,6 +213,194 @@ async def student_seated(
 ) -> bool:
     """Whether the Student holds a Seat in a Game of the Class session now (Story 5.13)."""
     return await repo.student_seated(session, class_session_id, user_id)
+
+
+@dataclass(frozen=True)
+class StudentGame:
+    """A Student's game in a Class session (Story 6.1): the Game, its number and the Role of the
+    Student's Seat."""
+
+    game_id: uuid.UUID
+    class_session_id: uuid.UUID
+    number: int | None
+    """The game number; None on a Lecturer's test Game, which has none (Story 6.20)."""
+    role: str
+    pre_play_gate: bool
+    """Whether the briefing and Starting task come before play (`games.policy`, Story 6.18)."""
+    test_game: bool = False
+    """Whether a Lecturer of the Class session plays it as a test (`games.policy`
+    `played_by_staff`, Story 6.20): reached from the Klasseøkt, never from Hjem."""
+
+
+async def student_game(
+    session: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> StudentGame | None:
+    """The one way any module finds a Student's game (Story 6.1): the Class game of the Class
+    session in which the Student holds a Seat now, else the one in which they held a Seat last
+    (joined through `authz.own_seat`); None when they never held one. A Seat another Student
+    held after them is never theirs to read: it shows that Student's play (FR-5). Read in the
+    caller's transaction."""
+    rows = [
+        row
+        for row in await repo.student_seats(session, class_session_id, user_id)
+        if row["holds"] or not row["later_student"]
+    ]
+    if not rows:
+        return None
+    # A Seat held now wins; otherwise the latest occupancy row naming the Student (UUIDv7 ids).
+    best = max(rows, key=lambda row: (bool(row["holds"]), row["row_id"].bytes))
+    return StudentGame(
+        game_id=best["game_id"],
+        class_session_id=class_session_id,
+        number=best["game_number"],
+        role=best["role"],
+        pre_play_gate=policy(best["purpose"]).pre_play_gate,
+    )
+
+
+PlayStatusName = Literal["not_ready", "ready", "running", "finished"]
+
+
+@dataclass(frozen=True)
+class PlayStatus:
+    """Where a Game stands for its Students (Story 6.5): `not_ready` before its snapshot,
+    `ready` to start, `running` (also while it plays out) with its open Week, or `finished`.
+    Never the number of Weeks (FR-14)."""
+
+    status: PlayStatusName
+    week: int | None
+
+
+async def play_status(session: AsyncSession, game_id: uuid.UUID) -> PlayStatus:
+    """The Game's `PlayStatus`, read in the caller's transaction."""
+    game = await repo.get_game(session, game_id)
+    if game is None:
+        raise LookupError(f"no Game {game_id}")
+    lifecycle = game["lifecycle"]
+    if lifecycle == Lifecycle.NOT_STARTED:
+        return PlayStatus("ready" if game["settings"] is not None else "not_ready", None)
+    if lifecycle == Lifecycle.FINISHED:
+        return PlayStatus("finished", None)
+    if lifecycle in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT):
+        return PlayStatus("running", await repo.open_week(session, game_id))
+    raise ValueError(f"unknown lifecycle {lifecycle!r}")
+
+
+async def database_now(session: AsyncSession) -> datetime:
+    """The database clock at this statement: the clock every stored time is on (AD-20)."""
+    return await repo.clock_now(session)
+
+
+@dataclass(frozen=True)
+class TimeProposal:
+    """A Class game's proposal of a time to play (Story 6.19, FR-22): who proposed which time and
+    who accepted, in the order they did. Ids only; the caller resolves names."""
+
+    id: uuid.UUID
+    game_id: uuid.UUID
+    at: datetime
+    proposed_by: uuid.UUID
+    accepted_by: tuple[uuid.UUID, ...]
+    seated: frozenset[uuid.UUID]
+    """The Students who hold a Seat of the Game now: those who may accept."""
+
+
+def seated_students(seat_rows) -> frozenset[uuid.UUID]:
+    """The Students who hold a Seat of the Game now (each Seat's latest occupancy row): the one
+    rule both the scheduling aid's commands and its read use (Story 6.19)."""
+    return frozenset(
+        row["user_id"]
+        for row in seat_rows
+        if row["occupant_kind"] == OccupantKind.STUDENT and row["user_id"] is not None
+    )
+
+
+async def _time_proposal(session: AsyncSession, row) -> TimeProposal:
+    seats = await repo.seats_with_occupant(session, row["game_id"])
+    return TimeProposal(
+        id=row["id"],
+        game_id=row["game_id"],
+        at=row["at"],
+        proposed_by=row["proposed_by"],
+        accepted_by=tuple(await repo.time_acceptors(session, row["id"])),
+        seated=seated_students(seats),
+    )
+
+
+async def open_time_proposal(session: AsyncSession, game_id: uuid.UUID) -> TimeProposal | None:
+    """The Game's open proposal of a time to play (Story 6.19): None when there is none, the
+    Game has finished, or the time has passed on the database clock (AD-20)."""
+    row = await repo.time_proposal(session, game_id)
+    if row is None or row["at"] <= await repo.clock_now(session):
+        return None
+    game = await repo.get_game(session, game_id)
+    if game is None or game["lifecycle"] == Lifecycle.FINISHED:
+        return None
+    return await _time_proposal(session, row)
+
+
+async def time_proposal_by_id(session: AsyncSession, proposal_id: uuid.UUID) -> TimeProposal | None:
+    """A proposal by its id, for the mail read at send time (Story 6.19); None once replaced.
+    The caller judges whether it has passed, on its own clock."""
+    row = await repo.time_proposal_by_id(session, proposal_id)
+    return None if row is None else await _time_proposal(session, row)
+
+
+async def game_class_info(
+    session: AsyncSession, game_id: uuid.UUID
+) -> tuple[uuid.UUID, int, bool] | None:
+    """A Class game's Class session, game number and whether it has finished; None for a Game
+    with no Class session or none at all."""
+    game = await repo.get_game(session, game_id)
+    if game is None or game["class_session_id"] is None:
+        return None
+    return game["class_session_id"], game["game_number"], game["lifecycle"] == Lifecycle.FINISHED
+
+
+async def own_game(
+    session: AsyncSession, user_id: uuid.UUID, game_id: uuid.UUID
+) -> StudentGame | None:
+    """The Game `game_id` when it is the Student's game, the one `student_game` gives for its
+    Class session (joined through `authz.own_seat`); None for any other Game, also one they held a
+    Seat in before a move, so another's reads the same as one that does not exist (FR-5)."""
+    game = await repo.own_game(session, user_id, game_id)
+    if game is None or game["class_session_id"] is None:
+        return None
+    rules = policy(game["purpose"])
+    if rules.played_by_staff:
+        # A Lecturer's test Game (Story 6.20): theirs while they hold its Seat; no Class game of
+        # the session is ever one (`student_game` leaves it out).
+        role = await repo.held_role(session, game_id, user_id)
+        if role is None:
+            return None
+        return StudentGame(
+            game_id=game_id,
+            class_session_id=game["class_session_id"],
+            number=game["game_number"],
+            role=role,
+            pre_play_gate=rules.pre_play_gate,
+            test_game=True,
+        )
+    found = await student_game(session, user_id, game["class_session_id"])
+    if found is None or found.game_id != game_id:
+        return None
+    return found
+
+
+@dataclass(frozen=True)
+class TestGameRef:
+    """A Lecturer's test Game in a Class session (Story 6.20): its id and lifecycle."""
+
+    id: uuid.UUID
+    lifecycle: str
+
+
+async def staff_test_games(
+    session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> list[TestGameRef]:
+    """The test Games the User has played in the Class session, newest first (Story 6.20)."""
+    rows = await repo.staff_test_games(session, class_session_id, user_id)
+    return [TestGameRef(row["id"], row["lifecycle"]) for row in rows]
 
 
 async def get_game(game_id: str) -> GameOverview | None:

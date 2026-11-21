@@ -55,8 +55,36 @@ def test_games_has_no_llm_or_provider_import():
             continue
         assert not name.startswith(LLM_IMPORTS), f"{path.name}:{line} imports {name}"
         if name.startswith("app.modules.") and not name.startswith("app.modules.games"):
-            # The order source, called when a Week opens; nothing else of another module.
-            assert name == "app.modules.players.service", f"{path.name}:{line} imports {name}"
+            # The order source, called when a Week opens, and `progress`, where `finish` records
+            # the Class game step (Story 6.18, AD-16); nothing else of another module.
+            assert name in ("app.modules.players.service", "app.modules.progress.service"), (
+                f"{path.name}:{line} imports {name}"
+            )
+
+
+def test_progress_imports_no_feature_module():
+    """AD-16: any module records and reads steps through `progress`, so `progress` imports no
+    other module (Story 6.1)."""
+    for path, line, name in imports(APP / "modules" / "progress"):
+        if name.startswith("app.modules."):
+            assert name.startswith("app.modules.progress"), f"{path.name}:{line} imports {name}"
+
+
+def test_content_imports_no_feature_module():
+    """AD-23: every module reads its pinned content through `content.service`, so `content`
+    imports no other module (Story 6.3)."""
+    for path, line, name in imports(APP / "modules" / "content"):
+        if name.startswith("app.modules."):
+            assert name.startswith("app.modules.content"), f"{path.name}:{line} imports {name}"
+
+
+def test_analysis_is_pure():
+    """AD-1: `app/analysis` (the Play guard, the Starting task's scoring) imports only the
+    stdlib, pydantic and `app.engine`: no module, no platform, no database, no LLM."""
+    for path, line, name in imports(APP / "analysis"):
+        assert not name.startswith(
+            ("app.modules", "app.platform", "app.ai", "sqlalchemy", "httpx", *LLM_IMPORTS)
+        ), f"{path.name}:{line} imports {name}"
 
 
 def test_the_platform_imports_no_module_and_no_llm_library():

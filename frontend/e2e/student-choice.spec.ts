@@ -153,13 +153,19 @@ test("a Seat taken by another first moves focus to the conflict line above the n
   const student = await studentPage(browser, "student5@example.com", 360, 740);
   await student.goto(`/klasseokter/${id}/velg-sete`);
   await seatButton(student, 1, "Detaljist, ledig").click();
-  // Another Student takes it first.
+  // Another Student takes it first, between the press and the request. Taken before the press,
+  // the live update (Story 6.4) would refresh the list and withdraw the button under the click.
   const other = await studentPage(browser, "student6@example.com", 360, 740);
-  const taken = await other.request.put(`/api/me/class-sessions/${id}/seat-choice`, {
-    data: { game_number: 1, role: "retailer" },
-    headers: CSRF,
+  await student.route(`**/api/me/class-sessions/${id}/seat-choice`, async (route) => {
+    if (route.request().method() === "PUT") {
+      const taken = await other.request.put(`/api/me/class-sessions/${id}/seat-choice`, {
+        data: { game_number: 1, role: "retailer" },
+        headers: CSRF,
+      });
+      expect(taken.status()).toBe(200);
+    }
+    await route.continue();
   });
-  expect(taken.status()).toBe(200);
   await student.getByRole("button", { name: sc.take("Detaljist", 1) }).click();
   const conflict = student.getByText(sc.conflict);
   await expect(conflict).toBeFocused();
@@ -189,11 +195,35 @@ test("with the flag off the route is not found and Hjem shows the drawn Seat onc
       if (item.id === id) {
         item.seat_choice_open = false;
         item.drawn_seat = { game_number: 3, role: "wholesaler" };
+        // Once locked, a drawn Student holds the Seat, so Hjem has the game card too (Story 6.1).
+        item.game = {
+          id: id,
+          number: 3,
+          role: "wholesaler",
+          seats: ["factory", "distributor", "wholesaler", "retailer"].map((role) => ({
+            role,
+            holder: role === "wholesaler" ? "student" : "ai",
+            name: role === "wholesaler" ? "student7@example.com" : null,
+            mine: role === "wholesaler",
+          })),
+          briefing_first: true,
+          status: "ready",
+          week: null,
+          rules: {
+            order_delay: 2,
+            shipping_delay: 2,
+            production_delay: 2,
+            guided_weeks: 4,
+            holding_cost: "0.50",
+            backorder_cost: "1.00",
+          },
+        };
       }
     }
     await route.fulfill({ response, json: body });
   });
   await student.goto("/hjem");
+  await expect(student.getByRole("heading", { name: nb.homes.student.game(3, "Grossist") })).toBeVisible();
   await expect(student.getByText(sc.drawn("Grossist", 3))).toBeVisible();
   await expectAccessible(student, true);
   // `FEATURE_STUDENT_CHOICE` off: the api answers not found (pinned by the api tests).

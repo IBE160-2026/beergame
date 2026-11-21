@@ -1,8 +1,8 @@
-import AxeBuilder from "@axe-core/playwright";
 import { type BrowserContext, expect, type Page, type Route, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { DEMO_PASSWORD, DEMO_USERS, loginByApi, untilHydrated } from "./support/auth";
+import { axe } from "./support/axe";
 
 /**
  * Story 3.4: loading, offline, page error, action error and an ended session. Slow and offline
@@ -10,8 +10,6 @@ import { DEMO_PASSWORD, DEMO_USERS, loginByApi, untilHydrated } from "./support/
  * Each step waits for the state it needs: hydration, the request a page sends, a network that
  * is really down or back.
  */
-
-const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
 const VIEWPORTS = [
   { name: "320 px", width: 320, height: 640 },
@@ -24,7 +22,7 @@ const sys = nb.system;
 const NOW = new Date("2026-11-18T20:14:00Z");
 
 async function expectAccessible(page: Page) {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
+  const results = await axe(page);
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual(
     [],
   );

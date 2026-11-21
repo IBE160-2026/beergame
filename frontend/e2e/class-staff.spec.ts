@@ -1,8 +1,8 @@
-import { type Browser, expect, type Page, test } from "@playwright/test";
+import { type Browser, expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { latestMail, loginByApi, nextMail } from "./support/auth";
-import { expectAccessible, freshLecturer, freshLecturerWithAddress, VIEWPORTS } from "./support/classes";
+import { expectAccessible, freshLecturer, freshLecturerWithAddress, test, VIEWPORTS } from "./support/classes";
 
 /** Sharing a Class (Story 4.9, FR-5, FR-10, NFR-6, UX-DR56), on the local stack. A fresh Lecturer
  * with a fresh Class meets the last-owner rule, adds another fresh Lecturer as co-owner, invites

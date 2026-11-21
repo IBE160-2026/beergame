@@ -26,3 +26,11 @@ export function Link({ onTint = false, standalone = false, className, ...props }
     />
   );
 }
+
+/**
+ * A Lenke drawn as a `<button>`, for one that opens a panel or changes a view in place and goes
+ * nowhere («Hopp over», «Alle rader og kostnad», «Vis som tabell», «Lukk»): `lager`, weight 600,
+ * underlined, with the 44 px tap target. It commits nothing (EXPERIENCE.md → Lenke).
+ */
+export const LINK_BUTTON =
+  "inline-flex min-h-tap-target-min min-w-tap-target-min cursor-pointer shrink-0 items-center whitespace-nowrap text-label text-lager underline underline-offset-2 hover:decoration-2 active:text-ink";

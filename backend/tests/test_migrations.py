@@ -53,6 +53,8 @@ ROSTER_TABLES = {"roster_uploads", "roster_upload_rows", "roster_entries"}
 SESSION_TABLES = {"class_sessions", "lab_hours", "allocation_drafts", "deadline_reminders"}
 """The tables of `sessions`: revisions 0032 (Story 5.1), 0035 (Story 5.6), 0037 (Story 5.8) and
 0041 (Story 5.14)."""
+STARTING_TASK_TABLES = {"content_records", "starting_task_answers"}
+"""The tables of revision 0046 (Story 6.3)."""
 PRE_SESSION_TABLES = (
     AI_HEAD_TABLES
     | JOB_TABLES
@@ -67,8 +69,16 @@ PRE_SESSION_TABLES = (
     | CLASS_TABLES
     | ROSTER_TABLES
 )
-HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES
-HEAD = "0044"  # 0044 adds when the lock of a Class session was refused (GitHub issue 109)
+TIME_PROPOSAL_TABLES = {"time_proposals", "time_acceptances"}
+"""The tables of revision 0049 (Story 6.19)."""
+HEAD_TABLES = (
+    PRE_SESSION_TABLES
+    | SESSION_TABLES
+    | {"progress_steps"}
+    | STARTING_TASK_TABLES
+    | TIME_PROPOSAL_TABLES
+)
+HEAD = "0050"  # 0050 lets a test Game hold its Class session without a number (Story 6.20)
 
 
 def reset_schema(url: str) -> None:
@@ -152,7 +162,7 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # set together. 0041 (Story 5.14): one reminder per deadline and time. 0042 (Story 5.17): the
     # allocation method is `random` or `student_choice`. 0043 (Story 5.18): a copy names its
     # source, and forgets it when the source goes. 0044 (GitHub issue 109): when the lock was
-    # first refused.
+    # first refused. 0045 (Story 6.1): one row per User, Class session and step.
     assert "effort_level IS NULL" in definition(url, "ck_class_sessions_effort_level_llm_only")
     assert "ends_at > starts_at" in definition(url, "ck_lab_hours_order")
     assert "120" in definition(url, "ck_lab_hours_place")
@@ -174,7 +184,43 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "'test_deadline'" in reminders["ck_deadline_reminders_deadline"]
     assert "deadline, deadline_at)" in reminders["uq_deadline_reminders_deadline"]
     assert "ON DELETE SET NULL" in definition(url, "fk_class_sessions_copied_from")
+    steps = constraints(url, "progress_steps")
+    assert "UNIQUE (user_id, class_session_id, step)" in steps["uq_progress_steps_step"]
+    # 0046 (Story 6.3): version 1 of the Starting task is stored, and no record can change.
+    [(version, body)] = rows(url, "SELECT version, body FROM content_records")
+    assert version == 1 and [item["id"] for item in body["items"]][-1] == "position"
+    with pytest.raises(psycopg.errors.RestrictViolation):
+        rows(url, "UPDATE content_records SET version = 2 RETURNING version")
+    answers = constraints(url, "starting_task_answers")
+    assert "UNIQUE (user_id, class_session_id, item_id)" in answers["uq_starting_task_answers_item"]
+    # 0047 (Story 6.10): when a Student opened a Guided Week; the trigger keeps it once set.
+    assert "viewed_at" in columns(url, "seat_turns")
+    # 0048 (Story 6.14): when the game began to wait for a Seat; the trigger keeps it once set.
+    assert "wait_started_at" in columns(url, "seat_turns")
+    [(trigger,)] = rows(url, "SELECT prosrc FROM pg_proc WHERE proname = 'seat_turns_keep_opening'")
+    assert "wait_started_at" in trigger and "viewed_at" in trigger
+    # 0049 (Story 6.19): one open proposal per Game; its acceptances go with it.
+    assert "UNIQUE (game_id)" in constraints(url, "time_proposals")["uq_time_proposals_game"]
+    # 0050 (Story 6.20): a game number needs a Class session, a Class session no number.
+    assert "class_session_id IS NOT NULL" in games["ck_games_class_session"]
 
+    command.downgrade(cfg, "0049")
+    assert "= (game_number IS NULL)" in definition(url, "ck_games_class_session")
+    command.downgrade(cfg, "0048")
+    assert TIME_PROPOSAL_TABLES.isdisjoint(tables(url))
+    command.downgrade(cfg, "0047")
+    assert "wait_started_at" not in columns(url, "seat_turns")
+    [(trigger,)] = rows(url, "SELECT prosrc FROM pg_proc WHERE proname = 'seat_turns_keep_opening'")
+    assert "wait_started_at" not in trigger and "viewed_at" in trigger  # 0047's body again
+    command.downgrade(cfg, "0046")
+    assert "viewed_at" not in columns(url, "seat_turns")
+    [(trigger,)] = rows(url, "SELECT prosrc FROM pg_proc WHERE proname = 'seat_turns_keep_opening'")
+    assert "viewed_at" not in trigger and "near_optimal" in trigger  # 0012's body again
+    command.downgrade(cfg, "0045")
+    assert STARTING_TASK_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "content_records_immutable")
+    command.downgrade(cfg, "0044")
+    assert "progress_steps" not in tables(url)
     command.downgrade(cfg, "0043")
     assert "lock_refused_at" not in columns(url, "class_sessions")
     command.downgrade(cfg, "0042")
@@ -523,6 +569,7 @@ def test_the_check_constraints_list_exactly_the_enum_values(test_database):
     from app.ai import budget as ai_budget
     from app.ai import models as ai_models
     from app.modules.classes.schemas import StaffRole
+    from app.modules.content.models import Kind
     from app.modules.games import schemas
     from app.modules.identity.schemas import (
         AccountRole,
@@ -531,6 +578,8 @@ def test_the_check_constraints_list_exactly_the_enum_values(test_database):
         RosterSource,
     )
     from app.modules.messaging import models as mail_models
+    from app.modules.progress.models import Step
+    from app.modules.tests.models import PLAYED_BEFORE, Choice
 
     ai_checks = {
         "ck_ai_budgets_scope_kind": set(get_args(ai_budget.ScopeKind)),
@@ -546,6 +595,9 @@ def test_the_check_constraints_list_exactly_the_enum_values(test_database):
         "ck_mail_deliveries_skipped_reason": set(mail_models.SKIP_REASONS),
         "ck_mail_deliveries_delivery_state": set(mail_models.DELIVERY_STATES),
         "ck_mail_deliveries_bounce_class": set(mail_models.BOUNCE_CLASSES),
+        "ck_progress_steps_step": {step.value for step in Step},
+        "ck_content_records_kind": {kind.value for kind in Kind},
+        "ck_starting_task_answers_kind": {c.value for c in Choice} | {PLAYED_BEFORE},
     }
     with psycopg.connect(libpq_dsn(test_database)) as conn:
         rows = dict(

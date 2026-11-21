@@ -1,8 +1,8 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { effectLine, levelLabel, type OfferedLevel } from "../src/modules/sessions/choices";
-import { expectAccessible, freshClass, freshLecturer } from "./support/classes";
+import { expectAccessible, freshClass, freshLecturer, test } from "./support/classes";
 
 /** Choosing KI-modus, Innsatsnivå and Debrief-modus on the Klasseøkt (Story 5.5, FR-15, FR-16,
  * FR-78, UX-DR12, UX-DR48, UX-DR49), on the local stack, where the seeded mock model config is the

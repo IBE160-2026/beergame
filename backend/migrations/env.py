@@ -10,10 +10,13 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 import app.ai.models  # noqa: F401  (registers the model config and budget tables)
 import app.modules.classes.models  # noqa: F401  (classes, class_staff)
+import app.modules.content.models  # noqa: F401  (content_records)
 import app.modules.games.models  # noqa: F401  (registers the games tables on the metadata)
 import app.modules.identity.models  # noqa: F401  (users, user_roles)
 import app.modules.messaging.models  # noqa: F401  (mail_deliveries)
+import app.modules.progress.models  # noqa: F401  (progress_steps)
 import app.modules.sessions.models  # noqa: F401  (class_sessions)
+import app.modules.tests.models  # noqa: F401  (starting_task_answers)
 import app.platform.audit  # noqa: F401  (audit_events)
 import app.platform.notify  # noqa: F401  (notices)
 import app.platform.ratelimit  # noqa: F401  (rate_limit_counters)

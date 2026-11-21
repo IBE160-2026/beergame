@@ -777,6 +777,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/test-game": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Test Game
+         * @description «Start testspill» (Story 6.20, FR-87): the Lecturer plays a private test Game on the Class
+         *     session's current settings, in the chosen Role against three AI players; it starts at once.
+         *     404 `not_found` while `FEATURE_LECTURER_TEST_GAME` is off (AD-17); 409 `session_locked` from
+         *     the Start date, `test_game_running` while their last test Game here runs, `llm_unavailable`;
+         *     422 `unknown_role`; 403 `forbidden` for a session the User may not manage (FR-5).
+         */
+        post: operations["startTestGame"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/classes": {
         parameters: {
             query?: never;
@@ -1316,6 +1340,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream Events
+         * @description The live event stream (AD-8): `ready`, then `{topic, id, version}` for each change the
+         *     User may see, and `heartbeat` every 15 s. 401 without a valid session.
+         */
+        get: operations["streamEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -1401,6 +1446,259 @@ export interface paths {
          */
         put: operations["takeSeat"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Game
+         * @description The Student's own Class game (Story 6.1): number, Role and the four Seats, from the Start
+         *     date. Any other game, one that does not exist and an id that is not one all answer the same
+         *     403 `forbidden`, which never says whether the game exists (FR-5).
+         */
+        get: operations["getMyGame"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/play": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Game Play
+         * @description The play screen's one envelope (Story 6.6, AD-3): `seat_state`, what the Student's own Seat
+         *     sees in the open Week (numbers and Roles only), `table_status`, who sits where, and the
+         *     server's clock. Never the number of Weeks, future demand, another Seat's numbers or a
+         *     reference Order (FR-14, FR-23). 409 `game_not_running` before the start and after the end;
+         *     any other game answers 403 `forbidden` (FR-5).
+         */
+        get: operations["getMyGamePlay"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Game Result
+         * @description «Spillet er ferdig» (Story 6.18, FR-28, AD-3): the chain's cost per Role, Detaljist to
+         *     Fabrikk, and per Uke, once the game has finished. Roles, never names, and no demand series.
+         *     409 `game_not_finished` before the end, so no chain number leaks during play (FR-14); any
+         *     other game answers 403 `forbidden` (FR-5).
+         */
+        get: operations["getMyGameResult"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start My Game
+         * @description «Start spillet» (Story 6.5, FR-22): the Student starts their own Class game for all four
+         *     Seats and gets the game as it now stands. A game already started counts as done. 409
+         *     `starting_task_required` before the Starting task is done, 409 `game_not_ready` before the
+         *     lock has given the game its snapshot; any other game answers 403 `forbidden` (FR-5).
+         */
+        post: operations["startMyGame"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/starting-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Starting Task
+         * @description The Student's Starting task: the items in order, each answered one with its result, the
+         *     final question's choice and whether the task is done.
+         */
+        get: operations["getMyStartingTask"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/starting-task/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer Starting Task Item
+         * @description Send the answer to one item: scored by computed rules and stored once (a repeat keeps
+         *     the first answer). 422 `unknown_item` for an item the task does not have.
+         */
+        post: operations["answerStartingTaskItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/starting-task/final": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish Starting Task
+         * @description Answer or skip the final question; the task is then done and `starting_task` recorded.
+         *     409 `items_open` while an item has no answer.
+         */
+        post: operations["finishStartingTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/time-proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose My Game Time
+         * @description «Send forslaget til gruppen» (Story 6.19, FR-22): the Student proposes a time to play, a
+         *     date and a time and nothing else. It replaces the game's open proposal and its acceptances,
+         *     and each other Student of the game is told. Answers the game as it now stands. 422
+         *     `time_out_of_range` unless the time lies after now and not after the Play deadline; 409
+         *     `game_finished`; any other game, or a Seat the Student no longer holds, answers 403
+         *     `forbidden` (FR-5).
+         */
+        post: operations["proposeMyGameTime"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/time-proposal/{proposal_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept My Game Time
+         * @description «Godta tidspunktet» (Story 6.19, FR-22): the Student accepts the game's open proposal with
+         *     one press; an acceptance already stored counts as done. Answers the game as it now stands.
+         *     409 `proposal_gone` (replaced, or its time has passed), `own_proposal` or `game_finished`;
+         *     any other game, or a Seat the Student no longer holds, answers 403 `forbidden` (FR-5).
+         */
+        post: operations["acceptMyGameTime"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/weeks/{week}/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Place My Game Order
+         * @description «Bekreft ordre på 24» (Story 6.12, FR-24, AD-2): the Student's Order for the open Week of
+         *     their own Seat, placed once through `games.commands.place_order` with the Student as actor;
+         *     the client sends no `version`. 409 `order_exists` (also in a Guided Week, whose fixed Order
+         *     is placed when it opens), `week_not_open`, `game_not_started`, `game_finished` or
+         *     `seat_not_yours` (the Seat changed hands between the ownership check and the write); 422
+         *     `order_invalid` (not a whole number from 0 to the maximum). Any other game, or a Seat the
+         *     Student no longer holds, answers 403 `forbidden` (FR-5).
+         */
+        post: operations["placeMyGameOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/weeks/{week}/view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * View My Game Week
+         * @description The Student has the Guided Week `week` on screen (Story 6.10, FR-24): it counts as their
+         *     Order there, and the view that leaves no Student to wait for opens the next Week. 204 also
+         *     when the Week was viewed already. 409 `week_not_open` (the game has moved on),
+         *     `week_not_guided`, `game_not_started`, `game_finished` or `seat_not_student`; any other
+         *     game, or a Seat the Student no longer holds, answers 403 `forbidden` (FR-5).
+         */
+        post: operations["viewMyGameWeek"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1632,6 +1930,13 @@ export interface components {
              */
             user_id: string;
         };
+        /** AnswerIn */
+        AnswerIn: {
+            /** Answer */
+            answer: number;
+            /** Item Id */
+            item_id: string;
+        };
         /**
          * AuditActor
          * @description An actor of the log for the filter: a User with their name, or the system (both null).
@@ -1713,6 +2018,26 @@ export interface components {
          * @enum {string}
          */
         BouncedRegistration: "bounced";
+        /**
+         * ChainWeekCost
+         * @description The chain's cost from Uke 1 through `week`, summed over its Roles.
+         */
+        ChainWeekCost: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Holding Cost */
+            holding_cost: string;
+            /** Total Cost */
+            total_cost: string;
+            /** Week */
+            week: number;
+        };
+        /**
+         * Choice
+         * @description The answers to «Har du spilt et spill som ligner dette før?»; `skipped` is «Hopp over».
+         * @enum {string}
+         */
+        Choice: "yes" | "no" | "unknown" | "skipped";
         /**
          * ClassIn
          * @description A new Class (Story 4.1). The service checks the fields and answers every refused one in
@@ -1874,6 +2199,11 @@ export interface components {
             is_classic: boolean;
             /** Lab Hours */
             lab_hours: components["schemas"]["LabHourOut"][];
+            /**
+             * Lecturer Test Enabled
+             * @default false
+             */
+            lecturer_test_enabled: boolean;
             /** Llm Unavailable */
             llm_unavailable: "no_default_model" | null;
             /**
@@ -1912,6 +2242,7 @@ export interface components {
             student_choice_enabled: boolean;
             /** Test Deadline */
             test_deadline: string | null;
+            test_game?: components["schemas"]["TestGameRefOut"] | null;
         };
         /**
          * ClassSessionSaveIn
@@ -2001,6 +2332,35 @@ export interface components {
             number: number;
             /** Start At */
             start_at: string | null;
+        };
+        /**
+         * CostLine
+         * @description One part of this Week's cost: units on the end-of-Week balance times the rate.
+         */
+        CostLine: {
+            /** Amount */
+            amount: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "holding" | "backorder";
+            /** Rate */
+            rate: string;
+            /** Units */
+            units: number;
+        };
+        /**
+         * CostSum
+         * @description Holding and backlog cost and their sum, in kroner (Story 6.18).
+         */
+        CostSum: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Holding Cost */
+            holding_cost: string;
+            /** Total Cost */
+            total_cost: string;
         };
         /**
          * DatesIn
@@ -2163,6 +2523,7 @@ export interface components {
             /** Debrief Deadline */
             debrief_deadline: string | null;
             drawn_seat?: components["schemas"]["SeatRef"] | null;
+            game?: components["schemas"]["StudentGameOut"] | null;
             /**
              * Id
              * Format: uuid
@@ -2184,6 +2545,11 @@ export interface components {
             seat_choice_open: boolean;
             /** Start At */
             start_at: string | null;
+            /**
+             * Steps
+             * @default []
+             */
+            steps: components["schemas"]["StepOut"][];
             /** Test Deadline */
             test_deadline: string | null;
         };
@@ -2201,6 +2567,47 @@ export interface components {
         /** ErrorEnvelope */
         ErrorEnvelope: {
             error: components["schemas"]["ErrorBody"];
+        };
+        /** FinalIn */
+        FinalIn: {
+            choice: components["schemas"]["Choice"];
+        };
+        /**
+         * GameResult
+         * @description A finished Game's cost (Story 6.18, FR-28): each Role's, the chain's, and the chain's
+         *     running cost per Uke. Numbers and Roles only: no names, no demand, no settings.
+         */
+        GameResult: {
+            chain: components["schemas"]["CostSum"];
+            /** Roles */
+            roles: components["schemas"]["RoleCost"][];
+            /** Weeks */
+            weeks: components["schemas"]["ChainWeekCost"][];
+        };
+        /**
+         * GameRulesOut
+         * @description The rules «Regler før første ordre» states (Story 6.2, FR-84), from the Class session's
+         *     frozen settings: the delays, the number of Veiledede uker and the two cost rates. Never the
+         *     number of Weeks, the demand, its seed or the largest Order (FR-14, AD-3).
+         */
+        GameRulesOut: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /**
+             * Capacity
+             * @default []
+             */
+            capacity: components["schemas"]["RoleCapacityOut"][];
+            /** Guided Weeks */
+            guided_weeks: number;
+            /** Holding Cost */
+            holding_cost: string;
+            /** Order Delay */
+            order_delay: number;
+            /** Production Delay */
+            production_delay: number;
+            /** Shipping Delay */
+            shipping_delay: number;
         };
         /**
          * GameSettings
@@ -2301,6 +2708,13 @@ export interface components {
              * @default 36
              */
             weeks: number;
+        };
+        /** GivenRowOut */
+        GivenRowOut: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2518,6 +2932,21 @@ export interface components {
             token: string;
         };
         /**
+         * ItemResultOut
+         * @description The stored answer and its score. Only for an answered item: the answer key is never sent
+         *     before.
+         */
+        ItemResultOut: {
+            /** Answer */
+            answer: number;
+            /** Correct */
+            correct: boolean;
+            /** Expected */
+            expected: number;
+            /** Terms */
+            terms: components["schemas"]["SumTermOut"][];
+        };
+        /**
          * LabHourIn
          * @description A Lab hour as the Lecturer adds or changes it (Story 5.6, FR-19): its start and end as
          *     instants with their offset, and its place. The service judges the rules (`invalid_lab_hour`),
@@ -2602,6 +3031,22 @@ export interface components {
             roster_entry_id?: string | null;
             upload_row?: components["schemas"]["UploadRow"] | null;
         };
+        /**
+         * NeighbourNumber
+         * @description One number about a neighbouring Seat, labelled with its Role and the Week it refers to.
+         */
+        NeighbourNumber: {
+            /**
+             * Quantity
+             * @enum {string}
+             */
+            quantity: "inventory" | "backlog";
+            role: components["schemas"]["Role"];
+            /** Value */
+            value: number;
+            /** Week */
+            week: number;
+        };
         /** NewPasswordIn */
         NewPasswordIn: {
             /** Password */
@@ -2668,10 +3113,77 @@ export interface components {
             /** Time Per Order Median S */
             time_per_order_median_s: string | null;
         };
+        /**
+         * OrderIn
+         * @description The Student's Order for the open Week (Story 6.12): one whole number; the command checks
+         *     it lies from 0 to the Game settings maximum (`order_invalid`).
+         */
+        OrderIn: {
+            /** Order */
+            order: number;
+        };
+        /**
+         * OrderPreview
+         * @description Coefficients for the live Order preview (AD-10): with a typed Order x, the supply line
+         *     becomes `supply_line_base + x` and the position `position_base + x`; the Order reaches
+         *     inventory in `order_arrival_week` if the upstream Seat ships it in full.
+         */
+        OrderPreview: {
+            /** Order Arrival Week */
+            order_arrival_week: number;
+            /** Position Base */
+            position_base: number;
+            /** Supply Line Base */
+            supply_line_base: number;
+        };
         /** PasswordResetIn */
         PasswordResetIn: {
             /** Email */
             email: string;
+        };
+        /**
+         * PlayOut
+         * @description The play screen's one envelope (Story 6.6, AD-3): what the Student's own Seat sees in the
+         *     open Week (`seat_state`, numbers and Roles only), the own turn (`turn`, Story 6.10) and who
+         *     sits where (`table_status`), with the server's clock. Never the number of Weeks, future
+         *     demand, another Seat's numbers or a reference Order (FR-14, FR-23).
+         */
+        PlayOut: {
+            /** Next Change At */
+            next_change_at: string | null;
+            seat_state: components["schemas"]["SeatState"];
+            /**
+             * Server Now
+             * Format: date-time
+             */
+            server_now: string;
+            table_status: components["schemas"]["TableStatusOut"];
+            turn: components["schemas"]["PlayTurnOut"];
+        };
+        /**
+         * PlayTurnOut
+         * @description The Student's own turn in the open Week (Story 6.10): whether it is a Guided Week, the
+         *     Seat's Order once placed (in a Guided Week the fixed Order, placed when the Week opened) and
+         *     whether the Student has opened the Guided Week. Never how many Guided Weeks there are.
+         */
+        PlayTurnOut: {
+            /** Guided */
+            guided: boolean;
+            /** Order */
+            order: number | null;
+            /** Viewed */
+            viewed: boolean;
+        };
+        /**
+         * ProposalPersonOut
+         * @description A Student named by the scheduling aid (Story 6.19): the name now, and whether it is the
+         *     reader. None as name for a Student no longer in the Class.
+         */
+        ProposalPersonOut: {
+            /** Mine */
+            mine: boolean;
+            /** Name */
+            name: string | null;
         };
         /**
          * RegistrationOut
@@ -2810,6 +3322,28 @@ export interface components {
          * @enum {string}
          */
         Role: "retailer" | "wholesaler" | "distributor" | "factory";
+        /**
+         * RoleCapacityOut
+         * @description A capped Role (Story 6.22, FR-12): the most it ships per Week, a rule of the game.
+         */
+        RoleCapacityOut: {
+            role: components["schemas"]["Role"];
+            /** Units */
+            units: number;
+        };
+        /**
+         * RoleCost
+         * @description One Role's cost over the whole Game: a row of Kjedens regning, per Role, never per name.
+         */
+        RoleCost: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Holding Cost */
+            holding_cost: string;
+            role: components["schemas"]["Role"];
+            /** Total Cost */
+            total_cost: string;
+        };
         /**
          * RoleIn
          * @description The account role an Admin grants (Story 3.9).
@@ -3013,6 +3547,13 @@ export interface components {
             role: components["schemas"]["Role"];
         };
         /**
+         * SeatMark
+         * @description What a Seat's row says beyond its holder (AD-15, Story 6.14), from the one mapping
+         *     `games.service.seat_mark`. Later stories add the marks they need.
+         * @enum {string}
+         */
+        SeatMark: "guard_switch";
+        /**
          * SeatRef
          * @description A Seat named by its Class game's number and its Role: «Grossist i Spill 17».
          */
@@ -3020,6 +3561,83 @@ export interface components {
             /** Game Number */
             game_number: number;
             role: components["schemas"]["Role"];
+        };
+        /**
+         * SeatState
+         * @description What one Seat sees in one opened Week: the single information boundary (AD-3, FR-23).
+         *
+         *     The play screen, the LLM player's prompt and the Decision log (`state_seen`) all read this
+         *     model, and a field is added here, never beside it. It holds numbers and Roles only: no
+         *     names, no number of Weeks, no future demand and no other Seat's state beyond the
+         *     `neighbour_numbers` that Information visibility allows: the direct neighbours' inventory and
+         *     backlog in the open Week, filled by `games.views.build_seat_state` while
+         *     `FEATURE_INFO_VISIBILITY` is on (Story 6.21).
+         *     Every number comes from `engine.seat_view` and `engine.seat_detail`; engine functions that
+         *     take a `SeatView` accept this model as it is.
+         *
+         *     Version 2 (Story 6.6) adds `net_inventory` to the Week and to each `history` row, for the
+         *     play screen's Netto lager. Version 3 (Story 6.7) adds `holding_cost` and `backorder_cost` to
+         *     each `history` row, for the graph's Kost per uke bars. Version 4 (Story 6.16) adds the running
+         *     sums for «Kostnad så langt»: `total_holding_cost` and `total_backorder_cost` on the Week, and
+         *     `total_cost`, `total_holding_cost` and `total_backorder_cost` on each `history` row. A stored
+         *     version 1, 2 or 3 state reads as version 4.
+         */
+        SeatState: {
+            /** Backlog */
+            backlog: number;
+            /** Cost Lines */
+            cost_lines: components["schemas"]["CostLine"][];
+            /** History */
+            history: components["schemas"]["WeekValues"][];
+            /** Incoming Delivery */
+            incoming_delivery: number;
+            /** Incoming Order */
+            incoming_order: number;
+            /** Incoming Orders */
+            incoming_orders: number[];
+            /** Inventory */
+            inventory: number;
+            /** Max Order */
+            max_order: number;
+            /** Min Order */
+            min_order: number;
+            /**
+             * Neighbour Numbers
+             * @default []
+             */
+            neighbour_numbers: components["schemas"]["NeighbourNumber"][];
+            /** Net Inventory */
+            net_inventory: number;
+            /** Order History */
+            order_history: number[];
+            /** Overdue */
+            overdue: number;
+            /** Position */
+            position: number;
+            preview: components["schemas"]["OrderPreview"];
+            role: components["schemas"]["Role"];
+            /**
+             * Schema Version
+             * @default 4
+             * @constant
+             */
+            schema_version: 4;
+            /** Shipped */
+            shipped: number;
+            /** Supply Line */
+            supply_line: number;
+            /** Supply Line Slots */
+            supply_line_slots: components["schemas"]["SupplyLineSlot"][];
+            /** Total Backorder Cost */
+            total_backorder_cost: string;
+            /** Total Cost */
+            total_cost: string;
+            /** Total Holding Cost */
+            total_holding_cost: string;
+            /** Week */
+            week: number;
+            /** Week Cost */
+            week_cost: string;
         };
         /** SessionOut */
         SessionOut: {
@@ -3165,6 +3783,228 @@ export interface components {
          */
         StaffStatus: "active" | "invited" | "expired";
         /**
+         * StartedTestGameOut
+         * @description The test Game just started (Story 6.20); the web app opens its play route.
+         */
+        StartedTestGameOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /** StartingTaskItemOut */
+        StartingTaskItemOut: {
+            /** Asked Label */
+            asked_label: string;
+            /** Column */
+            column: string;
+            /** Hint */
+            hint: string | null;
+            /** Id */
+            id: string;
+            /** Prompt */
+            prompt: string;
+            result: components["schemas"]["ItemResultOut"] | null;
+            /** Rows */
+            rows: components["schemas"]["GivenRowOut"][];
+        };
+        /**
+         * StartingTaskOut
+         * @description The Student's Starting task: the pinned content version, the items in order (answered
+         *     ones with their result), the final question's choice and whether the task is done. The web
+         *     app resumes at the first item without a result.
+         */
+        StartingTaskOut: {
+            /** Done */
+            done: boolean;
+            /** Items */
+            items: components["schemas"]["StartingTaskItemOut"][];
+            played_before: components["schemas"]["Choice"] | null;
+            /** Version */
+            version: number;
+        };
+        /**
+         * StepOut
+         * @description A step of Stegene (Story 6.1, UX-DR29, AD-10, AD-16), its state computed here: the web app
+         *     holds no rule for which step is open.
+         */
+        StepOut: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "done" | "current" | "locked";
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "class_game" | "debrief" | "quiz" | "replay" | "test" | "report";
+        };
+        /**
+         * StudentGameOut
+         * @description The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four
+         *     Seats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`).
+         */
+        StudentGameOut: {
+            /** Briefing First */
+            briefing_first: boolean;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Number */
+            number: number | null;
+            role: components["schemas"]["Role"];
+            rules: components["schemas"]["GameRulesOut"];
+            seat_state: components["schemas"]["SeatState"] | null;
+            /** Seats */
+            seats: components["schemas"]["TableSeatOut"][];
+            /**
+             * Server Now
+             * Format: date-time
+             */
+            server_now: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_ready" | "ready" | "running" | "finished";
+            /**
+             * Test Game
+             * @default false
+             */
+            test_game: boolean;
+            time_proposal?: components["schemas"]["TimeProposalOut"] | null;
+            turn: components["schemas"]["PlayTurnOut"] | null;
+            /** Week */
+            week: number | null;
+        };
+        /**
+         * SumTermOut
+         * @description One part of the sum the result shows: «0 − 13 + 16» is (+1, 0), (−1, 13), (+1, 16).
+         */
+        SumTermOut: {
+            /**
+             * Sign
+             * @enum {integer}
+             */
+            sign: 1 | -1;
+            /** Value */
+            value: number;
+        };
+        /**
+         * SupplyLineSlot
+         * @description Units the Seat has ordered and not received, with the Week they can reach inventory.
+         *
+         *     `ordered`: an Order the upstream Seat (or production, for the last Role) has not received
+         *     yet; its arrival Week assumes the upstream Seat ships it in full. `in_transit` (shipping)
+         *     and `in_production` (last Role) are goods on their way.
+         */
+        SupplyLineSlot: {
+            /** Arrival Week */
+            arrival_week: number;
+            /** Quantity */
+            quantity: number;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "ordered" | "in_transit" | "in_production";
+        };
+        /**
+         * TableSeatOut
+         * @description A Seat of the Student's Class game (Story 6.1, FR-22, FR-34): its Role and who holds it,
+         *     a Student by name, any AI player as «KI-spiller» (`ai`, never which kind), or free.
+         */
+        TableSeatOut: {
+            /**
+             * Holder
+             * @enum {string}
+             */
+            holder: "student" | "ai" | "free";
+            mark: components["schemas"]["SeatMark"] | null;
+            /** Mine */
+            mine: boolean;
+            /** Name */
+            name: string | null;
+            /** Ordered */
+            ordered: boolean | null;
+            role: components["schemas"]["Role"];
+            /** Wait Started At */
+            wait_started_at: string | null;
+        };
+        /**
+         * TableStatusOut
+         * @description Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers.
+         */
+        TableStatusOut: {
+            /** Seats */
+            seats: components["schemas"]["TableSeatOut"][];
+        };
+        /**
+         * TestGameIn
+         * @description «Start testspill» (Story 6.20): the Role the Lecturer plays.
+         */
+        TestGameIn: {
+            role: components["schemas"]["Role"];
+        };
+        /**
+         * TestGameRefOut
+         * @description A Lecturer's test Game (Story 6.20): where the play route stands for it.
+         */
+        TestGameRefOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_ready" | "ready" | "running" | "finished";
+        };
+        /**
+         * TimeProposalIn
+         * @description «Send forslaget til gruppen» (Story 6.19): a date and a time as one instant, nothing else.
+         */
+        TimeProposalIn: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
+        /**
+         * TimeProposalOut
+         * @description The game's open proposal of a time to play (Story 6.19, FR-22): who proposed which time
+         *     and who accepted, in the order they did. Never free text.
+         */
+        TimeProposalOut: {
+            /** Accepted By */
+            accepted_by: components["schemas"]["ProposalPersonOut"][];
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Can Accept */
+            can_accept: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            proposed_by: components["schemas"]["ProposalPersonOut"];
+        };
+        /**
          * UploadRow
          * @description A row of the Class's staged upload: the invalid row a manual registration corrects.
          */
@@ -3248,6 +4088,44 @@ export interface components {
             class_name: string;
             /** Sessions */
             sessions: components["schemas"]["SessionRef"][];
+        };
+        /**
+         * WeekValues
+         * @description One earlier Week of the Seat, as it stood when its Order was placed.
+         */
+        WeekValues: {
+            /** Backlog */
+            backlog: number;
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Cost */
+            cost: string;
+            /** Holding Cost */
+            holding_cost: string;
+            /** Incoming Delivery */
+            incoming_delivery: number;
+            /** Incoming Order */
+            incoming_order: number;
+            /** Inventory */
+            inventory: number;
+            /** Net Inventory */
+            net_inventory: number;
+            /** Order */
+            order: number;
+            /** Position */
+            position: number;
+            /** Shipped */
+            shipped: number;
+            /** Supply Line */
+            supply_line: number;
+            /** Total Backorder Cost */
+            total_backorder_cost: string;
+            /** Total Cost */
+            total_cost: string;
+            /** Total Holding Cost */
+            total_holding_cost: string;
+            /** Week */
+            week: number;
         };
     };
     responses: never;
@@ -5310,6 +6188,77 @@ export interface operations {
             };
         };
     };
+    startTestGame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestGameIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedTestGameOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     listClasses: {
         parameters: {
             query?: never;
@@ -6752,6 +7701,26 @@ export interface operations {
             };
         };
     };
+    streamEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": unknown;
+                };
+            };
+        };
+    };
     health_api_health_get: {
         parameters: {
             query?: never;
@@ -6946,6 +7915,632 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getMyGame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentGameOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyGamePlay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyGameResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameResult"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    startMyGame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentGameOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyStartingTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartingTaskOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answerStartingTaskItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartingTaskOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    finishStartingTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinalIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartingTaskOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    proposeMyGameTime: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TimeProposalIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentGameOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    acceptMyGameTime: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentGameOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    placeMyGameOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+                week: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    viewMyGameWeek: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+                week: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -1,15 +1,13 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
 import { type DemoRole, latestMail, loginByApi, nextMail } from "./support/auth";
+import { axe } from "./support/axe";
 
 /** «Brukere og roller» and its invite form (Story 3.7, FR-1, UX-DR57, UX-DR75, NFR-6), on the
  * local stack. Each test invites its own fresh address, so runs never meet. */
 const users = nb.admin.users;
 const invite = users.invite;
-const WCAG_21_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
-
 type Viewport = {
   name: string;
   width: number;
@@ -42,7 +40,7 @@ const VIEWPORTS: Viewport[] = [
 ];
 
 async function expectAccessible(page: Page, phone: boolean) {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
+  const results = await axe(page);
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
   const scrolls = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,

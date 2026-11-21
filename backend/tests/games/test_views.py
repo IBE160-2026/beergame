@@ -65,6 +65,8 @@ ALLOWED_KEYS = set(SeatState.model_fields) | {
     "amount",
     "order",
     "cost",
+    "holding_cost",
+    "backorder_cost",
     "order_arrival_week",
     "supply_line_base",
     "position_base",
@@ -110,7 +112,7 @@ def test_every_seat_state_holds_numbers_and_roles_only():
         assert not {"weeks", "demand", "demand_seed", "seed", "name", "names"} & keys
         for text in texts - ALLOWED_TEXT:
             Decimal(text)  # money travels as decimal strings; anything else is not allowed
-        assert data["schema_version"] == 1 and data["week"] == week
+        assert data["schema_version"] == 4 and data["week"] == week
         assert data["neighbour_numbers"] == []
         # No future demand: the series up to the next Week never appears.
         if week < CLASSIC.weeks:
@@ -271,7 +273,9 @@ async def test_seat_state_of_a_later_week_uses_the_orders_in_the_decision_log(ga
 async def test_open_turn_reports_the_stored_turn(games_db):
     game_id = await started_game()
     turn = await service.open_turn(game_id, "factory")
-    assert turn.week == 1 and turn.ordered_at is None
+    # A Guided Week: the Student's fixed Order was placed when it opened; not yet viewed.
+    assert turn.week == 1 and turn.guided and turn.ordered_at is not None
+    assert (turn.order, turn.viewed_at) == (4, None)
     expected = rule_based.order(CLASSIC, seat_view(CLASSIC, STATES[:1], [], Role.FACTORY), params())
     assert turn.rule_based_reference_order == expected
 

@@ -1,9 +1,9 @@
 import path from "node:path";
 
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { expectAccessible, freshLecturer, VIEWPORTS } from "./support/classes";
+import { expectAccessible, freshLecturer, test, VIEWPORTS } from "./support/classes";
 
 /** The Roster upload on the Class page (Story 4.2, FR-7, UX-DR47, NFR-6), on the local stack, by
  * keyboard only. Each test makes a fresh Lecturer and Class, so the demo Class is never staged.
@@ -26,6 +26,12 @@ async function classPage(page: Page, browser: Parameters<typeof freshLecturer>[1
     headers: CSRF,
   });
   expect(created.status()).toBe(201);
+  // File choosers are intercepted from here on. Playwright turns the interception on when a page
+  // gets its first `filechooser` listener and off when the last goes, without waiting for the
+  // browser: a press right after `waitForEvent` could open the chooser before it was on, and
+  // headless Chromium cancels it at once (no event, the press lost). One listener for the page's
+  // life keeps it on.
+  lecturer.on("filechooser", () => undefined);
   await lecturer.goto(`/klasser/${(await created.json()).id}`);
   await expect(lecturer.getByRole("heading", { level: 2, name: copy.title })).toBeVisible();
   return lecturer;

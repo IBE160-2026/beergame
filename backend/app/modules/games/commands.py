@@ -8,13 +8,24 @@ When a Week opens, and right after a switch, the command calls `players.ensure_o
 Seats in its own transaction (AD-5); the Orders it places join that transaction. After its own
 commit every command calls `advance` until it does nothing, so a Game whose open Week is
 complete moves on one Week per transaction and none is left complete but open (AD-2, NFR-4).
+
+The scheduling aid's `propose_time` and `accept_time` (Story 6.19) join the AD-2 list: they write
+the Game's proposal of a time to play, never a turn, so no Week moves and no wait changes (AD-20).
 """
 
 import secrets
 import uuid
-from collections.abc import AsyncIterator, Collection, Iterable, Mapping, Sequence
+from collections.abc import (
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Collection,
+    Iterable,
+    Mapping,
+    Sequence,
+)
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import structlog
@@ -58,16 +69,19 @@ from app.modules.games.schemas import (
     Purpose,
     SessionRuntime,
 )
-from app.modules.games.service import scope_of
+from app.modules.games.service import scope_of, seated_students, student_game
 from app.modules.games.turns import OpenGame, play_of
 from app.modules.games.views import build_seat_state, stored_orders, stored_play
-from app.platform import events
+from app.modules.progress import service as progress
+from app.platform import events, notify
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 from app.platform.parameter_sets import UnknownParameterSetError, read_parameter_set
 
 __all__ = [
+    "TIME_PROPOSED_NOTICE",
     "CommandError",
+    "accept_time",
     "advance",
     "assign_seat",
     "create",
@@ -75,9 +89,11 @@ __all__ = [
     "finish",
     "move_seat",
     "place_order",
+    "propose_time",
     "set_snapshot",
     "start",
     "switch_to_rule_based",
+    "view_week",
 ]
 
 log = structlog.get_logger(__name__)
@@ -260,7 +276,17 @@ def _class_session(
                 "class_session_not_allowed", "a Game of this purpose has no Class session", 422
             )
         return None
-    if class_session_id is None or type(game_number) is not int or game_number < 1:
+    if class_session_id is None:
+        raise CommandError(
+            "class_session_required", "a Game of this purpose needs its Class session", 422
+        )
+    if not game_policy.game_number:
+        # A test Game (Story 6.20): the session's, never one of its numbered Class games.
+        if game_number is not None:
+            raise CommandError(
+                "game_number_not_allowed", "a Game of this purpose takes no game number", 422
+            )
+    elif type(game_number) is not int or game_number < 1:
         raise CommandError(
             "class_session_required",
             "a Game of this purpose needs its Class session and a game number from 1",
@@ -287,6 +313,7 @@ async def create(
     batch_id: str | None = None,
     class_session_id: uuid.UUID | str | None = None,
     game_number: int | None = None,
+    snapshot: Mapping[str, Any] | None = None,
     within: AsyncSession | None = None,
 ) -> str:
     """Store a `not_started` Game with one free Seat per Role.
@@ -299,6 +326,11 @@ async def create(
     change. The Rule-based and Play guard parameter sets (default: today's) are frozen too
     (FR-79). A purpose that takes it at the lock (Class games, Story 5.9) takes none of these
     (`settings_not_allowed`), stores no snapshot and gets the Classic Roles' Seats.
+
+    `snapshot` is a ready snapshot (Story 6.20), the five `SNAPSHOT_COLUMNS` as
+    `sessions.build_snapshot` made them from a Class session: a purpose that takes its snapshot at
+    creation stores it as given, checked like `set_snapshot`'s (`invalid_snapshot`), and then takes
+    none of the other snapshot arguments (`settings_not_allowed`).
 
     A purpose whose Games belong to a Class session needs `class_session_id` and `game_number`
     (unique together); others refuse them. `batch_id` puts the Game in a stored simulation batch
@@ -319,6 +351,17 @@ async def create(
         play_guard_params,
         batch_id,  # a simulation batch freezes its Games' snapshot at creation
     )
+    ready: dict[str, Any] | None = None
+    if snapshot is not None:
+        if game_policy.snapshot != "at_creation" or any(
+            value is not None for value in snapshot_given
+        ):
+            raise CommandError(
+                "settings_not_allowed",
+                "a ready snapshot comes alone, for a purpose that takes it at creation",
+                422,
+            )
+        ready = _checked_snapshot(snapshot)
     if game_policy.snapshot == "at_lock":
         if any(value is not None for value in snapshot_given):
             raise CommandError(
@@ -328,6 +371,9 @@ async def create(
             )
         values: dict[str, object] = dict.fromkeys(SNAPSHOT_COLUMNS)
         roles = [role.value for role in ROLES]
+    elif ready is not None:
+        values = dict(ready)
+        roles = [role.value for role in GameSettings.model_validate(ready["settings"]).roles]
     else:
         if settings is None:
             raise CommandError("settings_required", "a Game of this purpose needs settings", 422)
@@ -345,7 +391,12 @@ async def create(
     async with _transaction(within) as session:
         if batch_uuid is not None and await repo.get_batch(session, batch_uuid) is None:
             raise CommandError("batch_not_found", f"no simulation batch {batch_id!r}", 422)
-        if game_policy.snapshot == "at_creation":
+        if ready is not None:
+            # The model config of the frozen runtime can never change from now on (FR-78).
+            config_id = SessionRuntime.model_validate(ready["session_runtime"]).model_config_id
+            if config_id is not None:
+                await ai_config.mark_referenced(config_id, session=session)
+        elif game_policy.snapshot == "at_creation":
             level = None
             if model_config_id is not None:
                 model_config_id, level = await _model_config(session, model_config_id, effort_level)
@@ -938,7 +989,8 @@ async def start(game_id: str) -> int:
     """Start a `not_started` Game: give every free Seat a Rule-based player, store the Week 1
     state, open one turn per Seat and let the order source place the Orders of the non-student
     Seats. Returns the opened Week (1); by then the Game may have advanced, or finished when no
-    Student holds a Seat."""
+    Student holds a Seat. Emits `game:<id>`, `session:<id>` where the Lecturer overview lists
+    the Game, and `user:<id>` for each Student holding a Seat (Story 6.5)."""
     game_uuid = _game_uuid(game_id)
     async with get_sessionmaker().begin() as session:
         game = await repo.lock_game(session, game_uuid)
@@ -971,6 +1023,15 @@ async def start(game_id: str) -> int:
         await repo.set_lifecycle(session, game_uuid, Lifecycle.RUNNING.value)
         await _open_week(session, game, settings, params, [state], [], seat_rows)
         await _commit_change(session, game_uuid)
+        # Story 6.5: each Student in the Game sees it started, on Hjem too (AD-8).
+        for student in sorted(
+            {
+                str(seat["user_id"])
+                for seat in seat_rows
+                if seat["occupant_kind"] == OccupantKind.STUDENT and seat["user_id"] is not None
+            }
+        ):
+            await events.emit(session, "user", student)
     log.info("game_started", game_id=game_id)
     await _settle(game_id)
     return state.week
@@ -1093,9 +1154,11 @@ async def _place(
     open_game: OpenGame | None = None,
     fallback: Fallback | str = Fallback.NONE,
     llm_call_ids: Sequence[uuid.UUID | str] = (),
+    actor: uuid.UUID | None = None,
 ) -> OrderPlaced:
     """`place_order`'s checks and writes in `session`; with `advance_week` it also runs the Week
-    this Order completes. `open_game` is the running command's Game, whose history it reuses."""
+    this Order completes. `open_game` is the running command's Game, whose history it reuses.
+    With an `actor`, the Seat's occupant in force must be that Student (Story 6.12)."""
     game = await repo.lock_game(session, game_uuid)
     if game is None:
         raise CommandError("game_not_found", f"no Game {str(game_uuid)!r}", 404)
@@ -1103,21 +1166,31 @@ async def _place(
     row = _seat_row(seat_rows, seat)
     if game["lifecycle"] == Lifecycle.NOT_STARTED:
         raise CommandError("game_not_started", "the Game has not started", 409)
-    if game["lifecycle"] == Lifecycle.FINISHED:
-        raise CommandError("game_finished", "the Game has finished", 409)
     decider = _decided_by(decided_by)
     marked = _fallback(fallback)
     call_ids = _call_ids(llm_call_ids)
     settings, params = _snapshot(game)
     value = _check_order(settings, order)
+    # The Seat's stored Order for `week` answers `order_exists` before the Week or the Game is
+    # found closed: a retry of an Order that completed the Week, or the last Week, is told its
+    # Order stands (Story 6.13).
+    stored = (
+        type(week) is int
+        and week >= 1
+        and await repo.has_seat_week(session, game_uuid, week, row["id"])
+    )
+    if stored:
+        await _check_actor(session, row, week, actor)
+        raise CommandError("order_exists", "the Seat has already ordered this Week", 409)
+    if game["lifecycle"] == Lifecycle.FINISHED:
+        raise CommandError("game_finished", "the Game has finished", 409)
     if open_game is not None:
         states, orders = await play_of(open_game)
     else:
         states, orders = await stored_play(session, game_uuid)
     if type(week) is not int or week != states[-1].week:
         raise CommandError("week_not_open", f"Week {week!r} is not the open Week", 409)
-    if await repo.has_seat_week(session, game_uuid, week, row["id"]):
-        raise CommandError("order_exists", "the Seat has already ordered this Week", 409)
+    await _check_actor(session, row, week, actor)
     guided = rules.guided_week(_policy(game["purpose"]), settings, week)
     if guided and (decider is not DecidedBy.GUIDED or value != guided_order(settings)):
         raise CommandError(
@@ -1169,13 +1242,31 @@ async def _place(
     )
     if decider is DecidedBy.LLM:
         await _run_play_guard(session, game, settings, row, week)
+    if decider is DecidedBy.STUDENT:
+        await _start_waits(session, game, week)
     lifecycle, open_week = Lifecycle(game["lifecycle"]), week
-    if advance_week and rules.week_complete(await repo.week_turns(session, game_uuid, week)):
+    if advance_week and await _week_complete(session, game, week):
         lifecycle, open_week = await _step(session, game, settings, params, states)
     log.info("order_placed", game_id=str(game_uuid), seat_id=str(row["id"]), week=week)
     return OrderPlaced(
         seat_week_id=str(seat_week_id), week=week, open_week=open_week, lifecycle=lifecycle
     )
+
+
+async def _check_actor(
+    session: AsyncSession, row: Mapping[str, object], week: int, actor: uuid.UUID | None
+) -> None:
+    """With an `actor`, the Seat's occupant in Week `week` must be that Student, before anything
+    about the Seat's Order is told: only its Student may know (FR-5)."""
+    if actor is None:
+        return
+    holder = await repo.occupancy_in_force(session, row["id"], week)
+    if (
+        holder is None
+        or holder["occupant_kind"] != OccupantKind.STUDENT
+        or holder["user_id"] != actor
+    ):
+        raise CommandError("seat_not_yours", "the Seat is not the actor's", 409)
 
 
 async def _run_play_guard(
@@ -1232,6 +1323,7 @@ async def place_order(
     within: OpenGame | None = None,
     fallback: Fallback | str = Fallback.NONE,
     llm_call_ids: Sequence[uuid.UUID | str] = (),
+    actor: uuid.UUID | str | None = None,
 ) -> OrderPlaced:
     """Place the Order of `seat` (a Role or a Seat id) for the open `week` and write its
     Decision log row with the state the Seat saw (AD-15, FR-67).
@@ -1248,7 +1340,19 @@ async def place_order(
     reference Order, an `llm` occupant) carries its failure type and the failed attempts.
 
     An Order with `decided_by = llm` runs the Play guard in the same transaction; on `switch`
-    the Seat is Rule-based from the next Week, reason `guard_switch` (FR-79, AD-5)."""
+    the Seat is Rule-based from the next Week, reason `guard_switch` (FR-79, AD-5).
+
+    `actor` is the User who pressed «Bekreft ordre» (Story 6.12, AD-2): the Seat's occupant in
+    force must be that Student, or the command refuses `seat_not_yours` and writes nothing. Calls
+    without a person (guided Orders, `players` jobs, the rescue loop) pass none and skip the
+    check. Emits `game:<id>`, `session:<id>` where the Lecturer overview lists the Game, and
+    `user:<id>` for the actor and, when the Order completed the Week, for every Student holding a
+    Seat (AD-8)."""
+    actor_id: uuid.UUID | None = None
+    if actor is not None:
+        actor_id = _actor(actor)
+        if actor_id is None:
+            raise CommandError("seat_not_yours", "the Seat is not the actor's", 409)
     if within is not None:
         if within.game_id != _game_uuid(game_id):
             raise ValueError("place_order within another Game's transaction")
@@ -1263,6 +1367,7 @@ async def place_order(
             open_game=within,
             fallback=fallback,
             llm_call_ids=llm_call_ids,
+            actor=actor_id,
         )
     game_uuid = _game_uuid(game_id)
     async with get_sessionmaker().begin() as session:
@@ -1276,10 +1381,148 @@ async def place_order(
             advance_week=True,
             fallback=fallback,
             llm_call_ids=llm_call_ids,
+            actor=actor_id,
         )
         await _commit_change(session, game_uuid)
+        told: set[uuid.UUID] = {actor_id} if actor_id is not None else set()
+        if placed.open_week != placed.week or placed.lifecycle == Lifecycle.FINISHED:
+            # The Week is done: every Student of the Game waits on a new one, or on nothing.
+            told |= {
+                row["user_id"]
+                for row in await repo.seats_with_occupant(session, game_uuid)
+                if row["occupant_kind"] == OccupantKind.STUDENT and row["user_id"] is not None
+            }
+        for student in sorted(str(each) for each in told):
+            await events.emit(session, "user", student)
     await _settle(game_id)
     return placed
+
+
+def _actor(actor: object) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(str(actor))
+    except ValueError, TypeError, AttributeError:
+        return None
+
+
+async def view_week(game_id: str, seat: Role | str, week: int, *, actor: uuid.UUID | str) -> bool:
+    """The Student `actor` has the Guided Week `week` on screen (Story 6.10, FR-24, AD-2): set
+    `viewed_at` on their Seat's turn, once. In a Guided Week viewing counts as ordering (founder
+    decision 2026-11-12): the Seat's fixed Order was placed when the Week opened, and the view
+    that leaves no Student Seat unviewed completes the Week (`games.rules.week_complete`), which
+    then advances exactly one Week in this transaction.
+
+    One transaction with the Game row lock and a version bump, emitting `game:<id>`,
+    `session:<id>` where the Lecturer overview lists the Game, and `user:<id>` for the viewer and,
+    when the Week advances, for every Student holding a Seat (AD-8). A Week already viewed changes
+    nothing: no write, no version, no event; returns False then, True when it recorded the view.
+
+    Refuses `game_not_found`, `seat_not_found`, `game_not_started`, `game_finished`,
+    `week_not_open` (not the open Week), `week_not_guided`, `seat_not_student` (no Student holds
+    the Seat in that Week) and `seat_not_yours` (another Student does)."""
+    game_uuid = _game_uuid(game_id)
+    actor_id = _actor(actor)
+    async with get_sessionmaker().begin() as session:
+        game = await repo.lock_game(session, game_uuid)
+        if game is None:
+            raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
+        seat_rows = await repo.seats_with_occupant(session, game_uuid)
+        row = _seat_row(seat_rows, seat)
+        if game["lifecycle"] == Lifecycle.NOT_STARTED:
+            raise CommandError("game_not_started", "the Game has not started", 409)
+        if game["lifecycle"] == Lifecycle.FINISHED:
+            raise CommandError("game_finished", "the Game has finished", 409)
+        settings, params = _snapshot(game)
+        states, _ = await stored_play(session, game_uuid)
+        if type(week) is not int or week != states[-1].week:
+            raise CommandError("week_not_open", f"Week {week!r} is not the open Week", 409)
+        if not rules.guided_week(_policy(game["purpose"]), settings, week):
+            raise CommandError("week_not_guided", f"Week {week} is not a Guided Week", 409)
+        turn = await repo.turn(session, game_uuid, row["id"], week)
+        occupancy = await repo.occupancy_in_force(session, row["id"], week)
+        if turn is None or occupancy is None:  # `start` and every advance write both
+            raise CommandError("week_not_open", f"the Seat has no turn in Week {week}", 409)
+        if occupancy["occupant_kind"] != OccupantKind.STUDENT:
+            raise CommandError("seat_not_student", "no Student holds the Seat this Week", 409)
+        if actor_id is None or occupancy["user_id"] != actor_id:
+            raise CommandError("seat_not_yours", "another Student holds the Seat", 409)
+        if turn["viewed_at"] is not None:
+            return False
+        if turn["ordered_at"] is None:
+            # A Week opened before the Student's Guided Order was placed at opening (a Game
+            # started before Story 6.10): place it now, so the view can complete the Week.
+            await _ensure_order(OpenGame(session=session, game_id=game_uuid), row["id"])
+        await repo.set_viewed_at(session, turn["id"])
+        await _start_waits(session, game, week)
+        advanced = await _week_complete(session, game, week)
+        if advanced:
+            await _step(session, game, settings, params, states)
+        await _commit_change(session, game_uuid)
+        told = {actor_id}
+        if advanced:  # a new Week opens for every Student of the Game
+            told |= {
+                seat_row["user_id"]
+                for seat_row in seat_rows
+                if seat_row["occupant_kind"] == OccupantKind.STUDENT
+                and seat_row["user_id"] is not None
+            }
+        for student in sorted(str(each) for each in told):
+            await events.emit(session, "user", student)
+    log.info("week_viewed", game_id=game_id, seat_id=str(row["id"]), week=week, advanced=advanced)
+    await _settle(game_id)
+    return True
+
+
+async def _start_waits(session: AsyncSession, game: Mapping[str, Any], week: int) -> None:
+    """A Student has ordered in `week`, or viewed it as a Guided Week: from now the game waits
+    for every Seat that has not ordered (`rules.has_ordered`). Each such turn without a wait
+    start gets one, from `rules.turn_times` with this transaction's clock as the clock start
+    (Story 6.14, FR-25, AD-20); one already set stays, so the first Student's moment counts."""
+    guided = rules.guided_week(
+        _policy(game["purpose"]), GameSettings.model_validate(game["settings"]), week
+    )
+    turns = await repo.week_turns_with_occupant(session, game["id"], week)
+    waiting = [
+        turn
+        for turn in turns
+        if turn["wait_started_at"] is None and not rules.has_ordered(turn, guided=guided)
+    ]
+    if not waiting:
+        return
+    inputs = rules.TurnInputs(clock_start=await repo.now(session))
+    for turn in waiting:
+        kind = OccupantKind(turn["occupant_kind"] or OccupantKind.RULE_BASED)
+        seat = rules.TurnSeat(occupant_kind=kind, opened_at=turn["opened_at"])
+        times = rules.turn_times(rules.TurnGame(guided_week=guided), seat, inputs)
+        await repo.set_wait_started_at(session, turn["id"], times.wait_started_at)
+
+
+async def _unviewed_guided_student(
+    session: AsyncSession, game: Mapping[str, Any], seat_id: uuid.UUID, week: int
+) -> bool:
+    """Whether `week` is a Guided Week whose turn of `seat_id` a Student holds and has not
+    viewed: that Seat has not ordered yet (Story 6.10)."""
+    settings = GameSettings.model_validate(game["settings"])
+    if not rules.guided_week(_policy(game["purpose"]), settings, week):
+        return False
+    occupancy = await repo.occupancy_in_force(session, seat_id, week)
+    turn = await repo.turn(session, game["id"], seat_id, week)
+    return (
+        occupancy is not None
+        and occupancy["occupant_kind"] == OccupantKind.STUDENT
+        and turn is not None
+        and turn["viewed_at"] is None
+    )
+
+
+async def _week_complete(session: AsyncSession, game: Mapping[str, Any], week: int) -> bool:
+    """`games.rules.week_complete` for the Game's `week`, with the occupants in force in it and
+    whether it is a Guided Week (Story 6.10)."""
+    guided = rules.guided_week(
+        _policy(game["purpose"]), GameSettings.model_validate(game["settings"]), week
+    )
+    turns = await repo.week_turns_with_occupant(session, game["id"], week)
+    return rules.week_complete(turns, guided=guided)
 
 
 async def _complete_week(game_id: uuid.UUID) -> bool:
@@ -1294,7 +1537,7 @@ async def _complete_week(game_id: uuid.UUID) -> bool:
         week = await repo.open_week(session, game_id)
         if week is None:
             return False
-        return rules.week_complete(await repo.week_turns(session, game_id, week))
+        return await _week_complete(session, game, week)
 
 
 async def _advance_once(game_id: str) -> bool:
@@ -1308,11 +1551,15 @@ async def _advance_once(game_id: str) -> bool:
             return False
         states, _ = await stored_play(session, game_uuid)
         week = states[-1].week
-        if not rules.week_complete(await repo.week_turns(session, game_uuid, week)):
+        if not await _week_complete(session, game, week):
             return False  # another command advanced it meanwhile
         settings, params = _snapshot(game)
         _, open_week = await _step(session, game, settings, params, states)
         await _commit_change(session, game_uuid)
+        # Every Student of the Game waits on a new Week, or on nothing: their Hjem reads again,
+        # as after the Order that completes a Week (follow-up review of Story 6.13).
+        for student in sorted(seated_students(await repo.seats_with_occupant(session, game_uuid))):
+            await events.emit(session, "user", str(student))
     log.info("week_advanced", game_id=game_id, week=week, open_week=open_week)
     return True
 
@@ -1347,7 +1594,8 @@ async def switch_to_rule_based(
     Appends an occupancy row with `occupant_kind = rule_based` and `reason`; it never edits an
     earlier row (AD-5). A Seat without an Order for the open Week switches from this Week and
     gets its Order from `players.ensure_order` in the same transaction; a Seat that has ordered
-    switches from the next Week. Returns the occupancy row id."""
+    switches from the next Week. In a Guided Week a Student Seat that has not viewed the Week
+    has not ordered (Story 6.10), so it switches from this Week. Returns the occupancy row id."""
     switch_reason = _switch_reason(reason)
     game_uuid = _game_uuid(game_id)
     async with get_sessionmaker().begin() as session:
@@ -1362,6 +1610,10 @@ async def switch_to_rule_based(
         states, _ = await stored_play(session, game_uuid)
         week = states[-1].week
         ordered = await repo.has_seat_week(session, game_uuid, week, row["id"])
+        if ordered and await _unviewed_guided_student(session, game, row["id"], week):
+            # Viewing counts as ordering in a Guided Week (Story 6.10): a Student who has not
+            # opened it has not ordered, so the new occupant takes this Week.
+            ordered = False
         occupancy_id = uuid.uuid7()
         await repo.append_occupancy(
             session,
@@ -1393,4 +1645,144 @@ async def finish(session: AsyncSession, game_id: uuid.UUID, state: WeekState) ->
         session, game_id, state.week, state.model_dump(mode="json"), finished=True
     )
     await repo.set_lifecycle(session, game_id, Lifecycle.FINISHED.value)
+    await _record_class_game_step(session, game_id)
     log.info("game_finished", game_id=str(game_id))
+
+
+async def _record_class_game_step(session: AsyncSession, game_id: uuid.UUID) -> None:
+    """Record `progress` `class_game` for every Student the Game ever seated, read from the
+    occupancy history, so one whose Seat an AI player took over counts too (Story 6.18, AD-16),
+    where `games.policy` says the purpose records it. Whether the step counts toward Completion
+    is `analysis.completion`'s to decide. Each new step emits `user:<id>` and `session:<id>` in
+    this transaction."""
+    game = await repo.get_game(session, game_id)
+    if game is None or game["class_session_id"] is None:
+        return
+    if not _policy(game["purpose"]).records_class_game_step:
+        return
+    named = {
+        row["user_id"]
+        for row in await repo.occupancy_history(session, game_id)
+        if row["occupant_kind"] == OccupantKind.STUDENT and row["user_id"] is not None
+    }
+    # A Student moved to another Game of the Class session before the start was named here once;
+    # their Class game is the one `student_game` gives, so only this Game's own Students count.
+    students = []
+    for user_id in sorted(named, key=str):
+        own = await student_game(session, user_id, game["class_session_id"])
+        if own is not None and own.game_id == game_id:
+            students.append(user_id)
+    at = await repo.now(session)
+    for student in students:
+        await progress.record_step(
+            student, game["class_session_id"], progress.Step.CLASS_GAME, at, within=session
+        )
+
+
+TIME_PROPOSED_NOTICE = "time_proposed"
+
+PROPOSAL_HORIZON = timedelta(days=90)
+"""How far ahead a proposed time to play may lie when the Class session has no Play deadline
+(follow-up review of Epic 6): about one teaching term."""
+
+Latest = datetime | Callable[[AsyncSession], Awaitable[datetime | None]] | None
+"""The Play deadline a proposal may not pass: a time, none, or a read of it in the command's
+transaction, before the Game row lock (the caller's lock order: Class session, then Game)."""
+"""The notice kind each other Student of a Class game gets when a time to play is proposed,
+`digest` (Story 6.19, AD-9). Its `ref` is the proposal; the mail reads it at send time."""
+
+
+async def _scheduling_game(
+    session: AsyncSession, game_uuid: uuid.UUID, game_id: str, actor_id: uuid.UUID | None
+) -> set[uuid.UUID]:
+    """Lock a Game for the scheduling aid and return its seated Students. Refuses
+    `game_not_found`, `game_finished`, and `seat_not_yours` for an actor who holds no Seat."""
+    game = await repo.lock_game(session, game_uuid)
+    if game is None:
+        raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
+    if game["lifecycle"] == Lifecycle.FINISHED:
+        raise CommandError("game_finished", "the Game has finished", 409)
+    students = set(seated_students(await repo.seats_with_occupant(session, game_uuid)))
+    if actor_id is None or actor_id not in students:
+        raise CommandError("seat_not_yours", "the actor holds no Seat in the Game", 409)
+    return students
+
+
+async def propose_time(
+    game_id: str, at: datetime, *, actor: uuid.UUID | str, latest: Latest
+) -> str:
+    """A Student proposes a time to play (Story 6.19, FR-22, AD-2): a date and a time, never
+    text. The time must lie after now on the database clock and, when the caller gives the Play
+    deadline as `latest`, not after it; with no Play deadline, not more than `PROPOSAL_HORIZON`
+    ahead (`time_out_of_range`). A callable `latest` is read in the transaction, so the deadline
+    holds while the proposal is stored. The Game keeps one open proposal: this
+    one replaces the earlier proposal and its acceptances.
+
+    One transaction with the Game row lock and a version bump, emitting `game:<id>`,
+    `session:<id>` where the Lecturer overview lists the Game, and, through one `time_proposed`
+    notice per other seated Student (dedupe key per proposal), `user:<id>` for each (AD-8, AD-9).
+    The proposal is no input of `rules.turn_times` (AD-20). Refuses `game_not_found`,
+    `game_finished`, `seat_not_yours` and `time_out_of_range`. Returns the proposal's id."""
+    game_uuid = _game_uuid(game_id)
+    actor_id = _actor(actor)
+    if not isinstance(at, datetime) or at.tzinfo is None:
+        raise CommandError("time_out_of_range", "the time carries no time zone", 422)
+    async with get_sessionmaker().begin() as session:
+        deadline = await latest(session) if callable(latest) else latest
+        students = await _scheduling_game(session, game_uuid, game_id, actor_id)
+        assert actor_id is not None  # `_scheduling_game` refuses a missing actor
+        now = await repo.clock_now(session)
+        if deadline is None:
+            deadline = now + PROPOSAL_HORIZON
+        if not (now < at <= deadline):
+            raise CommandError(
+                "time_out_of_range", "the time is not between now and the Play deadline", 422
+            )
+        proposal_id = uuid.uuid7()
+        await repo.replace_time_proposal(session, game_uuid, proposal_id, actor_id, at)
+        await _commit_change(session, game_uuid)
+        # The proposer's own other pages read it too; the others hear of it through the notice.
+        await events.emit(session, "user", str(actor_id))
+        for other in sorted(students - {actor_id}, key=str):
+            await notify.enqueue(
+                session,
+                other,
+                TIME_PROPOSED_NOTICE,
+                f"{TIME_PROPOSED_NOTICE}:{proposal_id}:{other}",
+                ref=proposal_id,
+            )
+    log.info("time_proposed", game_id=game_id, proposal_id=str(proposal_id))
+    return str(proposal_id)
+
+
+async def accept_time(game_id: str, proposal_id: str, *, actor: uuid.UUID | str) -> bool:
+    """A Student accepts the Game's open proposal of a time to play with one press (Story 6.19,
+    FR-22, AD-2). One transaction with the Game row lock and a version bump, emitting
+    `game:<id>`, `session:<id>` where the Lecturer overview lists the Game, and `user:<id>` for
+    every seated Student, so all see who accepted (AD-8). An acceptance already stored changes
+    nothing (no write, no version, no event) and returns False; True when it was stored.
+
+    Refuses `game_not_found`, `game_finished`, `seat_not_yours`, `proposal_gone` (not the open
+    proposal, which another replaced, or its time has passed) and `own_proposal`."""
+    game_uuid = _game_uuid(game_id)
+    actor_id = _actor(actor)
+    proposal_uuid = _actor(proposal_id)
+    async with get_sessionmaker().begin() as session:
+        students = await _scheduling_game(session, game_uuid, game_id, actor_id)
+        assert actor_id is not None
+        proposal = await repo.time_proposal(session, game_uuid)
+        if (
+            proposal is None
+            or proposal["id"] != proposal_uuid
+            or proposal["at"] <= await repo.clock_now(session)
+        ):
+            raise CommandError("proposal_gone", "the proposal is not open any more", 409)
+        if proposal["proposed_by"] == actor_id:
+            raise CommandError("own_proposal", "the Student proposed this time", 409)
+        if not await repo.accept_time_proposal(session, proposal["id"], actor_id):
+            return False
+        await _commit_change(session, game_uuid)
+        for student in sorted(str(each) for each in students):
+            await events.emit(session, "user", student)
+    log.info("time_accepted", game_id=game_id, proposal_id=proposal_id)
+    return True

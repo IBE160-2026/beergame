@@ -86,8 +86,10 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   `FEATURE_INFO_VISIBILITY`. Off, a view switched on that differs from the stored value answers
   422 `feature_disabled` (`{"info_visibility": "feature_disabled"}`; 409 `session_locked` first
   once locked) and the screen shows nothing about it; switching views off is always allowed. The
-  lock freezes it into every Class game's snapshot, which `seat_state`, the LLM prompt and the
-  Decision log read; filling the neighbour numbers is Story 6.21's.
+  lock freezes it into every Class game's snapshot. While the flag is on, `games.views`
+  fills `seat_state.neighbour_numbers` from it (Story 6.21): the direct neighbours' inventory and
+  backlog in the open Week, which the play screen shows, the Decision log records in
+  `state_seen` and the LLM prompt reads (`player_order/v2`; a config on v1 does not print them).
 - `ClassSessionOut` carries `settings_warnings` (the engine's warnings on the stored settings;
   a setting with an error gets no warning in a check) and `calibrated_settings` (the Classic
   preset, which the screen names as what content and Play guard were calibrated for).
@@ -219,8 +221,11 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
 - `session_runtime` is a `games.SessionRuntime` built by `games.commands.default_runtime`: AI mode,
   Effort level, model config id, its `prompt_versions`, the Inactivity limit, today's Rule-based and
   Play guard sets, and `pins`, filled by every provider registered with
-  `service.register_pin_provider(name, provider)` (empty in this story; Epics 6, 9, 10 and 11 add
-  theirs).
+  `service.register_pin_provider(name, provider)` (Epics 6, 9, 10 and 11 add theirs; Story 6.3
+  registers `starting_task` → `{"version": N}` from `content`).
+- `service.own_game_session(user, game_id)` (Story 6.3): the Class session of the Student's own
+  locked game and its pinned Starting task version, under `student_game_of`'s checks; the
+  Starting task routes in `modules/tests` use it.
 - With LLM players and a config that may not answer here (`ai.config.may_answer`: in production
   the mock config, or a provider whose key is not set) the lock raises `ProviderKeyMissing`
   (`provider_key_missing`) and stores nothing. Each owner of the Class and each active Admin gets
@@ -353,3 +358,49 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   gone or no longer readable) and `effort_level_replaced` (`{name, label}`, the label from the
   source's config). `copy_from` copies Epic 5's settings only; the later stories that own more
   session settings add theirs to it.
+
+## The Student's Hjem (Story 6.1)
+
+`GET /api/me/class-sessions` is the Student's home endpoint. Besides the dates, Lab hours and
+Obligatorisk mark it carries, per Class session:
+
+- `game`: the Student's Class game once the session `is_locked` (also after a confirmed
+  allocation, never before the Start date): number, Role and the four Seats Fabrikk first, read
+  through `games.service.student_game` (the one way any module finds a Student's game) and
+  `games.service.table_status`, with names from `classes.service.student_names` at read time. An
+  AI player is `ai`, with no name and no kind.
+- `steps`: Stegene's six steps (`class_game`, `debrief`, `quiz`, `replay`, `test`, `report`) with
+  `done` / `current` / `locked`, computed by `service.stegene` from `progress.steps_of`. With no
+  game every step not done is `locked`.
+
+`GET /api/me/games/{game_id}` (`games.read_own`) answers the same card for the Student's game (the
+one `student_game` gives, joined through `authz.own_seat`) in a locked session of a Class that is
+not archived; any other id, also a game the Student left in a move before the start, answers 403
+`forbidden`, the same whether or not the game exists.
+
+## «Regler før første ordre» (Story 6.2)
+
+The game card (both endpoints above) also carries `briefing_first`, true until `progress` has
+`starting_task` for the Student in that Class session (nothing is stored for "briefing read"), and
+`rules`: the order, shipping and production delays, the number of Veiledede uker and the two cost
+rates, read by `service.game_rules` from the session's frozen `snapshot['settings']` (or its
+`game_settings` until the lock has stored the snapshot; a locked session no longer changes them).
+Never the number of Weeks, the demand, its seed or the largest Order (FR-14, AD-3).
+
+## Proposing a time to play (Story 6.19)
+
+The game card also carries `time_proposal`: the game's open proposal of a time to play, read by
+`_time_proposal_out` through `games.service.open_time_proposal` (None once the time has passed on
+the database clock or the game has finished), with `proposed_by` and `accepted_by` as `{name,
+mine}` (names read now) and `can_accept` for a seated Student who neither proposed nor accepted it.
+
+- `POST /api/me/games/{game_id}/time-proposal` (`games.play_own`, body `{at}`, nothing else)
+  calls `games.commands.propose_time` with the session's `play_deadline` as the latest time: 422
+  `time_out_of_range` outside now to the Play deadline, 409 `game_finished`.
+- `POST /api/me/games/{game_id}/time-proposal/{proposal_id}/accept` calls
+  `games.commands.accept_time`: 409 `proposal_gone` (replaced or passed), `own_proposal`,
+  `game_finished`; a second press answers 200.
+- Both answer the game card as it now stands; any other game, or a Seat no longer held, 403.
+- Each other seated Student gets a `time_proposed` notice (`digest`, one per proposal), whose
+  mail `time_proposal_mail_context` reads at send time; a replaced or passed proposal sends none.
+- The proposal is never an input of `games.rules.turn_times` (AD-20).

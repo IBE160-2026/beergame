@@ -1,13 +1,16 @@
+import hashlib
 import json
+import os
 import re
 import uuid
 from contextlib import contextmanager
+from pathlib import Path
 
 import psycopg
 from psycopg import sql
 
 from app.platform import events
-from tests.conftest import kept_connection, libpq_dsn
+from tests.conftest import RUN_TMP, kept_connection, libpq_dsn
 
 
 def query(url: str, sql: str, params: tuple = ()) -> list[tuple]:
@@ -36,9 +39,9 @@ def tamper(url: str, sql: str, params: tuple = ()) -> None:
 
 
 async def play_week(game_id: str) -> object:
-    """Place every missing Order of the open Week (Guided Order or the stored reference Order)
-    and return the last `OrderPlaced`."""
-    from app.engine import guided_order
+    """Complete the open Week: in a Guided Week every Student Seat views it (its Order was
+    placed when the Week opened); otherwise place every missing Order (the stored reference
+    Order). Returns the last `OrderPlaced`, or None when only views were needed."""
     from app.modules.games import commands, service
 
     game = await service.get_game(game_id)
@@ -46,13 +49,16 @@ async def play_week(game_id: str) -> object:
     week = (await service.seat_state(game_id, game.seats[0].id)).week
     for seat in game.seats:
         turn = await service.open_turn(game_id, seat.id, week)
+        if turn.guided:
+            if seat.occupant_kind == "student" and turn.viewed_at is None:
+                student = seat.user_id or student_of(game_id, seat.role)
+                await commands.view_week(game_id, seat.role, week, actor=student)
+            continue
         if turn.ordered_at is not None:
             continue
-        if turn.guided:
-            order, by = guided_order(game.settings), "guided"
-        else:
-            order, by = turn.rule_based_reference_order, "rule_based"
-        placed = await commands.place_order(game_id, seat.role, week, order, by)
+        placed = await commands.place_order(
+            game_id, seat.role, week, turn.rule_based_reference_order, "rule_based"
+        )
     return placed
 
 
@@ -109,14 +115,41 @@ def _restore(url: str, dumped: dict[str, str]) -> str:
     return game_id
 
 
+def _shared_file(key: object) -> Path | None:
+    """Where the pytest-xdist workers of this run share the Game remembered under `key`, so it
+    is played once per run rather than once per worker: the run's temporary directory, which
+    pytest removes a few runs later (`RUN_TMP`, set in `tests/conftest.py`). None outside
+    pytest-xdist."""
+    run = os.environ.get(RUN_TMP)
+    if not run:
+        return None
+    name = hashlib.sha256(repr(key).encode()).hexdigest()[:32]
+    return Path(run) / "played" / f"{name}.json"
+
+
 def stored_copy(url: str, key: object) -> str | None:
     """A new copy of the Game remembered under `key`, or None before one is remembered."""
-    return _restore(url, _played[key]) if key in _played else None
+    if key not in _played:
+        shared = _shared_file(key)
+        if shared is None or not shared.exists():
+            return None
+        _played[key] = json.loads(shared.read_text(encoding="utf-8"))
+    return _restore(url, _played[key])
 
 
 def remember(url: str, key: object, game_id: str) -> None:
-    """Remember the stored rows of the Game for `stored_copy`."""
+    """Remember the stored rows of the Game for `stored_copy`, in this worker and for the
+    others (written whole, then renamed, so no worker reads half a file)."""
     _played[key] = _dump(url, game_id)
+    shared = _shared_file(key)
+    if shared is not None:
+        shared.parent.mkdir(exist_ok=True)
+        part = shared.with_suffix(f".{os.getpid()}.part")
+        part.write_text(json.dumps(_played[key]), encoding="utf-8")
+        try:
+            os.replace(part, shared)
+        except PermissionError:  # Windows: another worker is reading the copy it wrote first
+            part.unlink()
 
 
 async def played_once(url: str, key: object, play) -> str:
@@ -173,13 +206,28 @@ def listening(url: str):
         conn.close()
 
 
-def seat_student(url: str, game_id: str, *roles: str) -> None:
+def student_of(game_id: str, role: str) -> uuid.UUID:
+    """The id `seat_student` gives the Student of the Seat of `role`."""
+    return uuid.uuid5(uuid.NAMESPACE_URL, f"student:{game_id}:{role}")
+
+
+def seat_student(url: str, game_id: str, *roles: str, anonymous: bool = False) -> None:
     """Give each Seat of `roles` a `student` occupant before the start, as allocation will
-    (Epic 5). No order source places a Student's Order, so the test places it."""
+    (Epic 5), with the id `student_of` gives (none when `anonymous`: no `user:` event, and no
+    view). Outside Guided Weeks no order source places a Student's Order, so the test places
+    it; in a Guided Week the test views it (`view`)."""
     for role in roles:
         execute(
             url,
-            "INSERT INTO seat_occupancy (id, seat_id, from_week, occupant_kind, reason) "
-            "SELECT %s, id, 1, 'student', 'initial' FROM seats WHERE game_id = %s AND role = %s",
-            (uuid.uuid7(), game_id, role),
+            "INSERT INTO seat_occupancy (id, seat_id, from_week, occupant_kind, reason, user_id) "
+            "SELECT %s, id, 1, 'student', 'initial', %s FROM seats "
+            "WHERE game_id = %s AND role = %s",
+            (uuid.uuid7(), None if anonymous else student_of(game_id, role), game_id, role),
         )
+
+
+async def view(game_id: str, role: str, week: int) -> bool:
+    """The Student `seat_student` seated in `role` opens the Guided Week `week` (Story 6.10)."""
+    from app.modules.games import commands
+
+    return await commands.view_week(game_id, role, week, actor=student_of(game_id, role))
