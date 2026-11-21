@@ -83,7 +83,8 @@ The founder asked for more speed (2026-11-21). From Epic 7 on, two epics are bui
 - Then Epics 13 and 14, which need both lanes, and 15, which goes in whichever lane is free first.
 - The next story of a lane is the first `backlog` story of that lane's epic. If a story needs work from the other lane that is not on `main` yet, skip it for now and take the next one.
 - Only the orchestrator edits `sprint-status.yaml` and the run log, and only in lane 1's folder and branch. Lane 2's branch carries code, specs and screenshots only.
-- Alembic: before an epic's PR, merge `main` into the epic branch. If there are two heads, set `down_revision` of the branch's first new migration to `main`'s head, and renumber the files to follow it.
+- Alembic: lane 1 numbers new migrations from 0051, lane 2 from 0101. Before an epic's PR, merge `main` into the epic branch. If there are two heads, set `down_revision` of the branch's first new migration to `main`'s head.
+- Prompts for both lanes: `story-prompt-lanes.md` in the scratchpad (recreate from this section if it is gone).
 - Shared files (`nb.ts`, the generated api client, routers) conflict at that merge. Resolve them by keeping both sides, then regenerate the api client and run the full suites.
 - Visual check: rebuild only `frontend` (`--build frontend`, the rest from the last build), and skip it for stories with no change under `frontend/`. Review sub-agents and the visual check run on Sonnet; builders stay on Opus. One review sub-agent for low-risk stories, two by default, four for risky ones.
 - Lane 1's visual check of story N may run while lane 1 builds story N+1 only in its own worktree. Default: run it after, as before.
