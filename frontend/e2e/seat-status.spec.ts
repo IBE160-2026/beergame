@@ -41,7 +41,7 @@ for (const width of [320, 360, 1440]) {
       await expect(rows(page)).toHaveText([
         /^Fabrikk\s*KI-spiller\s*har bestilt$/,
         /^Distributør\s*Jonas Berg\s*venter, 3 min$/,
-        /^Grossist\s*Demo Student \(deg\)\s*venter \(deg\)$/,
+        /^Grossist\s*Demo Student \(deg\)\s*venter$/,
         /^Detaljist\s*KI-spiller\s*har bestilt$/,
       ]);
       // A filled dot for ordered, a hollow one for waiting; the text says it too.
@@ -200,7 +200,7 @@ test.describe("1440 px", () => {
     await expect(rows(page)).toHaveText([
       /^Fabrikk\s*KI-spiller\s*har bestilt$/,
       /^Distributør\s*Jonas Berg\s*venter, 3 min$/,
-      /^Grossist\s*Demo Student \(deg\)\s*venter \(deg\)$/,
+      /^Grossist\s*Demo Student \(deg\)\s*venter$/,
       /^Detaljist\s*KI-spiller\s*har bestilt$/,
     ]);
   });

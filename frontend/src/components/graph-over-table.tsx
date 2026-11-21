@@ -325,13 +325,6 @@ export function GraphOverTable({
     return () => observer.disconnect();
   }, [measure, measureJoin, toNow]);
 
-  const tint = (nowLeft: number | null): CSSProperties | undefined =>
-    nowLeft === null
-      ? undefined
-      : {
-          backgroundImage: `linear-gradient(to right, transparent ${nowLeft}px, var(--color-future-tint) ${nowLeft}px)`,
-        };
-
   return (
     <div className={fixed || !bleed ? undefined : "-mx-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] lg:mx-0"}>
       <div
@@ -358,9 +351,12 @@ export function GraphOverTable({
                   return (
                     <Fragment key={id}>
                       {field.caption ? (
+                        // The caption's own row over its field: `paper` across the whole width,
+                        // above the now-line and with no tint, so a caption that runs past nå (the
+                        // first Uker, larger text) never covers the line or the future.
                         <tr className={variant.rowClass}>
-                          <td colSpan={span + 1} className="p-0 pt-2 text-caption text-ink-secondary" style={tint(shown.nowLeft)}>
-                            <div className="sticky left-0 z-20 w-fit max-w-[calc(100vw-2rem)] bg-paper pr-2 lg:max-w-[24rem]">{field.caption}</div>
+                          <td colSpan={span + 1} data-caption="" className="relative z-[6] bg-paper p-0 pt-2 text-caption text-ink-secondary">
+                            <div className="sticky left-0 z-20 w-fit max-w-[calc(100vw-2rem)] pr-2 lg:max-w-[24rem]">{field.caption}</div>
                           </td>
                         </tr>
                       ) : null}

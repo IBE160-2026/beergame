@@ -20,7 +20,7 @@ describe("the Kost per uke axis (Issue #126)", () => {
 
 describe("the Totalkostnad over tid axis (Story 6.16)", () => {
   it("is the lowest of 50, 100, 200, 500, 1 000 … kr that holds the running total", () => {
-    expect([0, 24, 50, 68, 101, 380, 501, 1954, 2001].map(totalAxisTop)).toEqual([50, 50, 50, 100, 200, 500, 1000, 2000, 5000]);
+    expect([0, 24, 50, 68, 101, 220, 380, 501, 1954, 2001, 2266, 2501].map(totalAxisTop)).toEqual([50, 50, 50, 100, 200, 250, 500, 1000, 2000, 2500, 2500, 5000]);
     expect(totalAxisTop(Number.NaN)).toBe(50);
   });
 });

@@ -43,7 +43,7 @@ describe("Setestatus words (Story 6.14)", () => {
     expect(rows.map((row) => [row.role, row.holder, row.state, row.status])).toEqual([
       ["Fabrikk", "KI-spiller", "waiting", "venter"],
       ["Distributør", "Jonas", "waiting", "venter, 3 min"],
-      ["Grossist", "Sara (deg)", "waiting", "venter (deg)"],
+      ["Grossist", "Sara (deg)", "waiting", "venter"],
       ["Detaljist", "Noah", "ordered", "har bestilt"],
     ]);
   });
@@ -88,7 +88,7 @@ describe("SeatStatus", () => {
     expect(rowTexts(html)).toEqual([
       "FabrikkKI-spillerventer",
       "DistributørJonasventer, 3 min",
-      "GrossistSara (deg)venter (deg)",
+      "GrossistSara (deg)venter",
       "DetaljistNoahhar bestilt",
     ]);
     expect(html.match(/<svg aria-hidden="true"/g)).toHaveLength(4);

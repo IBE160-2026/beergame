@@ -15,7 +15,7 @@ export type SeatStatusRow = {
   /** Ordered (filled dot) or waiting (hollow dot); null draws no dot and no status (a game that
    * does not run). */
   state: SeatStatusState | null;
-  /** The state in words, always: «har bestilt», «venter, 3 min», «venter», «venter (deg)». */
+  /** The state in words, always: «har bestilt», «venter, 3 min», «venter». */
   status: string | null;
   /** Epic 8: a second line under the row (Takeover, Reclaim). Nothing in Epic 6. */
   detail?: ReactNode;
@@ -70,13 +70,17 @@ export function SeatStatus({
       <ul className="mt-2 flex flex-col border-t border-hairline">
         {rows.map((row) => (
           <li key={row.key} data-state={row.state ?? undefined} className="border-b border-hairline py-2">
-            <div className="flex flex-wrap items-baseline gap-x-3 text-body-phone lg:text-body">
+            {/* From 1280 px the rows share columns (dot, Role, holder, status), so the status keeps
+                to the name's line and the rows line up; narrower, each row wraps on its own. */}
+            <div className="flex flex-wrap items-baseline gap-x-3 text-body-phone lg:text-body xl:grid xl:grid-cols-[auto_minmax(6rem,auto)_minmax(0,1fr)_auto]">
               {row.state ? <Dot filled={row.state === "ordered"} /> : null}
-              <span className="min-w-[6rem] font-semibold text-ink">{row.role}</span>
-              <span className={cn("min-w-0 break-words", row.named ? "text-ink" : "text-ink-secondary")}>
+              <span className="min-w-[6rem] font-semibold text-ink xl:col-start-2">{row.role}</span>
+              <span className={cn("min-w-0 break-words xl:col-start-3", row.named ? "text-ink" : "text-ink-secondary")}>
                 {row.holder}
               </span>
-              {row.status ? <span className="ml-auto text-right text-ink-secondary">{row.status}</span> : null}
+              {row.status ? (
+                <span className="ml-auto text-right text-ink-secondary xl:col-start-4 xl:whitespace-nowrap">{row.status}</span>
+              ) : null}
             </div>
             {row.detail}
             {row.action}

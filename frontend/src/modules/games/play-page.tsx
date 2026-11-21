@@ -218,6 +218,8 @@ function Topplinje({
   const state = envelope.seat_state;
   const amount = formatNumber(state.total_cost, { kroner: true });
   return (
+    // The Totalkostnad pair keeps to the right edge (`ml-auto`), also when larger text wraps it
+    // under the heading, so the amount never stands indented under its label.
     <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
       <div className="min-w-0">
         {/* Takes focus when the Student's own Order completed the Uke and the next one shows. */}
@@ -231,14 +233,14 @@ function Topplinje({
         data-total-cost=""
         aria-label={copy.totalCostButton(amount)}
         onClick={(event) => onOpen(event.currentTarget)}
-        className="min-h-tap-target-min min-w-tap-target-min cursor-pointer rounded-sm text-right lg:hidden"
+        className="ml-auto min-h-tap-target-min min-w-tap-target-min cursor-pointer rounded-sm text-right lg:hidden"
       >
         {/* The visible pair, «Totalkostnad 68,00 kr» with the space, starts the name, so speech
             input finds it (WCAG 2.5.3). */}
         <span className="block text-caption text-ink-secondary">{nb.terms.totalCost}</span>{" "}
         <span className="block text-figure-total text-ink tabular-nums lining-nums">{amount}</span>
       </button>
-      <p data-total-cost="" className="hidden text-right lg:block">
+      <p data-total-cost="" className="ml-auto hidden text-right lg:block">
         <span className="block text-caption text-ink-secondary">{nb.terms.totalCost}</span>
         <span className="block text-figure-total text-ink tabular-nums lining-nums">{amount}</span>
       </p>
@@ -315,7 +317,7 @@ function Running({
       </p>
       {/* Hidden, not gone, while Alle rader is open (`useAllRows`). */}
       <div hidden={allRows.open !== null}>
-        <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12">
+        <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12 xl:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="min-w-0">
             {/* Reading and focus order: Topplinje, Kjedebånd, Graf over tabell, the rest (FR-73). */}
             <ChainBandView state={state} seatRoles={game.seats.map((seat) => seat.role)} typed={preview?.order} />

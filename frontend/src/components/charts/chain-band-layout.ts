@@ -156,6 +156,22 @@ type Wanted = {
   max: number;
 };
 
+/** The labels that wrap together (see `bandLayout`), and their left-to-right order in the band. */
+const GROUP: Partial<Record<LabelKey, string>> = { upstream: "up", order: "up", downstream: "down", incoming: "down", stock: "stock" };
+const BAND_ORDER: Record<LabelKey, number> = {
+  upstream: 0,
+  order: 1,
+  incoming: 2,
+  downstream: 3,
+  delivery: 4,
+  shipped: 5,
+  stock: 6,
+  overdue: 7,
+  supplyLine: 8,
+  upstreamNumbers: 9,
+  downstreamNumbers: 10,
+};
+
 export function bandLayout(input: BandInput): BandLayout {
   const { width, fontSize: f, inventory, backlog, slots, overdue, typed = 0, labels } = input;
   // The node in the middle: the left half holds the pipe, the right the way out.
@@ -238,47 +254,77 @@ export function bandLayout(input: BandInput): BandLayout {
   }
   wanted.push({ key: "supplyLine", text: labels.supplyLine, weight: 600, row: 2, at: 0, anchor: "start", min: 0, max: leftMax });
   const baselines = [topBaseline, midBaseline, bottomBaseline];
-  const taken: [number, number][][] = [[], [], []];
   const gap = LABEL_GAP * f;
-  const placed: PlacedLabel[] = [];
-  const wrapped: Wanted[] = [];
-  for (const item of wanted) {
-    const w = textWidth(item.text, f, item.weight);
-    // A centred label (the overdue number over its box) keeps inside its room rather than wrapping.
-    const x =
-      item.anchor === "start"
-        ? item.at
-        : item.anchor === "end"
-          ? item.at - w
-          : Math.max(item.min, Math.min(item.at - w / 2, item.max - w));
-    const free = taken[item.row]!.every(([a, b]) => x + w + gap <= a || x >= b + gap);
-    if (x >= item.min - 0.01 && x + w <= item.max + 0.01 && free) {
-      taken[item.row]!.push([x, x + w]);
-      placed.push(label(item, x, baselines[item.row]!, w, false));
-    } else {
-      wrapped.push(item);
+  // Labels that belong together wrap together (Epic 6): the order going out with the upstream
+  // end, the order coming in with the downstream end, and the stock labels with each other. A
+  // group with one label short of room wraps whole, so no end label stays behind its number.
+  const place = (forced: ReadonlySet<string>) => {
+    const taken: [number, number][][] = [[], [], []];
+    const placed: PlacedLabel[] = [];
+    const wrapped: Wanted[] = [];
+    for (const item of wanted) {
+      const w = textWidth(item.text, f, item.weight);
+      // A centred label (the overdue number over its box) keeps inside its room rather than wrapping.
+      const x =
+        item.anchor === "start"
+          ? item.at
+          : item.anchor === "end"
+            ? item.at - w
+            : Math.max(item.min, Math.min(item.at - w / 2, item.max - w));
+      const free = taken[item.row]!.every(([a, b]) => x + w + gap <= a || x >= b + gap);
+      const group = GROUP[item.key];
+      if (!(group && forced.has(group)) && x >= item.min - 0.01 && x + w <= item.max + 0.01 && free) {
+        taken[item.row]!.push([x, x + w]);
+        placed.push(label(item, x, baselines[item.row]!, w, false));
+      } else {
+        wrapped.push(item);
+      }
+    }
+    return { placed, wrapped };
+  };
+  let { placed, wrapped } = place(new Set());
+  const broken = new Set(wrapped.map((item) => GROUP[item.key]).filter((group) => group !== undefined));
+  if (broken.size > 0) ({ placed, wrapped } = place(broken));
+
+  // The wrapped labels as units: a group's labels together, in the band's left-to-right order, at
+  // the place of its first label; every other label on its own.
+  const wrapUnits: Wanted[][] = [];
+  for (const item of wrapped) {
+    const group = GROUP[item.key];
+    if (group === undefined) wrapUnits.push([item]);
+    else if (!wrapUnits.some((unit) => GROUP[unit[0]!.key] === group)) {
+      const unit = wrapped.filter((other) => GROUP[other.key] === group).sort((a, b) => BAND_ORDER[a.key] - BAND_ORDER[b.key]);
+      const whole = unit.reduce((sum, other) => sum + textWidth(other.text, f, other.weight), 0) + gap * (unit.length - 1);
+      // A group wider than the band takes a row per label, still one after the other.
+      if (whole <= width) wrapUnits.push(unit);
+      else wrapUnits.push(...unit.map((other) => [other]));
     }
   }
 
-  // The rows under the band, in the order the labels were wanted, each label whole on one row and
+  // The rows under the band, in the order the labels were wanted, each unit whole on one row and
   // on its own side: what belongs right of the node keeps to the right edge, the rest to the left.
   let bottom = Math.max(nodeBottom, bottomBaseline + descent) + 1;
   let baseline = bottom + 2 + ascent;
   let left = 0;
   let right = width;
   let empty = true;
-  for (const item of wrapped) {
-    const w = textWidth(item.text, f, item.weight);
-    const onRight = item.min >= rightMin;
+  for (const unit of wrapUnits) {
+    const widths = unit.map((item) => textWidth(item.text, f, item.weight));
+    const w = widths.reduce((sum, one) => sum + one, 0) + gap * (unit.length - 1);
+    const onRight = unit[0]!.min >= rightMin;
     if (!empty && (onRight ? right - w < left : left + w > right)) {
       baseline += ascent + descent + 2;
       left = 0;
       right = width;
     }
-    const x = onRight ? Math.max(0, right - w) : left;
-    placed.push(label(item, x, baseline, w, true));
-    if (onRight) right = x - gap;
-    else left = x + w + gap;
+    let x = onRight ? Math.max(0, right - w) : left;
+    const start = x;
+    unit.forEach((item, i) => {
+      placed.push(label(item, x, baseline, widths[i]!, true));
+      x += widths[i]! + gap;
+    });
+    if (onRight) right = start - gap;
+    else left = start + w + gap;
     empty = false;
     bottom = baseline + descent;
   }

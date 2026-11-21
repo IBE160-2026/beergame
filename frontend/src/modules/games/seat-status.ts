@@ -37,8 +37,9 @@ function holder(seat: StatusSeat): string {
   return holderText(seat);
 }
 
-/** The Setestatus rows (FR-25, UX-DR25): «har bestilt», «venter, 3 min», «venter» or «venter
- * (deg)»; a game that does not run tells no state. */
+/** The Setestatus rows (FR-25, UX-DR25): «har bestilt», «venter, 3 min» or «venter»; the own row
+ * says «(deg)» once, after the name, so its status is plain «venter». A game that does not run
+ * tells no state. */
 export function seatRows(seats: StatusSeat[], now: number): SeatStatusRow[] {
   return seats.map((seat) => {
     const state = seat.ordered == null ? null : seat.ordered ? "ordered" : "waiting";
@@ -48,11 +49,9 @@ export function seatRows(seats: StatusSeat[], now: number): SeatStatusRow[] {
         ? null
         : state === "ordered"
           ? copy.status.ordered
-          : seat.mine
-            ? copy.status.waitingYou
-            : duration
-              ? copy.status.waitingFor(duration)
-              : copy.status.waiting;
+          : duration && !seat.mine
+            ? copy.status.waitingFor(duration)
+            : copy.status.waiting;
     return {
       key: seat.role,
       role: roleName(seat.role),

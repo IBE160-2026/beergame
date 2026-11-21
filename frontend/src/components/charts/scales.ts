@@ -24,14 +24,15 @@ export function costAxisTop(highest: number): number {
 const TOTAL_LOWEST = 50;
 
 /**
- * The top of «Totalkostnad over tid» (Story 6.16, `cost-panel`): the lowest of 50, 100, 200, 500,
- * 1 000, 2 000, … kr that holds the running Total cost, labelled at 0, half and top (`01-landing.png`
- * draws 0 / 25 / 50, `05-spill.png` 0 / 50 / 100). A display choice only.
+ * The top of «Totalkostnad over tid» (Story 6.16, `cost-panel`): the lowest of 50, 100, 200, 250,
+ * 500, 1 000, 2 000, 2 500, … kr (steps 1–2–2,5–5, so 2 266 tops at 2 500, not 5 000) that holds
+ * the running Total cost, labelled at 0, half and top (`01-landing.png` draws 0 / 25 / 50,
+ * `05-spill.png` 0 / 50 / 100). A display choice only.
  */
 export function totalAxisTop(highest: number): number {
   if (!Number.isFinite(highest)) return TOTAL_LOWEST;
   for (let decade = 10; ; decade *= 10) {
-    for (const step of [1, 2, 5]) {
+    for (const step of [1, 2, 2.5, 5]) {
       const top = decade * step;
       if (top >= TOTAL_LOWEST && top >= highest) return top;
     }
