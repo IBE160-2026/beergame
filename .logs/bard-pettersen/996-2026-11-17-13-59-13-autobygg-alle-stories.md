@@ -2264,3 +2264,23 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #150: beslutninger, tid på backend-pakken med to spor, og to ustabile tester til stabiliseringen.
+
+## Story 7.5: Følg spillene live med «Oppdater automatisk» (spor 1)
+
+### Oppgave
+Bygge Story 7.5 på `epic-7` i spor 1, og lukke de utsatte punktene fra 7.1 og 7.2 om feilet henting og om Startdatoen.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-5-follow-the-games-live-with-oppdater-automatisk.md`.
+- Commit: c4d928b.
+- Ny lesing med ETag, bryteren «Oppdater automatisk», «N endringer siden hh:mm» når den er av, rader som står stille mens fokus er i veggen, høflig opplesing av tallene, egne tilkoblingslinjer, nye forsøk hvert 10. sekund og ny lesing ved Startdatoen (`next_change_at`).
+- Tester: backend 2809 på 97,5 s (mens spor 2 kjørte samtidig), Vitest 776, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 47 uten ustabile tester.
+- Gjennomgang: 20 funn, 4 rettet (1 middels), 14 avvist.
+- Visuell kontroll (Sonnet): 13 skjermbilder i `screenshots/7.5/`, ingen avvik. Tilkoblingslinjene følger reglene i EXPERIENCE.md.
+- Status: done.
+
+### Åpne punkter
+- Issue #151: beslutninger, og tiden på backend-pakken når to spor kjører samtidig.
