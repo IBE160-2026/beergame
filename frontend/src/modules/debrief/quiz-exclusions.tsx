@@ -96,7 +96,7 @@ function QuizExclusions({
   const readOnly = !quiz.can_exclude ? copy.assistant : !quiz.open ? copy.closed : null;
   const total = quiz.questions.length;
   return (
-    <section aria-labelledby={titleId} className="mt-12 border-t border-hairline pt-8" data-quiz-exclusions="">
+    <section aria-labelledby={titleId} className="@container mt-12 border-t border-hairline pt-8" data-quiz-exclusions="">
       <h2 id={titleId} className="text-headline text-ink">
         {copy.heading}
       </h2>
@@ -106,12 +106,14 @@ function QuizExclusions({
       {quiz.pinned ? null : <p className={`${LINE} mt-2 max-w-2xl text-ink-secondary`}>{copy.latest}</p>}
       {quiz.placeholder ? <p className={`${LINE} mt-2 max-w-2xl text-ink-secondary`}>{copy.placeholder}</p> : null}
       {readOnly ? <p className={`${LINE} mt-2 max-w-2xl text-ink`}>{readOnly}</p> : null}
-      <ol className="mt-6 grid grid-cols-1 gap-x-16 gap-y-8 lg:grid-cols-3">
+      {/* Three columns only when the section is wide in rem (so not at 200 % text); each question
+          spans the same five rows of a subgrid, so the answers and switches line up. */}
+      <ol className="mt-6 grid grid-cols-1 gap-x-16 gap-y-8 @[56rem]:grid-cols-3">
         {quiz.questions.map((question, i) => {
           const promptId = `${ids}-q${i}`;
           const included = !shown.has(question.id);
           return (
-            <li key={question.id} data-quiz-question={question.id} className="min-w-0 border-t border-axis pt-3">
+            <li key={question.id} data-quiz-question={question.id} className="min-w-0 border-t border-axis pt-3 @[56rem]:row-span-5 @[56rem]:grid @[56rem]:grid-rows-subgrid @[56rem]:content-start @[56rem]:gap-y-0">
               <p className="text-caption text-ink-secondary">{copy.questionOf(i + 1, total)}</p>
               <p id={promptId} className={`${LINE} mt-1 font-semibold text-ink`}>
                 {question.prompt}
@@ -129,7 +131,7 @@ function QuizExclusions({
               {editable ? (
                 <Switch
                   id={`${ids}-switch-${i}`}
-                  className="mt-2"
+                  className="mt-2 self-start justify-self-start"
                   checked={included}
                   onChange={(on) => toggle(question.id, on)}
                   labelledBy={promptId}
@@ -138,7 +140,7 @@ function QuizExclusions({
                   {included ? copy.included : copy.excluded}
                 </Switch>
               ) : (
-                <p data-quiz-state="" className={`${LINE} mt-2 font-semibold text-ink`}>
+                <p data-quiz-state="" className={`${LINE} mt-2 self-start font-semibold text-ink`}>
                   {included ? copy.included : copy.excluded}
                 </p>
               )}

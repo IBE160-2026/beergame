@@ -12,6 +12,7 @@ import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 import { useAction } from "@/lib/api/mutation";
 import { usePageState } from "@/lib/page-state";
+import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { useClass } from "@/modules/classes/api";
@@ -426,6 +427,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
 /** On a wide screen each segment is as wide as its label, as in mockup 03; on a phone the
  * segments share the row. */
 const CONTENT_SIZED = "lg:[&_label]:flex-none";
+/** Two long options stacked on a phone: each a whole segment of its own, with a gap (Story 9.2). */
+const STACKED_ON_PHONE = "max-sm:[&_label]:ml-0 max-sm:[&_label]:basis-full max-sm:[&_label]:rounded-sm";
 
 /**
  * KI-modus, Debrief-modus with «Når Debriefen åpner» (Story 9.2, FR-42) and the Bryter «KI-tekst i
@@ -554,7 +557,7 @@ function Choices({
           {editable ? (
             <SegmentedChoice
               name="debrief-release"
-              className={CONTENT_SIZED}
+              className={cn(CONTENT_SIZED, STACKED_ON_PHONE)}
               legend={c.debriefRelease}
               options={[
                 { value: "open", label: c.releaseOpen },
