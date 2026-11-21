@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-21-2026 17:12
+last_updated: 11-21-2026 17:42
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -152,7 +152,7 @@ development_status:
   7-6-see-who-waits-the-class-s-cost-and-the-funnel-in-the-right-r: done
   7-7-open-one-game-week-by-week-in-spillinnsikt: done
   7-8-see-all-four-roles-orders-inventory-and-backlog-as-charts-in: done
-  7-9-send-a-message-to-a-student-a-class-game-or-the-whole-class: in-progress
+  7-9-send-a-message-to-a-student-a-class-game-or-the-whole-class: done
   7-10-read-messages-in-the-product: backlog
   7-11-act-on-the-longest-waiting-game-from-the-varselbånd: backlog
   epic-7-retrospective: optional
