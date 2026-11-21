@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { ActionError } from "@/components/action-error";
 import { Button } from "@/components/button";
+import { ScrollRegion } from "@/components/scroll-region";
 import { nb } from "@/copy/nb";
 import { formatNumber } from "@/lib/number-format";
 import { WeekTable } from "@/modules/games/week-table-view";
@@ -145,40 +146,44 @@ function Others({ moment }: { moment: Moment }) {
       <h4 id={`${id}-others`} className={LABEL}>
         {copy.others(moment.week)}
       </h4>
-      <table aria-labelledby={`${id}-others`} data-moment-others="" className="mt-1 w-full border-collapse text-table-cell lg:text-table-cell-laptop">
-        <thead>
-          <tr className="border-b border-axis text-ink-secondary">
-            <th scope="col" className="py-1 pr-3 text-left font-normal">
-              {copy.role}
-            </th>
-            <th scope="col" className={`${CELL} font-normal`}>
-              {nb.terms.incomingOrder}
-            </th>
-            <th scope="col" className={`${CELL} font-normal`}>
-              {nb.terms.inventory}
-            </th>
-            <th scope="col" className={`${CELL} font-normal`}>
-              {nb.terms.backlog}
-            </th>
-            <th scope="col" className={`${CELL} font-normal`}>
-              {nb.terms.supplyLine}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {moment.others.map((other) => (
-            <tr key={other.role} className="border-b border-hairline">
-              <th scope="row" className="py-1 pr-3 text-left font-normal">
-                {roleName(other.role)}
+      {/* At 200 % text the five columns outgrow a phone: the table scrolls on its own, never the
+          page (UX-DR75). */}
+      <ScrollRegion labelledBy={`${id}-others`} className="mt-1">
+        <table aria-labelledby={`${id}-others`} data-moment-others="" className="w-full border-collapse text-table-cell lg:text-table-cell-laptop">
+          <thead>
+            <tr className="border-b border-axis text-ink-secondary">
+              <th scope="col" className="py-1 pr-3 text-left font-normal">
+                {copy.role}
               </th>
-              <td className={CELL}>{formatNumber(other.incoming_order)}</td>
-              <td className={CELL}>{formatNumber(other.inventory)}</td>
-              <td className={CELL}>{formatNumber(other.backlog)}</td>
-              <td className={CELL}>{formatNumber(other.supply_line)}</td>
+              <th scope="col" className={`${CELL} font-normal`}>
+                {nb.terms.incomingOrder}
+              </th>
+              <th scope="col" className={`${CELL} font-normal`}>
+                {nb.terms.inventory}
+              </th>
+              <th scope="col" className={`${CELL} font-normal`}>
+                {nb.terms.backlog}
+              </th>
+              <th scope="col" className={`${CELL} font-normal`}>
+                {nb.terms.supplyLine}
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {moment.others.map((other) => (
+              <tr key={other.role} className="border-b border-hairline">
+                <th scope="row" className="py-1 pr-3 text-left font-normal">
+                  {roleName(other.role)}
+                </th>
+                <td className={CELL}>{formatNumber(other.incoming_order)}</td>
+                <td className={CELL}>{formatNumber(other.inventory)}</td>
+                <td className={CELL}>{formatNumber(other.backlog)}</td>
+                <td className={CELL}>{formatNumber(other.supply_line)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ScrollRegion>
     </div>
   );
 }
