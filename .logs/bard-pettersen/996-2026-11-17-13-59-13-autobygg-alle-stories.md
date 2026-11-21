@@ -2368,3 +2368,24 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #155: beslutninger og ustabile e2e-tester under last.
+
+## Story 7.7: Åpne ett spill uke for uke i Spillinnsikt (spor 1)
+
+### Oppgave
+Bygge Story 7.7 på `epic-7` i spor 1, og bruke felles komponenter fra `epic-9` der de trengs.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-7-open-one-game-week-by-week-in-spillinnsikt.md`.
+- Commit: 569ffab.
+- `GET /api/games/{id}/insight` bare for stab, med ETag; merker for alle årsaker til at et sete skifter; siden `/klasseokter/{id}/oversikt/spill/{gameId}` med tabeller per rolle og fokus tilbake til samme spill. `scroll-region.tsx` hentet uendret fra `epic-9`.
+- Tester: backend 2835 (første kjøring hadde 1175 tidsavbrudd mot databasen mens begge sporene kjørte; ny kjøring passerte), Vitest 794, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 50.
+- Gjennomgang: 26 funn, 1 middels og 8 lave rettet.
+- Åtte e2e-tester feilet én gang på tidsavbrudd for e-post og passerte ved ny kjøring.
+- Visuell kontroll (Sonnet): elleve skjermbilder i `screenshots/7.7/`, ingen avvik. Matrisen og grafene fra mockupen kommer i Story 7.8. En overview-test var ustabil i en samlet kjøring under last.
+- Status: done.
+
+### Åpne punkter
+- Issue #156: beslutninger og last fra to spor på samme maskin.
