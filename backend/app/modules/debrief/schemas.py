@@ -176,6 +176,58 @@ class ChainOut(BaseModel):
     roles: list[ChainRoleOut]
 
 
+class SharedWeekOut(BaseModel):
+    """One Uke of one Role on the shared screen (Story 9.13): its Order and the Week state it saw
+    when it ordered (the Decision log's `state_seen`), with its Netto lager."""
+
+    week: int
+    order: int
+    incoming_order: int
+    """The Order that reached the Role; for the Detaljist, the customers' order."""
+    inventory: int
+    backlog: int
+    supply_line: int
+    net_inventory: int
+
+
+class SharedRoleOut(BaseModel):
+    """One Role on the shared screen: every Uke, and from the stored facts set (AD-7) its
+    Forsterkning and its cost over the whole game, Lager and Restordre apart."""
+
+    role: Role
+    amplification: Decimal | None
+    holding_cost: Decimal
+    backorder_cost: Decimal
+    total_cost: Decimal
+    weeks: list[SharedWeekOut]
+
+
+class SharedChainOut(BaseModel):
+    """The whole chain as the shared screen draws it: four Roles, Fabrikk first, and the chain's
+    cost («Kjeden»)."""
+
+    last_week: int
+    holding_cost: Decimal
+    backorder_cost: Decimal
+    total_cost: Decimal
+    roles: list[SharedRoleOut]
+
+
+class SharedOut(BaseModel):
+    """«Delt skjerm: hele kjeden» (Story 9.13, FR-74, AD-21): a Group debrief's shared charts by
+    Role, for a joined Student's display. Never a name, a user id, an Explanation, a reflection
+    answer, a moment or any free text: the schema has no text field at all. `locked` while a joined
+    Student has not sent their Explanation, and then `chain` is None (no demand, no chain data,
+    FR-43). `step` is the group's shared pointer."""
+
+    debrief_id: uuid.UUID
+    class_session_id: uuid.UUID
+    game_number: int | None
+    step: int
+    locked: bool
+    chain: SharedChainOut | None
+
+
 class RenderedTextOut(BaseModel):
     """Text the Debrief shows as written (AD-7): code-rendered text says `ai_generated` false and
     has no `llm_call_id`, and the web app shows it without the «KI-generert, kan ta feil:» prefix,

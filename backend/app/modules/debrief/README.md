@@ -189,3 +189,16 @@ The Debrief (Epic 9, FR-41 to FR-47, AD-21). Never imports `modules/players`
   `commands.open_personal_fallback(debrief_id)`: once, each Student of the game who has not
   finished goes alone and gets a `debrief_fallback` notice (digest). Registry `debrief.leave` →
   `debrief`; `debrief.open_personal_fallback` → `debrief`, `user`.
+
+## Shared screen (Story 9.13, FR-74, AD-12, AD-21)
+
+- `GET /api/debriefs/{id}/shared` (`getSharedDebrief`, `service.shared_mine`): «Delt skjerm: hele
+  kjeden», a joined Student's own session in display mode. Only shared charts by Role: every
+  Role's Uker from the Decision log (Order, Ordre inn, Lager, Restordre, På vei, Netto lager),
+  Fabrikk first, Forsterkning and cost per Role and the chain's cost from the stored facts set.
+  `SharedOut` has no text field, so no name, Explanation, answer or moment can be in it (a schema
+  test asserts it). `locked` with `chain` None while a joined Student has no saved Explanation.
+  Anyone not joined (Personal debrief, not joined, alone, another game, no such id) gets the
+  same 403 `forbidden`. No Debrief write and no event (the facts set is read through
+  `games.fact_set`, which stores it on its first use, as step 3 does); the screen refetches on
+  `debrief:<id>`.

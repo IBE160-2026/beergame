@@ -328,6 +328,14 @@ describe("Ditt netto lager, hele spillet (Story 9.3)", () => {
     expect(html).toContain("<circle");
     expect(html).toContain(">Uke 1</text>");
   });
+
+  it("dashes the shared screen's chosen Uke and shares a scale with the other Roles (Story 9.13)", () => {
+    const html = renderToStaticMarkup(<NetOverGame {...props} marker={12} scaleWith={[-75]} />);
+    expect(html).toContain('data-mark="marker"');
+    expect(html).toContain('stroke-dasharray="3 3"');
+    expect(html).toContain(">-80</text>");
+    expect(renderToStaticMarkup(<NetOverGame {...props} marker={99} />)).not.toContain('data-mark="marker"');
+  });
 });
 
 describe("Etterspørselsbånd (Story 9.4)", () => {

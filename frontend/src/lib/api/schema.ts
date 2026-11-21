@@ -1696,6 +1696,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/debriefs/{debrief_id}/shared": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Shared Debrief
+         * @description «Delt skjerm: hele kjeden» (Story 9.13, FR-74, AD-21): a Group debrief's shared charts by
+         *     Role, for a Student joined to it: every Role's Uker, Netto lager and cost, Fabrikk first, and
+         *     the chain's cost. Never a name, a user id, an Explanation, an answer or a moment. `locked` with
+         *     no chain data while a joined Student has not sent their Explanation. Anyone not joined to it
+         *     (a Personal debrief, a Student who goes on alone, an id that is not one) gets the same 403
+         *     `forbidden`.
+         */
+        get: operations["getSharedDebrief"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/debriefs/{debrief_id}/steps/{step}": {
         parameters: {
             query?: never;
@@ -4680,6 +4705,89 @@ export interface components {
             };
             /** Warnings */
             warnings: components["schemas"]["SettingWarning"][];
+        };
+        /**
+         * SharedChainOut
+         * @description The whole chain as the shared screen draws it: four Roles, Fabrikk first, and the chain's
+         *     cost («Kjeden»).
+         */
+        SharedChainOut: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Holding Cost */
+            holding_cost: string;
+            /** Last Week */
+            last_week: number;
+            /** Roles */
+            roles: components["schemas"]["SharedRoleOut"][];
+            /** Total Cost */
+            total_cost: string;
+        };
+        /**
+         * SharedOut
+         * @description «Delt skjerm: hele kjeden» (Story 9.13, FR-74, AD-21): a Group debrief's shared charts by
+         *     Role, for a joined Student's display. Never a name, a user id, an Explanation, a reflection
+         *     answer, a moment or any free text: the schema has no text field at all. `locked` while a joined
+         *     Student has not sent their Explanation, and then `chain` is None (no demand, no chain data,
+         *     FR-43). `step` is the group's shared pointer.
+         */
+        SharedOut: {
+            chain: components["schemas"]["SharedChainOut"] | null;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /**
+             * Debrief Id
+             * Format: uuid
+             */
+            debrief_id: string;
+            /** Game Number */
+            game_number: number | null;
+            /** Locked */
+            locked: boolean;
+            /** Step */
+            step: number;
+        };
+        /**
+         * SharedRoleOut
+         * @description One Role on the shared screen: every Uke, and from the stored facts set (AD-7) its
+         *     Forsterkning and its cost over the whole game, Lager and Restordre apart.
+         */
+        SharedRoleOut: {
+            /** Amplification */
+            amplification: string | null;
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Holding Cost */
+            holding_cost: string;
+            role: components["schemas"]["Role"];
+            /** Total Cost */
+            total_cost: string;
+            /** Weeks */
+            weeks: components["schemas"]["SharedWeekOut"][];
+        };
+        /**
+         * SharedWeekOut
+         * @description One Uke of one Role on the shared screen (Story 9.13): its Order and the Week state it saw
+         *     when it ordered (the Decision log's `state_seen`), with its Netto lager.
+         */
+        SharedWeekOut: {
+            /** Backlog */
+            backlog: number;
+            /** Incoming Order */
+            incoming_order: number;
+            /** Inventory */
+            inventory: number;
+            /** Net Inventory */
+            net_inventory: number;
+            /** Order */
+            order: number;
+            /** Supply Line */
+            supply_line: number;
+            /** Week */
+            week: number;
         };
         /**
          * SimulatedOut
@@ -9745,6 +9853,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getSharedDebrief: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

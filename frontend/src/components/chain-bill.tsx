@@ -36,12 +36,15 @@ export function ChainBill({
   chain,
   extraRows,
   titleId,
+  title = copy.bill,
   className,
 }: {
   rows: readonly ChainBillRow[];
   chain: ChainBillTotal;
   extraRows?: ReactNode;
   titleId: string;
+  /** The heading: «Kjedens regning», or the shared screen's «Kostnad, kr» (Story 9.13). */
+  title?: string;
   className?: string;
 }) {
   const cell = "py-1.5 pl-3 text-right align-top";
@@ -58,7 +61,7 @@ export function ChainBill({
   return (
     <section aria-labelledby={titleId} data-chain-bill="" className={className}>
       <h2 id={titleId} className="text-headline text-ink">
-        {copy.bill}
+        {title}
       </h2>
       {/* At 200 % text the four columns outgrow a phone: the table scrolls on its own, never the
           page (UX-DR75). */}

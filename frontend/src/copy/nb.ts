@@ -2156,6 +2156,8 @@ export const nb = {
           "Gruppedebriefen ble ikke ferdig innen 48 timer etter at spillet sluttet. Du fortsetter alene, som en Personlig debrief, fra steget du var på.",
         missed: "Gruppen har gått gjennom de felles stegene uten deg. Du går gjennom Debriefen alene, som en Personlig debrief.",
       },
+      /** Story 9.13: the link to the shared screen, for a joined Student (UX-DR35). */
+      sharedScreen: "Delt skjerm: hele kjeden",
     },
   },
 
@@ -2250,6 +2252,44 @@ export const nb = {
       swipe: "Sveip for flere uker",
       /** [ASSUMPTION] the step could not be read; «Prøv igjen» beside it. */
       loadFailed: "Kjeden kunne ikke hentes.",
+    },
+    /** «Delt skjerm: hele kjeden» (Story 9.13, FR-74, UX-DR34, UX-DR35, `07-debrief.png`): the
+     * group's charts by Role on one screen in the room. Never a name. The title, «Netto lager»,
+     * «Kostnad, kr» and the direction line are the spine's; the rest is [ASSUMPTION] draft copy. */
+    shared: {
+      title: "Delt skjerm: hele kjeden",
+      /** «Spill 17» under the title. */
+      game: (number: number | null) => gameName(number),
+      /** Where the group is, by the shared step pointer. */
+      step: (step: number, individual: number, steps: number) =>
+        step >= individual
+          ? "Gruppen har gått gjennom de felles stegene. Nå svarer hver på sin egen enhet."
+          : `Gruppen er på steg ${step} av ${steps}. Hver svarer på sin egen enhet.`,
+      /** [ASSUMPTION] while a joined Student has not sent: no names, no counts. */
+      locked: "Avsløringen er låst til alle i gruppen har sendt Forklaringen. Kjeden vises her når den åpner.",
+      /** [ASSUMPTION] polite, when the lock opens on this screen. */
+      unlocked: "Alle har sendt. Kjeden vises nå.",
+      /** By the scrubber, with the chosen Uke. */
+      at: (week: number) => `Kjeden i Uke ${week}.`,
+      /** [ASSUMPTION] who controls the scrubber (UX-DR34). */
+      scrubberNote: "Skrubberen styres bare fra denne skjermen. Hver telefon har sin egen.",
+      netTitle: "Netto lager",
+      costTitle: "Kostnad, kr",
+      /** [ASSUMPTION] */
+      netSvg: (role: string) => `Graf over netto lager for ${role} i hver uke: over null er lager, under null er restordre.`,
+      showTable: "Vis som tabell",
+      showChart: "Vis som graf",
+      /** [ASSUMPTION] the Netto lager table's caption. */
+      netCaption: "Netto lager per rolle og uke",
+      /** [ASSUMPTION] the band's text alternative at the chosen Uke. */
+      bandCaption: (week: number) => `Kjeden i Uke ${week}: lager, restordre, på vei og ordre per rolle`,
+      columns: { role: "Rolle", stock: "Lager", backlog: "Restordre", supplyLine: "På vei", order: "Ordre" },
+      /** Under the charts (`07-debrief.png`). */
+      direction:
+        "Gruppen ser hele kjeden på storskjermen, i samme retning som på telefonen: varene går mot høyre, ordrene mot venstre. Hver student følger sitt eget steg på telefonen.",
+      back: "Tilbake til Debriefen",
+      /** [ASSUMPTION] the screen could not be read; «Prøv igjen» beside it. */
+      loadFailed: "Den delte skjermen kunne ikke hentes.",
     },
     /** The reflection questions between steps 3 and 4 (Story 9.6, FR-45, EXPERIENCE.md → Debrief
      * sequence: not drawn). The questions are content from the api; «Det ble ikke lagret. Prøv

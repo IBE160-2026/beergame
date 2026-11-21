@@ -20,6 +20,7 @@ import {
   myDebriefKey,
   reach,
   reflectionDone,
+  sharedPath,
   useMyDebrief,
   useMyExplanation,
   useMyReflection,
@@ -106,7 +107,9 @@ function DebriefView({
  * pointer moves with the `debrief:<id>` event, without reload, and the move is announced.
  *
  * Story 9.12: a Student who goes on alone (left, dropped out, or the 48-hour fallback) reads it
- * as a Personal debrief, with a line under the step they were on that says why. */
+ * as a Personal debrief, with a line under the step they were on that says why.
+ *
+ * Story 9.13: a joined Student also gets the link «Delt skjerm: hele kjeden». */
 function Steps({ debrief, userId }: { debrief: Debrief; userId: string }) {
   const group = debrief.group ?? null;
   const explanation = useMyExplanation(debrief.id);
@@ -139,6 +142,8 @@ function Steps({ debrief, userId }: { debrief: Debrief; userId: string }) {
     <>
       <p className={`${LINE} mt-1 text-ink-secondary`}>{copy.roleGame(roleName(debrief.role), debrief.game_number)}</p>
       <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
+      {/* Story 9.13: a joined Student may put the group's charts on a shared screen. */}
+      {group?.joined && !group.alone ? <PageLink href={sharedPath(debrief.id)}>{copy.group.sharedScreen}</PageLink> : null}
       {group && !group.alone ? <GroupAnnouncer group={group} /> : null}
       {far === 0 ? (
         <GroupJoin debrief={debrief} />

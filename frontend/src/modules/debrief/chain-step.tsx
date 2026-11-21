@@ -14,18 +14,24 @@ import { roleName } from "@/modules/sessions/sessions";
 
 import { type Chain, type ChainRole, type ChainWeek, DEBRIEF_STEPS, type Debrief, useDebriefStep } from "./api";
 
+/** A Uke of a Role as the band and the reading need it: step 3's and the shared screen's alike. */
+export type BandWeek = Pick<ChainWeek, "week" | "order" | "incoming_order" | "inventory" | "backlog" | "supply_line">;
+/** The chain as the band and the reading need it, Fabrikk first; `own_role` marks the viewer's
+ * Role on their own page and is absent on the shared screen (Story 9.13). */
+export type BandChain = { roles: readonly { role: ChainRole["role"]; weeks: readonly BandWeek[] }[]; own_role?: string | null };
+
 const copy = nb.debrief.chain;
 const LINE = "text-body-phone lg:text-body";
 /** How long the scrubber must stand still before the chain is read out (UX-DR34). */
 export const READ_AFTER_MS = 300;
 
-function weekOf(role: ChainRole, week: number): ChainWeek | undefined {
+function weekOf(role: BandChain["roles"][number], week: number): BandWeek | undefined {
   return role.weeks.find((w) => w.week === week);
 }
 
 /** What a Role holds in a Uke, as words: its backlog, its stock, or both for a capped Seat that
  * holds both (Story 6.22); «lager 0» when it holds neither. */
-function held(w: ChainWeek, stock: (units: string) => string, backlog: (units: string) => string): string[] {
+function held(w: BandWeek, stock: (units: string) => string, backlog: (units: string) => string): string[] {
   const parts = [];
   if (w.inventory > 0 || w.backlog === 0) parts.push(stock(formatNumber(w.inventory)));
   if (w.backlog > 0) parts.push(backlog(formatNumber(w.backlog)));
@@ -34,7 +40,7 @@ function held(w: ChainWeek, stock: (units: string) => string, backlog: (units: s
 
 /** The live reading of the chain at a Uke, Fabrikk first (UX-DR34): «Uke 15. Fabrikk: restordre 3,
  * ordre 22. Distributør: …», then the customers' order. */
-export function chainReading(chain: Chain, week: number): string {
+export function chainReading(chain: BandChain, week: number): string {
   const parts = chain.roles.flatMap((role) => {
     const w = weekOf(role, week);
     return w ? [copy.readingRole(roleName(role.role), held(w, copy.readingStock, copy.readingBacklog), formatNumber(w.order))] : [];
@@ -46,7 +52,7 @@ export function chainReading(chain: Chain, week: number): string {
 }
 
 /** The four-Role band's numbers at a Uke, from the api's (no arithmetic beyond the bar scale). */
-export function chainBandInput(chain: Chain, week: number, width: number, fontSize: number): ChainBandInput {
+export function chainBandInput(chain: BandChain, week: number, width: number, fontSize: number): ChainBandInput {
   const rows = chain.roles.map((role) => ({ role, w: weekOf(role, week) }));
   const retailer = rows[rows.length - 1]?.w;
   return {
@@ -60,7 +66,7 @@ export function chainBandInput(chain: Chain, week: number, width: number, fontSi
       numbers: w ? held(w, copy.stock, copy.backlog) : [],
       inventory: w?.inventory ?? 0,
       backlog: w?.backlog ?? 0,
-      own: role.role === chain.own_role,
+      own: Boolean(chain.own_role) && role.role === chain.own_role,
     })),
     orders: [...rows.map(({ w }) => (w ? formatNumber(w.order) : "")), retailer ? formatNumber(retailer.incoming_order) : ""],
     supplyLines: rows.map(({ w }) => (w && w.supply_line > 0 ? formatNumber(w.supply_line) : null)),
@@ -209,7 +215,7 @@ type Size = { width: number; fontSize: number };
  * (`07-debrief.png`), at the width it is given and the current text size,
  * measured again whenever either changes. Hidden from screen readers: the live reading and the
  * Rolle × Uke table carry its numbers. */
-function FourRoleBand({ chain, week }: { chain: Chain; week: number }) {
+export function FourRoleBand({ chain, week }: { chain: BandChain; week: number }) {
   const box = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<Size | null>(null);
   useLayoutEffect(() => {

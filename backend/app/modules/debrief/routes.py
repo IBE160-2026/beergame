@@ -30,6 +30,8 @@
   Debrief every read after the pointer answers 403 `step_locked`, after the Explanation gate.
 - Story 9.12: `POST /api/debriefs/{id}/leave`; a Student who goes on alone reads every step as in
   a Personal debrief.
+- Story 9.13: `GET /api/debriefs/{id}/shared`, «Delt skjerm: hele kjeden», the anonymised shared
+  charts for a joined Student; everyone else gets 403 `forbidden`.
 
 Every Debrief route answers 403 `debrief_not_open` while the Student's Class game has not
 finished and 403 `debrief_held` while the Lecturer holds the Debriefs and a Class game has not
@@ -60,6 +62,7 @@ from app.modules.debrief.schemas import (
     ReflectionAnswerIn,
     ReflectionOut,
     ReflectionQuestionOut,
+    SharedOut,
     StaffQuizOut,
     StaffSummaryOut,
 )
@@ -258,6 +261,22 @@ async def get_debrief_step(
     FR-44, AD-7); none and `mostly_ai` with fewer than 10 own Orders. Only the caller's own Seat:
     no route serves another Student's moments (FR-43)."""
     return await _answer(service.step(user, _id(debrief_id), step))
+
+
+@router.get(
+    "/debriefs/{debrief_id}/shared",
+    response_model=SharedOut,
+    responses=documented(401, 403),
+    operation_id="getSharedDebrief",
+)
+async def get_shared_debrief(debrief_id: str, user: OWN) -> Response:
+    """«Delt skjerm: hele kjeden» (Story 9.13, FR-74, AD-21): a Group debrief's shared charts by
+    Role, for a Student joined to it: every Role's Uker, Netto lager and cost, Fabrikk first, and
+    the chain's cost. Never a name, a user id, an Explanation, an answer or a moment. `locked` with
+    no chain data while a joined Student has not sent their Explanation. Anyone not joined to it
+    (a Personal debrief, a Student who goes on alone, an id that is not one) gets the same 403
+    `forbidden`."""
+    return await _answer(service.shared_mine(user, _id(debrief_id)))
 
 
 @router.post(

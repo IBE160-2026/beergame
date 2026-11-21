@@ -28,6 +28,10 @@ import {
   reach,
   reflectionDraftField,
   type SessionQuiz,
+  type SharedChain,
+  sharedCostRows,
+  sharedNetRows,
+  sharedPath,
   waitingFor,
   withAnswer,
   withAttempt,
@@ -416,5 +420,59 @@ describe("going on alone (Story 9.12)", () => {
     for (const line of [words.aloneLead, words.leaveConfirm, ...Object.values(words.aloneLine)]) {
       expect(line).not.toMatch(/!|kunde/i);
     }
+  });
+});
+
+describe("the shared screen (Story 9.13)", () => {
+  const week = (w: number, net: number) => ({
+    week: w,
+    order: 4,
+    incoming_order: 4,
+    inventory: Math.max(net, 0),
+    backlog: Math.max(-net, 0),
+    supply_line: 8,
+    net_inventory: net,
+  });
+  const role = (r: "factory" | "retailer", holding: string, backorder: string, total: string, nets: number[]) => ({
+    role: r,
+    amplification: null,
+    holding_cost: holding,
+    backorder_cost: backorder,
+    total_cost: total,
+    weeks: nets.map((net, i) => week(i + 1, net)),
+  });
+  const chain: SharedChain = {
+    last_week: 2,
+    holding_cost: "6.000",
+    backorder_cost: "4.000",
+    total_cost: "10.000",
+    roles: [role("factory", "6.000", "2.000", "8.000", [12, -3]), role("retailer", "0.000", "2.000", "2.000", [0])],
+  };
+
+  it("lists the cost per Role in the api's order, Fabrikk first, nobody's own, bars of the widest", () => {
+    const model = sharedCostRows(chain, (r) => r, (v) => `kr ${v}`);
+    expect(model.rows.map((r) => [r.role, r.own, r.holding, r.backorder, r.total])).toEqual([
+      ["factory", false, "kr 6.000", "kr 2.000", "kr 8.000"],
+      ["retailer", false, "kr 0.000", "kr 2.000", "kr 2.000"],
+    ]);
+    expect(model.rows.map((r) => r.bar)).toEqual([
+      { holding: 0.75, backorder: 0.25 },
+      { holding: 0, backorder: 0.25 },
+    ]);
+    expect(model.chain).toEqual({ holding: "kr 6.000", backorder: "kr 4.000", total: "kr 10.000" });
+  });
+
+  it("tables Netto lager by Uke, one column per Role, empty where a Role has no row", () => {
+    expect(sharedNetRows(chain)).toEqual([
+      { week: 1, nets: [12, 0] },
+      { week: 2, nets: [-3, null] },
+    ]);
+  });
+
+  it("marks no Role as the viewer's in the band and reads the chain Fabrikk first", () => {
+    const input = chainBandInput(chain, 1, 600, 13);
+    expect(input.nodes.map((n) => n.own)).toEqual([false, false]);
+    expect(chainReading(chain, 1)).toMatch(/^Uke 1\. Fabrikk: lager 12, ordre 4\./);
+    expect(sharedPath("a/b")).toBe("/delt-skjerm/a%2Fb");
   });
 });

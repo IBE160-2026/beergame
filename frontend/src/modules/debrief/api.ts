@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import type { ChainBillRow, ChainBillTotal } from "@/components/chain-bill";
 import { api } from "@/lib/api/client";
 import { request } from "@/lib/api/mutation";
 import type { components } from "@/lib/api/schema";
@@ -429,4 +430,67 @@ export function excludedIds(quiz: SessionQuiz): string[] {
 /** The text of a question's right choice (its answer key). */
 export function answerText(question: SessionQuizQuestion): string {
   return question.choices.find((c) => c.id === question.answer)?.text ?? question.answer;
+}
+
+/** «Delt skjerm: hele kjeden» (Story 9.13, FR-74): a Group debrief's shared charts by Role, for a
+ * joined Student's display. No name, Explanation, answer or moment can be in it; `chain` is null
+ * while `locked`. */
+export type Shared = components["schemas"]["SharedOut"];
+export type SharedChain = components["schemas"]["SharedChainOut"];
+export type SharedRole = components["schemas"]["SharedRoleOut"];
+
+/** Under `debriefsKey`, so the `debrief:<id>` event reads it again. */
+export const sharedKey = (debriefId: string) => [...debriefsKey, debriefId, "shared"] as const;
+
+/** The shared screen's one read: 403 `forbidden` for anyone not joined to the Group debrief. */
+export function useSharedDebrief(debriefId: string) {
+  return useQuery({
+    queryKey: sharedKey(debriefId),
+    queryFn: () => request(() => api.GET("/api/debriefs/{debrief_id}/shared", { params: { path: { debrief_id: debriefId } } })),
+    retry: false,
+  });
+}
+
+/** The path of the shared screen of a Debrief session. */
+export const sharedPath = (debriefId: string) => `/delt-skjerm/${encodeURIComponent(debriefId)}`;
+
+function amount(value: string): number {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+/** «Kostnad, kr» per Role on the shared screen, in the api's order (Fabrikk first), as Kjedens
+ * regning's rows: amounts formatted, the split bar as shares of the widest Role; no Role is the
+ * viewer's. Every number is the api's (AD-10). */
+export function sharedCostRows(
+  chain: SharedChain,
+  name: (role: SharedRole["role"]) => string,
+  money: (value: string) => string,
+): { rows: ChainBillRow[]; chain: ChainBillTotal } {
+  const widest = Math.max(0, ...chain.roles.map((role) => amount(role.total_cost)));
+  return {
+    rows: chain.roles.map((role) => ({
+      role: role.role,
+      label: name(role.role),
+      own: false,
+      holding: money(role.holding_cost),
+      backorder: money(role.backorder_cost),
+      total: money(role.total_cost),
+      bar: {
+        holding: widest > 0 ? amount(role.holding_cost) / widest : 0,
+        backorder: widest > 0 ? amount(role.backorder_cost) / widest : 0,
+      },
+    })),
+    chain: { holding: money(chain.holding_cost), backorder: money(chain.backorder_cost), total: money(chain.total_cost) },
+  };
+}
+
+/** The Netto lager table on the shared screen: one row per Uke, one Netto lager per Role in the
+ * api's order (Fabrikk first); null where a Role has no row for that Uke. */
+export function sharedNetRows(chain: SharedChain): { week: number; nets: (number | null)[] }[] {
+  const weeks = [...new Set(chain.roles.flatMap((role) => role.weeks.map((w) => w.week)))].sort((a, b) => a - b);
+  return weeks.map((week) => ({
+    week,
+    nets: chain.roles.map((role) => role.weeks.find((w) => w.week === week)?.net_inventory ?? null),
+  }));
 }

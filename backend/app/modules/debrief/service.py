@@ -33,6 +33,8 @@
 - Story 9.12: `leave_mine` («Forlat gruppen», «Ta en Personlig debrief»); a Student who goes on
   alone reads every step as in a Personal debrief and `GroupOut.alone` says why; the sweep's
   `due_dropouts`/`drop_out_due` and `due_fallbacks`/`fallback_due`.
+- Story 9.13: `shared_mine` («Delt skjerm: hele kjeden»), the anonymised shared charts for a
+  joined Student, locked until every joined Student has sent.
 - Story 9.10: `staff_quiz(user, class_session_id)` (the Class session's Debrief quiz with its
   answer keys and exclusions, `debrief_quiz.read`) and `set_quiz_exclusions` (raises
   `InvalidExclusions`, `commands.LastQuestion`, `commands.TestDeadlinePassed`); every attempt
@@ -100,6 +102,10 @@ from app.modules.debrief.schemas import (
     RenderedTextOut,
     RevealOut,
     RevealWeekOut,
+    SharedChainOut,
+    SharedOut,
+    SharedRoleOut,
+    SharedWeekOut,
     SimulatedOut,
     SimulatedRowOut,
     StaffAttemptOut,
@@ -155,6 +161,7 @@ __all__ = [
     "require_explanation",
     "save_mine",
     "set_quiz_exclusions",
+    "shared_mine",
     "staff_explanation",
     "staff_quiz",
     "staff_summary",
@@ -711,6 +718,101 @@ async def _chain(game_id: uuid.UUID, role: str) -> ChainOut:
         own_role=Role(role),
         last_week=stored.facts.chain.weeks,
         large_order=LARGE_ORDER,
+        roles=roles,
+    )
+
+
+async def _joined(s, debrief_id: uuid.UUID) -> list[uuid.UUID]:
+    """The joined Students of a shared Debrief session: its members without an alone row (Story
+    9.12)."""
+    gone = select(debrief_alone.c.user_id).where(debrief_alone.c.debrief_id == debrief_id)
+    return list(
+        (
+            await s.scalars(
+                select(debrief_members.c.user_id).where(
+                    debrief_members.c.debrief_id == debrief_id,
+                    debrief_members.c.user_id.not_in(gone),
+                )
+            )
+        ).all()
+    )
+
+
+async def shared_mine(user: authz.Principal, debrief_id: uuid.UUID) -> SharedOut | None:
+    """«Delt skjerm: hele kjeden» (Story 9.13, FR-74, AD-21): the shared charts of a Group debrief
+    for a Student joined to it, by Role only. None (403 `forbidden`, as for an id that is not one)
+    for everyone else: a Personal debrief, a Student who has not joined or goes on alone, another
+    game's Debrief. Locked, with no demand and no chain data, while a joined Student has no saved
+    Explanation (FR-43)."""
+    found = await _own(user, debrief_id)
+    if found is None:
+        return None
+    row, game = found
+    if not row.shared or row.alone:
+        return None
+    async with get_sessionmaker()() as s:
+        joined = await _joined(s, row.id)
+        if user.id not in joined:
+            return None
+        sent = await s.scalar(
+            select(func.count())
+            .select_from(debrief_explanations)
+            .where(
+                debrief_explanations.c.class_session_id == row.class_session_id,
+                debrief_explanations.c.user_id.in_(joined),
+            )
+        )
+    locked = (sent or 0) < len(joined)
+    return SharedOut(
+        debrief_id=row.id,
+        class_session_id=row.class_session_id,
+        game_number=game.number,
+        step=row.step,
+        locked=locked,
+        chain=None if locked else await _shared_chain(row.game_id, game.role),
+    )
+
+
+async def _shared_chain(game_id: uuid.UUID, role: str) -> SharedChainOut:
+    """The shared screen's chain (Story 9.13): every Role's Uker from the Decision log, Fabrikk
+    first, with Forsterkning and the costs from the stored facts set's chain part, which is the
+    same for every Seat (AD-7: read, never rebuilt). Call only once the lock is open."""
+    found = await games.get_game(str(game_id))
+    if found is None or found.settings is None:
+        raise RuntimeError(f"a finished Game {game_id} has no settings")
+    chain = (await games.fact_set(str(game_id), role)).facts.chain
+    by_role = {str(each.role): each for each in chain.by_role}
+    logged = await games.decision_log(str(game_id))
+    roles = []
+    for each in reversed(found.settings.roles):
+        own = sorted((e for e in logged if str(e.role) == str(each)), key=lambda e: e.week)
+        fact = by_role[str(each)]
+        roles.append(
+            SharedRoleOut(
+                role=each,
+                amplification=fact.amplification,
+                holding_cost=fact.holding_cost,
+                backorder_cost=fact.backorder_cost,
+                total_cost=fact.total_cost,
+                weeks=[
+                    SharedWeekOut(
+                        week=e.week,
+                        order=e.order,
+                        incoming_order=e.state_seen.incoming_order,
+                        inventory=e.state_seen.inventory,
+                        backlog=e.state_seen.backlog,
+                        supply_line=e.state_seen.supply_line,
+                        net_inventory=e.state_seen.net_inventory,
+                    )
+                    for e in own
+                ],
+            )
+        )
+    return SharedChainOut(
+        last_week=chain.weeks,
+        holding_cost=sum((each.holding_cost for each in chain.by_role), Decimal(0)),
+        backorder_cost=sum((each.backorder_cost for each in chain.by_role), Decimal(0)),
+        total_cost=chain.total_cost,
         roles=roles,
     )
 

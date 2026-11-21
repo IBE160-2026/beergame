@@ -5615,6 +5615,189 @@
         "title": "SettingsCheckOut",
         "type": "object"
       },
+      "SharedChainOut": {
+        "description": "The whole chain as the shared screen draws it: four Roles, Fabrikk first, and the chain's\ncost («Kjeden»).",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "last_week": {
+            "title": "Last Week",
+            "type": "integer"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/SharedRoleOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "last_week",
+          "holding_cost",
+          "backorder_cost",
+          "total_cost",
+          "roles"
+        ],
+        "title": "SharedChainOut",
+        "type": "object"
+      },
+      "SharedOut": {
+        "description": "«Delt skjerm: hele kjeden» (Story 9.13, FR-74, AD-21): a Group debrief's shared charts by\nRole, for a joined Student's display. Never a name, a user id, an Explanation, a reflection\nanswer, a moment or any free text: the schema has no text field at all. `locked` while a joined\nStudent has not sent their Explanation, and then `chain` is None (no demand, no chain data,\nFR-43). `step` is the group's shared pointer.",
+        "properties": {
+          "chain": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SharedChainOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "debrief_id": {
+            "format": "uuid",
+            "title": "Debrief Id",
+            "type": "string"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "debrief_id",
+          "class_session_id",
+          "game_number",
+          "step",
+          "locked",
+          "chain"
+        ],
+        "title": "SharedOut",
+        "type": "object"
+      },
+      "SharedRoleOut": {
+        "description": "One Role on the shared screen: every Uke, and from the stored facts set (AD-7) its\nForsterkning and its cost over the whole game, Lager and Restordre apart.",
+        "properties": {
+          "amplification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amplification"
+          },
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/SharedWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "role",
+          "amplification",
+          "holding_cost",
+          "backorder_cost",
+          "total_cost",
+          "weeks"
+        ],
+        "title": "SharedRoleOut",
+        "type": "object"
+      },
+      "SharedWeekOut": {
+        "description": "One Uke of one Role on the shared screen (Story 9.13): its Order and the Week state it saw\nwhen it ordered (the Decision log's `state_seen`), with its Netto lager.",
+        "properties": {
+          "backlog": {
+            "title": "Backlog",
+            "type": "integer"
+          },
+          "incoming_order": {
+            "title": "Incoming Order",
+            "type": "integer"
+          },
+          "inventory": {
+            "title": "Inventory",
+            "type": "integer"
+          },
+          "net_inventory": {
+            "title": "Net Inventory",
+            "type": "integer"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "supply_line": {
+            "title": "Supply Line",
+            "type": "integer"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "order",
+          "incoming_order",
+          "inventory",
+          "backlog",
+          "supply_line",
+          "net_inventory"
+        ],
+        "title": "SharedWeekOut",
+        "type": "object"
+      },
       "SimulatedOut": {
         "description": "«Simulert, samme kunder» (Story 9.8, FR-44, UX-DR36): the two rows stored in the facts set,\nplayed with the Rule-based parameter set `params_id` (placeholders, issues #8, #17).",
         "properties": {
@@ -12890,6 +13073,69 @@
           }
         },
         "summary": "Answer Reflection Question",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/shared": {
+      "get": {
+        "description": "«Delt skjerm: hele kjeden» (Story 9.13, FR-74, AD-21): a Group debrief's shared charts by\nRole, for a Student joined to it: every Role's Uker, Netto lager and cost, Fabrikk first, and\nthe chain's cost. Never a name, a user id, an Explanation, an answer or a moment. `locked` with\nno chain data while a joined Student has not sent their Explanation. Anyone not joined to it\n(a Personal debrief, a Student who goes on alone, an id that is not one) gets the same 403\n`forbidden`.",
+        "operationId": "getSharedDebrief",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Shared Debrief",
         "tags": [
           "debrief"
         ]

@@ -21,6 +21,11 @@ export type NetOverGameProps = {
   formatTick: (value: number) => string;
   /** The Uke labels under the axis («Uke 1» … «Uke 36»). */
   weekLabel: (week: number) => string;
+  /** A dashed line at this Uke: the shared screen's chosen Uke (Story 9.13). */
+  marker?: number;
+  /** The Netto lager values the y scale must hold, beyond this chart's own: the shared screen
+   * gives every Role's, so the four charts share one scale. */
+  scaleWith?: readonly number[];
 };
 
 /** The Uker labelled under the axis besides the first and the last (`07-debrief.png`: 1, 12, 24,
@@ -35,9 +40,9 @@ const WEEK_STEP = 12;
  * last Uke), not table columns: there is no week table under it. `aria-hidden`; «Vis som tabell»
  * is its alternative. Hand-made SVG like the rest of the module (see README).
  */
-export function NetOverGame({ width, height, fontSize, points, title, formatTick, weekLabel }: NetOverGameProps) {
+export function NetOverGame({ width, height, fontSize, points, title, formatTick, weekLabel, marker, scaleWith }: NetOverGameProps) {
   const clip = useId().replace(/:/g, "");
-  const domain = netDomain(points.map((p) => p.net));
+  const domain = netDomain([...points.map((p) => p.net), ...(scaleWith ?? [])]);
   const plotTop = Math.round(fontSize * 0.8);
   const base = height - Math.round(fontSize * 1.9);
   const ticks = netTicks(domain, base - plotTop, fontSize);
@@ -110,6 +115,18 @@ export function NetOverGame({ width, height, fontSize, points, title, formatTick
           <path d={netLine} stroke={colour("lager")} clipPath={`url(#${clip}-above)`} />
           <path d={netLine} stroke={colour("restordre")} clipPath={`url(#${clip}-below)`} />
         </g>
+      ) : null}
+      {marker !== undefined && marker >= first && marker <= last ? (
+        <line
+          data-mark="marker"
+          x1={Math.round(x(marker)) + 0.5}
+          x2={Math.round(x(marker)) + 0.5}
+          y1={plotTop}
+          y2={base}
+          stroke={colour("ink-muted")}
+          strokeWidth={1}
+          strokeDasharray="3 3"
+        />
       ) : null}
       {points.length === 1 ? (
         <circle cx={x(first)} cy={y(points[0]!.net)} r={3.5} fill={colour(points[0]!.net < 0 ? "restordre" : "lager")} />
