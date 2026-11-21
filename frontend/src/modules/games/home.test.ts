@@ -48,6 +48,7 @@ describe("Hjem's game card (Story 6.1)", () => {
         guided_weeks: 4,
         holding_cost: "0.50",
         backorder_cost: "1.00",
+        capacity: [],
       },
       status: "ready",
       week: null,

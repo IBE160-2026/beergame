@@ -20,6 +20,7 @@ const RULES = {
   guided_weeks: 4,
   holding_cost: "0.50",
   backorder_cost: "1.00",
+  capacity: [] as { role: string; units: number }[],
 };
 
 function game(briefingFirst: boolean, rules = RULES, role = "wholesaler") {
@@ -179,6 +180,38 @@ test("a Fabrikk with changed settings reads its own delays and no Veiledede uker
     main.getByText("Ordren din går til produksjon tre uker etter at du la den inn. Produksjonen tar én uke."),
   ).toBeVisible();
   await expect(main.getByText(copy.guided.none)).toBeVisible();
+});
+
+test("360 px: a capped game states the capacity after «Slik går en uke», no axe violation (Story 6.22)", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await loginByApi(page, "student");
+  await withGame(page, game(true, { ...RULES, capacity: [{ role: "wholesaler", units: 6 }] }));
+  await page.goto(`/spill/${GAME_ID}/regler`);
+  const main = page.getByRole("main");
+  await expect(main.getByRole("heading", { level: 2 })).toHaveText([
+    copy.goal.title,
+    copy.week.title,
+    copy.capacity.title,
+    copy.delays.title,
+    copy.example.title,
+    copy.guided.title,
+    copy.together.title,
+  ]);
+  const section = main.getByRole("region", { name: copy.capacity.title });
+  await expect(section.locator("p")).toHaveText([
+    "Grossisten kan sende høyst 6 enheter per uke.",
+    copy.capacity.both,
+    copy.capacity.mine,
+  ]);
+  await expectAccessible(page, true);
+});
+
+test("an uncapped Detaljist in a capped game reads the cap but not the table line (Story 6.22)", async ({ page }) => {
+  await loginByApi(page, "student");
+  await withGame(page, game(true, { ...RULES, capacity: [{ role: "wholesaler", units: 6 }] }, "retailer"));
+  await page.goto(`/spill/${GAME_ID}/regler`);
+  const section = page.getByRole("main").getByRole("region", { name: copy.capacity.title });
+  await expect(section.locator("p")).toHaveText(["Grossisten kan sende høyst 6 enheter per uke.", copy.capacity.both]);
 });
 
 test("a game that is not the Student's shows the permission-denied page", async ({ page }) => {

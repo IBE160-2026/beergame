@@ -2593,6 +2593,11 @@ export interface components {
         GameRulesOut: {
             /** Backorder Cost */
             backorder_cost: string;
+            /**
+             * Capacity
+             * @default []
+             */
+            capacity: components["schemas"]["RoleCapacityOut"][];
             /** Guided Weeks */
             guided_weeks: number;
             /** Holding Cost */
@@ -3317,6 +3322,15 @@ export interface components {
          * @enum {string}
          */
         Role: "retailer" | "wholesaler" | "distributor" | "factory";
+        /**
+         * RoleCapacityOut
+         * @description A capped Role (Story 6.22, FR-12): the most it ships per Week, a rule of the game.
+         */
+        RoleCapacityOut: {
+            role: components["schemas"]["Role"];
+            /** Units */
+            units: number;
+        };
         /**
          * RoleCost
          * @description One Role's cost over the whole Game: a row of Kjedens regning, per Role, never per name.

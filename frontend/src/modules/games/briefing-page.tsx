@@ -14,14 +14,15 @@ import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { roleName } from "@/modules/sessions/sessions";
 
 import { type MyGame, myGameKey, useMyGame } from "./api";
-import { delayLines, exampleCostLine, exampleRows, guidedLine, ratesLine } from "./briefing";
+import { capacityLines, delayLines, exampleCostLine, exampleRows, guidedLine, ratesLine } from "./briefing";
 
 const copy = nb.games.briefing;
 
 /**
  * «Regler før første ordre» (Story 6.2, FR-84, FR-14, UX-DR63, UX-DR70, mockup `09-alle-sider`):
  * the objective, how a Week goes, the game's own delays and Veiledede uker, how to play together,
- * and one Uke explained with the product's terms, labelled «Demodata». It never states the number
+ * and one Uke explained with the product's terms, labelled «Demodata»; a game that caps a Role adds
+ * «Kapasitet» (Story 6.22, behind `FEATURE_CAPACITY` in the api). It never states the number
  * of Weeks and recommends no Order. Nothing is stored for reading it: Hjem leads here while the
  * api says `briefing_first`. The one primary button opens the Startoppgave (Story 6.3). Another
  * Student's game, or one not yet started, shows the permission-denied page (FR-5).
@@ -68,6 +69,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
 
 function Briefing({ game }: { game: MyGame }) {
   const { rules } = game;
+  const capacity = capacityLines(game.role, rules);
   return (
     <div className="mt-4 max-w-prose">
       <p className={BODY}>{copy.lead(roleName(game.role), game.number)}</p>
@@ -80,6 +82,15 @@ function Briefing({ game }: { game: MyGame }) {
         <p className={BODY}>{copy.week.ship}</p>
         <p className={BODY}>{copy.week.backlog}</p>
       </Section>
+      {capacity.length > 0 ? (
+        <Section id="briefing-capacity" title={copy.capacity.title}>
+          {capacity.map((line) => (
+            <p key={line} className={BODY}>
+              {line}
+            </p>
+          ))}
+        </Section>
+      ) : null}
       <Section id="briefing-delays" title={copy.delays.title}>
         {delayLines(game.role, rules).map((line) => (
           <p key={line} className={BODY}>

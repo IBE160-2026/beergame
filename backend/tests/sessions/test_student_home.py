@@ -12,6 +12,7 @@ from app.modules.games import commands as games_commands
 from app.modules.ops import sweep
 from app.modules.progress import service as progress
 from app.modules.sessions.service import game_rules
+from app.platform.config import get_settings
 from tests.classes.test_classes import make
 from tests.classes.test_invitation_counts import execute
 from tests.classes.test_roster_upload import NOW, clock, klass
@@ -166,6 +167,7 @@ CLASSIC_RULES = {
     "guided_weeks": 4,
     "holding_cost": "0.50",
     "backorder_cost": "1.00",
+    "capacity": [],
 }
 
 
@@ -207,8 +209,8 @@ async def test_the_briefing_states_the_sessions_own_rules(klass):
         session_id,
     )
     game = (await home(email(0)))["game"]
-    assert game["rules"] == changed
-    assert (await game_of(email(0), game["id"])).json()["rules"] == changed
+    assert game["rules"] == changed | {"capacity": []}
+    assert (await game_of(email(0), game["id"])).json()["rules"] == changed | {"capacity": []}
 
 
 def test_the_rules_come_from_the_settings_until_the_lock_has_stored_its_snapshot():
@@ -219,3 +221,43 @@ def test_the_rules_come_from_the_settings_until_the_lock_has_stored_its_snapshot
     assert game_rules({"snapshot_settings": None, "game_settings": stored}).order_delay == 3
     assert game_rules({"snapshot_settings": None, "game_settings": stored}).guided_weeks == 1
     assert game_rules({"snapshot_settings": frozen, "game_settings": stored}).order_delay == 1
+
+
+def capped_rules(capacity, monkeypatch, on: bool = True) -> list[dict]:
+    monkeypatch.setenv("FEATURE_CAPACITY", "true" if on else "false")
+    get_settings.cache_clear()
+    frozen = GameSettings(capacity=capacity).model_dump(mode="json")
+    rules = game_rules({"snapshot_settings": frozen, "game_settings": None})
+    return [entry.model_dump(mode="json") for entry in rules.capacity]
+
+
+def test_the_rules_name_each_capped_role_detaljist_first_while_the_flag_is_on(monkeypatch):
+    """Story 6.22 (FR-12, AD-17): the snapshot's capacities, as rules of the game, in chain order;
+    none while `FEATURE_CAPACITY` is off, whatever the snapshot holds."""
+    one = {"wholesaler": 6}
+    assert capped_rules(one, monkeypatch) == [{"role": "wholesaler", "units": 6}]
+    mixed = {"factory": 9, "retailer": 5}
+    assert capped_rules(mixed, monkeypatch) == [
+        {"role": "retailer", "units": 5},
+        {"role": "factory", "units": 9},
+    ]
+    every = dict.fromkeys(("factory", "distributor", "wholesaler", "retailer"), 6)
+    assert [e["role"] for e in capped_rules(every, monkeypatch)] == FABRIKK_FIRST[::-1]
+    assert capped_rules(None, monkeypatch) == []
+    assert capped_rules(one, monkeypatch, on=False) == []
+
+
+async def test_a_capped_session_tells_its_students_the_capacity(klass, monkeypatch):
+    """Story 6.22: a capacity the Lecturer saved reaches the Student's game card from the frozen
+    snapshot; with the flag off the same read names none."""
+    monkeypatch.setenv("FEATURE_CAPACITY", "true")
+    get_settings.cache_clear()
+    session_id, _ = await confirmed(klass, 1)
+    assert (await save(session_id, {"capacity": {"wholesaler": 6}})).status_code == 200
+    await sweep.run(START + MINUTE)
+    game = (await home(email(0)))["game"]
+    assert game["rules"] == CLASSIC_RULES | {"capacity": [{"role": "wholesaler", "units": 6}]}
+    assert (await game_of(email(0), game["id"])).json()["rules"] == game["rules"]
+    monkeypatch.setenv("FEATURE_CAPACITY", "false")
+    get_settings.cache_clear()
+    assert (await game_of(email(0), game["id"])).json()["rules"]["capacity"] == []

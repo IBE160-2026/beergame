@@ -155,6 +155,7 @@ from app.modules.sessions.schemas import (
     PlayTurnOut,
     ProposalPersonOut,
     ReplacedLevelOut,
+    RoleCapacityOut,
     SeatChoiceGameOut,
     SeatChoiceIn,
     SeatChoiceOut,
@@ -1223,10 +1224,18 @@ async def _student_card(
 def game_rules(row: Mapping[str, Any]) -> GameRulesOut:
     """The rules the briefing states (Story 6.2, FR-84), from the Class session's frozen snapshot
     or, until the lock has stored it, its settings, which a locked session no longer changes
-    (`SessionLocked`). Only the delays, the Veiledede uker and the cost rates (FR-14, AD-3)."""
+    (`SessionLocked`). Only the delays, the Veiledede uker, the cost rates and, while
+    `FEATURE_CAPACITY` is on (read now, Story 6.22), each capped Role's capacity (FR-14, AD-3)."""
     frozen = row["snapshot_settings"]
     settings = GameSettings.model_validate(frozen if frozen is not None else row["game_settings"])
+    capacity: list[RoleCapacityOut] = []
+    if capacity_enabled():
+        for role in settings.roles:
+            units = settings.capacity_of(role)
+            if units is not None:
+                capacity.append(RoleCapacityOut(role=role, units=units))
     return GameRulesOut(
+        capacity=capacity,
         order_delay=settings.order_delay,
         shipping_delay=settings.shipping_delay,
         production_delay=settings.production_delay,

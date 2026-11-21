@@ -61,6 +61,20 @@ export const ROWS: readonly Row[] = [
 ];
 
 /**
+ * The rows of a capped Seat (Story 6.22, FR-12, FR-23): its stock and backlog can both be above 0,
+ * so Lager and Restordre stand above Netto lager, on phone and laptop. The other rows as `ROWS`.
+ */
+export const CAPPED_ROWS: readonly Row[] = ROWS.flatMap((row) =>
+  row.key === "netInventory"
+    ? [
+        { key: "inventory", label: nb.terms.inventory, laptopOnly: false },
+        { key: "backlog", label: nb.terms.backlog, laptopOnly: false },
+        row,
+      ]
+    : [row],
+);
+
+/**
  * Every row, at every width: the phone's «Alle rader og kostnad» (Story 6.16, FR-23, DESIGN.md →
  * Alle rader og kostnad). Lager and Restordre stand before Netto lager, and «Sum, kr», the
  * running Totalkostnad per Uke, closes the table: it is the table behind «Totalkostnad over tid».

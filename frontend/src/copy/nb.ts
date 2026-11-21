@@ -26,6 +26,9 @@ function countWord(count: number): string {
   return COUNT_WORDS[count] ?? String(count);
 }
 
+/** «1 enhet», «6 enheter» (a capacity is 1 to 100, so no digit grouping). */
+const unitsText = (units: number) => `${units} ${units === 1 ? "enhet" : "enheter"}`;
+
 /** The Start-date line of «Du er invitert» and Hjem (Story 4.5). [ASSUMPTION] EXPERIENCE.md's draft:
  * a Student sees game, Role and Seats from the Start date (founder decision 2026-11-12). */
 const START_DATE_LINE = "Du får Rolle og spill på startdatoen.";
@@ -1445,6 +1448,18 @@ export const nb = {
         same: "Alle setene legger inn ordre for den samme uka. Når alle har lagt inn sin ordre, regnes uka, og neste uke åpner.",
         ship: "Det du har på lager, må du sende, opp til det som er bestilt fra deg. Du kan ikke holde enheter tilbake.",
         backlog: "Det du ikke kan sende, blir restordre. Restordre sendes så snart du har enheter.",
+      },
+      /** [ASSUMPTION] Story 6.22 (cut list, FEATURE_CAPACITY, FR-12): draft copy for the founder's
+       * review. Shown only when the game's snapshot caps a Role. Never a number of Weeks. */
+      capacity: {
+        title: "Kapasitet",
+        /** «Grossisten kan sende høyst 6 enheter per uke.» */
+        role: (role: string, units: number) => `${role} kan sende høyst ${unitsText(units)} per uke.`,
+        every: (units: number) => `Hver rolle kan sende høyst ${unitsText(units)} per uke.`,
+        both: "En rolle med kapasitet kan ha lager og restordre samtidig: enhetene ligger på lager mens ordrene venter.",
+        mine: "Rollen din har kapasitet. Tabellen i spillet viser derfor Lager og Restordre hver for seg, over Netto lager.",
+        /** The Role, definite: «Grossisten». */
+        definite: { retailer: "Detaljisten", wholesaler: "Grossisten", distributor: "Distributøren", factory: "Fabrikken" },
       },
       delays: {
         title: "Forsinkelsene",

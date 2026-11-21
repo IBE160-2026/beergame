@@ -5,12 +5,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { nb } from "@/copy/nb";
 import { MINUS } from "@/lib/number-format";
 
+import capped from "./fixtures/play-capped.json";
 import week1 from "./fixtures/play-week-1.json";
 import fixture from "./fixtures/play-week-11.json";
 import week14 from "./fixtures/play-week-14.json";
 import week30 from "./fixtures/play-week-30.json";
 import type { SeatState } from "./api";
-import { cellFor, graphSeries, netStep, ROWS, weekColumns } from "./week-table";
+import { CAPPED_ROWS, cellFor, graphSeries, netStep, ROWS, weekColumns } from "./week-table";
 import { MiniWeekTable, WeekTable } from "./week-table-view";
 
 // The engine's Grossist in Uke 11 of a Classic game (pinned by `backend/tests/games/test_play_fixture.py`).
@@ -215,6 +216,42 @@ describe("WeekTable rendered on the server with a fixed layout (the print page)"
     const grows = renderToStaticMarkup(<WeekTable state={week14.seat_state as SeatState} />);
     expect(html).not.toContain("Aksen går nå til");
     expect(grows).toContain(nb.games.play.graph.axisGrown("60"));
+  });
+});
+
+describe("a capped Seat's table (Story 6.22)", () => {
+  // The engine's Grossist capped at 6 a Week, in Uke 9 (`play-capped.json`): Lager 6, Restordre 14.
+  const cappedState = capped.seat_state as SeatState;
+
+  it("puts Lager and Restordre above Netto lager, on phone and laptop", () => {
+    expect(CAPPED_ROWS.filter((r) => !r.laptopOnly).map((r) => r.label)).toEqual([
+      "Ordre inn",
+      "Levering",
+      "Lager",
+      "Restordre",
+      "Netto lager",
+      "Posisjon",
+      "Din ordre",
+      "Kost, kr",
+    ]);
+    expect(CAPPED_ROWS.filter((r) => r.laptopOnly).map((r) => r.key)).toEqual(["unitsShipped", "supplyLine"]);
+  });
+
+  it("writes the api's inventory and backlog in their rows, past Uker from the history", () => {
+    expect(cappedState.inventory).toBeGreaterThan(0);
+    expect(cappedState.backlog).toBeGreaterThan(0);
+    expect(cellFor(cappedState, "inventory", 9)).toEqual({ kind: "plain", text: String(cappedState.inventory) });
+    expect(cellFor(cappedState, "backlog", 9)).toEqual({ kind: "plain", text: String(cappedState.backlog) });
+    const past = cappedState.history[7]!;
+    expect(cellFor(cappedState, "backlog", 8)).toEqual({ kind: "plain", text: String(past.backlog) });
+  });
+
+  it("renders the rows only for a capped Seat", () => {
+    const rows = (html: string) => [...html.matchAll(/data-row="(\w+)"/g)].map((m) => m[1]);
+    const with_ = rows(renderToStaticMarkup(<WeekTable state={cappedState} capped />));
+    expect(with_.slice(0, 5)).toEqual(["incomingOrder", "incomingDelivery", "unitsShipped", "inventory", "backlog"]);
+    expect(with_[5]).toBe("netInventory");
+    expect(rows(renderToStaticMarkup(<WeekTable state={cappedState} />))).not.toContain("inventory");
   });
 });
 

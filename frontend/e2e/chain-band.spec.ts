@@ -5,6 +5,7 @@ import { nb } from "../src/copy/nb";
 import type { PlayTurn } from "../src/modules/games/api";
 import { bandEnds, bandLabels, type BandState } from "../src/modules/games/chain-band";
 import classic from "../src/modules/games/fixtures/chain-band-classic.json";
+import cappedWeek from "../src/modules/games/fixtures/play-capped.json";
 import week3 from "../src/modules/games/fixtures/play-week-3.json";
 import week11 from "../src/modules/games/fixtures/play-week-11.json";
 import week30 from "../src/modules/games/fixtures/play-week-30.json";
@@ -22,7 +23,7 @@ const BAND = 'svg[data-chart="band"]';
 /** A stand-in envelope; `turn.order` is a number in a Guided Week and null after it. */
 type Envelope = Omit<typeof week11, "turn"> & { turn: PlayTurn };
 
-async function openPlay(page: Page, envelope: Envelope, text200 = false) {
+async function openPlay(page: Page, envelope: Envelope, text200 = false, capacity: { role: string; units: number }[] = []) {
   if (text200) {
     await page.addInitScript(() => {
       document.addEventListener("DOMContentLoaded", () => {
@@ -41,7 +42,7 @@ async function openPlay(page: Page, envelope: Envelope, text200 = false) {
         role: "wholesaler",
         seats: envelope.table_status.seats,
         briefing_first: false,
-        rules: { order_delay: 2, shipping_delay: 2, production_delay: 2, guided_weeks: 4, holding_cost: "0.50", backorder_cost: "1.00" },
+        rules: { order_delay: 2, shipping_delay: 2, production_delay: 2, guided_weeks: 4, holding_cost: "0.50", backorder_cost: "1.00", capacity },
         status: "running",
         week: envelope.seat_state.week,
       },
@@ -144,6 +145,58 @@ test("Uke 11 at 360 px with both views on: each neighbour's numbers at its end, 
       `Distributør, Uke 11: Lager ${value("distributor", "inventory")}, Restordre ${value("distributor", "backlog")}. ` +
       `Detaljist, Uke 11: Lager ${value("retailer", "inventory")}, Restordre ${value("retailer", "backlog")}`,
   );
+});
+
+/** A capped Grossist (Story 6.22): the engine's Grossist shipping at most 6 a Week, in Uke 9, with
+ * stock and backlog both above 0 (`play-capped.json`, held to the engine). */
+const CAPPED = [{ role: "wholesaler", units: 6 }];
+
+for (const width of [320, 360, 1440]) {
+  test(`${width} px, a capped Seat: both bars and both rows, the band fits, no axe violation (Story 6.22)`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await openPlay(page, cappedWeek as Envelope, false, CAPPED);
+    const state = cappedWeek.seat_state;
+    const band = page.locator(BAND);
+    await expect(band.locator("[data-mark=stock]")).toHaveCount(1);
+    await expect(band.locator("[data-mark=backlog]")).toHaveCount(1);
+    await expect(band.locator('text[data-label="stock"]')).toHaveText([`Lager ${state.inventory}`, `Restordre ${state.backlog}`]);
+    // Stock above the baseline, backlog below it.
+    const stock = (await band.locator("[data-mark=stock]").boundingBox())!;
+    const backlog = (await band.locator("[data-mark=backlog]").boundingBox())!;
+    expect(stock.y + stock.height).toBeCloseTo(backlog.y, 0);
+    // Lager and Restordre stand above Netto lager in the week table, at every width.
+    const region = page.getByRole("region", { name: "Graf og tabell" });
+    const rows = await region.locator("tbody tr[data-row]").evaluateAll((trs) => trs.map((tr) => tr.getAttribute("data-row")));
+    expect(rows.indexOf("inventory")).toBe(rows.indexOf("netInventory") - 2);
+    expect(rows.indexOf("backlog")).toBe(rows.indexOf("netInventory") - 1);
+    await expect(region.getByRole("rowheader", { name: nb.terms.inventory, exact: true })).toBeVisible();
+    await expect(region.getByRole("rowheader", { name: nb.terms.backlog, exact: true })).toBeVisible();
+    const fits = await page.evaluate((selector) => {
+      const svg = document.querySelector<SVGSVGElement>(selector)!.getBoundingClientRect();
+      return svg.left >= 0 && svg.right <= document.documentElement.clientWidth;
+    }, BAND);
+    expect(fits).toBe(true);
+    expect(await widerThanEstimated(page)).toEqual([]);
+    expect(await labelProblems(page)).toEqual([]);
+    await textReadable(page);
+    await expectAccessible(page, width < 1024);
+  });
+}
+
+test("Uke 9 at 360 px, a capped Seat: the band reads both numbers; uncapped, the table keeps Netto lager alone (Story 6.22)", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await openPlay(page, cappedWeek as Envelope, false, CAPPED);
+  const state = cappedWeek.seat_state;
+  await expect(page.locator("[data-chain-band] p.sr-only")).toHaveText(
+    `Ordre inn ${state.incoming_order}, Levering ${state.incoming_delivery}, Sendt ${state.shipped}, Lager ${state.inventory}, Restordre ${state.backlog}, På vei ${state.supply_line}`,
+  );
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+  // The same numbers in a game that caps another Role: no extra rows.
+  await openPlay(page, cappedWeek as Envelope, false, [{ role: "retailer", units: 6 }]);
+  const region = page.getByRole("region", { name: "Graf og tabell" });
+  await expect(region.getByRole("rowheader", { name: nb.terms.netInventory, exact: true })).toBeVisible();
+  await expect(region.getByRole("rowheader", { name: nb.terms.inventory, exact: true })).toHaveCount(0);
+  await expect(region.getByRole("rowheader", { name: nb.terms.backlog, exact: true })).toHaveCount(0);
 });
 
 for (const width of [320, 360]) {

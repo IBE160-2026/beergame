@@ -34,6 +34,7 @@ import {
 } from "./api";
 import { ChainBandView } from "./chain-band-view";
 import { CostPanel } from "./cost-panel-view";
+import { isCapped } from "./briefing";
 import { GameAction } from "./game-action";
 import { GameEnd, GameEndHeading } from "./game-end";
 import { OrderField } from "./order-field";
@@ -327,6 +328,7 @@ function Running({
               movedFrom={movedFrom}
               skipMove={skip}
               onMoving={setMoving}
+              capped={isCapped(game.role, game.rules)}
             />
           </div>
           <div>

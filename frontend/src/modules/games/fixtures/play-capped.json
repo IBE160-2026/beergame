@@ -1,0 +1,273 @@
+{
+  "seat_state": {
+    "role": "wholesaler",
+    "inventory": 6,
+    "backlog": 14,
+    "incoming_orders": [
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      8,
+      12,
+      12
+    ],
+    "supply_line": 12,
+    "order_history": [
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4
+    ],
+    "neighbour_numbers": [],
+    "schema_version": 4,
+    "week": 9,
+    "incoming_order": 12,
+    "incoming_delivery": 4,
+    "shipped": 6,
+    "supply_line_slots": [
+      {
+        "stage": "in_transit",
+        "quantity": 4,
+        "arrival_week": 10
+      },
+      {
+        "stage": "in_transit",
+        "quantity": 4,
+        "arrival_week": 11
+      },
+      {
+        "stage": "ordered",
+        "quantity": 4,
+        "arrival_week": 12
+      }
+    ],
+    "overdue": 0,
+    "net_inventory": -8,
+    "position": 4,
+    "cost_lines": [
+      {
+        "kind": "holding",
+        "units": 6,
+        "rate": "0.50",
+        "amount": "3.00"
+      },
+      {
+        "kind": "backorder",
+        "units": 14,
+        "rate": "1.00",
+        "amount": "14.00"
+      }
+    ],
+    "week_cost": "17.00",
+    "total_cost": "72.00",
+    "total_holding_cost": "48.00",
+    "total_backorder_cost": "24.00",
+    "history": [
+      {
+        "week": 1,
+        "incoming_order": 4,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 12,
+        "backlog": 0,
+        "net_inventory": 12,
+        "supply_line": 12,
+        "position": 24,
+        "cost": "6.00",
+        "holding_cost": "6.00",
+        "backorder_cost": "0.00",
+        "total_cost": "6.00",
+        "total_holding_cost": "6.00",
+        "total_backorder_cost": "0.00",
+        "order": 4
+      },
+      {
+        "week": 2,
+        "incoming_order": 4,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 12,
+        "backlog": 0,
+        "net_inventory": 12,
+        "supply_line": 12,
+        "position": 24,
+        "cost": "6.00",
+        "holding_cost": "6.00",
+        "backorder_cost": "0.00",
+        "total_cost": "12.00",
+        "total_holding_cost": "12.00",
+        "total_backorder_cost": "0.00",
+        "order": 4
+      },
+      {
+        "week": 3,
+        "incoming_order": 4,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 12,
+        "backlog": 0,
+        "net_inventory": 12,
+        "supply_line": 12,
+        "position": 24,
+        "cost": "6.00",
+        "holding_cost": "6.00",
+        "backorder_cost": "0.00",
+        "total_cost": "18.00",
+        "total_holding_cost": "18.00",
+        "total_backorder_cost": "0.00",
+        "order": 4
+      },
+      {
+        "week": 4,
+        "incoming_order": 4,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 12,
+        "backlog": 0,
+        "net_inventory": 12,
+        "supply_line": 12,
+        "position": 24,
+        "cost": "6.00",
+        "holding_cost": "6.00",
+        "backorder_cost": "0.00",
+        "total_cost": "24.00",
+        "total_holding_cost": "24.00",
+        "total_backorder_cost": "0.00",
+        "order": 4
+      },
+      {
+        "week": 5,
+        "incoming_order": 4,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 12,
+        "backlog": 0,
+        "net_inventory": 12,
+        "supply_line": 12,
+        "position": 24,
+        "cost": "6.00",
+        "holding_cost": "6.00",
+        "backorder_cost": "0.00",
+        "total_cost": "30.00",
+        "total_holding_cost": "30.00",
+        "total_backorder_cost": "0.00",
+        "order": 4
+      },
+      {
+        "week": 6,
+        "incoming_order": 4,
+        "incoming_delivery": 4,
+        "shipped": 4,
+        "inventory": 12,
+        "backlog": 0,
+        "net_inventory": 12,
+        "supply_line": 12,
+        "position": 24,
+        "cost": "6.00",
+        "holding_cost": "6.00",
+        "backorder_cost": "0.00",
+        "total_cost": "36.00",
+        "total_holding_cost": "36.00",
+        "total_backorder_cost": "0.00",
+        "order": 4
+      },
+      {
+        "week": 7,
+        "incoming_order": 8,
+        "incoming_delivery": 4,
+        "shipped": 6,
+        "inventory": 10,
+        "backlog": 2,
+        "net_inventory": 8,
+        "supply_line": 12,
+        "position": 20,
+        "cost": "7.00",
+        "holding_cost": "5.00",
+        "backorder_cost": "2.00",
+        "total_cost": "43.00",
+        "total_holding_cost": "41.00",
+        "total_backorder_cost": "2.00",
+        "order": 4
+      },
+      {
+        "week": 8,
+        "incoming_order": 12,
+        "incoming_delivery": 4,
+        "shipped": 6,
+        "inventory": 8,
+        "backlog": 8,
+        "net_inventory": 0,
+        "supply_line": 12,
+        "position": 12,
+        "cost": "12.00",
+        "holding_cost": "4.00",
+        "backorder_cost": "8.00",
+        "total_cost": "55.00",
+        "total_holding_cost": "45.00",
+        "total_backorder_cost": "10.00",
+        "order": 4
+      }
+    ],
+    "min_order": 0,
+    "max_order": 999,
+    "preview": {
+      "order_arrival_week": 13,
+      "supply_line_base": 12,
+      "position_base": 4
+    }
+  },
+  "turn": {
+    "guided": false,
+    "order": null,
+    "viewed": false
+  },
+  "table_status": {
+    "seats": [
+      {
+        "role": "factory",
+        "holder": "ai",
+        "name": null,
+        "mine": false,
+        "ordered": true,
+        "wait_started_at": null,
+        "mark": null
+      },
+      {
+        "role": "distributor",
+        "holder": "student",
+        "name": "Jonas Berg",
+        "mine": false,
+        "ordered": false,
+        "wait_started_at": "2026-11-20T11:57:00Z",
+        "mark": null
+      },
+      {
+        "role": "wholesaler",
+        "holder": "student",
+        "name": "Demo Student",
+        "mine": true,
+        "ordered": false,
+        "wait_started_at": null,
+        "mark": null
+      },
+      {
+        "role": "retailer",
+        "holder": "ai",
+        "name": null,
+        "mine": false,
+        "ordered": true,
+        "wait_started_at": null,
+        "mark": null
+      }
+    ]
+  },
+  "server_now": "2026-11-20T12:00:00Z",
+  "next_change_at": null
+}

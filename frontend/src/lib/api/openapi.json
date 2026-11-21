@@ -2052,6 +2052,14 @@
             "title": "Backorder Cost",
             "type": "string"
           },
+          "capacity": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RoleCapacityOut"
+            },
+            "title": "Capacity",
+            "type": "array"
+          },
           "guided_weeks": {
             "title": "Guided Weeks",
             "type": "integer"
@@ -3523,6 +3531,24 @@
         ],
         "title": "Role",
         "type": "string"
+      },
+      "RoleCapacityOut": {
+        "description": "A capped Role (Story 6.22, FR-12): the most it ships per Week, a rule of the game.",
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "units": {
+            "title": "Units",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "role",
+          "units"
+        ],
+        "title": "RoleCapacityOut",
+        "type": "object"
       },
       "RoleCost": {
         "additionalProperties": false,

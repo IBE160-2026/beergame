@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { bandLayout, PIPE_UNIT, STOCK_UNIT, textWidth } from "@/components/charts/chain-band-layout";
 
 import { bandEnds, bandLabels, bandSentence, type BandState } from "./chain-band";
+import capped from "./fixtures/chain-band-capped.json";
 import classic from "./fixtures/chain-band-classic.json";
 
 /** The Kjedebånd's scale test (Story 6.9, UX-DR15): every Uke of the Classic fixture game for all
@@ -105,6 +106,38 @@ describe("the Kjedebånd's scale (UX-DR15)", () => {
       });
     }
   }
+
+  // A capped Seat (Story 6.22, FR-12): the fixture game's Orders with the Grossist shipping at most 6
+  // a Week (`chain-band-capped.json`, held to the engine), so it holds stock and backlog at once.
+  const CAPPED = capped as BandState[];
+
+  it("covers a capped Seat holding stock and backlog at once (Story 6.22)", () => {
+    expect(CAPPED).toHaveLength(120);
+    expect(CAPPED.filter((s) => s.inventory > 0 && s.backlog > 0).length).toBeGreaterThanOrEqual(10);
+  });
+
+  for (const width of WIDTHS) {
+    for (const fontSize of FONTS) {
+      it(`fits every Uke of the capped game with both bars at ${width} px and ${fontSize} px text (Story 6.22)`, () => {
+        const found = CAPPED.flatMap((state) => problems(state, width, fontSize).map((p) => `${state.role} Uke ${state.week}: ${p}`));
+        expect(found).toEqual([]);
+        for (const state of CAPPED.filter((s) => s.inventory > 0 && s.backlog > 0)) {
+          const band = layout(state, width, fontSize);
+          // Stock above the baseline, backlog below it, each with its label.
+          expect(band.stockBar!.y + band.stockBar!.height).toBeCloseTo(band.goodsY);
+          expect(band.backlogBar!.y).toBeCloseTo(band.goodsY);
+          expect(band.labels.filter((l) => l.key === "stock").map((l) => l.text)).toEqual([`Lager ${state.inventory}`, `Restordre ${state.backlog}`]);
+        }
+      });
+    }
+  }
+
+  it("reads both numbers of a capped Seat (Story 6.22, NFR-6)", () => {
+    const state = CAPPED.find((s) => s.role === "wholesaler" && s.week === 9)!;
+    expect(bandSentence(state)).toBe(
+      `Ordre inn ${state.incoming_order}, Levering ${state.incoming_delivery}, Sendt ${state.shipped}, Lager ${state.inventory}, Restordre ${state.backlog}, På vei ${state.supply_line}`,
+    );
+  });
 
   it("fits every Uke with one view on, its block beside the other end's plain label (Story 6.21)", () => {
     const one = (state: BandState, side: number) => {

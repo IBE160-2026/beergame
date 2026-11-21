@@ -31,6 +31,36 @@ export function delayLines(role: Role, rules: GameRules): string[] {
   return [...first, earliest, copy.delays.onTheWay];
 }
 
+/** The capped Roles of the game's rules (Story 6.22); none when the api gave none. */
+export function capacities(rules: Pick<GameRules, "capacity">): GameRules["capacity"] {
+  return rules.capacity ?? [];
+}
+
+/** Whether the Role is capped in this game (Story 6.22): the api's rules, never a guess. */
+export function isCapped(role: Role, rules: Pick<GameRules, "capacity">): boolean {
+  return capacities(rules).some((entry) => entry.role === role);
+}
+
+/**
+ * The «Kapasitet» lines (Story 6.22, FR-12, FR-84): each capped Role as the api lists it (Detaljist
+ * first), or one line when every Role of the chain has the same cap; then that stock and backlog
+ * can stand together, and, for a capped Student, that the table shows both. Empty when nothing is
+ * capped.
+ */
+export function capacityLines(role: Role, rules: Pick<GameRules, "capacity">): string[] {
+  const c = copy.capacity;
+  const capped = capacities(rules);
+  if (capped.length === 0) return [];
+  const units = new Set(capped.map((entry) => entry.units));
+  const every = capped.length === Object.keys(c.definite).length && units.size === 1;
+  const lines = every
+    ? [c.every(capped[0]!.units)]
+    : capped.map((entry) => c.role(c.definite[entry.role], entry.units));
+  lines.push(c.both);
+  if (isCapped(role, rules)) lines.push(c.mine);
+  return lines;
+}
+
 /** The Veiledede uker line: how many, or that there are none. */
 export function guidedLine(rules: Pick<GameRules, "guided_weeks">): string {
   return rules.guided_weeks > 0 ? copy.guided.some(rules.guided_weeks) : copy.guided.none;

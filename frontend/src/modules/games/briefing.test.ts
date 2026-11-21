@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { nb } from "@/copy/nb";
 
 import type { GameRules } from "./api";
-import { EXAMPLE, delayLines, exampleCostLine, exampleRows, guidedLine, ratesLine } from "./briefing";
+import { EXAMPLE, capacityLines, delayLines, exampleCostLine, exampleRows, guidedLine, isCapped, ratesLine } from "./briefing";
 
 const CLASSIC: GameRules = {
   order_delay: 2,
@@ -12,6 +12,7 @@ const CLASSIC: GameRules = {
   guided_weeks: 4,
   holding_cost: "0.50",
   backorder_cost: "1.00",
+  capacity: [],
 };
 
 describe("briefing", () => {
@@ -77,3 +78,50 @@ describe("briefing", () => {
     ]);
   });
 });
+
+describe("the capacity (Story 6.22)", () => {
+  const capped = (capacity: GameRules["capacity"]): GameRules => ({ ...CLASSIC, capacity });
+  const BOTH = nb.games.briefing.capacity.both;
+  const MINE = nb.games.briefing.capacity.mine;
+
+  it("says nothing when no Role is capped, or the api gave no capacity", () => {
+    expect(capacityLines("wholesaler", CLASSIC)).toEqual([]);
+    const { capacity: _, ...older } = CLASSIC;
+    expect(capacityLines("wholesaler", older as GameRules)).toEqual([]);
+    expect(isCapped("wholesaler", older as GameRules)).toBe(false);
+  });
+
+  it("names a capped Role, that stock and backlog can stand together, and the capped Student's table", () => {
+    const rules = capped([{ role: "wholesaler", units: 6 }]);
+    expect(capacityLines("wholesaler", rules)).toEqual(["Grossisten kan sende høyst 6 enheter per uke.", BOTH, MINE]);
+    expect(capacityLines("retailer", rules)).toEqual(["Grossisten kan sende høyst 6 enheter per uke.", BOTH]);
+    expect(isCapped("wholesaler", rules)).toBe(true);
+    expect(isCapped("retailer", rules)).toBe(false);
+  });
+
+  it("lists mixed caps as the api orders them, and every Role alike in one line", () => {
+    const mixed = capped([
+      { role: "retailer", units: 5 },
+      { role: "factory", units: 12 },
+    ]);
+    expect(capacityLines("distributor", mixed)).toEqual([
+      "Detaljisten kan sende høyst 5 enheter per uke.",
+      "Fabrikken kan sende høyst 12 enheter per uke.",
+      BOTH,
+    ]);
+    const every = capped((["retailer", "wholesaler", "distributor", "factory"] as const).map((role) => ({ role, units: 6 })));
+    expect(capacityLines("factory", every)).toEqual(["Hver rolle kan sende høyst 6 enheter per uke.", BOTH, MINE]);
+    // Three Roles alike is not every Role.
+    expect(capacityLines("factory", capped(every.capacity.slice(0, 3)))).toHaveLength(4);
+  });
+
+  it("says «1 enhet» for a cap of one", () => {
+    expect(capacityLines("retailer", capped([{ role: "wholesaler", units: 1 }]))[0]).toBe("Grossisten kan sende høyst 1 enhet per uke.");
+  });
+
+  it("names no number of Weeks", () => {
+    const text = capacityLines("wholesaler", capped([{ role: "wholesaler", units: 6 }])).join(" ");
+    expect(text).not.toMatch(/\d+ uker/);
+  });
+});
+

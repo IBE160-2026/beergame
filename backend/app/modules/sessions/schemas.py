@@ -398,6 +398,13 @@ class TableSeatOut(BaseModel):
     """`guard_switch`: an AI Seat the Play guard gave a rule-based KI-spiller; else None."""
 
 
+class RoleCapacityOut(BaseModel):
+    """A capped Role (Story 6.22, FR-12): the most it ships per Week, a rule of the game."""
+
+    role: Role
+    units: int
+
+
 class GameRulesOut(BaseModel):
     """The rules «Regler før første ordre» states (Story 6.2, FR-84), from the Class session's
     frozen settings: the delays, the number of Veiledede uker and the two cost rates. Never the
@@ -409,6 +416,10 @@ class GameRulesOut(BaseModel):
     guided_weeks: int
     holding_cost: Decimal
     backorder_cost: Decimal
+    capacity: list[RoleCapacityOut] = []
+    """Story 6.22 (cut list, `FEATURE_CAPACITY`, AD-17): each capped Role of the snapshot with its
+    capacity, Detaljist first; empty while the flag is off or no Role is capped. Rules only, never
+    another Seat's state (AD-3)."""
 
 
 GamePlayStatus = Literal["not_ready", "ready", "running", "finished"]

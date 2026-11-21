@@ -33,9 +33,9 @@ ORDERS = {
 }
 
 
-def _game_until(week: int):
+def _game_until(week: int, settings: GameSettings | None = None):
     """The fixture game's opened Weeks 1..`week` and the Order maps of Weeks 1..`week` - 1."""
-    settings = GameSettings()
+    settings = settings or GameSettings()
     states = [initial_state(settings)]
     orders: list[dict[str, int]] = []
     for placed_in in range(1, week):
@@ -120,8 +120,8 @@ BAND_FIELDS = (
 )
 
 
-def chain_band_classic() -> list[dict]:
-    settings, states, orders = _game_until(LAST_WEEK)
+def chain_band_classic(settings: GameSettings | None = None) -> list[dict]:
+    settings, states, orders = _game_until(LAST_WEEK, settings)
     found = []
     for role in settings.roles:
         for week in range(1, LAST_WEEK + 1):
@@ -134,6 +134,30 @@ def chain_band_classic() -> list[dict]:
 def test_the_chain_band_fixture_is_every_week_of_the_engines_game():
     stored = json.loads(CHAIN_BAND.read_text(encoding="utf-8"))
     assert stored == chain_band_classic()
+
+
+# A capped Seat (Story 6.22, FR-12): the same Orders with the Grossist shipping at most 6 a Week, so
+# it holds stock and backlog at once. `chain-band-capped.json` runs the band's scale test with both
+# bars; `play-capped.json` is the capped Grossist's envelope in Uke `CAPPED_WEEK` for the browser.
+CAPPED = GameSettings(capacity={"wholesaler": 6})
+CHAIN_BAND_CAPPED = FIXTURES / "chain-band-capped.json"
+PLAY_CAPPED = FIXTURES / "play-capped.json"
+CAPPED_WEEK = 9
+
+
+def test_the_capped_chain_band_fixture_is_every_week_of_the_engines_capped_game():
+    stored = json.loads(CHAIN_BAND_CAPPED.read_text(encoding="utf-8"))
+    assert stored == chain_band_classic(CAPPED)
+    both = [s for s in stored if s["inventory"] > 0 and s["backlog"] > 0]
+    assert {s["role"] for s in both} == {"wholesaler"} and len(both) >= 10
+
+
+def test_the_capped_stand_in_envelope_is_the_engines_week():
+    stored = json.loads(PLAY_CAPPED.read_text(encoding="utf-8"))
+    settings, states, orders = _game_until(CAPPED_WEEK, CAPPED)
+    state = build_seat_state(settings, states, orders, "wholesaler")
+    assert PlayOut.model_validate(stored).seat_state == state
+    assert state.inventory > 0 and state.backlog > 0
 
 
 # The Order preview's check (Story 6.11, AD-10): `frontend/src/lib/preview.ts` is the product's only
