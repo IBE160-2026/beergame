@@ -2679,6 +2679,17 @@
       },
       "InsightRoleOut": {
         "properties": {
+          "first_large_order_week": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Large Order Week"
+          },
           "role": {
             "$ref": "#/components/schemas/Role"
           },
@@ -2692,7 +2703,8 @@
         },
         "required": [
           "role",
-          "weeks"
+          "weeks",
+          "first_large_order_week"
         ],
         "title": "InsightRoleOut",
         "type": "object"

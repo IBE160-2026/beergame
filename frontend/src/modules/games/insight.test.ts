@@ -5,7 +5,21 @@ import { describe, expect, it } from "vitest";
 import { nb } from "@/copy/nb";
 
 import type { GameInsight, InsightWeek, SeatMark } from "./api";
-import { hasWeeks, holderText, linkTexts, markText, roleTables, seatsUpstreamFirst, weekRow } from "./insight";
+import {
+  chartWeeks,
+  CUSTOMERS,
+  hasWeeks,
+  holderText,
+  linkTexts,
+  markText,
+  orderRoles,
+  orderTableRows,
+  roleTables,
+  seatsUpstreamFirst,
+  stockRoles,
+  stockTableRows,
+  weekRow,
+} from "./insight";
 import { InsightBody } from "./insight-page";
 
 const copy = nb.insight;
@@ -50,7 +64,7 @@ const insight = (weeks: InsightWeek[][]): GameInsight => ({
       ],
     },
   ],
-  roles: CHAIN.map((role, i) => ({ role, weeks: weeks[i] ?? [] })),
+  roles: CHAIN.map((role, i) => ({ role, weeks: weeks[i] ?? [], first_large_order_week: null })),
 });
 
 describe("Spillinnsikt's words (Story 7.7)", () => {
@@ -117,12 +131,85 @@ describe("the Spillinnsikt body", () => {
 
   it("draws one table per Role, Week rows with a sticky Uke header, marks in words", () => {
     const weeks = CHAIN.map(() => [week(1), week(2, { holder: "ai", name: null, marks: ["takeover_inactivity"], order: null })]);
-    const html = renderToStaticMarkup(createElement(InsightBody, { data: insight(weeks) }));
+    // The per-Role tables stand after the charts (Story 7.8).
+    const html = renderToStaticMarkup(createElement(InsightBody, { data: insight(weeks) })).split(`>${copy.weeksTitle}<`)[1]!;
     expect(html.match(/<table/g)).toHaveLength(4);
     expect(html.match(/<th scope="row"/g)).toHaveLength(8);
     expect(html).toContain(copy.marks.takeover_inactivity);
     expect(html).toContain(copy.noOrder);
     expect(html).toContain(copy.region(nb.terms.retailer));
     expect(html.indexOf(copy.region(nb.terms.retailer))).toBeLessThan(html.indexOf(copy.region(nb.terms.factory)));
+  });
+});
+
+describe("Spillinnsikt's charts (Story 7.8)", () => {
+  const charts = copy.charts;
+  const played = (): GameInsight => {
+    const data = insight(
+      CHAIN.map((_, r) => [
+        week(1, { order: 4 + r, inventory: 12 - r, backlog: 0 }),
+        week(2, { order: 12 + r, inventory: 0, backlog: 3 + r }),
+        week(3, { order: null, inventory: 2, backlog: 0 }),
+      ]),
+    );
+    return {
+      ...data,
+      demand: [1, 2, 3].map((w) => ({ week: w, demand: w === 1 ? 4 : 8 })),
+      roles: data.roles.map((role) => ({ ...role, first_large_order_week: role.role === "retailer" ? null : 2 })),
+    };
+  };
+
+  it("gives the Ordrestolper the four Roles Fabrikk first, then the customers, with the api's numbers only", () => {
+    const rows = orderRoles(played());
+    expect(rows.map((row) => row.key)).toEqual(["factory", "distributor", "wholesaler", "retailer", CUSTOMERS]);
+    expect(rows.map((row) => row.name)).toEqual([nb.terms.factory, nb.terms.distributor, nb.terms.wholesaler, nb.terms.retailer, charts.orders.customers]);
+    // The open Week's Order not yet placed is left out; the first large Week is the api's.
+    expect(rows[0]).toEqual({ key: "factory", name: nb.terms.factory, orders: [{ week: 1, order: 7 }, { week: 2, order: 15 }], firstLargeWeek: 2 });
+    expect(rows[3]!.firstLargeWeek).toBeNull();
+    expect(rows[4]).toEqual({
+      key: CUSTOMERS,
+      name: charts.orders.customers,
+      orders: [{ week: 1, order: 4 }, { week: 2, order: 8 }, { week: 3, order: 8 }],
+      firstLargeWeek: null,
+    });
+    // No Forsterkning before Story 9.5 wires it.
+    expect(rows.every((row) => !("amplification" in row))).toBe(true);
+  });
+
+  it("gives «Lager og restordre» the stored values Fabrikk first, and both tables a printed cell per Uke", () => {
+    const data = played();
+    expect(chartWeeks(data)).toEqual([1, 2, 3]);
+    expect(stockRoles(data)[0]).toEqual({
+      key: "factory",
+      name: nb.terms.factory,
+      weeks: [
+        { week: 1, inventory: 9, backlog: 0 },
+        { week: 2, inventory: 0, backlog: 6 },
+        { week: 3, inventory: 2, backlog: 0 },
+      ],
+    });
+    expect(orderTableRows(data)[0]).toEqual({ key: "factory", label: nb.terms.factory, cells: ["7", "15", ""] });
+    expect(orderTableRows(data)[4]!.cells).toEqual(["4", "8", "8"]);
+    const stock = stockTableRows(data);
+    expect(stock).toHaveLength(8);
+    expect(stock.slice(0, 2)).toEqual([
+      { key: "factory:stock", label: charts.stock.stockRow(nb.terms.factory), cells: ["9", "0", "2"] },
+      { key: "factory:backlog", label: charts.stock.backlogRow(nb.terms.factory), cells: ["0", "6", "0"] },
+    ]);
+  });
+
+  it("puts both charts over the per-Role tables, each with «Vis som tabell», and none before the start", () => {
+    const html = renderToStaticMarkup(createElement(InsightBody, { data: played() }));
+    expect(html.indexOf(charts.title)).toBeLessThan(html.indexOf(copy.weeksTitle));
+    expect(html).toContain('data-chart-block="orders"');
+    expect(html).toContain('data-chart-block="stock"');
+    expect(html.match(new RegExp(`>${charts.showTable}</button>`, "g"))).toHaveLength(2);
+    expect(html.indexOf(charts.orders.title)).toBeLessThan(html.indexOf(charts.stock.title));
+    // The Ordrestolper's Rolle × Uke rows: Fabrikk first, the customers last, no Forsterkning.
+    const bars = html.split('data-chart-block="orders"')[1]!.split("data-chart-block")[0]!;
+    expect(bars.indexOf('data-role="factory"')).toBeLessThan(bars.indexOf(`data-role="${CUSTOMERS}"`));
+    expect(html).not.toContain(charts.orders.amplification);
+    const before = renderToStaticMarkup(createElement(InsightBody, { data: insight([]) }));
+    expect(before).not.toContain("data-insight-charts");
   });
 });

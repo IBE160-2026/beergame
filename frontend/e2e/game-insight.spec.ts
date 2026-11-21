@@ -1,16 +1,60 @@
 import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
-import { expectAccessible, lecturerPage, test, VIEWPORTS } from "./support/classes";
+import type { GameInsight } from "../src/modules/games/api";
+import { expectAccessible, expectReflow, lecturerPage, test, VIEWPORTS } from "./support/classes";
 import { liveClassGame, orderByApi } from "./support/live-game";
 
 /** Spillinnsikt (Story 7.7, FR-62, FR-34, FR-5, FR-73, NFR-6, AD-8, UX-DR55) on the local stack: a
  * fresh Class game with two Students and two Rule-based players, opened from the Oversikt's wall
  * and from «Vis som tabell»; its header, Seats and per-Role tables show the api's stored values; a
  * new Week appears live; Back returns focus to the same game; a Student is refused. What the api
- * answers, every mark included, is `backend/tests/sessions/test_game_insight.py`. */
+ * answers, every mark included, is `backend/tests/sessions/test_game_insight.py`. Story 7.8 adds
+ * the charts over the tables and their «Vis som tabell». */
 const copy = nb.insight;
 const ROLES = [nb.terms.retailer, nb.terms.wholesaler, nb.terms.distributor, nb.terms.factory];
+const charts = copy.charts;
+
+/** Story 7.8: both charts above the per-Role tables, Fabrikk at the top, every number the api's,
+ * and «Vis som tabell» swapping each for its table and back with focus kept on the button. */
+async function expectCharts(page: Page, answer: GameInsight) {
+  const main = page.getByRole("main");
+  const weeks = answer.roles[0]!.weeks.length;
+  const bars = main.getByRole("region", { name: charts.orders.region });
+  await expect(bars.locator('[data-chart="order-bars"]')).toBeVisible();
+  const rows = bars.locator("tbody tr");
+  await expect(rows).toHaveCount(5);
+  await expect(rows.first().locator("th")).toHaveText(nb.terms.factory);
+  await expect(rows.last().locator("th")).toHaveText(charts.orders.customers);
+  await expect(bars.getByText(charts.orders.amplification)).toHaveCount(0);
+  // Fabrikk's Orders and the customers' demand, as the api gave them (an Order not placed is empty).
+  const factory = answer.roles[3]!.weeks.map((w) => (w.order === null ? "" : String(w.order)));
+  await expect(rows.first().locator("td")).toHaveText(factory);
+  await expect(rows.last().locator("td")).toHaveText(answer.demand.map((d) => String(d.demand)));
+  const stock = main.getByRole("region", { name: charts.stock.region });
+  await expect(stock.locator('[data-chart="stock-backlog"] g[data-row]')).toHaveCount(4);
+  await expect(stock.locator("th[data-col]")).toHaveCount(weeks);
+
+  // «Vis som tabell» under the Ordre chart: the same numbers as a table, then back.
+  const block = main.locator('[data-chart-block="orders"]');
+  const show = block.getByRole("button", { name: charts.showTable });
+  await show.click();
+  const table = main.getByRole("group", { name: charts.orders.tableRegion });
+  await expect(table.locator("tbody tr")).toHaveCount(5);
+  await expect(table.locator("tbody tr").first().locator("td")).toHaveText(factory);
+  const back = block.getByRole("button", { name: charts.showChart });
+  await expect(back).toBeFocused();
+  await back.click();
+  await expect(bars).toBeVisible();
+  // And under «Lager og restordre»: two rows per Role, Fabrikk's first.
+  const stockBlock = main.locator('[data-chart-block="stock"]');
+  await stockBlock.getByRole("button", { name: charts.showTable }).click();
+  const stockTable = main.getByRole("group", { name: charts.stock.tableRegion });
+  await expect(stockTable.locator("tbody tr")).toHaveCount(8);
+  await expect(stockTable.locator("tbody tr").first().locator("th")).toHaveText(charts.stock.stockRow(nb.terms.factory));
+  await stockBlock.getByRole("button", { name: charts.showChart }).click();
+  await expect(stock).toBeVisible();
+}
 
 async function untilLive(page: Page) {
   await expect(page.locator("html")).toHaveAttribute("data-live", "live", { timeout: 10_000 });
@@ -69,6 +113,7 @@ test("Spillinnsikt opens from the wall and the table, shows every Week as stored
       await expect(cells.nth(4 + 1)).toHaveText(week.order === null ? copy.noOrder : String(week.order));
     }
   }
+  await expectCharts(page, answer);
   // No Week total anywhere (FR-14 holds for the staff's page too).
   await expect(main.getByText(/ av \d+ uker|Uke \d+ av/)).toHaveCount(0);
   await expectAccessible(page, false);
@@ -80,6 +125,9 @@ test("Spillinnsikt opens from the wall and the table, shows every Week as stored
   await expect(main.getByRole("group", { name: copy.region(nb.terms.retailer) }).locator("tbody tr")).toHaveCount(3, {
     timeout: 5_000,
   });
+  // The charts follow with the page: a third Uke column in both.
+  await expect(main.getByRole("region", { name: charts.orders.region }).locator("th[data-col]")).toHaveCount(3);
+  await expect(main.getByRole("region", { name: charts.stock.region }).locator("th[data-col]")).toHaveCount(3);
 
   // Back returns to the Oversikt with focus on the same game.
   await page.goBack();
@@ -105,7 +153,7 @@ test("Spillinnsikt opens from the wall and the table, shows every Week as stored
   await page.context().close();
 });
 
-test("at 320 px only the per-Role tables scroll sideways, each in its own region", async ({ browser, lecturerSession }) => {
+test("at 320 px only the per-Role tables and the charts scroll sideways, each in its own region", async ({ browser, lecturerSession }) => {
   const game = await liveClassGame(browser, lecturerSession, 1, { aiMode: "rule_based" });
   await orderByApi(game.students[0]!, game.gameId, 1, 4);
   const page = await lecturerPage(browser, lecturerSession, VIEWPORTS[0]!);
@@ -116,6 +164,12 @@ test("at 320 px only the per-Role tables scroll sideways, each in its own region
   await expect(region.locator("tbody tr")).toHaveCount(2);
   // The table is wider than the phone: its region scrolls, the page does not.
   expect(await region.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+  // Both charts and their «Vis som tabell» stand in regions of their own (Story 7.8).
+  await expect(main.getByRole("region", { name: charts.orders.region }).locator("tbody tr")).toHaveCount(5);
+  await expect(main.getByRole("region", { name: charts.stock.region })).toBeVisible();
   await expectAccessible(page, true);
+  await main.locator('[data-chart-block="orders"]').getByRole("button", { name: charts.showTable }).click();
+  await expect(main.getByRole("group", { name: charts.orders.tableRegion })).toBeVisible();
+  await expectReflow(page, true);
   await page.context().close();
 });

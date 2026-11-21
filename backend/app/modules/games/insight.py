@@ -20,6 +20,7 @@ from app.modules.games.marks import seat_mark
 from app.modules.games.schemas import GameStatus, OccupantKind, SeatMark
 
 __all__ = [
+    "LARGE_ORDER",
     "GameInsight",
     "InsightLink",
     "InsightLinkProvider",
@@ -41,6 +42,10 @@ class InsightLink:
     kind: str
     href: str
 
+
+LARGE_ORDER = 10
+"""An Order this large or larger is a large Order (UX-DR33: the first one is marked); the same
+threshold as Story 9.1's `analysis.facts.LARGE_ORDER`."""
 
 InsightLinkProvider = Callable[[AsyncSession, uuid.UUID], Awaitable[Sequence[InsightLink]]]
 """`(session, game_id)` → the links for that Game's Seats."""
@@ -93,6 +98,9 @@ class InsightWeek:
 class InsightRole:
     role: str
     weeks: tuple[InsightWeek, ...]
+    first_large_order_week: int | None = None
+    """The first Week whose stored Order is `LARGE_ORDER` or more; None with none (Story 7.8, the
+    Ordrestolper's dot)."""
 
 
 @dataclass(frozen=True)
@@ -195,7 +203,10 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
                     marks=tuple(marks),
                 )
             )
-        roles.append(InsightRole(role=role, weeks=tuple(rows)))
+        large = next(
+            (row.week for row in rows if row.order is not None and row.order >= LARGE_ORDER), None
+        )
+        roles.append(InsightRole(role=role, weeks=tuple(rows), first_large_order_week=large))
 
     first = held[0]["role"] if held else None
     snapshot = game["settings"]

@@ -2279,6 +2279,39 @@ export const nb = {
     /** A link kind with no words of its own yet. [ASSUMPTION] */
     otherLink: "Åpne",
     notStarted: "Spillet har ikke startet.",
+    /** The charts over the per-Role tables (Story 7.8, FR-62, UX-DR33, UX-DR55). [ASSUMPTION] but
+     * «Vis som tabell», «Ordrestolper» and «Kundene», which are the spine's. */
+    charts: {
+      title: "Kjeden i grafer",
+      week: "Uke",
+      weekLabel: (week: number) => `Uke ${week}`,
+      showTable: "Vis som tabell",
+      showChart: "Vis som graf",
+      swipe: "Sveip for tidligere uker",
+      axisSvg: "Rollene, Fabrikk øverst",
+      orders: {
+        title: "Ordre",
+        key: "Ordre per uke, Fabrikk øverst og kundenes etterspørsel nederst. Prikken med «Uke n» viser hver rolles første ordre på 10 eller mer.",
+        region: "Ordrestolper og ordre per rolle og uke",
+        tableRegion: "Ordre per rolle og uke",
+        svg: "Ordrestolper: ordre per rolle og uke",
+        customers: "Kundene",
+        /** OrderBarsTable's texts for a column Spillinnsikt does not show yet (Forsterkning comes
+         * with Story 9.5) and a viewer's own Role, which staff have none of. */
+        amplification: "Forsterkning",
+        own: "(deg)",
+        none: "–",
+      },
+      stock: {
+        title: "Lager og restordre",
+        key: "Lager over streken, restordre under. Samme skala for alle rollene.",
+        region: "Lager og restordre per rolle og uke",
+        tableRegion: "Lager og restordre per rolle og uke, tabell",
+        svg: "Lager og restordre per rolle og uke",
+        stockRow: (role: string) => `${role}, lager`,
+        backlogRow: (role: string) => `${role}, restordre`,
+      },
+    },
     /** The heading over the per-Role tables. */
     weeksTitle: "Uke for uke",
     /** The region of one Role's table, «Detaljist uke for uke». */

@@ -101,6 +101,9 @@ async def test_staff_read_every_week_of_every_role_as_stored(klass):
             assert week["holder"] == ("student" if kind == "student" else "ai")
             assert week["name"] == (name if kind == "student" else None)
             assert week["marks"] == []
+        # The first stored Order of 10 or more (Story 7.8), none in the open Week.
+        large = [w for w in (1, 2, 3) if (placed.get((w, role["role"])) or 0) >= 10]
+        assert role["first_large_order_week"] == (large[0] if large else None)
     # The open Week's Student Seats have not ordered: no Order yet.
     assert any(r["weeks"][2]["order"] is None for r in body["roles"])
     assert body["demand"] == [{"week": w, "demand": values[(w, "retailer")][0]} for w in (1, 2, 3)]
@@ -173,8 +176,8 @@ async def test_every_reason_and_fallback_shows_its_mark_and_links_reach_student_
     first_ai, second_ai = [role for role in CHAIN if held[role][0] != "student"]
     student = next(role for role in CHAIN if held[role][0] == "student")
 
-    def log(role: str, week: int, **values: str) -> None:
-        sets = ", ".join(f"{column} = %s" for column in values)
+    def log(role: str, week: int, **values: str | int) -> None:
+        sets = ", ".join(f'"{column}" = %s' for column in values)
         tamper(
             TEST_DATABASE_URL,
             f"UPDATE seat_weeks w SET {sets} FROM seats s "
@@ -205,6 +208,12 @@ async def test_every_reason_and_fallback_shows_its_mark_and_links_reach_student_
         (uuid.uuid7(), student_seat),
     )
     [(student_name,)] = rows("SELECT name FROM users WHERE id = %s", student_id)
+    # Ordrestolper's first large Order (Story 7.8): the first Week at 10 or more, never a smaller
+    # one before it; a Role whose Orders all stay under 10 has none.
+    for week, order in enumerate((4, 9, 10, 15, 3, 30), start=1):
+        log(student, week, order=order)
+    for week in range(1, 7):
+        log(first_ai, week, order=9)
 
     async def provider(session, wanted):
         assert wanted == uuid.UUID(game_id)
@@ -228,6 +237,8 @@ async def test_every_reason_and_fallback_shows_its_mark_and_links_reach_student_
         [],
     ]
     assert all(w["marks"] == [] for w in by_role[student])
+    large = {role["role"]: role["first_large_order_week"] for role in body["roles"]}
+    assert (large[student], large[first_ai]) == (3, None)
     assert [(w["holder"], w["name"]) for w in by_role[student]] == [("student", student_name)] * 6
     assert next(s for s in body["seats"] if s["role"] == student)["holder"] == "ai"
     # Links reach only the Student-held Seats.

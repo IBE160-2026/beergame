@@ -951,6 +951,8 @@ class InsightRoleOut(BaseModel):
     role: Role
     weeks: list[InsightWeekOut]
     """Every opened Week, Week 1 first; empty before the start."""
+    first_large_order_week: int | None
+    """The first Week whose Order is 10 or more (Story 7.8, Ordrestolper); null with none."""
 
 
 class DemandWeekOut(BaseModel):

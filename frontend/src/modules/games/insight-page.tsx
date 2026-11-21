@@ -16,6 +16,7 @@ import { PageShell } from "@/modules/identity/page-shell";
 import { roleName } from "@/modules/sessions/sessions";
 
 import { type GameInsight, gameInsightKey, type InsightSeat, useGameInsight } from "./api";
+import { InsightCharts } from "./insight-charts";
 import { hasWeeks, holderText, linkTexts, roleTables, seatsUpstreamFirst, type WeekRow } from "./insight";
 
 const copy = nb.insight;
@@ -24,7 +25,7 @@ const copy = nb.insight;
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Spillinnsikt (Story 7.7, FR-62, FR-34, UX-DR55): one Class game for the staff of its Class — its
+ * Spillinnsikt (Story 7.7, charts from Story 7.8; FR-62, FR-34, UX-DR55): one Class game for the staff of its Class — its
  * number, status and four Seats upstream first, each Student Seat with its link slot, and per Role
  * (Detaljist to Fabrikk) a table of every opened Week in its own scrolling region: what came in,
  * inventory, backlog, the Order, the Week's cost, who played it and its marks in words. Every
@@ -130,14 +131,17 @@ export function InsightBody({ data }: { data: GameInsight }) {
       {!hasWeeks(data) ? (
         <p className="mt-8 text-body-phone text-ink lg:text-body">{copy.notStarted}</p>
       ) : (
-        <section aria-labelledby={weeksId} className="mt-10">
-          <h2 id={weeksId} className="text-headline text-ink">
-            {copy.weeksTitle}
-          </h2>
-          {roleTables(data).map((table) => (
-            <RoleTable key={table.role} name={table.name} rows={table.rows} />
-          ))}
-        </section>
+        <>
+          <InsightCharts data={data} />
+          <section aria-labelledby={weeksId} className="mt-10">
+            <h2 id={weeksId} className="text-headline text-ink">
+              {copy.weeksTitle}
+            </h2>
+            {roleTables(data).map((table) => (
+              <RoleTable key={table.role} name={table.name} rows={table.rows} />
+            ))}
+          </section>
+        </>
       )}
     </div>
   );

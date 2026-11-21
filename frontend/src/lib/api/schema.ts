@@ -3001,6 +3001,8 @@ export interface components {
         };
         /** InsightRoleOut */
         InsightRoleOut: {
+            /** First Large Order Week */
+            first_large_order_week: number | null;
             role: components["schemas"]["Role"];
             /** Weeks */
             weeks: components["schemas"]["InsightWeekOut"][];

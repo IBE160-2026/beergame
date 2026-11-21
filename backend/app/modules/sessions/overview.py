@@ -305,6 +305,7 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
         roles=[
             InsightRoleOut(
                 role=Role(each.role),
+                first_large_order_week=each.first_large_order_week,
                 weeks=[
                     InsightWeekOut(
                         week=week.week,
