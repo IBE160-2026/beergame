@@ -164,6 +164,13 @@ class ReplacedLevelOut(BaseModel):
     label: str | None
 
 
+class TestGameRefOut(BaseModel):
+    """A Lecturer's test Game (Story 6.20): where the play route stands for it."""
+
+    id: uuid.UUID
+    status: Literal["not_ready", "ready", "running", "finished"]
+
+
 class ClassSessionOut(BaseModel):
     """One Class session as its Class's staff read it."""
 
@@ -249,6 +256,25 @@ class ClassSessionOut(BaseModel):
     effort_level_replaced: ReplacedLevelOut | None = None
     """The source's Effort level when the new model config did not offer it, so the copy took
     that config's default (Story 5.18, FR-78)."""
+    lecturer_test_enabled: bool = False
+    """`FEATURE_LECTURER_TEST_GAME` (Story 6.20, AD-17): the Klasseøkt offers «Testspill». Off,
+    the screen shows nothing about it and the route answers 404 `not_found`."""
+    test_game: TestGameRefOut | None = None
+    """Story 6.20: the reader's latest test Game in this session, while the flag is on."""
+
+
+class TestGameIn(BaseModel):
+    """«Start testspill» (Story 6.20): the Role the Lecturer plays."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    role: Role
+
+
+class StartedTestGameOut(BaseModel):
+    """The test Game just started (Story 6.20); the web app opens its play route."""
+
+    id: uuid.UUID
 
 
 class CopyIn(BaseModel):
@@ -436,8 +462,12 @@ class StudentGameOut(BaseModel):
     Seats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`)."""
 
     id: uuid.UUID
-    number: int
+    number: int | None
+    """The game number; None on a Lecturer's test Game, which reads «Testspill» (Story 6.20)."""
     role: Role
+    test_game: bool = False
+    """Story 6.20: a Lecturer's test Game, reached from and leading back to the Klasseøkt."""
+    class_session_id: uuid.UUID
     seats: list[TableSeatOut]
     briefing_first: bool
     """Story 6.2: the briefing comes first, until the Student has done the Starting task

@@ -30,6 +30,13 @@ function countWord(count: number): string {
  * a Student sees game, Role and Seats from the Start date (founder decision 2026-11-12). */
 const START_DATE_LINE = "Du får Rolle og spill på startdatoen.";
 
+/** Story 6.20: the plain-text label of a Lecturer's test Game, where a Class game reads «Spill 17»
+ * (UX-DR70); never «Demodata». [ASSUMPTION] draft copy, not in the spine. */
+const TEST_GAME = "Testspill";
+
+/** «Spill 17», or «Testspill» for a test Game, which has no number (Story 6.20). */
+const gameName = (number: number | null) => (number === null ? TEST_GAME : `Spill ${number}`);
+
 /** Story 6.5: a game the lock has not given its snapshot yet. [ASSUMPTION] */
 const NOT_READY = "Spillet er ikke klart til å starte ennå.";
 
@@ -348,7 +355,7 @@ export const nb = {
      * [ASSUMPTION] draft copy for review. */
     student: {
       /** «Spill 17 · Du er Grossist». */
-      game: (number: number, role: string) => `Spill ${number} · Du er ${role}`,
+      game: (number: number | null, role: string) => `${gameName(number)} · Du er ${role}`,
       /** Shown above a session's block only when the Class has more than one: «Klasseøkt 2». */
       session: (number: number) => `Klasseøkt ${number}`,
       seats: "Setene",
@@ -359,6 +366,9 @@ export const nb = {
       removed: "Ikke lenger i Klassen",
       /** After the Student's own name on their Seat: «Sara (deg)». [ASSUMPTION] */
       you: (name: string) => `${name} (deg)`,
+      /** The own Seat of a Lecturer's test Game, who is no Student of the Class (Story 6.20).
+       * [ASSUMPTION] */
+      youAlone: "Deg",
       /** Setestatus (Story 6.14, FR-25, UX-DR25, EXPERIENCE.md → Setestatus): the status words and
        * «Venter på: Jonas (3 min) og deg.» are the spine's; `guardSwitched` and the duration units
        * are [ASSUMPTION] draft copy. */
@@ -433,7 +443,7 @@ export const nb = {
         /** Read in place of the mini graph, which is hidden from screen readers. */
         net: (value: string, week: number) => `Netto lager ${value} i Uke ${week}.`,
         /** The mini table's scroll region. [ASSUMPTION] */
-        region: (number: number) => `Graf og tabell, Spill ${number}`,
+        region: (number: number | null) => `Graf og tabell, ${gameName(number)}`,
       },
     },
   },
@@ -1068,6 +1078,26 @@ export const nb = {
     saveHint: "Du kan lagre uten å endre noe.",
     // [ASSUMPTION]
     saved: "Klasseøkten er lagret.",
+    /** «Testspill» on the Klasseøkt (Story 6.20, FR-87): the Lecturer plays the stored settings
+     * against three AI players before the Start date. [ASSUMPTION] draft copy, not in the spine. */
+    testGame: {
+      title: TEST_GAME,
+      lead: "Spill mot tre KI-spillere med innstillingene slik de er lagret nå. Testspillet teller ikke i noen oversikt.",
+      role: "Din rolle",
+      start: "Start testspill",
+      starting: "Starter testspill …",
+      running: "Du har et testspill i gang.",
+      resume: "Fortsett testspillet",
+      previous: "Se forrige testspill",
+      closed: "Testspill kan bare startes før Startdato.",
+      refused: {
+        session_locked: "Startdatoen er passert. Testspill kan bare startes før den.",
+        test_game_running: "Du har allerede et testspill i gang her.",
+        llm_unavailable: "LLM-spillerne kan ikke svare nå. Velg Regelbaserte spillere, eller be en Admin ordne det.",
+        not_found: "Testspill er slått av.",
+        unknown_role: "Spillinnstillingene har ikke denne rollen lenger. Velg en annen.",
+      },
+    },
     /** The locked Klasseøkt (Story 5.11, FR-18, GitHub issue 103). [ASSUMPTION] draft copy. */
     lock: {
       /** Under the title once the lock has frozen the session; `when` as «ti. 24. nov. kl. 10:00». */
@@ -1402,8 +1432,8 @@ export const nb = {
      * Order. */
     briefing: {
       title: "Regler før første ordre",
-      lead: (role: string, number: number) =>
-        `Du er ${role} i Spill ${number}. Kjeden har fire roller: Fabrikk, Distributør, Grossist og Detaljist. Hver uke sender du enheter til den som bestiller fra deg, og legger inn én egen ordre.`,
+      lead: (role: string, number: number | null) =>
+        `Du er ${role} i ${gameName(number)}. Kjeden har fire roller: Fabrikk, Distributør, Grossist og Detaljist. Hver uke sender du enheter til den som bestiller fra deg, og legger inn én egen ordre.`,
       goal: {
         title: "Målet",
         text: "Dere skal få lavest mulig totalkostnad for hele kjeden, ikke bare for ditt eget sete.",
@@ -1555,7 +1585,9 @@ export const nb = {
      * → Topplinje), and the four Seats. A finished game shows «Spillet er ferdig» (Story 6.18). */
     play: {
       week: (week: number) => `Uke ${week}`,
-      roleGame: (role: string, number: number) => `${role}, Spill ${number}`,
+      roleGame: (role: string, number: number | null) => `${role}, ${gameName(number)}`,
+      /** Story 6.20: a test Game leads back to where it was started. [ASSUMPTION] */
+      toClassSession: "Tilbake til Klasseøkta",
       /** «Spillet er ferdig» (Story 6.18, FR-28, UX-DR30, EXPERIENCE.md → Spillet er ferdig): the
        * spine's strings in the spine's order. `failed` is the page-error line. */
       end: {

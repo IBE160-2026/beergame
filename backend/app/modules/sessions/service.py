@@ -168,6 +168,7 @@ from app.modules.sessions.schemas import (
     StudentGameOut,
     TableSeatOut,
     TableStatusOut,
+    TestGameRefOut,
     TimeProposalOut,
     WaitingClass,
     WaitingReason,
@@ -747,6 +748,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
     found = await _class_for(user, row["class_id"], "class_sessions.read")
     if found is None:
         return None
+    test_game = await _latest_test_game(user, session_id) if lecturer_test_enabled() else None
     unavailable = None
     config_id = row["model_config_id"]
     if config_id is None:
@@ -800,7 +802,19 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         student_choice_enabled=student_choice_enabled(),
         copied_from=copied_from,
         effort_level_replaced=effort_level_replaced,
+        lecturer_test_enabled=lecturer_test_enabled(),
+        test_game=test_game,
     )
+
+
+async def _latest_test_game(user: authz.Principal, session_id: uuid.UUID) -> TestGameRefOut | None:
+    """The User's newest test Game in the Class session and where it stands (Story 6.20)."""
+    async with get_sessionmaker()() as s:
+        found = await games_service.staff_test_games(s, session_id, user.id)
+        if not found:
+            return None
+        play = await games_service.play_status(s, found[0].id)
+    return TestGameRefOut(id=found[0].id, status=play.status)
 
 
 async def list_sessions(user: authz.Principal, class_id: uuid.UUID) -> ClassSessionListOut | None:
@@ -1241,6 +1255,8 @@ async def _game_out(
         id=found.game_id,
         number=found.number,
         role=found.role,
+        test_game=found.test_game,
+        class_session_id=found.class_session_id,
         seats=_seats_out(table),
         # Story 6.2: the briefing comes first until the Starting task is done (AD-16), where
         # `games.policy` says the pre-play gate applies (Story 6.18).
@@ -1316,17 +1332,35 @@ async def _own_locked_game(
         game_uuid = uuid.UUID(game_id)
     except ValueError:
         return None
-    # The Classes Hjem lists: those the User is a Student in and that are not archived.
-    listed = {item.id for item in (await classes.enrolled_classes(user)).items}
     found = await games_service.own_game(s, user.id, game_uuid)
     if found is None:
         return None
+    if found.test_game:
+        return await _own_test_game(s, user, found)
+    # The Classes Hjem lists: those the User is a Student in and that are not archived.
+    listed = {item.id for item in (await classes.enrolled_classes(user)).items}
     # The Class session among the User's own (`authz.classes_enrolled_by`), locked.
     rows = {row["id"]: row for row in await repo.enrolled_sessions(s, user)}
     row = rows.get(found.class_session_id)
     if row is None or row["class_id"] not in listed or not is_locked(row):
         return None
     return found, row
+
+
+async def _own_test_game(
+    s: AsyncSession, user: authz.Principal, found: games_service.StudentGame
+) -> tuple[games_service.StudentGame, Mapping[str, Any]] | None:
+    """A Lecturer's test Game (Story 6.20, AD-12): theirs through `authz.own_seat` (the caller's
+    `own_game`), while they are staff of its Class who may read its sessions; at any time, since
+    it runs on its own snapshot. The session row it returns states the Game's own settings as the
+    rules (`game_rules`), never the session's, which may have changed since."""
+    row = await repo.session_row(s, found.class_session_id)
+    if row is None or await _class_for(user, row["class_id"], "class_sessions.read") is None:
+        return None
+    game = await games_service.get_game(str(found.game_id))
+    if game is None or game.settings is None:
+        return None
+    return found, {**row, "snapshot_settings": game.settings.model_dump(mode="json")}
 
 
 async def student_game_of(user: authz.Principal, game_id: str) -> StudentGameOut | None:
@@ -1534,7 +1568,8 @@ async def propose_own_time(
     deadline. Returns the game as it now stands."""
     async with get_sessionmaker()() as s:
         own = await _own_locked_game(s, user, game_id)
-    if own is None:
+    # A test Game has no group to agree a time with (Story 6.20).
+    if own is None or own[0].test_game:
         return None
     found, row = own
     try:
@@ -1554,7 +1589,7 @@ async def accept_own_time(
     alike). An acceptance already stored counts as done. Returns the game as it now stands."""
     async with get_sessionmaker()() as s:
         own = await _own_locked_game(s, user, game_id)
-    if own is None:
+    if own is None or own[0].test_game:
         return None
     found, _ = own
     try:
@@ -1621,7 +1656,8 @@ async def own_game_session(user: authz.Principal, game_id: str) -> OwnGameSessio
     The game's status is not asked: a finished game still offers the Starting task (FR-85)."""
     async with get_sessionmaker()() as s:
         own = await _own_locked_game(s, user, game_id)
-        if own is None:
+        # A test Game has no Starting task, and no step is ever recorded for it (Story 6.20).
+        if own is None or own[0].test_game:
             return None
         session_id = own[1]["id"]
         pins = await repo.session_pins(s, session_id)
@@ -3635,6 +3671,99 @@ async def student_choice_mail_context(
 # Rerun (Story 5.18, FR-66, FR-78, AD-4, AD-6, AD-12, AD-17).
 
 RERUN_DISABLED = {"rerun": "feature_disabled"}
+
+
+def lecturer_test_enabled() -> bool:
+    """`FEATURE_LECTURER_TEST_GAME` (AD-17): whether a Lecturer may play a test Game (6.20)."""
+    return get_settings().feature_lecturer_test_game
+
+
+class TestGameRefused(Exception):
+    """«Start testspill» refused (Story 6.20): 404 `not_found` while the flag is off; 409
+    `session_locked` from the Start date, `test_game_running` while the Lecturer's last test Game
+    here has not finished, `llm_unavailable` when its LLM players' provider may not answer; 422
+    `unknown_role` for a Role the session's settings have no Seat for."""
+
+    def __init__(self, code: str, status: int) -> None:
+        super().__init__(code)
+        self.code = code
+        self.status = status
+
+
+async def start_test_game(
+    user: authz.Principal, session_id: uuid.UUID, role: str
+) -> uuid.UUID | None:
+    """«Start testspill» (Story 6.20, FR-87, AD-4, AD-13): a `lecturer_test` Game on the Class
+    session's current settings, snapshotted now by `build_snapshot` (so its demand series, seed,
+    `rules_version` and `SessionRuntime` are the session's as they stand), with the Lecturer in
+    the `role` Seat as a `student` occupant and AI players of the session's AI mode in the others;
+    then started. Created and seated in one transaction under the session's row lock, so two
+    presses make one Game, and started in the next; a test Game whose start failed after that
+    commit is started by the next press instead of blocking it. The session row itself is never
+    written, so its settings stay editable. None when the User may not manage the session (the
+    route's 403). Returns the Game id."""
+    if not lecturer_test_enabled():
+        raise TestGameRefused("not_found", 404)
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, session_id)
+    if row is None or await _class_for(user, row["class_id"], "class_sessions.manage") is None:
+        return None
+    async with get_sessionmaker().begin() as s:
+        row = await repo.session_row(s, session_id, lock=True)
+        if row is None:
+            return None
+        if is_locked(row):
+            raise TestGameRefused("session_locked", 409)
+        earlier = await games_service.staff_test_games(s, session_id, user.id)
+        unstarted = (
+            str(earlier[0].id)
+            if earlier and earlier[0].lifecycle == games_service.Lifecycle.NOT_STARTED
+            else None
+        )
+        if (
+            earlier
+            and unstarted is None
+            and earlier[0].lifecycle != games_service.Lifecycle.FINISHED
+        ):
+            raise TestGameRefused("test_game_running", 409)
+        # A test Game whose start failed after its commit is started now, never made twice.
+        game_id = unstarted
+        if game_id is None:
+            if row["ai_mode"] == AiMode.llm.value:
+                found = (
+                    await config.get(row["model_config_id"], session=s)
+                    if row["model_config_id"] is not None
+                    else None
+                )
+                if found is None or not config.may_answer(found):
+                    raise TestGameRefused("llm_unavailable", 409)
+            snapshot = await build_snapshot(row, session=s)
+            ai = (
+                games_service.OccupantKind.LLM
+                if snapshot["session_runtime"]["model_config_id"] is not None
+                else games_service.OccupantKind.RULE_BASED
+            )
+            roles = GameSettings.model_validate(snapshot["settings"]).roles
+            if role not in {seat_role.value for seat_role in roles}:
+                raise TestGameRefused("unknown_role", 422)
+            game_id = await games_commands.create(
+                "lecturer_test", snapshot=snapshot, class_session_id=session_id, within=s
+            )
+            for seat_role in roles:
+                if seat_role.value == role:
+                    await games_commands.assign_seat(
+                        game_id, seat_role, "student", user_id=user.id, within=s
+                    )
+                else:
+                    await games_commands.assign_seat(game_id, seat_role, ai.value, within=s)
+    try:
+        await games_commands.start(game_id)
+    except games_commands.CommandError as refused:
+        # Two presses on a Game whose start failed: the other one started it.
+        if refused.code != "game_already_started":
+            raise
+    log.info("test_game_started", game_id=game_id, class_session_id=str(session_id))
+    return uuid.UUID(game_id)
 
 
 def rerun_enabled() -> bool:

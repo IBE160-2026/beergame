@@ -37,6 +37,8 @@ describe("Hjem's game card (Story 6.1)", () => {
       id: "g",
       number: 17,
       role: "wholesaler",
+      test_game: false,
+      class_session_id: "s",
       seats: [],
       briefing_first: true,
       rules: {
@@ -54,6 +56,9 @@ describe("Hjem's game card (Story 6.1)", () => {
       turn: null,
     };
     expect(gameTitle(game)).toBe("Spill 17 · Du er Grossist");
+    // Story 6.20: a Lecturer's test Game has no number and reads «Testspill» in plain text.
+    expect(gameTitle({ ...game, number: null, test_game: true })).toBe("Testspill · Du er Grossist");
+    expect(nb.games.play.roleGame("Grossist", null)).toBe("Grossist, Testspill");
   });
 
   it("says who holds each Seat in words, «KI-spiller» for every AI player", () => {
@@ -62,6 +67,8 @@ describe("Hjem's game card (Story 6.1)", () => {
     expect(holderText(seat({ holder: "ai", name: null }))).toBe("KI-spiller");
     expect(holderText(seat({ holder: "free", name: null }))).toBe(copy.free);
     expect(holderText(seat({ name: null }))).toBe(copy.removed);
+    // Story 6.20: the Lecturer in their own test Game has no Student name.
+    expect(holderText(seat({ name: null, mine: true }))).toBe(copy.youAlone);
   });
 });
 

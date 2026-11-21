@@ -49,7 +49,9 @@ from app.modules.sessions.schemas import (
     SeatChoiceOut,
     SettingsCheckIn,
     SettingsCheckOut,
+    StartedTestGameOut,
     StudentGameOut,
+    TestGameIn,
     TimeProposalIn,
 )
 from app.platform import auth, authz
@@ -181,6 +183,41 @@ async def get_class_session(
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))
+
+
+TEST_GAME_REFUSED = {
+    "not_found": "Not found.",
+    "session_locked": "A test game starts only before the Start date.",
+    "test_game_running": "Your test game here has not finished yet.",
+    "llm_unavailable": "The LLM players cannot answer now.",
+    "unknown_role": "The game settings have no Seat for this Role.",
+}
+
+
+@router.post(
+    "/class-sessions/{session_id}/test-game",
+    status_code=201,
+    response_model=StartedTestGameOut,
+    responses=documented(401, 403, 404, 409, 422),
+    operation_id="startTestGame",
+)
+async def start_test_game(
+    session_id: str,
+    body: TestGameIn,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """«Start testspill» (Story 6.20, FR-87): the Lecturer plays a private test Game on the Class
+    session's current settings, in the chosen Role against three AI players; it starts at once.
+    404 `not_found` while `FEATURE_LECTURER_TEST_GAME` is off (AD-17); 409 `session_locked` from
+    the Start date, `test_game_running` while their last test Game here runs, `llm_unavailable`;
+    422 `unknown_role`; 403 `forbidden` for a session the User may not manage (FR-5)."""
+    try:
+        game_id = await service.start_test_game(user, _id(session_id), body.role.value)
+    except service.TestGameRefused as refused:
+        return error_response(refused.status, refused.code, TEST_GAME_REFUSED[refused.code])
+    if game_id is None:
+        raise authz.Forbidden
+    return JSONResponse(StartedTestGameOut(id=game_id).model_dump(mode="json"), status_code=201)
 
 
 @router.put(

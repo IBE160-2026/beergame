@@ -227,7 +227,7 @@ async def test_an_invalid_parameter_set_stores_nothing(games_db, monkeypatch):
     assert counts(games_db) == (0, 0, 0)
 
 
-@pytest.mark.parametrize("purpose", ["replay", "makeup", "lecturer_test", "party"])
+@pytest.mark.parametrize("purpose", ["replay", "makeup", "party"])
 async def test_purposes_without_a_policy_cannot_be_created_yet(games_db, purpose):
     with pytest.raises(commands.CommandError) as caught:
         await commands.create(purpose, GameSettings(), seed=1)
@@ -334,3 +334,45 @@ async def test_information_visibility_is_refused_when_its_flag_is_off(games_db, 
     game_id = await commands.create("simulation", views, seed=1)
     ((settings,),) = query(games_db, "SELECT settings FROM games WHERE id = %s", (game_id,))
     assert settings["info_visibility"] == {"upstream": True, "downstream": False}
+
+
+def _ready_snapshot(seed: int = 5) -> dict:
+    """A snapshot as `sessions.build_snapshot` makes it (Story 6.20)."""
+    settings = GameSettings(demand_seed=seed)
+    return {
+        "settings": settings.model_dump(mode="json"),
+        "demand_series": list(demand_series(settings)),
+        "demand_seed": seed,
+        "rules_version": RULES_VERSION,
+        "session_runtime": commands.default_runtime(
+            model_config_id=None, effort_level=None
+        ).model_dump(mode="json"),
+    }
+
+
+async def test_a_test_game_stores_a_ready_snapshot_with_its_class_session_and_no_number(games_db):
+    session_id = uuid.uuid7()
+    snapshot = _ready_snapshot()
+    game_id = await commands.create("lecturer_test", snapshot=snapshot, class_session_id=session_id)
+    ((stored, number, settings, seed),) = query(
+        games_db,
+        "SELECT class_session_id, game_number, settings, demand_seed FROM games WHERE id = %s",
+        (game_id,),
+    )
+    assert (stored, number, settings, seed) == (session_id, None, snapshot["settings"], 5)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "code"),
+    [
+        ({"game_number": 1}, "game_number_not_allowed"),
+        ({"seed": 3}, "settings_not_allowed"),
+        ({"class_session_id": None}, "class_session_required"),
+    ],
+)
+async def test_a_test_game_refuses_a_number_a_second_snapshot_or_no_session(games_db, kwargs, code):
+    given = {"snapshot": _ready_snapshot(), "class_session_id": uuid.uuid7(), **kwargs}
+    with pytest.raises(commands.CommandError) as caught:
+        await commands.create("lecturer_test", **given)
+    assert (caught.value.code, caught.value.status) == (code, 422)
+    assert counts(games_db) == (0, 0, 0)

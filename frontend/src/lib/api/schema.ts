@@ -777,6 +777,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/test-game": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Test Game
+         * @description «Start testspill» (Story 6.20, FR-87): the Lecturer plays a private test Game on the Class
+         *     session's current settings, in the chosen Role against three AI players; it starts at once.
+         *     404 `not_found` while `FEATURE_LECTURER_TEST_GAME` is off (AD-17); 409 `session_locked` from
+         *     the Start date, `test_game_running` while their last test Game here runs, `llm_unavailable`;
+         *     422 `unknown_role`; 403 `forbidden` for a session the User may not manage (FR-5).
+         */
+        post: operations["startTestGame"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/classes": {
         parameters: {
             query?: never;
@@ -2175,6 +2199,11 @@ export interface components {
             is_classic: boolean;
             /** Lab Hours */
             lab_hours: components["schemas"]["LabHourOut"][];
+            /**
+             * Lecturer Test Enabled
+             * @default false
+             */
+            lecturer_test_enabled: boolean;
             /** Llm Unavailable */
             llm_unavailable: "no_default_model" | null;
             /**
@@ -2213,6 +2242,7 @@ export interface components {
             student_choice_enabled: boolean;
             /** Test Deadline */
             test_deadline: string | null;
+            test_game?: components["schemas"]["TestGameRefOut"] | null;
         };
         /**
          * ClassSessionSaveIn
@@ -3736,6 +3766,17 @@ export interface components {
          * @enum {string}
          */
         StaffStatus: "active" | "invited" | "expired";
+        /**
+         * StartedTestGameOut
+         * @description The test Game just started (Story 6.20); the web app opens its play route.
+         */
+        StartedTestGameOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
         /** StartingTaskItemOut */
         StartingTaskItemOut: {
             /** Asked Label */
@@ -3793,12 +3834,17 @@ export interface components {
             /** Briefing First */
             briefing_first: boolean;
             /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /**
              * Id
              * Format: uuid
              */
             id: string;
             /** Number */
-            number: number;
+            number: number | null;
             role: components["schemas"]["Role"];
             rules: components["schemas"]["GameRulesOut"];
             seat_state: components["schemas"]["SeatState"] | null;
@@ -3814,6 +3860,11 @@ export interface components {
              * @enum {string}
              */
             status: "not_ready" | "ready" | "running" | "finished";
+            /**
+             * Test Game
+             * @default false
+             */
+            test_game: boolean;
             time_proposal?: components["schemas"]["TimeProposalOut"] | null;
             turn: components["schemas"]["PlayTurnOut"] | null;
             /** Week */
@@ -3880,6 +3931,29 @@ export interface components {
         TableStatusOut: {
             /** Seats */
             seats: components["schemas"]["TableSeatOut"][];
+        };
+        /**
+         * TestGameIn
+         * @description «Start testspill» (Story 6.20): the Role the Lecturer plays.
+         */
+        TestGameIn: {
+            role: components["schemas"]["Role"];
+        };
+        /**
+         * TestGameRefOut
+         * @description A Lecturer's test Game (Story 6.20): where the play route stands for it.
+         */
+        TestGameRefOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_ready" | "ready" | "running" | "finished";
         };
         /**
          * TimeProposalIn
@@ -6094,6 +6168,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    startTestGame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestGameIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedTestGameOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

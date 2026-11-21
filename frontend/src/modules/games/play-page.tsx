@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
-import { LINK_BUTTON } from "@/components/link";
+import { Link, LINK_BUTTON } from "@/components/link";
 import { nb } from "@/copy/nb";
 import { ApiRequestError, isSessionExpired } from "@/lib/api/client";
 import { errorCode } from "@/lib/api/mutation";
@@ -14,8 +14,9 @@ import { cn } from "@/lib/utils";
 import { orderPreview } from "@/lib/preview";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
-import { HOME_LINK, HOME_PATH, rulesPath } from "@/modules/identity/homes";
+import { classSessionPath, HOME_LINK, HOME_PATH, rulesPath } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
+import { classSessionKey } from "@/modules/sessions/api";
 import { roleName } from "@/modules/sessions/sessions";
 
 import { AllRowsView } from "./all-rows-view";
@@ -71,7 +72,7 @@ const LINE = "text-body-phone lg:text-body";
  */
 export function PlayPage({ gameId }: { gameId: string }) {
   return (
-    <GuardedPage page="home">{(user, updatedAt) => <PlayView gameId={gameId} user={user} updatedAt={updatedAt} />}</GuardedPage>
+    <GuardedPage page="any">{(user, updatedAt) => <PlayView gameId={gameId} user={user} updatedAt={updatedAt} />}</GuardedPage>
   );
 }
 
@@ -380,8 +381,7 @@ function Running({
             <GameSeatStatus seats={seats} now={now} titleId={`seats-${game.id}`} className="max-w-md" />
             {/* Story 6.19: the proposed time to play and «Godta tidspunktet»; proposing is on Hjem. */}
             <TimeProposalBlock game={game} now={now} className="mt-4 max-w-md" />
-            <PageLink href={rulesPath(game.id)}>{nb.games.briefing.title}</PageLink>
-            <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
+            <BackLinks game={game} />
           </div>
         </div>
       </div>
@@ -628,10 +628,40 @@ function useRefetchAt(gameId: string, envelope: PlayEnvelope) {
   }, [queryClient, gameId, due, from]);
 }
 
+/** The play screen's way out: «Regler før første ordre» and «Til Hjem» for a Class game; for a
+ * Lecturer's test Game, which has neither a briefing nor Hjem, «Tilbake til Klasseøkta» (6.20). */
+function BackLinks({ game }: { game: MyGame }) {
+  const queryClient = useQueryClient();
+  if (game.test_game) {
+    // The Klasseøkt reads where the test Game stands now, not as it stood when it was opened.
+    return (
+      <p className="mt-4">
+        <Link
+          href={classSessionPath(game.class_session_id)}
+          onClick={() => void queryClient.invalidateQueries({ queryKey: classSessionKey(game.class_session_id) })}
+          standalone
+        >
+          {copy.toClassSession}
+        </Link>
+      </p>
+    );
+  }
+  return (
+    <>
+      <PageLink href={rulesPath(game.id)}>{nb.games.briefing.title}</PageLink>
+      <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
+    </>
+  );
+}
+
 function NotRunning({ game }: { game: MyGame }) {
   return (
     <>
-      <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
+      {game.test_game ? (
+        <PageLink href={classSessionPath(game.class_session_id)}>{copy.toClassSession}</PageLink>
+      ) : (
+        <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
+      )}
       <GameAction game={game} primary />
       <NotRunningSeats game={game} />
     </>

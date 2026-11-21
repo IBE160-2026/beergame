@@ -21,6 +21,8 @@ export function gameTitle(game: StudentGame): string {
 export function holderText(seat: TableSeat): string {
   if (seat.holder === "ai") return copy.aiPlayer;
   if (seat.holder === "free") return copy.free;
+  // A Lecturer in their own test Game is no Student of the Class, so has no name here (6.20).
+  if (seat.mine && seat.name == null) return copy.youAlone;
   const name = seat.name ?? copy.removed;
   return seat.mine ? copy.you(name) : name;
 }

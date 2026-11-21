@@ -78,7 +78,7 @@ HEAD_TABLES = (
     | STARTING_TASK_TABLES
     | TIME_PROPOSAL_TABLES
 )
-HEAD = "0049"  # 0049 adds the scheduling aid's proposals and acceptances (Story 6.19)
+HEAD = "0050"  # 0050 lets a test Game hold its Class session without a number (Story 6.20)
 
 
 def reset_schema(url: str) -> None:
@@ -201,7 +201,11 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "wait_started_at" in trigger and "viewed_at" in trigger
     # 0049 (Story 6.19): one open proposal per Game; its acceptances go with it.
     assert "UNIQUE (game_id)" in constraints(url, "time_proposals")["uq_time_proposals_game"]
+    # 0050 (Story 6.20): a game number needs a Class session, a Class session no number.
+    assert "class_session_id IS NOT NULL" in games["ck_games_class_session"]
 
+    command.downgrade(cfg, "0049")
+    assert "= (game_number IS NULL)" in definition(url, "ck_games_class_session")
     command.downgrade(cfg, "0048")
     assert TIME_PROPOSAL_TABLES.isdisjoint(tables(url))
     command.downgrade(cfg, "0047")

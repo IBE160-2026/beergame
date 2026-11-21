@@ -78,7 +78,8 @@ games = Table(
     Column("demand_seed", BigInteger, nullable=True),
     Column("rules_version", Integer, nullable=True),
     Column("session_runtime", JSONB(none_as_null=True), nullable=True),
-    # The Class session and its game number (Story 5.9), on Class games only. No foreign key:
+    # The Class session and its game number (Story 5.9): both on a Class game, the session only
+    # on a Lecturer's test Game (Story 6.20). No foreign key:
     # `games` sits below `sessions`, which owns the Class session.
     Column("class_session_id", Uuid, nullable=True),
     Column("game_number", Integer, nullable=True),
@@ -95,8 +96,9 @@ games = Table(
     CheckConstraint(_in("lifecycle", Lifecycle), name="ck_games_lifecycle"),
     CheckConstraint("version >= 0", name="ck_games_version"),
     CheckConstraint(SNAPSHOT_TOGETHER, name="ck_games_snapshot"),
+    # A game number needs its Class session; a test Game has the session and no number (6.20).
     CheckConstraint(
-        "(class_session_id IS NULL) = (game_number IS NULL)", name="ck_games_class_session"
+        "game_number IS NULL OR class_session_id IS NOT NULL", name="ck_games_class_session"
     ),
     CheckConstraint("game_number >= 1", name="ck_games_game_number"),
     UniqueConstraint("class_session_id", "game_number", name="uq_games_class_session_number"),

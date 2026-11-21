@@ -1055,6 +1055,11 @@
             "title": "Lab Hours",
             "type": "array"
           },
+          "lecturer_test_enabled": {
+            "default": false,
+            "title": "Lecturer Test Enabled",
+            "type": "boolean"
+          },
           "llm_unavailable": {
             "anyOf": [
               {
@@ -1180,6 +1185,16 @@
               }
             ],
             "title": "Test Deadline"
+          },
+          "test_game": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TestGameRefOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -4526,6 +4541,21 @@
         "title": "StaffStatus",
         "type": "string"
       },
+      "StartedTestGameOut": {
+        "description": "The test Game just started (Story 6.20); the web app opens its play route.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "StartedTestGameOut",
+        "type": "object"
+      },
       "StartingTaskItemOut": {
         "properties": {
           "asked_label": {
@@ -4662,14 +4692,26 @@
             "title": "Briefing First",
             "type": "boolean"
           },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
           },
           "number": {
-            "title": "Number",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
           },
           "role": {
             "$ref": "#/components/schemas/Role"
@@ -4709,6 +4751,11 @@
             "title": "Status",
             "type": "string"
           },
+          "test_game": {
+            "default": false,
+            "title": "Test Game",
+            "type": "boolean"
+          },
           "time_proposal": {
             "anyOf": [
               {
@@ -4745,6 +4792,7 @@
           "id",
           "number",
           "role",
+          "class_session_id",
           "seats",
           "briefing_first",
           "rules",
@@ -4903,6 +4951,46 @@
           "seats"
         ],
         "title": "TableStatusOut",
+        "type": "object"
+      },
+      "TestGameIn": {
+        "additionalProperties": false,
+        "description": "«Start testspill» (Story 6.20): the Role the Lecturer plays.",
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "TestGameIn",
+        "type": "object"
+      },
+      "TestGameRefOut": {
+        "description": "A Lecturer's test Game (Story 6.20): where the play route stands for it.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "not_ready",
+              "ready",
+              "running",
+              "finished"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "TestGameRefOut",
         "type": "object"
       },
       "TimeProposalIn": {
@@ -8000,6 +8088,99 @@
           }
         },
         "summary": "Check Class Session Settings",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/test-game": {
+      "post": {
+        "description": "«Start testspill» (Story 6.20, FR-87): the Lecturer plays a private test Game on the Class\nsession's current settings, in the chosen Role against three AI players; it starts at once.\n404 `not_found` while `FEATURE_LECTURER_TEST_GAME` is off (AD-17); 409 `session_locked` from\nthe Start date, `test_game_running` while their last test Game here runs, `llm_unavailable`;\n422 `unknown_role`; 403 `forbidden` for a session the User may not manage (FR-5).",
+        "operationId": "startTestGame",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestGameIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedTestGameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Start Test Game",
         "tags": [
           "sessions"
         ]

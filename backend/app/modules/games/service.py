@@ -80,6 +80,8 @@ __all__ = [
     "SessionRuntime",
     "SimulationBatch",
     "StudentGame",
+    "TestGameRef",
+    "staff_test_games",
     "TableSeat",
     "TableStatus",
     "TimeProposal",
@@ -218,10 +220,14 @@ class StudentGame:
 
     game_id: uuid.UUID
     class_session_id: uuid.UUID
-    number: int
+    number: int | None
+    """The game number; None on a Lecturer's test Game, which has none (Story 6.20)."""
     role: str
     pre_play_gate: bool
     """Whether the briefing and Starting task come before play (`games.policy`, Story 6.18)."""
+    test_game: bool = False
+    """Whether a Lecturer of the Class session plays it as a test (`games.policy`
+    `played_by_staff`, Story 6.20): reached from the Klasseøkt, never from Hjem."""
 
 
 async def student_game(
@@ -353,10 +359,41 @@ async def own_game(
     game = await repo.own_game(session, user_id, game_id)
     if game is None or game["class_session_id"] is None:
         return None
+    rules = policy(game["purpose"])
+    if rules.played_by_staff:
+        # A Lecturer's test Game (Story 6.20): theirs while they hold its Seat; no Class game of
+        # the session is ever one (`student_game` leaves it out).
+        role = await repo.held_role(session, game_id, user_id)
+        if role is None:
+            return None
+        return StudentGame(
+            game_id=game_id,
+            class_session_id=game["class_session_id"],
+            number=game["game_number"],
+            role=role,
+            pre_play_gate=rules.pre_play_gate,
+            test_game=True,
+        )
     found = await student_game(session, user_id, game["class_session_id"])
     if found is None or found.game_id != game_id:
         return None
     return found
+
+
+@dataclass(frozen=True)
+class TestGameRef:
+    """A Lecturer's test Game in a Class session (Story 6.20): its id and lifecycle."""
+
+    id: uuid.UUID
+    lifecycle: str
+
+
+async def staff_test_games(
+    session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID
+) -> list[TestGameRef]:
+    """The test Games the User has played in the Class session, newest first (Story 6.20)."""
+    rows = await repo.staff_test_games(session, class_session_id, user_id)
+    return [TestGameRef(row["id"], row["lifecycle"]) for row in rows]
 
 
 async def get_game(game_id: str) -> GameOverview | None:

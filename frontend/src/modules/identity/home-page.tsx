@@ -76,13 +76,15 @@ function AdminSections() {
  * loads it shows the Skjelett, and a failed load the page-error line (Story 3.4); a visitor who
  * is not logged in goes to «Logg inn» and comes back after it; a User whose roles do not allow
  * `page` sees the permission-denied page at the same address. Otherwise it renders `children`
- * with the User. The API enforces access on every request; this decides what is shown.
+ * with the User. The API enforces access on every request; this decides what is shown. `any`
+ * opens to every logged-in User and leaves it to the api alone: the play route, where a Student
+ * plays their Class game and a Lecturer their test Game through the same scope (Story 6.20).
  */
 export function GuardedPage({
   page,
   children,
 }: {
-  page: Home;
+  page: Home | "any";
   children: (user: SessionUser, updatedAt: number) => ReactNode;
 }) {
   const router = useRouter();
@@ -97,7 +99,7 @@ export function GuardedPage({
   }, [user, router, pathname]);
 
   if (!user) return <PageShell phase={phase === "ready" ? "loading" : phase} onRetry={retry} />;
-  if (!canView(page, user)) return <AccessDenied user={user} updatedAt={me.dataUpdatedAt} />;
+  if (page !== "any" && !canView(page, user)) return <AccessDenied user={user} updatedAt={me.dataUpdatedAt} />;
   return <>{children(user, me.dataUpdatedAt)}</>;
 }
 

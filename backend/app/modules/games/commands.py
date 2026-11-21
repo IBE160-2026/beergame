@@ -268,7 +268,17 @@ def _class_session(
                 "class_session_not_allowed", "a Game of this purpose has no Class session", 422
             )
         return None
-    if class_session_id is None or type(game_number) is not int or game_number < 1:
+    if class_session_id is None:
+        raise CommandError(
+            "class_session_required", "a Game of this purpose needs its Class session", 422
+        )
+    if not game_policy.game_number:
+        # A test Game (Story 6.20): the session's, never one of its numbered Class games.
+        if game_number is not None:
+            raise CommandError(
+                "game_number_not_allowed", "a Game of this purpose takes no game number", 422
+            )
+    elif type(game_number) is not int or game_number < 1:
         raise CommandError(
             "class_session_required",
             "a Game of this purpose needs its Class session and a game number from 1",
@@ -295,6 +305,7 @@ async def create(
     batch_id: str | None = None,
     class_session_id: uuid.UUID | str | None = None,
     game_number: int | None = None,
+    snapshot: Mapping[str, Any] | None = None,
     within: AsyncSession | None = None,
 ) -> str:
     """Store a `not_started` Game with one free Seat per Role.
@@ -307,6 +318,11 @@ async def create(
     change. The Rule-based and Play guard parameter sets (default: today's) are frozen too
     (FR-79). A purpose that takes it at the lock (Class games, Story 5.9) takes none of these
     (`settings_not_allowed`), stores no snapshot and gets the Classic Roles' Seats.
+
+    `snapshot` is a ready snapshot (Story 6.20), the five `SNAPSHOT_COLUMNS` as
+    `sessions.build_snapshot` made them from a Class session: a purpose that takes its snapshot at
+    creation stores it as given, checked like `set_snapshot`'s (`invalid_snapshot`), and then takes
+    none of the other snapshot arguments (`settings_not_allowed`).
 
     A purpose whose Games belong to a Class session needs `class_session_id` and `game_number`
     (unique together); others refuse them. `batch_id` puts the Game in a stored simulation batch
@@ -327,6 +343,17 @@ async def create(
         play_guard_params,
         batch_id,  # a simulation batch freezes its Games' snapshot at creation
     )
+    ready: dict[str, Any] | None = None
+    if snapshot is not None:
+        if game_policy.snapshot != "at_creation" or any(
+            value is not None for value in snapshot_given
+        ):
+            raise CommandError(
+                "settings_not_allowed",
+                "a ready snapshot comes alone, for a purpose that takes it at creation",
+                422,
+            )
+        ready = _checked_snapshot(snapshot)
     if game_policy.snapshot == "at_lock":
         if any(value is not None for value in snapshot_given):
             raise CommandError(
@@ -336,6 +363,9 @@ async def create(
             )
         values: dict[str, object] = dict.fromkeys(SNAPSHOT_COLUMNS)
         roles = [role.value for role in ROLES]
+    elif ready is not None:
+        values = dict(ready)
+        roles = [role.value for role in GameSettings.model_validate(ready["settings"]).roles]
     else:
         if settings is None:
             raise CommandError("settings_required", "a Game of this purpose needs settings", 422)
@@ -353,7 +383,12 @@ async def create(
     async with _transaction(within) as session:
         if batch_uuid is not None and await repo.get_batch(session, batch_uuid) is None:
             raise CommandError("batch_not_found", f"no simulation batch {batch_id!r}", 422)
-        if game_policy.snapshot == "at_creation":
+        if ready is not None:
+            # The model config of the frozen runtime can never change from now on (FR-78).
+            config_id = SessionRuntime.model_validate(ready["session_runtime"]).model_config_id
+            if config_id is not None:
+                await ai_config.mark_referenced(config_id, session=session)
+        elif game_policy.snapshot == "at_creation":
             level = None
             if model_config_id is not None:
                 model_config_id, level = await _model_config(session, model_config_id, effort_level)
