@@ -221,37 +221,35 @@ async def test_guided_weeks_take_only_the_guided_order_for_every_occupant(games_
 
 
 async def test_guided_is_refused_after_the_guided_weeks(games_db):
-    game_id = await started()
-    await to_week(game_id, 5)
+    game_id = await started(guided_weeks=1)
+    await to_week(game_id, 2)
     await assert_refused(
         games_db,
         game_id,
-        commands.place_order(game_id, "retailer", 5, 4, "guided"),
+        commands.place_order(game_id, "retailer", 2, 4, "guided"),
         "decided_by_invalid",
         422,
     )
-    placed = await commands.place_order(game_id, "retailer", 5, 9, "student")
-    assert placed.week == 5
+    placed = await commands.place_order(game_id, "retailer", 2, 9, "student")
+    assert placed.week == 2
 
 
 @pytest.mark.parametrize("order", [-1, 1000, 4.0, True, "4", None])
 async def test_an_invalid_order_is_refused(games_db, order):
-    game_id = await started()
-    await to_week(game_id, 5)
+    game_id = await started()  # no Guided Weeks: Week 1 takes any decider's Order
     await assert_refused(
         games_db,
         game_id,
-        commands.place_order(game_id, "retailer", 5, order, "rule_based"),
+        commands.place_order(game_id, "retailer", 1, order, "rule_based"),
         "order_invalid",
         422,
     )
 
 
 async def test_the_bounds_are_valid_orders(games_db):
-    game_id = await started()
-    await to_week(game_id, 5)
-    await commands.place_order(game_id, "retailer", 5, 0, "rule_based")
-    await commands.place_order(game_id, "factory", 5, 999, "rule_based")
+    game_id = await started()  # no Guided Weeks: Week 1 takes any decider's Order
+    await commands.place_order(game_id, "retailer", 1, 0, "rule_based")
+    await commands.place_order(game_id, "factory", 1, 999, "rule_based")
     assert [r["order"] for r in log_rows(games_db, game_id)][-2:] == [0, 999]
 
 
@@ -338,7 +336,7 @@ async def test_a_game_not_started_takes_no_order(games_db):
 
 
 async def test_the_last_week_finishes_the_game(games_db):
-    last = 8  # a short Game: the length is not the point
+    last = 5  # a short Game: the length is not the point
     game_id = await started(weeks=last)
     await to_week(game_id, last)
     for role in ROLES[:3]:

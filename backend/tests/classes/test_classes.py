@@ -47,7 +47,25 @@ async def setup(identity_db, clock):
 
 
 async def as_user(c, email: str = LECTURER):
-    assert (await login(c, email, PASSWORD)).status_code == 200
+    """Sign `c` in as `email`: the cookie a login would set, issued here without the login
+    request and its rate-limit and password work (the login is tested in
+    `tests/identity/test_login.py`). An address no login would accept, not an active User with a
+    password, goes through the login, so the assertion shows the refusal."""
+    found = rows(
+        "SELECT id, session_version FROM users "
+        "WHERE email = %s AND is_active AND password_hash IS NOT NULL",
+        service.normalise_email(email),
+    )
+    if not found:
+        assert (await login(c, email, PASSWORD)).status_code == 200
+        return
+    [(user_id, version)] = found
+    token = auth.issue_token(user_id, auth.utcnow(), session_version=version)
+    c.cookies.set(auth.COOKIE_NAME, token, domain=SESSION_COOKIE_DOMAIN)
+
+
+SESSION_COOKIE_DOMAIN = "t.local"
+"""Where the cookie jar keeps the login's host-only cookie for the test client's `https://t`."""
 
 
 async def create(c, **body):

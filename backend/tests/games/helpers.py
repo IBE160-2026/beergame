@@ -1,13 +1,16 @@
+import hashlib
 import json
+import os
 import re
 import uuid
 from contextlib import contextmanager
+from pathlib import Path
 
 import psycopg
 from psycopg import sql
 
 from app.platform import events
-from tests.conftest import kept_connection, libpq_dsn
+from tests.conftest import RUN_TMP, kept_connection, libpq_dsn
 
 
 def query(url: str, sql: str, params: tuple = ()) -> list[tuple]:
@@ -112,14 +115,41 @@ def _restore(url: str, dumped: dict[str, str]) -> str:
     return game_id
 
 
+def _shared_file(key: object) -> Path | None:
+    """Where the pytest-xdist workers of this run share the Game remembered under `key`, so it
+    is played once per run rather than once per worker: the run's temporary directory, which
+    pytest removes a few runs later (`RUN_TMP`, set in `tests/conftest.py`). None outside
+    pytest-xdist."""
+    run = os.environ.get(RUN_TMP)
+    if not run:
+        return None
+    name = hashlib.sha256(repr(key).encode()).hexdigest()[:32]
+    return Path(run) / "played" / f"{name}.json"
+
+
 def stored_copy(url: str, key: object) -> str | None:
     """A new copy of the Game remembered under `key`, or None before one is remembered."""
-    return _restore(url, _played[key]) if key in _played else None
+    if key not in _played:
+        shared = _shared_file(key)
+        if shared is None or not shared.exists():
+            return None
+        _played[key] = json.loads(shared.read_text(encoding="utf-8"))
+    return _restore(url, _played[key])
 
 
 def remember(url: str, key: object, game_id: str) -> None:
-    """Remember the stored rows of the Game for `stored_copy`."""
+    """Remember the stored rows of the Game for `stored_copy`, in this worker and for the
+    others (written whole, then renamed, so no worker reads half a file)."""
     _played[key] = _dump(url, game_id)
+    shared = _shared_file(key)
+    if shared is not None:
+        shared.parent.mkdir(exist_ok=True)
+        part = shared.with_suffix(f".{os.getpid()}.part")
+        part.write_text(json.dumps(_played[key]), encoding="utf-8")
+        try:
+            os.replace(part, shared)
+        except PermissionError:  # Windows: another worker is reading the copy it wrote first
+            part.unlink()
 
 
 async def played_once(url: str, key: object, play) -> str:
