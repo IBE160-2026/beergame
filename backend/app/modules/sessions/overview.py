@@ -5,7 +5,10 @@ names resolved now (AD-12, AD-14). A fixed number of queries whatever the number
 
 import hashlib
 import uuid
+from dataclasses import dataclass
 
+from app.analysis.wall import Cells, wall_aggregates
+from app.engine.settings import Role
 from app.modules.classes import service as classes
 from app.modules.games import service as games_service
 from app.modules.games.service import ClassGameSummary, GameStatus
@@ -18,13 +21,26 @@ from app.modules.sessions.schemas import (
     OverviewGameOut,
     OverviewSeatOut,
     OverviewWaitOut,
+    WallAggregatesOut,
+    WallCells,
+    WallStatus,
+    WallWeekOut,
     WeekSeatOut,
 )
 from app.modules.sessions.service import _class_for, is_locked
 from app.platform import authz
 from app.platform.db import get_sessionmaker
 
-__all__ = ["class_overview", "etag_of", "game_weeks", "game_weeks_etag", "readable_game"]
+__all__ = [
+    "WallFilter",
+    "class_overview",
+    "etag_of",
+    "game_weeks",
+    "game_weeks_etag",
+    "readable_game",
+    "wall_aggregates_out",
+    "wall_games",
+]
 
 
 async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassOverviewOut | None:
@@ -158,3 +174,85 @@ async def game_weeks(game_id: uuid.UUID) -> GameWeeksOut | None:
 def game_weeks_etag(version: int) -> str:
     """A strong ETag tied to the Game's `version` (AD-25): every change to a Game raises it."""
     return f'"v{version}"'
+
+
+WALL_SHAPE = "wall-aggregates-1"
+
+
+@dataclass(frozen=True)
+class WallFilter:
+    """One Veggfiltre combination (Story 7.4): the Role, what the cells show, which games."""
+
+    role: Role
+    cells: WallCells
+    status: WallStatus
+
+
+@dataclass(frozen=True)
+class WallGames:
+    """The Class games a filter matched, as `(game_id, version)` by game number, and the ETag of
+    their aggregates: it changes with the filter and with any matched Game's version."""
+
+    games: tuple[tuple[uuid.UUID, int], ...]
+    etag: str
+
+
+def _matches(game: ClassGameSummary, status: WallStatus) -> bool:
+    if status is WallStatus.ALL:
+        return True
+    if status is WallStatus.WITH_AI:
+        return any(
+            seat.occupant_kind is not None
+            and seat.occupant_kind != games_service.OccupantKind.STUDENT
+            for seat in game.seats
+        )
+    return game.status.value == status.value
+
+
+async def wall_games(
+    user: authz.Principal, session_id: uuid.UUID, wanted: WallFilter
+) -> WallGames | None:
+    """The Class games of the Oversikt that `wanted` matches, or None when the User may not see
+    the Oversikt or the Class session does not exist (one answer for both, FR-5). Reads the
+    summaries only, so a repeat with the ETag is answered before any Week is read (AD-25)."""
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, session_id)
+    if row is None:
+        return None
+    if await _class_for(user, row["class_id"], "class_sessions.overview") is None:
+        return None
+    async with get_sessionmaker()() as s:
+        summaries = await games_service.class_overview(s, session_id)
+    matched = tuple((g.game_id, g.version) for g in summaries if _matches(g, wanted.status))
+    # `WALL_SHAPE` names the response's shape: a deploy that changes it never answers 304.
+    body = f"{WALL_SHAPE}|{wanted.role}|{wanted.cells}|{wanted.status}|" + ",".join(
+        f"{game_id}:{version}" for game_id, version in matched
+    )
+    return WallGames(games=matched, etag='"' + hashlib.sha256(body.encode()).hexdigest()[:32] + '"')
+
+
+async def wall_aggregates_out(wanted: WallFilter, matched: WallGames) -> WallAggregatesOut:
+    """The class median rows of the matched games from their stored Weeks (Story 7.4): the
+    values of `analysis.wall_aggregates`, in two reads whatever the number of Games (NFR-3)."""
+    ids = [game_id for game_id, _ in matched.games]
+    async with get_sessionmaker()() as s:
+        played = await games_service.class_played(s, ids, wanted.cells is WallCells.ORDER)
+    weeks = wall_aggregates(played, str(wanted.role), Cells(wanted.cells.value))
+    return WallAggregatesOut(
+        role=wanted.role,
+        cells=wanted.cells,
+        status=wanted.status,
+        games=len(ids),
+        weeks=[
+            WallWeekOut(
+                week=w.week,
+                games=w.games,
+                median=w.median,
+                lower_quartile=w.lower_quartile,
+                upper_quartile=w.upper_quartile,
+                chain_games=w.chain_games,
+                chain_cost_mean=w.chain_cost_mean,
+            )
+            for w in weeks
+        ],
+    )

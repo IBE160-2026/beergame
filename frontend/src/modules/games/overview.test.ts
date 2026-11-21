@@ -6,12 +6,15 @@ import type { GameWeeks, OverviewGame } from "./api";
 import { sortRows } from "@/components/charts/matrix-table-sort";
 
 import {
+  cellValues,
   clockWithSeconds,
   costText,
+  filterGroups,
   groupsOf,
   headline,
   netValues,
   seatTexts,
+  statusCounts,
   TABLE_COLUMNS,
   TABLE_SORT,
   tableRows,
@@ -223,5 +226,57 @@ describe("tableRows (Story 7.3)", () => {
   it("sorts by kjedekost both ways, a game not started last both times", () => {
     expect(order({ key: "cost", direction: "ascending" })).toEqual(["Spill 7", "Spill 3", "Spill 4", "Spill 2", "Spill 9"]);
     expect(order({ key: "cost", direction: "descending" })).toEqual(["Spill 2", "Spill 4", "Spill 3", "Spill 7", "Spill 9"]);
+  });
+});
+
+describe("Veggfiltre on the rows received (Story 7.4, AD-10)", () => {
+  const games = [
+    game({ game_number: 1, status: "running" }),
+    game({
+      game_number: 2,
+      status: "waiting",
+      wait_started_at: "2026-11-21T10:00:00Z",
+      seats: [{ role: "factory", holder: "student", name: "Ida" }],
+    }),
+    game({ game_number: 3, status: "finished", chain_cost: "900.0000" }),
+    game({ game_number: 4, status: "finished", chain_cost: "800.0000", seats: [] }),
+  ];
+  const groups = groupsOf(games);
+  const numbers = (status: Parameters<typeof filterGroups>[1]) =>
+    filterGroups(groups, status).map((g) => [g.name, g.games.map((x) => x.game_number)]);
+
+  it("keeps only the chosen status's group, or the games with an AI player in each group", () => {
+    expect(numbers("all")).toEqual([
+      ["waiting", [2]],
+      ["running", [1]],
+      ["finished", [4, 3]],
+    ]);
+    expect(numbers("finished")).toEqual([["finished", [4, 3]]]);
+    expect(numbers("with_ai")).toEqual([
+      ["running", [1]],
+      ["finished", [3]],
+    ]);
+    expect(numbers("not_started")).toEqual([]);
+  });
+
+  it("counts every Status choice over the received games", () => {
+    expect(statusCounts(games)).toEqual({ all: 4, waiting: 1, running: 1, not_started: 0, finished: 2, with_ai: 2 });
+  });
+
+  it("takes the chosen cells: Ordre up to the first Uke without one, Kost per uke as a number", () => {
+    const weeks: GameWeeks = {
+      game_id: "g",
+      version: 1,
+      weeks: [
+        { week: 1, seats: [{ role: "factory", net_inventory: 12, order: 4, cost: "6.0000" }] },
+        { week: 2, seats: [{ role: "factory", net_inventory: -3, order: 8, cost: "3.5000" }] },
+        { week: 3, seats: [{ role: "factory", net_inventory: -9, order: null, cost: "9.0000" }] },
+      ],
+    };
+    expect(cellValues(weeks, "factory", "net")).toEqual([12, -3, -9]);
+    expect(cellValues(weeks, "factory", "order")).toEqual([4, 8]);
+    expect(cellValues(weeks, "factory", "cost")).toEqual([6, 3.5, 9]);
+    const rows = wallGroups(groupsOf([game({ game_number: 1, status: "running" })]), new Map([["g1", { data: weeks, failed: false }]]), "factory", 0, "order");
+    expect(rows[0]!.rows[0]!.values).toEqual([4, 8]);
   });
 });

@@ -2089,8 +2089,8 @@ export const nb = {
    * Matrisevegg). The legend's bins and its minus line are DESIGN.md's own. */
   wall: {
     region: "Alle spill",
-    /** [ASSUMPTION] the SVG title. */
-    title: (role: string) => `Netto lager for ${role} per uke i alle spill`,
+    /** [ASSUMPTION] the SVG title: «Netto lager for Fabrikk per uke i alle spill». */
+    title: (measure: string, role: string) => `${measure} for ${role} per uke i alle spill`,
     /** [ASSUMPTION] the Landing's SVG title: no Role named beside the one-Seat figure. */
     demoTitle: "Netto lager per uke i hvert spill, demodata",
     gameHeader: "Spill",
@@ -2114,6 +2114,37 @@ export const nb = {
       "35 og over",
     ],
     minusNote: "− i en celle: restordre (under null).",
+    /** [ASSUMPTION] the legend for Ordre and Kost per uke (Story 7.4): DESIGN.md's flow bins,
+     * «<5 no fill; 5–9 / 10–19 / 20–29 / 30+», in words. */
+    flowLegend: (measure: string) => `Fargeskala for ${measure.toLowerCase()}`,
+    flowBins: ["Under 5", "5 til 9", "10 til 19", "20 til 29", "30 og over"],
+    /** Veggfiltre (Story 7.4, UX-DR43). «Rolle», «Celler», «Status», «Alle» and «Med KI-spiller»
+     * are the mockup's (`08-laerer-oversikt.png`). */
+    filters: {
+      role: "Rolle",
+      cells: "Celler",
+      status: "Status",
+      all: "Alle",
+      withAi: "Med KI-spiller",
+      /** [ASSUMPTION] in place of the wall when the Status filter matches no game. */
+      empty: "Ingen spill i dette utvalget.",
+    },
+    /** The class median graph and the rows under the wall (Story 7.4, UX-DR40, UX-DR41).
+     * «Median, Fabrikk» and «Kjedekost/uke, snitt» are DESIGN.md's own. */
+    median: {
+      /** [ASSUMPTION] the graph's key above the wall. */
+      line: "Median",
+      band: "Midterste halvdel av spillene",
+      row: (role: string) => `Median, ${role}`,
+      chainRow: "Kjedekost/uke, snitt",
+      /** [ASSUMPTION] a median cell as read. */
+      cell: (week: number, median: string, low: string, high: string, games: number) =>
+        `Uke ${week}: median ${median}, midterste halvdel ${low} til ${high}, ${games} spill.`,
+      /** [ASSUMPTION] a mean chain cost cell as read. */
+      chainCell: (week: number, value: string) => `Uke ${week}: kjedekost per uke, snitt ${value} kr.`,
+      /** [ASSUMPTION] shown when the median rows cannot be read; the wall stays. */
+      failed: "Medianen kunne ikke hentes.",
+    },
     /** Status words after the cells and in the row header. [ASSUMPTION] */
     status: {
       waiting: "Venter",

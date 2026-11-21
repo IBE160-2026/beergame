@@ -72,7 +72,7 @@ function OverviewView({ sessionId, user, updatedAt }: { sessionId: string; user:
       skeleton={{ rows: 8, columns: 4 }}
       header={data ? <OverviewHeader data={data} /> : undefined}
     >
-      {data ? <OverviewBody data={data} receivedAt={found.dataUpdatedAt} /> : null}
+      {data ? <OverviewBody sessionId={sessionId} data={data} receivedAt={found.dataUpdatedAt} /> : null}
     </PageShell>
   );
 }
@@ -99,7 +99,7 @@ function useServerNow(serverNow: string, receivedAt: number): number {
   return Date.parse(serverNow) + Math.max(0, Date.now() - receivedAt);
 }
 
-function OverviewBody({ data, receivedAt }: { data: ClassOverview; receivedAt: number }) {
+function OverviewBody({ sessionId, data, receivedAt }: { sessionId: string; data: ClassOverview; receivedAt: number }) {
   const now = useServerNow(data.server_now, receivedAt);
   if (data.before_start) return <Allocation data={data} />;
   const groups = groupsOf(data.items);
@@ -115,7 +115,7 @@ function OverviewBody({ data, receivedAt }: { data: ClassOverview; receivedAt: n
         <p className="mt-8 text-body-phone text-ink lg:text-body">{copy.empty}</p>
       ) : (
         <>
-          <OverviewWall groups={groups} now={now} />
+          <OverviewWall sessionId={sessionId} groups={groups} now={now} />
           <h2 className="mt-12 text-headline text-ink">{copy.listTitle}</h2>
           {groups.map((group) => (
             <Group key={group.name} group={group} now={now} />

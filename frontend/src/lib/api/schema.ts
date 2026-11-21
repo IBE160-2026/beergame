@@ -780,6 +780,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/overview/aggregates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Wall Aggregates
+         * @description The Matrisevegg's class median rows for one Veggfiltre combination (Story 7.4, AD-10,
+         *     AD-25): per Uke the median of `role`'s `cells` value with the middle half of the Games, and
+         *     the mean chain cost, over the Class games `status` matches that reached the Uke. The overview
+         *     carries no aggregates. With an `ETag` over the filter and the matched Games' versions; a
+         *     request whose `If-None-Match` names it is answered 304 before any Week is read. 403
+         *     `forbidden` for anyone who is not staff of the Class and for a Class session that does not
+         *     exist (FR-5, NFR-7).
+         */
+        get: operations["getWallAggregates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/settings-check": {
         parameters: {
             query?: never;
@@ -4268,6 +4294,53 @@ export interface components {
             sessions: components["schemas"]["SessionRef"][];
         };
         /**
+         * WallAggregatesOut
+         * @description The class median and mean chain cost rows for one filter combination (Story 7.4, AD-10):
+         *     the web app draws them and computes none of them.
+         */
+        WallAggregatesOut: {
+            cells: components["schemas"]["WallCells"];
+            /** Games */
+            games: number;
+            role: components["schemas"]["Role"];
+            status: components["schemas"]["WallStatus"];
+            /** Weeks */
+            weeks: components["schemas"]["WallWeekOut"][];
+        };
+        /**
+         * WallCells
+         * @description What the Matrisevegg's cells show (Story 7.4, the Celler filter).
+         * @enum {string}
+         */
+        WallCells: "net" | "order" | "cost";
+        /**
+         * WallStatus
+         * @description Which Class games the wall shows (Story 7.4, the Status filter): all, one status, or
+         *     those with a Seat held by an AI player.
+         * @enum {string}
+         */
+        WallStatus: "all" | "waiting" | "running" | "not_started" | "finished" | "with_ai";
+        /**
+         * WallWeekOut
+         * @description One Uke of the wall's bottom rows and its class median graph (Story 7.4, UX-DR40).
+         */
+        WallWeekOut: {
+            /** Chain Cost Mean */
+            chain_cost_mean: string | null;
+            /** Chain Games */
+            chain_games: number;
+            /** Games */
+            games: number;
+            /** Lower Quartile */
+            lower_quartile: string | null;
+            /** Median */
+            median: string | null;
+            /** Upper Quartile */
+            upper_quartile: string | null;
+            /** Week */
+            week: number;
+        };
+        /**
          * WeekSeatOut
          * @description One Seat in one opened Week as the engine stored it (Story 7.2, AD-1).
          */
@@ -6369,6 +6442,66 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getWallAggregates: {
+        parameters: {
+            query?: {
+                role?: components["schemas"]["Role"];
+                cells?: components["schemas"]["WallCells"];
+                status?: components["schemas"]["WallStatus"];
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WallAggregatesOut"];
+                };
+            };
+            /** @description Not modified since the ETag. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

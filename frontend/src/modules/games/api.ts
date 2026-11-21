@@ -1,6 +1,6 @@
 "use client";
 
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
 import { useRef } from "react";
 
 import { api } from "@/lib/api/client";
@@ -80,6 +80,39 @@ export function useGameWeeks(games: readonly { game_id: string; version: number 
     byGame.set(id, { data, failed: result.isError && !data });
   });
   return byGame;
+}
+
+/** The class median rows for one Veggfiltre combination (Story 7.4). */
+export type WallAggregates = components["schemas"]["WallAggregatesOut"];
+export type WallFilter = {
+  role: WallAggregates["role"];
+  cells: WallAggregates["cells"];
+  status: WallAggregates["status"];
+};
+
+/** Under the Oversikt's key, so a `session:<id>` event (`topics.ts`) refetches it with the list. */
+export const wallAggregatesKey = (sessionId: string, filter: WallFilter) =>
+  [...classOverviewKey(sessionId), "aggregates", filter.role, filter.cells, filter.status] as const;
+
+/**
+ * `/api/class-sessions/{id}/overview/aggregates` for one filter combination (Story 7.4, AD-10):
+ * the median, middle half and mean chain cost per Uke, computed by the api. While a new
+ * combination loads, the last one's rows stay on screen. Revalidated with its ETag, so an
+ * unchanged class answers 304.
+ */
+export function useWallAggregates(sessionId: string, filter: WallFilter) {
+  return useQuery({
+    queryKey: wallAggregatesKey(sessionId, filter),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/overview/aggregates", {
+          params: { path: { session_id: sessionId }, query: filter },
+          cache: "no-cache",
+        }),
+      ),
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
 }
 
 /** The play screen's one envelope (Story 6.6): the Student's own Seat in the open Week

@@ -101,3 +101,21 @@ same Class game as the view's Tab stop. A game with no Uke yet (not started, or 
 to load) has no wall cell to hold it, so the wall's Tab stop falls back to its first game with a
 cell; the table keeps it. The Oversikt also keeps the table's sort across a switch. While focus is inside the table its rows keep their places
 (`keepOrder`) and values update in place; they re-sort when focus leaves or a header is activated.
+
+## Cell scales, class median graph and summary rows (Story 7.4)
+
+`MatrixWall` takes a `scale`: `net` (default, the signed `net-*` steps and the minus line) or
+`flow` for Ordre and Kost per uke (`flow-*`: under 5 no fill, 5–9, 10–19, 20–29, 30+; text `ink` on
+none and steps 1–2, `paper` on 3–4). The legend follows the scale; the unfilled step's swatch is
+outlined so it can be seen.
+
+With a `summary` (built by the caller from the api's aggregates, AD-10: the chart computes no
+median or mean) the wall draws the class median graph (`matrix-median.tsx`) inside its own SVG,
+above the Uke header, so its marks stand over the same Uke columns and scroll sideways with the
+cells in the one «Alle spill» region. The graph is `aria-hidden`: its numbers are in the summary
+rows. The Uke header sticks once the graph has scrolled away (the vertical offset is
+`max(0, scrollTop − graph height)`). The summary rows («Median, Fabrikk», «Kjedekost/uke, snitt»)
+stand after the last group as grid rows with a row header and a named cell per Uke; they print a
+number only where it fits with 1 px to spare and are not keyboard stops (the games' cells are).
+`MatrixTable` takes the same rows as `footer`, in a `<tfoot>` that never sorts; the table is at
+least as wide as its region.

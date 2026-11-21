@@ -547,6 +547,35 @@ async def insert_seat_week(session: AsyncSession, values: dict[str, Any]) -> Non
     await session.execute(seat_weeks.insert().values(**values))
 
 
+async def week_states_of(
+    session: AsyncSession, game_ids: Collection[uuid.UUID]
+) -> list[RowMapping]:
+    """The opened (not finished) Week states of the Games as `game_id`, `state`: one read
+    whatever their number (NFR-3)."""
+    if not game_ids:
+        return []
+    result = await session.execute(
+        select(game_weeks.c.game_id, game_weeks.c.state)
+        .where(game_weeks.c.game_id.in_(list(game_ids)), game_weeks.c.finished.is_(False))
+        .order_by(game_weeks.c.game_id, game_weeks.c.week)
+    )
+    return list(result.mappings())
+
+
+async def placed_orders_of(
+    session: AsyncSession, game_ids: Collection[uuid.UUID]
+) -> list[RowMapping]:
+    """Every stored Order of the Games as `game_id`, `week`, `role`, `order`: one read."""
+    if not game_ids:
+        return []
+    result = await session.execute(
+        select(seat_weeks.c.game_id, seat_weeks.c.week, seats.c.role, seat_weeks.c.order)
+        .select_from(seat_weeks.join(seats, seats.c.id == seat_weeks.c.seat_id))
+        .where(seat_weeks.c.game_id.in_(list(game_ids)))
+    )
+    return list(result.mappings())
+
+
 async def placed_orders(session: AsyncSession, game_id: uuid.UUID) -> list[RowMapping]:
     """Every stored Order of the Game as `week`, `role`, `order`, by Week."""
     result = await session.execute(

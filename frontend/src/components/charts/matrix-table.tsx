@@ -27,9 +27,11 @@ export type TableColumn = {
   header: string;
   align?: "start" | "end";
   first?: SortDirection;
-  /** Long text («Noah (Grossist), 23 t; …») wraps within a measure instead of widening the row. */
-  wrap?: boolean;
 };
+
+/** A row under the games («Median, Fabrikk»), in the table's foot: never sorted, one printed
+ * value per Uke (empty where there is none). */
+export type TableFooterRow = { key: string; label: string; values: readonly (string | null)[] };
 
 export type MatrixTableCopy = {
   /** The region's name, «Alle spill», the same as the wall's. */
@@ -61,6 +63,8 @@ export type MatrixTableProps = {
   /** The game that holds the table's one Tab stop, shared with the wall (focus by Game id). */
   focusId?: string | null;
   onFocusId?: (id: string) => void;
+  /** The class median rows under the games, from the api (Story 7.4). */
+  footer?: readonly TableFooterRow[];
   maxHeight?: string;
   className?: string;
 };
@@ -96,6 +100,7 @@ export function MatrixTable({
   onSort,
   focusId,
   onFocusId,
+  footer = [],
   maxHeight = "70vh",
   className,
 }: MatrixTableProps) {
@@ -122,7 +127,10 @@ export function MatrixTable({
 
   const wanted = focusId !== undefined ? focusId : ownFocus;
   const target = ordered.find((row) => row.id === wanted)?.id ?? ordered[0]?.id ?? null;
-  const columnsCount = rows.reduce((most, row) => Math.max(most, row.values.length), 0);
+  const columnsCount = Math.max(
+    rows.reduce((most, row) => Math.max(most, row.values.length), 0),
+    ...footer.map((row) => row.values.length),
+  );
 
   const headerOf = (id: string | null) =>
     id ? body.current?.querySelector<HTMLTableCellElement>(`th[data-game="${CSS.escape(id)}"]`) : null;
@@ -204,7 +212,7 @@ export function MatrixTable({
       )}
       data-matrix-table=""
     >
-      <table className="border-separate border-spacing-0 text-table-cell text-ink tabular-nums lining-nums lg:text-table-cell-laptop">
+      <table className="min-w-full border-separate border-spacing-0 text-table-cell text-ink tabular-nums lining-nums lg:text-table-cell-laptop">
         <caption className="sr-only">{copy.caption}</caption>
         <thead>
           <tr>
@@ -245,11 +253,7 @@ export function MatrixTable({
               {columns.map((column) => (
                 <td
                   key={column.key}
-                  className={cn(
-                    CELL,
-                    column.wrap ? "min-w-[10em] max-w-[16em]" : "whitespace-nowrap",
-                    column.align === "end" ? "text-right" : "text-left",
-                  )}
+                  className={cn(CELL, "whitespace-nowrap", column.align === "end" ? "text-right" : "text-left")}
                 >
                   {row.cells[column.key] ?? ""}
                 </td>
@@ -271,6 +275,32 @@ export function MatrixTable({
             </tr>
           ))}
         </tbody>
+        {footer.length > 0 ? (
+          <tfoot>
+            {footer.map((row, index) => (
+              <tr key={row.key} data-summary={row.key}>
+                <th
+                  scope="row"
+                  className={cn(CELL, ROW_HEAD, "font-semibold", index === 0 && "border-t border-t-axis")}
+                >
+                  {row.label}
+                </th>
+                {columns.map((column) => (
+                  <td key={column.key} className={cn(CELL, index === 0 && "border-t border-t-axis")} />
+                ))}
+                {Array.from({ length: columnsCount }, (_, i) => (
+                  <td
+                    key={i}
+                    data-week={i + 1}
+                    className={cn(CELL, WEEK, "text-right whitespace-nowrap", index === 0 && "border-t border-t-axis")}
+                  >
+                    {row.values[i] ?? ""}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tfoot>
+        ) : null}
       </table>
     </div>
   );

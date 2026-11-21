@@ -5578,6 +5578,135 @@
         "title": "WaitingClass",
         "type": "object"
       },
+      "WallAggregatesOut": {
+        "description": "The class median and mean chain cost rows for one filter combination (Story 7.4, AD-10):\nthe web app draws them and computes none of them.",
+        "properties": {
+          "cells": {
+            "$ref": "#/components/schemas/WallCells"
+          },
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WallStatus"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/WallWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "role",
+          "cells",
+          "status",
+          "games",
+          "weeks"
+        ],
+        "title": "WallAggregatesOut",
+        "type": "object"
+      },
+      "WallCells": {
+        "description": "What the Matrisevegg's cells show (Story 7.4, the Celler filter).",
+        "enum": [
+          "net",
+          "order",
+          "cost"
+        ],
+        "title": "WallCells",
+        "type": "string"
+      },
+      "WallStatus": {
+        "description": "Which Class games the wall shows (Story 7.4, the Status filter): all, one status, or\nthose with a Seat held by an AI player.",
+        "enum": [
+          "all",
+          "waiting",
+          "running",
+          "not_started",
+          "finished",
+          "with_ai"
+        ],
+        "title": "WallStatus",
+        "type": "string"
+      },
+      "WallWeekOut": {
+        "description": "One Uke of the wall's bottom rows and its class median graph (Story 7.4, UX-DR40).",
+        "properties": {
+          "chain_cost_mean": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Cost Mean"
+          },
+          "chain_games": {
+            "title": "Chain Games",
+            "type": "integer"
+          },
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "lower_quartile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lower Quartile"
+          },
+          "median": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median"
+          },
+          "upper_quartile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upper Quartile"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "games",
+          "median",
+          "lower_quartile",
+          "upper_quartile",
+          "chain_games",
+          "chain_cost_mean"
+        ],
+        "title": "WallWeekOut",
+        "type": "object"
+      },
       "WeekSeatOut": {
         "description": "One Seat in one opened Week as the engine stored it (Story 7.2, AD-1).",
         "properties": {
@@ -8449,6 +8578,99 @@
           }
         },
         "summary": "Get Class Overview",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/overview/aggregates": {
+      "get": {
+        "description": "The Matrisevegg's class median rows for one Veggfiltre combination (Story 7.4, AD-10,\nAD-25): per Uke the median of `role`'s `cells` value with the middle half of the Games, and\nthe mean chain cost, over the Class games `status` matches that reached the Uke. The overview\ncarries no aggregates. With an `ETag` over the filter and the matched Games' versions; a\nrequest whose `If-None-Match` names it is answered 304 before any Week is read. 403\n`forbidden` for anyone who is not staff of the Class and for a Class session that does not\nexist (FR-5, NFR-7).",
+        "operationId": "getWallAggregates",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "role",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Role",
+              "default": "factory"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cells",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/WallCells",
+              "default": "net"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/WallStatus",
+              "default": "all"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WallAggregatesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified since the ETag."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Get Wall Aggregates",
         "tags": [
           "sessions"
         ]

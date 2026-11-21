@@ -24,9 +24,10 @@ with its sources `…/copy-sources`. Story 6.1 adds the Student's game card and 
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, Response
 
+from app.engine.settings import Role
 from app.modules.sessions import overview, service
 from app.modules.sessions.schemas import (
     AllocationConfirmIn,
@@ -55,6 +56,9 @@ from app.modules.sessions.schemas import (
     StudentGameOut,
     TestGameIn,
     TimeProposalIn,
+    WallAggregatesOut,
+    WallCells,
+    WallStatus,
 )
 from app.platform import auth, authz
 from app.platform.errors import documented, error_response
@@ -210,6 +214,38 @@ async def get_class_overview(
     headers = {"ETag": etag, "Cache-Control": "private, no-cache"}
     if _not_modified(request, etag):
         return Response(status_code=304, headers=headers)
+    return JSONResponse(found.model_dump(mode="json"), headers=headers)
+
+
+@router.get(
+    "/class-sessions/{session_id}/overview/aggregates",
+    response_model=WallAggregatesOut,
+    responses={**documented(401, 403, 422), 304: {"description": "Not modified since the ETag."}},
+    operation_id="getWallAggregates",
+)
+async def get_wall_aggregates(
+    session_id: str,
+    request: Request,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.overview"))],
+    role: Annotated[Role, Query()] = Role.FACTORY,
+    cells: Annotated[WallCells, Query()] = WallCells.NET,
+    status: Annotated[WallStatus, Query()] = WallStatus.ALL,
+) -> Response:
+    """The Matrisevegg's class median rows for one Veggfiltre combination (Story 7.4, AD-10,
+    AD-25): per Uke the median of `role`'s `cells` value with the middle half of the Games, and
+    the mean chain cost, over the Class games `status` matches that reached the Uke. The overview
+    carries no aggregates. With an `ETag` over the filter and the matched Games' versions; a
+    request whose `If-None-Match` names it is answered 304 before any Week is read. 403
+    `forbidden` for anyone who is not staff of the Class and for a Class session that does not
+    exist (FR-5, NFR-7)."""
+    wanted = overview.WallFilter(role=role, cells=cells, status=status)
+    matched = await overview.wall_games(user, _id(session_id), wanted)
+    if matched is None:
+        raise authz.Forbidden
+    headers = {"ETag": matched.etag, "Cache-Control": "private, no-cache"}
+    if _not_modified(request, matched.etag):
+        return Response(status_code=304, headers=headers)
+    found = await overview.wall_aggregates_out(wanted, matched)
     return JSONResponse(found.model_dump(mode="json"), headers=headers)
 
 

@@ -2,17 +2,19 @@
 
 import { type KeyboardEvent, useCallback, useId, useLayoutEffect, useRef, useState } from "react";
 
+import { fitsCell, graphHeight, MedianGraph, type WallSummary, type WallSummaryRow } from "./matrix-median";
 import {
   cellText,
   headerWeeks,
   moveFocus,
-  NET_STEPS,
-  netStep,
   SKELETON_CELLS,
-  type NetStep,
   stepFill,
+  stepOf,
+  stepsOf,
   stepText,
   type WallPosition,
+  type WallScale,
+  type WallStep,
   wallSizes,
 } from "./matrix-wall-layout";
 import { CHART_FONT, colour } from "./palette";
@@ -48,9 +50,10 @@ export type MatrixWallCopy = {
   week: (week: number) => string;
   /** «Spill 2, Uke 14: Netto lager −13.» */
   cell: (row: WallRow, week: number, value: string) => string;
-  /** The legend's bins in step order (`NET_STEPS`), and its line about the minus. */
+  /** The legend's bins in step order (`stepsOf(scale)`), and, for Netto lager, its line about
+   * the minus. */
   bins: readonly string[];
-  minusNote: string;
+  minusNote?: string;
   legend: string;
 };
 
@@ -70,6 +73,11 @@ export type MatrixWallProps = {
    * the game with «Vis som tabell», Story 7.3); else the wall keeps its own. */
   position?: WallPosition | null;
   onPosition?: (position: WallPosition) => void;
+  /** The cells' scale: Netto lager's signed steps (default) or the flow steps for Ordre and
+   * Kost per uke (Story 7.4). */
+  scale?: WallScale;
+  /** The class median graph over the wall and its rows under it, from the api (Story 7.4). */
+  summary?: WallSummary;
 };
 
 const PAPER = colour("paper");
@@ -97,6 +105,8 @@ export function MatrixWall({
   className,
   position,
   onPosition,
+  scale = "net",
+  summary,
 }: MatrixWallProps) {
   const id = useId();
   const region = useRef<HTMLDivElement>(null);
@@ -114,7 +124,12 @@ export function MatrixWall({
   const [hasFocus, setHasFocus] = useState(false);
 
   const rows = groups.flatMap((group) => group.rows);
-  const columns = rows.reduce((most, row) => Math.max(most, row.values.length), 0);
+  const summaryRows = summary?.rows ?? [];
+  const columns = Math.max(
+    rows.reduce((most, row) => Math.max(most, row.values.length), 0),
+    summary?.graph.length ?? 0,
+    ...summaryRows.map((row) => row.cells.length),
+  );
   const size = wallSizes({
     width,
     fontSize,
@@ -122,7 +137,11 @@ export function MatrixWall({
     labels: [copy.gameHeader, ...rows.map((row) => row.label)],
     figures: [...(copy.figureHeader ? [copy.figureHeader] : []), ...rows.flatMap((row) => (row.figure ? [row.figure] : []))],
     details: rows.flatMap((row) => (row.detail ? [row.detail] : [])),
+    spans: summaryRows.map((row) => row.label),
   });
+  // The graph stands over the Uke header; the header sticks once the graph has scrolled away.
+  const graph = graphHeight(summary, fontSize);
+  const top = graph + size.headerHeight;
   const reachable = rows.map((row) => ({ id: row.id, cells: row.values.length }));
   const first = reachable.find((row) => row.cells > 0);
   // The cell in the Tab order: the one last focused while its game still has it, else the first.
@@ -137,14 +156,15 @@ export function MatrixWall({
   const stick = useCallback(() => {
     const box = region.current;
     if (!box || !svg.current) return;
-    const { scrollLeft: x, scrollTop: y } = box;
+    const { scrollLeft: x } = box;
+    const y = Math.max(0, box.scrollTop - graph);
     svg.current.style.setProperty("--wall-x", `${x}px`);
     svg.current.style.setProperty("--wall-y", `${y}px`);
     cellsClip.current?.setAttribute("x", String(size.labelWidth + x));
-    cellsClip.current?.setAttribute("y", String(size.headerHeight + y));
-    labelsClip.current?.setAttribute("y", String(size.headerHeight + y));
+    cellsClip.current?.setAttribute("y", String(top + y));
+    labelsClip.current?.setAttribute("y", String(top + y));
     headerClip.current?.setAttribute("x", String(size.labelWidth + x));
-  }, [size.labelWidth, size.headerHeight]);
+  }, [size.labelWidth, graph, top]);
   useLayoutEffect(stick);
 
   const cellElement = (at: WallPosition | null) =>
@@ -159,7 +179,7 @@ export function MatrixWall({
     const y = Number(row.dataset.y);
     if (x < box.scrollLeft + size.labelWidth) box.scrollLeft = x - size.labelWidth;
     else if (x + size.cellWidth > box.scrollLeft + box.clientWidth) box.scrollLeft = x + size.cellWidth - box.clientWidth;
-    if (y < box.scrollTop + size.headerHeight) box.scrollTop = y - size.headerHeight;
+    if (y < Math.max(graph, box.scrollTop) + size.headerHeight) box.scrollTop = y - size.headerHeight;
     else if (y + size.rowHeight > box.scrollTop + box.clientHeight) box.scrollTop = y + size.rowHeight - box.clientHeight;
   };
 
@@ -184,7 +204,7 @@ export function MatrixWall({
     }
   };
 
-  let y = size.headerHeight;
+  let y = top;
   const drawn = groups.map((group) => {
     const top = y;
     y += size.groupHeight;
@@ -195,7 +215,9 @@ export function MatrixWall({
     });
     return { group, top, placed };
   });
-  const height = y + 1;
+  const summaryGap = summaryRows.length > 0 ? Math.round(size.groupHeight / 2) : 0;
+  const summaryTop = y + summaryGap;
+  const height = summaryTop + summaryRows.length * size.rowHeight + 1;
   const weeks = headerWeeks(size.columns, size.cellWidth, fontSize);
   const titleId = `${id}-title`;
   const clipCells = `${id}-cells`;
@@ -209,7 +231,7 @@ export function MatrixWall({
 
   return (
     <div className={className} data-matrix-wall="">
-      <Legend copy={copy} />
+      <Legend copy={copy} scale={scale} />
       <div
         ref={region}
         role="region"
@@ -223,7 +245,7 @@ export function MatrixWall({
           ref={svg}
           role="grid"
           aria-labelledby={titleId}
-          aria-rowcount={1 + groups.length + rows.length}
+          aria-rowcount={1 + groups.length + rows.length + summaryRows.length}
           aria-colcount={1 + size.columns}
           width={size.width}
           height={height}
@@ -254,27 +276,39 @@ export function MatrixWall({
           <title id={titleId}>{copy.title}</title>
           <defs>
             <clipPath id={clipCells}>
-              <rect ref={cellsClip} x={size.labelWidth} y={size.headerHeight} width={size.width} height={height} />
+              <rect ref={cellsClip} x={size.labelWidth} y={top} width={size.width} height={height} />
             </clipPath>
             <clipPath id={clipHeader}>
               <rect ref={headerClip} x={size.labelWidth} y={0} width={size.width} height={height} />
             </clipPath>
             <clipPath id={clipLabels}>
-              <rect ref={labelsClip} x={0} y={size.headerHeight} width={size.width} height={height} />
+              <rect ref={labelsClip} x={0} y={top} width={size.width} height={height} />
             </clipPath>
           </defs>
+
+          {summary && graph > 0 ? (
+            <MedianGraph
+              summary={summary}
+              height={graph}
+              labelWidth={size.labelWidth}
+              cellWidth={size.cellWidth}
+              fontSize={fontSize}
+              clipPlot={clipHeader}
+              stuckX={stuckX}
+            />
+          ) : null}
 
           <g role="row" aria-rowindex={rowIndex++}>
             <g clipPath={`url(#${clipHeader})`}>
               <g style={stuckY}>
-                <rect x={0} y={0} width={size.width} height={size.headerHeight} fill={PAPER} aria-hidden="true" />
+                <rect x={0} y={graph} width={size.width} height={size.headerHeight} fill={PAPER} aria-hidden="true" />
                 {Array.from({ length: size.columns }, (_, i) => {
                   const week = i + 1;
                   const x = size.labelWidth + i * size.cellWidth;
                   return (
                     <g key={week} role="columnheader" aria-label={copy.week(week)} aria-colindex={week + 1}>
                       {weeks.includes(week) ? (
-                        <text x={x + size.cellWidth / 2} y={textY(0, size.headerHeight)} textAnchor="middle" fill={colour("ink-secondary")} className="tabular-nums">
+                        <text x={x + size.cellWidth / 2} y={textY(graph, size.headerHeight)} textAnchor="middle" fill={colour("ink-secondary")} className="tabular-nums">
                           {week}
                         </text>
                       ) : null}
@@ -284,18 +318,18 @@ export function MatrixWall({
               </g>
             </g>
             <g style={stuckXY}>
-              <rect x={0} y={0} width={size.labelWidth} height={size.headerHeight} fill={PAPER} aria-hidden="true" />
+              <rect x={0} y={graph} width={size.labelWidth} height={size.headerHeight} fill={PAPER} aria-hidden="true" />
               <g role="columnheader" aria-colindex={1}>
-                <text x={1} y={textY(0, size.headerHeight)} fill={colour("ink-secondary")}>
+                <text x={1} y={textY(graph, size.headerHeight)} fill={colour("ink-secondary")}>
                   {copy.gameHeader}
                 </text>
                 {copy.figureHeader ? (
-                  <text x={size.figureRight} y={textY(0, size.headerHeight)} textAnchor="end" fill={colour("ink-secondary")}>
+                  <text x={size.figureRight} y={textY(graph, size.headerHeight)} textAnchor="end" fill={colour("ink-secondary")}>
                     {copy.figureHeader}
                   </text>
                 ) : null}
               </g>
-              <line x1={0} x2={size.labelWidth} y1={size.headerHeight - 0.5} y2={size.headerHeight - 0.5} stroke={colour("axis")} aria-hidden="true" />
+              <line x1={0} x2={size.labelWidth} y1={top - 0.5} y2={top - 0.5} stroke={colour("axis")} aria-hidden="true" />
             </g>
           </g>
 
@@ -323,6 +357,7 @@ export function MatrixWall({
                   format={format}
                   target={target}
                   showRing={hasFocus}
+                  scale={scale}
                   clipCells={clipCells}
                   clipLabels={clipLabels}
                   stuckX={stuckX}
@@ -330,6 +365,30 @@ export function MatrixWall({
                 />
               ))}
             </g>
+          ))}
+
+          {summaryRows.length > 0 ? (
+            <line
+              x1={0}
+              x2={size.width}
+              y1={summaryTop - summaryGap / 2 - 0.5}
+              y2={summaryTop - summaryGap / 2 - 0.5}
+              stroke={colour("axis")}
+              aria-hidden="true"
+            />
+          ) : null}
+          {summaryRows.map((row, i) => (
+            <SummaryRow
+              key={row.key}
+              row={row}
+              y={summaryTop + i * size.rowHeight}
+              rowIndex={rowIndex++}
+              size={size}
+              clipCells={clipCells}
+              clipLabels={clipLabels}
+              stuckX={stuckX}
+              textY={textY}
+            />
           ))}
         </svg>
       </div>
@@ -346,6 +405,7 @@ function Row({
   format,
   target,
   showRing,
+  scale,
   clipCells,
   clipLabels,
   stuckX,
@@ -359,6 +419,7 @@ function Row({
   format: (value: number) => string;
   target: WallPosition | null;
   showRing: boolean;
+  scale: WallScale;
   clipCells: string;
   clipLabels: string;
   stuckX: { transform: string };
@@ -397,7 +458,7 @@ function Row({
         ) : null}
         {row.values.map((value, i) => {
           const week = i + 1;
-          const step: NetStep = netStep(value);
+          const step: WallStep = stepOf(scale, value);
           const x = size.labelWidth + i * size.cellWidth;
           const formatted = format(value);
           const shown = cellText(value, formatted, size.cellWidth, size.cellFont);
@@ -454,22 +515,89 @@ function Row({
   );
 }
 
-/** Always visible above the wall: the swatches in step order with their bins, and what a «−» in
- * a cell means (DESIGN.md → Components → Matrisevegg → Legend). */
-function Legend({ copy }: { copy: MatrixWallCopy }) {
+/** Always visible above the wall: the swatches in step order with their bins, and, for Netto
+ * lager, what a «−» in a cell means (DESIGN.md → Components → Matrisevegg → Legend). The flow
+ * steps' first bin has no fill, so its swatch is outlined. */
+function Legend({ copy, scale }: { copy: MatrixWallCopy; scale: WallScale }) {
   return (
-    <div className="text-caption text-ink-secondary" data-wall-legend="">
+    <div className="text-caption text-ink-secondary" data-wall-legend={scale}>
       <ul aria-label={copy.legend} className="flex flex-wrap gap-x-4 gap-y-1">
-        {NET_STEPS.map((step, i) => (
-          <li key={step} className="inline-flex items-center gap-1.5 tabular-nums lining-nums">
+        {stepsOf(scale).map((step, i) => (
+          <li key={step} className="inline-flex items-center gap-1.5 tabular-nums lining-nums" data-step={step}>
             <svg width="12" height="12" aria-hidden="true" className="shrink-0">
-              <rect width="12" height="12" fill={colour(stepFill(step))} />
+              <rect
+                x="0.5"
+                y="0.5"
+                width="11"
+                height="11"
+                fill={colour(stepFill(step))}
+                stroke={step === "flow-none" ? colour("axis") : "none"}
+              />
             </svg>
             {copy.bins[i]}
           </li>
         ))}
       </ul>
-      <p className="mt-1">{copy.minusNote}</p>
+      {copy.minusNote ? <p className="mt-1">{copy.minusNote}</p> : null}
     </div>
+  );
+}
+
+/** A row under the wall («Median, Fabrikk»): its label in the sticky game column and one named
+ * cell per Uke, printed where the number fits with 1 px to spare. Read, not a keyboard stop: the
+ * games' cells are the wall's places. */
+function SummaryRow({
+  row,
+  y,
+  rowIndex,
+  size,
+  clipCells,
+  clipLabels,
+  stuckX,
+  textY,
+}: {
+  row: WallSummaryRow;
+  y: number;
+  rowIndex: number;
+  size: ReturnType<typeof wallSizes>;
+  clipCells: string;
+  clipLabels: string;
+  stuckX: { transform: string };
+  textY: (top: number, h: number) => number;
+}) {
+  const h = size.rowHeight;
+  return (
+    <g role="row" aria-rowindex={rowIndex} data-summary={row.key}>
+      <g clipPath={`url(#${clipLabels})`}>
+        <g style={stuckX}>
+          <g role="rowheader" aria-colindex={1}>
+            <rect x={0} y={y} width={size.labelWidth} height={h} fill={PAPER} />
+            <text x={1} y={textY(y, h)} fontWeight={600} fill={INK}>
+              {row.label}
+            </text>
+          </g>
+        </g>
+      </g>
+      <g clipPath={`url(#${clipCells})`}>
+        {row.cells.map((cell, i) =>
+          cell ? (
+            <g key={i} role="gridcell" aria-colindex={i + 2} aria-label={cell.name} data-week={i + 1}>
+              {fitsCell(cell.text, size.cellWidth, size.cellFont) ? (
+                <text
+                  x={size.labelWidth + i * size.cellWidth + size.cellWidth / 2}
+                  y={y + h / 2 + size.cellFont * 0.35}
+                  textAnchor="middle"
+                  fontSize={size.cellFont}
+                  fill={INK}
+                  className="tabular-nums"
+                >
+                  {cell.text}
+                </text>
+              ) : null}
+            </g>
+          ) : null,
+        )}
+      </g>
+    </g>
   );
 }

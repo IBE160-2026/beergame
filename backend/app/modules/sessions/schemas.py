@@ -844,3 +844,52 @@ class GameWeeksOut(BaseModel):
     version: int
     """The Game's version; the `ETag` is tied to it."""
     weeks: list[GameWeekOut]
+
+
+class WallCells(StrEnum):
+    """What the Matrisevegg's cells show (Story 7.4, the Celler filter)."""
+
+    NET = "net"
+    ORDER = "order"
+    COST = "cost"
+
+
+class WallStatus(StrEnum):
+    """Which Class games the wall shows (Story 7.4, the Status filter): all, one status, or
+    those with a Seat held by an AI player."""
+
+    ALL = "all"
+    WAITING = "waiting"
+    RUNNING = "running"
+    NOT_STARTED = "not_started"
+    FINISHED = "finished"
+    WITH_AI = "with_ai"
+
+
+class WallWeekOut(BaseModel):
+    """One Uke of the wall's bottom rows and its class median graph (Story 7.4, UX-DR40)."""
+
+    week: int
+    games: int
+    """The Games with a cell value that Uke: the median's base."""
+    median: Decimal | None
+    lower_quartile: Decimal | None
+    upper_quartile: Decimal | None
+    """With `lower_quartile`, the middle half of the Games (the graph's band)."""
+    chain_games: int
+    """The Games that reached the Uke: the mean's base."""
+    chain_cost_mean: Decimal | None
+    """«Kjedekost/uke, snitt»: the chain's Kost per uke, mean over the Games, in kroner."""
+
+
+class WallAggregatesOut(BaseModel):
+    """The class median and mean chain cost rows for one filter combination (Story 7.4, AD-10):
+    the web app draws them and computes none of them."""
+
+    role: Role
+    cells: WallCells
+    status: WallStatus
+    games: int
+    """The Class games the Status filter matched."""
+    weeks: list[WallWeekOut]
+    """Uke 1 to the furthest any matched Game has reached; empty for no Game."""

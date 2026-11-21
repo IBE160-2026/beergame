@@ -10,6 +10,7 @@ from typing import Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget as ai_budget
+from app.analysis.wall import PlayedGame
 from app.engine import GameSettings, WeekState
 from app.modules.games import repo
 from app.modules.games.batches import create_batch, get_batch
@@ -64,6 +65,7 @@ __all__ = [
     "WeekSeatValues",
     "class_game_head",
     "class_game_weeks",
+    "class_played",
     "DecidedBy",
     "DecisionLogRow",
     "Fallback",
@@ -666,3 +668,19 @@ async def class_game_weeks(session: AsyncSession, game_id: uuid.UUID) -> ClassGa
             )
         )
     return ClassGameWeeks(game_id=game["id"], version=game["version"], weeks=tuple(weeks))
+
+
+async def class_played(
+    session: AsyncSession, game_ids: Sequence[uuid.UUID], with_orders: bool
+) -> list[PlayedGame]:
+    """The stored play of the Games for the wall's aggregates (Story 7.4, AD-1): each Game's
+    opened Week states and, when `with_orders`, its placed Orders, in two reads whatever the
+    number of Games (NFR-3). The caller has checked the User and chosen the Games."""
+    states: dict[uuid.UUID, list[WeekState]] = {game_id: [] for game_id in game_ids}
+    for row in await repo.week_states_of(session, game_ids):
+        states[row["game_id"]].append(WeekState.model_validate(row["state"]))
+    orders: dict[uuid.UUID, dict[tuple[int, str], int]] = {game_id: {} for game_id in game_ids}
+    if with_orders:
+        for row in await repo.placed_orders_of(session, game_ids):
+            orders[row["game_id"]][(row["week"], str(row["role"]))] = row["order"]
+    return [PlayedGame(states=tuple(states[g]), orders=orders[g]) for g in game_ids]

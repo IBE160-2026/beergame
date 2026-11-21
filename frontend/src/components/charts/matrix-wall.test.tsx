@@ -4,7 +4,19 @@ import { describe, expect, it } from "vitest";
 import { formatNumber } from "@/lib/number-format";
 
 import { MatrixWall, type MatrixWallCopy } from "./matrix-wall";
-import { cellText, headerWeeks, moveFocus, NET_STEPS, netStep, stepText, wallSizes } from "./matrix-wall-layout";
+import { graphScale } from "./matrix-median";
+import {
+  cellText,
+  FLOW_STEPS,
+  flowStep,
+  headerWeeks,
+  moveFocus,
+  NET_STEPS,
+  netStep,
+  stepFill,
+  stepText,
+  wallSizes,
+} from "./matrix-wall-layout";
 import { colour } from "./palette";
 
 describe("the Matrisevegg's cell rule (Story 7.2, DESIGN.md → Components → Matrisevegg)", () => {
@@ -163,5 +175,67 @@ describe("the Matrisevegg SVG", () => {
     expect(html.match(/<li[ >]/g)).toHaveLength(9);
     expect(html).toContain("− i en celle: restordre (under null).");
     expect(html).toContain("data-skeleton");
+  });
+});
+
+describe("the flow steps for Ordre and Kost per uke (Story 7.4, DESIGN.md → Matrix steps)", () => {
+  it("leaves under 5 unfilled and bins 5–9, 10–19, 20–29 and 30+", () => {
+    expect([0, 4.99, 5, 9, 10, 19.5, 20, 29, 30, 120].map(flowStep)).toEqual([
+      "flow-none",
+      "flow-none",
+      "flow-1",
+      "flow-1",
+      "flow-2",
+      "flow-2",
+      "flow-3",
+      "flow-3",
+      "flow-4",
+      "flow-4",
+    ]);
+    expect(FLOW_STEPS.map((step) => [stepFill(step), stepText(step)])).toEqual([
+      ["paper", "ink"],
+      ["flow-1", "ink"],
+      ["flow-2", "ink"],
+      ["flow-3", "paper"],
+      ["flow-4", "paper"],
+    ]);
+  });
+
+  it("draws the cells and the legend in the flow steps, without the minus line", () => {
+    const html = renderToStaticMarkup(
+      <MatrixWall
+        width={200}
+        fontSize={13}
+        copy={{ ...COPY, bins: ["Under 5", "5 til 9", "10 til 19", "20 til 29", "30 og over"], minusNote: undefined }}
+        format={(value) => formatNumber(value)}
+        scale="flow"
+        groups={[{ key: "g", title: "Pågår 1", rows: [{ id: "g1", label: "Spill 1", rowName: "Spill 1", values: [4, 8, 24, 40] }] }]}
+      />,
+    );
+    expect(html).toContain('data-wall-legend="flow"');
+    expect(html.match(/<li[ >]/g)).toHaveLength(5);
+    expect(html).not.toContain("restordre");
+    expect(html.match(/data-step="flow-[a-z0-9]+"/g)).toEqual([
+      'data-step="flow-none"',
+      'data-step="flow-1"',
+      'data-step="flow-2"',
+      'data-step="flow-3"',
+      'data-step="flow-4"',
+      'data-step="flow-none"',
+      'data-step="flow-1"',
+      'data-step="flow-3"',
+      'data-step="flow-4"',
+    ]);
+  });
+});
+
+describe("the class median graph's scale (Story 7.4)", () => {
+  it("spans the band and zero, ticks the rounded ends and zero, and drops a tick too close to zero", () => {
+    const points = [{ median: -39, low: -45, high: -20 }, null, { median: 18, low: 10, high: 22 }];
+    const scale = graphScale(points, 0, 100, 13);
+    expect(scale.ticks).toEqual([25, 0, -45]);
+    expect(scale.y(25)).toBe(0);
+    expect(scale.y(-45)).toBe(100);
+    expect(graphScale([{ median: 2, low: 1, high: 3 }], 0, 100, 13).ticks).toEqual([5, 0]);
   });
 });

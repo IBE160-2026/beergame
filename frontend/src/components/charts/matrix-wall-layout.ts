@@ -24,12 +24,38 @@ export const NET_STEPS: readonly NetStep[] = [
   "pos-4",
 ];
 
-export function stepFill(step: NetStep): ColourToken {
-  return `net-${step}` as ColourToken;
+/** A flow step (DESIGN.md → Colour → Matrix steps, «Flows / orders»): under 5 no fill, then
+ * 5–9, 10–19, 20–29 and 30+, for the Ordre and Kost per uke cells (Story 7.4). */
+export type FlowStep = "flow-none" | `flow-${1 | 2 | 3 | 4}`;
+
+export function flowStep(value: number): FlowStep {
+  if (value < 5) return "flow-none";
+  return value < 10 ? "flow-1" : value < 20 ? "flow-2" : value < 30 ? "flow-3" : "flow-4";
 }
 
-/** The cell-text rule (NFR-6, UX-DR2): `ink` on zero and steps 1–2, `paper` on steps 3–4. */
-export function stepText(step: NetStep): "ink" | "paper" {
+/** The flow steps in legend order. */
+export const FLOW_STEPS: readonly FlowStep[] = ["flow-none", "flow-1", "flow-2", "flow-3", "flow-4"];
+
+/** Which scale the cells are drawn in: Netto lager's signed steps or the flow steps. */
+export type WallScale = "net" | "flow";
+
+export type WallStep = NetStep | FlowStep;
+
+export function stepOf(scale: WallScale, value: number): WallStep {
+  return scale === "flow" ? flowStep(value) : netStep(value);
+}
+
+export function stepsOf(scale: WallScale): readonly WallStep[] {
+  return scale === "flow" ? FLOW_STEPS : NET_STEPS;
+}
+
+export function stepFill(step: WallStep): ColourToken {
+  if (step === "flow-none") return "paper";
+  return (step.startsWith("flow-") ? step : `net-${step}`) as ColourToken;
+}
+
+/** The cell-text rule (NFR-6, UX-DR2): `ink` on zero, no fill and steps 1–2, `paper` on 3–4. */
+export function stepText(step: WallStep): "ink" | "paper" {
   return step.endsWith("3") || step.endsWith("4") ? "paper" : "ink";
 }
 
@@ -86,6 +112,8 @@ export function wallSizes(input: {
   labels: readonly string[];
   figures: readonly string[];
   details: readonly string[];
+  /** Labels that take the whole game column, figure included («Kjedekost/uke, snitt»). */
+  spans?: readonly string[];
 }): WallSizes {
   const { width, fontSize } = input;
   // No game with a Uke yet: no Uke column at all, and the width math divides by one.
@@ -97,7 +125,7 @@ export function wallSizes(input: {
     texts.reduce((most, text) => Math.max(most, textWidth(text, fontSize, weight)), 0);
   const labelPart = widest(input.labels);
   const figurePart = widest(input.figures);
-  const labelWidth = labelPart + (figurePart > 0 ? gap + figurePart : 0) + gap;
+  const labelWidth = Math.max(labelPart + (figurePart > 0 ? gap + figurePart : 0), widest(input.spans ?? [])) + gap;
   const detail = widest(input.details);
   const detailWidth = detail > 0 ? detail + 2 * gap : 0;
   const minCell = Math.ceil(rowHeight * 0.85);
