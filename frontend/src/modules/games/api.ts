@@ -21,6 +21,29 @@ export function useMyGame(gameId: string) {
   });
 }
 
+/** The Oversikt of a Class session (Story 7.1): every Class game from its maintained summary. */
+export type ClassOverview = components["schemas"]["ClassOverviewOut"];
+export type OverviewGame = ClassOverview["items"][number];
+export const classOverviewKey = (sessionId: string) => ["games", "overview", sessionId] as const;
+
+/** `/api/class-sessions/{id}/overview`, for the Class's staff; anyone else, and a Class session
+ * that does not exist, answers 403 `forbidden`. Read past the browser's cache: the answer carries
+ * an ETag, and a body the cache revalidated would bring an old `server_now`, so waits and
+ * «Oppdatert» would lag. */
+export function useClassOverview(sessionId: string) {
+  return useQuery({
+    queryKey: classOverviewKey(sessionId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/overview", {
+          params: { path: { session_id: sessionId } },
+          cache: "no-store",
+        }),
+      ),
+    retry: false,
+  });
+}
+
 /** The play screen's one envelope (Story 6.6): the Student's own Seat in the open Week
  * (`seat_state`), the own turn (`turn`, Story 6.10), who sits where (`table_status`) and the
  * server's clock. */

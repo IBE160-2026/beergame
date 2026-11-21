@@ -10,7 +10,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
 
 from app.engine import GameSettings
 from app.engine.settings import Role
-from app.modules.games.service import GameResult, Lifecycle, SeatMark, SeatState
+from app.modules.games.service import GameResult, GameStatus, Lifecycle, SeatMark, SeatState
 
 
 class AiMode(StrEnum):
@@ -751,3 +751,68 @@ class SeatChoiceOut(BaseModel):
     drawn: bool
     """The Student's Seat came from the draw at the lock, not from their own choice."""
     games: list[SeatChoiceGameOut]
+
+
+class OverviewSeatOut(BaseModel):
+    """A Seat of a Class game on the Oversikt (Story 7.1): its Role and who holds it, a Student
+    by the name they have now, any AI player as «KI-spiller» (`ai`), or free."""
+
+    role: Role
+    holder: TableHolder
+    name: str | None
+    """The Student's name now; None for an AI player, a free Seat, or a Student no longer in the
+    Class."""
+
+
+class OverviewWaitOut(BaseModel):
+    """A Student Seat the Class game waits for (FR-25), and since when on the database clock; the
+    web app counts the wait from `server_now`."""
+
+    role: Role
+    name: str | None
+    since: AwareDatetime
+
+
+class OverviewGameOut(BaseModel):
+    """One Class game on the Oversikt, from its `game_summaries` row (Story 7.1, AD-25)."""
+
+    game_id: uuid.UUID
+    game_number: int | None
+    status: GameStatus
+    week: int | None
+    """The open Week while the game runs; None before the start, before the Start date and once
+    it has finished, whose last Week would tell the game's length (FR-14)."""
+    version: int
+    chain_cost: Decimal | None
+    """The chain's Total cost so far, as a decimal string; None before the start and before the
+    Start date."""
+    wait_started_at: AwareDatetime | None
+    waiting_for: list[OverviewWaitOut]
+    seats: list[OverviewSeatOut]
+    """Fabrikk first (UX-DR73)."""
+
+
+class OverviewCountsOut(BaseModel):
+    """The headline counts by status (FR-39)."""
+
+    waiting: int
+    running: int
+    not_started: int
+    finished: int
+
+
+class ClassOverviewOut(BaseModel):
+    """The Oversikt of a Class session (Story 7.1, FR-39, AD-25): its Class games in the list
+    envelope, by game number, the headline counts and the database clock (`server_now`)."""
+
+    items: list[OverviewGameOut]
+    next_cursor: str | None
+    counts: OverviewCountsOut
+    server_now: AwareDatetime
+    before_start: bool
+    """The Start date has not passed and the session is not locked: the games show their
+    allocation only, with no Week and no cost."""
+    start_at: AwareDatetime | None
+    class_id: uuid.UUID
+    class_name: str
+    session_number: int

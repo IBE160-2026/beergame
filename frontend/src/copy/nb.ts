@@ -2026,6 +2026,57 @@ export const nb = {
     },
   },
 
+  /** The Oversikt of a Class session (Story 7.1, FR-39, UX-DR40). The headline form, «Oppdatert»,
+   * the group names «Venter», «Pågår» and «Ferdig, lavest kjedekost øverst», «KI-spiller» and
+   * «Spill n» are the spine's; everything else is [ASSUMPTION] draft copy for the founder's
+   * review. Never a Week total or anything that hints at the game's length (FR-14). */
+  overview: {
+    title: "Oversikt",
+    crumb: "Oversikt",
+    /** The Lenke on the Klasseøkt. */
+    open: "Oversikt",
+    /** «Klasseøkt 2, class-of-1994» beside the heading. */
+    session: (number: number, className: string) => `Klasseøkt ${number}, ${className}`,
+    counts: {
+      finished: (n: number) => `${n} ferdig`,
+      running: (n: number) => `${n} pågår`,
+      waiting: (n: number) => `${n} venter`,
+      /** [ASSUMPTION] Class games that have not started after the Start date. */
+      notStarted: (n: number) => `${n} ikke startet`,
+    },
+    updated: (clock: string) => `Oppdatert ${clock}`,
+    groups: {
+      waiting: "Venter",
+      running: "Pågår",
+      /** [ASSUMPTION] */
+      notStarted: "Ikke startet",
+      finished: "Ferdig, lavest kjedekost øverst",
+    },
+    game: (number: number | null) => gameName(number),
+    week: (week: number) => `Uke ${week}`,
+    /** «Venter på Noah (Grossist), 23 t». [ASSUMPTION] */
+    waitingFor: (who: string, role: string, duration: string) => `Venter på ${who} (${role}), ${duration}`,
+    /** A waited-for Student no longer in the Class: by Role only. [ASSUMPTION] */
+    waitingForRole: (role: string, duration: string) => `Venter på ${role}, ${duration}`,
+    seat: (role: string, holder: string) => `${role}: ${holder}`,
+    aiPlayer: "KI-spiller",
+    /** [ASSUMPTION] a free Seat, before the lock gives it an AI player. */
+    freeSeat: "Ledig",
+    /** [ASSUMPTION] a Student no longer in the Class. */
+    unknownStudent: "Student",
+    chainCost: "Kjedekost",
+    seatsLabel: (game: string) => `Seter i ${game}`,
+    /** Before the Start date (Story 7.1). [ASSUMPTION] */
+    beforeStart: {
+      title: "Fordeling",
+      startsAt: (date: string) => `Spillene starter ${date}. Til da vises bare fordelingen.`,
+      noDate: "Spillene starter på startdatoen. Til da vises bare fordelingen.",
+      empty: "Ingen spill er fordelt ennå.",
+    },
+    /** [ASSUMPTION] after the Start date with no Class game at all. */
+    empty: "Klasseøkten har ingen klassespill.",
+  },
+
   /** Links between pages (Story 3.3). Each names where it goes. */
   navigation: {
     // «Til Hjem» and «Til Lærerhjem» are EXPERIENCE.md's own (State Patterns → permission denied).

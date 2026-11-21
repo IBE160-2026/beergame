@@ -56,7 +56,7 @@ from app.engine import rules as engine_rules
 from app.engine.demand import new_seed
 from app.engine.scripted import REGISTRY
 from app.engine.settings import ROLES
-from app.modules.games import repo, rules
+from app.modules.games import overview, repo, rules
 from app.modules.games.models import SNAPSHOT_COLUMNS
 from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, policy
 from app.modules.games.schemas import (
@@ -241,10 +241,14 @@ def _frozen_play_guard(runtime: SessionRuntime) -> play_guard.PlayGuardParams | 
 
 
 async def _commit_change(session: AsyncSession, game_id: uuid.UUID) -> int:
-    """Lock the Game row, raise its version and announce it; the caller's transaction commits.
-    A Game the Lecturer overview lists also announces its Class session (AD-8, AD-13)."""
+    """Lock the Game row, raise its version, rewrite its `game_summaries` row and announce it;
+    the caller's transaction commits. Every command calls it after its own writes, so the
+    summary is the Game as this transaction leaves it (Story 7.1, AD-25). A Game the Lecturer
+    overview lists also announces its Class session (AD-8, AD-13)."""
     game = await repo.lock_game(session, game_id)
     version = await repo.bump_version(session, game_id)
+    if game is not None:
+        await overview.refresh(session, game, version)
     await events.emit(session, "game", str(game_id), version)
     if (
         game is not None

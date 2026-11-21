@@ -71,14 +71,17 @@ PRE_SESSION_TABLES = (
 )
 TIME_PROPOSAL_TABLES = {"time_proposals", "time_acceptances"}
 """The tables of revision 0049 (Story 6.19)."""
+SUMMARY_TABLES = {"game_summaries"}
+"""The tables of revision 0051 (Story 7.1)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
     | {"progress_steps"}
     | STARTING_TASK_TABLES
     | TIME_PROPOSAL_TABLES
+    | SUMMARY_TABLES
 )
-HEAD = "0050"  # 0050 lets a test Game hold its Class session without a number (Story 6.20)
+HEAD = "0051"  # 0051 adds the Lecturer overview's `game_summaries` (Story 7.1)
 
 
 def reset_schema(url: str) -> None:
@@ -203,7 +206,12 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "UNIQUE (game_id)" in constraints(url, "time_proposals")["uq_time_proposals_game"]
     # 0050 (Story 6.20): a game number needs a Class session, a Class session no number.
     assert "class_session_id IS NOT NULL" in games["ck_games_class_session"]
+    # 0051 (Story 7.1): one summary row per Game with one of the four statuses. Its backfill is
+    # tested against `games.overview.recompute` (`tests/games/test_game_summaries.py`).
+    assert "'waiting'" in constraints(url, "game_summaries")["ck_game_summaries_status"]
 
+    command.downgrade(cfg, "0050")
+    assert SUMMARY_TABLES.isdisjoint(tables(url))
     command.downgrade(cfg, "0049")
     assert "= (game_number IS NULL)" in definition(url, "ck_games_class_session")
     command.downgrade(cfg, "0048")

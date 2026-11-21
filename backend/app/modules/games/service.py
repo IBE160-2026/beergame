@@ -4,6 +4,7 @@ import uuid
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +27,7 @@ from app.modules.games.schemas import (
     GameCheck,
     GameOverview,
     GameResult,
+    GameStatus,
     GameSummary,
     Lifecycle,
     OccupancyReason,
@@ -57,12 +59,14 @@ from app.modules.games.views import (
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "ClassGameSummary",
     "DecidedBy",
     "DecisionLogRow",
     "Fallback",
     "GameCheck",
     "GameOverview",
     "GamePolicy",
+    "GameStatus",
     "GameSummary",
     "Lifecycle",
     "OccupancyReason",
@@ -512,3 +516,74 @@ async def complete_running_games() -> list[str]:
     process stopped between an Order and the advance (NFR-4)."""
     async with get_sessionmaker()() as session:
         return [str(game_id) for game_id in await repo.complete_running_games(session)]
+
+
+@dataclass(frozen=True)
+class SummarySeat:
+    role: str
+    occupant_kind: str | None
+    user_id: uuid.UUID | None
+
+
+@dataclass(frozen=True)
+class SummaryWait:
+    role: str
+    user_id: uuid.UUID | None
+    since: datetime
+
+
+@dataclass(frozen=True)
+class ClassGameSummary:
+    """A Class game's `game_summaries` row (Story 7.1, AD-25): ids only, never a name."""
+
+    game_id: uuid.UUID
+    game_number: int | None
+    status: GameStatus
+    week: int | None
+    version: int
+    chain_cost: Decimal | None
+    wait_started_at: datetime | None
+    waiting_for: tuple[SummaryWait, ...]
+    """The Student Seats the Game waits for, in chain order."""
+    seats: tuple[SummarySeat, ...]
+    """Every Seat in chain order with its latest occupant; `occupant_kind` None is free."""
+
+
+def _user(value: object) -> uuid.UUID | None:
+    return None if value is None else uuid.UUID(str(value))
+
+
+async def class_overview(
+    session: AsyncSession, class_session_id: uuid.UUID
+) -> list[ClassGameSummary]:
+    """The summary rows of the Class session's Games that the Lecturer overview lists (AD-13), by
+    game number, read only from `game_summaries` in one query (NFR-3). The caller has checked the
+    User may see them and resolves names at read time."""
+    return [
+        ClassGameSummary(
+            game_id=row["game_id"],
+            game_number=row["game_number"],
+            status=GameStatus(row["status"]),
+            week=row["week"],
+            version=row["version"],
+            chain_cost=row["chain_cost"],
+            wait_started_at=row["wait_started_at"],
+            waiting_for=tuple(
+                SummaryWait(
+                    role=wait["role"],
+                    user_id=_user(wait["user_id"]),
+                    since=datetime.fromisoformat(wait["since"]),
+                )
+                for wait in row["waiting_for"]
+            ),
+            seats=tuple(
+                SummarySeat(
+                    role=seat["role"],
+                    occupant_kind=seat["occupant_kind"],
+                    user_id=_user(seat["user_id"]),
+                )
+                for seat in row["occupants"]
+            ),
+        )
+        for row in await repo.class_summaries(session, class_session_id)
+    ]

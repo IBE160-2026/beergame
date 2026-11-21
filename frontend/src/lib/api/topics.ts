@@ -1,6 +1,7 @@
 import type { QueryKey } from "@tanstack/react-query";
 
 import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
+import { classOverviewKey } from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
 import {
   allocationKey,
@@ -32,9 +33,15 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
         ["games", "mine"],
       ];
     // A Class session, for its staff: the Klasseøkt, its allocation block, the Lærerhjem parts of
-    // Stories 5.2 and 5.9, and the Class page's list of its sessions.
+    // Stories 5.2 and 5.9, the Class page's list of its sessions, and its Oversikt (Story 7.1).
     case "session":
-      return [classSessionKey(event.id), allocationKey(event.id), lecturerHomeKey, ["class-sessions", "of-class"]];
+      return [
+        classSessionKey(event.id),
+        allocationKey(event.id),
+        lecturerHomeKey,
+        ["class-sessions", "of-class"],
+        classOverviewKey(event.id),
+      ];
     // A Game: the Student's own game and what hangs under it (briefing, Starting task, the play
     // screen's envelope), and Hjem, whose Setestatus shows who has ordered (Story 6.14).
     case "game":

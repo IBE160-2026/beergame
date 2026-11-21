@@ -24,14 +24,15 @@ with its sources `…/copy-sources`. Story 6.1 adds the Student's game card and 
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response
 
-from app.modules.sessions import service
+from app.modules.sessions import overview, service
 from app.modules.sessions.schemas import (
     AllocationConfirmIn,
     AllocationMoveIn,
     AllocationOut,
+    ClassOverviewOut,
     ClassSessionListOut,
     ClassSessionOut,
     ClassSessionSaveIn,
@@ -183,6 +184,37 @@ async def get_class_session(
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/class-sessions/{session_id}/overview",
+    response_model=ClassOverviewOut,
+    responses={**documented(401, 403), 304: {"description": "Not modified since the ETag."}},
+    operation_id="getClassOverview",
+)
+async def get_class_overview(
+    session_id: str,
+    request: Request,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.overview"))],
+) -> Response:
+    """The Oversikt (Story 7.1, FR-39, AD-25): every Class game of the session with its status,
+    Week, whom it waits for, its Seats and chain cost, the headline counts and `server_now`, read
+    from the maintained summaries. With an `ETag`; a request whose `If-None-Match` names it is
+    answered 304 with no body. 403 `forbidden` for anyone who is not staff of the Class, and for
+    a Class session that does not exist (FR-5, NFR-7)."""
+    found = await overview.class_overview(user, _id(session_id))
+    if found is None:
+        raise authz.Forbidden
+    etag = overview.etag_of(found)
+    headers = {"ETag": etag, "Cache-Control": "private, no-cache"}
+    # The weak comparison of RFC 9110 for `If-None-Match`: a proxy may have weakened the tag.
+    sent = {
+        tag.strip().removeprefix("W/")
+        for tag in request.headers.get("if-none-match", "").split(",")
+    }
+    if etag in sent or "*" in sent:
+        return Response(status_code=304, headers=headers)
+    return JSONResponse(found.model_dump(mode="json"), headers=headers)
 
 
 TEST_GAME_REFUSED = {

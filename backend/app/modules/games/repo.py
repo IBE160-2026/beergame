@@ -4,12 +4,13 @@ import uuid
 from collections.abc import Collection, Sequence
 from typing import Any
 
-from sqlalchemy import RowMapping, func, select, update
+from sqlalchemy import Numeric, RowMapping, func, select, update
 from sqlalchemy.dialects.postgresql import distinct_on, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.games.models import (
     game_checks,
+    game_summaries,
     game_weeks,
     games,
     seat_occupancy,
@@ -834,3 +835,66 @@ async def time_acceptors(session: AsyncSession, proposal_id: uuid.UUID) -> list[
         .order_by(time_acceptances.c.accepted_at, time_acceptances.c.user_id)
     )
     return list(result.scalars())
+
+
+def chain_cost_of(state: Any) -> Any:
+    """The chain Total cost of a stored Week state in SQL: the sum of its seats' `total_cost`, as
+    revision 0051's backfill sums it."""
+    seat = func.jsonb_array_elements(state["seats"]).table_valued("value").alias("seat")
+    return (
+        select(func.sum(seat.c.value.op("->>")("total_cost").cast(Numeric)))
+        .select_from(seat)
+        .scalar_subquery()
+    )
+
+
+async def newest_week(session: AsyncSession, game_id: uuid.UUID) -> RowMapping | None:
+    """The Game's newest stored Week state row: `week`, `finished` and its `chain_cost`; the
+    finished one once the Game has finished. None before the start."""
+    result = await session.execute(
+        select(
+            game_weeks.c.week,
+            game_weeks.c.finished,
+            chain_cost_of(game_weeks.c.state).label("chain_cost"),
+        )
+        .where(game_weeks.c.game_id == game_id)
+        .order_by(game_weeks.c.week.desc(), game_weeks.c.finished.desc())
+        .limit(1)
+    )
+    return result.mappings().one_or_none()
+
+
+async def upsert_summary(session: AsyncSession, values: dict[str, Any]) -> None:
+    """Write the Game's `game_summaries` row (Story 7.1, AD-25), as `games.commands` only."""
+    statement = insert(game_summaries).values(**values, updated_at=func.now())
+    await session.execute(
+        statement.on_conflict_do_update(
+            index_elements=[game_summaries.c.game_id],
+            set_={
+                name: statement.excluded[name]
+                for name in (*values, "updated_at")
+                if name != "game_id"
+            },
+        )
+    )
+
+
+async def summary(session: AsyncSession, game_id: uuid.UUID) -> RowMapping | None:
+    result = await session.execute(
+        select(game_summaries).where(game_summaries.c.game_id == game_id)
+    )
+    return result.mappings().one_or_none()
+
+
+async def class_summaries(session: AsyncSession, class_session_id: uuid.UUID) -> list[RowMapping]:
+    """The `game_summaries` rows of the Class session's Games that the Lecturer overview lists
+    (AD-13), by game number: one read whatever their number (NFR-3)."""
+    result = await session.execute(
+        select(game_summaries)
+        .where(
+            game_summaries.c.class_session_id == class_session_id,
+            game_summaries.c.purpose.in_(purposes_with("lecturer_overview")),
+        )
+        .order_by(game_summaries.c.game_number, game_summaries.c.game_id)
+    )
+    return list(result.mappings())

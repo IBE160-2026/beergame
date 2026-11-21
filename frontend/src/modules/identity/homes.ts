@@ -41,6 +41,9 @@ export const classStaffPath = (id: string) => `${classPath(id)}/faglaerere`;
 /** A Class session's Klasseøkt screen (Story 5.1). */
 export const classSessionPath = (id: string) => `/klasseokter/${encodeURIComponent(id)}`;
 
+/** The Oversikt of a Class session's Class games, for its staff (Story 7.1). */
+export const classOverviewPath = (id: string) => `${classSessionPath(id)}/oversikt`;
+
 /** A Student's «Velg spill og sete» in a Class session with Student choice (Story 5.17). */
 export const seatChoicePath = (id: string) => `${classSessionPath(id)}/velg-sete`;
 

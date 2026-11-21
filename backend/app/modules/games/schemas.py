@@ -36,6 +36,16 @@ class Lifecycle(StrEnum):
     FINISHED = "finished"
 
 
+class GameStatus(StrEnum):
+    """A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2); Epic 8
+    adds `paused`."""
+
+    NOT_STARTED = "not_started"
+    RUNNING = "running"
+    WAITING = "waiting"
+    FINISHED = "finished"
+
+
 class OccupantKind(StrEnum):
     """Who holds a Seat from a Week on (AD-5)."""
 

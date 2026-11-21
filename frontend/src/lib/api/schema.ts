@@ -756,6 +756,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Class Overview
+         * @description The Oversikt (Story 7.1, FR-39, AD-25): every Class game of the session with its status,
+         *     Week, whom it waits for, its Seats and chain cost, the headline counts and `server_now`, read
+         *     from the maintained summaries. With an `ETag`; a request whose `If-None-Match` names it is
+         *     answered 304 with no body. 403 `forbidden` for anyone who is not staff of the Class, and for
+         *     a Class session that does not exist (FR-5, NFR-7).
+         */
+        get: operations["getClassOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/settings-check": {
         parameters: {
             query?: never;
@@ -2116,6 +2140,36 @@ export interface components {
             roster_count: number;
             staff_role: components["schemas"]["StaffRole"];
         };
+        /**
+         * ClassOverviewOut
+         * @description The Oversikt of a Class session (Story 7.1, FR-39, AD-25): its Class games in the list
+         *     envelope, by game number, the headline counts and the database clock (`server_now`).
+         */
+        ClassOverviewOut: {
+            /** Before Start */
+            before_start: boolean;
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            counts: components["schemas"]["OverviewCountsOut"];
+            /** Items */
+            items: components["schemas"]["OverviewGameOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+            /**
+             * Server Now
+             * Format: date-time
+             */
+            server_now: string;
+            /** Session Number */
+            session_number: number;
+            /** Start At */
+            start_at: string | null;
+        };
         /** ClassSessionListItem */
         ClassSessionListItem: {
             /**
@@ -2709,6 +2763,13 @@ export interface components {
              */
             weeks: number;
         };
+        /**
+         * GameStatus
+         * @description A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2); Epic 8
+         *     adds `paused`.
+         * @enum {string}
+         */
+        GameStatus: "not_started" | "running" | "waiting" | "finished";
         /** GivenRowOut */
         GivenRowOut: {
             /** Label */
@@ -3135,6 +3196,76 @@ export interface components {
             position_base: number;
             /** Supply Line Base */
             supply_line_base: number;
+        };
+        /**
+         * OverviewCountsOut
+         * @description The headline counts by status (FR-39).
+         */
+        OverviewCountsOut: {
+            /** Finished */
+            finished: number;
+            /** Not Started */
+            not_started: number;
+            /** Running */
+            running: number;
+            /** Waiting */
+            waiting: number;
+        };
+        /**
+         * OverviewGameOut
+         * @description One Class game on the Oversikt, from its `game_summaries` row (Story 7.1, AD-25).
+         */
+        OverviewGameOut: {
+            /** Chain Cost */
+            chain_cost: string | null;
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+            /** Game Number */
+            game_number: number | null;
+            /** Seats */
+            seats: components["schemas"]["OverviewSeatOut"][];
+            status: components["schemas"]["GameStatus"];
+            /** Version */
+            version: number;
+            /** Wait Started At */
+            wait_started_at: string | null;
+            /** Waiting For */
+            waiting_for: components["schemas"]["OverviewWaitOut"][];
+            /** Week */
+            week: number | null;
+        };
+        /**
+         * OverviewSeatOut
+         * @description A Seat of a Class game on the Oversikt (Story 7.1): its Role and who holds it, a Student
+         *     by the name they have now, any AI player as «KI-spiller» (`ai`), or free.
+         */
+        OverviewSeatOut: {
+            /**
+             * Holder
+             * @enum {string}
+             */
+            holder: "student" | "ai" | "free";
+            /** Name */
+            name: string | null;
+            role: components["schemas"]["Role"];
+        };
+        /**
+         * OverviewWaitOut
+         * @description A Student Seat the Class game waits for (FR-25), and since when on the database clock; the
+         *     web app counts the wait from `server_now`.
+         */
+        OverviewWaitOut: {
+            /** Name */
+            name: string | null;
+            role: components["schemas"]["Role"];
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
         };
         /** PasswordResetIn */
         PasswordResetIn: {
@@ -6108,6 +6239,62 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getClassOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassOverviewOut"];
+                };
+            };
+            /** @description Not modified since the ETag. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

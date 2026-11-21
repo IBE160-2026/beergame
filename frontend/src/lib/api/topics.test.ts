@@ -2,7 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 
 import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
-import { myGameKey, playKey, startingTaskKey } from "@/modules/games/api";
+import { classOverviewKey, myGameKey, playKey, startingTaskKey } from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
 import {
   allocationKey,
@@ -39,6 +39,8 @@ const ALL = [
   startingTaskKey("g1"),
   playKey("g1"),
   myGameKey("g2"),
+  classOverviewKey("s1"),
+  classOverviewKey("s2"),
 ] as const;
 
 describe("topicKeys", () => {
@@ -58,12 +60,13 @@ describe("topicKeys", () => {
     ]);
   });
 
-  it("maps session:<id> to that Klasseøkt, its allocation, the Lærerhjem and the Class's session list", () => {
+  it("maps session:<id> to that Klasseøkt, its allocation, the Lærerhjem, the Class's session list and its Oversikt", () => {
     expect(invalidated({ topic: "session", id: "s1", version: null }, ALL)).toEqual([
       lecturerHomeKey,
       classSessionKey("s1"),
       allocationKey("s1"),
       classSessionsKey("c1"),
+      classOverviewKey("s1"),
     ]);
   });
 

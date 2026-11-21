@@ -1,0 +1,109 @@
+"""The Oversikt of a Class session (Story 7.1, FR-39, AD-25): every Class game with its status,
+whom it waits for and its chain cost, read from `games`' `game_summaries` only, with the Students'
+names resolved now (AD-12, AD-14). A fixed number of queries whatever the number of Games (NFR-3).
+"""
+
+import hashlib
+import uuid
+
+from app.modules.classes import service as classes
+from app.modules.games import service as games_service
+from app.modules.games.service import ClassGameSummary, GameStatus
+from app.modules.sessions import repo
+from app.modules.sessions.schemas import (
+    ClassOverviewOut,
+    OverviewCountsOut,
+    OverviewGameOut,
+    OverviewSeatOut,
+    OverviewWaitOut,
+)
+from app.modules.sessions.service import _class_for, is_locked
+from app.platform import authz
+from app.platform.db import get_sessionmaker
+
+__all__ = ["class_overview", "etag_of"]
+
+
+async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassOverviewOut | None:
+    """The Oversikt, or None when the User may not see it or the Class session does not exist:
+    one answer for both (FR-5, NFR-7). Its Lecturers and Assistant lecturers see it."""
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, session_id)
+    if row is None:
+        return None
+    found = await _class_for(user, row["class_id"], "class_sessions.overview")
+    if found is None:
+        return None
+    async with get_sessionmaker()() as s:
+        number = await repo.number_of(s, session_id, row["class_id"])
+        games = await games_service.class_overview(s, session_id)
+        students = sorted(
+            {seat.user_id for game in games for seat in game.seats if seat.user_id is not None}
+            | {wait.user_id for game in games for wait in game.waiting_for if wait.user_id},
+            key=str,
+        )
+        names = (
+            await classes.student_names(row["class_id"], students, session=s) if students else {}
+        )
+        now = await games_service.database_now(s)
+    # The Start-date lock on the api clock, as the Klasseøkt reads it (`get_session`).
+    before_start = not is_locked(row)
+    counts = {status: 0 for status in GameStatus}
+    for game in games:
+        counts[game.status] += 1
+    return ClassOverviewOut(
+        items=[_game_out(game, names, before_start) for game in games],
+        next_cursor=None,
+        counts=OverviewCountsOut(
+            waiting=counts[GameStatus.WAITING],
+            running=counts[GameStatus.RUNNING],
+            not_started=counts[GameStatus.NOT_STARTED],
+            finished=counts[GameStatus.FINISHED],
+        ),
+        server_now=now,
+        before_start=before_start,
+        start_at=row["start_at"],
+        class_id=found.id,
+        class_name=found.name,
+        session_number=number,
+    )
+
+
+def _game_out(
+    game: ClassGameSummary, names: dict[uuid.UUID, str], before_start: bool
+) -> OverviewGameOut:
+    seats = []
+    for seat in reversed(game.seats):  # Fabrikk first (UX-DR73)
+        if seat.occupant_kind is None:
+            holder, name = "free", None
+        elif seat.occupant_kind == games_service.OccupantKind.STUDENT:
+            holder, name = "student", names.get(seat.user_id) if seat.user_id else None
+        else:
+            holder, name = "ai", None
+        seats.append(OverviewSeatOut(role=seat.role, holder=holder, name=name))
+    return OverviewGameOut(
+        game_id=game.game_id,
+        game_number=game.game_number,
+        status=game.status,
+        # A finished game's last Week would tell the game's length (FR-14): only its status shows.
+        week=None if before_start or game.status is GameStatus.FINISHED else game.week,
+        version=game.version,
+        chain_cost=None if before_start else game.chain_cost,
+        wait_started_at=game.wait_started_at,
+        waiting_for=[
+            OverviewWaitOut(
+                role=wait.role,
+                name=names.get(wait.user_id) if wait.user_id else None,
+                since=wait.since,
+            )
+            for wait in game.waiting_for
+        ],
+        seats=seats,
+    )
+
+
+def etag_of(overview: ClassOverviewOut) -> str:
+    """A strong ETag of everything the Oversikt shows but the clock: it changes with any Game's
+    summary, a name, the Start date or the counts, never with `server_now` alone (AD-25)."""
+    body = overview.model_dump_json(exclude={"server_now"})
+    return '"' + hashlib.sha256(body.encode()).hexdigest()[:32] + '"'

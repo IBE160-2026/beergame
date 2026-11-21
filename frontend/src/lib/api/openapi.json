@@ -872,6 +872,79 @@
         "title": "ClassOut",
         "type": "object"
       },
+      "ClassOverviewOut": {
+        "description": "The Oversikt of a Class session (Story 7.1, FR-39, AD-25): its Class games in the list\nenvelope, by game number, the headline counts and the database clock (`server_now`).",
+        "properties": {
+          "before_start": {
+            "title": "Before Start",
+            "type": "boolean"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/OverviewCountsOut"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewGameOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "server_now": {
+            "format": "date-time",
+            "title": "Server Now",
+            "type": "string"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "counts",
+          "server_now",
+          "before_start",
+          "start_at",
+          "class_id",
+          "class_name",
+          "session_number"
+        ],
+        "title": "ClassOverviewOut",
+        "type": "object"
+      },
       "ClassSessionListItem": {
         "properties": {
           "created_at": {
@@ -2253,6 +2326,17 @@
         "title": "GameSettings",
         "type": "object"
       },
+      "GameStatus": {
+        "description": "A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2); Epic 8\nadds `paused`.",
+        "enum": [
+          "not_started",
+          "running",
+          "waiting",
+          "finished"
+        ],
+        "title": "GameStatus",
+        "type": "string"
+      },
       "GivenRowOut": {
         "properties": {
           "label": {
@@ -3158,6 +3242,190 @@
           "position_base"
         ],
         "title": "OrderPreview",
+        "type": "object"
+      },
+      "OverviewCountsOut": {
+        "description": "The headline counts by status (FR-39).",
+        "properties": {
+          "finished": {
+            "title": "Finished",
+            "type": "integer"
+          },
+          "not_started": {
+            "title": "Not Started",
+            "type": "integer"
+          },
+          "running": {
+            "title": "Running",
+            "type": "integer"
+          },
+          "waiting": {
+            "title": "Waiting",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "waiting",
+          "running",
+          "not_started",
+          "finished"
+        ],
+        "title": "OverviewCountsOut",
+        "type": "object"
+      },
+      "OverviewGameOut": {
+        "description": "One Class game on the Oversikt, from its `game_summaries` row (Story 7.1, AD-25).",
+        "properties": {
+          "chain_cost": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Cost"
+          },
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewSeatOut"
+            },
+            "title": "Seats",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GameStatus"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "wait_started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait Started At"
+          },
+          "waiting_for": {
+            "items": {
+              "$ref": "#/components/schemas/OverviewWaitOut"
+            },
+            "title": "Waiting For",
+            "type": "array"
+          },
+          "week": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week"
+          }
+        },
+        "required": [
+          "game_id",
+          "game_number",
+          "status",
+          "week",
+          "version",
+          "chain_cost",
+          "wait_started_at",
+          "waiting_for",
+          "seats"
+        ],
+        "title": "OverviewGameOut",
+        "type": "object"
+      },
+      "OverviewSeatOut": {
+        "description": "A Seat of a Class game on the Oversikt (Story 7.1): its Role and who holds it, a Student\nby the name they have now, any AI player as «KI-spiller» (`ai`), or free.",
+        "properties": {
+          "holder": {
+            "enum": [
+              "student",
+              "ai",
+              "free"
+            ],
+            "title": "Holder",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role",
+          "holder",
+          "name"
+        ],
+        "title": "OverviewSeatOut",
+        "type": "object"
+      },
+      "OverviewWaitOut": {
+        "description": "A Student Seat the Class game waits for (FR-25), and since when on the database clock; the\nweb app counts the wait from `server_now`.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "since": {
+            "format": "date-time",
+            "title": "Since",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "name",
+          "since"
+        ],
+        "title": "OverviewWaitOut",
         "type": "object"
       },
       "PasswordResetIn": {
@@ -8031,6 +8299,72 @@
           }
         },
         "summary": "Change Lab Hour",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/overview": {
+      "get": {
+        "description": "The Oversikt (Story 7.1, FR-39, AD-25): every Class game of the session with its status,\nWeek, whom it waits for, its Seats and chain cost, the headline counts and `server_now`, read\nfrom the maintained summaries. With an `ETag`; a request whose `If-None-Match` names it is\nanswered 304 with no body. 403 `forbidden` for anyone who is not staff of the Class, and for\na Class session that does not exist (FR-5, NFR-7).",
+        "operationId": "getClassOverview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassOverviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified since the ETag."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Class Overview",
         "tags": [
           "sessions"
         ]
