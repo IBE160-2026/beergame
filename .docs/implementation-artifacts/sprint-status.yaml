@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-21-2026 15:42
+last_updated: 11-21-2026 15:52
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -149,7 +149,7 @@ development_status:
   7-3-switch-the-wall-to-vis-som-tabell: done
   7-4-filter-the-wall-and-compare-with-the-class-median: done
   7-5-follow-the-games-live-with-oppdater-automatisk: done
-  7-6-see-who-waits-the-class-s-cost-and-the-funnel-in-the-right-r: in-progress
+  7-6-see-who-waits-the-class-s-cost-and-the-funnel-in-the-right-r: done
   7-7-open-one-game-week-by-week-in-spillinnsikt: backlog
   7-8-see-all-four-roles-orders-inventory-and-backlog-as-charts-in: backlog
   7-9-send-a-message-to-a-student-a-class-game-or-the-whole-class: backlog
