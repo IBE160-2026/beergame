@@ -2389,3 +2389,24 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #156: beslutninger og last fra to spor på samme maskin.
+
+## Story 7.8: Se ordre, lager og restordre for alle fire roller som grafer i Spillinnsikt (spor 1)
+
+### Oppgave
+Bygge Story 7.8 på `epic-7` i spor 1, med de felles komponentene fra `epic-9` (Story 9.5).
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-8-see-all-four-roles-orders-inventory-and-backlog-as-charts-in-spillinnsikt.md`.
+- Commit: 72a9cbf.
+- «Kjeden i grafer» i Spillinnsikt: Ordrestolper over tallene per rolle og uke med «Kundene» nederst, og en ny felles graf for lager og restordre med ett bånd per rolle. Begge har «Vis som tabell». `first_large_order_week` per rolle fra endepunktet.
+- Felles komponenter: `order-bars.tsx` hentet uendret fra `epic-9`; `order-bars-table.tsx` med én liten tilføyelse (Forsterkning valgfri). Notert til merge.
+- Tester: backend 2835, Vitest 806, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 50, ingen ustabile tester.
+- Gjennomgang: 14 funn, ingen høye eller middels, 3 rettet.
+- Visuell kontroll (Sonnet): ni skjermbilder i `screenshots/7.8/` med et spill på 22 uker. Rettet ujevne ukekolonner i tabellene (b88ae24). Tre punkter til avslutningen av epicen: «Lager og restordre» mangler verdietiketter, `ScrollRegion` toner kantene selv om DESIGN.md sier nei til fading, og røde ukemerker i Ordrestolpene står tett ved 390 px.
+- Status: done.
+
+### Åpne punkter
+- Issue #157: beslutninger og punkter til merge av `epic-7` og `epic-9`.
