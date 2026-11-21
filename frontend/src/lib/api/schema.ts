@@ -778,6 +778,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/students/{student_id}/explanation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Student Explanation
+         * @description A Student's Explanation for the Class's owners and Assistant lecturers (AD-12). 404
+         *     `not_found` when the Student has not sent one; 403 `forbidden` for every other caller.
+         */
+        get: operations["getStudentExplanation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/test-game": {
         parameters: {
             query?: never;
@@ -1354,6 +1375,74 @@ export interface paths {
          *     `forbidden`, as above.
          */
         get: operations["getMyDebrief"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/explanation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Explanation
+         * @description The Student's own Explanation, `explanation` null before it is sent.
+         */
+        get: operations["getMyExplanation"];
+        put?: never;
+        /**
+         * Send My Explanation
+         * @description «Send Forklaring» (FR-41): stores the Explanation once, as typed, and records the
+         *     `explanation` step. 409 `explanation_exists` when it is sent already (unchanged), 422
+         *     `validation_error` for white space only or more than 5000 characters.
+         */
+        post: operations["sendMyExplanation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/net-inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Net Inventory
+         * @description «Ditt netto lager, hele spillet» (Story 9.3, step 1): the Netto lager of the Student's own
+         *     Seat in every Uke, oldest first. Never demand or another Seat (FR-14).
+         */
+        get: operations["getMyNetInventory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/steps/{step}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Debrief Step
+         * @description A Debrief step after step 1 (FR-41, FR-43): 403 `explanation_required` until the Student's
+         *     Explanation is saved, checked here and not only in the web app.
+         */
+        get: operations["getDebriefStep"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2465,6 +2554,20 @@ export interface components {
          */
         DebriefRelease: "open" | "hold";
         /**
+         * DebriefStepOut
+         * @description A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Its
+         *     content comes with Stories 9.4 to 9.9; until then the step number only.
+         */
+        DebriefStepOut: {
+            /**
+             * Debrief Id
+             * Format: uuid
+             */
+            debrief_id: string;
+            /** Step */
+            step: number;
+        };
+        /**
          * DemandFixed
          * @description A fixed series: `values[w - 1]` is the demand in Week w.
          */
@@ -2649,6 +2752,31 @@ export interface components {
         /** ErrorEnvelope */
         ErrorEnvelope: {
             error: components["schemas"]["ErrorBody"];
+        };
+        /**
+         * ExplanationIn
+         * @description «Send Forklaring»: the text as typed. It must hold more than white space and at most
+         *     5000 characters (422 `validation_error`).
+         */
+        ExplanationIn: {
+            /** Text */
+            text: string;
+        };
+        /**
+         * ExplanationOut
+         * @description A stored Explanation (FR-41, AD-14): the text as typed, its length in characters and when
+         *     it was saved. Never changed after it is stored.
+         */
+        ExplanationOut: {
+            /** Length */
+            length: number;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            /** Text */
+            text: string;
         };
         /** FinalIn */
         FinalIn: {
@@ -3114,6 +3242,13 @@ export interface components {
             upload_row?: components["schemas"]["UploadRow"] | null;
         };
         /**
+         * MyExplanationOut
+         * @description The Student's own Explanation in this Debrief, or None before it is sent.
+         */
+        MyExplanationOut: {
+            explanation: components["schemas"]["ExplanationOut"] | null;
+        };
+        /**
          * NeighbourNumber
          * @description One number about a neighbouring Seat, labelled with its Role and the Week it refers to.
          */
@@ -3126,6 +3261,26 @@ export interface components {
             role: components["schemas"]["Role"];
             /** Value */
             value: number;
+            /** Week */
+            week: number;
+        };
+        /**
+         * NetInventoryOut
+         * @description «Ditt netto lager, hele spillet» (Story 9.3, step 1): the Student's own Seat only, every
+         *     logged Uke, oldest first. No demand and no other Seat (FR-14, FR-41).
+         */
+        NetInventoryOut: {
+            /** Weeks */
+            weeks: components["schemas"]["NetWeekOut"][];
+        };
+        /**
+         * NetWeekOut
+         * @description One Uke of the Student's own Netto lager (Story 9.3): inventory minus backlog as their
+         *     Seat saw it when ordering that Uke (the Decision log's `state_seen`).
+         */
+        NetWeekOut: {
+            /** Net Inventory */
+            net_inventory: number;
             /** Week */
             week: number;
         };
@@ -6277,6 +6432,65 @@ export interface operations {
             };
         };
     };
+    getStudentExplanation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                student_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExplanationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     startTestGame: {
         parameters: {
             query?: never;
@@ -7808,6 +8022,216 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DebriefOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyExplanation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyExplanationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sendMyExplanation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExplanationIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExplanationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getMyNetInventory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetInventoryOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getDebriefStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+                step: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebriefStepOut"];
                 };
             };
             /** @description Unauthorized */

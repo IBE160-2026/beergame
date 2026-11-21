@@ -75,6 +75,8 @@ FACT_SET_TABLES = {"fact_sets"}
 """The table of revision 0101 (Story 9.1)."""
 DEBRIEF_TABLES = {"debrief_sessions", "debrief_releases"}
 """The tables of revision 0102 (Story 9.2)."""
+EXPLANATION_TABLES = {"debrief_explanations"}
+"""The table of revision 0103 (Story 9.3)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -83,8 +85,9 @@ HEAD_TABLES = (
     | TIME_PROPOSAL_TABLES
     | FACT_SET_TABLES
     | DEBRIEF_TABLES
+    | EXPLANATION_TABLES
 )
-HEAD = "0102"  # 0102 opens the Debrief: its sessions, releases and the hold choice (Story 9.2)
+HEAD = "0103"  # 0103 stores the Explanation before the reveal (Story 9.3)
 
 
 def reset_schema(url: str) -> None:
@@ -224,6 +227,14 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "step >= 1" in debriefs["ck_debrief_sessions_step"]
     assert "'hold'" in definition(url, "ck_class_sessions_debrief_release")
 
+    # 0103 (Story 9.3): one Explanation per Student per Class session, never changed.
+    explained = constraints(url, "debrief_explanations")
+    assert "char_length(text)" in explained["ck_debrief_explanations_length"]
+    assert function_names(url, "debrief_explanations_immutable")
+
+    command.downgrade(cfg, "0102")
+    assert EXPLANATION_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "debrief_explanations_immutable")
     command.downgrade(cfg, "0101")
     assert DEBRIEF_TABLES.isdisjoint(tables(url))
     assert "debrief_release" not in columns(url, "class_sessions")

@@ -1,8 +1,9 @@
-"""The only writer of the Debrief tables (Story 9.2, AD-21, AD-8).
+"""The only writer of the Debrief tables (Stories 9.2, 9.3, AD-21, AD-8).
 
 Each command on a Debrief session locks its row and emits `debrief:<id>` (`platform/events`
-registry: `debrief.open`). `release` writes the Class session's release once and tells each
-Student who holds a Seat through `platform/notify` (`debrief.release`). Arguments are ids only."""
+registry: `debrief.open`, `debrief.save_explanation`). `release` writes the Class session's
+release once and tells each Student who holds a Seat through `platform/notify`
+(`debrief.release`). Arguments are ids only."""
 
 import uuid
 from dataclasses import dataclass
@@ -13,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.debrief.models import debrief_releases, debrief_sessions
+from app.modules.debrief.models import debrief_explanations, debrief_releases, debrief_sessions
 from app.modules.debrief.rules import all_class_games_finished
 from app.modules.progress import service as progress
 from app.platform import events, notify
@@ -23,6 +24,18 @@ log = structlog.get_logger(__name__)
 
 RELEASED_NOTICE = "debrief_released"
 """The notice each seated Student gets when a held Class session's Debriefs open (digest)."""
+
+
+class ExplanationExists(Exception):
+    """The Student has sent their Explanation in this Class session already (409
+    `explanation_exists`): it is stored once and never changed (FR-41)."""
+
+
+@dataclass(frozen=True)
+class ExplanationRow:
+    text: str
+    length: int
+    saved_at: datetime
 
 
 @dataclass(frozen=True)
@@ -103,3 +116,51 @@ async def release(class_session_id: uuid.UUID, now: datetime) -> bool:
             )
     log.info("debriefs_released", class_session_id=str(class_session_id), students=len(students))
     return True
+
+
+async def save_explanation(
+    game_id: uuid.UUID, class_session_id: uuid.UUID, user_id: uuid.UUID, text: str
+) -> ExplanationRow:
+    """«Send Forklaring» (Story 9.3, FR-41, AD-14, AD-16): store the Student's Explanation once,
+    as typed, with its length in characters and the database time, and record the `explanation`
+    step in the same transaction. The Debrief row of the Game is locked; the save emits
+    `debrief:<id>` (and `progress` its `user` and `session`). The caller has judged availability
+    and the text. Raises `ExplanationExists` when one is stored already, which stays unchanged."""
+    async with get_sessionmaker().begin() as session:
+        debrief = await _locked(session, game_id)
+        stored = (
+            (
+                await session.execute(
+                    insert(debrief_explanations)
+                    .values(
+                        user_id=user_id,
+                        class_session_id=class_session_id,
+                        game_id=game_id,
+                        text=text,
+                        length=len(text),
+                        saved_at=func.now(),
+                    )
+                    .on_conflict_do_nothing(
+                        index_elements=[
+                            debrief_explanations.c.user_id,
+                            debrief_explanations.c.class_session_id,
+                        ]
+                    )
+                    .returning(
+                        debrief_explanations.c.text,
+                        debrief_explanations.c.length,
+                        debrief_explanations.c.saved_at,
+                    )
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if stored is None:
+            raise ExplanationExists
+        await progress.record_step(
+            user_id, class_session_id, progress.Step.EXPLANATION, stored["saved_at"], within=session
+        )
+        await events.emit(session, "debrief", str(debrief.id))
+    log.info("explanation_saved", debrief_id=str(debrief.id), length=stored["length"])
+    return ExplanationRow(stored["text"], stored["length"], stored["saved_at"])

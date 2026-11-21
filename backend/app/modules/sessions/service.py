@@ -1281,6 +1281,17 @@ async def debrief_session_of(
     )
 
 
+async def class_staff_may(user: authz.Principal, class_session_id: uuid.UUID, action: str) -> bool:
+    """Whether `user` may do the Class action `action` on the Class of the Class session (its
+    staff role there, `authz.can`): how another module asks without reading Classes itself
+    (Story 9.3: `explanations.read`). False for a session that does not exist."""
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, class_session_id)
+    if row is None:
+        return False
+    return await _class_for(user, row["class_id"], action) is not None
+
+
 async def held_debrief_sessions(s: AsyncSession) -> list[uuid.UUID]:
     """The locked Class sessions that hold their Debriefs (Story 9.2), for the sweep's release."""
     return await repo.held_debrief_sessions(s)

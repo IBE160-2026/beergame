@@ -2059,6 +2059,37 @@ export const nb = {
     locked: "Debrief",
     notOpen: "Debriefen åpner når Klassespillet ditt er ferdig.",
     held: "Debriefen åpner når alle Klassespillene er ferdige.",
+    /** Step 1 (Story 9.3, EXPERIENCE.md → Debrief sequence, `07-debrief.png`). The chart title,
+     * prompt, «Send Forklaring», «Vis som tabell» and the failure line are the spine's; the rest
+     * is [ASSUMPTION] draft copy. Before the reveal: no customers, no demand. */
+    explanation: {
+      netTitle: "Ditt netto lager, hele spillet",
+      showTable: "Vis som tabell",
+      /** [ASSUMPTION] */
+      showChart: "Vis som graf",
+      netColumn: "Netto lager",
+      /** [ASSUMPTION] */
+      tableCaption: "Ditt netto lager i hver uke av spillet",
+      /** [ASSUMPTION] */
+      chartSvg: "Graf over ditt netto lager i hver uke av spillet: over null er lager, under null er restordre.",
+      /** «Uke 1» and «Uke 36» at the ends of the x-axis. */
+      week: (week: number) => `Uke ${week}`,
+      prompt: "Hvorfor svingte lageret ditt?",
+      /** [ASSUMPTION] who reads it, under the field. */
+      hint: "Bare du og de som underviser Klassen, kan lese Forklaringen. Den kan ikke endres etter at du har sendt den.",
+      send: "Send Forklaring",
+      /** [ASSUMPTION] beside the field while it is empty. */
+      empty: "Skriv Forklaringen før du sender.",
+      failed: "Det ble ikke lagret. Prøv igjen.",
+      /** [ASSUMPTION] */
+      sentTitle: "Din Forklaring",
+      /** [ASSUMPTION] */
+      sent: "Forklaringen er sendt og lagret slik du skrev den.",
+      /** [ASSUMPTION] a second device had already sent one. */
+      exists: "Forklaringen var allerede sendt. Her er den som er lagret.",
+      /** [ASSUMPTION] a step-1 read failed; «Prøv igjen» beside it. */
+      loadFailed: "Dette steget kunne ikke hentes.",
+    },
   },
 
   /** Links between pages (Story 3.3). Each names where it goes. */

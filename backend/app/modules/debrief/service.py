@@ -1,10 +1,17 @@
-"""What other modules and the routes use of `debrief` (Story 9.2).
+"""What other modules and the routes use of `debrief` (Stories 9.2, 9.3).
 
 - `open_mine(user, class_session_id)`: the Student's Debrief, opened on first use; raises
   `NotAvailable` with the code the route answers (`debrief_not_open`, `debrief_held`), and None
   for every case the route answers `forbidden` (FR-5).
 - `mine(user, debrief_id)`: the same read by the Debrief's id.
 - `due_releases(now)` / `release_due(id, now)`: the sweep's Debrief release (AD-9).
+- Step 1 (Story 9.3): `own_net_inventory`, `own_explanation`, `save_mine` (raises
+  `InvalidExplanation`, `commands.ExplanationExists`).
+- `require_explanation(user_id, class_session_id)`: the one gate every Debrief read after step 1
+  goes through (raises `ExplanationRequired`, 403 `explanation_required`, FR-41, FR-43);
+  `step(user, debrief_id, n)` is the step endpoint behind it.
+- `staff_explanation(user, class_session_id, student_id)`: the Explanation for the Class's staff
+  (`explanations.read`, AD-12); None for everyone else.
 """
 
 import uuid
@@ -14,14 +21,43 @@ from datetime import datetime
 from sqlalchemy import select
 
 from app.modules.debrief import commands, rules
-from app.modules.debrief.models import debrief_releases, debrief_sessions
-from app.modules.debrief.schemas import DebriefOut
+from app.modules.debrief.models import (
+    EXPLANATION_MAX,
+    debrief_explanations,
+    debrief_releases,
+    debrief_sessions,
+)
+from app.modules.debrief.schemas import (
+    DebriefOut,
+    DebriefStepOut,
+    ExplanationOut,
+    MyExplanationOut,
+    NetInventoryOut,
+    NetWeekOut,
+)
 from app.modules.games import service as games
+from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
 from app.platform import authz
 from app.platform.db import get_sessionmaker
 
-__all__ = ["NotAvailable", "due_releases", "mine", "open_mine", "release_due"]
+__all__ = [
+    "ExplanationRequired",
+    "InvalidExplanation",
+    "NoExplanation",
+    "NotAvailable",
+    "due_releases",
+    "judge_explanation",
+    "mine",
+    "open_mine",
+    "own_explanation",
+    "own_net_inventory",
+    "release_due",
+    "require_explanation",
+    "save_mine",
+    "staff_explanation",
+    "step",
+]
 
 
 class NotAvailable(Exception):
@@ -31,6 +67,23 @@ class NotAvailable(Exception):
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
+
+
+class ExplanationRequired(Exception):
+    """A read after step 1 without the Student's saved Explanation (403 `explanation_required`,
+    FR-41): checked here, in the api, never only in the web app."""
+
+
+class InvalidExplanation(Exception):
+    """An Explanation that may not be stored: `blank` (white space only) or `too_long`."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+class NoExplanation(Exception):
+    """The Student has not sent an Explanation in the Class session (404 `not_found`)."""
 
 
 def _open_or_raise(found: rules.Availability) -> None:
@@ -62,9 +115,11 @@ async def open_mine(user: authz.Principal, class_session_id: uuid.UUID) -> Debri
     return _out(row, found.game)
 
 
-async def mine(user: authz.Principal, debrief_id: uuid.UUID) -> DebriefOut | None:
-    """The Debrief session `debrief_id` when it is the one of the Student's own game, under the
-    same availability rule; None for any other id alike."""
+async def _own(
+    user: authz.Principal, debrief_id: uuid.UUID
+) -> tuple[commands.DebriefRow, games.StudentGame] | None:
+    """The Debrief session `debrief_id` with the Student's game when it is the one of their own
+    game; None for any other id alike. Raises `NotAvailable` while it is not open."""
     async with get_sessionmaker()() as s:
         row = (
             (await s.execute(select(debrief_sessions).where(debrief_sessions.c.id == debrief_id)))
@@ -79,7 +134,113 @@ async def mine(user: authz.Principal, debrief_id: uuid.UUID) -> DebriefOut | Non
     if found is None or found.game.game_id != row["game_id"]:
         return None
     _open_or_raise(found)
-    return _out(commands.row_of(row), found.game)
+    return commands.row_of(row), found.game
+
+
+async def mine(user: authz.Principal, debrief_id: uuid.UUID) -> DebriefOut | None:
+    """The Debrief session `debrief_id` when it is the one of the Student's own game, under the
+    same availability rule; None for any other id alike."""
+    found = await _own(user, debrief_id)
+    return _out(*found) if found else None
+
+
+async def own_net_inventory(user: authz.Principal, debrief_id: uuid.UUID) -> NetInventoryOut | None:
+    """«Ditt netto lager, hele spillet» (Story 9.3): the Netto lager of the Student's own Seat in
+    every Uke of the Decision log, as the Seat saw it when ordering. Only rows of the Student's
+    own Role go into the answer: no demand, no other Seat (FR-14). Not gated by the Explanation,
+    nor is the number of Uker: the finished game has shown them all."""
+    found = await _own(user, debrief_id)
+    if found is None:
+        return None
+    row, game = found
+    logged = await games.decision_log(str(row.game_id))
+    own = sorted((e for e in logged if str(e.role) == str(game.role)), key=lambda e: e.week)
+    return NetInventoryOut(
+        weeks=[NetWeekOut(week=e.week, net_inventory=e.state_seen.net_inventory) for e in own]
+    )
+
+
+async def _stored(user_id: uuid.UUID, class_session_id: uuid.UUID) -> ExplanationOut | None:
+    async with get_sessionmaker()() as s:
+        row = (
+            (
+                await s.execute(
+                    select(debrief_explanations).where(
+                        debrief_explanations.c.user_id == user_id,
+                        debrief_explanations.c.class_session_id == class_session_id,
+                    )
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+    if row is None:
+        return None
+    return ExplanationOut(text=row["text"], length=row["length"], saved_at=row["saved_at"])
+
+
+async def own_explanation(user: authz.Principal, debrief_id: uuid.UUID) -> MyExplanationOut | None:
+    """The Student's own Explanation in this Debrief, `explanation` None before it is sent.
+    Keyed by the caller: no Student reads another's (FR-41)."""
+    found = await _own(user, debrief_id)
+    if found is None:
+        return None
+    row, _ = found
+    return MyExplanationOut(explanation=await _stored(user.id, row.class_session_id))
+
+
+def judge_explanation(text: str) -> None:
+    """Raises `InvalidExplanation` for white space only or more than 5000 characters."""
+    if not text.strip():
+        raise InvalidExplanation("blank")
+    if len(text) > EXPLANATION_MAX:
+        raise InvalidExplanation("too_long")
+
+
+async def save_mine(
+    user: authz.Principal, debrief_id: uuid.UUID, text: str
+) -> ExplanationOut | None:
+    """«Send Forklaring»: `debrief.commands.save_explanation` for the Student's own Debrief.
+    Raises `NotAvailable`, `InvalidExplanation` or `commands.ExplanationExists`."""
+    found = await _own(user, debrief_id)
+    if found is None:
+        return None
+    row, _ = found
+    judge_explanation(text)
+    saved = await commands.save_explanation(row.game_id, row.class_session_id, user.id, text)
+    return ExplanationOut(text=saved.text, length=saved.length, saved_at=saved.saved_at)
+
+
+async def require_explanation(user_id: uuid.UUID, class_session_id: uuid.UUID) -> None:
+    """The gate (FR-41, FR-43, AD-21): every Debrief read after step 1 (the steps, the demand
+    series, another Seat's Orders, inventory or backlog) calls this first. Raises
+    `ExplanationRequired` until the Student's Explanation is saved."""
+    if not await progress.has_step(user_id, class_session_id, progress.Step.EXPLANATION):
+        raise ExplanationRequired
+
+
+async def step(user: authz.Principal, debrief_id: uuid.UUID, number: int) -> DebriefStepOut | None:
+    """A step after step 1, behind the gate. Raises `NotAvailable` or `ExplanationRequired`."""
+    found = await _own(user, debrief_id)
+    if found is None:
+        return None
+    row, _ = found
+    await require_explanation(user.id, row.class_session_id)
+    return DebriefStepOut(debrief_id=row.id, step=number)
+
+
+async def staff_explanation(
+    user: authz.Principal, class_session_id: uuid.UUID, student_id: uuid.UUID
+) -> ExplanationOut | None:
+    """A Student's Explanation for the staff of the Class (`explanations.read`: its owners and
+    Assistant lecturers, AD-12); None for every other caller alike (FR-5). Raises
+    `NoExplanation` when the Student has not sent one."""
+    if not await sessions.class_staff_may(user, class_session_id, "explanations.read"):
+        return None
+    found = await _stored(student_id, class_session_id)
+    if found is None:
+        raise NoExplanation
+    return found
 
 
 async def due_releases(now: datetime) -> Sequence[str]:

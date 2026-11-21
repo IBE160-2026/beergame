@@ -8,6 +8,7 @@ import { ChainBand } from "./chain-band";
 import { CostArea, endPlaces } from "./cost-area";
 import { CostBars } from "./cost-bars";
 import { NetGraph, type NetPoint } from "./net-graph";
+import { NetOverGame, weekLabels } from "./net-over-game";
 import { costAxisTop, netDomain, netTicks, spreadLabels, totalAxisTop } from "./scales";
 
 describe("the Kost per uke axis (Issue #126)", () => {
@@ -285,5 +286,42 @@ describe("Kjedens kostnad over tid's end labels (Story 6.18)", () => {
       expect(backorder).toBeGreaterThanOrEqual(13 * 0.6);
       expect(holding).toBeLessThanOrEqual(100 - 13 * 0.6);
     }
+  });
+});
+
+describe("Ditt netto lager, hele spillet (Story 9.3)", () => {
+  const points = Array.from({ length: 36 }, (_, i) => ({ week: i + 1, net: i < 10 ? 12 : i < 24 ? -30 + i : 8 }));
+  const props = {
+    width: 300,
+    height: 143,
+    fontSize: 13,
+    points,
+    title: "Netto lager",
+    formatTick: (value: number) => String(value),
+    weekLabel: (week: number) => `Uke ${week}`,
+  };
+
+  it("draws the one Seat's line over a true zero, hidden from screen readers with a title", () => {
+    const html = renderToStaticMarkup(<NetOverGame {...props} />);
+    expect(html).toContain('aria-hidden="true"');
+    expect(html).toContain("<title>Netto lager</title>");
+    expect(html).toContain(`data-weeks="${points.map((p) => p.week).join(" ")}"`);
+    expect(html).toContain(">0</text>");
+    expect(html).toContain(">-20</text>");
+  });
+
+  it("labels the first and last Uke, and every twelfth between with room", () => {
+    const x = (week: number) => (week - 1) * 10;
+    expect(weekLabels(points, x, 13)).toEqual([1, 12, 24, 36]);
+    // Narrow: no room for the twelfths, only the ends.
+    expect(weekLabels(points, (week) => (week - 1) * 4, 13)).toEqual([1, 36]);
+    expect(weekLabels([{ week: 1, net: 0 }], x, 13)).toEqual([1]);
+    expect(weekLabels([], x, 13)).toEqual([]);
+  });
+
+  it("draws a game of one Uke as a dot", () => {
+    const html = renderToStaticMarkup(<NetOverGame {...props} points={[{ week: 1, net: -4 }]} />);
+    expect(html).toContain("<circle");
+    expect(html).toContain(">Uke 1</text>");
   });
 });

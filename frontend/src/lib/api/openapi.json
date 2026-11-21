@@ -1658,6 +1658,26 @@
         "title": "DebriefRelease",
         "type": "string"
       },
+      "DebriefStepOut": {
+        "description": "A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Its\ncontent comes with Stories 9.4 to 9.9; until then the step number only.",
+        "properties": {
+          "debrief_id": {
+            "format": "uuid",
+            "title": "Debrief Id",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "debrief_id",
+          "step"
+        ],
+        "title": "DebriefStepOut",
+        "type": "object"
+      },
       "DemandFixed": {
         "additionalProperties": false,
         "description": "A fixed series: `values[w - 1]` is the demand in Week w.",
@@ -2071,6 +2091,45 @@
           "error"
         ],
         "title": "ErrorEnvelope",
+        "type": "object"
+      },
+      "ExplanationIn": {
+        "description": "«Send Forklaring»: the text as typed. It must hold more than white space and at most\n5000 characters (422 `validation_error`).",
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ExplanationIn",
+        "type": "object"
+      },
+      "ExplanationOut": {
+        "description": "A stored Explanation (FR-41, AD-14): the text as typed, its length in characters and when\nit was saved. Never changed after it is stored.",
+        "properties": {
+          "length": {
+            "title": "Length",
+            "type": "integer"
+          },
+          "saved_at": {
+            "format": "date-time",
+            "title": "Saved At",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "length",
+          "saved_at"
+        ],
+        "title": "ExplanationOut",
         "type": "object"
       },
       "FinalIn": {
@@ -2994,6 +3053,26 @@
         "title": "ManualRegistrationIn",
         "type": "object"
       },
+      "MyExplanationOut": {
+        "description": "The Student's own Explanation in this Debrief, or None before it is sent.",
+        "properties": {
+          "explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExplanationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "explanation"
+        ],
+        "title": "MyExplanationOut",
+        "type": "object"
+      },
       "NeighbourNumber": {
         "additionalProperties": false,
         "description": "One number about a neighbouring Seat, labelled with its Role and the Week it refers to.",
@@ -3027,6 +3106,42 @@
           "value"
         ],
         "title": "NeighbourNumber",
+        "type": "object"
+      },
+      "NetInventoryOut": {
+        "description": "«Ditt netto lager, hele spillet» (Story 9.3, step 1): the Student's own Seat only, every\nlogged Uke, oldest first. No demand and no other Seat (FR-14, FR-41).",
+        "properties": {
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/NetWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "weeks"
+        ],
+        "title": "NetInventoryOut",
+        "type": "object"
+      },
+      "NetWeekOut": {
+        "description": "One Uke of the Student's own Netto lager (Story 9.3): inventory minus backlog as their\nSeat saw it when ordering that Uke (the Decision log's `state_seen`).",
+        "properties": {
+          "net_inventory": {
+            "title": "Net Inventory",
+            "type": "integer"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "net_inventory"
+        ],
+        "title": "NetWeekOut",
         "type": "object"
       },
       "NewPasswordIn": {
@@ -8211,6 +8326,88 @@
         ]
       }
     },
+    "/api/class-sessions/{session_id}/students/{student_id}/explanation": {
+      "get": {
+        "description": "A Student's Explanation for the Class's owners and Assistant lecturers (AD-12). 404\n`not_found` when the Student has not sent one; 403 `forbidden` for every other caller.",
+        "operationId": "getStudentExplanation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "student_id",
+            "required": true,
+            "schema": {
+              "title": "Student Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExplanationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Student Explanation",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
     "/api/class-sessions/{session_id}/test-game": {
       "post": {
         "description": "«Start testspill» (Story 6.20, FR-87): the Lecturer plays a private test Game on the Class\nsession's current settings, in the chosen Role against three AI players; it starts at once.\n404 `not_found` while `FEATURE_LECTURER_TEST_GAME` is off (AD-17); 409 `session_locked` from\nthe Start date, `test_game_running` while their last test Game here runs, `llm_unavailable`;\n422 `unknown_role`; 403 `forbidden` for a session the User may not manage (FR-5).",
@@ -10231,6 +10428,287 @@
           }
         },
         "summary": "Get My Debrief",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/explanation": {
+      "get": {
+        "description": "The Student's own Explanation, `explanation` null before it is sent.",
+        "operationId": "getMyExplanation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyExplanationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Explanation",
+        "tags": [
+          "debrief"
+        ]
+      },
+      "post": {
+        "description": "«Send Forklaring» (FR-41): stores the Explanation once, as typed, and records the\n`explanation` step. 409 `explanation_exists` when it is sent already (unchanged), 422\n`validation_error` for white space only or more than 5000 characters.",
+        "operationId": "sendMyExplanation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplanationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExplanationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Send My Explanation",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/net-inventory": {
+      "get": {
+        "description": "«Ditt netto lager, hele spillet» (Story 9.3, step 1): the Netto lager of the Student's own\nSeat in every Uke, oldest first. Never demand or another Seat (FR-14).",
+        "operationId": "getMyNetInventory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetInventoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Net Inventory",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/steps/{step}": {
+      "get": {
+        "description": "A Debrief step after step 1 (FR-41, FR-43): 403 `explanation_required` until the Student's\nExplanation is saved, checked here and not only in the web app.",
+        "operationId": "getDebriefStep",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "step",
+            "required": true,
+            "schema": {
+              "maximum": 5,
+              "minimum": 2,
+              "title": "Step",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebriefStepOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Debrief Step",
         "tags": [
           "debrief"
         ]

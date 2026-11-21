@@ -1,12 +1,15 @@
-"""The tables owned by `modules/debrief` (Story 9.2, AD-21). Written by `debrief.commands` only."""
+"""The tables owned by `modules/debrief` (Stories 9.2, 9.3, AD-21). Written by `debrief.commands`
+only."""
 
 from sqlalchemy import (
     CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
+    Integer,
     SmallInteger,
     Table,
+    Text,
     UniqueConstraint,
     Uuid,
 )
@@ -48,4 +51,30 @@ debrief_releases = Table(
         primary_key=True,
     ),
     Column("released_at", DateTime(timezone=True), nullable=False),
+)
+
+EXPLANATION_MAX = 5000
+"""The longest Explanation, in characters (Story 9.3)."""
+
+debrief_explanations = Table(
+    "debrief_explanations",
+    metadata,
+    # One Explanation per Student per Class session (FR-41, AD-14), stored once as typed and never
+    # changed (a trigger refuses updates).
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("game_id", Uuid, ForeignKey("games.id", ondelete="CASCADE"), nullable=False),
+    Column("text", Text, nullable=False),
+    # Characters, as typed.
+    Column("length", Integer, nullable=False),
+    Column("saved_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        f"length = char_length(text) AND length BETWEEN 1 AND {EXPLANATION_MAX}",
+        name="ck_debrief_explanations_length",
+    ),
 )

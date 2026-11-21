@@ -101,6 +101,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A held Class session's Debriefs released by the sweep (Story 9.2, AD-9): each seated
         # Student's `debrief_released` notice emits `user`, so Hjem updates without reload.
         "debrief.release": frozenset({"user"}),
+        # An Explanation sent (Story 9.3, FR-41, AD-16): the Debrief row locked; the
+        # `explanation` step recorded in the same transaction emits `user` and `session`.
+        "debrief.save_explanation": frozenset({"debrief", "session", "user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

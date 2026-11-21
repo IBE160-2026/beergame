@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 import app.ai.models  # noqa: F401  (registers the model config and budget tables)
 import app.modules.classes.models  # noqa: F401  (classes, class_staff)
 import app.modules.content.models  # noqa: F401  (content_records)
-import app.modules.debrief.models  # noqa: F401  (debrief_sessions, debrief_releases)
+import app.modules.debrief.models  # noqa: F401  (debrief_sessions, _releases, _explanations)
 import app.modules.games.models  # noqa: F401  (registers the games tables on the metadata)
 import app.modules.identity.models  # noqa: F401  (users, user_roles)
 import app.modules.messaging.models  # noqa: F401  (mail_deliveries)

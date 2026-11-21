@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { nb } from "@/copy/nb";
 import { DEBRIEF_PATH } from "@/modules/identity/homes";
 
-import { type Debrief, debriefView } from "./api";
+import { type Debrief, debriefView, explanationDraftField, hasText } from "./api";
 
 const copy = nb.debriefEntry;
 
@@ -37,5 +37,33 @@ describe("the Debrief page's state (Story 9.2)", () => {
     for (const line of [copy.notOpen, copy.held, nb.games.play.end.held]) {
       expect(line).not.toMatch(/\d|!/);
     }
+  });
+});
+
+describe("the Explanation (Story 9.3)", () => {
+  const words = copy.explanation;
+
+  it("may be sent only with more than white space", () => {
+    expect(hasText("")).toBe(false);
+    expect(hasText("  \n\t ")).toBe(false);
+    expect(hasText(" Lageret svingte. ")).toBe(true);
+  });
+
+  it("keeps its draft per Class session", () => {
+    expect(explanationDraftField("s1")).not.toBe(explanationDraftField("s2"));
+  });
+
+  it("uses the spine's words and says nothing of customers or demand before the reveal", () => {
+    expect([words.netTitle, words.prompt, words.send, words.showTable, words.failed]).toEqual([
+      "Ditt netto lager, hele spillet",
+      "Hvorfor svingte lageret ditt?",
+      "Send Forklaring",
+      "Vis som tabell",
+      "Det ble ikke lagret. Prøv igjen.",
+    ]);
+    const all = Object.values(words)
+      .map((value) => (typeof value === "function" ? value(1) : value))
+      .join(" ");
+    expect(all).not.toMatch(/kunde|etterspørsel|!/i);
   });
 });

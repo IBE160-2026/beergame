@@ -24,3 +24,23 @@ The Debrief (Epic 9, FR-41 to FR-47, AD-21). Never imports `modules/players`
   `debrief_held` or `forbidden` with the error envelope only (FR-14, FR-5).
 - The `debrief:` topic is emitted but not yet forwarded by the event stream: Story 9.11 decides
   who is joined to a Debrief session.
+
+## The Explanation before the reveal (Story 9.3, FR-41, AD-14, AD-16)
+
+- `debrief_explanations` holds one Explanation per Student per Class session (key `user_id`,
+  `class_session_id`), stored as typed with its length in characters and the database time, and
+  never changed (a trigger refuses updates). `commands.save_explanation` locks the Debrief row,
+  inserts once (409 `explanation_exists` otherwise) and records `progress` `explanation` in the same
+  transaction; registry `debrief.save_explanation` → `debrief`, `session`, `user`.
+- Step 1 reads (`debriefs.own`, after the 9.2 availability and ownership rule):
+  `GET /api/debriefs/{id}/net-inventory` (`getMyNetInventory`) gives the Student's own Seat's
+  Netto lager per logged Uke from `games.service.decision_log` (`state_seen.net_inventory` of
+  their own Role only); `GET`/`POST /api/debriefs/{id}/explanation` (`getMyExplanation`,
+  `sendMyExplanation`; 422 `validation_error` for white space only or over 5000 characters).
+- The gate: `service.require_explanation(user_id, class_session_id)` raises
+  `ExplanationRequired` (403 `explanation_required`) until the `explanation` step is recorded.
+  Every Debrief read after step 1 calls it first; `GET /api/debriefs/{id}/steps/{2..5}`
+  (`getDebriefStep`) is the step endpoint later stories fill.
+- Staff read: `GET /api/class-sessions/{id}/students/{user_id}/explanation`
+  (`getStudentExplanation`, policy `explanations.read`: the Class's owners and Assistant lecturers
+  through `sessions.service.class_staff_may`); 404 `not_found` when none is sent.

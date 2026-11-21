@@ -44,3 +44,49 @@ export function debriefView(data: Debrief | undefined, code: string | null): Deb
   if (code === "forbidden") return "denied";
   return "other";
 }
+
+/** The Student's own Netto lager per Uke (Story 9.3, step 1). */
+export type NetInventory = components["schemas"]["NetInventoryOut"];
+/** A sent Explanation: the text as typed, its length and when it was saved. */
+export type Explanation = components["schemas"]["ExplanationOut"];
+
+export const netInventoryKey = (debriefId: string) => [...debriefsKey, debriefId, "net-inventory"] as const;
+export const explanationKey = (debriefId: string) => [...debriefsKey, debriefId, "explanation"] as const;
+
+/** «Ditt netto lager, hele spillet»: the Student's own Seat only, every Uke (no demand). */
+export function useNetInventory(debriefId: string) {
+  return useQuery({
+    queryKey: netInventoryKey(debriefId),
+    queryFn: () =>
+      request(() => api.GET("/api/debriefs/{debrief_id}/net-inventory", { params: { path: { debrief_id: debriefId } } })),
+    retry: false,
+  });
+}
+
+/** The Student's own Explanation, `explanation` null before it is sent. */
+export function useMyExplanation(debriefId: string) {
+  return useQuery({
+    queryKey: explanationKey(debriefId),
+    queryFn: () =>
+      request(() => api.GET("/api/debriefs/{debrief_id}/explanation", { params: { path: { debrief_id: debriefId } } })),
+    retry: false,
+  });
+}
+
+/** «Send Forklaring»: stores the Explanation once (FR-41). Nothing here sends on its own. */
+export function sendExplanation(debriefId: string, text: string): Promise<Explanation> {
+  return request(() =>
+    api.POST("/api/debriefs/{debrief_id}/explanation", {
+      params: { path: { debrief_id: debriefId } },
+      body: { text },
+    }),
+  );
+}
+
+/** The draft field of the Explanation in a Class session (`lib/drafts.ts`). */
+export const explanationDraftField = (classSessionId: string) => `debrief-explanation:${classSessionId}`;
+
+/** Whether typed text may be sent: more than white space (the api refuses the rest). */
+export function hasText(text: string): boolean {
+  return text.trim() !== "";
+}
