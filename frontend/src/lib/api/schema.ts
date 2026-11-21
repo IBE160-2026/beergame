@@ -3125,8 +3125,12 @@ export interface components {
             marks: components["schemas"]["SeatMark"][];
             /** Name */
             name: string | null;
+            /** Opened At */
+            opened_at: string | null;
             /** Order */
             order: number | null;
+            /** Ordered At */
+            ordered_at: string | null;
             /** Week */
             week: number;
         };

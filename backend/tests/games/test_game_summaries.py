@@ -199,10 +199,15 @@ async def test_the_backfill_gives_the_rows_recompute_gives(games_db):
     execute(games_db, "DELETE FROM game_summaries")
     ids = ", ".join(f"'{game_id}'" for game_id in games)
     execute(games_db, _backfill_sql().format(where=f"WHERE g.id IN ({ids})"))
+    # The Class game's absent Student is due for Takeover (Story 8.1); the others have no clock.
+    assert before[waiting]["takeover_due_at"] is not None
+    assert {before[g]["takeover_due_at"] for g in games if g != waiting} == {None}
     statuses = {}
     for game_id in games:
         stored, fresh = await stored_and_fresh(game_id)
-        assert _comparable(stored) == _comparable(fresh) == _comparable(before[game_id]), game_id
+        assert _comparable(fresh) == _comparable(before[game_id]), game_id
+        # Revision 0051 predates the due times; 0053 added the column empty, as no turn had one.
+        assert _comparable(stored) == {**_comparable(fresh), "takeover_due_at": None}, game_id
         statuses[game_id] = stored["status"]
     assert statuses == {
         finished: "finished",

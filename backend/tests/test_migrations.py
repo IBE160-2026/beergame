@@ -84,7 +84,7 @@ HEAD_TABLES = (
     | SUMMARY_TABLES
     | MESSAGE_TABLES
 )
-HEAD = "0052"  # 0052 adds the staff's Messages (Story 7.9)
+HEAD = "0053"  # 0053 adds the turns' FR-36 due times (Story 8.1)
 
 
 def reset_schema(url: str) -> None:

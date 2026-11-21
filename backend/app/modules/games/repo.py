@@ -481,12 +481,24 @@ async def set_viewed_at(session: AsyncSession, turn_id: uuid.UUID) -> Any:
     return result.scalar_one()
 
 
-async def set_wait_started_at(session: AsyncSession, turn_id: uuid.UUID, at: Any) -> None:
-    """Store when the game began to wait for the turn's Seat (Story 6.14), only while unset."""
+async def set_wait_times(
+    session: AsyncSession,
+    turn_id: uuid.UUID,
+    *,
+    wait_started_at: Any,
+    takeover_due_at: Any,
+    insert_allowed_at: Any,
+) -> None:
+    """Store when the game began to wait for the turn's Seat (Story 6.14) and its FR-36 due times
+    (Story 8.1), all from one `rules.turn_times` result, only while the wait start is unset."""
     await session.execute(
         update(seat_turns)
         .where(seat_turns.c.id == turn_id, seat_turns.c.wait_started_at.is_(None))
-        .values(wait_started_at=at)
+        .values(
+            wait_started_at=wait_started_at,
+            takeover_due_at=takeover_due_at,
+            insert_allowed_at=insert_allowed_at,
+        )
     )
 
 
@@ -583,6 +595,24 @@ async def placed_orders(session: AsyncSession, game_id: uuid.UUID) -> list[RowMa
         .select_from(seat_weeks.join(seats, seats.c.id == seat_weeks.c.seat_id))
         .where(seat_weeks.c.game_id == game_id)
         .order_by(seat_weeks.c.week, seats.c.position)
+    )
+    return list(result.mappings())
+
+
+async def turn_clock(session: AsyncSession, game_id: uuid.UUID) -> list[RowMapping]:
+    """When each opened Week opened for each Seat, when its Order was placed and when a Student
+    viewed it (Story 8.1, FR-35), with the Seat's Role, by Week and chain order."""
+    result = await session.execute(
+        select(
+            seat_turns.c.week,
+            seats.c.role,
+            seat_turns.c.opened_at,
+            seat_turns.c.ordered_at,
+            seat_turns.c.viewed_at,
+        )
+        .select_from(seat_turns.join(seats, seats.c.id == seat_turns.c.seat_id))
+        .where(seat_turns.c.game_id == game_id)
+        .order_by(seat_turns.c.week, seats.c.position)
     )
     return list(result.mappings())
 

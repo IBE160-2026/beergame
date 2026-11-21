@@ -531,9 +531,10 @@ class PlayOut(BaseModel):
     """The database clock when the envelope was read, the clock every stored time is on (AD-20):
     durations are counted from it, never from the browser's clock."""
     next_change_at: AwareDatetime | None
-    """The nearest time at which the envelope changes by time alone (Story 6.14): the earliest
-    stored AI deadline of a Seat that has not ordered, while it lies after `server_now`; None
-    while nothing is due. The web app reads the envelope again then."""
+    """The nearest time at which the envelope changes by time alone (Stories 6.14, 8.1): the
+    earliest stored AI deadline, Takeover due time or insert time of a Seat that has not ordered,
+    while it lies after `server_now`; None while nothing is due. The web app reads the envelope
+    again then."""
 
 
 StegeneStep = Literal["class_game", "debrief", "quiz", "replay", "test", "report"]
@@ -878,8 +879,9 @@ class ClassOverviewOut(BaseModel):
     allocation only, with no Week and no cost."""
     start_at: AwareDatetime | None
     next_change_at: AwareDatetime | None
-    """When the Oversikt changes by time alone (AD-8): the Start date while it has not passed, so
-    the page reads again then; None otherwise."""
+    """When the Oversikt changes by time alone (AD-8): the Start date while it has not passed;
+    after it the nearest stored Takeover due time of a waiting Class game that lies after
+    `server_now` (Story 8.1); None otherwise. The page reads again then."""
     ai: OverviewAiOut
     cost: ClassCostOut | None
     """None before the Start date and while no Class game has finished."""
@@ -964,6 +966,11 @@ class InsightWeekOut(BaseModel):
     marks: list[SeatMark]
     """The seat mark in the Week its occupancy began (a Takeover, a switch), then the Order's
     (a fallback); from `games.service.seat_mark` only."""
+    opened_at: AwareDatetime | None
+    """When the Week opened for the Seat (Story 8.1, FR-35), as stored."""
+    ordered_at: AwareDatetime | None
+    """When the Seat ordered, as stored: its Order's time, or in a Guided Week the time its
+    Student opened the Week (FR-24); None while it has not ordered."""
 
 
 class InsightRoleOut(BaseModel):

@@ -26,7 +26,8 @@ async def recompute(
 ) -> dict[str, Any]:
     """The `game_summaries` values of `game` (a `games` row) from the game tables as they stand
     in `session`: who holds each Seat, the status, whom the Game waits for and since when, the
-    Week and the chain Total cost. `version` is the Game's version, the row's own by default."""
+    Week and the chain Total cost, and the nearest stored Takeover due time of the Seats it waits
+    for (Story 8.1). `version` is the Game's version, the row's own by default."""
     game_id = game["id"]
     seats = await repo.seats_with_occupant(session, game_id)
     newest = await repo.newest_week(session, game_id)
@@ -37,6 +38,7 @@ async def recompute(
     status = rules.game_status(game, turns)
     waiting_for: list[dict[str, Any]] = []
     since: list[datetime] = []
+    due: list[datetime] = []
     if status is GameStatus.WAITING:
         guided = rules.guided_week(
             policy(str(game["purpose"])),
@@ -54,6 +56,8 @@ async def recompute(
             ):
                 continue
             since.append(turn["wait_started_at"])
+            if turn["takeover_due_at"] is not None:
+                due.append(turn["takeover_due_at"])
             waiting_for.append(
                 {
                     "role": seat["role"],
@@ -69,6 +73,7 @@ async def recompute(
         "status": status.value,
         "week": newest["week"] if started else None,
         "wait_started_at": min(since) if since else None,
+        "takeover_due_at": min(due) if due else None,
         "waiting_for": waiting_for,
         "occupants": [
             {

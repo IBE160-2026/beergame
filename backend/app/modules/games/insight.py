@@ -2,6 +2,8 @@
 Week the stored engine values, the Order from the Decision log, who held the Seat and the marks of
 the one mapping (`marks.seat_mark`). Ids only, never a name (AD-14): the caller resolves names.
 
+Each Week also says when it opened for the Seat and when the Seat ordered (Story 8.1, FR-35).
+
 Read in a fixed number of queries whatever the Game's length. Link providers registered by later
 modules (`register_insight_links`, Epic 9) add links to the Student-held Seats; `games` imports
 none of them."""
@@ -9,14 +11,16 @@ none of them."""
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.engine import GameSettings, WeekState
-from app.modules.games import overview, repo
+from app.modules.games import overview, repo, rules
 from app.modules.games.marks import seat_mark
+from app.modules.games.policy import policy
 from app.modules.games.schemas import GameStatus, OccupantKind, SeatMark
 
 __all__ = [
@@ -92,6 +96,11 @@ class InsightWeek:
     order: int | None
     cost: Decimal
     marks: tuple[SeatMark, ...]
+    opened_at: datetime | None = None
+    """When the Week opened for the Seat (Story 8.1, FR-35); None for a Week with no stored turn."""
+    ordered_at: datetime | None = None
+    """When the Seat ordered (`rules.has_ordered`): its Order's time, or in a Guided Week the time
+    the Student holding it opened the Week (FR-24); None while it has not ordered."""
 
 
 @dataclass(frozen=True)
@@ -130,6 +139,16 @@ def _in_force(history: Sequence[Mapping[str, Any]], week: int) -> Mapping[str, A
     return found
 
 
+def _ordered_at(turn: Mapping[str, Any] | None, kind: object, guided: bool) -> datetime | None:
+    """When the Seat ordered in the turn's Week, by `rules.has_ordered`'s meaning: in a Guided
+    Week a Student-held Seat ordered when its Student opened the Week (FR-24, Story 8.1)."""
+    if turn is None:
+        return None
+    if guided and kind == OccupantKind.STUDENT:
+        return turn["viewed_at"] if turn["ordered_at"] is not None else None
+    return turn["ordered_at"]
+
+
 async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight | None:
     """The Game's insight, or None for no such Game. The caller has checked the User."""
     game = await repo.get_game(session, game_id)
@@ -155,6 +174,10 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
         for state in map(WeekState.model_validate, await repo.week_states(session, game_id))
         if not state.finished
     ]
+    clock = {(row["week"], row["role"]): row for row in await repo.turn_clock(session, game_id)}
+    snapshot = game["settings"]
+    settings = GameSettings.model_validate(snapshot) if snapshot is not None else None
+    game_policy = policy(str(game["purpose"]))
     links: list[InsightLink] = []
     for provider in _providers:
         links.extend(await provider(session, game_id))
@@ -189,6 +212,8 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
                 if kind == OccupantKind.STUDENT
                 else None
             )
+            turn = clock.get((state.week, role))
+            guided = settings is not None and rules.guided_week(game_policy, settings, state.week)
             rows.append(
                 InsightWeek(
                     week=state.week,
@@ -201,6 +226,8 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
                     order=log["order"] if log is not None else None,
                     cost=values.cost,
                     marks=tuple(marks),
+                    opened_at=turn["opened_at"] if turn is not None else None,
+                    ordered_at=_ordered_at(turn, kind, guided),
                 )
             )
         large = next(
@@ -209,14 +236,13 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
         roles.append(InsightRole(role=role, weeks=tuple(rows), first_large_order_week=large))
 
     first = held[0]["role"] if held else None
-    snapshot = game["settings"]
     return GameInsight(
         game_id=game["id"],
         class_session_id=game["class_session_id"],
         game_number=game["game_number"],
         status=status,
         version=game["version"],
-        weeks_total=GameSettings.model_validate(snapshot).weeks if snapshot is not None else None,
+        weeks_total=settings.weeks if settings is not None else None,
         demand=tuple((state.week, state.seat(first).incoming_order) for state in states)
         if first is not None
         else (),

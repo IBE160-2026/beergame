@@ -2340,8 +2340,15 @@ export const nb = {
       backlog: "Restordre",
       order: "Ordre",
       cost: "Kost, kr",
+      /** When the Week opened for the Seat, when its Order came and the time between (Story 8.1,
+       * FR-35). [ASSUMPTION] */
+      opened: "Uke åpnet",
+      ordered: "Bestilt",
+      took: "Tid brukt",
       marks: "Merknad",
     },
+    /** «18. nov. kl. 13:01», Europe/Oslo: when a Week opened or an Order came. [ASSUMPTION] */
+    at: (date: string, time: string) => `${date} kl. ${time}`,
     /** An Order not placed yet in the open Week, as read. */
     noOrder: "ikke lagt inn",
     /** The marks of the one AD-15 mapping, always in text (FR-34). */

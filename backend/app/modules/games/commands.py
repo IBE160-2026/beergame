@@ -1236,6 +1236,10 @@ async def _place(
             "near_optimal_reference_order": turn["near_optimal_reference_order"],
             "near_optimal_algorithm_version": turn["near_optimal_algorithm_version"],
             "llm_call_ids": list(call_ids),
+            # The turn's wait start and FR-36 due times as they stand now (Story 8.1, AD-15).
+            "wait_started_at": turn["wait_started_at"],
+            "takeover_due_at": turn["takeover_due_at"],
+            "insert_allowed_at": turn["insert_allowed_at"],
             # The Effort level the Game froze, on every Order of an LLM player (FR-78).
             "effort_level": (
                 SessionRuntime.model_validate(game["session_runtime"]).effort_level
@@ -1481,7 +1485,9 @@ async def _start_waits(session: AsyncSession, game: Mapping[str, Any], week: int
     """A Student has ordered in `week`, or viewed it as a Guided Week: from now the game waits
     for every Seat that has not ordered (`rules.has_ordered`). Each such turn without a wait
     start gets one, from `rules.turn_times` with this transaction's clock as the clock start
-    (Story 6.14, FR-25, AD-20); one already set stays, so the first Student's moment counts."""
+    (Story 6.14, FR-25, AD-20); one already set stays, so the first Student's moment counts.
+    A Student-held one also gets its FR-36 due times from the Inactivity limit in the Game's
+    `SessionRuntime`, when the Game's policy has inactivity Takeover (Story 8.1, AD-13)."""
     guided = rules.guided_week(
         _policy(game["purpose"]), GameSettings.model_validate(game["settings"]), week
     )
@@ -1493,12 +1499,29 @@ async def _start_waits(session: AsyncSession, game: Mapping[str, Any], week: int
     ]
     if not waiting:
         return
-    inputs = rules.TurnInputs(clock_start=await repo.now(session))
+    inputs = rules.TurnInputs(
+        clock_start=await repo.now(session), inactivity_limit=_inactivity_limit(game)
+    )
     for turn in waiting:
         kind = OccupantKind(turn["occupant_kind"] or OccupantKind.RULE_BASED)
         seat = rules.TurnSeat(occupant_kind=kind, opened_at=turn["opened_at"])
         times = rules.turn_times(rules.TurnGame(guided_week=guided), seat, inputs)
-        await repo.set_wait_started_at(session, turn["id"], times.wait_started_at)
+        await repo.set_wait_times(
+            session,
+            turn["id"],
+            wait_started_at=times.wait_started_at,
+            takeover_due_at=times.takeover_due_at,
+            insert_allowed_at=times.insert_allowed_at,
+        )
+
+
+def _inactivity_limit(game: Mapping[str, Any]) -> timedelta | None:
+    """The Inactivity limit the Game froze (Story 5.11), or None when its policy has no
+    inactivity Takeover (a Replay, a Lecturer's test Game, a simulation, AD-13) or it froze none."""
+    if not _policy(game["purpose"]).inactivity_takeover or game["session_runtime"] is None:
+        return None
+    hours = SessionRuntime.model_validate(game["session_runtime"]).inactivity_limit_hours
+    return None if hours is None else timedelta(hours=hours)
 
 
 async def _unviewed_guided_student(

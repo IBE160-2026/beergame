@@ -2825,6 +2825,18 @@
             ],
             "title": "Name"
           },
+          "opened_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opened At"
+          },
           "order": {
             "anyOf": [
               {
@@ -2835,6 +2847,18 @@
               }
             ],
             "title": "Order"
+          },
+          "ordered_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordered At"
           },
           "week": {
             "title": "Week",
@@ -2851,7 +2875,9 @@
           "backlog",
           "order",
           "cost",
-          "marks"
+          "marks",
+          "opened_at",
+          "ordered_at"
         ],
         "title": "InsightWeekOut",
         "type": "object"

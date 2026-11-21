@@ -577,6 +577,8 @@ class ClassGameSummary:
     """The Student Seats the Game waits for, in chain order."""
     seats: tuple[SummarySeat, ...]
     """Every Seat in chain order with its latest occupant; `occupant_kind` None is free."""
+    takeover_due_at: datetime | None = None
+    """The nearest stored `takeover_due_at` of `waiting_for` (Story 8.1); None without one."""
 
 
 def _user(value: object) -> uuid.UUID | None:
@@ -598,6 +600,7 @@ async def class_overview(
             version=row["version"],
             chain_cost=row["chain_cost"],
             wait_started_at=row["wait_started_at"],
+            takeover_due_at=row["takeover_due_at"],
             waiting_for=tuple(
                 SummaryWait(
                     role=wait["role"],

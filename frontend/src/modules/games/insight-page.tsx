@@ -35,7 +35,8 @@ const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * Spillinnsikt (Story 7.7, charts from Story 7.8; FR-62, FR-34, UX-DR55): one Class game for the staff of its Class — its
  * number, status and four Seats upstream first, each Student Seat with its link slot, and per Role
  * (Detaljist to Fabrikk) a table of every opened Week in its own scrolling region: what came in,
- * inventory, backlog, the Order, the Week's cost, who played it and its marks in words. Every
+ * inventory, backlog, the Order, the Week's cost, when the Week opened and the Order came and the time
+ * between (Story 8.1, FR-35, Europe/Oslo), who played it and its marks in words. Every
  * number is the api's (AD-10). A new Week arrives on the game's `game:<id>` event (AD-8). Anyone
  * but the Class's staff sees the permission-denied page (FR-5).
  */
@@ -238,6 +239,11 @@ function RoleTable({ name, rows }: { name: string; rows: readonly WeekRow[] }) {
                   </th>
                 ),
               )}
+              {[COLUMNS.opened, COLUMNS.ordered, COLUMNS.took].map((header) => (
+                <th key={header} scope="col" className={cn(CELL, HEAD, "text-right")}>
+                  {header}
+                </th>
+              ))}
               <th scope="col" className={cn(CELL, HEAD, "text-left")}>
                 {COLUMNS.marks}
               </th>
@@ -258,6 +264,15 @@ function RoleTable({ name, rows }: { name: string; rows: readonly WeekRow[] }) {
                   {row.order === "" ? <span className="sr-only">{copy.noOrder}</span> : row.order}
                 </td>
                 <td className={cn(CELL, NUMBER)}>{row.cost}</td>
+                <td className={cn(CELL, NUMBER)} data-opened="">
+                  {row.opened}
+                </td>
+                <td className={cn(CELL, NUMBER)} data-ordered="">
+                  {row.ordered === "" ? <span className="sr-only">{copy.noOrder}</span> : row.ordered}
+                </td>
+                <td className={cn(CELL, NUMBER)} data-took="">
+                  {row.took}
+                </td>
                 <td className={cn(CELL, "min-w-[12em] text-left")}>{row.marks}</td>
               </tr>
             ))}

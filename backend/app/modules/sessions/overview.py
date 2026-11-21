@@ -6,6 +6,7 @@ names resolved now (AD-12, AD-14). A fixed number of queries whatever the number
 import hashlib
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -108,7 +109,7 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
         server_now=now,
         before_start=before_start,
         start_at=row["start_at"],
-        next_change_at=row["start_at"] if before_start else None,
+        next_change_at=row["start_at"] if before_start else _next_due(games, now),
         ai=_ai_out(games),
         cost=None if before_start else _cost_out(finished, parts),
         funnel=[FunnelStageOut(stage="registered", count=trakt.registered)]
@@ -118,6 +119,19 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
         class_name=found.name,
         session_number=number,
     )
+
+
+def _next_due(games: list[ClassGameSummary], now: datetime) -> datetime | None:
+    """The nearest stored Takeover due time of a waiting Class game after `now` (Story 8.1,
+    AD-8, AD-20): the Oversikt is read again then. None without one."""
+    due = [
+        g.takeover_due_at
+        for g in games
+        if g.status is GameStatus.WAITING
+        and g.takeover_due_at is not None
+        and g.takeover_due_at > now
+    ]
+    return min(due, default=None)
 
 
 def _alert(games: list[ClassGameSummary], names: dict[uuid.UUID, str]) -> OverviewAlertOut | None:
@@ -352,6 +366,8 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
                         order=week.order,
                         cost=week.cost,
                         marks=list(week.marks),
+                        opened_at=week.opened_at,
+                        ordered_at=week.ordered_at,
                     )
                     for week in each.weeks
                 ],

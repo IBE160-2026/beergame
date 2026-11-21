@@ -14,6 +14,8 @@ import { liveClassGame, orderByApi } from "./support/live-game";
 const copy = nb.insight;
 const ROLES = [nb.terms.retailer, nb.terms.wholesaler, nb.terms.distributor, nb.terms.factory];
 const charts = copy.charts;
+/** «18. nov. kl. 13:01»: a stored time as Spillinnsikt prints it (Story 8.1). */
+const OSLO_TIME = /^\d{1,2}\. \p{L}+\.? kl\. \d{2}:\d{2}$/u;
 
 /** Story 7.8: both charts above the per-Role tables, Fabrikk at the top, every number the api's,
  * and «Vis som tabell» swapping each for its table and back with focus kept on the button. */
@@ -111,6 +113,10 @@ test("Spillinnsikt opens from the wall and the table, shows every Week as stored
       await expect(cells.nth(3)).toHaveText(String(week.inventory));
       await expect(cells.nth(4)).toHaveText(String(week.backlog));
       await expect(cells.nth(4 + 1)).toHaveText(week.order === null ? copy.noOrder : String(week.order));
+      // When the Week opened and the Order came, in Oslo time, and the time between (Story 8.1).
+      await expect(rows.nth(i).locator("[data-opened]")).toHaveText(OSLO_TIME);
+      await expect(rows.nth(i).locator("[data-ordered]")).toHaveText(week.ordered_at === null ? copy.noOrder : OSLO_TIME);
+      await expect(rows.nth(i).locator("[data-took]")).toHaveText(week.ordered_at === null ? "" : /\S/);
     }
   }
   await expectCharts(page, answer);

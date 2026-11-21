@@ -7,6 +7,7 @@ import { nb } from "@/copy/nb";
 import type { GameInsight, InsightWeek, SeatMark } from "./api";
 import {
   chartWeeks,
+  clockText,
   CUSTOMERS,
   hasWeeks,
   holderText,
@@ -36,6 +37,8 @@ const week = (n: number, extra: Partial<InsightWeek> = {}): InsightWeek => ({
   order: 5,
   cost: "6.0000",
   marks: [],
+  opened_at: null,
+  ordered_at: null,
   ...extra,
 });
 
@@ -105,8 +108,29 @@ describe("Spillinnsikt's words (Story 7.7)", () => {
       backlog: "0",
       order: "",
       cost: "6,50",
+      opened: "",
+      ordered: "",
+      took: "",
       marks: "",
     });
+  });
+
+  it("shows when the Week opened and the Order came in Oslo time, and the time between (Story 8.1)", () => {
+    // 12:58 UTC is 13:58 in Oslo in November; 2 h 10 min later the Order came.
+    const row = weekRow(week(5, { opened_at: "2026-11-18T12:58:00Z", ordered_at: "2026-11-18T15:08:30Z" }));
+    expect([row.opened, row.ordered, row.took]).toEqual([
+      copy.at("18. nov.", "13:58"),
+      copy.at("18. nov.", "16:08"),
+      nb.homes.student.duration.hours(2),
+    ]);
+    // Across midnight in Oslo, and in summer time (UTC+2).
+    expect(clockText("2026-06-30T22:30:00Z")).toBe(copy.at("1. jul.", "00:30"));
+    // An Order within the minute, and one not placed yet.
+    expect(weekRow(week(6, { opened_at: "2026-11-18T12:58:00Z", ordered_at: "2026-11-18T12:58:01Z" })).took).toBe(
+      nb.homes.student.duration.underMinute,
+    );
+    const open = weekRow(week(7, { opened_at: "2026-11-18T12:58:00Z", ordered_at: null, order: null }));
+    expect([open.ordered, open.took]).toEqual(["", ""]);
   });
 
   it("keeps the Roles in chain order and knows a game with no Week", () => {

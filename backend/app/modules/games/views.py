@@ -6,6 +6,7 @@ the Decision log read the `SeatState` it returns and nothing else about the Game
 
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import RowMapping
@@ -302,7 +303,8 @@ async def table_status(
 
     While the Game runs, each Seat also says whether it has ordered in the open Week
     (`rules.has_ordered`), the stored wait start of a Seat that has not, and its mark
-    (`marks.seat_mark`); and the stored AI deadlines still open (Story 6.14, AD-20).
+    (`marks.seat_mark`); and the stored due times still open: AI deadlines (Story 6.14), Takeover
+    due times and insert times (Story 8.1, AD-20).
     Nothing here computes a wait."""
     rows = await repo.seats_with_occupant(session, game_id)
     held = {row["role"]: row["user_id"] for row in rows}
@@ -334,11 +336,21 @@ async def table_status(
             )
         )
     due = sorted(
-        turn["ai_deadline_at"]
+        at
         for turn in turns.values()
-        if turn["ai_deadline_at"] is not None and not rules.has_ordered(turn, guided=guided)
+        if not rules.has_ordered(turn, guided=guided)
+        for at in _due_times_of(turn)
+        if at is not None
     )
     return TableStatus(seats=tuple(seats), due_times=tuple(due))
+
+
+def _due_times_of(turn: RowMapping) -> tuple[datetime | None, ...]:
+    """A turn's stored due times that still apply: its AI deadline, and its FR-36 due times
+    while a Student holds the Seat (Story 8.1)."""
+    if turn["occupant_kind"] != OccupantKind.STUDENT:
+        return (turn["ai_deadline_at"],)
+    return (turn["ai_deadline_at"], turn["takeover_due_at"], turn["insert_allowed_at"])
 
 
 async def _open_turns(

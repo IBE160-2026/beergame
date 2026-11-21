@@ -170,9 +170,18 @@ async def test_next_change_at_is_the_nearest_ai_deadline_still_to_come(klass):
     )
     body = (await play(by_role[second], game_id)).json()
     assert datetime.fromisoformat(body["next_change_at"]) == ahead
-    # Once that Seat has ordered, the later one is next; once it has too, nothing is due ahead.
+    # Once that Seat has ordered, the later one is next; once it has too, only the Takeover due
+    # time the first Order gave the last Student's Seat is ahead (Story 8.1).
     assert (await order(by_role[first], game_id, week, {"order": 4})).status_code == 204
     later = (await play(by_role[second], game_id)).json()["next_change_at"]
     assert datetime.fromisoformat(later) > ahead
     assert (await order(by_role[third], game_id, week, {"order": 4})).status_code == 204
-    assert (await play(by_role[second], game_id)).json()["next_change_at"] is None
+    [(due,)] = query(
+        TEST_DATABASE_URL,
+        "SELECT t.takeover_due_at FROM seat_turns t JOIN seats s ON s.id = t.seat_id "
+        "WHERE t.game_id = %s AND t.week = %s AND s.role = %s",
+        (game_id, week, second),
+    )
+    assert due is not None
+    last = (await play(by_role[second], game_id)).json()["next_change_at"]
+    assert datetime.fromisoformat(last) == due

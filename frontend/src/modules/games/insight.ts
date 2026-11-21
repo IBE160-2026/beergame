@@ -5,8 +5,10 @@ import { formatNumber } from "@/lib/number-format";
 import { roleName } from "@/modules/sessions/sessions";
 
 import type { GameInsight, InsightRole, InsightSeat, InsightWeek, SeatMark } from "./api";
+import { waitDuration } from "./seat-status";
 
 const copy = nb.insight;
+const MONTHS = nb.admin.users.invitations.months;
 
 /** Every mark of the one AD-15 mapping in words; a mark the api adds later fails the typecheck. */
 const MARKS: Record<SeatMark, string> = copy.marks;
@@ -47,8 +49,34 @@ export type WeekRow = {
   /** Empty while the Order has not been placed. */
   order: string;
   cost: string;
+  /** When the Week opened for the Seat and when its Order came (Story 8.1, FR-35), in
+   * Europe/Oslo; empty when not stored. */
+  opened: string;
+  ordered: string;
+  /** The time between the two stored times; empty while the Seat has not ordered. */
+  took: string;
   marks: string;
 };
+
+/** «18. nov. kl. 13:01» in Europe/Oslo, from a stored time. */
+export function clockText(iso: string): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: "Europe/Oslo",
+  }).formatToParts(new Date(iso));
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return copy.at(`${Number(part("day"))}. ${MONTHS[Number(part("month")) - 1]}`, `${part("hour")}:${part("minute")}`);
+}
+
+/** How long the Seat took from the Week's opening to its Order: the two stored times' difference. */
+function tookText(week: Pick<InsightWeek, "opened_at" | "ordered_at">): string {
+  if (!week.opened_at || !week.ordered_at) return "";
+  return waitDuration(Math.max(0, Date.parse(week.ordered_at) - Date.parse(week.opened_at)));
+}
 
 export function weekRow(week: InsightWeek): WeekRow {
   return {
@@ -60,6 +88,9 @@ export function weekRow(week: InsightWeek): WeekRow {
     backlog: formatNumber(week.backlog),
     order: week.order == null ? "" : formatNumber(week.order),
     cost: formatNumber(week.cost, { decimals: 2 }),
+    opened: week.opened_at ? clockText(week.opened_at) : "",
+    ordered: week.ordered_at ? clockText(week.ordered_at) : "",
+    took: tookText(week),
     marks: markText(week.marks),
   };
 }

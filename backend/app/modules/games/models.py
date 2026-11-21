@@ -182,6 +182,13 @@ seat_turns = Table(
     # `games.commands` when the first Student orders (or views a Guided Week) while this turn has
     # not ordered, from `games.rules.turn_times`; every wait is counted from it.
     Column("wait_started_at", DateTime(timezone=True), nullable=True),
+    # The FR-36 due times of a Student-held turn that has not ordered (Story 8.1, AD-20): when an
+    # AI player takes the Seat over, and from when another Student may put one in (FR-89). Set
+    # with `wait_started_at` from `games.rules.turn_times`, only in a Game whose policy has
+    # inactivity Takeover; later stories of Epic 8 recompute them, so the trigger does not keep
+    # them.
+    Column("takeover_due_at", DateTime(timezone=True), nullable=True),
+    Column("insert_allowed_at", DateTime(timezone=True), nullable=True),
     CheckConstraint("week >= 1", name="ck_seat_turns_week"),
     CheckConstraint("rule_based_reference_order >= 0", name="ck_seat_turns_reference_order"),
     CheckConstraint("near_optimal_reference_order >= 0", name="ck_seat_turns_near_optimal_order"),
@@ -229,6 +236,11 @@ seat_weeks = Table(
     Column("near_optimal_algorithm_version", Text, nullable=True),
     # The Effort level the Game froze, on rows an `llm` occupant ordered (Story 2.11, FR-78).
     Column("effort_level", Text, nullable=True),
+    # The turn's wait start and FR-36 due times as they stood when the Order was placed, copied
+    # like its other times (Story 8.1, AD-15, AD-20).
+    Column("wait_started_at", DateTime(timezone=True), nullable=True),
+    Column("takeover_due_at", DateTime(timezone=True), nullable=True),
+    Column("insert_allowed_at", DateTime(timezone=True), nullable=True),
     CheckConstraint("week >= 1", name="ck_seat_weeks_week"),
     CheckConstraint('"order" >= 0', name="ck_seat_weeks_order"),
     CheckConstraint("rule_based_reference_order >= 0", name="ck_seat_weeks_reference_order"),
@@ -309,6 +321,9 @@ game_summaries = Table(
     Column("week", Integer, nullable=True),
     # The earliest `wait_started_at` of `waiting_for` (Story 6.14's clock, FR-25).
     Column("wait_started_at", DateTime(timezone=True), nullable=True),
+    # The earliest stored `takeover_due_at` of `waiting_for` (Story 8.1): the overview's
+    # `next_change_at` is read from it, never computed (AD-20, AD-25).
+    Column("takeover_due_at", DateTime(timezone=True), nullable=True),
     # `[{role, user_id, since}]` in chain order: the Student Seats the Game waits for. Ids only.
     Column("waiting_for", JSONB, nullable=False),
     # `[{role, occupant_kind, user_id}]` in chain order, from each Seat's latest occupancy row.
