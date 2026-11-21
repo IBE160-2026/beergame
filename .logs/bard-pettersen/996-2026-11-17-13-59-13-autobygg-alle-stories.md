@@ -2103,23 +2103,23 @@ Merge Epic 6 når CI er grønn, lage `epic-7` fra den nye `main`, og stoppe før
 - Issue #117: punkter som står igjen fra Epic 5.
 - Issue #31: tekstgjennomgang av alle [ASSUMPTION]-tekster.
 
-## Story 7.1: Se status for alle klassespill pÃ¥ Oversikt (spor 1)
+## Story 7.1: Se status for alle klassespill på Oversikt (spor 1)
 
 ### Oppgave
-Bygge Story 7.1 pÃ¥ `epic-7`, i spor 1 (hovedmappa). FÃ¸rste story med to spor i parallell: spor 2 bygger Epic 9 i `.claude/worktrees/lane-2` med egen stack (8081/5433).
+Bygge Story 7.1 på `epic-7`, i spor 1 (hovedmappa). Første story med to spor i parallell: spor 2 bygger Epic 9 i `.claude/worktrees/lane-2` med egen stack (8081/5433).
 
 ### Plan
-Byggeagent med `bmad-build-auto`, to gjennomgangsagenter pÃ¥ Sonnet (blind og edge case), deretter visuell kontroll pÃ¥ Sonnet.
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet (blind og edge case), deretter visuell kontroll på Sonnet.
 
 ### Resultat
 - Spec: `.docs/implementation-artifacts/spec-7-1-see-the-status-of-every-class-game-on-the-oversikt.md`, pluss `epic-7-context.md`.
-- Commits: bfd8f8b (storyen og fÃ¸rste runde etter gjennomgang), 7483a5d (andre runde).
-- Ã‰n statusregel (`games.rules.game_status`), lesemodellen `game_summaries` (migrasjon 0051 med utfylling av eksisterende spill), `GET /api/class-sessions/{id}/overview` bak den nye tillatelsen `class_sessions.overview`, og siden `/klasseokter/{id}/oversikt`.
-- Tester: backend 2793 pÃ¥ 70 s, Vitest 718, typecheck, `lint:colours`, bygg, Playwright for oversikten og berÃ¸rte skjermer (47).
-- Gjennomgang: 24 funn. Rettet blant annet: ferdige spill viser ikke siste uke (FR-14), ETag godtar `W/` og `*`, sterkere test for faste spÃ¸rringer, tidsuavhengig e2e. Resten avvist eller utsatt med begrunnelse i specen.
-- Gjennomgangsagentene klarte ikke Ã¥ levere tilbake til byggeagenten. Jeg sendte funnene videre med SendMessage.
+- Commits: bfd8f8b (storyen og første runde etter gjennomgang), 7483a5d (andre runde).
+- Én statusregel (`games.rules.game_status`), lesemodellen `game_summaries` (migrasjon 0051 med utfylling av eksisterende spill), `GET /api/class-sessions/{id}/overview` bak den nye tillatelsen `class_sessions.overview`, og siden `/klasseokter/{id}/oversikt`.
+- Tester: backend 2793 på 70 s, Vitest 718, typecheck, `lint:colours`, bygg, Playwright for oversikten og berørte skjermer (47).
+- Gjennomgang: 24 funn. Rettet blant annet: ferdige spill viser ikke siste uke (FR-14), ETag godtar `W/` og `*`, sterkere test for faste spørringer, tidsuavhengig e2e. Resten avvist eller utsatt med begrunnelse i specen.
+- Gjennomgangsagentene klarte ikke å levere tilbake til byggeagenten. Jeg sendte funnene videre med SendMessage.
 - Visuell kontroll (Sonnet): 14 skjermbilder i `screenshots/7.1/`, ingen klare avvik, to små punkter til avslutningen av epicen.
 - Status: done.
 
-### Ã…pne punkter
-- Issue #143: beslutninger og utsatte funn (oppfrisking pÃ¥ hver kommando uten budsjett, ingen gjenoppbygging av `game_summaries`, sletting i Epic 15, Â«pauseÂ» i Epic 8).
+### Åpne punkter
+- Issue #143: beslutninger og utsatte funn (oppfrisking på hver kommando uten budsjett, ingen gjenoppbygging av `game_summaries`, sletting i Epic 15, «pause» i Epic 8).
