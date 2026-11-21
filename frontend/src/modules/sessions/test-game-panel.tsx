@@ -49,7 +49,7 @@ export function TestGameBlock({ item }: { item: ClassSession }) {
   const game = item.test_game;
   const running = game != null && game.status !== "finished";
   return (
-    <section aria-labelledby={titleId} className="mt-12 max-w-3xl border-t border-hairline pt-8" data-test-game="">
+    <section aria-labelledby={titleId} className="mt-12 border-t border-hairline pt-8" data-test-game="">
       <h2 id={titleId} className="text-headline text-ink">
         {copy.title}
       </h2>
@@ -71,7 +71,8 @@ export function TestGameBlock({ item }: { item: ClassSession }) {
             options={roles.map((value) => ({ value, label: roleName(value) }))}
             value={role}
             onChange={setRole}
-            className="mt-5"
+            // As the Klasseøkt's other Valgknapper: as wide as the labels on a wide screen.
+            className="mt-5 lg:[&_label]:flex-none"
           />
           <div className="mt-5 flex flex-col items-start gap-2">
             <Button
