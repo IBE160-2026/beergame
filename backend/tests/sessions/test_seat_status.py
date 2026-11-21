@@ -57,6 +57,9 @@ async def test_the_first_students_order_starts_the_wait_for_the_seats_that_have_
         "ordered": True,
         "wait_started_at": None,
         "mark": None,
+        "taken_over": False,
+        "ordering_for": None,
+        "guard_switched": False,
     }
     assert all(t[2] is None for t in turns(game_id, week).values())
 
@@ -129,6 +132,9 @@ async def test_a_seat_the_play_guard_switched_is_marked(klass):
     shown = seats((await play(next(iter(by_role.values())), game_id)).json())
     assert (shown[ai]["holder"], shown[ai]["mark"]) == ("ai", "guard_switch")
     assert {shown[r]["mark"] for r in by_role} == {None}
+    # Story 8.2: the switch is told from the Seat's history, so it outlasts a later Takeover.
+    assert shown[ai]["guard_switched"] is True
+    assert {shown[r]["guard_switched"] for r in by_role} == {False}
 
 
 def test_the_one_mapping_marks_a_guard_switch_of_a_rule_based_player():

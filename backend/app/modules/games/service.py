@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai import budget as ai_budget
 from app.analysis.wall import PlayedGame
 from app.engine import GameSettings, WeekState
-from app.modules.games import repo
+from app.modules.games import repo, rules
 from app.modules.games.batches import create_batch, get_batch
 from app.modules.games.checks import (
     finished_game_ids,
@@ -129,6 +129,8 @@ __all__ = [
     "ClassGameSeat",
     "budget_scope",
     "class_game_ids",
+    "due_takeovers",
+    "takeover_of",
     "class_games",
     "GameResult",
     "chain_result",
@@ -171,6 +173,34 @@ async def unchecked_finished_game_ids(
     """At most `limit` finished Games with no finished-game check yet, oldest first (Story
     6.18), but those in `exclude`, read in the caller's session."""
     return await repo.unchecked_finished_game_ids(session, limit, exclude)
+
+
+async def due_takeovers(now: datetime) -> list[tuple[str, str]]:
+    """The sweep's Takeover finder (Story 8.2, AD-9): `(game id, seat id)` of every Student-held
+    Seat that `rules.can_take_over` lets the `system` actor take over at `now`, oldest due
+    first. `games.commands.takeover` checks again under the Game row lock."""
+    found: list[tuple[str, str]] = []
+    async with get_sessionmaker()() as session:
+        candidates = await repo.due_takeover_turns(session, now)
+        by_game: dict[uuid.UUID, list] = {}
+        for row in candidates:
+            by_game.setdefault(row["game_id"], []).append(row)
+        for game_id, rows in by_game.items():
+            game = await repo.get_game(session, game_id)
+            if game is None or game["settings"] is None:
+                continue
+            week = rows[0]["week"]
+            guided = rules.guided_week(
+                policy(game["purpose"]), GameSettings.model_validate(game["settings"]), week
+            )
+            turns = {
+                t["seat_id"]: t for t in await repo.week_turns_with_occupant(session, game_id, week)
+            }
+            for row in rows:
+                turn = turns.get(row["seat_id"])
+                if rules.can_take_over(game, turn, "system", now, guided=guided) is None:
+                    found.append((str(game_id), str(row["seat_id"])))
+    return found
 
 
 async def class_game_ids(session: AsyncSession, class_session_id: uuid.UUID) -> dict[int, str]:
@@ -391,6 +421,36 @@ async def game_class_info(
     return game["class_session_id"], game["game_number"], game["lifecycle"] == Lifecycle.FINISHED
 
 
+@dataclass(frozen=True)
+class TakeoverInfo:
+    """A Takeover as its notice mail tells it (Story 8.2): the Class game, the Seat's Role and the
+    Student whose Seat it was (None if none held it before). Ids only (AD-14)."""
+
+    game_id: uuid.UUID
+    class_session_id: uuid.UUID
+    number: int | None
+    role: str
+    student: uuid.UUID | None
+
+
+async def takeover_of(session: AsyncSession, occupancy_id: uuid.UUID) -> TakeoverInfo | None:
+    """The Takeover whose occupancy row is `occupancy_id`, read in the caller's session; None for
+    an id that is no Takeover or a Game with no Class session."""
+    row = await repo.takeover_row(session, occupancy_id)
+    if row is None:
+        return None
+    game = await repo.get_game(session, row["game_id"])
+    if game is None or game["class_session_id"] is None:
+        return None
+    return TakeoverInfo(
+        game_id=row["game_id"],
+        class_session_id=game["class_session_id"],
+        number=game["game_number"],
+        role=row["role"],
+        student=row["student"],
+    )
+
+
 async def own_game(
     session: AsyncSession, user_id: uuid.UUID, game_id: uuid.UUID
 ) -> StudentGame | None:
@@ -400,8 +460,8 @@ async def own_game(
     game = await repo.own_game(session, user_id, game_id)
     if game is None or game["class_session_id"] is None:
         return None
-    rules = policy(game["purpose"])
-    if rules.played_by_staff:
+    game_policy = policy(game["purpose"])
+    if game_policy.played_by_staff:
         # A Lecturer's test Game (Story 6.20): theirs while they hold its Seat; no Class game of
         # the session is ever one (`student_game` leaves it out).
         role = await repo.held_role(session, game_id, user_id)
@@ -412,7 +472,7 @@ async def own_game(
             class_session_id=game["class_session_id"],
             number=game["game_number"],
             role=role,
-            pre_play_gate=rules.pre_play_gate,
+            pre_play_gate=game_policy.pre_play_gate,
             test_game=True,
         )
     found = await student_game(session, user_id, game["class_session_id"])

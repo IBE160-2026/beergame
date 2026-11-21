@@ -21,7 +21,7 @@ from app.engine import (
     seat_view,
 )
 from app.modules.games import repo, rules
-from app.modules.games.marks import seat_mark
+from app.modules.games.marks import TAKEOVER_MARKS, seat_mark
 from app.modules.games.policy import policy
 from app.modules.games.schemas import (
     ChainWeekCost,
@@ -309,7 +309,11 @@ async def table_status(
     rows = await repo.seats_with_occupant(session, game_id)
     held = {row["role"]: row["user_id"] for row in rows}
     own = await repo.last_seat_of(session, game_id, viewer_id)
-    found = await names(sorted({u for u in held.values() if u is not None}))
+    histories = await repo.seat_histories(session, game_id)
+    named = {u for u in held.values() if u is not None} | {
+        h["last_student"] for h in histories.values() if h["last_student"] is not None
+    }
+    found = await names(sorted(named))
     turns, guided = await _open_turns(session, game_id)
     seats = []
     for row in reversed(rows):  # chain order serves the customer first; Fabrikk leads here
@@ -324,6 +328,12 @@ async def table_status(
         mine = row["role"] == own and (holder != "student" or row["user_id"] == viewer_id)
         turn = turns.get(row["id"])
         ordered = None if turn is None else rules.has_ordered(turn, guided=guided)
+        mark = seat_mark(None, None, kind, row["reason"])
+        history = histories.get(
+            row["id"], {"last_student": None, "taken_over": False, "guard_switched": False}
+        )
+        # Taken over since its Student's last row, also after a later guard or cost-limit switch.
+        taken_over = holder == "ai" and (mark in TAKEOVER_MARKS or history["taken_over"])
         seats.append(
             TableSeat(
                 role=row["role"],
@@ -332,7 +342,10 @@ async def table_status(
                 mine=mine,
                 ordered=ordered,
                 wait_started_at=turn["wait_started_at"] if ordered is False else None,
-                mark=seat_mark(None, None, kind, row["reason"]),
+                mark=mark,
+                taken_over=taken_over,
+                ordering_for=found.get(history["last_student"]) if taken_over else None,
+                guard_switched=kind == OccupantKind.RULE_BASED and history["guard_switched"],
             )
         )
     due = sorted(

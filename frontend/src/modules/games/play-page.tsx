@@ -40,8 +40,8 @@ import { GameEnd, GameEndHeading } from "./game-end";
 import { OrderField } from "./order-field";
 import { lastOrder, parseOrder } from "./order-input";
 import { gameTitle } from "./home";
-import { useServerNow, waitedFor } from "./seat-status";
-import { GameSeatStatus } from "./seat-status-view";
+import { ownSeatTakenOver, useServerNow, waitedFor } from "./seat-status";
+import { GameSeatStatus, TakenOverNote } from "./seat-status-view";
 import { TimeProposalBlock } from "./time-proposal-view";
 import { weekSummary } from "./week-summary";
 import { WeekSummaryView } from "./week-summary-view";
@@ -265,10 +265,11 @@ function Running({
   userId: string;
   allRows: AllRows;
 }) {
-  useGuidedView(game.id, envelope);
+  const seats = envelope.table_status.seats;
+  const takenOver = ownSeatTakenOver(seats);
+  useGuidedView(game.id, envelope, takenOver);
   useRefetchAt(game.id, envelope);
   const now = useServerNow(envelope.server_now);
-  const seats = envelope.table_status.seats;
   const state = envelope.seat_state;
   const turn = envelope.turn;
   const field = orderDraftField(game.id, state.week);
@@ -346,38 +347,54 @@ function Running({
             <div aria-live="polite" data-draft-dropped="">
               {dropped.line ? <p className={`${LINE} mt-8 max-w-md font-bold text-ink lg:mt-0 lg:mb-4`}>{dropped.line}</p> : null}
             </div>
-            {/* The Ordrefelt follows the table on phone and tops the right column on laptop. */}
-            <OrderField
-              week={state.week}
-              turn={turn}
-              max={state.max_order}
-              lastOrder={lastOrder(state.history)}
-              text={text}
-              onText={(next) => {
-                setTyped({ game: game.id, week: state.week, text: next });
-                saveDraft(userId, field, next);
-                send.clear(); // a new value is a new Order: the last send's words no longer apply
-                dropped.clear();
-              }}
-              preview={editable ? preview : null}
-              sending={send.sending === state.week}
-              onConfirm={(value) => {
-                dropped.clear();
-                send.confirm(value);
-              }}
-              waitingFor={waitedFor(seats, now, true)}
-              aside={
+            {/* The Ordrefelt follows the table on phone and tops the right column on laptop. A Seat
+                an AI player took over has none: the Student is told so instead (Story 8.2). */}
+            {takenOver ? (
+              <div className="mb-8">
+                <TakenOverNote obligatory={game.obligatory} />
+                {/* Alle rader stays one tap away on phone, as beside the Ordrefelt. */}
                 <button
                   type="button"
                   data-all-rows-link=""
-                  className={cn(LINK_BUTTON, "justify-end lg:hidden")}
+                  className={cn(LINK_BUTTON, "mt-2 lg:hidden")}
                   onClick={(event) => allRows.show("top", event.currentTarget)}
                 >
                   {copy.allRows.link}
                 </button>
-              }
-              {...outcomeProps(send.outcome, state.week)}
-            />
+              </div>
+            ) : (
+              <OrderField
+                week={state.week}
+                turn={turn}
+                max={state.max_order}
+                lastOrder={lastOrder(state.history)}
+                text={text}
+                onText={(next) => {
+                  setTyped({ game: game.id, week: state.week, text: next });
+                  saveDraft(userId, field, next);
+                  send.clear(); // a new value is a new Order: the last send's words no longer apply
+                  dropped.clear();
+                }}
+                preview={editable ? preview : null}
+                sending={send.sending === state.week}
+                onConfirm={(value) => {
+                  dropped.clear();
+                  send.confirm(value);
+                }}
+                waitingFor={waitedFor(seats, now, true)}
+                aside={
+                  <button
+                    type="button"
+                    data-all-rows-link=""
+                    className={cn(LINK_BUTTON, "justify-end lg:hidden")}
+                    onClick={(event) => allRows.show("top", event.currentTarget)}
+                  >
+                    {copy.allRows.link}
+                  </button>
+                }
+                {...outcomeProps(send.outcome, state.week)}
+              />
+            )}
             {/* «Kostnad så langt» pinned under the Ordrefelt from 1024 px (Story 6.16); on phone it
                 is one tap away in Alle rader. */}
             <CostPanel state={state} table="toggle" className="mb-8 hidden lg:block" />
@@ -548,13 +565,18 @@ function useSendOrder(gameId: string, week: number, userId: string, field: strin
             confirmed();
             return;
           }
+          // A lost Seat (an AI player took it over, Story 8.2) is said before the stored Order is
+          // read: the Order there now is the AI player's, never this send's (GitHub issue 141).
+          if (code === "seat_not_yours") {
+            await reread();
+            setOutcome({ week: ordered, value, kind: "seatGone" });
+            return;
+          }
           // The api answers `order_exists` before `week_not_open`, but the history is still read:
           // a `week_not_open` may hide an Order a second device placed with this value.
           const there = await stored(ordered, value);
           if (there === "stored") confirmed();
           else if (there === "other" || code === "week_not_open") setOutcome({ week: ordered, value, kind: "weekGone" });
-          // A lost Seat usually loses the envelope too (403): the code alone says why.
-          else if (code === "seat_not_yours") setOutcome({ week: ordered, value, kind: "seatGone" });
           else setOutcome({ week: ordered, value, kind: "failed" });
         },
       )
@@ -590,11 +612,12 @@ function outcomeProps(outcome: SendOutcome | null, week: number) {
  * which reads the envelope again; any other failure (offline, a dropped request, a 5xx) is sent
  * again after `VIEW_RETRY_MS`, since the Week waits for this view. Nothing is shown for either.
  */
-function useGuidedView(gameId: string, envelope: PlayEnvelope) {
+function useGuidedView(gameId: string, envelope: PlayEnvelope, takenOver = false) {
   const sent = useRef(new Set<number>());
   const [attempt, setAttempt] = useState(0);
   const week = envelope.seat_state.week;
-  const due = envelope.turn.guided && !envelope.turn.viewed;
+  // A Seat an AI player took over is not the Student's to open (Story 8.2).
+  const due = envelope.turn.guided && !envelope.turn.viewed && !takenOver;
   useEffect(() => {
     if (!due || sent.current.has(week)) return;
     sent.current.add(week);

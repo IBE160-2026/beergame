@@ -26,6 +26,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # reads Hjem again. A simulation emits `game` alone.
         "games.advance": frozenset({"game", "session", "user"}),
         "games.switch_to_rule_based": frozenset({"game"}),
+        # An AI player took a Student's Seat over (Story 8.2): only Class games take over, so
+        # their Class session hears of it, and every Student of the Game and the one whose Seat
+        # it was read it again, each through a `takeover_notice` too.
+        "games.takeover": frozenset({"game", "session", "user"}),
         # A Student opened a Guided Week (Story 6.10): only Class games take Students, so their
         # Class session hears of it; the viewer's waiting status changes, and when the view
         # completes the Week every Student of the Game sees the next one.

@@ -140,6 +140,23 @@ async def test_finish_leaves_the_row_equal_to_a_recomputation(games_db):
     assert row["chain_cost"] == sum(Decimal(s["total_cost"]) for s in finished["seats"])
 
 
+async def test_a_takeover_leaves_the_row_equal_to_a_recomputation(games_db, mail_db):
+    """Story 8.2: `takeover` joins the recomputation test; in a Week with a third Student still
+    waited for, the Seat taken over leaves `waiting_for`."""
+    from tests.games.test_takeover import class_game as started
+    from tests.games.test_takeover import due_of
+
+    game_id, students = await started(("retailer", "wholesaler", "factory"))
+    await commands.place_order(game_id, "retailer", 1, 4, "student", actor=students["retailer"])
+    row = await check(game_id)
+    assert {w["role"] for w in row["waiting_for"]} == {"wholesaler", "factory"}
+    due = due_of(game_id, "factory")
+    assert due is not None
+    await commands.takeover(game_id, "factory", actor="system", now=due)
+    row = await check(game_id)  # takeover: still waiting for the wholesaler
+    assert (row["status"], [w["role"] for w in row["waiting_for"]]) == ("waiting", ["wholesaler"])
+
+
 async def test_a_command_that_changes_nothing_writes_no_row(games_db):
     game_id = await class_game(1)
     await commands.assign_seat(game_id, "retailer", "student", user_id=A)

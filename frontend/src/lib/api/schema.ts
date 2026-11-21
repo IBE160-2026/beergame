@@ -4525,6 +4525,11 @@ export interface components {
             id: string;
             /** Number */
             number: number | null;
+            /**
+             * Obligatory
+             * @default false
+             */
+            obligatory: boolean;
             role: components["schemas"]["Role"];
             rules: components["schemas"]["GameRulesOut"];
             seat_state: components["schemas"]["SeatState"] | null;
@@ -4589,6 +4594,11 @@ export interface components {
          */
         TableSeatOut: {
             /**
+             * Guard Switched
+             * @default false
+             */
+            guard_switched: boolean;
+            /**
              * Holder
              * @enum {string}
              */
@@ -4600,7 +4610,14 @@ export interface components {
             name: string | null;
             /** Ordered */
             ordered: boolean | null;
+            /** Ordering For */
+            ordering_for?: string | null;
             role: components["schemas"]["Role"];
+            /**
+             * Taken Over
+             * @default false
+             */
+            taken_over: boolean;
             /** Wait Started At */
             wait_started_at: string | null;
         };

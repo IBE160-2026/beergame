@@ -513,6 +513,119 @@ async def set_ordered_at(session: AsyncSession, turn_id: uuid.UUID) -> Any:
     return result.scalar_one()
 
 
+async def set_ai_deadline(session: AsyncSession, turn_id: uuid.UUID, at: Any) -> None:
+    """Give the turn its AI deadline (an LLM player that took the Seat mid-Week, Story 8.2),
+    only while it has none: the `seat_turns` trigger keeps one once set."""
+    await session.execute(
+        update(seat_turns)
+        .where(seat_turns.c.id == turn_id, seat_turns.c.ai_deadline_at.is_(None))
+        .values(ai_deadline_at=at)
+    )
+
+
+async def guard_switched(session: AsyncSession, seat_id: uuid.UUID) -> bool:
+    """Whether the Play guard has ever switched the Seat (a `guard_switch` row in its history):
+    the switch outlasts a later Takeover or Reclaim (Story 8.2, FR-79)."""
+    result = await session.execute(
+        select(seat_occupancy.c.id)
+        .where(seat_occupancy.c.seat_id == seat_id, seat_occupancy.c.reason == "guard_switch")
+        .limit(1)
+    )
+    return result.first() is not None
+
+
+TAKEOVER_REASONS = ("takeover_inactivity", "takeover_staff", "takeover_peer")
+"""The occupancy reasons of an AI player that took a Student's Seat over (Story 8.2)."""
+
+
+async def seat_histories(session: AsyncSession, game_id: uuid.UUID) -> dict[uuid.UUID, dict]:
+    """Per Seat of the Game: `last_student`, the user id of its latest `student` row (None when
+    no Student ever held it); `taken_over`, whether a Takeover row came after that row, so a later
+    Play guard or cost-limit switch of the AI player keeps the Seat taken over; and
+    `guard_switched`, whether it has a `guard_switch` row (Story 8.2): what the Setestatus says of
+    an AI player that took a Student's Seat. Rows by id (UUIDv7): the order they were appended."""
+    result = await session.execute(
+        select(
+            seat_occupancy.c.seat_id,
+            seat_occupancy.c.occupant_kind,
+            seat_occupancy.c.user_id,
+            seat_occupancy.c.reason,
+        )
+        .join(seats, seats.c.id == seat_occupancy.c.seat_id)
+        .where(seats.c.game_id == game_id)
+        .order_by(seat_occupancy.c.id)
+    )
+    found: dict[uuid.UUID, dict] = {}
+    for row in result.mappings():
+        entry = found.setdefault(
+            row["seat_id"], {"last_student": None, "taken_over": False, "guard_switched": False}
+        )
+        if row["occupant_kind"] == "student" and row["user_id"] is not None:
+            entry["last_student"] = row["user_id"]
+            entry["taken_over"] = False
+        if row["reason"] in TAKEOVER_REASONS:
+            entry["taken_over"] = True
+        if row["reason"] == "guard_switch":
+            entry["guard_switched"] = True
+    return found
+
+
+async def takeover_row(session: AsyncSession, occupancy_id: uuid.UUID) -> RowMapping | None:
+    """A Takeover's occupancy row with its Game, Role and `student`: the Student who held the
+    Seat before it (the latest earlier `student` row); None for an id that is no Takeover."""
+    earlier = seat_occupancy.alias("earlier")
+    result = await session.execute(
+        select(
+            seat_occupancy.c.id,
+            seat_occupancy.c.from_week,
+            seats.c.game_id,
+            seats.c.role,
+            select(earlier.c.user_id)
+            .where(
+                earlier.c.seat_id == seat_occupancy.c.seat_id,
+                earlier.c.id < seat_occupancy.c.id,
+                earlier.c.occupant_kind == "student",
+            )
+            .order_by(earlier.c.id.desc())
+            .limit(1)
+            .scalar_subquery()
+            .label("student"),
+        )
+        .join(seats, seats.c.id == seat_occupancy.c.seat_id)
+        .where(
+            seat_occupancy.c.id == occupancy_id,
+            seat_occupancy.c.reason.in_(TAKEOVER_REASONS),
+        )
+    )
+    return result.mappings().one_or_none()
+
+
+async def due_takeover_turns(session: AsyncSession, now: Any) -> list[RowMapping]:
+    """The turns the sweep's Takeover may act on (Story 8.2, AD-9): in the open Week of a running
+    Game whose policy has inactivity Takeover, with no Order yet or (a Guided Week) no view, and a
+    stored `takeover_due_at` at or before `now`, oldest due first. `game_id`, `seat_id`, `week`;
+    `games.commands.takeover` decides under the lock (`rules.can_take_over`)."""
+    open_weeks = _open_weeks()
+    result = await session.execute(
+        select(seat_turns.c.game_id, seat_turns.c.seat_id, seat_turns.c.week)
+        .select_from(
+            seat_turns.join(
+                open_weeks,
+                (open_weeks.c.game_id == seat_turns.c.game_id)
+                & (open_weeks.c.week == seat_turns.c.week),
+            ).join(games, games.c.id == seat_turns.c.game_id)
+        )
+        .where(
+            games.c.purpose.in_(purposes_with("inactivity_takeover")),
+            seat_turns.c.takeover_due_at.is_not(None),
+            seat_turns.c.takeover_due_at <= now,
+            (seat_turns.c.ordered_at.is_(None)) | (seat_turns.c.viewed_at.is_(None)),
+        )
+        .order_by(seat_turns.c.takeover_due_at, seat_turns.c.game_id, seat_turns.c.seat_id)
+    )
+    return list(result.mappings())
+
+
 async def occupancy_in_force(
     session: AsyncSession, seat_id: uuid.UUID, week: int
 ) -> RowMapping | None:

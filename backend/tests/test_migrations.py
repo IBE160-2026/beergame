@@ -84,7 +84,7 @@ HEAD_TABLES = (
     | SUMMARY_TABLES
     | MESSAGE_TABLES
 )
-HEAD = "0053"  # 0053 adds the turns' FR-36 due times (Story 8.1)
+HEAD = "0054"  # 0054 adds the occupancy row's actor (Story 8.2)
 
 
 def reset_schema(url: str) -> None:

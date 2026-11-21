@@ -86,7 +86,8 @@ export type CardState = "waitsForYou" | "ordered";
 export function cardState(game: Pick<StudentGame, "status" | "briefing_first" | "seats" | "seat_state">): CardState | null {
   if (game.status !== "running" || game.briefing_first || !game.seat_state) return null;
   const own = game.seats.find((seat) => seat.mine);
-  if (!own || own.ordered === null || own.ordered === undefined) return null;
+  // A Seat an AI player took over has no Spillkort: Hjem says «KI-spiller har bestilt for deg.»
+  if (!own || own.taken_over || own.ordered === null || own.ordered === undefined) return null;
   return own.ordered ? "ordered" : "waitsForYou";
 }
 

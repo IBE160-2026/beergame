@@ -3,6 +3,7 @@
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Literal
 
 from app.engine import GameSettings
 from app.modules.games.policy import GamePolicy, policy
@@ -30,6 +31,45 @@ def week_complete(turns: Sequence[Mapping[str, object]], *, guided: bool) -> boo
     `occupant_kind` in force that Week (`repo.week_turns_with_occupant`); no turns means there
     is nothing to complete."""
     return bool(turns) and all(has_ordered(turn, guided=guided) for turn in turns)
+
+
+TakeoverActor = Literal["system"]
+"""Who asks for a Takeover: `system`, the sweep's automatic Takeover after the Inactivity limit
+(Story 8.2). Staff (8.5) and peer (8.8) Takeovers extend this one check."""
+
+
+def can_take_over(
+    game: Mapping[str, object],
+    turn: Mapping[str, object] | None,
+    actor: TakeoverActor,
+    now: datetime,
+    *,
+    guided: bool,
+) -> str | None:
+    """The one eligibility check of a Takeover (FR-36, AD-2, AD-13): None when `actor` may hand
+    the Seat of `turn` to an AI player at `now`, else the stable refusal code.
+
+    `game` is a `games` row (`lifecycle`, `purpose`); `turn` the Seat's `seat_turns` row in the
+    open Week with the `occupant_kind` in force (`repo.week_turns_with_occupant`), None when the
+    Seat has none. The Game must be running and its policy have inactivity Takeover; the Seat must
+    be Student-held in the open Week and not have ordered (`has_ordered`: in a Guided Week the
+    view counts); and for the `system` actor its stored `takeover_due_at` must be set, which
+    happens only once another Student has ordered (Story 8.1), and lie at or before `now`. Pure:
+    no I/O, no clock."""
+    if actor != "system":
+        raise ValueError(f"unknown Takeover actor {actor!r}")
+    if game["lifecycle"] != Lifecycle.RUNNING:
+        return "game_not_running"
+    if not policy(str(game["purpose"])).inactivity_takeover:
+        return "takeover_not_allowed"
+    if turn is None or turn["occupant_kind"] != OccupantKind.STUDENT:
+        return "seat_not_student_held"
+    if has_ordered(turn, guided=guided):
+        return "order_exists"
+    due = turn["takeover_due_at"]
+    if not isinstance(due, datetime) or due > now:
+        return "takeover_not_due"
+    return None
 
 
 def game_status(game: Mapping[str, object], turns: Sequence[Mapping[str, object]]) -> GameStatus:

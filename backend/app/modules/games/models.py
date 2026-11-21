@@ -46,6 +46,19 @@ FREE_SEAT_ROW = (
 """A free-Seat occupancy row (Story 5.10): no occupant kind, reason `moved`, no policy id or
 user id; and `moved` is never the reason of an occupant."""
 
+ACTORLESS_REASONS = (
+    "initial",
+    "takeover_inactivity",
+    "guard_switch",
+    "cost_limit",
+    "playout",
+    "moved",
+)
+"""Occupancy reasons no person triggers (Story 8.2): their rows never name an actor."""
+ACTORLESS_ROW = (
+    f"actor_user_id IS NULL OR reason NOT IN ({', '.join(repr(r) for r in ACTORLESS_REASONS)})"
+)
+
 SNAPSHOT_COLUMNS = ("settings", "demand_series", "demand_seed", "rules_version", "session_runtime")
 SNAPSHOT_TOGETHER = f"num_nulls({', '.join(SNAPSHOT_COLUMNS)}) IN (0, {len(SNAPSHOT_COLUMNS)})"
 
@@ -133,7 +146,12 @@ seat_occupancy = Table(
     # The Student of a `student` occupant (Story 5.9): the id only, never a name (AD-14). No
     # foreign key: the rows are append-only, so a removed User could not be set NULL here.
     Column("user_id", Uuid, nullable=True),
+    # Who triggered the change (Story 8.2, AD-14): the staff member of a `takeover_staff`, the
+    # Student who pressed for a `takeover_peer`, the Student of a `reclaim`; the id only, names are
+    # resolved at read time. NULL for every reason without a person (`ACTORLESS_REASONS`).
+    Column("actor_user_id", Uuid, nullable=True),
     CheckConstraint("from_week >= 1", name="ck_seat_occupancy_from_week"),
+    CheckConstraint(ACTORLESS_ROW, name="ck_seat_occupancy_actor"),
     CheckConstraint(
         "occupant_kind = 'student' OR user_id IS NULL", name="ck_seat_occupancy_user_student"
     ),

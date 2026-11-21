@@ -597,6 +597,15 @@ class TableSeat(BaseModel):
     when the Game is not running."""
     mark: SeatMark | None = None
     """The Seat's mark (`games.service.seat_mark`), e.g. a Play guard switch; None for most."""
+    taken_over: bool = False
+    """An AI player holds the Seat after a Takeover of its Student (Story 8.2, FR-37): the mark
+    is one of the Takeover marks. «KI-spiller  bestiller for Jonas»."""
+    ordering_for: str | None = None
+    """For a Seat `taken_over`: the name, read now, of the Student whose Seat it was; None when
+    that Student is no longer in the Class, and for every other Seat."""
+    guard_switched: bool = False
+    """An AI player that is Rule-based because the Play guard switched the Seat once, also when
+    that switch came before a later Takeover or Reclaim (Story 8.2, FR-79)."""
 
 
 class TableStatus(BaseModel):

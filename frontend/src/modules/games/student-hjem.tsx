@@ -29,8 +29,8 @@ import {
   stepItems,
   toWeekText,
 } from "./home";
-import { useServerNow } from "./seat-status";
-import { GameSeatStatus } from "./seat-status-view";
+import { ownSeatTakenOver, useServerNow } from "./seat-status";
+import { GameSeatStatus, TakenOverNote } from "./seat-status-view";
 import { TimeProposalBlock } from "./time-proposal-view";
 import { MiniWeekTable } from "./week-table-view";
 
@@ -42,7 +42,7 @@ type StudentGame = NonNullable<EnrolledSession["game"]>;
 /** Whether the game asks for Hjem's one primary button: its next action is a control, except a
  * game the Student has ordered in, whose Spillkort has no primary action (Story 6.17, UX-DR28). */
 function wantsPrimary(game: StudentGame): boolean {
-  return PRIMARY_ACTIONS.has(nextAction(game)) && cardState(game) !== "ordered";
+  return PRIMARY_ACTIONS.has(nextAction(game)) && cardState(game) !== "ordered" && !ownSeatTakenOver(game.seats);
 }
 
 const copy = nb.homes.student;
@@ -224,6 +224,10 @@ function GameBlock({
       ) : null}
       {card && game.seat_state ? (
         <PlayCard game={game} state={game.seat_state} card={card} primary={primary} titleId={`card-${session.id}`} />
+      ) : null}
+      {/* Story 8.2: an AI player took the Student's Seat over while the game runs. */}
+      {game.status === "running" && ownSeatTakenOver(game.seats) ? (
+        <TakenOverNote obligatory={game.obligatory} className="mt-4" />
       ) : null}
       {/* Story 6.14: the Setestatus, as on the play screen. */}
       <GameSeatStatus seats={seats} now={now} titleId={seatsId} level={4} className="mt-4" />

@@ -1,0 +1,9 @@
+{# An AI player took a Student's Seat over after the Inactivity limit (Story 8.2, FR-36), an
+   immediate kind, sent also between 22:00 and 07:00. `class_name`, `game_number`, `role`, `own`,
+   `student` (None for a Student no longer in the Class) and `obligatory` come from
+   `sessions.service.takeover_mail_context` at send time. Never a number of Uker (FR-14). Draft
+   copy. #}
+{% import "kinds/_takeover_warning.j2" as w %}
+{% set roles = {"retailer": "Detaljist", "wholesaler": "Grossist", "distributor": "Distributør", "factory": "Fabrikk"} %}
+{% set subject = "KI-spiller har tatt over et sete" %}
+{% if own %}KI-spiller har bestilt for deg som {{ roles[role] }} i Spill {{ game_number }} i Klassen {{ class_name }}.{% if obligatory %} {{ w.warning() }}{% endif %}{% else %}KI-spiller bestiller nå for {{ student or ("setet som " ~ roles[role]) }} i Spill {{ game_number }} i Klassen {{ class_name }}, så gruppen kan spille videre.{% endif %} Du ser spillet på Hjem.

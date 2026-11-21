@@ -155,6 +155,16 @@ async def _time_proposed_context(
     return await sessions.time_proposal_mail_context(session, user_id, ref, now)
 
 
+TAKEOVER_KIND = "takeover_notice"
+"""`games.commands.TAKEOVER_NOTICE` (Story 8.2), named here for the same reason."""
+
+
+async def _takeover_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.takeover_mail_context(session, user_id, ref, now)
+
+
 MESSAGE_KIND = "message"
 """`messages.MESSAGE_KIND` (Story 7.9), named here for the same reason."""
 
@@ -179,6 +189,9 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         TIME_PROPOSED_KIND: Delivery(DIGEST, TIME_PROPOSED_KIND, context=_time_proposed_context),
         # Immediate: the Start date has passed and the Class games wait for the lock.
         LOCK_REFUSED_KIND: Delivery(IMMEDIATE, LOCK_REFUSED_KIND, context=_lock_refused_context),
+        # Immediate: an AI player took a Student's Seat over (Story 8.2, FR-36, AD-9), sent at once
+        # at any hour, also between 22:00 and 07:00.
+        TAKEOVER_KIND: Delivery(IMMEDIATE, TAKEOVER_KIND, context=_takeover_context),
         # Immediate: a Message a staff member sent (Story 7.9, AD-9).
         MESSAGE_KIND: Delivery(IMMEDIATE, MESSAGE_KIND, context=_message_context),
         identity.PASSWORD_RESET: Delivery(
@@ -199,7 +212,8 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
 notice (Story 5.7, digest), the allocation notice (Story 5.9, digest), the Student choice notice
 (Story 5.17, digest), the refused lock
 (Story 5.11, immediate), the deadline reminder (Story 5.14, digest), the proposed time to play
-(Story 6.19, digest) and a staff member's Message (Story 7.9, immediate)."""
+(Story 6.19, digest), a staff member's Message (Story 7.9, immediate) and the Takeover notice
+(Story 8.2, immediate)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

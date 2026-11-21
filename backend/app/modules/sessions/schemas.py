@@ -396,6 +396,14 @@ class TableSeatOut(BaseModel):
     from `server_now`); None once ordered, before any Student ordered, or not running."""
     mark: SeatMark | None
     """`guard_switch`: an AI Seat the Play guard gave a rule-based KI-spiller; else None."""
+    taken_over: bool = False
+    """Story 8.2 (FR-37): an AI player holds the Seat after a Takeover of its Student."""
+    ordering_for: str | None = None
+    """For a Seat `taken_over`: the name now of the Student whose Seat it was («bestiller for
+    Jonas»); None when they are no longer in the Class, and for every other Seat."""
+    guard_switched: bool = False
+    """Story 8.2 (FR-79): a Rule-based AI player because the Play guard switched the Seat once,
+    also before a later Takeover or Reclaim."""
 
 
 class RoleCapacityOut(BaseModel):
@@ -501,6 +509,9 @@ class StudentGameOut(BaseModel):
     time_proposal: TimeProposalOut | None = None
     """Story 6.19: the open proposal of a time to play; None when there is none, its time has
     passed or the game has finished."""
+    obligatory: bool = False
+    """Story 8.2 (FR-17): the Class session is Obligatorisk, so a Takeover of the Student's Seat
+    tells them it may affect the requirement (never how many Uker)."""
 
 
 class TableStatusOut(BaseModel):

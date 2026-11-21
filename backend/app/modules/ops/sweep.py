@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 
 import structlog
 
+from app.modules.games import commands as games_commands
 from app.modules.games import service as games
 from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
@@ -109,6 +110,39 @@ async def _verify_finished(game_id: object, now: datetime) -> object:
     return checked
 
 
+async def _due_takeovers(now: datetime) -> Sequence[tuple[str, str]]:
+    return await games.due_takeovers(now)
+
+
+TAKEOVER_RACES = frozenset(
+    {
+        "seat_not_student_held",
+        "order_exists",
+        "takeover_not_due",
+        "game_not_running",
+        "takeover_not_allowed",
+    }
+)
+"""`rules.can_take_over`'s refusals: what changed between the finder's read and the lock."""
+
+
+async def _take_over(item: object, now: datetime) -> bool:
+    """Story 8.2 (FR-36, AD-9): hand one due Seat to an AI player in its own transaction. A
+    refusal under the lock is the race the command settles (the Student ordered first, another
+    sweep took it, the Week moved on): nothing to do and nothing to log as a failure. Any other
+    refusal (a snapshot the engine cannot run, say) is raised, so the sweep logs it."""
+    assert isinstance(item, tuple)
+    game_id, seat_id = item
+    try:
+        await games_commands.takeover(game_id, seat_id, actor="system", now=now)
+    except games_commands.CommandError as refused:
+        if refused.code not in TAKEOVER_RACES:
+            raise
+        log.info("takeover_skipped", game_id=game_id, seat_id=seat_id, code=refused.code)
+        return False
+    return True
+
+
 DUE_ACTIONS: tuple[DueAction, ...] = (
     # The first due action (Story 3.5): claim due notices into mails and defer their `mail` jobs.
     DueAction("messaging.mail", messaging.due_items, messaging.claim),  # type: ignore[arg-type]
@@ -140,6 +174,10 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     ),
     # Story 6.18: the finished-game check (FR-29, NFR-9, AD-4): replay each finished Game that
     # has no `game_checks` row yet, one Game per transaction, so the end screen never waits.
+    # Story 8.2: an AI player takes the Seat of a Student who has not ordered by the stored
+    # `takeover_due_at` (FR-36, NFR-4), one Seat per transaction; within a minute of the due time,
+    # so before the finished-game checks, whose replays may take a while.
+    DueAction("games.takeover", _due_takeovers, _take_over),
     DueAction("games.verify_finished", _unchecked_finished_games, _verify_finished),
     # Story 5.14: remind every Student of a Play, Debrief or Test deadline 24 hours ahead, once
     # per deadline time (FR-18). The reminders join the next minute's digest claim.

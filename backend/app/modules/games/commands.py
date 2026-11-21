@@ -79,6 +79,7 @@ from app.platform.db import get_sessionmaker
 from app.platform.parameter_sets import UnknownParameterSetError, read_parameter_set
 
 __all__ = [
+    "TAKEOVER_NOTICE",
     "TIME_PROPOSED_NOTICE",
     "CommandError",
     "accept_time",
@@ -93,6 +94,7 @@ __all__ = [
     "set_snapshot",
     "start",
     "switch_to_rule_based",
+    "takeover",
     "view_week",
 ]
 
@@ -1659,6 +1661,134 @@ async def switch_to_rule_based(
     log.info("seat_switched", game_id=game_id, seat_id=str(row["id"]), reason=switch_reason)
     await _settle(game_id)
     return str(occupancy_id)
+
+
+TAKEOVER_NOTICE = "takeover_notice"
+"""The notice kind each Student of a Class game gets when an AI player takes a Seat over,
+`immediate` (Story 8.2, AD-9). Its `ref` is the occupancy row; the mail reads it at send time."""
+
+
+async def takeover(
+    game_id: str,
+    seat: Role | str,
+    *,
+    actor: rules.TakeoverActor,
+    now: datetime | None = None,
+) -> str:
+    """Hand the Student-held `seat` (a Role or a Seat id) to an AI player from the open Week
+    (Story 8.2, FR-36, AD-2, AD-5). `actor` `system` is the sweep's automatic Takeover after the
+    Inactivity limit; `now` is the clock it judges the due time on (the sweep's), the database
+    clock when none is given.
+
+    One transaction under the Game row lock: `rules.can_take_over` decides (refusals below), one
+    occupancy row is appended with reason `takeover_inactivity` from the open Week and no
+    `actor_user_id`, and `players.ensure_order` gives the Seat its Order in the same transaction.
+    The new occupant is `llm` when the Game froze a model config, else `rule_based`; and
+    `rule_based` when the Play guard has switched the Seat before or the budget reached the
+    players' cost limit (FR-30, FR-69, FR-79). An `llm` occupant gets its turn's AI deadline
+    from `rules.turn_times`, counted from now (it took the Seat mid-Week). In a Guided Week the
+    Seat keeps the fixed Order placed at opening; when no other Student Seat is still unviewed
+    the Week is then complete, and `_settle` advances it after the commit (FR-24).
+
+    The version rises once with `game:<id>` and `session:<id>`; every Student who holds a Seat
+    and the Student whose Seat it was get `user:<id>`, and each of them one `takeover_notice`
+    (dedupe key per Seat and Week) (AD-8, AD-9). Refuses `game_not_found`, `seat_not_found`, and
+    409 `game_not_running`, `takeover_not_allowed`, `seat_not_student_held`, `order_exists`,
+    `takeover_not_due`. Returns the occupancy row id."""
+    game_uuid = _game_uuid(game_id)
+    async with get_sessionmaker().begin() as session:
+        game = await repo.lock_game(session, game_uuid)
+        if game is None:
+            raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
+        seat_rows = await repo.seats_with_occupant(session, game_uuid)
+        row = _seat_row(seat_rows, seat)
+        week = await repo.open_week(session, game_uuid) if game["settings"] is not None else None
+        turn = None
+        guided = False
+        if week is not None:
+            turns = await repo.week_turns_with_occupant(session, game_uuid, week)
+            turn = next((t for t in turns if t["seat_id"] == row["id"]), None)
+            guided = rules.guided_week(
+                _policy(game["purpose"]), GameSettings.model_validate(game["settings"]), week
+            )
+        at = now if now is not None else await repo.clock_now(session)
+        refused = rules.can_take_over(game, turn, actor, at, guided=guided)
+        if refused is not None:
+            raise CommandError(refused, "the Seat cannot be taken over now", 409)
+        assert turn is not None and week is not None  # `can_take_over` refuses otherwise
+        student = turn["user_id"]
+        occupant = await _takeover_occupant(session, game, row["id"])
+        occupancy_id = uuid.uuid7()
+        await repo.append_occupancy(
+            session,
+            {
+                "id": occupancy_id,
+                "seat_id": row["id"],
+                "from_week": week,
+                "occupant_kind": occupant.value,
+                "policy_id": None,
+                "reason": OccupancyReason.TAKEOVER_INACTIVITY.value,
+                "actor_user_id": None,
+            },
+        )
+        if occupant is OccupantKind.LLM and not guided:
+            await _takeover_deadline(session, game, turn)
+        await _ensure_order(OpenGame(session=session, game_id=game_uuid), row["id"])
+        await _commit_change(session, game_uuid)
+        told = set(seated_students(await repo.seats_with_occupant(session, game_uuid)))
+        if student is not None:
+            told.add(student)
+        for each in sorted(told, key=str):
+            await events.emit(session, "user", str(each))
+            await notify.enqueue(
+                session,
+                each,
+                TAKEOVER_NOTICE,
+                f"{TAKEOVER_NOTICE}:{row['id']}:{week}:{each}",
+                ref=occupancy_id,
+            )
+    log.info(
+        "seat_taken_over",
+        game_id=game_id,
+        seat_id=str(row["id"]),
+        week=week,
+        occupant_kind=occupant.value,
+        actor=actor,
+    )
+    await _settle(game_id)
+    return str(occupancy_id)
+
+
+async def _takeover_occupant(
+    session: AsyncSession, game: Mapping[str, Any], seat_id: uuid.UUID
+) -> OccupantKind:
+    """The AI player a Takeover puts in (FR-30, FR-69, FR-79): the Class session's AI mode, but
+    Rule-based once the Play guard has switched the Seat or the budget is cost-limited."""
+    runtime = SessionRuntime.model_validate(game["session_runtime"])
+    if runtime.model_config_id is None:
+        return OccupantKind.RULE_BASED
+    if await repo.guard_switched(session, seat_id) or await _cost_limited(session, game):
+        return OccupantKind.RULE_BASED
+    return OccupantKind.LLM
+
+
+async def _takeover_deadline(
+    session: AsyncSession, game: Mapping[str, Any], turn: Mapping[str, Any]
+) -> None:
+    """An LLM player that took the Seat mid-Week is due its per-Order budget after now, so the
+    rescue loop places the fallback Order if its job never does (AD-5, Issue #141)."""
+    budget = await _ai_order_budget(session, game, [OccupantKind.LLM.value])
+    if budget is None:
+        return
+    times = rules.turn_times(
+        rules.TurnGame(guided_week=False),
+        # The database clock at this statement, after the Game row lock was granted.
+        rules.TurnSeat(
+            OccupantKind.LLM, turn["opened_at"], occupied_since=await repo.clock_now(session)
+        ),
+        rules.TurnInputs(ai_order_budget_s=budget),
+    )
+    await repo.set_ai_deadline(session, turn["id"], times.ai_deadline_at)
 
 
 async def finish(session: AsyncSession, game_id: uuid.UUID, state: WeekState) -> None:

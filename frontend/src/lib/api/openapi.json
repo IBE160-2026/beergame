@@ -5990,6 +5990,11 @@
             ],
             "title": "Number"
           },
+          "obligatory": {
+            "default": false,
+            "title": "Obligatory",
+            "type": "boolean"
+          },
           "role": {
             "$ref": "#/components/schemas/Role"
           },
@@ -6140,6 +6145,11 @@
       "TableSeatOut": {
         "description": "A Seat of the Student's Class game (Story 6.1, FR-22, FR-34): its Role and who holds it,\na Student by name, any AI player as «KI-spiller» (`ai`, never which kind), or free.",
         "properties": {
+          "guard_switched": {
+            "default": false,
+            "title": "Guard Switched",
+            "type": "boolean"
+          },
           "holder": {
             "enum": [
               "student",
@@ -6185,8 +6195,24 @@
             ],
             "title": "Ordered"
           },
+          "ordering_for": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordering For"
+          },
           "role": {
             "$ref": "#/components/schemas/Role"
+          },
+          "taken_over": {
+            "default": false,
+            "title": "Taken Over",
+            "type": "boolean"
           },
           "wait_started_at": {
             "anyOf": [

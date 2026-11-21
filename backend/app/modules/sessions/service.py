@@ -1332,6 +1332,8 @@ async def _game_out(
         seat_state=state,
         turn=turn,
         time_proposal=await _time_proposal_out(s, user_id, found.game_id, row["class_id"]),
+        # Story 8.2 (FR-17): a test Game counts toward no requirement.
+        obligatory=bool(row.get("obligatory")) and not found.test_game,
     )
 
 
@@ -1381,6 +1383,9 @@ def _seats_out(table: games_service.TableStatus) -> list[TableSeatOut]:
             ordered=seat.ordered,
             wait_started_at=seat.wait_started_at,
             mark=seat.mark,
+            taken_over=seat.taken_over,
+            ordering_for=seat.ordering_for,
+            guard_switched=seat.guard_switched,
         )
         for seat in table.seats
     ]
@@ -2062,6 +2067,44 @@ async def obligatory_mail_context(
     if user_id not in await classes.registered_students(row["class_id"]):
         return None
     return {"class_name": label.name}
+
+
+async def takeover_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `takeover_notice`, for `messaging` at send time (Story 8.2,
+    FR-36, FR-17, AD-9): the Class's name, the game number, the Seat's Role, whether the reader is
+    the Student whose Seat it was (`own`), that Student's name for the others (None when no longer
+    in the Class), and whether the Class session is obligatory. Never a number of Uker (FR-14).
+    None, so the notice is left out, when the row is no Takeover, the Class is archived or the
+    User is no longer a registered Student of it."""
+    if ref is None:
+        return None
+    info = await games_service.takeover_of(session, ref)
+    if info is None:
+        return None
+    row = await repo.session_row(session, info.class_session_id)
+    if row is None:
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None or label.archived:
+        return None
+    if user_id not in await classes.registered_students(row["class_id"]):
+        return None
+    own = info.student == user_id
+    names = (
+        await classes.student_names(row["class_id"], [info.student])
+        if info.student is not None and not own
+        else {}
+    )
+    return {
+        "class_name": label.name,
+        "game_number": info.number,
+        "role": info.role,
+        "own": own,
+        "student": names.get(info.student) if info.student is not None else None,
+        "obligatory": bool(row["obligatory"]),
+    }
 
 
 # The allocation draft (Story 5.8, FR-20, AD-12, AD-14).

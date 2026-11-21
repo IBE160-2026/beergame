@@ -197,6 +197,24 @@ async def _run_accept_time() -> str:
     return game_id
 
 
+async def _run_takeover() -> str:
+    """The absent Student's Seat of a started Class game is taken over at its due time (Story
+    8.2): its Class session and both Students hear of it (each also through a notice)."""
+    from tests.games.test_takeover import class_game, due_of
+
+    game_id, students = await class_game()
+    await commands.place_order(game_id, "retailer", 1, 4, "student", actor=students["retailer"])
+    with_settle = commands._settle
+    commands._settle = _no_settle  # only the command's own events: no advance after it
+    try:
+        due = due_of(game_id, "factory")
+        assert due is not None
+        await commands.takeover(game_id, "factory", actor="system", now=due)
+    finally:
+        commands._settle = with_settle
+    return game_id
+
+
 RUNNERS = {
     "create": _run_create,
     "assign_seat": _run_assign_seat,
@@ -210,8 +228,12 @@ RUNNERS = {
     "view_week": _run_view_week,
     "propose_time": _run_propose_time,
     "accept_time": _run_accept_time,
+    "takeover": _run_takeover,
 }
 """How to run each command once; a command added without a runner fails the test below."""
+
+TAKEOVER_SETUP = 17
+"""create 2, two Student Seats 2 each, snapshot 4, start 4, the first Order 3."""
 
 CLASS_SETUP_EVENTS = {
     "move_seat": 4,
@@ -224,6 +246,7 @@ CLASS_SETUP_EVENTS = {
     # session, the proposer, the other Student's notice).
     "propose_time": 6,
     "accept_time": 10,
+    "takeover": TAKEOVER_SETUP,
 }
 """Runners on a Class game, and how many events their setup emits before the command's own."""
 
@@ -245,6 +268,7 @@ def test_every_command_is_exported_and_registered():
             "view_week",
             "propose_time",
             "accept_time",
+            "takeover",
         }
         == set(RUNNERS)
     )

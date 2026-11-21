@@ -386,8 +386,26 @@ export const nb = {
         waiting: "venter",
         waitingFor: (duration: string) => `venter, ${duration}`,
       },
-      /** A Seat whose LLM player the Play guard switched (FR-79). [ASSUMPTION] */
+      /** A Seat whose LLM player the Play guard switched (FR-79), also when the switch came before
+       * a later Takeover or Reclaim (Story 8.2). [ASSUMPTION] */
       guardSwitched: "KI-spiller (regelbasert)",
+      /** Takeover (Story 8.2, FR-36, FR-37, UX-DR62, UX-DR69, EXPERIENCE.md → Takeover): the row
+       * «Fabrikk  KI-spiller  bestiller for Jonas» and «KI-spiller har bestilt for deg.» are the
+       * spine's; the own row's words, the row of a Student no longer in the Class and the
+       * requirement warning are [ASSUMPTION] draft copy. */
+      takeover: {
+        orderingFor: (name: string) => `bestiller for ${name}`,
+        orderingForYou: "bestiller for deg",
+        orderingForSeat: "bestiller for setet",
+        /** One polite line per Seat taken over: «Fabrikk: KI-spiller bestiller for Jonas.» */
+        announced: (role: string, status: string) => `${role}: KI-spiller ${status}.`,
+        takenOver: "KI-spiller har bestilt for deg.",
+        /** FR-17, FR-14: the only place the product builds this warning (the mail's twin is
+         * `_takeover_warning.j2`). Never a number or how many Uker: `check:copy` fails on a digit
+         * or «uke» here. */
+        requirementWarning:
+          "Klassespillet er obligatorisk. At en KI-spiller bestiller for deg, kan påvirke om du oppfyller kravet.",
+      },
       duration: {
         underMinute: "under 1 min",
         minutes: (n: number) => `${n} min`,
