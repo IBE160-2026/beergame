@@ -5,4 +5,6 @@
 - `scoring`: computed scoring rules for answers (`score_sum`, the Starting task, FR-85).
 - `facts`: the facts set of one Seat of a finished Game (`facts`, FR-44, AD-7), with the Detected
   pattern definitions and their rules in `patterns`; the rules are documented in `facts.md`.
+- `sentences`: the sentence templates' shape and the code-rendered Debrief text
+  (`demand_heading`, Story 9.4, AD-7).
 """

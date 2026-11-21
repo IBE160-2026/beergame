@@ -1,9 +1,10 @@
 """Publish and read immutable, versioned content (Story 6.3, Story 9.1, AD-23).
 
 A record is never changed: `publish` stores a new version (the next number of its kind) and a
-trigger refuses every UPDATE. The lock pins the version a Class session uses (`starting_task_pin`
-and `detected_patterns_pin`, registered by `sessions`); readers ask for that version, or the
-latest for a session locked before the pin existed. This module imports no feature module."""
+trigger refuses every UPDATE. The lock pins the version a Class session uses (`starting_task_pin`,
+`detected_patterns_pin` and `sentence_templates_pin`, registered by `sessions`); readers ask for
+that version, or the latest for a session locked before the pin existed. This module imports no
+feature module."""
 
 import uuid
 from typing import Any
@@ -13,13 +14,14 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.content.models import Kind, content_records
-from app.modules.content.schemas import PatternSet, StartingTask
+from app.modules.content.schemas import PatternSet, SentenceTemplates, StartingTask
 from app.platform.db import get_sessionmaker
 
 __all__ = [
     "ContentNotFound",
     "Kind",
     "PatternSet",
+    "SentenceTemplates",
     "StartingTask",
     "detected_patterns",
     "detected_patterns_pin",
@@ -27,15 +29,18 @@ __all__ = [
     "latest_version",
     "pinned_version",
     "publish",
+    "sentence_templates",
+    "sentence_templates_pin",
     "starting_task",
     "starting_task_pin",
 ]
 
-type Body = StartingTask | PatternSet
+type Body = StartingTask | PatternSet | SentenceTemplates
 
-_SCHEMAS: dict[Kind, type[StartingTask] | type[PatternSet]] = {
+_SCHEMAS: dict[Kind, type[StartingTask] | type[PatternSet] | type[SentenceTemplates]] = {
     Kind.STARTING_TASK: StartingTask,
     Kind.DETECTED_PATTERNS: PatternSet,
+    Kind.SENTENCE_TEMPLATES: SentenceTemplates,
 }
 
 
@@ -114,6 +119,15 @@ async def detected_patterns(version: int | None) -> tuple[int, PatternSet]:
     return version, patterns
 
 
+async def sentence_templates(version: int | None) -> tuple[int, SentenceTemplates]:
+    """The sentence templates at the pinned `version`, or the latest when None: (version, body)
+    (Story 9.4)."""
+    if version is None:
+        version = await latest_version(Kind.SENTENCE_TEMPLATES)
+    templates: SentenceTemplates = await get(Kind.SENTENCE_TEMPLATES, version)
+    return version, templates
+
+
 async def starting_task_pin(session: AsyncSession, _class_session: Any) -> dict[str, int]:
     """The lock's pin provider (Story 6.3, AD-23): the Starting task version a Class session
     uses from its lock on, under `SessionRuntime.pins["starting_task"]`."""
@@ -124,6 +138,12 @@ async def detected_patterns_pin(session: AsyncSession, _class_session: Any) -> d
     """The lock's pin provider (Story 9.1, AD-23): the Detected pattern version a Class session
     uses from its lock on, under `SessionRuntime.pins["detected_patterns"]`."""
     return {"version": await latest_version(Kind.DETECTED_PATTERNS, session)}
+
+
+async def sentence_templates_pin(session: AsyncSession, _class_session: Any) -> dict[str, int]:
+    """The lock's pin provider (Story 9.4, AD-23): the sentence-template version a Class session
+    uses from its lock on, under `SessionRuntime.pins["sentence_templates"]`."""
+    return {"version": await latest_version(Kind.SENTENCE_TEMPLATES, session)}
 
 
 def pinned_version(pins: Any, kind: Kind | str = Kind.STARTING_TASK) -> int | None:

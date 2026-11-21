@@ -1,4 +1,4 @@
-"""What the Debrief routes answer (Stories 9.2, 9.3, AD-3)."""
+"""What the Debrief routes answer (Stories 9.2, 9.3, 9.4, AD-3)."""
 
 import uuid
 from datetime import datetime
@@ -60,9 +60,47 @@ class MyExplanationOut(BaseModel):
     explanation: ExplanationOut | None
 
 
+class RevealWeekOut(BaseModel):
+    """One Uke of the reveal (Story 9.4): what the customers ordered, the Order that reached the
+    Student's own Seat (all they saw) and the Order they placed. From the Game's stored demand
+    series and the Seat's own Decision log rows."""
+
+    week: int
+    demand: int
+    """Kundene: the customers' order in this Uke."""
+    incoming_order: int
+    """Ordre inn: the Order that reached the Student's Seat («det eneste du så»)."""
+    order: int
+    """Din ordre: the Order the Seat placed."""
+
+
+class LargestOrderOut(BaseModel):
+    """The Student's largest Order and the first Uke they placed it («Din ordre, 24 i Uke 11»)."""
+
+    week: int
+    order: int
+
+
+class RevealOut(BaseModel):
+    """Step 2, the reveal of customer demand (Story 9.4, FR-44, UX-DR32): the heading rendered by
+    code from the demand series with the pinned sentence templates, and every logged Uke of the
+    Student's own Seat, oldest first. Every number is the api's (AD-10)."""
+
+    heading: str
+    template_id: str
+    """The sentence template the heading was rendered with (`demand-step` …)."""
+    role: Role
+    """The Student's own Role."""
+    weeks: list[RevealWeekOut]
+    largest_order: LargestOrderOut | None
+
+
 class DebriefStepOut(BaseModel):
-    """A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Its
-    content comes with Stories 9.4 to 9.9; until then the step number only."""
+    """A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2
+    carries the reveal (Story 9.4); steps 3 to 5 get their content with Stories 9.5 to 9.9 and
+    until then answer the step number only."""
 
     debrief_id: uuid.UUID
     step: int
+    reveal: RevealOut | None = None
+    """Step 2 only."""

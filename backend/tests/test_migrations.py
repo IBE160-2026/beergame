@@ -87,7 +87,7 @@ HEAD_TABLES = (
     | DEBRIEF_TABLES
     | EXPLANATION_TABLES
 )
-HEAD = "0103"  # 0103 stores the Explanation before the reveal (Story 9.3)
+HEAD = "0104"  # 0104 stores the sentence templates (Story 9.4)
 
 
 def reset_schema(url: str) -> None:
@@ -232,6 +232,15 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "char_length(text)" in explained["ck_debrief_explanations_length"]
     assert function_names(url, "debrief_explanations_immutable")
 
+    # 0104 (Story 9.4): version 1 of the sentence templates, every demand heading variant.
+    [(templates,)] = rows(url, "SELECT body FROM content_records WHERE kind = 'sentence_templates'")
+    assert "demand-step" in [t["id"] for t in templates["templates"]]
+
+    command.downgrade(cfg, "0103")
+    assert rows(url, "SELECT count(*) FROM content_records WHERE kind = 'sentence_templates'") == [
+        (0,)
+    ]
+    assert "sentence_templates" not in definition(url, "ck_content_records_kind")
     command.downgrade(cfg, "0102")
     assert EXPLANATION_TABLES.isdisjoint(tables(url))
     assert not function_names(url, "debrief_explanations_immutable")

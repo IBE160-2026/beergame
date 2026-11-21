@@ -2,8 +2,8 @@
 
 One table, `content_records(kind, version, body)`. A record never changes (a trigger refuses
 UPDATE): an edit is a new version, `service.publish(kind, body)`, validated against the kind's
-schema (`schemas.py`). Kinds: `starting_task` (Story 6.3), `detected_patterns` (Story 9.1); later
-epics add theirs.
+schema (`schemas.py`). Kinds: `starting_task` (Story 6.3), `detected_patterns` (Story 9.1),
+`sentence_templates` (Story 9.4); later epics add theirs.
 
 - Version 1 of the Starting task is stored by migration 0046: placeholder items, among them
   «Regn posisjonen for én Uke». The final items (issue #16) arrive as a new version, with no
@@ -20,3 +20,9 @@ epics add theirs.
   reviewed set is a new version: `uv run python -m app.modules.content detected_patterns file.json`.
   The lock pins it under `SessionRuntime.pins["detected_patterns"]` (`detected_patterns_pin`);
   `pinned_version(pins, Kind.DETECTED_PATTERNS)` reads it.
+- Version 1 of the sentence templates is stored by migration 0104: the five variants of the
+  Debrief's step-2 heading (`demand-flat`, `demand-step`, `demand-step-noise`, `demand-random`,
+  `demand-varied`). Their shape is `analysis.sentences.SentenceTemplates`: every demand variant
+  present, each using only the values its id is given, no exclamation mark. Code fills every
+  number (AD-7). The lock pins the version under `SessionRuntime.pins["sentence_templates"]`
+  (`sentence_templates_pin`); `pinned_version(pins, Kind.SENTENCE_TEMPLATES)` reads it.

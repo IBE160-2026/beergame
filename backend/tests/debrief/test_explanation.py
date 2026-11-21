@@ -50,21 +50,24 @@ def explanations() -> list[tuple]:
     return rows("SELECT user_id, text, length FROM debrief_explanations ORDER BY user_id")
 
 
-async def played(klass: str) -> tuple[str, str, dict, dict[str, str]]:
-    """A Class session with two Class games (five Students); the first Student's game played
-    a few Uker and finished, its Debrief opened. Returns the session id, game id and Debrief."""
+async def played(klass: str) -> tuple[str, str, dict, dict[str, str], str]:
+    """A Class session with two Class games (five Students); the game of a Student who shares it
+    with another (the allocation is random) played a few Uker and finished, its Debrief opened.
+    Returns the session id, game id, Debrief, each Student's game and that Student."""
     session_id, seated = await confirmed(klass, 5)
     await sweep.run(LOCKED)
-    game_id = (await home(email(0)))["game"]["id"]
-    await task_done(seated[0], session_id)
-    assert (await start(email(0), game_id)).status_code == 200
+    game_of = {email(i): (await home(email(i)))["game"]["id"] for i in range(5)}
+    games_ = list(game_of.values())
+    first = next(i for i in range(5) if games_.count(games_[i]) > 1)
+    me, game_id = email(first), games_[first]
+    await task_done(seated[first], session_id)
+    assert (await start(me, game_id)).status_code == 200
     for _ in range(2):
         await play_week(game_id)
     finish(game_id)
-    opened = await open_(email(0), session_id)
+    opened = await open_(me, session_id)
     assert opened.status_code == 200
-    game_of = {email(i): (await home(email(i)))["game"]["id"] for i in range(5)}
-    return session_id, game_id, opened.json(), game_of
+    return session_id, game_id, opened.json(), game_of, me
 
 
 def holds_no_reveal(body: object, own_role: str) -> None:
@@ -77,8 +80,8 @@ def holds_no_reveal(body: object, own_role: str) -> None:
 
 
 async def test_step_one_the_one_send_the_gate_and_the_readers(klass, emitted):
-    session_id, game_id, debrief, game_of = await played(klass)
-    me, role = email(0), debrief["role"]
+    session_id, game_id, debrief, game_of, me = await played(klass)
+    role = debrief["role"]
     mate = next(who for who, game in game_of.items() if game == game_id and who != me)
     stranger = next(who for who, game in game_of.items() if game != game_id)
     path = base(debrief["id"])
@@ -140,26 +143,71 @@ async def test_step_one_the_one_send_the_gate_and_the_readers(klass, emitted):
     assert explanations() == [(user_id(me), TEXT, len(TEXT))]
     assert (await call(me, "GET", f"{path}/explanation")).json() == {"explanation": body}
 
-    # With it, the steps after step 1 answer.
-    for step in range(2, 6):
+    # With it, the steps after step 1 answer; step 2 is the reveal (Story 9.4).
+    for step in range(3, 6):
         response = await call(me, "GET", f"{path}/steps/{step}")
         assert response.status_code == 200
-        assert response.json() == {"debrief_id": debrief["id"], "step": step}
+        assert response.json() == {"debrief_id": debrief["id"], "step": step, "reveal": None}
+    await revealed(me, path, debrief, game_id)
 
     # Another Student of the same game reads only their own (none) and is still gated.
     other = mate
     assert (await call(other, "GET", f"{path}/explanation")).json() == {"explanation": None}
     refused(await call(other, "GET", f"{path}/steps/2"), "explanation_required")
 
-    await readers(session_id, game_id, path, klass, body, mate, stranger)
+    await readers(session_id, game_id, path, klass, body, me, mate, stranger)
+
+
+async def revealed(me: str, path: str, debrief: dict, game_id: str) -> None:
+    """Step 2, the reveal of customer demand (Story 9.4, FR-44, NFR-9): every number equals the
+    Game's stored demand series and the Seat's own `seat_weeks` rows, read here by SQL. Part of
+    the test above, so the played game is set up once."""
+    response = await call(me, "GET", f"{path}/steps/2")
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["debrief_id"], body["step"]) == (debrief["id"], 2)
+    shown = body["reveal"]
+    [(series, pins)] = rows(
+        "SELECT demand_series, session_runtime->'pins' FROM games WHERE id = %s", game_id
+    )
+    stored = rows(
+        "SELECT w.week, w.\"order\", (w.state_seen->>'incoming_order')::int FROM seat_weeks w "
+        "JOIN seats s ON s.id = w.seat_id WHERE w.game_id = %s AND s.role = %s ORDER BY w.week",
+        game_id,
+        debrief["role"],
+    )
+    assert len(stored) >= 2
+    assert shown["role"] == debrief["role"]
+    assert shown["weeks"] == [
+        {"week": week, "demand": series[week - 1], "incoming_order": seen, "order": order}
+        for week, order, seen in stored
+    ]
+    top = max(order for _, order, _ in stored)
+    first_top = next(week for week, order, _ in stored if order == top)
+    assert shown["largest_order"] == {"week": first_top, "order": top}
+    # The Classic demand steps once (4, then 8 from Uke 5); the lock pinned the templates.
+    assert series[:5] == [4, 4, 4, 4, 8]
+    assert pins["sentence_templates"] == {"version": 1}
+    assert (shown["template_id"], shown["heading"]) == (
+        "demand-step",
+        "Kundene bestilte 4, så 8. Etter det endret de seg aldri.",
+    )
+    # Every Uke of the own Seat only: no other Role's number.
+    assert {"week", "demand", "incoming_order", "order"} == set(shown["weeks"][0])
 
 
 async def readers(
-    session_id: str, game_id: str, path: str, klass: str, sent: dict, mate: str, stranger: str
+    session_id: str,
+    game_id: str,
+    path: str,
+    klass: str,
+    sent: dict,
+    me: str,
+    mate: str,
+    stranger: str,
 ) -> None:
     """Who reads the first Student's sent Explanation, and who reaches the Debrief's routes.
     Part of the test above, so the played game is set up once."""
-    me = email(0)
     staff_path = f"/api/class-sessions/{session_id}/students/{user_id(me)}/explanation"
     put_staff(klass, await make(ASSISTANT, roles=()), "assistant")
     await make(ADMIN, roles=(AccountRole.admin,))

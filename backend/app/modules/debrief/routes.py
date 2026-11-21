@@ -7,7 +7,8 @@
   `GET`/`POST /api/debriefs/{id}/explanation` (their own Explanation; sent once, 409
   `explanation_exists`).
 - `GET /api/debriefs/{id}/steps/{step}` (2 to 5): every step after step 1, behind the
-  Explanation gate (403 `explanation_required`). Later stories add each step's content here.
+  Explanation gate (403 `explanation_required`). Step 2 is the reveal of customer demand
+  (Story 9.4); later stories add each other step's content here.
 - `GET /api/class-sessions/{id}/students/{user_id}/explanation`: a Student's Explanation for the
   Class's owners and Assistant lecturers (`explanations.read`).
 
@@ -173,7 +174,9 @@ async def get_debrief_step(
     user: OWN,
 ) -> Response:
     """A Debrief step after step 1 (FR-41, FR-43): 403 `explanation_required` until the Student's
-    Explanation is saved, checked here and not only in the web app."""
+    Explanation is saved, checked here and not only in the web app. Step 2 carries `reveal`: the
+    heading rendered from the demand series and Kundene, Ordre inn and Din ordre per Uke of the
+    Student's own Seat (Story 9.4, FR-44)."""
     return await _answer(service.step(user, _id(debrief_id), step))
 
 

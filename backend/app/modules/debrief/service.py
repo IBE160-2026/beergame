@@ -1,4 +1,4 @@
-"""What other modules and the routes use of `debrief` (Stories 9.2, 9.3).
+"""What other modules and the routes use of `debrief` (Stories 9.2, 9.3, 9.4).
 
 - `open_mine(user, class_session_id)`: the Student's Debrief, opened on first use; raises
   `NotAvailable` with the code the route answers (`debrief_not_open`, `debrief_held`), and None
@@ -9,7 +9,8 @@
   `InvalidExplanation`, `commands.ExplanationExists`).
 - `require_explanation(user_id, class_session_id)`: the one gate every Debrief read after step 1
   goes through (raises `ExplanationRequired`, 403 `explanation_required`, FR-41, FR-43);
-  `step(user, debrief_id, n)` is the step endpoint behind it.
+  `step(user, debrief_id, n)` is the step endpoint behind it; step 2 carries the reveal of
+  customer demand (Story 9.4, `reveal`).
 - `staff_explanation(user, class_session_id, student_id)`: the Explanation for the Class's staff
   (`explanations.read`, AD-12); None for everyone else.
 """
@@ -20,6 +21,9 @@ from datetime import datetime
 
 from sqlalchemy import select
 
+from app.analysis import sentences
+from app.engine.settings import Role
+from app.modules.content import service as content
 from app.modules.debrief import commands, rules
 from app.modules.debrief.models import (
     EXPLANATION_MAX,
@@ -31,9 +35,12 @@ from app.modules.debrief.schemas import (
     DebriefOut,
     DebriefStepOut,
     ExplanationOut,
+    LargestOrderOut,
     MyExplanationOut,
     NetInventoryOut,
     NetWeekOut,
+    RevealOut,
+    RevealWeekOut,
 )
 from app.modules.games import service as games
 from app.modules.progress import service as progress
@@ -224,9 +231,49 @@ async def step(user: authz.Principal, debrief_id: uuid.UUID, number: int) -> Deb
     found = await _own(user, debrief_id)
     if found is None:
         return None
-    row, _ = found
+    row, game = found
     await require_explanation(user.id, row.class_session_id)
-    return DebriefStepOut(debrief_id=row.id, step=number)
+    shown = await _reveal(row.game_id, game.role) if number == 2 else None
+    return DebriefStepOut(debrief_id=row.id, step=number, reveal=shown)
+
+
+async def _reveal(game_id: uuid.UUID, role: str) -> RevealOut:
+    """Step 2 (Story 9.4, FR-44): the heading from the Game's stored demand series with the
+    sentence templates its Class session pinned at the lock (the latest for a session locked
+    before the pin), and per logged Uke of the own Seat: Kundene, Ordre inn and Din ordre. Call
+    only behind `require_explanation`."""
+    found = await games.get_game(str(game_id))
+    series = await games.demand_series(str(game_id))
+    if found is None or found.settings is None or not series:
+        raise RuntimeError(f"a finished Game {game_id} has no demand series")
+    pins = found.session_runtime.pins if found.session_runtime else None
+    _, templates = await content.sentence_templates(
+        content.pinned_version(pins, content.Kind.SENTENCE_TEMPLATES)
+    )
+    heading = sentences.demand_heading(found.settings.demand, series, templates)
+    logged = await games.decision_log(str(game_id))
+    own = sorted((e for e in logged if str(e.role) == str(role)), key=lambda e: e.week)
+    weeks = [
+        RevealWeekOut(
+            week=e.week,
+            demand=series[e.week - 1],
+            incoming_order=e.state_seen.incoming_order,
+            order=e.order,
+        )
+        for e in own
+    ]
+    # The first Uke of the largest Order (max keeps the first of equals); none when every Order
+    # was 0, so no label stands on an empty baseline.
+    largest = max(weeks, key=lambda w: w.order, default=None)
+    if largest is not None and largest.order == 0:
+        largest = None
+    return RevealOut(
+        heading=heading.text,
+        template_id=heading.template_id,
+        role=Role(role),
+        weeks=weeks,
+        largest_order=LargestOrderOut(week=largest.week, order=largest.order) if largest else None,
+    )
 
 
 async def staff_explanation(

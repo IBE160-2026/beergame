@@ -2678,6 +2678,8 @@ def register_pin_provider(name: str, provider: PinProvider) -> None:
 register_pin_provider(content.Kind.STARTING_TASK.value, content.starting_task_pin)
 # Story 9.1: and the Detected pattern definitions the facts sets of its Games use (AD-23).
 register_pin_provider(content.Kind.DETECTED_PATTERNS.value, content.detected_patterns_pin)
+# Story 9.4: and the sentence templates its Debriefs render their text with (AD-23).
+register_pin_provider(content.Kind.SENTENCE_TEMPLATES.value, content.sentence_templates_pin)
 
 
 class ProviderKeyMissing(Exception):

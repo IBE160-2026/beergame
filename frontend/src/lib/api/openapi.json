@@ -1659,12 +1659,22 @@
         "type": "string"
       },
       "DebriefStepOut": {
-        "description": "A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Its\ncontent comes with Stories 9.4 to 9.9; until then the step number only.",
+        "description": "A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2\ncarries the reveal (Story 9.4); steps 3 to 5 get their content with Stories 9.5 to 9.9 and\nuntil then answer the step number only.",
         "properties": {
           "debrief_id": {
             "format": "uuid",
             "title": "Debrief Id",
             "type": "string"
+          },
+          "reveal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RevealOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "step": {
             "title": "Step",
@@ -2952,6 +2962,25 @@
         "title": "LabHourOut",
         "type": "object"
       },
+      "LargestOrderOut": {
+        "description": "The Student's largest Order and the first Uke they placed it («Din ordre, 24 i Uke 11»).",
+        "properties": {
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "order"
+        ],
+        "title": "LargestOrderOut",
+        "type": "object"
+      },
       "LecturerOverviewOut": {
         "description": "The Lærerhjem's «Venter» and «Neste frist» (Story 5.2, UX-DR56): over the User's Classes\nthat are not archived.",
         "properties": {
@@ -3706,6 +3735,77 @@
           "token"
         ],
         "title": "ResetTokenIn",
+        "type": "object"
+      },
+      "RevealOut": {
+        "description": "Step 2, the reveal of customer demand (Story 9.4, FR-44, UX-DR32): the heading rendered by\ncode from the demand series with the pinned sentence templates, and every logged Uke of the\nStudent's own Seat, oldest first. Every number is the api's (AD-10).",
+        "properties": {
+          "heading": {
+            "title": "Heading",
+            "type": "string"
+          },
+          "largest_order": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LargestOrderOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "template_id": {
+            "title": "Template Id",
+            "type": "string"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/RevealWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "heading",
+          "template_id",
+          "role",
+          "weeks",
+          "largest_order"
+        ],
+        "title": "RevealOut",
+        "type": "object"
+      },
+      "RevealWeekOut": {
+        "description": "One Uke of the reveal (Story 9.4): what the customers ordered, the Order that reached the\nStudent's own Seat (all they saw) and the Order they placed. From the Game's stored demand\nseries and the Seat's own Decision log rows.",
+        "properties": {
+          "demand": {
+            "title": "Demand",
+            "type": "integer"
+          },
+          "incoming_order": {
+            "title": "Incoming Order",
+            "type": "integer"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "demand",
+          "incoming_order",
+          "order"
+        ],
+        "title": "RevealWeekOut",
         "type": "object"
       },
       "Role": {
@@ -10642,7 +10742,7 @@
     },
     "/api/debriefs/{debrief_id}/steps/{step}": {
       "get": {
-        "description": "A Debrief step after step 1 (FR-41, FR-43): 403 `explanation_required` until the Student's\nExplanation is saved, checked here and not only in the web app.",
+        "description": "A Debrief step after step 1 (FR-41, FR-43): 403 `explanation_required` until the Student's\nExplanation is saved, checked here and not only in the web app. Step 2 carries `reveal`: the\nheading rendered from the demand series and Kundene, Ordre inn and Din ordre per Uke of the\nStudent's own Seat (Story 9.4, FR-44).",
         "operationId": "getDebriefStep",
         "parameters": [
           {

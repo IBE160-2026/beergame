@@ -90,3 +90,34 @@ export const explanationDraftField = (classSessionId: string) => `debrief-explan
 export function hasText(text: string): boolean {
   return text.trim() !== "";
 }
+
+/** A Debrief step after step 1 (Story 9.3): 403 `explanation_required` until the Explanation is
+ * saved. Step 2 carries `reveal` (Story 9.4). */
+export type DebriefStep = components["schemas"]["DebriefStepOut"];
+/** Step 2, the reveal of customer demand: the heading from the api and Kundene, Ordre inn and Din
+ * ordre per Uke of the Student's own Seat. */
+export type Reveal = components["schemas"]["RevealOut"];
+export type RevealWeek = components["schemas"]["RevealWeekOut"];
+
+export const debriefStepKey = (debriefId: string, step: number) => [...debriefsKey, debriefId, "steps", step] as const;
+
+/** A step's content, read once the Explanation is saved (`enabled`): the api checks the gate. */
+export function useDebriefStep(debriefId: string, step: number, enabled: boolean) {
+  return useQuery({
+    queryKey: debriefStepKey(debriefId, step),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/debriefs/{debrief_id}/steps/{step}", { params: { path: { debrief_id: debriefId, step } } }),
+      ),
+    enabled,
+    retry: false,
+  });
+}
+
+/** The Role whose Orders reached a Seat: the next one down the chain toward the customers
+ * (EXPERIENCE.md → Chain convention). None for the Detaljist, who saw the customers. */
+export function downstreamRole(role: Debrief["role"]): Debrief["role"] | null {
+  const chain = ["factory", "distributor", "wholesaler", "retailer"] as const;
+  const at = chain.indexOf(role);
+  return at >= 0 && at < chain.length - 1 ? chain[at + 1]! : null;
+}

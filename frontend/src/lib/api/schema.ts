@@ -1440,7 +1440,9 @@ export interface paths {
         /**
          * Get Debrief Step
          * @description A Debrief step after step 1 (FR-41, FR-43): 403 `explanation_required` until the Student's
-         *     Explanation is saved, checked here and not only in the web app.
+         *     Explanation is saved, checked here and not only in the web app. Step 2 carries `reveal`: the
+         *     heading rendered from the demand series and Kundene, Ordre inn and Din ordre per Uke of the
+         *     Student's own Seat (Story 9.4, FR-44).
          */
         get: operations["getDebriefStep"];
         put?: never;
@@ -2555,8 +2557,9 @@ export interface components {
         DebriefRelease: "open" | "hold";
         /**
          * DebriefStepOut
-         * @description A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Its
-         *     content comes with Stories 9.4 to 9.9; until then the step number only.
+         * @description A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2
+         *     carries the reveal (Story 9.4); steps 3 to 5 get their content with Stories 9.5 to 9.9 and
+         *     until then answer the step number only.
          */
         DebriefStepOut: {
             /**
@@ -2564,6 +2567,7 @@ export interface components {
              * Format: uuid
              */
             debrief_id: string;
+            reveal?: components["schemas"]["RevealOut"] | null;
             /** Step */
             step: number;
         };
@@ -3202,6 +3206,16 @@ export interface components {
             starts_at: string;
         };
         /**
+         * LargestOrderOut
+         * @description The Student's largest Order and the first Uke they placed it («Din ordre, 24 i Uke 11»).
+         */
+        LargestOrderOut: {
+            /** Order */
+            order: number;
+            /** Week */
+            week: number;
+        };
+        /**
          * LecturerOverviewOut
          * @description The Lærerhjem's «Venter» and «Neste frist» (Story 5.2, UX-DR56): over the User's Classes
          *     that are not archived.
@@ -3553,6 +3567,38 @@ export interface components {
         ResetTokenIn: {
             /** Token */
             token: string;
+        };
+        /**
+         * RevealOut
+         * @description Step 2, the reveal of customer demand (Story 9.4, FR-44, UX-DR32): the heading rendered by
+         *     code from the demand series with the pinned sentence templates, and every logged Uke of the
+         *     Student's own Seat, oldest first. Every number is the api's (AD-10).
+         */
+        RevealOut: {
+            /** Heading */
+            heading: string;
+            largest_order: components["schemas"]["LargestOrderOut"] | null;
+            role: components["schemas"]["Role"];
+            /** Template Id */
+            template_id: string;
+            /** Weeks */
+            weeks: components["schemas"]["RevealWeekOut"][];
+        };
+        /**
+         * RevealWeekOut
+         * @description One Uke of the reveal (Story 9.4): what the customers ordered, the Order that reached the
+         *     Student's own Seat (all they saw) and the Order they placed. From the Game's stored demand
+         *     series and the Seat's own Decision log rows.
+         */
+        RevealWeekOut: {
+            /** Demand */
+            demand: number;
+            /** Incoming Order */
+            incoming_order: number;
+            /** Order */
+            order: number;
+            /** Week */
+            week: number;
         };
         /**
          * Role

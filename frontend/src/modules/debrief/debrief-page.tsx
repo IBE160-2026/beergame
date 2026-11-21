@@ -9,8 +9,9 @@ import { HOME_LINK, HOME_PATH } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { roleName } from "@/modules/sessions/sessions";
 
-import { DEBRIEF_STEPS, type Debrief, debriefView, myDebriefKey, useMyDebrief } from "./api";
+import { DEBRIEF_STEPS, type Debrief, debriefView, myDebriefKey, useMyDebrief, useMyExplanation } from "./api";
 import { ExplanationStep } from "./explanation-step";
+import { RevealStep } from "./reveal-step";
 
 const copy = nb.debriefEntry;
 const LINE = "text-body-phone lg:text-body";
@@ -19,7 +20,9 @@ const LINE = "text-body-phone lg:text-body";
  * The Debrief (Story 9.2, FR-42, `07-debrief.png`): reached by «Gå til Debrief» on «Spillet er
  * ferdig» and by Stegene's Debrief step. Opening the page opens the Student's Debrief session, so
  * it lands on the step the session stands at, step 1 «Skriv Forklaringen først» the first time,
- * where the Student writes their Explanation (Story 9.3); later steps' content comes with 9.4 on. Before the game has finished the page says the
+ * where the Student writes their Explanation (Story 9.3). Once it is saved, step 2, the reveal of
+ * customer demand, follows under it (Story 9.4); later steps come with their stories. Before the
+ * game has finished the page says the
  * Debrief opens then; while the Faglærer holds every Debrief, that it opens when all Class games
  * have finished, never how many remain. Another Student's or an unknown session shows the
  * permission-denied page. Every number and state comes from the api (AD-10).
@@ -70,10 +73,13 @@ function DebriefView({
   );
 }
 
-/** The Student's Role under the title, then the step the session stands at: its number and
- * heading, as `07-debrief.png` numbers them («1 Skriv Forklaringen først»). */
+/** The Student's Role under the title, then the steps as `07-debrief.png` numbers them («1 Skriv
+ * Forklaringen først»): step 1, and once the Explanation is saved, step 2 under it, so the
+ * Explanation stays beside the data. The step pointer stays where the session stands (moving on
+ * together comes with the Group debrief, Story 9.11). */
 function Steps({ debrief, userId }: { debrief: Debrief; userId: string }) {
   const heading = debrief.step === 1 ? copy.firstStep : null;
+  const sent = Boolean(useMyExplanation(debrief.id).data?.explanation);
   return (
     <>
       <p className={`${LINE} mt-1 text-ink-secondary`}>{copy.roleGame(roleName(debrief.role), debrief.game_number)}</p>
@@ -95,6 +101,7 @@ function Steps({ debrief, userId }: { debrief: Debrief; userId: string }) {
         )}
         {debrief.step === 1 ? <ExplanationStep debrief={debrief} userId={userId} /> : null}
       </section>
+      {sent ? <RevealStep debrief={debrief} /> : null}
     </>
   );
 }

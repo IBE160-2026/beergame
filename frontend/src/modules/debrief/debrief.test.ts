@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { nb } from "@/copy/nb";
 import { DEBRIEF_PATH } from "@/modules/identity/homes";
 
-import { type Debrief, debriefView, explanationDraftField, hasText } from "./api";
+import { type Debrief, debriefView, downstreamRole, explanationDraftField, hasText } from "./api";
 
 const copy = nb.debriefEntry;
 
@@ -65,5 +65,24 @@ describe("the Explanation (Story 9.3)", () => {
       .map((value) => (typeof value === "function" ? value(1) : value))
       .join(" ");
     expect(all).not.toMatch(/kunde|etterspørsel|!/i);
+  });
+});
+
+describe("the reveal (Story 9.4)", () => {
+  it("names the Role whose Orders reached the Seat, and none for the Detaljist", () => {
+    expect(downstreamRole("factory")).toBe("distributor");
+    expect(downstreamRole("distributor")).toBe("wholesaler");
+    expect(downstreamRole("wholesaler")).toBe("retailer");
+    expect(downstreamRole("retailer")).toBeNull();
+  });
+
+  it("words the band and table as the spine does, and names the exercise only after the reveal", () => {
+    const reveal = nb.debrief.reveal;
+    expect(reveal.incomingKey).toBe("Ordre inn: det eneste du så");
+    expect(reveal.largestOrder("24", 11)).toBe("Din ordre, 24 i Uke 11");
+    expect(reveal.demandLabel("8")).toBe("Kundenes etterspørsel: 8");
+    expect(Object.values(reveal.rows)).toEqual(["Kundene", "Ordre inn", "Din ordre"]);
+    expect(reveal.named).toBe("Øvelsen heter Beer Game.");
+    expect(JSON.stringify(nb.debriefEntry)).not.toMatch(/beer|bullwhip/i);
   });
 });

@@ -105,6 +105,7 @@ __all__ = [
     "complete_running_games",
     "create_batch",
     "database_now",
+    "demand_series",
     "games_charged_to",
     "scope_of",
     "own_game",
@@ -436,6 +437,21 @@ async def get_game(game_id: str) -> GameOverview | None:
             for seat in seats
         ),
     )
+
+
+async def demand_series(game_id: str) -> tuple[int, ...] | None:
+    """The Game's stored customer demand series, Week 1 first (FR-13, AD-4), or None when there
+    is no such Game or it has no snapshot yet. Only for reveals after the Explanation (Story 9.4,
+    FR-14): no Seat state carries it."""
+    try:
+        game_uuid = uuid.UUID(game_id)
+    except ValueError, TypeError, AttributeError:
+        return None
+    async with get_sessionmaker()() as session:
+        game = await repo.get_game(session, game_uuid)
+    if game is None or game["demand_series"] is None:
+        return None
+    return tuple(int(value) for value in game["demand_series"])
 
 
 def _or_none[T: (GameSettings, SessionRuntime)](model: type[T], value: object) -> T | None:

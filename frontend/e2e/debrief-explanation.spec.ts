@@ -4,6 +4,7 @@ import { nb } from "../src/copy/nb";
 import { loginByApi } from "./support/auth";
 import { expectAccessible, expectReflow, test } from "./support/classes";
 import { liveClassGame, orderByApi } from "./support/live-game";
+import { REVEAL } from "./support/reveal";
 
 /** Debrief step 1, the Explanation before the reveal (Story 9.3, FR-41, FR-73, NFR-6, UX-DR11,
  * UX-DR31, AD-10). The step at 320, 360 (also with 200 % text) and 1440 px with axe and a send by
@@ -52,6 +53,10 @@ async function stepOne(page: Page, send: "saved" | "failed" | "exists" = "saved"
     stored = { text: "Fra den andre enheten.", length: 22, saved_at: "2026-11-21T11:00:00Z" };
     return route.fulfill(error(409, "explanation_exists"));
   });
+  // Once the Explanation is stored, step 2 follows under step 1 (Story 9.4).
+  await page.route(`**/api/debriefs/${DEBRIEF}/steps/2`, (route) =>
+    route.fulfill(stored || posts.length ? { json: { debrief_id: DEBRIEF, step: 2, reveal: REVEAL } } : error(403, "explanation_required")),
+  );
   return { posts, unroute: () => page.unrouteAll({ behavior: "ignoreErrors" }) };
 }
 
@@ -102,6 +107,17 @@ for (const viewport of [
       await expect(table.getByRole("row")).toHaveCount(WEEKS.length + 1);
       await expect(table.getByRole("columnheader")).toHaveText([nb.terms.week, words.netColumn]);
       await expect(chart).toHaveCount(0);
+      // The table is capped and scrolls inside its region, so the field stays near (Story 9.4 fix).
+      const region = main.getByRole("group", { name: words.netTitle });
+      const box = await region.evaluate((el) => ({
+        capped: el.scrollHeight > el.clientHeight,
+        lines: el.clientHeight / parseFloat(getComputedStyle(el).fontSize),
+      }));
+      expect(box.capped).toBe(true);
+      expect(box.lines).toBeLessThanOrEqual(22.5);
+      // Scrolled down, the header row stays in view.
+      await region.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+      await expect(table.getByRole("columnheader").first()).toBeInViewport();
       await expectReflow(page, viewport.phone);
       await main.getByRole("button", { name: words.showChart }).click();
       await expect(chart).toBeVisible();
@@ -177,6 +193,16 @@ test("live: the Student's Explanation is sent once and opens the steps after ste
 
     const after = await me.context.request.get(step2);
     expect(after.status()).toBe(200);
+    // Step 2 shows under step 1 with the api's numbers: demand 4, then 8 from Uke 2 (Story 9.4).
+    const reveal = (await after.json()).reveal;
+    expect(reveal.heading).toBe("Kundene bestilte 4, så 8. Etter det endret de seg aldri.");
+    expect(reveal.weeks.map((w: { demand: number; order: number }) => [w.demand, w.order])).toEqual([
+      [4, 4],
+      [8, 4],
+    ]);
+    const shown = page.locator("[data-debrief-reveal]");
+    await expect(shown.getByRole("heading", { level: 2 })).toHaveAccessibleName(`${copy.stepOf(2, 5)}: ${reveal.heading}`);
+    await expect(shown.locator("tr[data-row=demand] td")).toHaveText(["4", "8"]);
     const again = await me.context.request.post(`/api/debriefs/${debrief.id}/explanation`, {
       data: { text: "Noe annet." },
       headers: CSRF,

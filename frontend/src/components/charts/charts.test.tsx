@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { ChainBand } from "./chain-band";
 import { CostArea, endPlaces } from "./cost-area";
 import { CostBars } from "./cost-bars";
+import { DemandBand, demandAxis } from "./demand-band";
 import { NetGraph, type NetPoint } from "./net-graph";
 import { NetOverGame, weekLabels } from "./net-over-game";
 import { costAxisTop, netDomain, netTicks, spreadLabels, totalAxisTop } from "./scales";
@@ -323,5 +324,61 @@ describe("Ditt netto lager, hele spillet (Story 9.3)", () => {
     const html = renderToStaticMarkup(<NetOverGame {...props} points={[{ week: 1, net: -4 }]} />);
     expect(html).toContain("<circle");
     expect(html).toContain(">Uke 1</text>");
+  });
+});
+
+describe("Etterspørselsbånd (Story 9.4)", () => {
+  // Classic demand: 4, then 8 from Uke 5; the Seat ordered 24 in Uke 11 once.
+  const points = Array.from({ length: 36 }, (_, i) => ({
+    week: i + 1,
+    x: 10 + i * 20,
+    demand: i < 4 ? 4 : 8,
+    incoming: i < 4 ? 4 : 7,
+    order: i === 10 ? 24 : 6,
+  }));
+  const props = {
+    width: 720,
+    height: 195,
+    fontSize: 13,
+    points,
+    columnWidth: 20,
+    top: 24,
+    demandLabel: "Kundenes etterspørsel: 8",
+    largest: { week: 11, text: "Din ordre, 24 i Uke 11" },
+    title: "Bånd",
+  };
+
+  it("takes an axis of at most four steps that holds every value", () => {
+    expect(demandAxis(24)).toEqual({ top: 24, ticks: [0, 8, 16, 24] });
+    expect(demandAxis(33)).toEqual({ top: 40, ticks: [0, 10, 20, 30, 40] });
+    expect(demandAxis(0)).toEqual({ top: 4, ticks: [0, 4] });
+    expect(demandAxis(3)).toEqual({ top: 4, ticks: [0, 4] });
+    const big = demandAxis(123_456);
+    expect(big.top).toBeGreaterThanOrEqual(123_456);
+    expect(big.ticks.length).toBeLessThanOrEqual(5);
+  });
+
+  it("draws the band, the line and a bar per Uke, hidden from screen readers with a title", () => {
+    const html = renderToStaticMarkup(<DemandBand {...props} />);
+    expect(html).toContain('aria-hidden="true"');
+    expect(html).toContain("<title>Bånd</title>");
+    expect(html).toContain('data-mark="demand"');
+    expect(html).toContain('data-mark="incoming"');
+    expect(html.match(/data-mark="order"/g)).toHaveLength(36);
+    expect(html).toContain('data-week="11" data-x="210"');
+    expect(html).toContain(">Kundenes etterspørsel: 8</text>");
+    expect(html).toContain(">Din ordre, 24 i Uke 11</text>");
+  });
+
+  it("keeps the label of a largest Order at the right edge inside the plot", () => {
+    const last = { ...props, largest: { week: 36, text: "Din ordre, 24 i Uke 36" } };
+    const html = renderToStaticMarkup(<DemandBand {...last} points={points.map((p) => ({ ...p, order: p.week === 36 ? 24 : 6 }))} />);
+    expect(html).toMatch(/data-label="largest"[^>]*text-anchor="end"/);
+  });
+
+  it("draws no bar for a zero Order and nothing for no Uker", () => {
+    const html = renderToStaticMarkup(<DemandBand {...props} points={[{ ...points[0]!, order: 0 }]} largest={null} />);
+    expect(html).not.toContain('data-mark="order"');
+    expect(renderToStaticMarkup(<DemandBand {...props} points={[]} largest={null} />)).not.toContain("Kundenes");
   });
 });

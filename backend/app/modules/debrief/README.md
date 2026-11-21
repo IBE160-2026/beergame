@@ -44,3 +44,13 @@ The Debrief (Epic 9, FR-41 to FR-47, AD-21). Never imports `modules/players`
 - Staff read: `GET /api/class-sessions/{id}/students/{user_id}/explanation`
   (`getStudentExplanation`, policy `explanations.read`: the Class's owners and Assistant lecturers
   through `sessions.service.class_staff_may`); 404 `not_found` when none is sent.
+
+## The reveal of customer demand (Story 9.4, FR-44, AD-7, AD-23)
+
+- `GET /api/debriefs/{id}/steps/2` answers `reveal` behind `require_explanation`: the heading
+  rendered by code (`analysis.sentences.demand_heading`) from the Game's stored demand series
+  (`games.service.demand_series`) with the sentence templates the Class session pinned at the
+  lock (`content.sentence_templates`, the latest for a session locked before the pin), and per
+  logged Uke of the Student's own Seat: Kundene (`demand_series[week - 1]`), Ordre inn
+  (`state_seen.incoming_order`) and Din ordre (`order`), with the largest own Order and its
+  first Uke. No other Seat's numbers. Steps 3 to 5 answer `reveal: null` until their stories.

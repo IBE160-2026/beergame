@@ -2092,6 +2092,45 @@ export const nb = {
     },
   },
 
+  /** The Debrief after the reveal (Story 9.4 on, EXPERIENCE.md → Debrief sequence). Reached only
+   * with a saved Explanation (the api gates it), so this is one of the copy check's
+   * POST_DEBRIEF_SECTIONS and may name the exercise; `debriefEntry` above may not. */
+  debrief: {
+    /** Step 2, the reveal of customer demand (`07-debrief.png`). Its heading comes from the api,
+     * rendered from the demand series. «Ordre inn: det eneste du så», «Din ordre, 24 i Uke 11», the
+     * table rows and «Øvelsen heter Beer Game.» are the spine's; the rest is [ASSUMPTION] draft. */
+    reveal: {
+      /** The Etterspørselsbånd's key, over the band. */
+      demandKey: "Kundene",
+      incomingKey: "Ordre inn: det eneste du så",
+      orderKey: "Din ordre",
+      /** On the band at its right end. */
+      demandLabel: (demand: string) => `Kundenes etterspørsel: ${demand}`,
+      /** At the Student's largest Order. */
+      largestOrder: (order: string, week: number) => `Din ordre, ${order} i Uke ${week}`,
+      /** [ASSUMPTION] the scroll region's name. */
+      region: "Kundene, ordre inn og din ordre per uke",
+      rows: { demand: "Kundene", incoming: "Ordre inn", order: "Din ordre" },
+      /** [ASSUMPTION] */
+      svg: "Kundenes etterspørsel som et bånd, ordrene som kom inn til deg som en linje og dine ordre som stolper, uke for uke.",
+      /** [ASSUMPTION] */
+      axisSvg: "Antall enheter",
+      swipe: "Sveip for flere uker",
+      named: "Øvelsen heter Beer Game.",
+      /** [ASSUMPTION] what the Seat saw: the Role below it in the chain sent its orders
+       * («ordrene fra Detaljisten»). */
+      saw: (downstream: string) => `Det du så, var ordrene fra ${downstream}, ikke kundene.`,
+      /** The Role, definite, for `saw`. */
+      definite: { retailer: "Detaljisten", wholesaler: "Grossisten", distributor: "Distributøren", factory: "Fabrikken" },
+      /** [ASSUMPTION] the Detaljist saw the customers, one Uke at a time. */
+      sawRetailer: "Du så kundenes ordrer selv, men bare én uke om gangen.",
+      /** [ASSUMPTION] from `07-debrief.png`, without names. */
+      structure: "Nesten alle grupper svinger slik. Struktur gir atferd, derfor spør vi hvorfor og ikke hvem.",
+      /** [ASSUMPTION] the step could not be read; «Prøv igjen» beside it. */
+      loadFailed: "Avsløringen kunne ikke hentes.",
+    },
+  },
+
   /** Links between pages (Story 3.3). Each names where it goes. */
   navigation: {
     // «Til Hjem» and «Til Lærerhjem» are EXPERIENCE.md's own (State Patterns → permission denied).

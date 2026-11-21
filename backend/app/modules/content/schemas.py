@@ -1,7 +1,8 @@
 """The shapes of the content records (Story 6.3, AD-23), validated on every publish and read.
 
 The Detected pattern definitions (Story 9.1) are `analysis.patterns.PatternSet`: the pure layer
-that applies the thresholds owns their shape."""
+that applies the thresholds owns their shape; so are the sentence templates (Story 9.4,
+`analysis.sentences.SentenceTemplates`)."""
 
 import re
 from typing import Annotated, Literal
@@ -9,8 +10,16 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.analysis.patterns import PatternSet
+from app.analysis.sentences import SentenceTemplates
 
-__all__ = ["ColumnRow", "PatternSet", "StartingTask", "StartingTaskItem", "SumTerm"]
+__all__ = [
+    "ColumnRow",
+    "PatternSet",
+    "SentenceTemplates",
+    "StartingTask",
+    "StartingTaskItem",
+    "SumTerm",
+]
 
 _FROZEN = ConfigDict(frozen=True, extra="forbid")
 _FORBIDDEN = re.compile(r"beer\s*game|bullwhip", re.IGNORECASE)

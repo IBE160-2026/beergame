@@ -17,6 +17,9 @@ export type NetWeek = { week: number; net_inventory: number };
 
 /** The chart's height in caption lines (about 140 px at 13 px, `07-debrief.png`). */
 const CHART_LINES = 11;
+/** The table's height cap, in em of the caption size (about ten rows): a whole game scrolls inside
+ * its region, so the writing field stays near on a phone (Story 9.4 fix). */
+const TABLE_MAX = "max-h-[22em] overflow-y-auto";
 /** Until the box is measured (a server render): a phone column and the caption size. */
 const FALLBACK = { width: 288, fontSize: 13 };
 
@@ -38,8 +41,9 @@ export function NetOverGameChart({ weeks, className }: { weeks: readonly NetWeek
       </h3>
       <div ref={box} className="mt-2 text-caption">
         {asTable ? (
-          // At 200 % text a long game outgrows a phone: the table scrolls on its own (UX-DR75).
-          <ScrollRegion labelledBy={`${id}-title`}>
+          // A long game outgrows a phone: the table scrolls on its own, down as well as sideways at
+          // 200 % text, under a header that stays (UX-DR75).
+          <ScrollRegion labelledBy={`${id}-title`} scrollClassName={TABLE_MAX}>
             <NetTable weeks={weeks} />
           </ScrollRegion>
         ) : (
@@ -72,7 +76,7 @@ function NetTable({ weeks }: { weeks: readonly NetWeek[] }) {
   return (
     <table data-net-table="" className="w-full border-collapse text-caption text-ink tabular-nums lining-nums">
       <caption className="sr-only">{copy.tableCaption}</caption>
-      <thead>
+      <thead className="sticky top-0 bg-paper">
         <tr className="border-b border-axis text-ink-secondary">
           <th scope="col" className="py-1 text-left font-normal">
             {nb.terms.week}

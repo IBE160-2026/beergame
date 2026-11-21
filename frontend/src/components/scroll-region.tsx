@@ -8,15 +8,18 @@ import { cn } from "@/lib/utils";
  * A region that scrolls sideways on its own while the page never does (UX-DR75): a diagram wider
  * than the screen keeps its natural width and readable labels. Each side that has more to show
  * fades out into `paper`, so a phone shows that the region scrolls (Issue #98). The region takes
- * focus, so it scrolls from the keyboard, and is named by `labelledBy`.
+ * focus, so it scrolls from the keyboard, and is named by `labelledBy`. `scrollClassName` adds to
+ * the scrolling element, e.g. a height cap that lets a long table scroll down inside the region.
  */
 export function ScrollRegion({
   labelledBy,
   className,
+  scrollClassName,
   children,
 }: {
   labelledBy: string;
   className?: string;
+  scrollClassName?: string;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -46,7 +49,10 @@ export function ScrollRegion({
         role="group"
         aria-labelledby={labelledBy}
         tabIndex={0}
-        className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+        className={cn(
+          "overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink",
+          scrollClassName,
+        )}
       >
         {children}
       </div>
