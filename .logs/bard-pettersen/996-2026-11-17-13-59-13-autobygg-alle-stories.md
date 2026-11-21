@@ -2710,3 +2710,23 @@ Byggeagent med `bmad-build-auto` mot KI-mocken og fire gjennomgangsagenter på S
 
 ### Åpne punkter
 - Issue #173: kommandoene grunnleggeren må kjøre med ekte nøkkel, og beslutningene.
+
+## Story 8.5: Sett inn en KI-spiller i ett sete fra Spillstyring (spor 1)
+
+### Oppgave
+Bygge Story 8.5 på `epic-8` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den blinde gjennomgangen leverte via fil, og orkestratoren pekte byggeagenten dit. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-5-put-an-ai-player-in-one-seat-from-spillstyring.md`.
+- Commit: 5fe60c5. Ingen migrasjon.
+- «Sett inn KI-spiller for …» i Spillstyring på Spillinnsikt og i Varselbåndet, `POST /api/games/{id}/seats/{role}/takeover`, 409 `takeover_exists` som sier hvem som handlet, og merket «KI satt inn av {navn}».
+- Tester: backend 2947, Vitest 852, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 179 av 180 (`reclaim` ved 320 px feilet én gang og passerte ved ny kjøring).
+- Gjennomgang: 44 funn, 2 middels; den ekte (trykk i siste uke på et sete som har bestilt) og 10 lave er rettet. Fire punkter fra den blinde gjennomgangen er beholdt med vilje, med begrunnelse i specen.
+- Visuell kontroll (Sonnet, bare rapport, eget worktree): skjermbilder i `screenshots/8.5/`, ingen klare feil. Tittelen «Spillstyring» har feil typografi (headline i stedet for label); sendt til 8.6. To visuelle kontroller brukte samme compose-prosjekt samtidig, så denne byttet til et eget; fra nå får hver kontroll eget prosjektnavn og egne porter.
+- Status: done.
+
+### Åpne punkter
+- Issue #174: beslutninger (overtakelse fra neste uke når studenten har bestilt, avvisning i siste uke).
