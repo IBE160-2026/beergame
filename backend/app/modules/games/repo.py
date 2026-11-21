@@ -4,7 +4,7 @@ import uuid
 from collections.abc import Collection, Sequence
 from typing import Any
 
-from sqlalchemy import Numeric, RowMapping, func, select, update
+from sqlalchemy import Numeric, RowMapping, func, select, text, update
 from sqlalchemy.dialects.postgresql import distinct_on, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -926,4 +926,33 @@ async def class_summaries(session: AsyncSession, class_session_id: uuid.UUID) ->
         )
         .order_by(game_summaries.c.game_number, game_summaries.c.game_id)
     )
+    return list(result.mappings())
+
+
+_COST_PARTS = text(
+    """
+    SELECT w.game_id,
+           seat ->> 'role' AS role,
+           (g.settings ->> 'holding_cost')::numeric
+               * sum((seat ->> 'inventory')::numeric) AS holding_cost,
+           (g.settings ->> 'backorder_cost')::numeric
+               * sum((seat ->> 'backlog')::numeric) AS backorder_cost
+    FROM game_weeks w
+    JOIN games g ON g.id = w.game_id
+    CROSS JOIN LATERAL jsonb_array_elements(w.state -> 'seats') AS seat
+    WHERE w.game_id = ANY(:ids) AND NOT w.finished
+    GROUP BY w.game_id, seat ->> 'role', g.settings ->> 'holding_cost',
+             g.settings ->> 'backorder_cost'
+    """
+)
+
+
+async def cost_parts_of(session: AsyncSession, game_ids: Collection[uuid.UUID]) -> list[RowMapping]:
+    """Each Role's Total cost of the Games split into lager and restordre, as `game_id`, `role`,
+    `holding_cost`, `backorder_cost`: the Game's snapshot rates times the inventory and the backlog
+    summed over its opened Week states, as `views.chain_result` adds them. One read whatever the
+    number of Games (NFR-3)."""
+    if not game_ids:
+        return []
+    result = await session.execute(_COST_PARTS, {"ids": list(game_ids)})
     return list(result.mappings())

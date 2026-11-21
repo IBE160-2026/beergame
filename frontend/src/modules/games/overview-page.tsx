@@ -18,6 +18,7 @@ import { PageShell } from "@/modules/identity/page-shell";
 import { osloDateText } from "@/modules/sessions/dates";
 
 import { type ClassOverview, classOverviewKey, type OverviewAnswer, type OverviewGame, useClassOverview } from "./api";
+import { OverviewRail } from "./overview-rail";
 import { OverviewWall } from "./overview-wall";
 import {
   changedGames,
@@ -216,8 +217,14 @@ function OverviewBody({
   const counts = headline(data.counts);
   // The headline counts, read out politely at most once a minute (UX-DR44); nothing else here is.
   const said = useThrottledAnnouncement(data.before_start ? "" : counts);
-  if (data.before_start) return <Allocation data={data} />;
   const groups = groupsOf(data.items);
+  if (data.before_start) {
+    return (
+      <RailLayout rail={<OverviewRail data={data} groups={groups} now={now} />}>
+        <Allocation data={data} />
+      </RailLayout>
+    );
+  }
   return (
     <div className="mt-6">
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
@@ -234,17 +241,40 @@ function OverviewBody({
         </div>
         <AutoUpdate controls={controls} />
       </div>
-      {groups.length === 0 ? (
-        <p className="mt-8 text-body-phone text-ink lg:text-body">{copy.empty}</p>
-      ) : (
-        <>
+      <RailLayout
+        rail={<OverviewRail data={data} groups={groups} now={now} />}
+        after={
+          groups.length > 0 ? (
+            <>
+              <h2 className="mt-12 text-headline text-ink">{copy.listTitle}</h2>
+              {groups.map((group) => (
+                <Group key={group.name} group={group} now={now} />
+              ))}
+            </>
+          ) : undefined
+        }
+      >
+        {groups.length === 0 ? (
+          <p className="mt-8 text-body-phone text-ink lg:text-body">{copy.empty}</p>
+        ) : (
           <OverviewWall sessionId={sessionId} groups={groups} now={now} heldAt={controls.heldAt?.receivedAt ?? null} />
-          <h2 className="mt-12 text-headline text-ink">{copy.listTitle}</h2>
-          {groups.map((group) => (
-            <Group key={group.name} group={group} now={now} />
-          ))}
-        </>
-      )}
+        )}
+      </RailLayout>
+    </div>
+  );
+}
+
+/**
+ * The wall beside the right rail from 1024 px, the rail under the wall below it (Story 7.6,
+ * UX-DR40, EXPERIENCE.md → Responsive): in reading order the wall, the rail, then `after` (the game
+ * list), which stands under the wall in the left column on a laptop.
+ */
+function RailLayout({ children, rail, after }: { children: React.ReactNode; rail: React.ReactNode; after?: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 gap-x-10 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="min-w-0 lg:col-start-1 lg:row-start-1">{children}</div>
+      <div className="mt-10 min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-8">{rail}</div>
+      {after ? <div className="min-w-0 lg:col-start-1 lg:row-start-2">{after}</div> : null}
     </div>
   );
 }

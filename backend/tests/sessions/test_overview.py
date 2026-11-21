@@ -6,18 +6,30 @@ fixed and the sweep is handed its `now`."""
 
 import json
 import uuid
+from decimal import Decimal
 
 from sqlalchemy import event
 
 from app.engine import GameSettings
 from app.modules.games import commands
+from app.modules.games.views import chain_result
 from app.modules.identity.schemas import AccountRole
+from app.modules.progress import service as progress_service
 from app.platform.db import get_engine
 from tests.classes.test_classes import LECTURER, OTHER, make
 from tests.classes.test_invitation_counts import execute
+from tests.classes.test_roster_upload import NOW
 from tests.classes.test_staff import ASSISTANT, call, put_staff
 from tests.messaging.helpers import rows
-from tests.sessions.test_game_end import _empty, clock, emitted, klass, short_game
+from tests.sessions.test_game_end import (
+    WEEKS,
+    _empty,
+    clock,
+    emitted,
+    klass,
+    play_weeks,
+    short_game,
+)
 from tests.sessions.test_open_games import confirmed
 from tests.sessions.test_student_choice import email
 
@@ -65,6 +77,10 @@ async def test_before_the_start_date_the_overview_lists_the_allocation_without_n
         ]
     named = {seat["name"] for item in body["items"] for seat in item["seats"] if seat["name"]}
     assert named == {user_name(email(i)) for i in range(6)}
+    # The rail (Story 7.6): no cost block before the Start date; the Trakt counts the registered.
+    assert body["cost"] is None
+    assert body["ai"] == {"seats": 0, "games": 0}
+    assert body["funnel"][0] == {"stage": "registered", "count": 6}
     assert {seat["holder"] for item in body["items"] for seat in item["seats"]} <= {
         "student",
         "free",
@@ -82,6 +98,19 @@ async def test_staff_see_whom_a_running_game_waits_for_and_test_games_stay_out(k
     assert (item["status"], item["week"], item["chain_cost"]) == ("running", 1, "0.0000")
     assert body["counts"] == {"waiting": 0, "running": 1, "not_started": 0, "finished": 0}
     assert {seat["holder"] for seat in item["seats"]} == {"student", "ai"}
+    # The rail (Story 7.6): the AI players counted from the Seats, no cost while none finished.
+    assert body["ai"] == {"seats": 2, "games": 1}
+    assert body["cost"] is None
+    assert [stage["stage"] for stage in body["funnel"]] == [
+        "registered",
+        "class_game",
+        "debrief",
+        "quiz_passed",
+        "replay",
+        "test_submitted",
+        "assessment_ready",
+    ]
+    assert [stage["count"] for stage in body["funnel"]] == [2, 0, 0, 0, 0, 0, 0]
     # One Student opens the Guided Week, the other has not: the game waits for them by name.
     holders = {seat["role"]: seat["name"] for seat in item["seats"] if seat["holder"] == "student"}
     role_of = dict(
@@ -105,11 +134,67 @@ async def test_staff_see_whom_a_running_game_waits_for_and_test_games_stay_out(k
     again = (await overview(LECTURER, session_id)).json()
     assert [i["game_id"] for i in again["items"]] == [game_id]
     assert again["counts"] == body["counts"]
+    assert again["ai"] == body["ai"]
     # An Assistant lecturer of the Class reads the same.
     put_staff(klass, await make(ASSISTANT, roles=()), "assistant")
     assistant = await overview(ASSISTANT, session_id)
     assert assistant.status_code == 200
     assert assistant.json()["items"] == again["items"]
+
+
+async def test_a_finished_game_fills_the_cost_block_and_the_trakt_with_a_new_etag(klass):
+    """Story 7.6: once the Class game finishes, «Klassens kostnad» holds its chain cost as median
+    and both quartiles and each Role's lager and restordre as its result shows them; the Trakt
+    counts both Students' `class_game` step, and the ETag moves with it."""
+    session_id, game_id, seated = await short_game(klass)
+    await play_weeks(game_id, WEEKS - 1)
+    before = await overview(LECTURER, session_id)
+    await play_weeks(game_id, WEEKS)
+    after = await overview(LECTURER, session_id, headers={"If-None-Match": before.headers["etag"]})
+    assert after.status_code == 200
+    body = after.json()
+    [item] = body["items"]
+    assert item["status"] == "finished"
+    cost = body["cost"]
+    assert cost["games"] == 1
+    chain = Decimal(item["chain_cost"])
+    assert {Decimal(cost[k]) for k in ("median", "lower_quartile", "upper_quartile")} == {chain}
+    shown = await chain_result(game_id)
+    chain_order = ["retailer", "wholesaler", "distributor", "factory"]
+    assert [r["role"] for r in cost["roles"]] == chain_order
+    for role, out in zip(shown.roles, cost["roles"], strict=True):
+        assert Decimal(out["holding_cost"]) == role.holding_cost.quantize(Decimal("0.01"))
+        assert Decimal(out["backorder_cost"]) == role.backorder_cost.quantize(Decimal("0.01"))
+        assert Decimal(out["total_cost"]) == role.total_cost.quantize(Decimal("0.01"))
+    assert Decimal(cost["holding_cost"]) + Decimal(cost["backorder_cost"]) == chain
+    assert body["funnel"][:2] == [
+        {"stage": "registered", "count": 2},
+        {"stage": "class_game", "count": 2},
+    ]
+    # A step alone moves the Trakt and the ETag (`record_step` emits `session:<id>`).
+    await progress_service.record_step(seated[0], uuid.UUID(session_id), "debrief", NOW)
+    stepped = await overview(LECTURER, session_id, headers={"If-None-Match": after.headers["etag"]})
+    assert stepped.status_code == 200
+    assert stepped.json()["funnel"][2] == {"stage": "debrief", "count": 1}
+    # A finished Lecturer test Game of the session counts in no cost, AI count or Trakt (AD-13):
+    # its summary row, written straight to the table, is never read.
+    test_game = uuid.uuid7()
+    execute(
+        "INSERT INTO games (id, purpose, lifecycle, version, class_session_id) "
+        "VALUES (%s, 'lecturer_test', 'finished', 3, %s)",
+        test_game,
+        session_id,
+    )
+    execute(
+        "INSERT INTO game_summaries (game_id, class_session_id, purpose, status, week, "
+        "waiting_for, occupants, chain_cost, version) VALUES (%s, %s, 'lecturer_test', "
+        "'finished', 2, '[]', %s, 99999, 3)",
+        test_game,
+        session_id,
+        json.dumps([{"role": "retailer", "occupant_kind": "rule_based", "user_id": None}]),
+    )
+    unchanged = (await overview(LECTURER, session_id)).json()
+    assert (unchanged["cost"], unchanged["ai"]) == (stepped.json()["cost"], stepped.json()["ai"])
 
 
 async def test_a_repeat_with_the_etag_answers_304_until_something_changes(klass):
@@ -163,10 +248,13 @@ async def test_the_overview_reads_a_fixed_number_of_queries_whatever_the_number_
         reads only `game_summaries`, and 100 played games would make the test slow."""
         for number in range(first, first + count):
             game_id = uuid.uuid7()
+            # Every other game finished, so «Klassens kostnad» is read for many as for one.
+            finished = number % 2 == 0
             execute(
                 "INSERT INTO games (id, purpose, lifecycle, version, class_session_id, "
-                "game_number) VALUES (%s, 'class', 'running', 3, %s, %s)",
+                "game_number) VALUES (%s, 'class', %s, 3, %s, %s)",
                 game_id,
+                "finished" if finished else "running",
                 session_id,
                 number,
             )
@@ -187,11 +275,12 @@ async def test_the_overview_reads_a_fixed_number_of_queries_whatever_the_number_
             execute(
                 "INSERT INTO game_summaries (game_id, class_session_id, game_number, purpose, "
                 "status, week, wait_started_at, waiting_for, occupants, chain_cost, version) "
-                "VALUES (%s, %s, %s, 'class', 'waiting', 4, '2026-11-19T09:00:00+00:00', %s, %s, "
+                "VALUES (%s, %s, %s, 'class', %s, 4, '2026-11-19T09:00:00+00:00', %s, %s, "
                 "120.5, 3)",
                 game_id,
                 session_id,
                 number,
+                "finished" if finished else "waiting",
                 json.dumps(waiting),
                 json.dumps(occupants),
             )
@@ -202,13 +291,21 @@ async def test_the_overview_reads_a_fixed_number_of_queries_whatever_the_number_
     def record(conn, cursor, statement, *rest) -> None:
         statements.append(statement)
 
+    # Past the Start date, so «Klassens kostnad» is read (Story 7.6).
+    execute(
+        "UPDATE class_sessions SET start_at = %s WHERE id = %s",
+        "2026-11-01T09:00:00+00:00",
+        session_id,
+    )
     event.listen(engine, "before_cursor_execute", record)
     try:
         add_games(10, 1)
+        progress_service._funnels.clear()
         statements.clear()
         few = await overview(LECTURER, session_id)
         with_few = len(statements)
         add_games(11, 99)
+        progress_service._funnels.clear()  # both reads count the Trakt afresh
         statements.clear()
         many = await overview(LECTURER, session_id)
         with_many = len(statements)
@@ -216,4 +313,5 @@ async def test_the_overview_reads_a_fixed_number_of_queries_whatever_the_number_
         event.remove(engine, "before_cursor_execute", record)
     assert (few.status_code, many.status_code) == (200, 200)
     assert len(many.json()["items"]) == len(few.json()["items"]) + 99
+    assert many.json()["cost"]["games"] == 50
     assert with_many == with_few

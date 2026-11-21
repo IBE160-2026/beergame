@@ -701,6 +701,53 @@
         "title": "Choice",
         "type": "string"
       },
+      "ClassCostOut": {
+        "description": "«Klassens kostnad» (Story 7.6, FR-39, AD-10): over the finished Class games, the median and\nquartiles of their chain costs for the Kostnadsfordeling, the chain's mean lager and restordre\nper game and each Role's mean, Detaljist first. Computed by `analysis.class_cost`.",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "lower_quartile": {
+            "title": "Lower Quartile",
+            "type": "string"
+          },
+          "median": {
+            "title": "Median",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleCostOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "upper_quartile": {
+            "title": "Upper Quartile",
+            "type": "string"
+          }
+        },
+        "required": [
+          "games",
+          "median",
+          "lower_quartile",
+          "upper_quartile",
+          "holding_cost",
+          "backorder_cost",
+          "roles"
+        ],
+        "title": "ClassCostOut",
+        "type": "object"
+      },
       "ClassIn": {
         "description": "A new Class (Story 4.1). The service checks the fields and answers every refused one in\n`fields`: `name`, `institution_id` (`institution_missing`, `institution_unknown`) and\n`course_code`.",
         "properties": {
@@ -875,6 +922,9 @@
       "ClassOverviewOut": {
         "description": "The Oversikt of a Class session (Story 7.1, FR-39, AD-25): its Class games in the list\nenvelope, by game number, the headline counts and the database clock (`server_now`).",
         "properties": {
+          "ai": {
+            "$ref": "#/components/schemas/OverviewAiOut"
+          },
           "before_start": {
             "title": "Before Start",
             "type": "boolean"
@@ -888,8 +938,25 @@
             "title": "Class Name",
             "type": "string"
           },
+          "cost": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassCostOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "counts": {
             "$ref": "#/components/schemas/OverviewCountsOut"
+          },
+          "funnel": {
+            "items": {
+              "$ref": "#/components/schemas/FunnelStageOut"
+            },
+            "title": "Funnel",
+            "type": "array"
           },
           "items": {
             "items": {
@@ -951,6 +1018,9 @@
           "before_start",
           "start_at",
           "next_change_at",
+          "ai",
+          "cost",
+          "funnel",
           "class_id",
           "class_name",
           "session_number"
@@ -2099,6 +2169,34 @@
           "choice"
         ],
         "title": "FinalIn",
+        "type": "object"
+      },
+      "FunnelStageOut": {
+        "description": "One stage of the Trakt (Story 7.6, FR-39): how many registered Students reached it.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "stage": {
+            "enum": [
+              "registered",
+              "class_game",
+              "debrief",
+              "quiz_passed",
+              "replay",
+              "test_submitted",
+              "assessment_ready"
+            ],
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "count"
+        ],
+        "title": "FunnelStageOut",
         "type": "object"
       },
       "GameResult": {
@@ -3306,6 +3404,25 @@
         "title": "OrderPreview",
         "type": "object"
       },
+      "OverviewAiOut": {
+        "description": "The AI players on the Oversikt (Story 7.6, UX-DR69): the Seats an AI player holds now and\nthe Class games with at least one («22 KI-spillere i 17 spill, alle merket.»).",
+        "properties": {
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "seats": {
+            "title": "Seats",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seats",
+          "games"
+        ],
+        "title": "OverviewAiOut",
+        "type": "object"
+      },
       "OverviewCountsOut": {
         "description": "The headline counts by status (FR-39).",
         "properties": {
@@ -3907,6 +4024,34 @@
           "role"
         ],
         "title": "RoleCost",
+        "type": "object"
+      },
+      "RoleCostOut": {
+        "description": "One Role's mean cost per finished Class game, split into lager and restordre (Story 7.6,\nUX-DR72), in øre as decimal strings; `total_cost` is their sum.",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "holding_cost",
+          "backorder_cost",
+          "total_cost"
+        ],
+        "title": "RoleCostOut",
         "type": "object"
       },
       "RoleIn": {

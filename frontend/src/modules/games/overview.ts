@@ -134,6 +134,12 @@ export function waitLines(game: OverviewGame, now: number): string[] {
   });
 }
 
+/** «23 t»: how long the game's longest wait has lasted at `now` (its earliest `since`). */
+function longestWait(game: OverviewGame, now: number): string {
+  const since = Math.min(...game.waiting_for.map((wait) => Date.parse(wait.since)).filter((ms) => !Number.isNaN(ms)));
+  return waitDuration(Number.isFinite(since) ? Math.max(0, now - since) : 0);
+}
+
 /** «Fabrikk: Mikkel», «Grossist: KI-spiller», «Detaljist: Ledig», in the order the api sent
  * (Fabrikk first). */
 export function seatTexts(game: OverviewGame): string[] {
@@ -264,6 +270,7 @@ export function wallGroups(
         label,
         figure: game.chain_cost == null ? undefined : formatNumber(game.chain_cost, { decimals: 0 }),
         detail: status,
+        shortDetail: waits.length > 0 ? copy.waitingShort(longestWait(game, now)) : status,
         rowName: wall.rowName([label, status.charAt(0).toLowerCase() + status.slice(1), ...(cost ? [wall.chainCost(cost)] : [])]),
         values: cellValues(found?.data, role, cells),
         loading: !found?.data && !found?.failed && game.status !== "not_started",
@@ -399,4 +406,92 @@ export function tableRows(
         loading: !found?.data && !found?.failed && game.status !== "not_started",
       };
     });
+}
+
+const rail = copy.rail;
+
+/** One game in «Venter ellers»: «Spill 30» and «Ida, Detaljist, 18 t» per Seat it waits for. */
+export type WaitingRow = { id: string; game: string; who: string[] };
+
+/**
+ * «Venter ellers» (Story 7.6, UX-DR40): the waiting games as the Venter group orders them, longest
+ * wait first, each with whom it waits for and for how long at `now`. Reads the groups it is given.
+ */
+export function waitingElsewhere(groups: readonly OverviewGroup[], now: number): WaitingRow[] {
+  const waiting = groups.find((group) => group.name === "waiting")?.games ?? [];
+  return waiting.map((game) => ({
+    id: game.game_id,
+    game: copy.game(game.game_number ?? null),
+    // A waiting game with no named wait (none has a start time) still reads as waiting.
+    who: game.waiting_for.length === 0 ? [wall.status.waiting] : game.waiting_for.map((wait) => {
+      const duration = waitDuration(Math.max(0, now - Date.parse(wait.since)));
+      const role = roleName(wait.role);
+      return wait.name ? rail.waiting.who(wait.name, role, duration) : rail.waiting.whoRole(role, duration);
+    }),
+  }));
+}
+
+/** «22 KI-spillere i 17 spill, alle merket.» from the api's counts (UX-DR69). */
+export function aiLine(ai: ClassOverview["ai"]): string {
+  return rail.waiting.ai(ai.seats, ai.games);
+}
+
+export type ClassCost = NonNullable<ClassOverview["cost"]>;
+
+/** «Median 1 954. Midterste halvdel 1 500–2 600.»: the api's median and quartiles in whole
+ * kroner (EXPERIENCE.md → Charts). */
+export function costSummary(cost: ClassCost): string {
+  return rail.cost.summary(whole(cost.median), whole(cost.lower_quartile), whole(cost.upper_quartile));
+}
+
+/** The Kostnadsfordeling's table: every finished game with its chain cost, lowest first. */
+export function costRows(games: readonly OverviewGame[]): { id: string; game: string; cost: string; value: number }[] {
+  return games
+    .filter((game) => game.status === "finished" && game.chain_cost != null)
+    .map((game) => ({
+      id: game.game_id,
+      game: copy.game(game.game_number ?? null),
+      cost: whole(game.chain_cost!),
+      value: Number(game.chain_cost),
+    }))
+    .sort((a, b) => a.value - b.value || a.game.localeCompare(b.game, "nb", { numeric: true }));
+}
+
+/** One Role's bar in «Snitt per ferdig spill, per Rolle»: its parts as shares of the longest bar. */
+export type RoleBar = { role: string; name: string; amount: string; holding: number; backorder: number; reads: string };
+
+/**
+ * «Snitt per ferdig spill, per Rolle» (UX-DR72): per Role, Detaljist first, the api's mean lager and
+ * restordre drawn as shares of the costliest Role's total, with the total printed in whole kroner.
+ * The shares only scale the bars (AD-10).
+ */
+export function roleBars(cost: ClassCost): RoleBar[] {
+  const longest = Math.max(0, ...cost.roles.map((role) => Number(role.total_cost)));
+  const share = (value: string) => (longest > 0 ? Number(value) / longest : 0);
+  return cost.roles.map((role) => {
+    const name = roleName(role.role);
+    return {
+      role: role.role,
+      name,
+      amount: whole(role.total_cost),
+      holding: share(role.holding_cost),
+      backorder: share(role.backorder_cost),
+      reads: rail.cost.roleName(name, whole(role.holding_cost), whole(role.backorder_cost), whole(role.total_cost)),
+    };
+  });
+}
+
+/** One stage of the Trakt: its name, its count and its bar as a share of the largest count. */
+export type FunnelRow = { stage: string; label: string; count: number; share: number };
+
+/** The Trakt's stages in the api's order with their counts (FR-39); the shares only scale the
+ * `aria-hidden` bars. */
+export function funnelRows(funnel: ClassOverview["funnel"]): FunnelRow[] {
+  const most = Math.max(0, ...funnel.map((stage) => stage.count));
+  return funnel.map((stage) => ({
+    stage: stage.stage,
+    label: rail.funnel.stages[stage.stage],
+    count: stage.count,
+    share: most > 0 ? stage.count / most : 0,
+  }));
 }

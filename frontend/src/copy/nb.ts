@@ -2064,6 +2064,8 @@ export const nb = {
     waitingFor: (who: string, role: string, duration: string) => `Venter på ${who} (${role}), ${duration}`,
     /** A waited-for Student no longer in the Class: by Role only. [ASSUMPTION] */
     waitingForRole: (role: string, duration: string) => `Venter på ${role}, ${duration}`,
+    /** [ASSUMPTION] the wall row's note where the full one has no room (Story 7.6): «Venter, 23 t». */
+    waitingShort: (duration: string) => `Venter, ${duration}`,
     seat: (role: string, holder: string) => `${role}: ${holder}`,
     aiPlayer: "KI-spiller",
     /** [ASSUMPTION] a free Seat, before the lock gives it an AI player. */
@@ -2097,6 +2099,65 @@ export const nb = {
       reload: "Last inn på nytt",
       /** [ASSUMPTION] a background read failed while the stream is live. */
       failed: (clock: string) => `Ikke oppdatert siden ${clock}.`,
+    },
+    /** The right rail (Story 7.6, UX-DR40, UX-DR51, UX-DR69, UX-DR72, `08-laerer-oversikt.png`).
+     * The headings, «Snitt per ferdig spill, per Rolle», the AI line and the Trakt's stage names
+     * are the mockup's and the epic's; the rest is [ASSUMPTION]. */
+    rail: {
+      label: "Klassen samlet",
+      waiting: {
+        title: "Venter ellers",
+        /** [ASSUMPTION] */
+        none: "Ingen spill venter nå.",
+        /** «Ida, Detaljist, 18 t». */
+        who: (name: string, role: string, duration: string) => `${name}, ${role}, ${duration}`,
+        whoRole: (role: string, duration: string) => `${role}, ${duration}`,
+        /** «22 KI-spillere i 17 spill, alle merket.»; [ASSUMPTION] the singular and none. */
+        ai: (seats: number, games: number) =>
+          seats === 0
+            ? "Ingen KI-spillere."
+            : seats === 1
+              ? `1 KI-spiller i 1 spill, merket.`
+              : `${seats} KI-spillere i ${games} spill, alle merket.`,
+      },
+      cost: {
+        title: "Klassens kostnad",
+        /** «Kjedekost i 41 ferdige spill. Hvert merke er ett spill.» */
+        intro: (games: number) => `Kjedekost i ${games} ${games === 1 ? "ferdig spill" : "ferdige spill"}. Hvert merke er ett spill.`,
+        /** [ASSUMPTION] */
+        none: "Ingen spill er ferdige ennå.",
+        median: (value: string) => `Median ${value}`,
+        axis: "Kroner. Boksen er midterste halvdel.",
+        /** «Median 1 954. Midterste halvdel 1 500–2 600.» (EXPERIENCE.md → Charts). */
+        summary: (median: string, low: string, high: string) => `Median ${median}. Midterste halvdel ${low}–${high}.`,
+        /** [ASSUMPTION] the SVG title. */
+        chartTitle: (games: number) => `Kjedekost i hvert ferdige spill, ${games} spill`,
+        showTable: "Vis som tabell",
+        showChart: "Vis som graf",
+        /** [ASSUMPTION] */
+        tableCaption: "Kjedekost per ferdige spill, lavest først",
+        gameColumn: "Spill",
+        costColumn: "Kjedekost, kr",
+        rolesTitle: "Snitt per ferdig spill, per Rolle",
+        /** [ASSUMPTION] read with the printed amount: «Detaljist: lager 120, restordre 93, i alt 213 kr». */
+        roleName: (role: string, holding: string, backorder: string, total: string) =>
+          `${role}: lager ${holding}, restordre ${backorder}, i alt ${total} kr`,
+        /** The key: «lager 949», «restordre 1 063 kr». */
+        keyHolding: (amount: string) => `lager ${amount}`,
+        keyBackorder: (amount: string) => `restordre ${amount} kr`,
+      },
+      funnel: {
+        title: "Trakt",
+        stages: {
+          registered: "Registrert",
+          class_game: "Klassespill ferdig",
+          debrief: "Debrief ferdig",
+          quiz_passed: "Quiz bestått",
+          replay: "Replay ferdig",
+          test_submitted: "Test levert",
+          assessment_ready: "KI-vurdering klar",
+        },
+      },
     },
   },
 

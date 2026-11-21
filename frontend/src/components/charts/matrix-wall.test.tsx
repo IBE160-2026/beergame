@@ -89,6 +89,25 @@ describe("the Matrisevegg's layout", () => {
     expect(empty.width).toBe(empty.labelWidth + 8 * empty.cellWidth);
   });
 
+  it("draws the short notes when a full one would run past the width, each after its own cells (Story 7.6)", () => {
+    const notes = [
+      { cells: 2, full: "Venter på Spiller2 0461 (Distributør), under 1 min", short: "Venter, under 1 min" },
+      { cells: 5, full: "Pågår", short: "Pågår" },
+    ];
+    // 390 px screen: the full note does not fit; the short one does, and so does the drawing.
+    const phone = wallSizes({ ...base, width: 350, columns: 5, notes });
+    expect(phone.shortDetail).toBe(true);
+    expect(phone.width).toBeLessThanOrEqual(350);
+    // A laptop column: the full notes.
+    const laptop = wallSizes({ ...base, width: 900, columns: 5, notes });
+    expect(laptop.shortDetail).toBe(false);
+    expect(laptop.width).toBeLessThanOrEqual(900);
+    // Too many Uker for the width: the cells scroll in the region, the note is short.
+    const long = wallSizes({ ...base, width: 350, columns: 36, notes: [{ ...notes[0]!, cells: 36 }] });
+    expect(long.shortDetail).toBe(true);
+    expect(long.width).toBe(long.labelWidth + 36 * long.cellWidth + long.detailWidth);
+  });
+
   it("never draws cell text under 9 px, and grows it with the text", () => {
     expect(wallSizes({ ...base, width: 900, columns: 20 }).cellFont).toBe(9);
     expect(wallSizes({ ...base, fontSize: 26, width: 900, columns: 20 }).cellFont).toBe(18);

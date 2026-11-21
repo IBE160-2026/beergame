@@ -2113,6 +2113,28 @@ export interface components {
          */
         Choice: "yes" | "no" | "unknown" | "skipped";
         /**
+         * ClassCostOut
+         * @description «Klassens kostnad» (Story 7.6, FR-39, AD-10): over the finished Class games, the median and
+         *     quartiles of their chain costs for the Kostnadsfordeling, the chain's mean lager and restordre
+         *     per game and each Role's mean, Detaljist first. Computed by `analysis.class_cost`.
+         */
+        ClassCostOut: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Games */
+            games: number;
+            /** Holding Cost */
+            holding_cost: string;
+            /** Lower Quartile */
+            lower_quartile: string;
+            /** Median */
+            median: string;
+            /** Roles */
+            roles: components["schemas"]["RoleCostOut"][];
+            /** Upper Quartile */
+            upper_quartile: string;
+        };
+        /**
          * ClassIn
          * @description A new Class (Story 4.1). The service checks the fields and answers every refused one in
          *     `fields`: `name`, `institution_id` (`institution_missing`, `institution_unknown`) and
@@ -2196,6 +2218,7 @@ export interface components {
          *     envelope, by game number, the headline counts and the database clock (`server_now`).
          */
         ClassOverviewOut: {
+            ai: components["schemas"]["OverviewAiOut"];
             /** Before Start */
             before_start: boolean;
             /**
@@ -2205,7 +2228,10 @@ export interface components {
             class_id: string;
             /** Class Name */
             class_name: string;
+            cost: components["schemas"]["ClassCostOut"] | null;
             counts: components["schemas"]["OverviewCountsOut"];
+            /** Funnel */
+            funnel: components["schemas"]["FunnelStageOut"][];
             /** Items */
             items: components["schemas"]["OverviewGameOut"][];
             /** Next Change At */
@@ -2677,6 +2703,19 @@ export interface components {
         /** FinalIn */
         FinalIn: {
             choice: components["schemas"]["Choice"];
+        };
+        /**
+         * FunnelStageOut
+         * @description One stage of the Trakt (Story 7.6, FR-39): how many registered Students reached it.
+         */
+        FunnelStageOut: {
+            /** Count */
+            count: number;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "registered" | "class_game" | "debrief" | "quiz_passed" | "replay" | "test_submitted" | "assessment_ready";
         };
         /**
          * GameResult
@@ -3273,6 +3312,17 @@ export interface components {
             supply_line_base: number;
         };
         /**
+         * OverviewAiOut
+         * @description The AI players on the Oversikt (Story 7.6, UX-DR69): the Seats an AI player holds now and
+         *     the Class games with at least one («22 KI-spillere i 17 spill, alle merket.»).
+         */
+        OverviewAiOut: {
+            /** Games */
+            games: number;
+            /** Seats */
+            seats: number;
+        };
+        /**
          * OverviewCountsOut
          * @description The headline counts by status (FR-39).
          */
@@ -3542,6 +3592,20 @@ export interface components {
          * @description One Role's cost over the whole Game: a row of Kjedens regning, per Role, never per name.
          */
         RoleCost: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Holding Cost */
+            holding_cost: string;
+            role: components["schemas"]["Role"];
+            /** Total Cost */
+            total_cost: string;
+        };
+        /**
+         * RoleCostOut
+         * @description One Role's mean cost per finished Class game, split into lager and restordre (Story 7.6,
+         *     UX-DR72), in øre as decimal strings; `total_cost` is their sum.
+         */
+        RoleCostOut: {
             /** Backorder Cost */
             backorder_cost: string;
             /** Holding Cost */

@@ -6,21 +6,28 @@ names resolved now (AD-12, AD-14). A fixed number of queries whatever the number
 import hashlib
 import uuid
 from dataclasses import dataclass
+from decimal import Decimal
 
+from app.analysis.class_cost import FinishedGame, class_cost
 from app.analysis.wall import Cells, wall_aggregates
-from app.engine.settings import Role
+from app.engine.settings import ROLES, Role
 from app.modules.classes import service as classes
 from app.modules.games import service as games_service
 from app.modules.games.service import ClassGameSummary, GameStatus
+from app.modules.progress import service as progress
 from app.modules.sessions import repo
 from app.modules.sessions.schemas import (
+    ClassCostOut,
     ClassOverviewOut,
+    FunnelStageOut,
     GameWeekOut,
     GameWeeksOut,
+    OverviewAiOut,
     OverviewCountsOut,
     OverviewGameOut,
     OverviewSeatOut,
     OverviewWaitOut,
+    RoleCostOut,
     WallAggregatesOut,
     WallCells,
     WallStatus,
@@ -65,8 +72,17 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
             await classes.student_names(row["class_id"], students, session=s) if students else {}
         )
         now = await games_service.database_now(s)
-    # The Start-date lock on the api clock, as the Klasseøkt reads it (`get_session`).
-    before_start = not is_locked(row)
+        # The Start-date lock on the api clock, as the Klasseøkt reads it (`get_session`).
+        before_start = not is_locked(row)
+        finished = [g for g in games if g.status is GameStatus.FINISHED]
+        parts = (
+            await games_service.cost_parts(s, [g.game_id for g in finished])
+            if finished and not before_start
+            else {}
+        )
+        # The registered Students of the Class: `progress` counts their steps and looks up no one.
+        registered = await classes.registered_students(row["class_id"])
+        trakt = await progress.funnel(s, session_id, registered)
     counts = {status: 0 for status in GameStatus}
     for game in games:
         counts[game.status] += 1
@@ -83,9 +99,59 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
         before_start=before_start,
         start_at=row["start_at"],
         next_change_at=row["start_at"] if before_start else None,
+        ai=_ai_out(games),
+        cost=None if before_start else _cost_out(finished, parts),
+        funnel=[FunnelStageOut(stage="registered", count=trakt.registered)]
+        + [FunnelStageOut(stage=step.value, count=count) for step, count in trakt.steps],
         class_id=found.id,
         class_name=found.name,
         session_number=number,
+    )
+
+
+def _is_ai(seat: games_service.SummarySeat) -> bool:
+    kind = seat.occupant_kind
+    return kind is not None and kind != games_service.OccupantKind.STUDENT
+
+
+def _ai_out(games: list[ClassGameSummary]) -> OverviewAiOut:
+    """The Seats an AI player holds now and the Class games with one (UX-DR69)."""
+    held = [sum(1 for seat in game.seats if _is_ai(seat)) for game in games]
+    return OverviewAiOut(seats=sum(held), games=sum(1 for n in held if n > 0))
+
+
+def _cost_out(
+    finished: list[ClassGameSummary],
+    parts: dict[uuid.UUID, dict[str, tuple[Decimal, Decimal]]],
+) -> ClassCostOut | None:
+    """«Klassens kostnad» over the finished Class games the overview lists, which leaves out
+    lecturer test and simulation Games (AD-13); None while none has finished."""
+    found = class_cost(
+        [
+            FinishedGame(chain_cost=g.chain_cost, roles=parts.get(g.game_id, {}))
+            for g in finished
+            if g.chain_cost is not None
+        ],
+        [str(role) for role in ROLES],
+    )
+    if found is None:
+        return None
+    return ClassCostOut(
+        games=found.games,
+        median=found.median,
+        lower_quartile=found.lower_quartile,
+        upper_quartile=found.upper_quartile,
+        holding_cost=found.holding_cost,
+        backorder_cost=found.backorder_cost,
+        roles=[
+            RoleCostOut(
+                role=Role(mean.role),
+                holding_cost=mean.holding_cost,
+                backorder_cost=mean.backorder_cost,
+                total_cost=mean.total_cost,
+            )
+            for mean in found.roles
+        ],
     )
 
 
@@ -202,11 +268,7 @@ def _matches(game: ClassGameSummary, status: WallStatus) -> bool:
     if status is WallStatus.ALL:
         return True
     if status is WallStatus.WITH_AI:
-        return any(
-            seat.occupant_kind is not None
-            and seat.occupant_kind != games_service.OccupantKind.STUDENT
-            for seat in game.seats
-        )
+        return any(_is_ai(seat) for seat in game.seats)
     return game.status.value == status.value
 
 

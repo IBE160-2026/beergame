@@ -6,8 +6,15 @@ import type { ClassOverview, GameWeeks, OverviewGame } from "./api";
 import { sortRows } from "@/components/charts/matrix-table-sort";
 
 import {
+  aiLine,
   cellValues,
+  costRows,
+  costSummary,
+  funnelRows,
+  roleBars,
+  waitingElsewhere,
   changedGames,
+  type ClassCost,
   clockWithSeconds,
   costText,
   filterGroups,
@@ -149,7 +156,9 @@ describe("wallGroups (Story 7.2)", () => {
     expect(waiting!.figure).toBe(`1${GROUP}058`);
     expect(waiting!.detail).toBe("Venter på Noah (Grossist), 23 t");
     expect(waiting!.rowName).toBe(`Spill 2, venter på Noah (Grossist), 23 t, kjedekost 1${GROUP}058${KRONER}`);
+    expect(waiting!.shortDetail).toBe("Venter, 23 t");
     expect(running!.detail).toBe("Pågår");
+    expect(running!.shortDetail).toBe("Pågår");
     expect(running!.rowName).toBe("Spill 7, pågår");
     expect(finished!.rowName).toBe(`Spill 4, ferdig, kjedekost 980${KRONER}`);
   });
@@ -342,5 +351,102 @@ describe("readAgainAt (Story 7.5, AD-8)", () => {
   it("reads again 1 s after the api's clock reaches the Start date, whatever the browser's clock says", () => {
     // The api says 30 s are left; the answer arrived at browser time 5 000 (its clock is off by hours).
     expect(readAgainAt("2026-11-21T13:00:30Z", "2026-11-21T13:00:00Z", 5_000)).toBe(36_000);
+  });
+});
+
+describe("the right rail (Story 7.6, AD-10)", () => {
+  const now = Date.parse("2026-11-21T12:00:00Z");
+
+  it("lists the waiting games longest wait first, each with whom and how long", () => {
+    const groups = groupsOf([
+      game({
+        game_number: 10,
+        status: "waiting",
+        wait_started_at: "2026-11-21T00:00:00Z",
+        waiting_for: [{ role: "wholesaler", name: "Oskar", since: "2026-11-21T00:00:00Z" }],
+      }),
+      game({
+        game_number: 30,
+        status: "waiting",
+        wait_started_at: "2026-11-20T18:00:00Z",
+        waiting_for: [
+          { role: "retailer", name: "Ida", since: "2026-11-20T18:00:00Z" },
+          { role: "factory", name: null, since: "2026-11-21T10:00:00Z" },
+        ],
+      }),
+      game({ game_number: 3, status: "running" }),
+    ]);
+    expect(waitingElsewhere(groups, now)).toEqual([
+      { id: "g30", game: "Spill 30", who: ["Ida, Detaljist, 18 t", "Fabrikk, 2 t"] },
+      { id: "g10", game: "Spill 10", who: ["Oskar, Grossist, 12 t"] },
+    ]);
+    expect(waitingElsewhere(groupsOf([game({ game_number: 1, status: "running" })]), now)).toEqual([]);
+    expect(waitingElsewhere(groupsOf([game({ game_number: 4, status: "waiting" })]), now)).toEqual([
+      { id: "g4", game: "Spill 4", who: ["Venter"] },
+    ]);
+  });
+
+  it("words the AI line from the api's counts", () => {
+    expect(aiLine({ seats: 22, games: 17 })).toBe("22 KI-spillere i 17 spill, alle merket.");
+    expect(aiLine({ seats: 1, games: 1 })).toBe("1 KI-spiller i 1 spill, merket.");
+    expect(aiLine({ seats: 0, games: 0 })).toBe("Ingen KI-spillere.");
+  });
+
+  const cost: ClassCost = {
+    games: 3,
+    median: "1954.4",
+    lower_quartile: "1500",
+    upper_quartile: "2600.5",
+    holding_cost: "949.00",
+    backorder_cost: "1063.00",
+    roles: [
+      { role: "retailer", holding_cost: "120.00", backorder_cost: "93.00", total_cost: "213.00" },
+      { role: "wholesaler", holding_cost: "200.00", backorder_cost: "262.00", total_cost: "462.00" },
+      { role: "distributor", holding_cost: "300.00", backorder_cost: "386.00", total_cost: "686.00" },
+      { role: "factory", holding_cost: "329.00", backorder_cost: "322.00", total_cost: "651.00" },
+    ],
+  };
+
+  it("prints the api's median and middle half in whole kroner", () => {
+    expect(costSummary(cost)).toBe(`Median 1${GROUP}954. Midterste halvdel 1${GROUP}500–2${GROUP}601.`);
+  });
+
+  it("scales the Role bars to the costliest Role and prints each total", () => {
+    const bars = roleBars(cost);
+    expect(bars.map((bar) => [bar.name, bar.amount])).toEqual([
+      ["Detaljist", "213"],
+      ["Grossist", "462"],
+      ["Distributør", "686"],
+      ["Fabrikk", "651"],
+    ]);
+    expect(bars[2]!.holding + bars[2]!.backorder).toBeCloseTo(1);
+    expect(bars[0]!.holding).toBeCloseTo(120 / 686);
+    expect(bars[0]!.reads).toBe("Detaljist: lager 120, restordre 93, i alt 213 kr");
+  });
+
+  it("tables the finished games lowest chain cost first", () => {
+    const rows = costRows([
+      game({ game_number: 2, status: "finished", chain_cost: "2600.0000" }),
+      game({ game_number: 5, status: "finished", chain_cost: "660.0000" }),
+      game({ game_number: 7, status: "running", chain_cost: "10.0000" }),
+    ]);
+    expect(rows.map((row) => [row.game, row.cost])).toEqual([
+      ["Spill 5", "660"],
+      ["Spill 2", `2${GROUP}600`],
+    ]);
+  });
+
+  it("names the Trakt's stages in the api's order and scales the bars to the largest count", () => {
+    const rows = funnelRows([
+      { stage: "registered", count: 240 },
+      { stage: "class_game", count: 120 },
+      { stage: "assessment_ready", count: 0 },
+    ]);
+    expect(rows.map((row) => [row.label, row.count, row.share])).toEqual([
+      ["Registrert", 240, 1],
+      ["Klassespill ferdig", 120, 0.5],
+      ["KI-vurdering klar", 0, 0],
+    ]);
+    expect(funnelRows([{ stage: "registered", count: 0 }])[0]!.share).toBe(0);
   });
 });

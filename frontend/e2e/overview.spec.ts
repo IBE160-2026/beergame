@@ -402,6 +402,97 @@ test("«Oppdater automatisk» shows an Order within 5 s, holds the page when off
   await later.context().close();
 });
 
+test("the right rail shows who waits, the class's cost and the Trakt, beside the wall or under it", async ({
+  browser,
+  lecturerSession,
+}) => {
+  const rail = copy.rail;
+  // Two Weeks only (Story 6.18's short game), so both Students can finish it here.
+  const game = await liveClassGame(browser, lecturerSession, 2, {
+    aiMode: "rule_based",
+    gameSettings: { weeks: 2, demand: { kind: "step", start: 4, new_level: 8, change_week: 2 } },
+  });
+  const [first, second] = game.students;
+  await orderByApi(first!, game.gameId, 1, 4);
+
+  // 390 px: the wall's row note stays inside the wall region (it is shortened to fit), and the
+  // rail stands under the wall.
+  const phone = await lecturerPage(browser, lecturerSession, { width: 390, height: 800 });
+  await phone.goto(`/klasseokter/${game.sessionId}/oversikt`);
+  const phoneRegion = phone.getByRole("main").getByRole("region", { name: nb.wall.region });
+  const note = phoneRegion.locator("[data-detail]").first();
+  await expect(note).toHaveText(/^Venter, (under 1 min|\d+ min)$/);
+  const [noteBox, regionBox] = [await note.boundingBox(), await phoneRegion.boundingBox()];
+  expect(noteBox!.x + noteBox!.width).toBeLessThanOrEqual(regionBox!.x + regionBox!.width);
+  const phoneRail = phone.getByRole("complementary", { name: rail.label });
+  expect((await phoneRail.boundingBox())!.y).toBeGreaterThan(regionBox!.y + regionBox!.height);
+  await phone.context().close();
+
+  const page = await lecturerPage(browser, lecturerSession, { width: 1440, height: 900 });
+  await page.goto(`/klasseokter/${game.sessionId}/oversikt`);
+  const main = page.getByRole("main");
+  const aside = main.getByRole("complementary", { name: rail.label });
+  const waiting = aside.getByRole("region", { name: rail.waiting.title });
+  await expect(waiting.getByRole("listitem")).toHaveCount(1);
+  await expect(waiting.getByRole("listitem")).toContainText(
+    new RegExp(`^Spill 1${second!.name}, [A-Za-zøå]+, (under 1 min|\\d+ min)$`),
+  );
+  await expect(waiting.getByText(rail.waiting.ai(2, 1))).toBeVisible();
+  const cost = aside.getByRole("region", { name: rail.cost.title });
+  await expect(cost.getByText(rail.cost.none)).toBeVisible();
+  const stages = aside.getByRole("region", { name: rail.funnel.title }).getByRole("listitem");
+  await expect(stages).toHaveText([
+    "Registrert2",
+    "Klassespill ferdig0",
+    "Debrief ferdig0",
+    "Quiz bestått0",
+    "Replay ferdig0",
+    "Test levert0",
+    "KI-vurdering klar0",
+  ]);
+  // Beside the wall at a laptop width.
+  const wallBox = (await main.getByRole("region", { name: nb.wall.region }).boundingBox())!;
+  expect((await aside.boundingBox())!.x).toBeGreaterThanOrEqual(wallBox.x + wallBox.width);
+  await untilLive(page);
+
+  // Both play the game out: the Trakt and «Klassens kostnad» follow live within 5 s.
+  await orderByApi(second!, game.gameId, 1, 4);
+  await orderByApi(first!, game.gameId, 2, 4);
+  await orderByApi(second!, game.gameId, 2, 4);
+  await expect(stages.nth(1)).toHaveText("Klassespill ferdig2", { timeout: 5_000 });
+  await expect(waiting.getByText(rail.waiting.none)).toBeVisible();
+  const summary = cost.locator("[data-cost-summary]");
+  await expect(summary).toHaveText(/^Median [\d\s ]+\. Midterste halvdel [\d\s ]+–[\d\s ]+\.$/);
+  await expect(cost.getByText(rail.cost.intro(1))).toBeVisible();
+  const chart = cost.locator("svg[data-chart=cost-distribution]");
+  await expect(chart.locator("[data-mark=game]")).toHaveCount(1);
+  await expect(chart.locator("[data-label=median]")).toHaveText(/^Median [\d\s ]+$/);
+  await expect(cost.getByRole("heading", { name: rail.cost.rolesTitle })).toBeVisible();
+  await expect(cost.locator("[data-role-bars] li")).toHaveCount(4);
+  await expect(cost.locator("[data-role-bars] li").first()).toContainText(/^Detaljist: lager [\d\s ]+, restordre/);
+  await expect(cost.locator("[data-cost-key]")).toHaveText(/^lager [\d\s ]+restordre [\d\s ]+ kr$/);
+  await expectAccessible(page, false);
+  await cost.getByRole("button", { name: rail.cost.showTable }).click();
+  const table = cost.getByRole("table", { name: rail.cost.tableCaption });
+  await expect(table.getByRole("row")).toHaveCount(2);
+  await expect(table.getByRole("rowheader")).toHaveText(["Spill 1"]);
+  await expect(chart).toHaveCount(0);
+  await cost.getByRole("button", { name: rail.cost.showChart }).click();
+  await expect(chart).toBeVisible();
+  await page.context().close();
+
+  // 320 px and 200 % text: the rail under the wall, its numbers printed, no page scroll.
+  for (const viewport of [VIEWPORTS[0]!, VIEWPORTS[1]!]) {
+    const narrow = await lecturerPage(browser, lecturerSession, viewport);
+    await narrow.goto(`/klasseokter/${game.sessionId}/oversikt`);
+    const narrowRail = narrow.getByRole("main").getByRole("complementary", { name: rail.label });
+    await expect(narrowRail.locator("[data-cost-summary]")).toBeVisible();
+    await expect(narrowRail.locator("svg[data-chart=cost-distribution] [data-label=median]")).toBeVisible();
+    await expectAccessible(narrow, viewport.phone);
+    await narrow.context().close();
+  }
+});
+
 test("before the Start date the page lists the allocation only, reached from the Klasseøkt", async ({
   browser,
   lecturerSession,

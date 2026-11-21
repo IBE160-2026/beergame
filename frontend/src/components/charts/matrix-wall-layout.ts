@@ -93,11 +93,18 @@ export type WallSizes = {
   cellWidth: number;
   columns: number;
   detailWidth: number;
+  /** The rows draw their short note: the full ones would make the drawing wider than the width
+   * passed in while the Uker fit (Story 7.6). */
+  shortDetail: boolean;
   /** The whole drawing; wider than the width passed in when the Uker need more room. */
   width: number;
 };
 
 const GAP = 0.75; // em between label and figure, and around the detail text
+
+/** A row's note after its cells (Story 7.6): how many cells the row has, its full and its short
+ * form. */
+export type WallNote = { cells: number; full: string; short: string };
 
 /**
  * The wall's sizes from the width the caller passes in (AD-18) and the text size: the label
@@ -112,6 +119,12 @@ export function wallSizes(input: {
   labels: readonly string[];
   figures: readonly string[];
   details: readonly string[];
+  /**
+   * Each row's note with its number of cells and a short form (Story 7.6). Given, a note is laid
+   * after its own row's cells, and the rows draw the short forms when a full one would run past
+   * `width` at the narrowest cells; `details` is then not read.
+   */
+  notes?: readonly WallNote[];
   /** Labels that take the whole game column, figure included («Kjedekost/uke, snitt»). */
   spans?: readonly string[];
 }): WallSizes {
@@ -126,12 +139,23 @@ export function wallSizes(input: {
   const labelPart = widest(input.labels);
   const figurePart = widest(input.figures);
   const labelWidth = Math.max(labelPart + (figurePart > 0 ? gap + figurePart : 0), widest(input.spans ?? [])) + gap;
-  const detail = widest(input.details);
-  const detailWidth = detail > 0 ? detail + 2 * gap : 0;
   const minCell = Math.ceil(rowHeight * 0.85);
   const maxCell = rowHeight * 2;
+  const notes = input.notes;
+  // The full notes when each ends inside `width` after its row's cells at their narrowest, else
+  // the short ones: a note never runs past the region's edge while the Uker themselves fit.
+  const noteEnd = (cell: number, pick: (note: WallNote) => string) =>
+    (notes ?? []).reduce(
+      (most, note) => Math.max(most, note.cells * cell + 2 * gap + textWidth(pick(note), fontSize)),
+      0,
+    );
+  const shortDetail = notes !== undefined && labelWidth + noteEnd(minCell, (note) => note.full) > width;
+  const chosen = (note: WallNote) => (shortDetail ? note.short : note.full);
+  const detail = notes ? widest(notes.map(chosen)) : widest(input.details);
+  const detailWidth = detail > 0 ? detail + 2 * gap : 0;
   const room = Math.floor((width - labelWidth - detailWidth) / Math.max(1, columns));
   const cellWidth = Math.max(minCell, Math.min(maxCell, room));
+  const cellsEnd = labelWidth + Math.max(columns, SKELETON_CELLS) * cellWidth;
   return {
     fontSize,
     cellFont,
@@ -143,8 +167,12 @@ export function wallSizes(input: {
     cellWidth,
     columns,
     detailWidth,
-    // Room for a loading row's Skjelett bar (8 cells) also before any game has a Uke.
-    width: labelWidth + Math.max(columns, SKELETON_CELLS) * cellWidth + detailWidth,
+    shortDetail,
+    // Room for a loading row's Skjelett bar (8 cells) also before any game has a Uke; with
+    // `notes`, each note after its own row's cells.
+    width: notes
+      ? Math.max(cellsEnd, labelWidth + noteEnd(cellWidth, chosen))
+      : cellsEnd + detailWidth,
   };
 }
 

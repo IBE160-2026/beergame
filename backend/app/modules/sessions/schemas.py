@@ -801,6 +801,56 @@ class OverviewCountsOut(BaseModel):
     finished: int
 
 
+class OverviewAiOut(BaseModel):
+    """The AI players on the Oversikt (Story 7.6, UX-DR69): the Seats an AI player holds now and
+    the Class games with at least one («22 KI-spillere i 17 spill, alle merket.»)."""
+
+    seats: int
+    games: int
+
+
+class RoleCostOut(BaseModel):
+    """One Role's mean cost per finished Class game, split into lager and restordre (Story 7.6,
+    UX-DR72), in kroner rounded to the øre, as decimal strings; `total_cost` is their sum."""
+
+    role: Role
+    holding_cost: Decimal
+    backorder_cost: Decimal
+    total_cost: Decimal
+
+
+class ClassCostOut(BaseModel):
+    """«Klassens kostnad» (Story 7.6, FR-39, AD-10): over the finished Class games, the median and
+    quartiles of their chain costs for the Kostnadsfordeling, the chain's mean lager and restordre
+    per game and each Role's mean, Detaljist first. Computed by `analysis.class_cost`."""
+
+    games: int
+    median: Decimal
+    lower_quartile: Decimal
+    upper_quartile: Decimal
+    holding_cost: Decimal
+    backorder_cost: Decimal
+    roles: list[RoleCostOut]
+
+
+FunnelStage = Literal[
+    "registered",
+    "class_game",
+    "debrief",
+    "quiz_passed",
+    "replay",
+    "test_submitted",
+    "assessment_ready",
+]
+
+
+class FunnelStageOut(BaseModel):
+    """One stage of the Trakt (Story 7.6, FR-39): how many registered Students reached it."""
+
+    stage: FunnelStage
+    count: int
+
+
 class ClassOverviewOut(BaseModel):
     """The Oversikt of a Class session (Story 7.1, FR-39, AD-25): its Class games in the list
     envelope, by game number, the headline counts and the database clock (`server_now`)."""
@@ -816,6 +866,11 @@ class ClassOverviewOut(BaseModel):
     next_change_at: AwareDatetime | None
     """When the Oversikt changes by time alone (AD-8): the Start date while it has not passed, so
     the page reads again then; None otherwise."""
+    ai: OverviewAiOut
+    cost: ClassCostOut | None
+    """None before the Start date and while no Class game has finished."""
+    funnel: list[FunnelStageOut]
+    """The Trakt's stages in order, «Registrert» first; a stage nobody records yet is 0."""
     class_id: uuid.UUID
     class_name: str
     session_number: int

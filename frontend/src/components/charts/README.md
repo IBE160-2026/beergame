@@ -25,6 +25,7 @@ as hand-made SVG here.
 | Axis labels in the sticky column | — (not a Recharts type) | Hand-made SVG (`axis-labels.tsx`) |
 | Kjedebånd (Story 6.9) | — (a flow diagram, not a Recharts type) | Hand-made SVG (`chain-band.tsx`), laid out by the pure `chain-band-layout.ts`; one-Seat variant only, the four-Role variant comes with Story 9.5 |
 | Matrisevegg (Story 7.2) | — (a matrix of cells, not a Recharts type) | Hand-made SVG (`matrix-wall.tsx`), sized by the pure `matrix-wall-layout.ts` |
+| Kostnadsfordeling (Story 7.6) | — (ticks, a box and a median on one axis; built after the spike) | Hand-made SVG (`cost-distribution.tsx`), `aria-hidden` with a `<title>`; its numbers are the text summary under it and «Vis som tabell». The Trakt and the per-Role bars beside it are HTML bars, `aria-hidden`, with the counts and amounts as text |
 | Stacked area (Totalkostnad over tid, Story 6.16) | — (built after the spike; Recharts is not a dependency) | Hand-made SVG (`cost-area.tsx`), `aria-hidden` with a `<title>`; its x is its own (Uke 1 … nå), not table columns, and its table alternative is «Vis som tabell» or the «Sum, kr» row |
 
 ## Kjedebånd scale and labels

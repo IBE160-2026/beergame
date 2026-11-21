@@ -66,6 +66,7 @@ __all__ = [
     "class_game_head",
     "class_game_weeks",
     "class_played",
+    "cost_parts",
     "DecidedBy",
     "DecisionLogRow",
     "Fallback",
@@ -593,6 +594,21 @@ async def class_overview(
         )
         for row in await repo.class_summaries(session, class_session_id)
     ]
+
+
+async def cost_parts(
+    session: AsyncSession, game_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, dict[str, tuple[Decimal, Decimal]]]:
+    """Each Game's Total cost per Role split into (lager, restordre) (Story 7.6, FR-39), for
+    finished Games the caller has chosen: what the Game's result (`views.chain_result`) shows, in
+    one read whatever their number (NFR-3). A Game with no Week is left out."""
+    found: dict[uuid.UUID, dict[str, tuple[Decimal, Decimal]]] = {}
+    for row in await repo.cost_parts_of(session, game_ids):
+        found.setdefault(row["game_id"], {})[row["role"]] = (
+            row["holding_cost"],
+            row["backorder_cost"],
+        )
+    return found
 
 
 @dataclass(frozen=True)

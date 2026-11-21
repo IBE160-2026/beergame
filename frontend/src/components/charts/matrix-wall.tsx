@@ -29,6 +29,9 @@ export type WallRow = {
   figure?: string;
   /** Status and wait after the cells («Venter på Noah (Grossist), 23 t»). */
   detail?: string;
+  /** Drawn instead of `detail` when the full notes have no room beside the Uker («Venter, 23 t»);
+   * the row header's name keeps the full words. */
+  shortDetail?: string;
   /** The row header as read: game number, status, wait and kjedekost in words. */
   rowName: string;
   /** Uke 1 … the last Uke the game has; empty before it starts or while loading. */
@@ -137,6 +140,11 @@ export function MatrixWall({
     labels: [copy.gameHeader, ...rows.map((row) => row.label)],
     figures: [...(copy.figureHeader ? [copy.figureHeader] : []), ...rows.flatMap((row) => (row.figure ? [row.figure] : []))],
     details: rows.flatMap((row) => (row.detail ? [row.detail] : [])),
+    notes: rows.some((row) => row.shortDetail !== undefined)
+      ? rows.flatMap((row) =>
+          row.detail ? [{ cells: row.values.length, full: row.detail, short: row.shortDetail ?? row.detail }] : [],
+        )
+      : undefined,
     spans: summaryRows.map((row) => row.label),
   });
   // The graph stands over the Uke header; the header sticks once the graph has scrolled away.
@@ -507,7 +515,7 @@ function Row({
             aria-hidden="true"
             data-detail=""
           >
-            {row.detail}
+            {size.shortDetail ? (row.shortDetail ?? row.detail) : row.detail}
           </text>
         ) : null}
       </g>
