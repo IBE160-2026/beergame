@@ -1934,3 +1934,25 @@ Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en visuell kontrol
 
 ### Åpne punkter
 - Issue 136: beslutninger i Story 6.18.
+
+## Story 6.19: Foreslå og godta et tidspunkt å spille (2026-11-21)
+
+### Oppgave
+Bygge Story 6.19 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en visuell kontroll og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-19-propose-and-accept-a-time-to-play.md`.
+- **Commit 744510f:** migrasjon 0049, `propose_time` og `accept_time`, mail i den daglige oppsummeringen, og forslaget på Hjem og spillsiden.
+- **Tester:**
+  - backend: 2744 tester (63 s);
+  - frontend: Vitest 692 og bygg;
+  - Playwright: 57 målrettede tester.
+- **Gjennomgang:** 24 funn, 1 middels. Det er rettet.
+- **Visuell kontroll:** 29 skjermbilder i `screenshots/6.19/`. Ingen klare avvik.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 137: beslutninger i Story 6.19.
