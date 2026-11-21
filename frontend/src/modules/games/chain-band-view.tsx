@@ -44,9 +44,10 @@ export function ChainBandView({
   }, []);
 
   const slots = state.supply_line_slots.map((slot) => slot.quantity);
+  const ends = bandEnds(state.role, seatRoles, state.neighbour_numbers);
   return (
     <div data-chain-band="" className="-mx-[calc(var(--spacing-gutter-phone)-var(--spacing-gutter-phone-chart))] mb-4 max-w-[28rem] lg:mx-0">
-      <p className="sr-only">{bandSentence(state, typed)}</p>
+      <p className="sr-only">{bandSentence(state, typed, ends)}</p>
       <div ref={box} aria-hidden="true" className="min-h-[6em] text-caption">
         {size && size.width > 0 ? (
           <ChainBand
@@ -57,7 +58,7 @@ export function ChainBandView({
             slots={slots}
             overdue={state.overdue}
             typed={typed}
-            labels={bandLabels(state, bandEnds(state.role, seatRoles), typed)}
+            labels={bandLabels(state, ends, typed)}
             title={nb.games.play.band.svg}
           />
         ) : null}

@@ -14,6 +14,23 @@ const SEAT_ROLES = ["factory", "distributor", "wholesaler", "retailer"] as const
 const WIDTHS = [288, 328];
 const FONTS = [13, 26];
 
+/** Both Information visibility views on (Story 6.21): the neighbours' own inventory and backlog in
+ * the same Uke of the fixture game, upstream first, as the api fills `neighbour_numbers`. */
+function withViews(state: BandState): BandState {
+  const index = SEAT_ROLES.indexOf(state.role as (typeof SEAT_ROLES)[number]);
+  const neighbours = [SEAT_ROLES[index - 1], SEAT_ROLES[index + 1]].filter((role) => role !== undefined);
+  return {
+    ...state,
+    neighbour_numbers: neighbours.flatMap((role) => {
+      const other = STATES.find((s) => s.role === role && s.week === state.week)!;
+      return [
+        { role, week: state.week, quantity: "inventory" as const, value: other.inventory },
+        { role, week: state.week, quantity: "backlog" as const, value: other.backlog },
+      ];
+    }),
+  };
+}
+
 function layout(state: BandState, width: number, fontSize: number, typed?: number) {
   return bandLayout({
     width,
@@ -23,7 +40,7 @@ function layout(state: BandState, width: number, fontSize: number, typed?: numbe
     slots: state.supply_line_slots.map((slot) => slot.quantity),
     overdue: state.overdue,
     typed,
-    labels: bandLabels(state, bandEnds(state.role, SEAT_ROLES), typed),
+    labels: bandLabels(state, bandEnds(state.role, SEAT_ROLES, state.neighbour_numbers), typed),
   });
 }
 
@@ -76,6 +93,38 @@ describe("the Kjedebånd's scale (UX-DR15)", () => {
       });
     }
   }
+
+  for (const width of WIDTHS) {
+    for (const fontSize of FONTS) {
+      it(`fits every Uke with both neighbour views on at ${width} px and ${fontSize} px text (Story 6.21)`, () => {
+        const found = STATES.flatMap((state) => problems(withViews(state), width, fontSize).map((p) => `${state.role} Uke ${state.week}: ${p}`));
+        expect(found).toEqual([]);
+        // Every neighbour number is drawn, none is lost.
+        const drawn = STATES.map((state) => layout(withViews(state), width, fontSize).labels.filter((l) => l.key.endsWith("Numbers")).length);
+        expect(drawn.every((count, i) => count === withViews(STATES[i]!).neighbour_numbers.length)).toBe(true);
+      });
+    }
+  }
+
+  it("fits every Uke with one view on, its block beside the other end's plain label (Story 6.21)", () => {
+    const one = (state: BandState, side: number) => {
+      const index = SEAT_ROLES.indexOf(state.role as (typeof SEAT_ROLES)[number]);
+      const role = SEAT_ROLES[index + side];
+      return { ...withViews(state), neighbour_numbers: withViews(state).neighbour_numbers.filter((n) => n.role === role) };
+    };
+    for (const side of [-1, 1]) {
+      for (const width of WIDTHS) {
+        for (const fontSize of FONTS) {
+          const found = STATES.flatMap((state) => problems(one(state, side), width, fontSize).map((p) => `${state.role} Uke ${state.week} (${side}): ${p}`));
+          expect(found).toEqual([]);
+        }
+      }
+    }
+    // The plain end label stays on the other side.
+    const band = layout(one(STATES.find((s) => s.role === "wholesaler" && s.week === 11)!, -1), 328, 13);
+    expect(band.labels.find((l) => l.key === "downstream")!.text).toBe("Detaljist");
+    expect(band.labels.find((l) => l.key === "upstream")!.text).toBe("Distributør, Uke 11");
+  });
 
   it("uses one factor for pipe and stock, the DESIGN.md units as maxima, from the band width", () => {
     const state = STATES.find((s) => s.role === "wholesaler" && s.week === 11)!;
@@ -140,6 +189,53 @@ describe("the Kjedebånd's content", () => {
     expect(bandEnds("wholesaler", SEAT_ROLES)).toEqual({ upstream: "Distributør", downstream: "Detaljist" });
     expect(bandEnds("factory", SEAT_ROLES)).toEqual({ upstream: "Produksjon", downstream: "Distributør" });
     expect(bandEnds("retailer", SEAT_ROLES)).toEqual({ upstream: "Grossist", downstream: "Kundene" });
+  });
+
+  it("puts a neighbour's numbers at its end, labelled with Role and Uke (Story 6.21, UX-DR24)", () => {
+    const state = withViews(at("wholesaler", 11));
+    const distributor = at("distributor", 11);
+    const retailer = at("retailer", 11);
+    const ends = bandEnds(state.role, SEAT_ROLES, state.neighbour_numbers);
+    expect(ends).toEqual({
+      upstream: "Distributør, Uke 11",
+      downstream: "Detaljist, Uke 11",
+      upstreamNumbers: [`Lager ${distributor.inventory}`, `Restordre ${distributor.backlog}`],
+      downstreamNumbers: [`Lager ${retailer.inventory}`, `Restordre ${retailer.backlog}`],
+    });
+    // One view: only that end changes; no numbers keep the plain ends of Story 6.9.
+    const up = state.neighbour_numbers.filter((n) => n.role === "distributor");
+    expect(bandEnds("wholesaler", SEAT_ROLES, up)).toEqual({ upstream: "Distributør, Uke 11", downstream: "Detaljist", upstreamNumbers: ends.upstreamNumbers });
+    expect(bandEnds("wholesaler", SEAT_ROLES, [])).toEqual({ upstream: "Distributør", downstream: "Detaljist" });
+    // The ends of the chain: Produksjon and Kundene stay; a Role that is no neighbour is never drawn.
+    const factory = withViews(at("factory", 11));
+    expect(bandEnds("factory", SEAT_ROLES, factory.neighbour_numbers)).toMatchObject({ upstream: "Produksjon", downstream: "Distributør, Uke 11" });
+    expect(bandEnds("factory", SEAT_ROLES, state.neighbour_numbers)).toEqual({ upstream: "Produksjon", downstream: "Distributør, Uke 11", downstreamNumbers: ends.upstreamNumbers });
+    expect(bandEnds("retailer", SEAT_ROLES, up)).toEqual({ upstream: "Grossist", downstream: "Kundene" });
+    // Drawn at their own end: upstream numbers left of the node, downstream right of it, in reading order.
+    const band = layout(state, 448, 13);
+    const placed = (key: string) => band.labels.filter((l) => l.key === key);
+    for (const l of placed("upstreamNumbers")) expect(l.x + l.width).toBeLessThanOrEqual(band.node.x);
+    for (const l of placed("downstreamNumbers")) expect(l.x).toBeGreaterThanOrEqual(band.node.x + band.node.width);
+    const lager = placed("downstreamNumbers").find((l) => l.text.startsWith("Lager"))!;
+    const restordre = placed("downstreamNumbers").find((l) => l.text.startsWith("Restordre"))!;
+    expect(lager.x).toBeLessThan(restordre.x);
+  });
+
+  it("reads the neighbours' numbers after the Seat's own (Story 6.21, NFR-6)", () => {
+    const state = { ...at("wholesaler", 11), incoming_order: 8, incoming_delivery: 4, shipped: 4, inventory: 0, backlog: 13, supply_line: 16, overdue: 0 };
+    const numbers = [
+      { role: "distributor" as const, week: 11, quantity: "inventory" as const, value: 12 },
+      { role: "distributor" as const, week: 11, quantity: "backlog" as const, value: 3 },
+      { role: "retailer" as const, week: 11, quantity: "inventory" as const, value: 0 },
+      { role: "retailer" as const, week: 11, quantity: "backlog" as const, value: 5 },
+    ];
+    expect(bandSentence(state, undefined, bandEnds("wholesaler", SEAT_ROLES, numbers))).toBe(
+      "Ordre inn 8, Levering 4, Sendt 4, Restordre 13, På vei 16. Distributør, Uke 11: Lager 12, Restordre 3. Detaljist, Uke 11: Lager 0, Restordre 5",
+    );
+    expect(bandSentence(state, undefined, bandEnds("wholesaler", SEAT_ROLES, numbers.slice(2)))).toBe(
+      "Ordre inn 8, Levering 4, Sendt 4, Restordre 13, På vei 16. Detaljist, Uke 11: Lager 0, Restordre 5",
+    );
+    expect(bandSentence(state, undefined, bandEnds("wholesaler", SEAT_ROLES, []))).toBe("Ordre inn 8, Levering 4, Sendt 4, Restordre 13, På vei 16");
   });
 
   it("labels the flow from the api's numbers, Din ordre without a number", () => {

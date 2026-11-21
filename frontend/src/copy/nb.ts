@@ -1785,6 +1785,11 @@ export const nb = {
         overdue: (value: string) => `av dem ${value} uten kjent uke`,
         /** The SVG `<title>` (AD-18). [ASSUMPTION] */
         svg: "Kjedebånd: din del av kjeden. Ordre går mot venstre, varer mot høyre.",
+        /** Information visibility (Story 6.21, UX-DR24): the end label of a neighbour whose numbers
+         * show, «Distributør, Uke 11», and its numbers read after the Seat's own: «Distributør,
+         * Uke 11: Lager 12, Restordre 3». [ASSUMPTION] */
+        neighbour: (role: string, week: string) => `${role}, Uke ${week}`,
+        neighbourRead: (label: string, numbers: string) => `${label}: ${numbers}`,
       },
     },
   },

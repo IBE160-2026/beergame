@@ -13,6 +13,7 @@ from app.engine import (
     SupplyLineSlot,
     advance,
     initial_state,
+    neighbour_numbers,
     placed_orders,
     seat_detail,
     seat_view,
@@ -346,3 +347,62 @@ def test_detail_and_placed_orders_check_their_input():
         placed_orders(settings, [])
     with pytest.raises(ValueError, match="item 1"):
         placed_orders(settings, [states[0], states[0]])
+
+
+# Information visibility (Story 6.21, FR-83): the neighbours' inventory and backlog only.
+
+
+def _uneven(state):
+    return {"retailer": 0, "wholesaler": 9, "distributor": 2, "factory": 14}
+
+
+def _numbers(state, role, week):
+    seat = state.seat(role)
+    return [
+        NeighbourNumber(role=role, week=week, quantity="inventory", value=seat.inventory),
+        NeighbourNumber(role=role, week=week, quantity="backlog", value=seat.backlog),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("upstream", "downstream", "role", "shown"),
+    [
+        (False, False, Role.WHOLESALER, []),
+        (True, False, Role.WHOLESALER, [Role.DISTRIBUTOR]),
+        (False, True, Role.WHOLESALER, [Role.RETAILER]),
+        (True, True, Role.WHOLESALER, [Role.DISTRIBUTOR, Role.RETAILER]),
+        (True, True, Role.FACTORY, [Role.DISTRIBUTOR]),
+        (True, True, Role.RETAILER, [Role.WHOLESALER]),
+        (True, False, Role.FACTORY, []),
+        (False, True, Role.RETAILER, []),
+    ],
+)
+def test_neighbour_numbers_follow_the_views(upstream, downstream, role, shown):
+    settings = GameSettings(info_visibility={"upstream": upstream, "downstream": downstream})
+    states, _ = play(settings, 7, _uneven)
+    state = states[-1]
+    expected = [number for neighbour in shown for number in _numbers(state, neighbour, 7)]
+    assert list(neighbour_numbers(settings, state, role.value)) == expected
+
+
+def test_neighbour_numbers_are_the_neighbours_own_view():
+    settings = GameSettings(info_visibility={"upstream": True, "downstream": True})
+    states, orders = play(settings, 9, _uneven)
+    numbers = neighbour_numbers(settings, states[-1], Role.WHOLESALER)
+    for neighbour in (Role.DISTRIBUTOR, Role.RETAILER):
+        own = seat_view(settings, states, orders, neighbour)
+        found = {n.quantity: n.value for n in numbers if n.role == neighbour}
+        assert found == {"inventory": own.inventory, "backlog": own.backlog}
+    assert any(n.value > 0 for n in numbers if n.quantity == "backlog")
+
+
+def test_neighbour_numbers_refuse_an_unknown_role_or_a_finished_week():
+    settings = GameSettings(info_visibility={"upstream": True, "downstream": False})
+    state = initial_state(settings)
+    with pytest.raises(ValueError, match="not a Role"):
+        neighbour_numbers(
+            settings.model_copy(update={"roles": settings.roles[:2]}), state, "factory"
+        )
+    finished = state.model_copy(update={"finished": True})
+    with pytest.raises(ValueError, match="not an opened Week"):
+        neighbour_numbers(settings, finished, Role.RETAILER)

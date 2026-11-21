@@ -105,8 +105,9 @@ def seat_view(
     """The view of `role` in the last opened Week of `states`.
 
     `states` are the opened Weeks 1..t (as `initial_state` and `advance` return them) and
-    `orders` the Order maps of Weeks 1..t-1. Neighbour numbers stay empty: no Information
-    visibility setting exists yet.
+    `orders` the Order maps of Weeks 1..t-1. Neighbour numbers stay empty here: the Rule-based
+    player reads this view and never uses them; `neighbour_numbers` gives them to the caller
+    that may show them (Story 6.21).
     """
     role, seats, history = _checked(settings, states, orders, role)
     received = sum(seat.incoming_delivery for seat in seats)
@@ -119,6 +120,41 @@ def seat_view(
         supply_line=starting_supply_line(settings, role) + sum(history) - received,
         order_history=history,
     )
+
+
+def neighbour_numbers(
+    settings: GameSettings, state: WeekState, role: Role | str
+) -> tuple[NeighbourNumber, ...]:
+    """The numbers of `role`'s neighbours that Information visibility shows in the opened Week
+    `state` (FR-83, Story 6.21): for each view that is on, the neighbour Seat's inventory, then
+    its backlog, as they stand in that Week. The upstream neighbour (the Role it orders from)
+    comes first, then the downstream one (the Role that orders from it). The last Role has no
+    upstream neighbour and the first none downstream, so their view on that side gives nothing.
+    Nothing else of any Seat is read."""
+    role = Role(role)
+    if role not in settings.roles:
+        raise ValueError(f"{role} is not a Role in this Game")
+    if state.finished:
+        raise ValueError(f"Week {state.week} is not an opened Week")
+    roles, views = settings.roles, settings.info_visibility
+    index = roles.index(role)
+    shown: list[Role] = []
+    if views.upstream and index < len(roles) - 1:
+        shown.append(roles[index + 1])
+    if views.downstream and index > 0:
+        shown.append(roles[index - 1])
+    numbers: list[NeighbourNumber] = []
+    for neighbour in shown:
+        seat = state.seat(neighbour)
+        numbers.append(
+            NeighbourNumber(
+                role=neighbour, week=state.week, quantity="inventory", value=seat.inventory
+            )
+        )
+        numbers.append(
+            NeighbourNumber(role=neighbour, week=state.week, quantity="backlog", value=seat.backlog)
+        )
+    return tuple(numbers)
 
 
 Money = Annotated[Decimal, Field(allow_inf_nan=False)]

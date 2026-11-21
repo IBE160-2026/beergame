@@ -11,7 +11,14 @@ from decimal import Decimal
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.engine import GameSettings, Role, WeekState, seat_detail, seat_view
+from app.engine import (
+    GameSettings,
+    Role,
+    WeekState,
+    neighbour_numbers,
+    seat_detail,
+    seat_view,
+)
 from app.modules.games import repo, rules
 from app.modules.games.marks import seat_mark
 from app.modules.games.policy import policy
@@ -29,6 +36,7 @@ from app.modules.games.schemas import (
     TableStatus,
     TurnOverview,
 )
+from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
 __all__ = [
@@ -58,12 +66,22 @@ def build_seat_state(
     states: Sequence[WeekState],
     orders: Sequence[Mapping[str, int]],
     role: Role | str,
+    *,
+    neighbours: bool | None = None,
 ) -> SeatState:
     """The `SeatState` of `role` in the last of the opened Weeks `states`, given the Order maps
-    of the earlier Weeks. Reads only that Role's Seat."""
+    of the earlier Weeks. Reads only that Role's Seat, and with `neighbours` the inventory and
+    backlog of the neighbours whose view `settings.info_visibility` switches on (Story 6.21).
+
+    `neighbours` None follows `FEATURE_INFO_VISIBILITY` now: with the flag off no neighbour
+    number is filled, whatever the snapshot says (AD-17). Only the Game check passes it, to
+    rebuild a state as it was recorded."""
     view = seat_view(settings, states, orders, role)
     detail = seat_detail(settings, states, orders, role)
-    return SeatState.model_validate({**dict(view), **dict(detail)})
+    if neighbours is None:
+        neighbours = get_settings().feature_info_visibility
+    shown = neighbour_numbers(settings, states[-1], role) if neighbours else ()
+    return SeatState.model_validate({**dict(view), **dict(detail), "neighbour_numbers": shown})
 
 
 def _uuid(value: str) -> uuid.UUID | None:

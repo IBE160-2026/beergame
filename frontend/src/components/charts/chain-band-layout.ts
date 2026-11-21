@@ -51,6 +51,10 @@ export type BandLabels = {
   supplyLine: string;
   /** The overdue units' number, written above their box; null when there are none. */
   overdue: string | null;
+  /** A neighbour's numbers that Information visibility shows (Story 6.21, UX-DR24): «Lager 12»,
+   * «Restordre 3», at that neighbour's end; none when its view is off. */
+  upstreamNumbers?: readonly string[];
+  downstreamNumbers?: readonly string[];
 };
 
 export type BandInput = {
@@ -77,7 +81,9 @@ export type LabelKey =
   | "shipped"
   | "stock"
   | "supplyLine"
-  | "overdue";
+  | "overdue"
+  | "upstreamNumbers"
+  | "downstreamNumbers";
 
 export type PlacedLabel = {
   key: LabelKey;
@@ -197,11 +203,19 @@ export function bandLayout(input: BandInput): BandLayout {
     // Row by row, the numbers first: an end label gives way to them.
     { key: "incoming", text: labels.incoming, weight: 600, row: 0, at: rightMin, anchor: "start", min: rightMin, max: width },
     { key: "order", text: labels.order, weight: 600, row: 0, at: leftMax, anchor: "end", min: 0, max: leftMax },
-    { key: "downstream", text: labels.downstream, weight: 400, muted: true, row: 0, at: width, anchor: "end", min: rightMin, max: width },
-    { key: "upstream", text: labels.upstream, weight: 400, muted: true, row: 0, at: 0, anchor: "start", min: 0, max: leftMax },
     { key: "delivery", text: labels.delivery, weight: 400, row: 1, at: leftMax, anchor: "end", min: 0, max: leftMax },
     { key: "shipped", text: labels.shipped, weight: 400, row: 1, at: rightMin, anchor: "start", min: rightMin, max: width },
   ];
+  // An end label gives way to the numbers; one whose neighbour's numbers show (Story 6.21) heads
+  // that neighbour's block under the band instead.
+  const upBlock = labels.upstreamNumbers !== undefined;
+  const downBlock = labels.downstreamNumbers !== undefined;
+  if (!downBlock) {
+    wanted.splice(2, 0, { key: "downstream", text: labels.downstream, weight: 400, muted: true, row: 0, at: width, anchor: "end", min: rightMin, max: width });
+  }
+  if (!upBlock) {
+    wanted.splice(downBlock ? 2 : 3, 0, { key: "upstream", text: labels.upstream, weight: 400, muted: true, row: 0, at: 0, anchor: "start", min: 0, max: leftMax });
+  }
   if (labels.overdue !== null && overdueBox) {
     wanted.push({
       key: "overdue",
@@ -220,7 +234,6 @@ export function bandLayout(input: BandInput): BandLayout {
     stockAt += textWidth(text, f, 700) + LABEL_GAP * f;
   }
   wanted.push({ key: "supplyLine", text: labels.supplyLine, weight: 600, row: 2, at: 0, anchor: "start", min: 0, max: leftMax });
-
   const baselines = [topBaseline, midBaseline, bottomBaseline];
   const taken: [number, number][][] = [[], [], []];
   const gap = LABEL_GAP * f;
@@ -265,6 +278,52 @@ export function bandLayout(input: BandInput): BandLayout {
     else left = x + w + gap;
     empty = false;
     bottom = baseline + descent;
+  }
+
+  // The neighbours' blocks (Story 6.21, UX-DR24), under everything else and kept together: the
+  // end label («Distributør, Uke 11») on its own row, then the numbers. The upstream block keeps
+  // to the left edge, the downstream block to the right; side by side when both fit, else stacked.
+  const rowStep = ascent + descent + 2;
+  const blocks = [
+    upBlock ? { side: "left" as const, title: labels.upstream, numbers: labels.upstreamNumbers!, key: "upstream" as const } : null,
+    downBlock ? { side: "right" as const, title: labels.downstream, numbers: labels.downstreamNumbers!, key: "downstream" as const } : null,
+  ].filter((block) => block !== null);
+  const lines = blocks.map((block) => {
+    const rows: Wanted[][] = [[{ key: block.key, text: block.title, weight: 400, muted: true, row: 0, at: 0, anchor: "start", min: 0, max: width }]];
+    let current: Wanted[] = [];
+    let used = 0;
+    for (const text of block.numbers) {
+      const w = textWidth(text, f, 400);
+      if (current.length > 0 && used + gap + w > width) {
+        rows.push(current);
+        current = [];
+        used = 0;
+      }
+      current.push({ key: block.key === "upstream" ? "upstreamNumbers" : "downstreamNumbers", text, weight: 400, row: 0, at: 0, anchor: "start", min: 0, max: width });
+      used += (used > 0 ? gap : 0) + w;
+    }
+    if (current.length > 0) rows.push(current);
+    const rowWidth = (row: Wanted[]) => row.reduce((sum, item, i) => sum + (i > 0 ? gap : 0) + textWidth(item.text, f, item.weight), 0);
+    return { side: block.side, rows, widest: Math.max(...rows.map(rowWidth)), rowWidth };
+  });
+  if (lines.length > 0) {
+    let top = (empty ? bottom : baseline + descent) + 0.4 * f;
+    const together = lines.length === 2 && lines[0]!.widest + 2 * gap + lines[1]!.widest <= width;
+    for (const block of lines) {
+      let rowBaseline = top + 2 + ascent;
+      for (const row of block.rows) {
+        let x = block.side === "left" ? 0 : Math.max(0, width - block.rowWidth(row));
+        for (const item of row) {
+          const w = textWidth(item.text, f, item.weight);
+          placed.push(label(item, x, rowBaseline, w, true));
+          x += w + gap;
+        }
+        bottom = Math.max(bottom, rowBaseline + descent);
+        rowBaseline += rowStep;
+      }
+      // Stacked, the next block keeps the same space above it as the first.
+      if (!together) top = bottom + 0.4 * f;
+    }
   }
 
   return {

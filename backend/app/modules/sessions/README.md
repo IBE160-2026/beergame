@@ -86,8 +86,10 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   `FEATURE_INFO_VISIBILITY`. Off, a view switched on that differs from the stored value answers
   422 `feature_disabled` (`{"info_visibility": "feature_disabled"}`; 409 `session_locked` first
   once locked) and the screen shows nothing about it; switching views off is always allowed. The
-  lock freezes it into every Class game's snapshot, which `seat_state`, the LLM prompt and the
-  Decision log read; filling the neighbour numbers is Story 6.21's.
+  lock freezes it into every Class game's snapshot. While the flag is on, `games.views`
+  fills `seat_state.neighbour_numbers` from it (Story 6.21): the direct neighbours' inventory and
+  backlog in the open Week, which the play screen shows, the Decision log records in
+  `state_seen` and the LLM prompt reads (`player_order/v2`; a config on v1 does not print them).
 - `ClassSessionOut` carries `settings_warnings` (the engine's warnings on the stored settings;
   a setting with an error gets no warning in a check) and `calibrated_settings` (the Classic
   preset, which the screen names as what content and Play guard were calibrated for).

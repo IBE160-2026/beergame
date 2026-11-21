@@ -88,6 +88,64 @@ for (const width of [320, 360, 1440]) {
   });
 }
 
+/** Both Information visibility views on (Story 6.21): the envelope's Grossist sees the Distributør
+ * and the Detaljist of the same Uke of the fixture game, as the api fills `neighbour_numbers`. */
+function withViews(envelope: Envelope): Envelope {
+  const week = envelope.seat_state.week;
+  const numbers = (["distributor", "retailer"] as const).flatMap((role) => {
+    const other = (classic as BandState[]).find((s) => s.role === role && s.week === week)!;
+    return [
+      { role, week, quantity: "inventory" as const, value: other.inventory },
+      { role, week, quantity: "backlog" as const, value: other.backlog },
+    ];
+  });
+  return { ...envelope, seat_state: { ...envelope.seat_state, neighbour_numbers: numbers } } as Envelope;
+}
+
+for (const width of [320, 360, 1440]) {
+  test(`${width} px, both neighbour views on: the band fits, its labels are apart and readable, no axe violation (Story 6.21)`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await openPlay(page, withViews(week30 as Envelope));
+    const band = page.locator(BAND);
+    await expect(band.locator('text[data-label="upstreamNumbers"]')).toHaveCount(2);
+    await expect(band.locator('text[data-label="downstreamNumbers"]')).toHaveCount(2);
+    const fits = await page.evaluate((selector) => {
+      const svg = document.querySelector<SVGSVGElement>(selector)!.getBoundingClientRect();
+      return svg.left >= 0 && svg.right <= document.documentElement.clientWidth;
+    }, BAND);
+    expect(fits).toBe(true);
+    expect(await widerThanEstimated(page)).toEqual([]);
+    expect(await labelProblems(page)).toEqual([]);
+    await textReadable(page);
+    await expectAccessible(page, width < 1024);
+  });
+}
+
+test("Uke 11 at 360 px with both views on: each neighbour's numbers at its end, labelled and read after the own", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  const envelope = withViews(week11 as Envelope);
+  await openPlay(page, envelope);
+  const band = page.locator(BAND);
+  const texts = (key: string) => band.locator(`text[data-label="${key}"]`);
+  const numbers = envelope.seat_state.neighbour_numbers as BandState["neighbour_numbers"];
+  const value = (role: string, quantity: string) => numbers.find((n) => n.role === role && n.quantity === quantity)!.value;
+  await expect(texts("upstream")).toHaveText("Distributør, Uke 11");
+  await expect(texts("downstream")).toHaveText("Detaljist, Uke 11");
+  await expect(texts("upstreamNumbers")).toHaveText([`Lager ${value("distributor", "inventory")}`, `Restordre ${value("distributor", "backlog")}`]);
+  await expect(texts("downstreamNumbers")).toHaveText([`Lager ${value("retailer", "inventory")}`, `Restordre ${value("retailer", "backlog")}`]);
+  // Upstream on the left side, downstream on the right (UX-DR73), wrapped under the band or not.
+  const node = await band.locator("[data-mark=node]").boundingBox();
+  const boxes = async (key: string) => Promise.all((await texts(key).all()).map((t) => t.boundingBox()));
+  for (const box of await boxes("upstreamNumbers")) expect(box!.x).toBeLessThan(node!.x);
+  for (const box of await boxes("downstreamNumbers")) expect(box!.x + box!.width).toBeGreaterThan(node!.x + node!.width);
+  const state = envelope.seat_state;
+  await expect(page.locator("[data-chain-band] p.sr-only")).toHaveText(
+    `Ordre inn ${state.incoming_order}, Levering ${state.incoming_delivery}, Sendt ${state.shipped}, Restordre ${state.backlog}, På vei ${state.supply_line}. ` +
+      `Distributør, Uke 11: Lager ${value("distributor", "inventory")}, Restordre ${value("distributor", "backlog")}. ` +
+      `Detaljist, Uke 11: Lager ${value("retailer", "inventory")}, Restordre ${value("retailer", "backlog")}`,
+  );
+});
+
 for (const width of [320, 360]) {
   test(`${width} px with 200 % text: the band is drawn at the doubled size, fits, and its labels stay apart`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });

@@ -22,6 +22,7 @@ from functools import cache
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
 from app.ai import gateway
+from app.engine.settings import ROLES
 from app.modules.games import service as games_service
 
 __all__ = [
@@ -117,6 +118,36 @@ def _history(state: games_service.SeatState, incoming: str) -> str:
     return "\n".join([header, *rows])
 
 
+NO_NEIGHBOURS = "You do not see the numbers of any other business."
+"""The `neighbours` value with no neighbour numbers: the sentence `player_order/v1` holds, so
+v2 renders the same prompt for a Seat that sees no neighbour."""
+
+
+def _neighbours(state: games_service.SeatState) -> str:
+    """What the Seat sees of its neighbours (Story 6.21, FR-83): the same inventory and backlog
+    the play screen shows, from `neighbour_numbers` alone; the sentence of `NO_NEIGHBOURS` when
+    none is shown. The upstream neighbour is the supplier, the downstream one the customer."""
+    by_role: dict[str, dict[str, int]] = {}
+    for number in state.neighbour_numbers:
+        by_role.setdefault(str(number.role), {})[number.quantity] = number.value
+    if not by_role:
+        return NO_NEIGHBOURS
+    lines = [
+        "You also see some numbers of the business next to you listed here, as they stand this "
+        "week; you see nothing else of it and nothing of any other business:"
+        if len(by_role) == 1
+        else "You also see some numbers of the businesses next to you listed here, as they stand "
+        "this week; you see nothing else of them and nothing of any other business:"
+    ]
+    for role, values in by_role.items():
+        # The Classic chain runs downstream first: a later Role is the one this Seat orders from.
+        upstream = ROLES.index(role) > ROLES.index(state.role)
+        link = "your supplier" if upstream else "your customer, who orders from you"
+        shown = [f"{q} {values[q]} units" for q in ("inventory", "backlog") if q in values]
+        lines.append(f"- The {role} ({link}): {', '.join(shown)}")
+    return "\n".join(lines)
+
+
 def build_inputs(seat_state: games_service.SeatState) -> dict[str, gateway.Scalar]:
     """The values the `player_order` prompt is rendered from, built from `seat_state` alone."""
     state = seat_state
@@ -175,6 +206,7 @@ def build_inputs(seat_state: games_service.SeatState) -> dict[str, gateway.Scala
         "history": _history(state, incoming_column),
         "min_order": state.min_order,
         "max_order": state.max_order,
+        "neighbours": _neighbours(state),
     }
 
 

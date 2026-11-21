@@ -62,7 +62,7 @@ def test_prompt_prints_the_request_for_the_open_week(games_db, ai_db, capsys):
     code, out, err = run(capsys, "prompt", game_id, "--seat", "wholesaler")
     assert code == 0, err
     lines = out.splitlines()
-    assert lines[0] == "purpose player_order prompt_version 1 from newest file"
+    assert lines[0] == "purpose player_order prompt_version 2 from newest file"
     assert lines[1] == "--- prompt"
     assert lines[2].startswith("You are the supply chain manager")
     assert "Your business is the wholesaler." in out

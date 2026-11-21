@@ -89,6 +89,7 @@ def test_build_inputs_reads_the_seat_state_and_nothing_else():
         "pydantic.create_model",
         "app.ai.gateway",
         "app.modules.games.service",
+        "app.engine.settings.ROLES",  # the Classic chain order, to name a neighbour's link
     }, names
 
 
@@ -229,7 +230,7 @@ async def test_caller_and_mock_answer_stay_out_of_prompt_and_request():
         llm.PURPOSE, inputs, llm.order_schema(seat_state.min_order, seat_state.max_order)
     )
     request = json.dumps(shown.request)
-    assert shown.prompt_version == 1
+    assert shown.prompt_version == 2  # the newest file, with no config
     for secret in (str(GAME), str(SEAT), str(REFERENCE)):
         assert secret not in request
     assert "player" not in request.lower()
@@ -287,6 +288,7 @@ def test_the_seat_state_has_no_near_optimal_field():
         "states",
         "orders",
         "role",
+        "neighbours",  # Story 6.21: whether to fill the neighbour numbers, nothing of the chain
     ]
 
 
@@ -328,3 +330,66 @@ def test_no_personal_data_in_the_structured_inputs():
         assert isinstance(value, (str, int))
     keys = set(llm.build_inputs(state()))
     assert not keys & {"name", "email", "student_number", "user_id", "game", "seat", "week"}
+
+
+# Information visibility (Story 6.21, FR-83): prompt v2 holds the neighbour numbers of `seat_state`.
+
+
+def render_v2(values: dict) -> str:
+    template = (REAL_PROMPTS / "player_order" / "v2.md").read_text(encoding="utf-8")
+    return string.Template(template).substitute(values)
+
+
+VIEWS = GameSettings(info_visibility={"upstream": True, "downstream": True})
+
+
+def test_v2_renders_as_v1_for_a_seat_that_sees_no_neighbour():
+    states, orders = play(CLASSIC)
+    for week in (1, 6, 20):
+        for role in CLASSIC.roles:
+            values = llm.build_inputs(
+                build_seat_state(CLASSIC, states[:week], orders[: week - 1], role)
+            )
+            assert values["neighbours"] == llm.NO_NEIGHBOURS
+            assert render_v2(values) == render(values), (week, role)
+    template = (REAL_PROMPTS / "player_order" / "v2.md").read_text(encoding="utf-8")
+    assert not BANNED.search(template)
+
+
+def test_v2_names_the_neighbours_numbers_and_their_link():
+    states, orders = play(VIEWS)
+    week = 12
+    seen = {
+        role: build_seat_state(VIEWS, states[:week], orders[: week - 1], role, neighbours=True)
+        for role in VIEWS.roles
+    }
+    text = render_v2(llm.build_inputs(seen["wholesaler"]))
+    numbers = {(n.role, n.quantity): n.value for n in seen["wholesaler"].neighbour_numbers}
+    assert llm.NO_NEIGHBOURS not in text
+    assert (
+        f"- The distributor (your supplier): inventory {numbers['distributor', 'inventory']} "
+        f"units, backlog {numbers['distributor', 'backlog']} units"
+    ) in text
+    assert (
+        f"- The retailer (your customer, who orders from you): inventory "
+        f"{numbers['retailer', 'inventory']} units, backlog {numbers['retailer', 'backlog']} units"
+    ) in text
+    assert "factory" not in text
+    assert not BANNED.search(text)
+    assert not re.search(r"week \d", text, re.IGNORECASE)
+    # The ends of the chain see one neighbour each; v1 never prints them.
+    factory = render_v2(llm.build_inputs(seen["factory"]))
+    assert "The distributor (your customer, who orders from you)" in factory
+    assert "your supplier" not in factory
+    assert "The wholesaler (your supplier)" in render_v2(llm.build_inputs(seen["retailer"]))
+    assert "the business next to you listed here" in factory
+    assert "the businesses next to you listed here" in text
+    # A quantity the state does not hold is left out, never written as 0.
+    one = seen["wholesaler"].model_copy(
+        update={"neighbour_numbers": seen["wholesaler"].neighbour_numbers[:1]}
+    )
+    inventory = seen["wholesaler"].neighbour_numbers[0].value
+    assert llm.build_inputs(one)["neighbours"].endswith(
+        f"- The distributor (your supplier): inventory {inventory} units"
+    )
+    assert "The distributor" not in render(llm.build_inputs(seen["wholesaler"]))

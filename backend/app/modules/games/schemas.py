@@ -193,7 +193,9 @@ class SeatState(SeatView):
     The play screen, the LLM player's prompt and the Decision log (`state_seen`) all read this
     model, and a field is added here, never beside it. It holds numbers and Roles only: no
     names, no number of Weeks, no future demand and no other Seat's state beyond the
-    `neighbour_numbers` that Information visibility allows (empty until Story 5.16 / 7.x).
+    `neighbour_numbers` that Information visibility allows: the direct neighbours' inventory and
+    backlog in the open Week, filled by `games.views.build_seat_state` while
+    `FEATURE_INFO_VISIBILITY` is on (Story 6.21).
     Every number comes from `engine.seat_view` and `engine.seat_detail`; engine functions that
     take a `SeatView` accept this model as it is.
 
