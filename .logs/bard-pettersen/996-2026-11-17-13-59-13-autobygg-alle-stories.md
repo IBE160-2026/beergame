@@ -2284,3 +2284,24 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #151: beslutninger, og tiden på backend-pakken når to spor kjører samtidig.
+
+## Story 9.5: Skrubb gjennom hele kjeden og se forsterkningen (spor 2)
+
+### Oppgave
+Bygge Story 9.5 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-5-scrub-the-whole-chain-and-see-the-amplification.md` (på `epic-9`).
+- Commit: b54b964.
+- Steg 3 i Debrief: Ukeskrubberen, Kjedebåndet med alle fire roller, Ordrestolper over tallene per rolle og uke, og Forsterkning. Ordrestolpene og tabellen er felles komponenter som Story 7.8 skal gjenbruke.
+- Tester: backend 2880, Vitest 747, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 123.
+- Gjennomgang: 24 funn, 13 rettet, 6 falske, ingenting utsatt.
+- `test_ai/test_effort` og `week-advance` feilet én gang hver og passerte ved ny kjøring.
+- Visuell kontroll (Sonnet, spor 2): ti skjermbilder i `screenshots/9.5/` (4b20820). Rettet at Forsterkning-kolonnen lå utenfor synsfeltet ved 1280 px, og at fokusringen på skrubberen dekket ukeetikettene (f9cc374). Kjedebåndet er begrenset til 56 rem ved 1280 px; går til Story 9.6 på samme side.
+- Status: done.
+
+### Åpne punkter
+- Issue #152: beslutninger, felles komponenter for Story 7.8, og to ustabile tester.
