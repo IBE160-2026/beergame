@@ -1556,6 +1556,10 @@ async def _advance_once(game_id: str) -> bool:
         settings, params = _snapshot(game)
         _, open_week = await _step(session, game, settings, params, states)
         await _commit_change(session, game_uuid)
+        # Every Student of the Game waits on a new Week, or on nothing: their Hjem reads again,
+        # as after the Order that completes a Week (follow-up review of Story 6.13).
+        for student in sorted(seated_students(await repo.seats_with_occupant(session, game_uuid))):
+            await events.emit(session, "user", str(student))
     log.info("week_advanced", game_id=game_id, week=week, open_week=open_week)
     return True
 

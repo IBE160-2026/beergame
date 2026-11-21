@@ -21,7 +21,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # Student it ever seated, whose `progress.record_step` emits `user` and `session` in the
         # transaction of the command that completed the last Week.
         "games.finish": frozenset({"game"}),
-        "games.advance": frozenset({"game"}),
+        # An advance by the rescue loop or a settle (follow-up review of Story 6.13): a Class
+        # game's session hears of it, and every Student of the Game waits on a new Week, so each
+        # reads Hjem again. A simulation emits `game` alone.
+        "games.advance": frozenset({"game", "session", "user"}),
         "games.switch_to_rule_based": frozenset({"game"}),
         # A Student opened a Guided Week (Story 6.10): only Class games take Students, so their
         # Class session hears of it; the viewer's waiting status changes, and when the view

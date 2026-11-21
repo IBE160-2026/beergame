@@ -10,7 +10,8 @@ from sqlalchemy import event
 
 from app.engine import GameSettings
 from app.modules.games import commands
-from app.platform.db import get_engine
+from app.modules.games.service import OpenGame
+from app.platform.db import get_engine, get_sessionmaker
 from app.platform.events.registry import COMMAND_TOPICS
 from tests.conftest import TEST_DATABASE_URL
 from tests.games.helpers import execute, listening, play_to_end, query, seat_student
@@ -90,14 +91,29 @@ async def _run_finish() -> str:
 
 
 async def _run_advance() -> str:
-    """`start` leaves Week 1 complete but open when its own advances are held back."""
-    game_id = await _run_create()
-    settle = commands._settle
-    commands._settle = _no_settle
-    try:
-        await commands.start(game_id)
-    finally:
-        commands._settle = settle
+    """The one Student's Order of a started Class game is written in a caller's transaction,
+    which advances nothing (the order source's way), so `advance` runs Week 1: its Class session
+    and the Student, who waits on Week 2, hear of it."""
+    from tests.games.test_set_snapshot import SETTINGS, snapshot
+
+    game_id = await commands.create("class", class_session_id=uuid.uuid7(), game_number=1)
+    student = uuid.uuid7()
+    await commands.assign_seat(game_id, "retailer", "student", user_id=student)
+    free = {
+        **snapshot(),
+        "settings": SETTINGS.model_copy(update={"guided_weeks": 0}).model_dump(mode="json"),
+    }
+    await commands.set_snapshot(game_id, free, keep_students=[student])
+    await commands.start(game_id)
+    async with get_sessionmaker().begin() as session:
+        await commands.place_order(
+            game_id,
+            "retailer",
+            1,
+            4,
+            "student",
+            within=OpenGame(session=session, game_id=uuid.UUID(game_id)),
+        )
     assert await commands.advance(game_id)
     return game_id
 
@@ -203,6 +219,7 @@ CLASS_SETUP_EVENTS = {
     "start": 7,
     "view_week": 10,
     "place_order": 10,
+    "advance": 10,
     # create 2 + two Student Seats 2 each; `accept_time` also runs `propose_time` (4: game,
     # session, the proposer, the other Student's notice).
     "propose_time": 6,
