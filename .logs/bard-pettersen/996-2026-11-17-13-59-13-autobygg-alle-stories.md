@@ -2588,3 +2588,23 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Etter den
 
 ### Åpne punkter
 - Issue #167: beslutninger (felles steg 1–3, ventetid på 5 min som plassholder, varsling).
+
+## Story 8.2: En KI-spiller tar over etter Inaktivitetsgrensen (spor 1)
+
+### Oppgave
+Bygge Story 8.2 på `epic-8` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (samtidighet). Etter storyen merget orkestratoren `main` (avslutningen av Epic 7) inn i `epic-8`, løste én konflikt i `nb.ts` og kjørte typecheck, Vitest og `check:copy` (d52d84c). Neste byggeagent startet før den visuelle kontrollen.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-2-ai-player-takes-over-after-inactivity-limit.md`.
+- Commit: 159838f. Migrasjon 0054.
+- Sweepen gir et sete til en KI-spiller etter Inaktivitetsgrensen, ett sete per transaksjon; KI-spilleren bestiller med en gang og alle studentene får e-post. «KI-spiller bestiller for Jonas» på Spill og Hjem, og «KI-spiller har bestilt for deg.» i stedet for Ordrefeltet.
+- Tester: backend 2907, Vitest 838, typecheck, `check:copy`, `lint:colours`, bygg, Playwright 94 med `--workers=4`, ingen ustabile tester.
+- Gjennomgang: 38 funn, 5 middels, alle rettet. Punkt 2 i Issue #141 er løst.
+- Visuell kontroll av 8.1 og 8.2 (Sonnet, bare rapport, eget worktree og egen stack): 21 skjermbilder i `screenshots/8.2/`, ingen klare feil. Til Story 8.4 på samme skjerm: lenken «Alle rader og kostnad» forsvinner ved 1280 px når setet er tatt over, og «Din ordre 9» viser KI-spillerens ordre som om den var studentens.
+- Status: done.
+
+### Åpne punkter
+- Issue #168: beslutninger, og oppfølgende gjennomgang anbefalt til slutten av Epic 8.
