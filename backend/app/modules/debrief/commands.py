@@ -1,8 +1,8 @@
-"""The only writer of the Debrief tables (Stories 9.2, 9.3, 9.6 to 9.8, AD-21, AD-8).
+"""The only writer of the Debrief tables (Stories 9.2, 9.3, 9.6 to 9.9, AD-21, AD-8).
 
 Each command on a Debrief session locks its row and emits `debrief:<id>` (`platform/events`
 registry: `debrief.open`, `debrief.save_explanation`, `debrief.complete_step`,
-`debrief.record_facts`, `debrief.finish`). `release` writes
+`debrief.record_facts`, `debrief.finish`, `debrief.submit_quiz`). `release` writes
 the Class session's release once and tells each Student who holds a Seat through
 `platform/notify` (`debrief.release`). Arguments are ids and the Student's text only."""
 
@@ -24,6 +24,7 @@ from app.modules.debrief.models import (
     debrief_releases,
     debrief_sessions,
     debrief_summaries,
+    quiz_attempts,
 )
 from app.modules.debrief.rules import all_class_games_finished
 from app.modules.progress import service as progress
@@ -394,3 +395,95 @@ async def finish(
         await events.emit(session, "debrief", str(debrief.id))
     log.info("debrief_finished", debrief_id=str(debrief.id))
     return summary_of(saved), True
+
+
+class QuizPassed(Exception):
+    """An attempt after the Student has passed the Debrief quiz (409 `quiz_passed`): the passing
+    attempt stays the last."""
+
+
+@dataclass(frozen=True)
+class AttemptRow:
+    number: int
+    quiz_version: int
+    answers: tuple[dict[str, Any], ...]
+    passed: bool
+    submitted_at: datetime
+
+
+def attempt_of(row) -> AttemptRow:
+    return AttemptRow(
+        number=row["number"],
+        quiz_version=row["quiz_version"],
+        answers=tuple(row["answers"]),
+        passed=row["passed"],
+        submitted_at=row["submitted_at"],
+    )
+
+
+async def submit_quiz(
+    game_id: uuid.UUID,
+    class_session_id: uuid.UUID,
+    user_id: uuid.UUID,
+    quiz_version: int,
+    answers: Sequence[dict[str, Any]],
+    test_deadline: datetime | None,
+) -> AttemptRow:
+    """A scored attempt at the Debrief quiz (Story 9.9, FR-46, AD-16, AD-23): store it once as the
+    Student's next attempt (numbered from 1), with the quiz version, the answers in the order
+    shown (`{question_id, choice_id, correct}`, scored by the caller with the answer key) and the
+    database time. It passes when every answer is correct; a passing attempt records the
+    `quiz_passed` step at that time in the same transaction. The Debrief row of the Game is
+    locked; every attempt emits `debrief:<id>` (and a passing one, through `progress`, its `user`
+    and `session`).
+
+    Raises `QuizPassed` once an attempt has passed, and `TestDeadlinePassed` once the database
+    time is past `test_deadline`; nothing is stored then."""
+    passed = bool(answers) and all(each["correct"] for each in answers)
+    async with get_sessionmaker().begin() as session:
+        debrief = await _locked(session, game_id)
+        mine = (
+            quiz_attempts.c.user_id == user_id,
+            quiz_attempts.c.class_session_id == class_session_id,
+        )
+        done, count = (
+            await session.execute(
+                select(func.bool_or(quiz_attempts.c.passed), func.count()).where(*mine)
+            )
+        ).one()
+        if done:
+            raise QuizPassed
+        if test_deadline is not None and await session.scalar(select(func.now() > test_deadline)):
+            raise TestDeadlinePassed
+        saved = (
+            (
+                await session.execute(
+                    insert(quiz_attempts)
+                    .values(
+                        id=uuid.uuid7(),
+                        user_id=user_id,
+                        class_session_id=class_session_id,
+                        game_id=game_id,
+                        number=count + 1,
+                        quiz_version=quiz_version,
+                        answers=list(answers),
+                        passed=passed,
+                        submitted_at=func.now(),
+                    )
+                    .returning(*quiz_attempts.c)
+                )
+            )
+            .mappings()
+            .one()
+        )
+        if passed:
+            await progress.record_step(
+                user_id,
+                class_session_id,
+                progress.Step.QUIZ_PASSED,
+                saved["submitted_at"],
+                within=session,
+            )
+        await events.emit(session, "debrief", str(debrief.id))
+    log.info("quiz_attempted", debrief_id=str(debrief.id), number=saved["number"], passed=passed)
+    return attempt_of(saved)

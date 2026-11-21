@@ -1854,7 +1854,7 @@
         "type": "string"
       },
       "DebriefStepOut": {
-        "description": "A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2\ncarries the reveal (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the own moments\n(Story 9.7) and the Debrief's lines under Kjedens regning (Story 9.8); step 5 gets its content\nwith Story 9.9 and until then answers the step number only.",
+        "description": "A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2\ncarries the reveal (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the own moments\n(Story 9.7) and the Debrief's lines under Kjedens regning (Story 9.8); step 5, the Debrief quiz,\nhas routes of its own (`/quiz`, Story 9.9) and answers the step number only here.",
         "properties": {
           "bill": {
             "anyOf": [
@@ -3869,6 +3869,238 @@
           "mine"
         ],
         "title": "ProposalPersonOut",
+        "type": "object"
+      },
+      "QuizAnswerIn": {
+        "properties": {
+          "choice_id": {
+            "title": "Choice Id",
+            "type": "string"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "choice_id"
+        ],
+        "title": "QuizAnswerIn",
+        "type": "object"
+      },
+      "QuizAttemptIn": {
+        "description": "An attempt: one answer per asked question, in the order shown (422 `validation_error`\notherwise).",
+        "properties": {
+          "answers": {
+            "items": {
+              "$ref": "#/components/schemas/QuizAnswerIn"
+            },
+            "title": "Answers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "answers"
+        ],
+        "title": "QuizAttemptIn",
+        "type": "object"
+      },
+      "QuizAttemptOut": {
+        "description": "A scored attempt (Story 9.9, FR-46): its number from 1, when it was stored, how many of the\nasked questions were right and every question with its result.",
+        "properties": {
+          "asked": {
+            "title": "Asked",
+            "type": "integer"
+          },
+          "correct": {
+            "title": "Correct",
+            "type": "integer"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/QuizResultOut"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "submitted_at",
+          "passed",
+          "correct",
+          "asked",
+          "results"
+        ],
+        "title": "QuizAttemptOut",
+        "type": "object"
+      },
+      "QuizChoiceOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "QuizChoiceOut",
+        "type": "object"
+      },
+      "QuizOut": {
+        "description": "Step 5, the Debrief quiz (Story 9.9, FR-46, UX-DR37): the version the Class session pinned\nat the lock, whether it is placeholder content (issue #16), the attempts so far and when it was\npassed, the questions of the next attempt (the order may change between attempts; none once\npassed) and the latest attempt's result.",
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "last": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuizAttemptOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "passed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passed At"
+          },
+          "placeholder": {
+            "title": "Placeholder",
+            "type": "boolean"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuizQuestionOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "placeholder",
+          "attempts",
+          "passed_at",
+          "questions",
+          "last"
+        ],
+        "title": "QuizOut",
+        "type": "object"
+      },
+      "QuizQuestionOut": {
+        "description": "A Debrief quiz question as asked (Story 9.9): its prompt and choices in the order shown.\nNever its answer key.",
+        "properties": {
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/QuizChoiceOut"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "prompt",
+          "choices"
+        ],
+        "title": "QuizQuestionOut",
+        "type": "object"
+      },
+      "QuizResultOut": {
+        "description": "One question of a scored attempt, in the order shown: the Student's choice, the right one\nand, when the choice was wrong, the explanation (the content's text, then the sentence about\nthe Student's own Game rendered by code from the facts set of their Seat, AD-7).",
+        "properties": {
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/QuizChoiceOut"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "chosen": {
+            "title": "Chosen",
+            "type": "string"
+          },
+          "correct": {
+            "title": "Correct",
+            "type": "boolean"
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenderedTextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "string"
+          },
+          "right_choice": {
+            "title": "Right Choice",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "prompt",
+          "choices",
+          "chosen",
+          "right_choice",
+          "correct",
+          "explanation"
+        ],
+        "title": "QuizResultOut",
         "type": "object"
       },
       "ReflectionAnswerIn": {
@@ -5905,6 +6137,22 @@
             "title": "Moments",
             "type": "array"
           },
+          "quiz_attempts": {
+            "title": "Quiz Attempts",
+            "type": "integer"
+          },
+          "quiz_passed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiz Passed At"
+          },
           "reflection": {
             "items": {
               "$ref": "#/components/schemas/SummaryAnswerOut"
@@ -5918,7 +6166,9 @@
           "finished_at",
           "late",
           "moments",
-          "reflection"
+          "reflection",
+          "quiz_attempts",
+          "quiz_passed_at"
         ],
         "title": "SummaryOut",
         "type": "object"
@@ -11642,6 +11892,152 @@
           }
         },
         "summary": "Get My Net Inventory",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/quiz": {
+      "get": {
+        "description": "Step 5, the Debrief quiz (Story 9.9, FR-46): the version the Class session pinned, the\nquestions of the Student's next attempt without the answer key (none once passed; the order\nmay change between attempts), the number of attempts, when it was passed and the latest\nattempt's result. 403 `debrief_required` until the Student has finished the Debrief.",
+        "operationId": "getMyQuiz",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuizOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Quiz",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/quiz/attempts": {
+      "post": {
+        "description": "An attempt at the Debrief quiz (Story 9.9, FR-46, AD-16): scored by the answer key on the\nserver and stored once, with each question's result and, for a wrong answer, the explanation;\nevery question right records the `quiz_passed` step. Retries are unlimited until the Test\ndeadline. 422 `validation_error` unless every asked question is answered once with one of\nits choices, 409 `quiz_passed` once passed, 409 `test_deadline_passed` after the Student's\nTest deadline, 403 `debrief_required` before the Debrief is finished.",
+        "operationId": "submitQuizAttempt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuizAttemptIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuizAttemptOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Submit Quiz Attempt",
         "tags": [
           "debrief"
         ]

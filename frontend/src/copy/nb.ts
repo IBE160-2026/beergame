@@ -2297,6 +2297,44 @@ export const nb = {
       reflection: "Spørsmål til ettertanke",
       noStudent: "Studenten har ikke noe Klassespill i denne Klasseøkten.",
     },
+    /** Step 5, the Debrief quiz (Story 9.9, FR-46, UX-DR37). «Debrief-quiz» is the spine's; the
+     * rest is [ASSUMPTION] draft copy. The marks on each row are `quizChoice`'s. */
+    quiz: {
+      heading: "Debrief-quiz",
+      intro:
+        "Velg ett svar på hvert spørsmål. Du kan prøve så mange ganger du vil fram til Testfristen. Quizen teller ikke på noen karakter.",
+      /** While the quiz content is a placeholder (issue #16). */
+      placeholder: "Spørsmålene er foreløpige og byttes ut før kurset tar dem i bruk.",
+      /** Over the questions of an attempt. */
+      attempt: (n: number) => `Forsøk ${n}`,
+      /** «Spørsmål 1 av 3», before each question. */
+      questionOf: (n: number, total: number) => `Spørsmål ${n} av ${total}`,
+      send: "Send svarene",
+      /** Beside «Send svarene» while a question has no choice. */
+      unanswered: "Velg et svar på hvert spørsmål før du sender.",
+      /** «Forsøk 2: 2 av 3 riktige.» The result summary, focused after a send. */
+      result: (attempt: number, correct: number, asked: number) => `Forsøk ${attempt}: ${correct} av ${asked} riktige.`,
+      retryHint: "Les forklaringene og prøv igjen. Spørsmålene kan komme i en annen rekkefølge.",
+      retry: "Prøv igjen",
+      passed: (attempts: number) =>
+        attempts === 1
+          ? "Alle svarene er riktige. Quizen er bestått på første forsøk."
+          : `Alle svarene er riktige. Quizen er bestått etter ${attempts} forsøk.`,
+      /** 409 `test_deadline_passed`. */
+      deadlinePassed: "Testfristen er passert, så svarene kan ikke sendes lenger.",
+      /** 409 `quiz_passed`: another device passed it first. */
+      alreadyPassed: "Quizen er allerede bestått.",
+      failed: "Svarene ble ikke sendt. Prøv igjen.",
+      /** The quiz could not be read; «Prøv igjen» beside it. */
+      loadFailed: "Quizen kunne ikke hentes.",
+    },
+  },
+
+  /** Quizvalg's marks on a scored question (UX-DR37): in text, never by colour alone. The spine's
+   * words. */
+  quizChoice: {
+    wrong: "Ditt svar, ikke riktig",
+    right: "Riktig",
   },
 
   /** Links between pages (Story 3.3). Each names where it goes. */

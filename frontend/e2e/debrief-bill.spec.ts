@@ -6,6 +6,7 @@ import { loginByApi } from "./support/auth";
 import { BILL, STAFF_SUMMARY, SUMMARY } from "./support/bill";
 import { expectAccessible, expectReflow, test } from "./support/classes";
 import { MOMENTS } from "./support/moments";
+import { stubQuiz } from "./support/quiz";
 import { QUESTIONS } from "./support/reflection";
 import { REVEAL } from "./support/reveal";
 
@@ -45,6 +46,8 @@ async function atTheBill(page: Page, { finished = false, refuse = null as string
   );
   await page.route(`**/api/me/games/${GAME}/result`, (route) => route.fulfill({ json: result }));
   await page.route(`**/api/debriefs/${DEBRIEF}/summary`, (route) => route.fulfill({ json: { summary } }));
+  // Step 5 follows once finished (Story 9.9, `debrief-quiz.spec.ts`).
+  await stubQuiz(page, DEBRIEF);
   await page.route(`**/api/debriefs/${DEBRIEF}/finish`, (route) => {
     finishes.push(route.request().method());
     if (refuse) return route.fulfill({ status: 409, json: { error: { code: refuse, message: "x" } } });

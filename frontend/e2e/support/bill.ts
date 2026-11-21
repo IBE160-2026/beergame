@@ -41,6 +41,8 @@ export const SUMMARY = {
     patterns,
   })),
   reflection: ANSWERS,
+  quiz_attempts: 0,
+  quiz_passed_at: null,
 };
 
 export const STAFF_SUMMARY = {

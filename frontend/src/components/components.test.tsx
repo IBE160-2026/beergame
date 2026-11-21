@@ -12,6 +12,7 @@ import { Button, guardUnavailable } from "./button";
 import { ColumnItem } from "./column-item";
 import { ConnectionNotice } from "./connection-notice";
 import { GameCard } from "./game-card";
+import { QuizChoice } from "./quiz-choice";
 import { SegmentedChoice } from "./segmented-choice";
 import { Stegene } from "./stegene";
 import { Switch } from "./switch";
@@ -443,5 +444,48 @@ describe("Ukeskrubber (Story 9.5, UX-DR34)", () => {
     expect(scrubKey("Home", 15, 36)).toBe(1);
     expect(scrubKey("End", 15, 36)).toBe(36);
     expect(scrubKey("a", 15, 36)).toBeNull();
+  });
+});
+
+describe("QuizChoice (Quizvalg, Story 9.9, UX-DR37)", () => {
+  const options = [
+    { id: "netto", text: "−13" },
+    { id: "posisjon", text: "3" },
+  ];
+
+  it("is a fieldset of native radios named by the question, in full-width rows", () => {
+    const html = renderToStaticMarkup(
+      <QuizChoice name="q" legend="Hva er posisjonen din?" options={options} value="posisjon" onChange={() => {}} />,
+    );
+    expect(html).toContain("<fieldset");
+    expect(html).toContain("<legend");
+    expect(html).toContain("Hva er posisjonen din?");
+    expect(html.match(/type="radio"/g)).toHaveLength(2);
+    const checked = (html.match(/<input[^>]*>/g) ?? []).filter((tag) => tag.includes('checked=""'));
+    expect(checked).toHaveLength(1);
+    expect(checked[0]).toContain('value="posisjon"');
+    expect(html).toContain("w-full");
+    expect(html).not.toContain("disabled");
+    expect(html).not.toContain(nb.quizChoice.right);
+  });
+
+  it("marks a scored question in text, never by colour alone, with the explanation under it", () => {
+    const html = renderToStaticMarkup(
+      <QuizChoice name="q" legend="Q" options={options} value="netto" marks={{ chosen: "netto", right: "posisjon" }}>
+        <p>Forklaringen.</p>
+      </QuizChoice>,
+    );
+    expect(html).toContain('disabled=""');
+    expect(html).toMatch(/data-quiz-option="netto" data-quiz-mark="wrong"[^>]*border-restordre/);
+    expect(html).toMatch(/data-quiz-option="posisjon" data-quiz-mark="right"[^>]*border-ink/);
+    expect(html).toContain(nb.quizChoice.wrong);
+    expect(html).toContain(nb.quizChoice.right);
+    expect(html.indexOf("Forklaringen.")).toBeGreaterThan(html.indexOf(nb.quizChoice.right));
+    // A right choice is marked «Riktig» only.
+    const right = renderToStaticMarkup(
+      <QuizChoice name="q" legend="Q" options={options} value="posisjon" marks={{ chosen: "posisjon", right: "posisjon" }} />,
+    );
+    expect(right).toContain(nb.quizChoice.right);
+    expect(right).not.toContain(nb.quizChoice.wrong);
   });
 });

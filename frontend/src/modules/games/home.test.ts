@@ -100,6 +100,19 @@ describe("Stegene's items (Story 6.1, AD-10)", () => {
     expect(stepItems([{ step: "debrief", state: "current", held: false }])[0].href).toBeUndefined();
   });
 
+  it("leads the current Quiz step to the Debrief's step 5 (Story 9.9); a later step links nowhere", () => {
+    const items = stepItems(
+      [
+        { step: "debrief", state: "done", held: false },
+        { step: "quiz", state: "current", held: false },
+        { step: "replay", state: "locked", held: false },
+      ],
+      "s1",
+    );
+    expect(items.map((item) => item.href)).toEqual([undefined, "/debrief/s1#debrief-quiz", undefined]);
+    expect(stepItems([{ step: "quiz", state: "done", held: false }], "s1")[0].href).toBeUndefined();
+  });
+
   it("has a lock line for every step and no exclamation mark", () => {
     for (const line of Object.values(copy.locked)) expect(line).toMatch(/^[^!]+, åpnes [^!]+\.$/);
   });

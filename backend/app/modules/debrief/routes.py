@@ -1,4 +1,4 @@
-"""The Debrief routes (Stories 9.2 to 9.7, FR-41, FR-42, FR-44, FR-45, AD-3, AD-12).
+"""The Debrief routes (Stories 9.2 to 9.9, FR-41, FR-42, FR-44 to FR-47, AD-3, AD-12).
 
 - `POST /api/me/class-sessions/{id}/debrief`: «Gå til Debrief» and Stegene's Debrief step open
   the Student's Debrief session (created at step 1 the first time) and answer it.
@@ -19,6 +19,9 @@
   409 `debrief_incomplete`, `test_deadline_passed`) and `GET /api/debriefs/{id}/summary` (the
   Student's own summary); `GET /api/class-sessions/{id}/students/{user_id}/debrief-summary`, the
   Explanation and Debrief summary for the Class's staff (`debrief_summaries.read`).
+- Story 9.9, step 5: `GET /api/debriefs/{id}/quiz` (the Debrief quiz) and
+  `POST /api/debriefs/{id}/quiz/attempts` (one scored attempt; 409 `quiz_passed`,
+  `test_deadline_passed`), both 403 `debrief_required` until the Debrief is finished.
 
 Every Debrief route answers 403 `debrief_not_open` while the Student's Class game has not
 finished and 403 `debrief_held` while the Lecturer holds the Debriefs and a Class game has not
@@ -42,6 +45,9 @@ from app.modules.debrief.schemas import (
     MyExplanationOut,
     MySummaryOut,
     NetInventoryOut,
+    QuizAttemptIn,
+    QuizAttemptOut,
+    QuizOut,
     ReflectionAnswerIn,
     ReflectionOut,
     ReflectionQuestionOut,
@@ -151,6 +157,17 @@ async def _answer(read, status: int = 200) -> Response:
         )
     except commands.TestDeadlinePassed:
         return error_response(409, "test_deadline_passed", "The Test deadline has passed.")
+    except service.DebriefRequired:
+        return error_response(403, "debrief_required", "Finish the Debrief before the quiz.")
+    except service.InvalidQuizAnswers as invalid:
+        return error_response(
+            422,
+            "validation_error",
+            "Answer every question once with one of its choices.",
+            {"answers": invalid.reason},
+        )
+    except commands.QuizPassed:
+        return error_response(409, "quiz_passed", "You have passed the quiz already.")
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"), status_code=status)
@@ -274,6 +291,38 @@ async def finish_my_debrief(debrief_id: str, user: OWN) -> Response:
     not read, 409 `test_deadline_passed` after the Student's Test deadline, 403
     `explanation_required` before the Explanation."""
     return await _answer(service.finish_mine(user, _id(debrief_id)))
+
+
+@router.get(
+    "/debriefs/{debrief_id}/quiz",
+    response_model=QuizOut,
+    responses=documented(401, 403),
+    operation_id="getMyQuiz",
+)
+async def get_my_quiz(debrief_id: str, user: OWN) -> Response:
+    """Step 5, the Debrief quiz (Story 9.9, FR-46): the version the Class session pinned, the
+    questions of the Student's next attempt without the answer key (none once passed; the order
+    may change between attempts), the number of attempts, when it was passed and the latest
+    attempt's result. 403 `debrief_required` until the Student has finished the Debrief."""
+    return await _answer(service.own_quiz(user, _id(debrief_id)))
+
+
+@router.post(
+    "/debriefs/{debrief_id}/quiz/attempts",
+    status_code=201,
+    response_model=QuizAttemptOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="submitQuizAttempt",
+)
+async def submit_quiz_attempt(debrief_id: str, body: QuizAttemptIn, user: OWN) -> Response:
+    """An attempt at the Debrief quiz (Story 9.9, FR-46, AD-16): scored by the answer key on the
+    server and stored once, with each question's result and, for a wrong answer, the explanation;
+    every question right records the `quiz_passed` step. Retries are unlimited until the Test
+    deadline. 422 `validation_error` unless every asked question is answered once with one of
+    its choices, 409 `quiz_passed` once passed, 409 `test_deadline_passed` after the Student's
+    Test deadline, 403 `debrief_required` before the Debrief is finished."""
+    answers = [(each.question_id, each.choice_id) for each in body.answers]
+    return await _answer(service.submit_quiz_mine(user, _id(debrief_id), answers), status=201)
 
 
 @router.get(

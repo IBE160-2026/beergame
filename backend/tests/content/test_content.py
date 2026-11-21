@@ -70,16 +70,19 @@ async def test_the_lock_pins_the_latest_starting_task_version():
     snapshot = await sessions.build_snapshot(_session_row())
     pins = snapshot["session_runtime"]["pins"]
     # Story 9.1 pins the Detected pattern definitions the same way, Story 9.4 the sentence
-    # templates, Story 9.6 the reflection questions, Story 9.7 the moment templates.
+    # templates, Story 9.6 the reflection questions, Story 9.7 the moment templates, Story 9.9
+    # the Debrief quiz.
     assert pins == {
         "starting_task": {"version": 2},
         "detected_patterns": {"version": 1},
         "sentence_templates": {"version": 1},
         "reflection_questions": {"version": 1},
         "moment_templates": {"version": 1},
+        "debrief_quiz": {"version": 1},
     }
     assert sessions._pin_providers["reflection_questions"] is content.reflection_questions_pin
     assert sessions._pin_providers["moment_templates"] is content.moment_templates_pin
+    assert sessions._pin_providers["debrief_quiz"] is content.debrief_quiz_pin
     assert content.pinned_version(pins) == 2
     assert content.pinned_version(pins, "detected_patterns") == 1
     assert content.pinned_version(pins, "sentence_templates") == 1
@@ -132,6 +135,18 @@ async def test_version_1_holds_the_moment_templates_and_a_cause_is_not_stored():
     bad["templates"][0]["text"] = "Uke {week}: du bestilte {order} fordi det var mye på vei."
     with pytest.raises(ValidationError):
         await content.publish("moment_templates", bad)
+
+
+async def test_version_1_holds_the_placeholder_quiz_and_a_bad_quiz_is_not_stored():
+    """Story 9.9 (FR-46, AD-23): the Debrief quiz, read back as stored and marked placeholder; one
+    whose answer is not one of its choices is refused like any invalid record."""
+    version, body = await content.debrief_quiz(None)
+    assert (version, body.placeholder, len(body.questions)) == (1, True, 3)
+    bad = json.loads(json.dumps(body.model_dump(mode="json")))
+    bad["questions"][0]["answer"] = "ingen"
+    with pytest.raises(ValidationError):
+        await content.publish("debrief_quiz", bad)
+    assert await content.latest_version("debrief_quiz") == 1
 
 
 def _session_row() -> dict:

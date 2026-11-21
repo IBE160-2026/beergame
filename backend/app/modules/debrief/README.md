@@ -123,3 +123,26 @@ The Debrief (Epic 9, FR-41 to FR-47, AD-21). Never imports `modules/players`
   link per Student-held Seat, to `/klasseokter/<session>/studenter/<student>/debrief`; it is
   registered through `games.service.register_insight_links` when that hook exists (Story 7.7 is
   on another branch until the merge), so `games` imports nothing from `debrief`.
+
+## The Debrief quiz (Story 9.9, FR-46, FR-47, FR-18, AD-16, AD-23)
+
+- Content kind `debrief_quiz` (`analysis.quiz.DebriefQuiz`): fixed single-choice questions with
+  an answer key, a fixed explanation and an optional `in_your_game` template whose slots are
+  values of the Student's own Game (`analysis.quiz.QUIZ_VALUES`), filled from the facts set of
+  their Seat; a value the Game lacks leaves the sentence out. Version 1 (migration 0108) is a
+  placeholder (`placeholder: true`, issue #16), pinned at the lock as `debrief_quiz`.
+- `GET /api/debriefs/{id}/quiz` and `POST /api/debriefs/{id}/quiz/attempts` answer 403
+  `debrief_required` until `progress.has_step(debrief)`. GET gives the next attempt's questions
+  without the answer key (content order first, then shuffled with a seed of the Student and the
+  attempt number; none once passed) and the latest attempt's result.
+- POST scores on the server (`analysis.quiz.score`: every asked question once, 422
+  `validation_error` otherwise) and runs `commands.submit_quiz`: the Debrief row locked; 409
+  `quiz_passed` once passed, 409 `test_deadline_passed` once the database time is past the
+  effective Test deadline; one `quiz_attempts` row (number, quiz version, answers with
+  `correct`, `passed`, `submitted_at` in database time; never changed, trigger); a passing
+  attempt records `progress.record_step(quiz_passed, submitted_at)` in the same transaction;
+  `debrief:<id>` emitted (registry `debrief.submit_quiz`). A wrong answer's result carries the
+  explanation; the quiz counts toward no score. In a Group debrief each Student takes it on
+  their own device: nothing here is shared.
+- The Debrief summary answers `quiz_attempts` (until and with the passing one) and
+  `quiz_passed_at`, read from `quiz_attempts` at request time; the summary row never changes.

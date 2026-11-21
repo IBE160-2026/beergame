@@ -11,4 +11,6 @@
 - `simulated`: «Simulert, samme kunder», the Game played again by the Rule-based rule with only
   the viewer's Seat, then every Seat, counting På vei (`simulate`, Story 9.8, FR-44); stored in
   the facts set.
+- `quiz`: the Debrief quiz's shape, its scoring by answer key and the own-game sentence of an
+  explanation from a stored facts set (`score`, `render_in_your_game`, Story 9.9, FR-46).
 """

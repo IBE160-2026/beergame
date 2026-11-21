@@ -83,6 +83,8 @@ MOMENT_TABLES = {"debrief_fact_sets"}
 """The table of revision 0106 (Story 9.7)."""
 SUMMARY_TABLES = {"debrief_summaries"}
 """The table of revision 0107 (Story 9.8)."""
+QUIZ_TABLES = {"quiz_attempts"}
+"""The table of revision 0108 (Story 9.9)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -95,8 +97,9 @@ HEAD_TABLES = (
     | REFLECTION_TABLES
     | MOMENT_TABLES
     | SUMMARY_TABLES
+    | QUIZ_TABLES
 )
-HEAD = "0107"  # 0107 stores each Student's Debrief summary (Story 9.8)
+HEAD = "0108"  # 0108 stores the Debrief quiz and its attempts (Story 9.9)
 
 
 def reset_schema(url: str) -> None:
@@ -263,6 +266,17 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert function_names(url, "debrief_summaries_immutable")
     assert {"moment_ids", "reflection", "finished_at"} <= columns(url, "debrief_summaries")
 
+    # 0108 (Story 9.9): version 1 of the Debrief quiz, marked placeholder; attempts never change.
+    [(quiz,)] = rows(url, "SELECT body FROM content_records WHERE kind = 'debrief_quiz'")
+    assert quiz["placeholder"] is True and len(quiz["questions"]) == 3
+    assert function_names(url, "quiz_attempts_immutable")
+    assert {"answers", "passed", "quiz_version", "number"} <= columns(url, "quiz_attempts")
+
+    command.downgrade(cfg, "0107")
+    assert QUIZ_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "quiz_attempts_immutable")
+    assert "debrief_quiz" not in definition(url, "ck_content_records_kind")
+    assert rows(url, "SELECT count(*) FROM content_records WHERE kind = 'debrief_quiz'") == [(0,)]
     command.downgrade(cfg, "0106")
     assert SUMMARY_TABLES.isdisjoint(tables(url))
     assert not function_names(url, "debrief_summaries_immutable")

@@ -1,4 +1,4 @@
-"""What other modules and the routes use of `debrief` (Stories 9.2 to 9.8).
+"""What other modules and the routes use of `debrief` (Stories 9.2 to 9.9).
 
 - `open_mine(user, class_session_id)`: the Student's Debrief, opened on first use; raises
   `NotAvailable` with the code the route answers (`debrief_not_open`, `debrief_held`), and None
@@ -22,8 +22,13 @@
   `commands.TestDeadlinePassed`), `own_summary`, and `staff_summary(user, class_session_id,
   student_id)`, the Explanation and Debrief summary for the Class's staff
   (`debrief_summaries.read`), the read Studentside and the Student report reuse.
+- Story 9.9, step 5: `own_quiz` (the pinned Debrief quiz, the next attempt's questions and the
+  latest result) and `submit_quiz_mine` (raises `InvalidQuizAnswers`, `commands.QuizPassed`,
+  `commands.TestDeadlinePassed`), both behind `require_debrief` (403 `debrief_required`). The
+  summary carries the number of quiz attempts and when the quiz was passed.
 """
 
+import random
 import uuid
 from collections.abc import Sequence
 from datetime import datetime
@@ -32,6 +37,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy import select
 
 from app.analysis import moments as moment_text
+from app.analysis import quiz as quiz_rules
 from app.analysis import sentences
 from app.analysis.facts import LARGE_ORDER
 from app.engine.settings import Role
@@ -45,6 +51,7 @@ from app.modules.debrief.models import (
     debrief_releases,
     debrief_sessions,
     debrief_summaries,
+    quiz_attempts,
 )
 from app.modules.debrief.schemas import (
     BillOut,
@@ -62,6 +69,11 @@ from app.modules.debrief.schemas import (
     NetInventoryOut,
     NetWeekOut,
     OtherSeenOut,
+    QuizAttemptOut,
+    QuizChoiceOut,
+    QuizOut,
+    QuizQuestionOut,
+    QuizResultOut,
     ReflectionAnswerOut,
     ReflectionOut,
     ReflectionQuestionOut,
@@ -83,7 +95,9 @@ from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "DebriefRequired",
     "ExplanationRequired",
+    "InvalidQuizAnswers",
     "InvalidAnswer",
     "InvalidExplanation",
     "NoExplanation",
@@ -97,14 +111,17 @@ __all__ = [
     "open_mine",
     "own_explanation",
     "own_net_inventory",
+    "own_quiz",
     "own_reflection",
     "own_summary",
     "release_due",
+    "require_debrief",
     "require_explanation",
     "save_mine",
     "staff_explanation",
     "staff_summary",
     "step",
+    "submit_quiz_mine",
 ]
 
 # Spillinnsikt's links to the Explanation and Debrief summary (registered on import).
@@ -144,6 +161,20 @@ class InvalidAnswer(Exception):
 class UnknownQuestion(Exception):
     """No reflection question of that id in the Class session's pinned version (404
     `not_found`)."""
+
+
+class DebriefRequired(Exception):
+    """The Debrief quiz before the Student has finished the Debrief (403 `debrief_required`,
+    FR-46, AD-16): checked here with `progress.has_step`, never only in the web app."""
+
+
+class InvalidQuizAnswers(Exception):
+    """A quiz attempt that cannot be scored (422 `validation_error`): `incomplete` or
+    `unknown_choice`."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
 
 
 class NoExplanation(Exception):
@@ -647,6 +678,8 @@ async def _summary(
     _, questions = await _questions(found.game_id)
     prompts = {q.id: q.prompt for q in questions.questions}
     deadline, _ = await sessions.student_deadlines(user_id, class_session_id)
+    attempts = await _attempts(user_id, class_session_id)
+    passing = next((each for each in attempts if each.passed), None)
     return SummaryOut(
         fact_set_id=found.fact_set_id,
         finished_at=found.finished_at,
@@ -670,6 +703,8 @@ async def _summary(
             )
             for each in found.reflection
         ],
+        quiz_attempts=passing.number if passing else len(attempts),
+        quiz_passed_at=passing.submitted_at if passing else None,
     )
 
 
@@ -742,6 +777,154 @@ async def staff_summary(
         explanation=explanation,
         summary=summary,
     )
+
+
+async def require_debrief(user_id: uuid.UUID, class_session_id: uuid.UUID) -> None:
+    """The quiz's gate (Story 9.9, FR-46, AD-16): raises `DebriefRequired` until the Student has
+    finished the Debrief (the `debrief` step)."""
+    if not await progress.has_step(user_id, class_session_id, progress.Step.DEBRIEF):
+        raise DebriefRequired
+
+
+async def _quiz(game_id: uuid.UUID) -> tuple[int, quiz_rules.DebriefQuiz]:
+    """The Debrief quiz the Game's Class session pinned at the lock (the latest for a session
+    locked before the pin)."""
+    found = await games.get_game(str(game_id))
+    pins = found.session_runtime.pins if found and found.session_runtime else None
+    return await content.debrief_quiz(content.pinned_version(pins, content.Kind.DEBRIEF_QUIZ))
+
+
+async def _attempts(user_id: uuid.UUID, class_session_id: uuid.UUID) -> list[commands.AttemptRow]:
+    """The Student's quiz attempts in the Class session, by number."""
+    async with get_sessionmaker()() as s:
+        found = (
+            await s.execute(
+                select(quiz_attempts)
+                .where(
+                    quiz_attempts.c.user_id == user_id,
+                    quiz_attempts.c.class_session_id == class_session_id,
+                )
+                .order_by(quiz_attempts.c.number)
+            )
+        ).mappings()
+        return [commands.attempt_of(row) for row in found]
+
+
+def _asked(quiz: quiz_rules.DebriefQuiz) -> list[str]:
+    """The questions every attempt answers: all of the version (exclusions come with 9.10)."""
+    return [question.id for question in quiz.questions]
+
+
+def _order(quiz: quiz_rules.DebriefQuiz, user_id: uuid.UUID, number: int) -> list[str]:
+    """The order attempt `number` asks the questions in (FR-46: they may be reshuffled): the
+    content's order the first time, then shuffled with a seed of the Student and the attempt, so
+    a reload of the same attempt shows the same order."""
+    asked = _asked(quiz)
+    if number > 1:
+        random.Random(f"{user_id}:{number}").shuffle(asked)
+    return asked
+
+
+def _choices(question: quiz_rules.QuizQuestion) -> list[QuizChoiceOut]:
+    return [QuizChoiceOut(id=choice.id, text=choice.text) for choice in question.choices]
+
+
+async def _result(game_id: uuid.UUID, role: str, attempt: commands.AttemptRow) -> QuizAttemptOut:
+    """A stored attempt with each question's result, read with the quiz version it was scored
+    with. A wrong answer gets the explanation, ending with the sentence about the Student's own
+    Game rendered from the facts set of their Seat (AD-7)."""
+    _, quiz = await content.debrief_quiz(attempt.quiz_version)
+    stored = None
+    results = []
+    for answer in attempt.answers:
+        question = quiz.question(answer["question_id"])
+        explanation = None
+        if not answer["correct"]:
+            if stored is None and question.in_your_game is not None:
+                stored = await games.fact_set(str(game_id), role)
+            own = quiz_rules.render_in_your_game(stored.facts, question) if stored else None
+            text = question.explanation if own is None else f"{question.explanation} {own.text}"
+            explanation = RenderedTextOut(text=text)
+        results.append(
+            QuizResultOut(
+                question_id=question.id,
+                prompt=question.prompt,
+                choices=_choices(question),
+                chosen=answer["choice_id"],
+                right_choice=question.answer,
+                correct=answer["correct"],
+                explanation=explanation,
+            )
+        )
+    return QuizAttemptOut(
+        number=attempt.number,
+        submitted_at=attempt.submitted_at,
+        passed=attempt.passed,
+        correct=sum(1 for each in results if each.correct),
+        asked=len(results),
+        results=results,
+    )
+
+
+async def own_quiz(user: authz.Principal, debrief_id: uuid.UUID) -> QuizOut | None:
+    """Step 5, the Debrief quiz (Story 9.9, FR-46): the pinned version, the questions of the
+    Student's next attempt without the answer key (none once passed) and the latest attempt's
+    result. Behind `require_debrief`."""
+    found = await _own(user, debrief_id)
+    if found is None:
+        return None
+    row, game = found
+    await require_debrief(user.id, row.class_session_id)
+    version, quiz = await _quiz(row.game_id)
+    attempts = await _attempts(user.id, row.class_session_id)
+    last = attempts[-1] if attempts else None
+    passed = last is not None and last.passed
+    questions = (
+        []
+        if passed
+        else [
+            QuizQuestionOut(id=q.id, prompt=q.prompt, choices=_choices(q))
+            for q in map(quiz.question, _order(quiz, user.id, len(attempts) + 1))
+        ]
+    )
+    return QuizOut(
+        version=version,
+        placeholder=quiz.placeholder,
+        attempts=len(attempts),
+        passed_at=last.submitted_at if passed and last else None,
+        questions=questions,
+        last=await _result(row.game_id, game.role, last) if last else None,
+    )
+
+
+async def submit_quiz_mine(
+    user: authz.Principal, debrief_id: uuid.UUID, answers: Sequence[tuple[str, str]]
+) -> QuizAttemptOut | None:
+    """An attempt at the Debrief quiz (Story 9.9, FR-46): scored here by the answer key of the
+    pinned version, never by the web app, and stored by `debrief.commands.submit_quiz`, which
+    records `quiz_passed` when every asked question is right. Raises `NotAvailable`,
+    `DebriefRequired`, `InvalidQuizAnswers`, `commands.QuizPassed` or
+    `commands.TestDeadlinePassed`."""
+    found = await _own(user, debrief_id)
+    if found is None:
+        return None
+    row, game = found
+    await require_debrief(user.id, row.class_session_id)
+    version, quiz = await _quiz(row.game_id)
+    try:
+        scored = quiz_rules.score(quiz, _asked(quiz), answers)
+    except quiz_rules.WrongAnswers as wrong:
+        raise InvalidQuizAnswers(wrong.reason) from None
+    _, test_deadline = await sessions.student_deadlines(user.id, row.class_session_id)
+    saved = await commands.submit_quiz(
+        row.game_id,
+        row.class_session_id,
+        user.id,
+        version,
+        [each.model_dump() for each in scored.answers],
+        test_deadline,
+    )
+    return await _result(row.game_id, game.role, saved)
 
 
 async def due_releases(now: datetime) -> Sequence[str]:

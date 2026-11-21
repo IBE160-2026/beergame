@@ -1478,6 +1478,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/debriefs/{debrief_id}/quiz": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Quiz
+         * @description Step 5, the Debrief quiz (Story 9.9, FR-46): the version the Class session pinned, the
+         *     questions of the Student's next attempt without the answer key (none once passed; the order
+         *     may change between attempts), the number of attempts, when it was passed and the latest
+         *     attempt's result. 403 `debrief_required` until the Student has finished the Debrief.
+         */
+        get: operations["getMyQuiz"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/quiz/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Quiz Attempt
+         * @description An attempt at the Debrief quiz (Story 9.9, FR-46, AD-16): scored by the answer key on the
+         *     server and stored once, with each question's result and, for a wrong answer, the explanation;
+         *     every question right records the `quiz_passed` step. Retries are unlimited until the Test
+         *     deadline. 422 `validation_error` unless every asked question is answered once with one of
+         *     its choices, 409 `quiz_passed` once passed, 409 `test_deadline_passed` after the Student's
+         *     Test deadline, 403 `debrief_required` before the Debrief is finished.
+         */
+        post: operations["submitQuizAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/debriefs/{debrief_id}/reflection": {
         parameters: {
             query?: never;
@@ -2753,8 +2801,8 @@ export interface components {
          * DebriefStepOut
          * @description A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2
          *     carries the reveal (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the own moments
-         *     (Story 9.7) and the Debrief's lines under Kjedens regning (Story 9.8); step 5 gets its content
-         *     with Story 9.9 and until then answers the step number only.
+         *     (Story 9.7) and the Debrief's lines under Kjedens regning (Story 9.8); step 5, the Debrief quiz,
+         *     has routes of its own (`/quiz`, Story 9.9) and answers the step number only here.
          */
         DebriefStepOut: {
             bill?: components["schemas"]["BillOut"] | null;
@@ -3699,6 +3747,105 @@ export interface components {
             /** Name */
             name: string | null;
         };
+        /** QuizAnswerIn */
+        QuizAnswerIn: {
+            /** Choice Id */
+            choice_id: string;
+            /** Question Id */
+            question_id: string;
+        };
+        /**
+         * QuizAttemptIn
+         * @description An attempt: one answer per asked question, in the order shown (422 `validation_error`
+         *     otherwise).
+         */
+        QuizAttemptIn: {
+            /** Answers */
+            answers: components["schemas"]["QuizAnswerIn"][];
+        };
+        /**
+         * QuizAttemptOut
+         * @description A scored attempt (Story 9.9, FR-46): its number from 1, when it was stored, how many of the
+         *     asked questions were right and every question with its result.
+         */
+        QuizAttemptOut: {
+            /** Asked */
+            asked: number;
+            /** Correct */
+            correct: number;
+            /** Number */
+            number: number;
+            /** Passed */
+            passed: boolean;
+            /** Results */
+            results: components["schemas"]["QuizResultOut"][];
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+        };
+        /** QuizChoiceOut */
+        QuizChoiceOut: {
+            /** Id */
+            id: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * QuizOut
+         * @description Step 5, the Debrief quiz (Story 9.9, FR-46, UX-DR37): the version the Class session pinned
+         *     at the lock, whether it is placeholder content (issue #16), the attempts so far and when it was
+         *     passed, the questions of the next attempt (the order may change between attempts; none once
+         *     passed) and the latest attempt's result.
+         */
+        QuizOut: {
+            /** Attempts */
+            attempts: number;
+            last: components["schemas"]["QuizAttemptOut"] | null;
+            /** Passed At */
+            passed_at: string | null;
+            /** Placeholder */
+            placeholder: boolean;
+            /** Questions */
+            questions: components["schemas"]["QuizQuestionOut"][];
+            /** Version */
+            version: number;
+        };
+        /**
+         * QuizQuestionOut
+         * @description A Debrief quiz question as asked (Story 9.9): its prompt and choices in the order shown.
+         *     Never its answer key.
+         */
+        QuizQuestionOut: {
+            /** Choices */
+            choices: components["schemas"]["QuizChoiceOut"][];
+            /** Id */
+            id: string;
+            /** Prompt */
+            prompt: string;
+        };
+        /**
+         * QuizResultOut
+         * @description One question of a scored attempt, in the order shown: the Student's choice, the right one
+         *     and, when the choice was wrong, the explanation (the content's text, then the sentence about
+         *     the Student's own Game rendered by code from the facts set of their Seat, AD-7).
+         */
+        QuizResultOut: {
+            /** Choices */
+            choices: components["schemas"]["QuizChoiceOut"][];
+            /** Chosen */
+            chosen: string;
+            /** Correct */
+            correct: boolean;
+            explanation: components["schemas"]["RenderedTextOut"] | null;
+            /** Prompt */
+            prompt: string;
+            /** Question Id */
+            question_id: string;
+            /** Right Choice */
+            right_choice: string;
+        };
         /**
          * ReflectionAnswerIn
          * @description «Fortsett» on a reflection question: the answer as typed. It must hold more than white
@@ -4619,6 +4766,10 @@ export interface components {
             late: boolean;
             /** Moments */
             moments: components["schemas"]["SummaryMomentOut"][];
+            /** Quiz Attempts */
+            quiz_attempts: number;
+            /** Quiz Passed At */
+            quiz_passed_at: string | null;
             /** Reflection */
             reflection: components["schemas"]["SummaryAnswerOut"][];
         };
@@ -8796,6 +8947,117 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyQuiz: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuizOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submitQuizAttempt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuizAttemptIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuizAttemptOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

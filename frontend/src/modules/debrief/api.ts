@@ -242,3 +242,56 @@ export function backorderLine(bill: Bill, copy: { share: (p: number) => string; 
 export function aiHeld(bill: Bill): boolean {
   return Number(bill.ai_held_cost) > 0 && (bill.ai_held_share_percent ?? 0) > 0;
 }
+
+/** Step 5, the Debrief quiz (Story 9.9, FR-46): the pinned version, the next attempt's questions
+ * (no answer key; none once passed) and the latest attempt's result. */
+export type Quiz = components["schemas"]["QuizOut"];
+export type QuizQuestion = components["schemas"]["QuizQuestionOut"];
+export type QuizAttempt = components["schemas"]["QuizAttemptOut"];
+export type QuizResult = components["schemas"]["QuizResultOut"];
+
+export const quizKey = (debriefId: string) => [...debriefsKey, debriefId, "quiz"] as const;
+
+/** The Debrief quiz, read once the Debrief is finished (`enabled`): the api checks the gate (403
+ * `debrief_required`). */
+export function useMyQuiz(debriefId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: quizKey(debriefId),
+    queryFn: () => request(() => api.GET("/api/debriefs/{debrief_id}/quiz", { params: { path: { debrief_id: debriefId } } })),
+    enabled,
+    retry: false,
+  });
+}
+
+/** One attempt: the choices in the order shown. The api scores it by the answer key (FR-46);
+ * nothing here judges an answer. */
+export function submitQuiz(debriefId: string, answers: readonly { question_id: string; choice_id: string }[]): Promise<QuizAttempt> {
+  return request(() =>
+    api.POST("/api/debriefs/{debrief_id}/quiz/attempts", {
+      params: { path: { debrief_id: debriefId } },
+      body: { answers: [...answers] },
+    }),
+  );
+}
+
+/** The answers to send, in the order the questions are shown; null while a question has no
+ * choice (the api would refuse it). */
+export function quizAnswers(
+  questions: readonly QuizQuestion[],
+  chosen: Readonly<Record<string, string>>,
+): { question_id: string; choice_id: string }[] | null {
+  const answers = questions.map((q) => ({ question_id: q.id, choice_id: chosen[q.id] ?? "" }));
+  return answers.every((a) => a.choice_id !== "") ? answers : null;
+}
+
+/** The quiz as it stands once `attempt` is stored: the attempt is the last, and once it passed
+ * there is nothing left to ask. The next attempt's questions come with the refetch. */
+export function withAttempt(quiz: Quiz, attempt: QuizAttempt): Quiz {
+  return {
+    ...quiz,
+    attempts: attempt.number,
+    last: attempt,
+    passed_at: attempt.passed ? attempt.submitted_at : quiz.passed_at,
+    questions: attempt.passed ? [] : quiz.questions,
+  };
+}

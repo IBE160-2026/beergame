@@ -14,10 +14,14 @@ import {
   downstreamRole,
   explanationDraftField,
   hasText,
+  type Quiz,
+  type QuizAttempt,
+  quizAnswers,
   type Reflection,
   reflectionDone,
   reflectionDraftField,
   withAnswer,
+  withAttempt,
 } from "./api";
 import { amplificationLine, chainBandInput, chainReading } from "./chain-step";
 
@@ -264,5 +268,46 @@ describe("Kjedens regning in the Debrief (Story 9.8)", () => {
 
   it("leads the staff to one page per Student", () => {
     expect(studentDebriefPath("s 1", "u/2")).toBe("/klasseokter/s%201/studenter/u%2F2/debrief");
+  });
+});
+
+describe("the Debrief quiz (Story 9.9)", () => {
+  const questions: Quiz["questions"] = [
+    { id: "a", prompt: "A?", choices: [{ id: "x", text: "X" }, { id: "y", text: "Y" }] },
+    { id: "b", prompt: "B?", choices: [{ id: "x", text: "X" }, { id: "z", text: "Z" }] },
+  ];
+  const quiz: Quiz = { version: 1, placeholder: true, attempts: 0, passed_at: null, questions, last: null };
+  const attempt = (passed: boolean): QuizAttempt => ({
+    number: 1,
+    submitted_at: "2026-11-24T09:00:00Z",
+    passed,
+    correct: passed ? 2 : 1,
+    asked: 2,
+    results: [],
+  });
+
+  it("sends the choices in the order shown, and nothing while a question has none", () => {
+    expect(quizAnswers(questions, { b: "z", a: "y" })).toEqual([
+      { question_id: "a", choice_id: "y" },
+      { question_id: "b", choice_id: "z" },
+    ]);
+    expect(quizAnswers(questions, { a: "y" })).toBeNull();
+    expect(quizAnswers(questions, {})).toBeNull();
+  });
+
+  it("puts a stored attempt in as the last; a passing one leaves nothing to ask", () => {
+    const failed = withAttempt(quiz, attempt(false));
+    expect(failed).toMatchObject({ attempts: 1, passed_at: null, questions });
+    expect(failed.last?.passed).toBe(false);
+    const passed = withAttempt(quiz, attempt(true));
+    expect(passed).toMatchObject({ attempts: 1, passed_at: "2026-11-24T09:00:00Z", questions: [] });
+  });
+
+  it("words the result and the pass without praise or an exclamation mark", () => {
+    const copy = nb.debrief.quiz;
+    expect(copy.result(2, 2, 3)).toBe("Forsøk 2: 2 av 3 riktige.");
+    expect(copy.passed(1)).toBe("Alle svarene er riktige. Quizen er bestått på første forsøk.");
+    expect(copy.passed(3)).toBe("Alle svarene er riktige. Quizen er bestått etter 3 forsøk.");
+    for (const line of [copy.intro, copy.placeholder, copy.retryHint, copy.passed(2)]) expect(line).not.toContain("!");
   });
 });

@@ -30,7 +30,8 @@ export function holderText(seat: TableSeat): string {
 
 /** Stegene's items in words, from the states the api computed (AD-10): the web app decides
  * nothing about which step is open. A Debrief step held until every Class game has finished says
- * so (Story 9.2); the current Debrief step leads to the Debrief of `sessionId`. */
+ * so (Story 9.2); the current Debrief step leads to the Debrief of `sessionId`, the current Quiz
+ * step to its step 5, the Debrief quiz (Story 9.9). */
 export function stepItems(steps: EnrolledSession["steps"], sessionId?: string): StegeneItem[] {
   return (steps ?? []).map(({ step, state, held }) => ({
     key: step,
@@ -44,8 +45,14 @@ export function stepItems(steps: EnrolledSession["steps"], sessionId?: string): 
           : held && step === "debrief"
             ? copy.held.debrief
             : copy.locked[step],
-    href: step === "debrief" && state === "current" && sessionId ? DEBRIEF_PATH(sessionId) : undefined,
+    href: state === "current" && sessionId ? stepHref(step, sessionId) : undefined,
   }));
+}
+
+function stepHref(step: EnrolledSession["steps"][number]["step"], sessionId: string): string | undefined {
+  if (step === "debrief") return DEBRIEF_PATH(sessionId);
+  if (step === "quiz") return `${DEBRIEF_PATH(sessionId)}#debrief-quiz`;
+  return undefined;
 }
 
 const DATE_OF = {

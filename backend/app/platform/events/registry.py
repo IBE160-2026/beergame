@@ -114,6 +114,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # step recorded in the same transaction emits `user` and `session`. A summary stored
         # already emits nothing.
         "debrief.finish": frozenset({"debrief", "session", "user"}),
+        # A Debrief quiz attempt stored (Story 9.9, FR-46, AD-16): the Debrief row locked; a
+        # passing one records `quiz_passed` in the same transaction, which emits `user` and
+        # `session`.
+        "debrief.submit_quiz": frozenset({"debrief", "session", "user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

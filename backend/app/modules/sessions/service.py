@@ -2696,6 +2696,8 @@ register_pin_provider(content.Kind.SENTENCE_TEMPLATES.value, content.sentence_te
 # Story 9.6: the reflection questions.
 register_pin_provider(content.Kind.REFLECTION_QUESTIONS.value, content.reflection_questions_pin)
 register_pin_provider(content.Kind.MOMENT_TEMPLATES.value, content.moment_templates_pin)
+# Story 9.9: the Debrief quiz.
+register_pin_provider(content.Kind.DEBRIEF_QUIZ.value, content.debrief_quiz_pin)
 
 
 class ProviderKeyMissing(Exception):

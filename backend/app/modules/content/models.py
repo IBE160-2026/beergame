@@ -1,4 +1,4 @@
-"""The table owned by `modules/content` (Stories 6.3, 9.1, 9.4, 9.6, AD-23)."""
+"""The table owned by `modules/content` (Stories 6.3, 9.1, 9.4, 9.6, 9.7, 9.9, AD-23)."""
 
 from enum import StrEnum
 
@@ -26,6 +26,7 @@ class Kind(StrEnum):
     SENTENCE_TEMPLATES = "sentence_templates"
     REFLECTION_QUESTIONS = "reflection_questions"
     MOMENT_TEMPLATES = "moment_templates"
+    DEBRIEF_QUIZ = "debrief_quiz"
 
 
 content_records = Table(

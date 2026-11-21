@@ -1,4 +1,4 @@
-"""What the Debrief routes answer (Stories 9.2 to 9.8, AD-3)."""
+"""What the Debrief routes answer (Stories 9.2 to 9.9, AD-3)."""
 
 import uuid
 from datetime import datetime
@@ -241,8 +241,8 @@ class BillOut(BaseModel):
 class DebriefStepOut(BaseModel):
     """A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2
     carries the reveal (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the own moments
-    (Story 9.7) and the Debrief's lines under Kjedens regning (Story 9.8); step 5 gets its content
-    with Story 9.9 and until then answers the step number only."""
+    (Story 9.7) and the Debrief's lines under Kjedens regning (Story 9.8); step 5, the Debrief quiz,
+    has routes of its own (`/quiz`, Story 9.9) and answers the step number only here."""
 
     debrief_id: uuid.UUID
     step: int
@@ -286,6 +286,10 @@ class SummaryOut(BaseModel):
     moments: list[SummaryMomentOut]
     """Empty when the game was played mostly by AI players."""
     reflection: list[SummaryAnswerOut]
+    quiz_attempts: int
+    """Debrief quiz attempts (Story 9.9): until and with the passing one, or all so far."""
+    quiz_passed_at: datetime | None
+    """When the passing attempt was stored; None while the quiz is not passed."""
 
 
 class MySummaryOut(BaseModel):
@@ -339,3 +343,69 @@ class ReflectionOut(BaseModel):
 
     version: int
     questions: list[ReflectionQuestionOut]
+
+
+class QuizChoiceOut(BaseModel):
+    id: str
+    text: str
+
+
+class QuizQuestionOut(BaseModel):
+    """A Debrief quiz question as asked (Story 9.9): its prompt and choices in the order shown.
+    Never its answer key."""
+
+    id: str
+    prompt: str
+    choices: list[QuizChoiceOut]
+
+
+class QuizResultOut(BaseModel):
+    """One question of a scored attempt, in the order shown: the Student's choice, the right one
+    and, when the choice was wrong, the explanation (the content's text, then the sentence about
+    the Student's own Game rendered by code from the facts set of their Seat, AD-7)."""
+
+    question_id: str
+    prompt: str
+    choices: list[QuizChoiceOut]
+    chosen: str
+    right_choice: str
+    correct: bool
+    explanation: RenderedTextOut | None
+
+
+class QuizAttemptOut(BaseModel):
+    """A scored attempt (Story 9.9, FR-46): its number from 1, when it was stored, how many of the
+    asked questions were right and every question with its result."""
+
+    number: int
+    submitted_at: datetime
+    passed: bool
+    correct: int
+    asked: int
+    results: list[QuizResultOut]
+
+
+class QuizOut(BaseModel):
+    """Step 5, the Debrief quiz (Story 9.9, FR-46, UX-DR37): the version the Class session pinned
+    at the lock, whether it is placeholder content (issue #16), the attempts so far and when it was
+    passed, the questions of the next attempt (the order may change between attempts; none once
+    passed) and the latest attempt's result."""
+
+    version: int
+    placeholder: bool
+    attempts: int
+    passed_at: datetime | None
+    questions: list[QuizQuestionOut]
+    last: QuizAttemptOut | None
+
+
+class QuizAnswerIn(BaseModel):
+    question_id: str
+    choice_id: str
+
+
+class QuizAttemptIn(BaseModel):
+    """An attempt: one answer per asked question, in the order shown (422 `validation_error`
+    otherwise)."""
+
+    answers: list[QuizAnswerIn]

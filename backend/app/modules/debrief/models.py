@@ -1,7 +1,8 @@
-"""The tables owned by `modules/debrief` (Stories 9.2, 9.3, 9.6 to 9.8, AD-21). Written by
+"""The tables owned by `modules/debrief` (Stories 9.2, 9.3, 9.6 to 9.9, AD-21). Written by
 `debrief.commands` only."""
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -147,4 +148,32 @@ debrief_summaries = Table(
     # `[{question_id, questions_version, text}]`, in the order asked.
     Column("reflection", JSONB, nullable=False),
     Column("finished_at", DateTime(timezone=True), nullable=False),
+)
+
+quiz_attempts = Table(
+    "quiz_attempts",
+    metadata,
+    # One scored attempt at the Debrief quiz by a Student in a Class session (Story 9.9, FR-46,
+    # AD-23): numbered from 1, with the quiz version, the answers in the order shown and the
+    # result; stored once and never changed (a trigger refuses updates).
+    Column("id", Uuid, primary_key=True),
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("game_id", Uuid, ForeignKey("games.id", ondelete="CASCADE"), nullable=False),
+    Column("number", Integer, nullable=False),
+    Column("quiz_version", Integer, nullable=False),
+    # `[{question_id, choice_id, correct}]`, in the order shown.
+    Column("answers", JSONB, nullable=False),
+    # Every asked question answered right.
+    Column("passed", Boolean, nullable=False),
+    Column("submitted_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint(
+        "user_id", "class_session_id", "number", name="uq_quiz_attempts_user_session_number"
+    ),
+    CheckConstraint("number >= 1", name="ck_quiz_attempts_number"),
 )
