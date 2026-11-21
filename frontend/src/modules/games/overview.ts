@@ -2,6 +2,8 @@ import { nb } from "@/copy/nb";
 import { formatNumber, KRONER } from "@/lib/number-format";
 import { roleName } from "@/modules/sessions/sessions";
 
+import { GAME_COLUMN, type TableColumn, type TableRow } from "@/components/charts/matrix-table";
+import type { TableSort } from "@/components/charts/matrix-table-sort";
 import type { WallGroup, WallRow } from "@/components/charts/matrix-wall";
 
 import type { ClassOverview, GameWeeks, OverviewGame } from "./api";
@@ -139,4 +141,62 @@ export function wallGroups(
       };
     }),
   }));
+}
+
+/** The Oversikt table's columns beside «Spill» and the Uker (Story 7.3, UX-DR72): status, whom it
+ * waits for and kjedekost, each sortable; sorting by cost is offered on this staff surface only. */
+export const TABLE_COLUMNS: readonly TableColumn[] = [
+  { key: "status", header: wall.table.status, first: "ascending" },
+  { key: "wait", header: wall.table.waitingFor, first: "descending", wrap: true },
+  { key: "cost", header: wall.figureHeader, align: "end", first: "ascending" },
+];
+
+/** The table opens in the wall's order: by status, as the groups stand. */
+export const TABLE_SORT: TableSort = { key: "status", direction: "ascending" };
+
+/** «Noah (Grossist), 23 t» for each Seat the game waits for, without «Venter på» (the column
+ * header says it). */
+function waitTexts(game: OverviewGame, now: number): string[] {
+  return game.waiting_for.map((wait) => {
+    const duration = waitDuration(Math.max(0, now - Date.parse(wait.since)));
+    const role = roleName(wait.role);
+    return wait.name ? wall.table.wait(wait.name, role, duration) : wall.table.waitRole(role, duration);
+  });
+}
+
+/**
+ * «Vis som tabell»'s rows (Story 7.3): every game of the wall's groups, in the wall's order, with
+ * the same Netto lager per Uke. Each row gives the numbers its columns sort by, all as received
+ * (AD-10): the game number; its place in the wall's order for status; how long its longest wait
+ * has lasted at `now` (none when it waits for nobody); its chain cost (none before it starts).
+ */
+export function tableRows(
+  groups: readonly OverviewGroup[],
+  weeks: ReadonlyMap<string, { data?: GameWeeks; failed: boolean }>,
+  role: string,
+  now: number,
+): TableRow[] {
+  return groups
+    .flatMap((group) => group.games)
+    .map((game, index): TableRow => {
+      const found = weeks.get(game.game_id);
+      const since = game.waiting_for.map((wait) => Date.parse(wait.since)).filter((ms) => !Number.isNaN(ms));
+      return {
+        id: game.game_id,
+        label: copy.game(game.game_number ?? null),
+        cells: {
+          status: STATUS_WORD[game.status],
+          wait: waitTexts(game, now).join("; "),
+          cost: game.chain_cost == null ? "" : formatNumber(game.chain_cost, { decimals: 0 }),
+        },
+        keys: {
+          [GAME_COLUMN]: game.game_number ?? null,
+          status: index,
+          wait: since.length > 0 ? Math.max(0, now - Math.min(...since)) : null,
+          cost: game.chain_cost == null ? null : Number(game.chain_cost),
+        },
+        values: netValues(found?.data, role),
+        loading: !found?.data && !found?.failed && game.status !== "not_started",
+      };
+    });
 }

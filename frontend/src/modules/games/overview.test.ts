@@ -3,7 +3,21 @@ import { describe, expect, it } from "vitest";
 import { GROUP, KRONER } from "@/lib/number-format";
 
 import type { GameWeeks, OverviewGame } from "./api";
-import { clockWithSeconds, costText, groupsOf, headline, netValues, seatTexts, waitLines, wallGroups } from "./overview";
+import { sortRows } from "@/components/charts/matrix-table-sort";
+
+import {
+  clockWithSeconds,
+  costText,
+  groupsOf,
+  headline,
+  netValues,
+  seatTexts,
+  TABLE_COLUMNS,
+  TABLE_SORT,
+  tableRows,
+  waitLines,
+  wallGroups,
+} from "./overview";
 
 const HOUR = 3_600_000;
 
@@ -142,5 +156,72 @@ describe("wallGroups (Story 7.2)", () => {
     expect(running!.loading).toBe(true);
     expect(netValues(weeksOf("g", [5]), "retailer")).toEqual([99]);
     expect(netValues(undefined, "factory")).toEqual([]);
+  });
+});
+
+describe("tableRows (Story 7.3)", () => {
+  const now = Date.parse("2026-11-21T12:00:00Z");
+  const groups = groupsOf([
+    game({
+      game_number: 2,
+      status: "waiting",
+      chain_cost: "1058.4000",
+      wait_started_at: "2026-11-20T13:00:00Z",
+      waiting_for: [
+        { role: "wholesaler", name: "Noah", since: "2026-11-20T13:00:00Z" },
+        { role: "retailer", name: null, since: "2026-11-21T11:00:00Z" },
+      ],
+    }),
+    game({
+      game_number: 3,
+      status: "waiting",
+      chain_cost: "400.0000",
+      wait_started_at: "2026-11-21T11:30:00Z",
+      waiting_for: [{ role: "factory", name: "Ida", since: "2026-11-21T11:30:00Z" }],
+    }),
+    game({ game_number: 4, status: "finished", chain_cost: "980.0000" }),
+    game({ game_number: 7, status: "running", chain_cost: "120.0000" }),
+    game({ game_number: 9, status: "not_started" }),
+  ]);
+  const weeks = new Map([
+    ["g2", { data: weeksOf("g2", [12, -3, -13]), failed: false }],
+    ["g4", { data: weeksOf("g4", [0]), failed: false }],
+    ["g7", { data: undefined, failed: true }],
+  ]);
+  const rows = tableRows(groups, weeks, "factory", now);
+  const order = (sort: Parameters<typeof sortRows>[1]) => sortRows(rows, sort).map((row) => row.label);
+
+  it("lists every game in the wall's order with status, whom it waits for and kjedekost as text", () => {
+    expect(rows.map((row) => row.label)).toEqual(["Spill 2", "Spill 3", "Spill 7", "Spill 9", "Spill 4"]);
+    expect(rows[0]!.cells).toEqual({
+      status: "Venter",
+      wait: "Noah (Grossist), 23 t; Detaljist, 1 t",
+      cost: `1${GROUP}058`,
+    });
+    expect(rows[3]!.cells).toEqual({ status: "Ikke startet", wait: "", cost: "" });
+    expect(TABLE_COLUMNS.map((column) => column.header)).toEqual(["Status", "Venter på", "Kjedekost, kr"]);
+  });
+
+  it("carries the same Netto lager as the wall; a failed fetch leaves cells empty, a pending one loads", () => {
+    expect(rows[0]!.values).toEqual([12, -3, -13]);
+    expect(rows[2]!).toMatchObject({ values: [], loading: false });
+    expect(rows[1]!).toMatchObject({ values: [], loading: true });
+    expect(rows[3]!).toMatchObject({ values: [], loading: false });
+  });
+
+  it("opens in the wall's order (status ascending) and reverses it descending", () => {
+    expect(order(TABLE_SORT)).toEqual(["Spill 2", "Spill 3", "Spill 7", "Spill 9", "Spill 4"]);
+    expect(order({ key: "status", direction: "descending" })).toEqual(["Spill 4", "Spill 9", "Spill 7", "Spill 3", "Spill 2"]);
+    expect(order({ key: "game", direction: "ascending" })).toEqual(["Spill 2", "Spill 3", "Spill 4", "Spill 7", "Spill 9"]);
+  });
+
+  it("sorts the longest wait first, games that wait for nobody after it in the wall's order", () => {
+    expect(order({ key: "wait", direction: "descending" })).toEqual(["Spill 2", "Spill 3", "Spill 7", "Spill 9", "Spill 4"]);
+    expect(order({ key: "wait", direction: "ascending" })).toEqual(["Spill 3", "Spill 2", "Spill 7", "Spill 9", "Spill 4"]);
+  });
+
+  it("sorts by kjedekost both ways, a game not started last both times", () => {
+    expect(order({ key: "cost", direction: "ascending" })).toEqual(["Spill 7", "Spill 3", "Spill 4", "Spill 2", "Spill 9"]);
+    expect(order({ key: "cost", direction: "descending" })).toEqual(["Spill 2", "Spill 4", "Spill 3", "Spill 7", "Spill 9"]);
   });
 });

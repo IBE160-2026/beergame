@@ -3,6 +3,7 @@ import { expect } from "@playwright/test";
 import { nb } from "../src/copy/nb";
 import { loginByApi } from "./support/auth";
 import { expectAccessible, freshClass, lecturerPage, test, VIEWPORTS } from "./support/classes";
+import { textReadable } from "./support/graph";
 import { liveClassGame, orderByApi } from "./support/live-game";
 
 /** The Oversikt (Story 7.1, FR-39, FR-5, FR-14, FR-72, FR-73, NFR-6, UX-DR40) on the local stack:
@@ -96,6 +97,86 @@ test("the Matrisevegg reads every game Uke by Uke from the keyboard and keeps fo
       await expect(page.locator(":focus")).toHaveAccessibleName(/^Spill 1, Uke 2: /);
       await page.keyboard.press("Tab");
       await expect(grid.locator(":focus")).toHaveCount(0);
+    }
+    await page.context().close();
+  }
+});
+
+test("«Vis som tabell» prints every cell at 13 px, sorts with aria-sort and keeps focus on the same game", async ({
+  browser,
+  lecturerSession,
+}) => {
+  const wall = nb.wall;
+  const view = wall.table;
+  const game = await liveClassGame(browser, lecturerSession, 2, { aiMode: "rule_based" });
+  const [first, second] = game.students;
+  for (const week of [1, 2]) {
+    await orderByApi(first!, game.gameId, week, 4);
+    await orderByApi(second!, game.gameId, week, 4);
+  }
+  // Uke 3 is open and nobody has ordered: the game runs.
+  for (const viewport of VIEWPORTS) {
+    const page = await lecturerPage(browser, lecturerSession, viewport);
+    await page.goto(`/klasseokter/${game.sessionId}/oversikt`);
+    const main = page.getByRole("main");
+    const toggle = main.getByRole("group", { name: view.view });
+    await expect(toggle.getByRole("radio", { name: view.wall })).toBeChecked();
+    await expect(main.getByRole("region", { name: wall.region }).getByRole("grid")).toBeVisible();
+    // From the keyboard: the arrow key on the radios chooses the table.
+    await toggle.getByRole("radio", { name: view.wall }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(toggle.getByRole("radio", { name: view.table })).toBeChecked();
+    const region = main.getByRole("region", { name: wall.region });
+    const table = region.getByRole("table");
+    await expect(table).toBeVisible();
+    await expect(region.getByRole("grid")).toHaveCount(0);
+    await expect(main.getByText(wall.minusNote)).toHaveCount(0);
+    await expect(main.getByText(wall.shown(nb.terms.netInventory, nb.terms.factory), { exact: true })).toBeVisible();
+    // Headers: Spill, Status, Venter på, Kjedekost and Uke 1–3; one row header per game.
+    for (const name of ["Uke 1", "Uke 2", "Uke 3"]) {
+      await expect(table.getByRole("columnheader", { name, exact: true })).toBeVisible();
+    }
+    const header = table.getByRole("rowheader", { name: "Spill 1", exact: true });
+    await expect(header).toBeVisible();
+    const cells = table.locator("tbody tr").first().locator("td[data-week]");
+    await expect(cells).toHaveCount(3);
+    for (let week = 1; week <= 3; week++) await expect(cells.nth(week - 1)).toHaveText(/^−?\d+$/);
+    await expect(table.locator("tbody tr").first().locator("td").first()).toHaveText(wall.status.running);
+    await expect(table.getByRole("columnheader", { name: view.status })).toHaveAttribute("aria-sort", "ascending");
+    await textReadable(page);
+    await expectAccessible(page, viewport.phone);
+    if (viewport === VIEWPORTS[2]) {
+      // Sorting by kjedekost, and again the other way; the header carries aria-sort.
+      const cost = table.getByRole("columnheader", { name: wall.figureHeader });
+      await cost.getByRole("button").click();
+      await expect(cost).toHaveAttribute("aria-sort", "ascending");
+      await expect(table.getByRole("columnheader", { name: view.status })).not.toHaveAttribute("aria-sort", /.*/);
+      await cost.getByRole("button").click();
+      await expect(cost).toHaveAttribute("aria-sort", "descending");
+
+      // Focus on the game's row header stays there as the game moves on and waits.
+      await header.focus();
+      await orderByApi(first!, game.gameId, 3, 4);
+      await expect(table.locator("tbody tr").first().locator("td").first()).toHaveText(wall.status.waiting);
+      await expect(header).toBeFocused();
+      // Switching views keeps the same game as the Tab stop: the wall's cell of Spill 1.
+      await toggle.getByRole("radio", { name: view.wall }).check();
+      await region.focus();
+      await page.keyboard.press("Tab");
+      await expect(page.locator(":focus")).toHaveAccessibleName(/^Spill 1, Uke 1: /);
+      await page.keyboard.press("End");
+      await toggle.getByRole("radio", { name: view.table }).check();
+      await region.focus();
+      await page.keyboard.press("Tab"); // the Spill sort button
+      await page.keyboard.press("Tab");
+      await page.keyboard.press("Tab");
+      await page.keyboard.press("Tab");
+      await page.keyboard.press("Tab");
+      await expect(header).toBeFocused();
+      await toggle.getByRole("radio", { name: view.wall }).check();
+      await region.focus();
+      await page.keyboard.press("Tab");
+      await expect(page.locator(":focus")).toHaveAccessibleName(/^Spill 1, Uke 3: /);
     }
     await page.context().close();
   }

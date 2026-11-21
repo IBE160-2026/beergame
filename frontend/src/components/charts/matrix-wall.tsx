@@ -66,6 +66,10 @@ export type MatrixWallProps = {
   /** The region's height limit (CSS), so the Uke header stays in view in a long wall. */
   maxHeight?: string;
   className?: string;
+  /** The cell that holds the wall's one Tab stop, when the caller keeps it (the Oversikt shares
+   * the game with «Vis som tabell», Story 7.3); else the wall keeps its own. */
+  position?: WallPosition | null;
+  onPosition?: (position: WallPosition) => void;
 };
 
 const PAPER = colour("paper");
@@ -83,7 +87,17 @@ const INK = colour("ink");
  * cell draws `focus-ring-inset`, and focus stays on the same game (by id) and Uke across every
  * re-render. The game column and the Uke header stay put while the region scrolls (README.md).
  */
-export function MatrixWall({ width, fontSize, groups, copy, format, maxHeight = "70vh", className }: MatrixWallProps) {
+export function MatrixWall({
+  width,
+  fontSize,
+  groups,
+  copy,
+  format,
+  maxHeight = "70vh",
+  className,
+  position,
+  onPosition,
+}: MatrixWallProps) {
   const id = useId();
   const region = useRef<HTMLDivElement>(null);
   const svg = useRef<SVGSVGElement>(null);
@@ -91,7 +105,12 @@ export function MatrixWall({ width, fontSize, groups, copy, format, maxHeight = 
   const labelsClip = useRef<SVGRectElement>(null);
   const headerClip = useRef<SVGRectElement>(null);
   const focused = useRef(false);
-  const [active, setActive] = useState<WallPosition | null>(null);
+  const [own, setOwn] = useState<WallPosition | null>(null);
+  const active = position !== undefined ? position : own;
+  const setActive = (next: WallPosition) => {
+    setOwn(next);
+    onPosition?.(next);
+  };
   const [hasFocus, setHasFocus] = useState(false);
 
   const rows = groups.flatMap((group) => group.rows);

@@ -2125,6 +2125,19 @@ export const nb = {
      * [ASSUMPTION] */
     rowName: (parts: readonly string[]) => parts.join(", "),
     chainCost: (cost: string) => `kjedekost ${cost}`,
+    /** The Visningsbryter and «Vis som tabell» (Story 7.3, UX-DR42). «Vegg» and «Vis som tabell»
+     * are EXPERIENCE.md's own; «Visning» is the mockup's (`08-laerer-oversikt.png`). */
+    table: {
+      view: "Visning",
+      wall: "Vegg",
+      table: "Vis som tabell",
+      /** [ASSUMPTION] the column headers beside «Spill» and «Kjedekost, kr». */
+      status: "Status",
+      waitingFor: "Venter på",
+      /** «Noah (Grossist), 23 t»; a Student no longer in the Class is named by Role. [ASSUMPTION] */
+      wait: (who: string, role: string, duration: string) => `${who} (${role}), ${duration}`,
+      waitRole: (role: string, duration: string) => `${role}, ${duration}`,
+    },
   },
 
   /** Links between pages (Story 3.3). Each names where it goes. */

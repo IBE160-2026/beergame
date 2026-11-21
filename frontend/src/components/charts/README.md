@@ -78,3 +78,26 @@ offsets are 0.
 else «−» for below zero, else blank; text `ink` on zero and steps 1–2, `paper` on steps 3–4.
 Cell text is 9 px (`matrix-cell-min`) at a 13 px caption and grows with text zoom; labels and
 the header are the caption size. `netStep` lives here and the week table imports it.
+
+## «Vis som tabell»: an HTML table beside the wall (Story 7.3)
+
+`matrix-table.tsx` is the wall's second way to the same numbers (UX-DR42): an HTML `<table>`, not
+SVG, so text is `table-cell` (13 px, 15 px from 1024 px), never shrinks and every cell prints its
+signed number. The Visningsbryter (`view-toggle`) swaps it for the wall; only one of the two is in
+the DOM, and each sits in a region named «Alle spill», so to the user it is the same region. The
+table gets real CSS `position: sticky` (game column, header row, the corner both) with
+`border-separate`, which keeps sticky cells' backgrounds and rules.
+
+Cells get their game and Uke from `th scope="row"` and `th scope="col"`; the caption is the
+wall's title. Sorting (`matrix-table-sort.ts`) uses numbers the caller gives per row and column
+(`TableRow.keys`), never the printed text; a row with no number stays last in both directions and
+ties keep the caller's order. The sorted header carries `aria-sort`. A column is sortable only when
+the caller passes its first direction, so «Vis i plenum» (Epic 14) can leave the cost column out.
+
+Keyboard: one row header is in the Tab order (roving `tabindex`), Up and Down move between games,
+and the focused header draws `focus-ring-inset`. The caller may share the game with the wall
+(`focusId`/`onFocusId` here, `position`/`onPosition` on `MatrixWall`), so switching views keeps the
+same Class game as the view's Tab stop. A game with no Uke yet (not started, or its weeks failed
+to load) has no wall cell to hold it, so the wall's Tab stop falls back to its first game with a
+cell; the table keeps it. The Oversikt also keeps the table's sort across a switch. While focus is inside the table its rows keep their places
+(`keepOrder`) and values update in place; they re-sort when focus leaves or a header is activated.
