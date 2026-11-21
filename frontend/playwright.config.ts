@@ -15,8 +15,17 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   // The browser as a Norwegian user has it (GitHub issue 100): Norwegian locale, Oslo time. After
-  // the device, which brings its own locale.
+  // the device, which brings its own locale. `--lang` sets the browser UI language, which native
+  // date and time fields follow (the locale alone leaves them in English).
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"], locale: "nb-NO", timezoneId: "Europe/Oslo" } },
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        locale: "nb-NO",
+        timezoneId: "Europe/Oslo",
+        launchOptions: { args: ["--lang=nb-NO"] },
+      },
+    },
   ],
 });

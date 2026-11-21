@@ -7,6 +7,8 @@ const POSITION = [
   { sign: -1, value: 13 },
   { sign: 1, value: 16 },
 ] as const;
+/** «0 − 13 + 16» with no-break spaces, as the result line keeps it on one line. */
+const NB_SUM = "0\u00a0−\u00a013\u00a0+\u00a016";
 
 describe("parseWholeNumber", () => {
   it("reads whole numbers with any minus sign", () => {
@@ -45,9 +47,9 @@ describe("the result line", () => {
   it("says right or wrong in words", () => {
     const terms = [...POSITION];
     expect(resultLine({ answer: 5, correct: false, expected: 3, terms })).toBe(
-      "Ikke riktig. Svaret er 3: 0 − 13 + 16.",
+      `Ikke riktig. Svaret er 3: ${NB_SUM}.`,
     );
-    expect(resultLine({ answer: 3, correct: true, expected: 3, terms })).toBe("Riktig. Svaret er 3: 0 − 13 + 16.");
+    expect(resultLine({ answer: 3, correct: true, expected: 3, terms })).toBe(`Riktig. Svaret er 3: ${NB_SUM}.`);
   });
 });
 

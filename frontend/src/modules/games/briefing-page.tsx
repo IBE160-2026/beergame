@@ -11,10 +11,12 @@ import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { HOME_LINK, HOME_PATH, startingTaskPath } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
+import { DEMO_GUIDED_ORDER, DEMO_SEAT } from "@/modules/landing/demo-seat";
 import { roleName } from "@/modules/sessions/sessions";
 
 import { type MyGame, myGameKey, useMyGame } from "./api";
 import { capacityLines, delayLines, exampleCostLine, exampleRows, guidedLine, ratesLine } from "./briefing";
+import { WeekTable } from "./week-table-view";
 
 const copy = nb.games.briefing;
 
@@ -99,6 +101,7 @@ function Briefing({ game }: { game: MyGame }) {
         ))}
       </Section>
       <Section id="briefing-example" title={copy.example.title}>
+        <GraphStrip />
         <WorkedWeek costLine={exampleCostLine(rules)} />
       </Section>
       <Section id="briefing-guided" title={copy.guided.title}>
@@ -117,35 +120,63 @@ function Briefing({ game }: { game: MyGame }) {
   );
 }
 
+const STRIP_CAPTION = "briefing-strip-caption";
+
+/** The graph strip (`09-alle-sider.png`): the Graf over tabell Students play on, over the Landing's
+ * Demodata Seat, so the columns and the now-line are seen before the first Order. The caption
+ * names the table, which is the graph's alternative. */
+function GraphStrip() {
+  return (
+    <figure className="m-0 mb-6 max-w-full" aria-labelledby={STRIP_CAPTION}>
+      <p id={STRIP_CAPTION} className={`mb-3 ${BODY}`}>
+        {copy.example.strip}
+      </p>
+      <WeekTable state={DEMO_SEAT} nowOrder={DEMO_GUIDED_ORDER} labelledBy={STRIP_CAPTION} />
+      <figcaption className="mt-2 text-right text-caption text-ink-muted">{copy.example.demoData}</figcaption>
+    </figure>
+  );
+}
+
 /** The worked Uke (Demodata): one column of a Grossist's week table, each number with what it
  * means, then the week's cost. */
 function WorkedWeek({ costLine }: { costLine: string }) {
   const ex = copy.example;
   return (
-    <figure className="m-0">
-      <table className="w-full border-collapse text-left text-table-cell leading-snug text-ink lg:text-table-cell-laptop">
+    // At large text in a narrow column (200 % at 390 px) each row stacks: the term and its number
+    // on one line, what it means under them, so «Hva det betyr» is never a few words a line. The
+    // ARIA roles keep the table's reading when the rows are laid out as grids.
+    <figure className="@container m-0">
+      <table role="table" className="w-full border-collapse text-left text-table-cell leading-snug text-ink lg:text-table-cell-laptop">
         <caption className="mb-2 text-left text-label font-semibold text-ink">{ex.caption}</caption>
-        <thead>
-          <tr className="border-b border-axis">
-            <th scope="col" className="py-2 pr-3 font-normal text-ink-secondary">
+        <thead role="rowgroup" className="@max-[17rem]:sr-only">
+          <tr role="row" className="border-b border-axis">
+            <th role="columnheader" scope="col" className="py-2 pr-3 font-normal text-ink-secondary">
               {ex.term}
             </th>
-            <th scope="col" className="py-2 pr-3 text-right font-normal whitespace-nowrap text-ink-secondary">
+            <th role="columnheader" scope="col" className="py-2 pr-3 text-right font-normal whitespace-nowrap text-ink-secondary">
               {ex.value}
             </th>
-            <th scope="col" className="py-2 font-normal text-ink-secondary">
+            <th role="columnheader" scope="col" className="py-2 font-normal text-ink-secondary">
               {ex.meaning}
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody role="rowgroup" className="@max-[17rem]:border-t @max-[17rem]:border-axis">
           {exampleRows().map((row) => (
-            <tr key={row.key} className="border-b border-hairline align-top">
-              <th scope="row" className="py-2 pr-3 font-normal whitespace-nowrap">
+            <tr
+              key={row.key}
+              role="row"
+              className="border-b border-hairline align-top @max-[17rem]:grid @max-[17rem]:grid-cols-[minmax(0,1fr)_auto] @max-[17rem]:py-2"
+            >
+              <th role="rowheader" scope="row" className="py-2 pr-3 font-normal whitespace-nowrap @max-[17rem]:p-0">
                 {row.term}
               </th>
-              <td className="py-2 pr-3 text-right font-bold tabular-nums lining-nums">{row.value}</td>
-              <td className="py-2 text-ink-secondary">{row.meaning}</td>
+              <td role="cell" className="py-2 pr-3 text-right font-normal tabular-nums lining-nums @max-[17rem]:p-0">
+                {row.value}
+              </td>
+              <td role="cell" className="py-2 text-ink-secondary @max-[17rem]:col-span-2 @max-[17rem]:p-0 @max-[17rem]:pt-1">
+                {row.meaning}
+              </td>
             </tr>
           ))}
         </tbody>

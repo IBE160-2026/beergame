@@ -51,7 +51,7 @@ export function ColumnItem({
   const errorId = `${id}-error`;
   const describedBy = [hint ? hintId : "", error ? errorId : ""].filter(Boolean).join(" ") || undefined;
   const answered = answer !== undefined;
-  const cell = "py-2 text-right font-bold tabular-nums lining-nums";
+  const cell = "py-2 text-right font-normal tabular-nums lining-nums";
   return (
     <div className="flex flex-col gap-2">
       <table className="w-full max-w-xs border-collapse text-left text-table-cell text-ink lg:text-table-cell-laptop">

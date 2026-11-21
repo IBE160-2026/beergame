@@ -146,12 +146,12 @@ test("live: one Student proposes on Hjem, the other sees it at once and accepts,
     await form.getByLabel(copy.time).fill("14:15");
     await form.getByRole("button", { name: copy.send }).click();
     await expect(blockA.getByRole("status")).toHaveText(copy.sent);
-    await expect(blockA.getByText(/^Du foreslår å spille .* kl\. 14:15\.$/)).toBeVisible();
+    await expect(blockA.getByText(/^Du foreslår å spille .* kl\.\s14:15\.$/)).toBeVisible();
     await expect(blockA.getByText(copy.noneAccepted)).toBeVisible();
 
     // B's open Hjem shows it by name without a reload, and B accepts with one press.
     const blockB = pageB.locator("[data-time-proposal]");
-    await expect(blockB.getByText(new RegExp(`^${a.name} foreslår å spille .* kl\\. 14:15\\.$`))).toBeVisible();
+    await expect(blockB.getByText(new RegExp(`^${a.name} foreslår å spille .* kl\\.\\s14:15\\.$`))).toBeVisible();
     await blockB.getByRole("button", { name: copy.accept }).click();
     await expect(blockB.getByText("Godtatt av deg.")).toBeVisible();
     await expect(blockB.getByRole("button", { name: copy.accept })).toHaveCount(0);

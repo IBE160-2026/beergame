@@ -35,7 +35,7 @@ export function LandingPage() {
         <div className="grid grid-cols-[minmax(0,1fr)] gap-x-12 gap-y-6 border-t border-hairline pt-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:pt-12">
           <h1 className="text-title-phone text-ink lg:text-display">{copy.headline}</h1>
           <div className="flex flex-col gap-6">
-            <p className="max-w-prose break-words text-body-lead text-ink-secondary">{copy.lead}</p>
+            <p className="max-w-prose break-words hyphens-auto text-body-lead [hyphenate-limit-chars:8_4_3] text-ink-secondary">{copy.lead}</p>
             <div className="flex flex-wrap gap-3">
               <NextLink href={ACCESS_REQUEST_PATH} className={buttonClassName("primary")}>
                 {copy.requestAccess}
@@ -49,12 +49,13 @@ export function LandingPage() {
         <section className="mt-12 lg:mt-16">
           <div className="flex flex-wrap items-start justify-between gap-x-12 gap-y-10">
             <SeatFigure />
-            {/* Level with the graph where it stands beside the figure, as drawn. */}
+            {/* Beside the figure, its title level with the first line under the caption, where `01-landing.png`
+                draws the Kjedebånd (the Landing has no band). */}
             <CostPanel
               state={DEMO_SEAT}
               table="toggle"
               demoData={copy.seat.demoData}
-              className="w-full min-w-0 lg:w-[20rem] xl:mt-14"
+              className="w-full min-w-0 lg:w-[20rem] xl:mt-10"
             />
           </div>
           <p className="mt-8 text-body-phone text-ink-secondary lg:text-body">{copy.seat.classCurves}</p>

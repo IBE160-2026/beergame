@@ -22,7 +22,7 @@ describe("sourceLabel and sourceGroups", () => {
 
   it("names the number and the Start date in Europe/Oslo, or that there is none", () => {
     expect(sourceLabel({ number: 2, start_at: "2025-11-24T09:00:00Z" })).toBe(
-      `Klasseøkt 2, ${r.started("ma. 24. nov. kl. 10:00")}`,
+      `Klasseøkt 2, ${r.started("ma. 24. nov. kl.\u00a010:00")}`,
     );
     expect(sourceLabel({ number: 1, start_at: null })).toBe(r.option(1, r.noStart));
   });

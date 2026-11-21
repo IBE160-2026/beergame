@@ -379,7 +379,6 @@ export const nb = {
         ordered: "har bestilt",
         waiting: "venter",
         waitingFor: (duration: string) => `venter, ${duration}`,
-        waitingYou: "venter (deg)",
       },
       /** A Seat whose LLM player the Play guard switched (FR-79). [ASSUMPTION] */
       guardSwitched: "KI-spiller (regelbasert)",
@@ -1185,7 +1184,8 @@ export const nb = {
       // [ASSUMPTION] beside a date that has passed and no longer moves.
       passed: "Passert. Datoen kan ikke flyttes.",
       // [ASSUMPTION] Story 5.11: a date that can no longer change, as text: «ti. 24. nov. kl. 10:00».
-      dateText: (day: string, time: string) => `${day} kl. ${time}`,
+      // A no-break space keeps «kl.» on the line of its time.
+      dateText: (day: string, time: string) => `${day} kl. ${time}`,
       // [ASSUMPTION] a date not set, shown as text.
       notSet: "Ikke satt",
       // [ASSUMPTION] Story 5.11: the Startdato of a session locked before it (an early start).
@@ -1491,6 +1491,8 @@ export const nb = {
       },
       example: {
         title: "Én uke forklart",
+        // [ASSUMPTION] Epic 6: the graph strip over the worked Uke (`09-alle-sider.png`).
+        strip: "Slik viser spillet ukene: grafen over tabellen, én kolonne per uke, og nå-streken ved uka du spiller. Her Uke 4 for en Grossist.",
         caption: "Uke 11 for en Grossist",
         term: "Rad",
         value: "Tall",
@@ -1525,7 +1527,8 @@ export const nb = {
      * review. The items' own prompts are content (`modules/content`), not copy. It never names
      * the game. */
     startingTask: {
-      title: "Startoppgave",
+      // A soft hyphen: where the heading must break (200 % text), it breaks as «Start-oppgave».
+      title: "Start­oppgave",
       lead: "Noen korte regnestykker med tallene fra én kolonne i ukestabellen. Oppgaven teller ikke, og du går videre uansett hva du svarer.",
       demoData: "Demodata",
       progress: (n: number, of: number) => `Oppgave ${n} av ${of}`,

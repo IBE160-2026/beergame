@@ -15,7 +15,7 @@ import {
 const copy = nb.games.timeProposal;
 const DEADLINE = "2026-12-08T13:00:00Z"; // ti. 8. des. kl. 14:00 in Oslo
 const NOW = Date.parse("2026-11-25T09:00:00Z");
-const RANGE = "Velg et tidspunkt mellom nå og Spillfristen, ti. 8. des. kl. 14:00.";
+const RANGE = "Velg et tidspunkt mellom nå og Spillfristen, ti. 8. des. kl.\u00a014:00.";
 
 const proposal = (over: Partial<TimeProposal> = {}): TimeProposal => ({
   id: "p1",
@@ -29,7 +29,7 @@ const proposal = (over: Partial<TimeProposal> = {}): TimeProposal => ({
 describe("the proposal line (Story 6.19)", () => {
   it("names who proposed which time, in Europe/Oslo, and who accepted", () => {
     expect(proposalLines(proposal())).toEqual({
-      proposed: "Kari Nordmann foreslår å spille to. 26. nov. kl. 14:15.",
+      proposed: "Kari Nordmann foreslår å spille to. 26. nov. kl.\u00a014:15.",
       accepted: copy.noneAccepted,
     });
     const accepted = proposal({
@@ -41,7 +41,7 @@ describe("the proposal line (Story 6.19)", () => {
       ],
     });
     expect(proposalLines(accepted)).toEqual({
-      proposed: "Du foreslår å spille to. 26. nov. kl. 14:15.",
+      proposed: "Du foreslår å spille to. 26. nov. kl.\u00a014:15.",
       accepted: "Godtatt av Per Hansen, En Student og deg.",
     });
   });

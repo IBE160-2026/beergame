@@ -49,7 +49,7 @@ describe("the date fields in Europe/Oslo (Story 5.2)", () => {
   });
 
   it("words a frozen date as text, and saves dates only while one can still move (Story 5.11)", () => {
-    expect(osloDateText("2026-11-24T09:00:00Z")).toBe("ti. 24. nov. kl. 10:00");
+    expect(osloDateText("2026-11-24T09:00:00Z")).toBe("ti. 24. nov. kl.\u00a010:00");
     const all = ["start_at", "play_deadline", "debrief_deadline", "test_deadline"] as const;
     expect(datesEditable({ can_manage: true, passed_dates: ["start_at"] })).toBe(true);
     expect(datesEditable({ can_manage: true, passed_dates: [...all] })).toBe(false);

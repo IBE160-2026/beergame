@@ -40,7 +40,8 @@ export function sumText(terms: ItemResult["terms"]): string {
  * colour alone. */
 export function resultLine(result: ItemResult): string {
   const line = result.correct ? copy.right : copy.wrong;
-  return line(formatNumber(result.expected), sumText(result.terms));
+  // No-break spaces keep the sum on one line («9 + 8.» never wraps after the «+»).
+  return line(formatNumber(result.expected), sumText(result.terms).replaceAll(" ", "\u00a0"));
 }
 
 /** The index of the first item without a result, where the Student resumes; −1 when all are

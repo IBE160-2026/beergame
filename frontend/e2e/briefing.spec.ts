@@ -122,7 +122,10 @@ for (const vp of VIEWPORTS) {
         "Netto lager",
         "På vei",
       ]);
-      await expect(main.getByText(copy.example.demoData, { exact: true })).toBeVisible();
+      // The graph strip over the worked Uke (Epic 6): the play screen's Graf over tabell, named by
+      // its caption; both it and the worked Uke are labelled «Demodata».
+      await expect(main.getByRole("figure", { name: copy.example.strip }).getByRole("region", { name: "Graf og tabell" })).toBeVisible();
+      await expect(main.getByText(copy.example.demoData, { exact: true })).toHaveCount(2);
       await expect(table.getByRole("cell", { name: "13", exact: true })).toBeVisible();
       await expect(main.getByText(/^Denne uka: 13 enheter i restordre, hver til 1,00\skr\./)).toBeVisible();
       // «enheter», never the word for beer.
