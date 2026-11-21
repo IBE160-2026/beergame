@@ -2,7 +2,8 @@
 
 One table, `content_records(kind, version, body)`. A record never changes (a trigger refuses
 UPDATE): an edit is a new version, `service.publish(kind, body)`, validated against the kind's
-schema (`schemas.py`). Kinds: `starting_task` (Story 6.3); later epics add theirs.
+schema (`schemas.py`). Kinds: `starting_task` (Story 6.3), `detected_patterns` (Story 9.1); later
+epics add theirs.
 
 - Version 1 of the Starting task is stored by migration 0046: placeholder items, among them
   «Regn posisjonen for én Uke». The final items (issue #16) arrive as a new version, with no
@@ -13,3 +14,9 @@ schema (`schemas.py`). Kinds: `starting_task` (Story 6.3); later epics add their
   locked from then on stores `{"version": N}` under `SessionRuntime.pins["starting_task"]`.
   Readers take `pinned_version(pins)`, or the latest for a session locked before the pin.
 - This module imports no feature module.
+- Version 1 of the Detected pattern definitions is stored by migration 0101: the three patterns
+  of FR-44 with placeholder thresholds, each marked "to be reviewed by two lecturers before pilot".
+  Their shape is `analysis.patterns.PatternSet` and their rules are in `app/analysis/facts.md`. A
+  reviewed set is a new version: `uv run python -m app.modules.content detected_patterns file.json`.
+  The lock pins it under `SessionRuntime.pins["detected_patterns"]` (`detected_patterns_pin`);
+  `pinned_version(pins, Kind.DETECTED_PATTERNS)` reads it.

@@ -292,3 +292,21 @@ time_acceptances = Table(
 )
 """Who accepted a proposal (Story 6.19), written by `games.commands.accept_time`; a replaced
 proposal takes its acceptances with it."""
+
+fact_sets = Table(
+    "fact_sets",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("game_id", Uuid, ForeignKey("games.id"), nullable=False),
+    Column("seat_id", Uuid, ForeignKey("seats.id"), nullable=False),
+    # `analysis.facts.ANALYSIS_VERSION` of the rules that built it (AD-7).
+    Column("analysis_version", Integer, nullable=False),
+    # `{"patterns_version": N, "facts": analysis.facts.FactSet}`: ids, values and Roles only.
+    Column("payload", JSONB, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("analysis_version >= 1", name="ck_fact_sets_analysis_version"),
+    UniqueConstraint("game_id", "seat_id", name="uq_fact_sets_game_seat"),
+)
+"""The facts set of each Seat of a finished Game (Story 9.1, AD-7), written once by
+`games.facts.get_or_create` and never rebuilt: everything that cites facts stores its id. A
+trigger refuses every UPDATE."""

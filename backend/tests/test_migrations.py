@@ -71,14 +71,17 @@ PRE_SESSION_TABLES = (
 )
 TIME_PROPOSAL_TABLES = {"time_proposals", "time_acceptances"}
 """The tables of revision 0049 (Story 6.19)."""
+FACT_SET_TABLES = {"fact_sets"}
+"""The table of revision 0101 (Story 9.1)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
     | {"progress_steps"}
     | STARTING_TASK_TABLES
     | TIME_PROPOSAL_TABLES
+    | FACT_SET_TABLES
 )
-HEAD = "0050"  # 0050 lets a test Game hold its Class session without a number (Story 6.20)
+HEAD = "0101"  # 0101 stores the facts sets and the Detected pattern definitions (Story 9.1)
 
 
 def reset_schema(url: str) -> None:
@@ -187,7 +190,9 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     steps = constraints(url, "progress_steps")
     assert "UNIQUE (user_id, class_session_id, step)" in steps["uq_progress_steps_step"]
     # 0046 (Story 6.3): version 1 of the Starting task is stored, and no record can change.
-    [(version, body)] = rows(url, "SELECT version, body FROM content_records")
+    [(version, body)] = rows(
+        url, "SELECT version, body FROM content_records WHERE kind = 'starting_task'"
+    )
     assert version == 1 and [item["id"] for item in body["items"]][-1] == "position"
     with pytest.raises(psycopg.errors.RestrictViolation):
         rows(url, "UPDATE content_records SET version = 2 RETURNING version")
@@ -204,6 +209,17 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0050 (Story 6.20): a game number needs a Class session, a Class session no number.
     assert "class_session_id IS NOT NULL" in games["ck_games_class_session"]
 
+    # 0101 (Story 9.1): version 1 of the Detected patterns; a facts set is never changed.
+    [(patterns,)] = rows(url, "SELECT body FROM content_records WHERE kind = 'detected_patterns'")
+    assert [p["id"] for p in patterns["patterns"]][0] == "surge-after-shortage"
+    assert "UNIQUE (game_id, seat_id)" in constraints(url, "fact_sets")["uq_fact_sets_game_seat"]
+    assert function_names(url, "fact_sets_immutable")
+
+    command.downgrade(cfg, "0050")
+    assert FACT_SET_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "fact_sets_immutable")
+    assert rows(url, "SELECT DISTINCT kind FROM content_records") == [("starting_task",)]
+    assert "detected_patterns" not in definition(url, "ck_content_records_kind")
     command.downgrade(cfg, "0049")
     assert "= (game_number IS NULL)" in definition(url, "ck_games_class_session")
     command.downgrade(cfg, "0048")

@@ -55,11 +55,15 @@ def test_games_has_no_llm_or_provider_import():
             continue
         assert not name.startswith(LLM_IMPORTS), f"{path.name}:{line} imports {name}"
         if name.startswith("app.modules.") and not name.startswith("app.modules.games"):
-            # The order source, called when a Week opens, and `progress`, where `finish` records
-            # the Class game step (Story 6.18, AD-16); nothing else of another module.
-            assert name in ("app.modules.players.service", "app.modules.progress.service"), (
-                f"{path.name}:{line} imports {name}"
-            )
+            # The order source, called when a Week opens, `progress`, where `finish` records
+            # the Class game step (Story 6.18, AD-16), and `content`, whose pinned Detected
+            # pattern definitions the facts sets use (Story 9.1, AD-23; it imports no feature
+            # module); nothing else of another module.
+            assert name in (
+                "app.modules.players.service",
+                "app.modules.progress.service",
+                "app.modules.content.service",
+            ), f"{path.name}:{line} imports {name}"
 
 
 def test_progress_imports_no_feature_module():

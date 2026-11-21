@@ -1,4 +1,4 @@
-"""The table owned by `modules/content` (Story 6.3, AD-23)."""
+"""The table owned by `modules/content` (Story 6.3, Story 9.1, AD-23)."""
 
 from enum import StrEnum
 
@@ -22,6 +22,7 @@ class Kind(StrEnum):
     """The closed catalogue of content kinds. Later epics add theirs (quiz, question set …)."""
 
     STARTING_TASK = "starting_task"
+    DETECTED_PATTERNS = "detected_patterns"
 
 
 content_records = Table(

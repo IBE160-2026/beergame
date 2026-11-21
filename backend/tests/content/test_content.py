@@ -69,8 +69,11 @@ async def test_the_lock_pins_the_latest_starting_task_version():
     await content.publish("starting_task", body)
     snapshot = await sessions.build_snapshot(_session_row())
     pins = snapshot["session_runtime"]["pins"]
-    assert pins == {"starting_task": {"version": 2}}
+    # Story 9.1 pins the Detected pattern definitions the same way.
+    assert pins == {"starting_task": {"version": 2}, "detected_patterns": {"version": 1}}
     assert content.pinned_version(pins) == 2
+    assert content.pinned_version(pins, "detected_patterns") == 1
+    assert sessions._pin_providers["detected_patterns"] is content.detected_patterns_pin
     assert content.pinned_version({}) is None and content.pinned_version(None) is None
     for odd in (True, 0, "2", 1.0):
         assert content.pinned_version({"starting_task": {"version": odd}}) is None

@@ -1,4 +1,5 @@
-"""SQL for the games tables. Writers here are called only from `games.commands`."""
+"""SQL for the games tables. Writers here are called only from `games.commands`, and
+`insert_fact_set` from `games.facts` (Story 9.1)."""
 
 import uuid
 from collections.abc import Collection, Sequence
@@ -9,6 +10,7 @@ from sqlalchemy.dialects.postgresql import distinct_on, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.games.models import (
+    fact_sets,
     game_checks,
     game_weeks,
     games,
@@ -834,3 +836,23 @@ async def time_acceptors(session: AsyncSession, proposal_id: uuid.UUID) -> list[
         .order_by(time_acceptances.c.accepted_at, time_acceptances.c.user_id)
     )
     return list(result.scalars())
+
+
+async def fact_set(
+    session: AsyncSession, game_id: uuid.UUID, seat_id: uuid.UUID
+) -> RowMapping | None:
+    """The stored facts set of the Seat (Story 9.1), or None before one is stored."""
+    result = await session.execute(
+        select(fact_sets).where(fact_sets.c.game_id == game_id, fact_sets.c.seat_id == seat_id)
+    )
+    return result.mappings().one_or_none()
+
+
+async def insert_fact_set(session: AsyncSession, values: dict[str, Any]) -> None:
+    """Store a facts set unless the Seat has one: the first writer wins, a racing second one
+    stores nothing (`uq_fact_sets_game_seat`)."""
+    await session.execute(
+        insert(fact_sets)
+        .values(**values)
+        .on_conflict_do_nothing(index_elements=[fact_sets.c.game_id, fact_sets.c.seat_id])
+    )
