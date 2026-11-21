@@ -50,7 +50,7 @@ async def resolve_scope(user_id: uuid.UUID) -> Scope:
     """The User's `game:` and `session:` topics through `platform/authz`, in one short read."""
     async with get_sessionmaker()() as s:
         games = await s.scalars(
-            union(authz.own_seat(user_id), authz.class_games_staffed_by(user_id))
+            union(authz.seat_held_by(user_id), authz.class_games_staffed_by(user_id))
         )
         sessions = await s.scalars(authz.class_sessions_staffed_by(user_id))
         return Scope(

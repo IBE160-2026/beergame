@@ -235,9 +235,14 @@ async def student_game(
 ) -> StudentGame | None:
     """The one way any module finds a Student's game (Story 6.1): the Class game of the Class
     session in which the Student holds a Seat now, else the one in which they held a Seat last
-    (joined through `authz.own_seat`); None when they never held one. Read in the caller's
-    transaction."""
-    rows = await repo.student_seats(session, class_session_id, user_id)
+    (joined through `authz.own_seat`); None when they never held one. A Seat another Student
+    held after them is never theirs to read: it shows that Student's play (FR-5). Read in the
+    caller's transaction."""
+    rows = [
+        row
+        for row in await repo.student_seats(session, class_session_id, user_id)
+        if row["holds"] or not row["later_student"]
+    ]
     if not rows:
         return None
     # A Seat held now wins; otherwise the latest occupancy row naming the Student (UUIDv7 ids).

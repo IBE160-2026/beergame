@@ -16,6 +16,8 @@ from app.platform.events import stream
 from app.platform.events.hub import ENDED, Event, Hub, parse
 from tests.classes.test_classes import LECTURER, PASSWORD
 from tests.classes.test_roster_upload import clock, klass
+from tests.conftest import TEST_DATABASE_URL
+from tests.games.helpers import execute
 from tests.identity.helpers import app, client, login
 from tests.messaging.helpers import rows
 from tests.sessions.test_lock import _empty
@@ -230,6 +232,31 @@ async def test_the_scope_names_own_games_and_the_staffs_sessions_and_games(klass
     lecturer = await stream.resolve_scope(user_id(LECTURER))
     assert lecturer == stream.Scope(frozenset({game[0]}), frozenset({session_id}))
     assert await stream.resolve_scope(uuid.uuid7()) == stream.Scope(frozenset(), frozenset())
+
+
+def append_occupant(seat_of: uuid.UUID, kind: str | None, user: uuid.UUID | None) -> None:
+    """Append a newer occupancy row to the Seat `seat_of` holds now: `kind` None frees it."""
+    [(seat,)] = rows(
+        "SELECT DISTINCT ON (o.seat_id) o.seat_id FROM seat_occupancy o WHERE o.user_id = %s "
+        "ORDER BY o.seat_id, o.id DESC",
+        seat_of,
+    )
+    execute(
+        TEST_DATABASE_URL,
+        "INSERT INTO seat_occupancy (id, seat_id, from_week, occupant_kind, reason, user_id) "
+        "VALUES (%s, %s, 1, %s, %s, %s)",
+        (uuid.uuid7(), seat, kind, "moved" if kind is None else "initial", user),
+    )
+
+
+async def test_a_game_the_student_no_longer_holds_a_seat_in_leaves_the_scope(klass):
+    """Follow-up review of Story 6.4 (FR-5): the stream forwards `game:<id>` of a Game where the
+    Student holds a Seat now, never of one they left (a move, Student choice)."""
+    session_id, seated = await confirmed(klass, 2)
+    [game] = games_of(session_id)
+    append_occupant(seated[0], None, None)  # the Seat is freed: the Student moved away
+    assert await stream.resolve_scope(seated[0]) == stream.Scope(frozenset(), frozenset())
+    assert await stream.resolve_scope(seated[1]) == stream.Scope(frozenset({game[0]}), frozenset())
 
 
 async def test_the_stream_refuses_a_visitor_who_is_not_logged_in(test_database):

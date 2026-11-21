@@ -15,6 +15,8 @@ from app.modules.ops import sweep
 from tests.classes.test_classes import make
 from tests.classes.test_invitation_counts import execute
 from tests.classes.test_staff import call
+from tests.messaging.helpers import rows
+from tests.platform.test_event_stream import append_occupant, user_id
 from tests.sessions.test_dates import OUTSIDER, START
 from tests.sessions.test_lock import MINUTE
 from tests.sessions.test_open_games import confirmed, games_of
@@ -204,3 +206,32 @@ async def test_hjem_carries_the_envelopes_own_seat_and_turn_while_running(klass)
     execute("UPDATE games SET lifecycle = 'finished' WHERE id = %s", game_id)
     finished = (await home(email(0)))["game"]
     assert (finished["seat_state"], finished["turn"]) == (None, None)
+
+
+async def test_a_seat_another_student_held_after_them_is_never_read(klass):
+    """Follow-up review of Story 6.1 (FR-5): a Student who no longer holds a Seat is shown the
+    one they held last, but never one another Student took after them: it shows that Student's
+    play."""
+    _, game_id, by_role = await running(klass, students=2)
+    first, second = (user_id(who) for who in by_role.values())
+    who = next(iter(by_role.values()))
+    assert (await play(who, game_id)).status_code == 200
+    # The Seat goes to an AI player: still the Student's game to look back on.
+    append_occupant(first, "rule_based", None)
+    assert (await play(who, game_id)).status_code == 200
+    # Then another Student takes it: no longer readable, alike with any other game.
+    [(seat,)] = rows(
+        "SELECT DISTINCT ON (seat_id) seat_id FROM seat_occupancy WHERE user_id = %s "
+        "ORDER BY seat_id, id DESC",
+        first,
+    )
+    execute(
+        "INSERT INTO seat_occupancy (id, seat_id, from_week, occupant_kind, reason, user_id) "
+        "VALUES (%s, %s, 1, 'student', 'takeover_peer', %s)",
+        uuid.uuid7(),
+        seat,
+        second,
+    )
+    for path in ("/play", ""):
+        refused = await call(who, "GET", f"/api/me/games/{game_id}{path}")
+        assert refused.status_code == 403

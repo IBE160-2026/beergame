@@ -183,7 +183,7 @@ def classes_enrolled_by(user: Principal | uuid.UUID) -> Select:
 
 
 _seats = table("seats", column("id"), column("game_id"))
-_seat_occupancy = table("seat_occupancy", column("seat_id"), column("user_id"))
+_seat_occupancy = table("seat_occupancy", column("id"), column("seat_id"), column("user_id"))
 """`games.seats` and `games.seat_occupancy` by name only, for the own-Seat scope."""
 
 
@@ -201,6 +201,25 @@ def own_seat(user: Principal | uuid.UUID, game: uuid.UUID | None = None) -> Sele
     if game is not None:
         query = query.where(_seats.c.game_id == game)
     return query
+
+
+def seat_held_by(user: Principal | uuid.UUID) -> Select:
+    """The ids of the Games in which `user` holds a Seat now: the Seat's latest occupancy row (by
+    UUIDv7 id) names the User. Narrower than `own_seat`, which also keeps Games the User left
+    (a move, Student choice, a removal): the `game:<id>` topics a Student's event stream forwards
+    (follow-up review of Story 6.4, FR-5)."""
+    user_id = user if isinstance(user, uuid.UUID) else user.id
+    later = _seat_occupancy.alias("later")
+    return (
+        select(_seats.c.game_id)
+        .join(_seat_occupancy, _seat_occupancy.c.seat_id == _seats.c.id)
+        .where(
+            _seat_occupancy.c.user_id == user_id,
+            ~select(later.c.id)
+            .where(later.c.seat_id == _seat_occupancy.c.seat_id, later.c.id > _seat_occupancy.c.id)
+            .exists(),
+        )
+    )
 
 
 _class_sessions = table("class_sessions", column("id"), column("class_id"))

@@ -145,7 +145,9 @@ async def student_seats(
 ) -> list[RowMapping]:
     """Every Seat of the Class session's Games that the Student holds or has held (Story 6.1),
     joined through `authz.own_seat`: game id, game number, Role, the id of the last occupancy row
-    naming the Student, and whether they hold the Seat now (the Seat's latest row names them)."""
+    naming the Student, whether they hold the Seat now (the Seat's latest row names them), and
+    whether another Student held it after them (`later_student`)."""
+    later = seat_occupancy.alias("later")
     named = (
         select(
             seat_occupancy.c.seat_id,
@@ -163,6 +165,15 @@ async def student_seats(
             seats.c.role,
             named.c.row_id,
             (latest.c.user_id == user_id).label("holds"),
+            select(later.c.id)
+            .where(
+                later.c.seat_id == named.c.seat_id,
+                later.c.id > named.c.row_id,
+                later.c.occupant_kind == "student",
+                later.c.user_id != user_id,
+            )
+            .exists()
+            .label("later_student"),
         )
         .select_from(
             named.join(seats, seats.c.id == named.c.seat_id)
