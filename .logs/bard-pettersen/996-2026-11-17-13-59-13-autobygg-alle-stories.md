@@ -2670,3 +2670,23 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Byggeagen
 
 ### Åpne punkter
 - Issue #171: beslutninger (lås bare på Forklaringene, egen side uten navn).
+
+## Story 8.4: Ta setet tilbake med «Ta tilbake setet» (spor 1)
+
+### Oppgave
+Bygge Story 8.4 på `epic-8` i spor 1, og rette to feil på spillskjermen fra den visuelle kontrollen av 8.2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (alle fire leverte via fil). Orkestratoren pekte byggeagenten til edge case-filen. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-4-take-the-seat-back-with-ta-tilbake-setet.md`.
+- Commit: 48cd2bb. Migrasjon 0055 (`seat_reclaims`).
+- «Ta tilbake setet» på Spill og Hjem; ønsket lagres og setet går tilbake til studenten når neste uke åpner. «Alle rader og kostnad» står over merknaden i alle bredder, og kjeden viser «KI-ordre 9» i vanlig vekt.
+- Tester: backend 2927, Vitest 844, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 168 uten ustabile tester.
+- Gjennomgang: 29 funn, ingen høye eller middels, 3 lave rettet (blant dem at et ønske som står igjen når spillet er ferdig, slettes).
+- Visuell kontroll (Sonnet, bare rapport, eget worktree): 18 skjermbilder i `screenshots/8.4/`, ingen klare feil; de to rettingene fra 8.2 er bekreftet.
+- Status: done.
+
+### Åpne punkter
+- Issue #172: beslutninger (egen tabell, ønske i siste uke godtas og bortfaller for ikke å avsløre spillets lengde).
