@@ -48,7 +48,7 @@ test("the band counts down to the Takeover, and a Seat taken over is marked and 
   await page.goto(overview);
   const main = page.getByRole("main");
   const band = main.locator(`[data-attention-band="${game.gameId}"]`);
-  await expect(band.locator("p")).toHaveText(
+  await expect(band.locator("[data-band-text]")).toHaveText(
     new RegExp(`^Spill 1 venter på ${second!.name} \\(${ROLE}\\) i (under\\s1\\smin|\\d+\\smin)\\. KI overtar om \\d+\\st\\.$`),
   );
   await expect(band.getByRole("heading", { name: nb.overview.band.label })).toBeAttached();
@@ -56,14 +56,14 @@ test("the band counts down to the Takeover, and a Seat taken over is marked and 
   // One hour from Takeover, at 1440 px and at 320 CSS px: the text wraps, the page passes axe.
   await page.route(api, anHourBefore);
   await page.reload();
-  await expect(band.locator("p")).toHaveText(/ KI overtar om 1\st\.$/);
+  await expect(band.locator("[data-band-text]")).toHaveText(/ KI overtar om 1\st\.$/);
   await expectAccessible(page, false);
   const narrow = await lecturerPage(browser, lecturerSession, VIEWPORTS[0]!);
   await narrow.route(api, anHourBefore);
   await narrow.goto(overview);
   const narrowBand = narrow.getByRole("main").locator("[data-attention-band]");
-  await expect(narrowBand.locator("p")).toHaveText(/ KI overtar om 1\st\.$/);
-  const text = (await narrowBand.locator("p").boundingBox())!;
+  await expect(narrowBand.locator("[data-band-text]")).toHaveText(/ KI overtar om 1\st\.$/);
+  const text = (await narrowBand.locator("[data-band-text]").boundingBox())!;
   expect(text.x + text.width).toBeLessThanOrEqual(320);
   await expectAccessible(narrow, true);
   await narrow.unrouteAll({ behavior: "wait" });

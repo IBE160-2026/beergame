@@ -43,7 +43,7 @@ test("the band names the game that waits, «Send Melding» writes to the Student
   const band = main.locator(`[data-attention-band="${game.gameId}"]`);
   await expect(band).toBeVisible({ timeout: 5_000 });
   const role = "(Fabrikk|Distributør|Grossist|Detaljist)";
-  await expect(band.locator("p")).toHaveText(
+  await expect(band.locator("[data-band-text]")).toHaveText(
     new RegExp(`^Spill 1 venter på ${second!.name} \\(${role}\\) i (under\\s1\\smin|\\d+\\smin)\\. KI overtar om \\d+\\st\\.$`),
   );
   await expect(main.locator("[data-attention-announcement]")).toHaveText(
@@ -51,7 +51,7 @@ test("the band names the game that waits, «Send Melding» writes to the Student
   );
   await expect(toggle).toBeFocused();
   await expect(band).toHaveCSS("background-color", RESTORDRE_FILL);
-  await expect(band.locator("p")).toHaveCSS("color", INK);
+  await expect(band.locator("[data-band-text]")).toHaveCSS("color", INK);
   await expect(band.getByRole("heading", { name: copy.band.label })).toBeAttached();
 
   // «Venter ellers» leaves the band's game out.
@@ -106,7 +106,7 @@ test("the band names the game that waits, «Send Melding» writes to the Student
   const narrow = await lecturerPage(browser, lecturerSession, VIEWPORTS[0]!);
   await narrow.goto(overview);
   const narrowBand = narrow.getByRole("main").locator("[data-attention-band]");
-  const text = (await narrowBand.locator("p").boundingBox())!;
+  const text = (await narrowBand.locator("[data-band-text]").boundingBox())!;
   const action = (await narrowBand.getByRole("link", { name: nb.messages.send }).boundingBox())!;
   const box = (await narrowBand.boundingBox())!;
   expect(action.y).toBeGreaterThanOrEqual(text.y + text.height);

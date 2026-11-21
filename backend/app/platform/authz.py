@@ -103,6 +103,10 @@ POLICIES: dict[str, frozenset[str]] = {
     # Spillinnsikt (Story 7.7, FR-62): one Game week by week, with the full chain, the demand
     # series and the number of Weeks, for the staff of its Class only.
     "games.insight": frozenset({LECTURER, ASSISTANT}),
+    # «Sett inn KI-spiller for …» in Spillstyring and the Varselbånd (Story 8.5, FR-37): the staff
+    # of the game's Class, Lecturers and Assistant lecturers alike (the per-Seat Takeover is the
+    # one Spillstyring action an Assistant lecturer has, AD-12).
+    "games.takeover": frozenset({LECTURER, ASSISTANT}),
     # A Message to a Student, a Class game or a whole Class session (Story 7.9, FR-40): the staff
     # of its Class, Lecturers and Assistant lecturers alike.
     "messages.send": frozenset({LECTURER, ASSISTANT}),
@@ -149,6 +153,7 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "class_sessions.manage": frozenset({OWNER}),
     "class_sessions.overview": frozenset({OWNER, ASSISTANT_STAFF}),
     "games.insight": frozenset({OWNER, ASSISTANT_STAFF}),
+    "games.takeover": frozenset({OWNER, ASSISTANT_STAFF}),
     "messages.send": frozenset({OWNER, ASSISTANT_STAFF}),
     "messages.read_sent": frozenset({OWNER, ASSISTANT_STAFF}),
 }

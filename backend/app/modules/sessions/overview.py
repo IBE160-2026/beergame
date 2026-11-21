@@ -8,12 +8,13 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 
 from app.analysis.class_cost import FinishedGame, class_cost
 from app.analysis.wall import Cells, wall_aggregates
 from app.engine.settings import ROLES, Role
 from app.modules.classes import service as classes
+from app.modules.games import commands as games_commands
 from app.modules.games import service as games_service
 from app.modules.games.service import ClassGameSummary, GameStatus, SeatMark
 from app.modules.progress import service as progress
@@ -56,6 +57,8 @@ __all__ = [
     "game_insight",
     "insight_etag",
     "readable_game",
+    "take_over_seat",
+    "TakeoverRefused",
     "wall_aggregates_out",
     "wall_games",
 ]
@@ -82,6 +85,7 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
         names = (
             await classes.student_names(row["class_id"], students, session=s) if students else {}
         )
+        by = await classes.actor_names(s, row["class_id"], _actors(games))
         now = await games_service.database_now(s)
         # The Start-date lock on the api clock, as the Klasseøkt reads it (`get_session`).
         before_start = not is_locked(row)
@@ -98,7 +102,7 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
     for game in games:
         counts[game.status] += 1
     return ClassOverviewOut(
-        items=[_game_out(game, names, before_start) for game in games],
+        items=[_game_out(game, names, before_start, by) for game in games],
         next_cursor=None,
         counts=OverviewCountsOut(
             waiting=counts[GameStatus.WAITING],
@@ -182,6 +186,27 @@ def _alert(games: list[ClassGameSummary], names: dict[uuid.UUID, str]) -> Overvi
     )
 
 
+def _actors(games: list[ClassGameSummary]) -> list[uuid.UUID]:
+    """The people who put an AI player in a Seat now held by one (Story 8.5)."""
+    return sorted(
+        {
+            seat.actor_user_id
+            for game in games
+            for seat in game.seats
+            if seat.actor_user_id is not None and _is_ai(seat)
+        },
+        key=str,
+    )
+
+
+def _mark_by(kind: str | None, actor: uuid.UUID | None, by: dict[uuid.UUID, str]) -> str | None:
+    """Who put the AI player holding the Seat in, by name now (Story 8.5, FR-37); None for a
+    Student or free Seat, a Takeover by no person, or someone no longer of the Class."""
+    if kind is None or kind == games_service.OccupantKind.STUDENT or actor is None:
+        return None
+    return by.get(actor)
+
+
 def _mark(kind: str | None, reason: str | None) -> SeatMark | None:
     """An AI-held Seat's mark from the one AD-15 mapping (Story 8.3, FR-34); None otherwise."""
     if kind is None or kind == games_service.OccupantKind.STUDENT:
@@ -236,7 +261,10 @@ def _cost_out(
 
 
 def _game_out(
-    game: ClassGameSummary, names: dict[uuid.UUID, str], before_start: bool
+    game: ClassGameSummary,
+    names: dict[uuid.UUID, str],
+    before_start: bool,
+    by: dict[uuid.UUID, str] | None = None,
 ) -> OverviewGameOut:
     seats = []
     for seat in reversed(game.seats):  # Fabrikk first (UX-DR73)
@@ -252,6 +280,7 @@ def _game_out(
                 holder=holder,
                 name=name,
                 mark=_mark(seat.occupant_kind, seat.reason),
+                mark_by=_mark_by(seat.occupant_kind, seat.actor_user_id, by or {}),
             )
         )
     return OverviewGameOut(
@@ -360,6 +389,11 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
         names = (
             await classes.student_names(row["class_id"], students, session=s) if students else {}
         )
+        by = await classes.actor_names(
+            s,
+            row["class_id"],
+            sorted({seat.actor_user_id for seat in insight.seats if seat.actor_user_id}, key=str),
+        )
     return GameInsightOut(
         game_id=insight.game_id,
         class_session_id=head.class_session_id,
@@ -379,6 +413,8 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
                 user_id=seat.user_id if seat.user_id in names else None,
                 links=[InsightLinkOut(kind=link.kind, href=link.href) for link in seat.links],
                 mark=_mark(seat.occupant_kind, seat.reason),
+                mark_by=_mark_by(seat.occupant_kind, seat.actor_user_id, by),
+                takeover=seat.takeover,
             )
             for seat in insight.seats
         ],
@@ -407,6 +443,44 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
             for each in insight.roles
         ],
     )
+
+
+class TakeoverRefused(Exception):
+    """A staff Takeover `games.commands.takeover` refused (Story 8.5): its stable code, status
+    and `fields` (`acted_by`, `acted_at` on `takeover_exists`)."""
+
+    def __init__(self, code: str, status: int, fields: dict[str, Any]) -> None:
+        super().__init__(code)
+        self.code = code
+        self.status = status
+        self.fields = fields
+
+
+async def take_over_seat(
+    user: authz.Principal, game_id: uuid.UUID, role: str
+) -> GameInsightOut | None:
+    """«Sett inn KI-spiller for …» (Story 8.5, FR-37, AD-2, AD-12): a Lecturer or Assistant
+    lecturer of the game's Class puts an AI player in the Seat `role`, through the
+    `games.takeover` policy and the Class staff scope; None, one answer, for a Game that does not
+    exist, one the Oversikt does not list and one of another Class (FR-5). Only
+    `games.commands.takeover` acts, with the staff member as actor; its refusals are raised as
+    `TakeoverRefused`. Returns Spillinnsikt as it now stands."""
+    async with get_sessionmaker()() as s:
+        head = await games_service.class_game_head(s, game_id)
+        if head is None or head.class_session_id is None or not head.listed:
+            return None
+        row = await repo.session_row(s, head.class_session_id)
+    if row is None:
+        return None
+    if await _class_for(user, row["class_id"], "games.takeover") is None:
+        return None
+    try:
+        await games_commands.takeover(str(game_id), role, actor="staff", actor_user_id=user.id)
+    except games_commands.CommandError as refused:
+        if refused.status == 404 and refused.code == "game_not_found":
+            return None
+        raise TakeoverRefused(refused.code, refused.status, dict(refused.fields)) from None
+    return await game_insight(user, game_id)
 
 
 def insight_etag(insight: GameInsightOut) -> str:

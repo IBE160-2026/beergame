@@ -1489,6 +1489,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/games/{game_id}/seats/{role}/takeover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take Over Seat
+         * @description «Sett inn KI-spiller for …» (Story 8.5, FR-37, AD-2, AD-12): a Lecturer or Assistant
+         *     lecturer of the game's Class puts an AI player in the Student's Seat `role`, from this Uke when
+         *     the Student has not ordered in it, else from the next. One press, no dialog; recorded in the
+         *     audit log. Answers Spillinnsikt as it now stands. 409 `takeover_exists` with `fields.acted_by`
+         *     (`kind` `staff`, `student` or `system`, and `user_id`) and `fields.acted_at` when an AI player
+         *     was put in first; `seat_not_student_held`, `game_not_running` or `takeover_not_allowed`.
+         *     403 `forbidden` for anyone not staff of the game's Class and any Game the Oversikt does not
+         *     list (FR-5).
+         */
+        post: operations["takeOverSeat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/games/{game_id}/weeks": {
         parameters: {
             query?: never;
@@ -3119,9 +3146,13 @@ export interface components {
             /** Links */
             links: components["schemas"]["InsightLinkOut"][];
             mark?: components["schemas"]["SeatMark"] | null;
+            /** Mark By */
+            mark_by?: string | null;
             /** Name */
             name: string | null;
             role: components["schemas"]["Role"];
+            /** Takeover */
+            takeover?: ("this_week" | "next_week") | null;
             /** User Id */
             user_id?: string | null;
         };
@@ -3741,6 +3772,8 @@ export interface components {
              */
             holder: "student" | "ai" | "free";
             mark?: components["schemas"]["SeatMark"] | null;
+            /** Mark By */
+            mark_by?: string | null;
             /** Name */
             name: string | null;
             role: components["schemas"]["Role"];
@@ -8813,6 +8846,65 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    takeOverSeat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+                role: components["schemas"]["Role"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameInsightOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

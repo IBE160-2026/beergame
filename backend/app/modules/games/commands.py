@@ -73,7 +73,7 @@ from app.modules.games.service import scope_of, seated_students, student_game
 from app.modules.games.turns import OpenGame, play_of
 from app.modules.games.views import build_seat_state, stored_orders, stored_play
 from app.modules.progress import service as progress
-from app.platform import events, notify
+from app.platform import audit, events, notify
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 from app.platform.parameter_sets import UnknownParameterSetError, read_parameter_set
@@ -119,7 +119,7 @@ class CommandError(Exception):
         code: str,
         message: str,
         status: int,
-        fields: Mapping[str, str] | None = None,
+        fields: Mapping[str, Any] | None = None,
         errors: tuple[SettingsError, ...] = (),
     ) -> None:
         super().__init__(message)
@@ -1702,29 +1702,39 @@ async def takeover(
     seat: Role | str,
     *,
     actor: rules.TakeoverActor,
+    actor_user_id: uuid.UUID | str | None = None,
     now: datetime | None = None,
 ) -> str:
-    """Hand the Student-held `seat` (a Role or a Seat id) to an AI player from the open Week
-    (Story 8.2, FR-36, AD-2, AD-5). `actor` `system` is the sweep's automatic Takeover after the
-    Inactivity limit; `now` is the clock it judges the due time on (the sweep's), the database
-    clock when none is given.
+    """Hand the Student-held `seat` (a Role or a Seat id) to an AI player (Stories 8.2 and 8.5,
+    FR-36, FR-37, AD-2, AD-5). `actor` `system` is the sweep's automatic Takeover after the
+    Inactivity limit; `staff` is a Lecturer or Assistant lecturer, `actor_user_id`, pressing
+    «Sett inn KI-spiller» in Spillstyring. `now` is the clock a `system` Takeover judges the due
+    time on (the sweep's), the database clock when none is given.
 
     One transaction under the Game row lock: `rules.can_take_over` decides (refusals below), one
-    occupancy row is appended with reason `takeover_inactivity` from the open Week and no
-    `actor_user_id`, and `players.ensure_order` gives the Seat its Order in the same transaction.
-    The new occupant is `llm` when the Game froze a model config, else `rule_based`; and
-    `rule_based` when the Play guard has switched the Seat before or the budget reached the
-    players' cost limit (FR-30, FR-69, FR-79). An `llm` occupant gets its turn's AI deadline
-    from `rules.turn_times`, counted from now (it took the Seat mid-Week). In a Guided Week the
-    Seat keeps the fixed Order placed at opening; when no other Student Seat is still unviewed
-    the Week is then complete, and `_settle` advances it after the commit (FR-24).
+    occupancy row is appended with reason `takeover_inactivity` and no `actor_user_id`, or
+    `takeover_staff` with the staff member (and an audit row, FR-3, AD-15). A Seat that has not
+    ordered (`has_ordered`) is taken from the open Week and `players.ensure_order` gives it its
+    Order in the same transaction; a Seat that has ordered (only a `staff` Takeover may) is taken
+    from the next Week and its Order stands. The new occupant is `llm` when the Game froze a
+    model config, else `rule_based`; and `rule_based` when the Play guard has switched the Seat
+    before or the budget reached the players' cost limit (FR-30, FR-69, FR-79). An `llm` occupant
+    taken this Week gets its turn's AI deadline from `rules.turn_times`, counted from now. In a
+    Guided Week the Seat keeps the fixed Order placed at opening; when no other Student Seat is
+    still unviewed the Week is then complete, and `_settle` advances it after the commit (FR-24).
 
     The version rises once with `game:<id>` and `session:<id>`; every Student who holds a Seat
     and the Student whose Seat it was get `user:<id>`, and each of them one `takeover_notice`
-    (dedupe key per Seat and Week) (AD-8, AD-9). Refuses `game_not_found`, `seat_not_found`, and
-    409 `game_not_running`, `takeover_not_allowed`, `seat_not_student_held`, `order_exists`,
-    `takeover_not_due`. Returns the occupancy row id."""
+    (dedupe key per occupancy row) (AD-8, AD-9). A staff Takeover of a Seat that has ordered the
+    Game's last Week is refused `order_exists`: no Week is left for it. Refuses `game_not_found`,
+    `seat_not_found`, and 409 `game_not_running`, `takeover_not_allowed`, `seat_not_student_held`,
+    `order_exists`, `takeover_not_due`, and `takeover_exists` with `fields.acted_by` (`kind`
+    `staff`, `student` or `system`, and `user_id`) and `fields.acted_at`: who acted first, by id
+    only (Story 8.5). Returns the occupancy row id."""
     game_uuid = _game_uuid(game_id)
+    staff = _actor(actor_user_id) if actor == "staff" else None
+    if actor == "staff" and staff is None:
+        raise ValueError("a staff Takeover names its staff member")
     async with get_sessionmaker().begin() as session:
         game = await repo.lock_game(session, game_uuid)
         if game is None:
@@ -1741,28 +1751,58 @@ async def takeover(
                 _policy(game["purpose"]), GameSettings.model_validate(game["settings"]), week
             )
         at = now if now is not None else await repo.clock_now(session)
-        refused = rules.can_take_over(game, turn, actor, at, guided=guided)
+        refused = rules.can_take_over(game, turn, actor, at, guided=guided, seat=row)
+        if refused == "takeover_exists":
+            raise CommandError(
+                refused, "an AI player has taken the Seat over already", 409, _acted(row)
+            )
         if refused is not None:
             raise CommandError(refused, "the Seat cannot be taken over now", 409)
         assert turn is not None and week is not None  # `can_take_over` refuses otherwise
         student = turn["user_id"]
+        ordered = rules.has_ordered(turn, guided=guided)
+        if ordered and week >= GameSettings.model_validate(game["settings"]).weeks:
+            # The Seat has ordered the last Week: no Week is left for an AI player to take.
+            raise CommandError("order_exists", "the Seat has ordered the last Week", 409)
+        from_week = week + 1 if ordered else week
         occupant = await _takeover_occupant(session, game, row["id"])
         occupancy_id = uuid.uuid7()
+        reason = (
+            OccupancyReason.TAKEOVER_STAFF
+            if staff is not None
+            else OccupancyReason.TAKEOVER_INACTIVITY
+        )
         await repo.append_occupancy(
             session,
             {
                 "id": occupancy_id,
                 "seat_id": row["id"],
-                "from_week": week,
+                "from_week": from_week,
                 "occupant_kind": occupant.value,
                 "policy_id": None,
-                "reason": OccupancyReason.TAKEOVER_INACTIVITY.value,
-                "actor_user_id": None,
+                "reason": reason.value,
+                "actor_user_id": staff,
             },
         )
-        if occupant is OccupantKind.LLM and not guided:
-            await _takeover_deadline(session, game, turn)
-        await _ensure_order(OpenGame(session=session, game_id=game_uuid), row["id"])
+        if not ordered:
+            if occupant is OccupantKind.LLM and not guided:
+                await _takeover_deadline(session, game, turn)
+            await _ensure_order(OpenGame(session=session, game_id=game_uuid), row["id"])
+        if staff is not None:
+            await audit.record(
+                session,
+                staff,
+                SEAT_TAKEN_OVER,
+                # `user_id`: whose Seat it was, named on the audit page by its labeler.
+                {
+                    "game_id": game_uuid,
+                    "seat_id": row["id"],
+                    "occupancy_id": occupancy_id,
+                    "user_id": student,
+                },
+                {"reason": reason.value, "from_week": from_week, "occupant_kind": occupant.value},
+                at,
+            )
         await _commit_change(session, game_uuid)
         told = set(seated_students(await repo.seats_with_occupant(session, game_uuid)))
         if student is not None:
@@ -1773,7 +1813,7 @@ async def takeover(
                 session,
                 each,
                 TAKEOVER_NOTICE,
-                f"{TAKEOVER_NOTICE}:{row['id']}:{week}:{each}",
+                f"{TAKEOVER_NOTICE}:{occupancy_id}:{each}",
                 ref=occupancy_id,
             )
     log.info(
@@ -1781,11 +1821,35 @@ async def takeover(
         game_id=game_id,
         seat_id=str(row["id"]),
         week=week,
+        from_week=from_week,
         occupant_kind=occupant.value,
         actor=actor,
     )
     await _settle(game_id)
     return str(occupancy_id)
+
+
+SEAT_TAKEN_OVER = "seat.taken_over"
+"""The audit action of a Takeover a person triggered (Story 8.5, FR-3, AD-15)."""
+
+_ACTED_BY_KIND = {
+    OccupancyReason.TAKEOVER_STAFF: "staff",
+    OccupancyReason.TAKEOVER_PEER: "student",
+    OccupancyReason.TAKEOVER_INACTIVITY: "system",
+}
+
+
+def _acted(row: Mapping[str, Any]) -> dict[str, Any]:
+    """`fields` of a `takeover_exists` refusal (Story 8.5, the deferred decision on conflict
+    errors): who put the AI player in, as a kind and a User id (None for the system), and when.
+    Ids only: the web app reads the name from the view it reads again (AD-14)."""
+    kind = _ACTED_BY_KIND.get(OccupancyReason(row["reason"]), "system")
+    actor = row["actor_user_id"]
+    created = row["created_at"]
+    return {
+        "acted_by": {"kind": kind, "user_id": None if actor is None else str(actor)},
+        "acted_at": None if created is None else created.isoformat(),
+    }
 
 
 async def request_reclaim(game_id: str, seat: Role | str, *, actor: uuid.UUID | str) -> bool:

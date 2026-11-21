@@ -67,6 +67,7 @@ async def test_every_command_leaves_the_row_equal_to_a_recomputation(games_db):
         "occupant_kind": "student",
         "user_id": str(A),
         "reason": "initial",
+        "actor_user_id": None,
     }
 
     await commands.move_seat(first, "factory", second, "wholesaler")
@@ -214,14 +215,17 @@ def _comparable(row: dict) -> dict:
 
 
 def _before_8_3(row: dict) -> dict:
-    """A row without the keys Story 8.3 added: each wait's due time and each Seat's reason, which
-    revision 0051 predates; the readers take a missing key as None."""
+    """A row without the keys Stories 8.3 and 8.5 added: each wait's due time, each Seat's reason
+    and who triggered it, which revision 0051 predates; the readers take a missing key as None."""
     return {
         **row,
         "waiting_for": [
             {k: v for k, v in w.items() if k != "takeover_due_at"} for w in row["waiting_for"]
         ],
-        "occupants": [{k: v for k, v in o.items() if k != "reason"} for o in row["occupants"]],
+        "occupants": [
+            {k: v for k, v in o.items() if k not in ("reason", "actor_user_id")}
+            for o in row["occupants"]
+        ],
     }
 
 

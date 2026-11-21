@@ -99,7 +99,8 @@ async def get_game(session: AsyncSession, game_id: uuid.UUID) -> RowMapping | No
 
 
 async def seats_with_occupant(session: AsyncSession, game_id: uuid.UUID) -> list[RowMapping]:
-    """Each Seat of the Game in chain order, with its latest occupancy row (None when free)."""
+    """Each Seat of the Game in chain order, with its latest occupancy row (None when free): who
+    holds it, why, who triggered it (`actor_user_id`, Story 8.5) and when."""
     latest = _latest_occupancy()
     result = await session.execute(
         select(
@@ -109,6 +110,8 @@ async def seats_with_occupant(session: AsyncSession, game_id: uuid.UUID) -> list
             latest.c.policy_id,
             latest.c.user_id,
             latest.c.reason,
+            latest.c.actor_user_id,
+            latest.c.created_at,
         )
         .select_from(seats.outerjoin(latest, latest.c.seat_id == seats.c.id))
         .where(seats.c.game_id == game_id)
@@ -127,6 +130,8 @@ def _latest_occupancy(*where: Any) -> Any:
             seat_occupancy.c.policy_id,
             seat_occupancy.c.user_id,
             seat_occupancy.c.reason,
+            seat_occupancy.c.actor_user_id,
+            seat_occupancy.c.created_at,
         )
         .where(*where)
         .ext(distinct_on(seat_occupancy.c.seat_id))

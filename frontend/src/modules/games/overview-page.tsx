@@ -252,7 +252,7 @@ function OverviewBody({
   }
   return (
     <div className="mt-6">
-      <OverviewBand alert={data.alert} sessionId={sessionId} now={now} />
+      <OverviewBand alert={data.alert} sessionId={sessionId} now={now} items={data.items} />
       <div className="mt-6 flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0">
           <p className="text-body-phone font-semibold text-ink tabular-nums lining-nums lg:text-body" data-headline="">

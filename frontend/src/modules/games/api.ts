@@ -288,6 +288,17 @@ export function reclaimSeat(gameId: string, role: components["schemas"]["Role"])
   );
 }
 
+/** «Sett inn KI-spiller for …» (Story 8.5, FR-37): a Lecturer or Assistant lecturer puts an AI
+ * player in the Seat `role`; answers Spillinnsikt as it now stands. 409 `takeover_exists` carries
+ * `acted_by` and `acted_at`, by id only. */
+export function takeOverSeat(gameId: string, role: components["schemas"]["Role"]) {
+  return request(() =>
+    api.POST("/api/games/{game_id}/seats/{role}/takeover", {
+      params: { path: { game_id: gameId, role } },
+    }),
+  );
+}
+
 /** «Spillet er ferdig» (Story 6.18): the finished game's cost per Role, the chain's and the
  * chain's per Uke. The api answers 409 `game_not_finished` before the end. */
 export type GameResult = components["schemas"]["GameResult"];

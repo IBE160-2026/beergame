@@ -2749,6 +2749,17 @@
               }
             ]
           },
+          "mark_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mark By"
+          },
           "name": {
             "anyOf": [
               {
@@ -2762,6 +2773,21 @@
           },
           "role": {
             "$ref": "#/components/schemas/Role"
+          },
+          "takeover": {
+            "anyOf": [
+              {
+                "enum": [
+                  "this_week",
+                  "next_week"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Takeover"
           },
           "user_id": {
             "anyOf": [
@@ -4208,6 +4234,17 @@
                 "type": "null"
               }
             ]
+          },
+          "mark_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mark By"
           },
           "name": {
             "anyOf": [
@@ -12054,6 +12091,87 @@
           }
         },
         "summary": "Get Game Insight",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/games/{game_id}/seats/{role}/takeover": {
+      "post": {
+        "description": "«Sett inn KI-spiller for …» (Story 8.5, FR-37, AD-2, AD-12): a Lecturer or Assistant\nlecturer of the game's Class puts an AI player in the Student's Seat `role`, from this Uke when\nthe Student has not ordered in it, else from the next. One press, no dialog; recorded in the\naudit log. Answers Spillinnsikt as it now stands. 409 `takeover_exists` with `fields.acted_by`\n(`kind` `staff`, `student` or `system`, and `user_id`) and `fields.acted_at` when an AI player\nwas put in first; `seat_not_student_held`, `game_not_running` or `takeover_not_allowed`.\n403 `forbidden` for anyone not staff of the game's Class and any Game the Oversikt does not\nlist (FR-5).",
+        "operationId": "takeOverSeat",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Role"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameInsightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Take Over Seat",
         "tags": [
           "sessions"
         ]

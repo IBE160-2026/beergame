@@ -2407,6 +2407,43 @@ export const nb = {
       fallback_budget_exhausted: "Reserveordre: KI-budsjettet var brukt opp",
       fallback_provider_error: "Reserveordre: feil hos KI-tjenesten",
     },
+    /** A Takeover by a person, named at read time (Story 8.5, FR-37): «KI satt inn av Bård».
+     * [ASSUMPTION] */
+    markedBy: (name: string) => `KI satt inn av ${name}`,
+  },
+
+  /** Spillstyring on Spillinnsikt, and the Varselbånd's Takeover (Story 8.5, FR-37, UX-DR45,
+   * UX-DR52, EXPERIENCE.md → Spillstyring). */
+  spillstyring: {
+    title: "Spillstyring",
+    /** The secondary per-Seat button: «Sett inn KI-spiller for Jonas». */
+    takeover: (name: string) => `Sett inn KI-spiller for ${name}`,
+    /** The consequence directly above the button: the Student has not ordered this Uke… */
+    thisWeek: (name: string) =>
+      `KI-spilleren bestiller for ${name} fra denne Uka. ${name} kan ta setet tilbake fra neste Uke.`,
+    /** …or has. */
+    nextWeek: (name: string) => `KI-spilleren bestiller for ${name} fra neste Uke.`,
+    /** The result line that replaces the button and takes focus. */
+    done: (name: string) => `KI-spiller satt inn for ${name}.`,
+    /** A Seat row's name: «Fabrikk: Jonas». [ASSUMPTION] */
+    seat: (role: string, name: string) => `${role}: ${name}`,
+    /** Who acted first, from the view read again (`takeover_exists`, EXPERIENCE.md → AI put in by
+     * two at once): «Sara har allerede satt inn en KI-spiller.» */
+    taken: (name: string) => `${name} har allerede satt inn en KI-spiller.`,
+    /** [ASSUMPTION] the automatic Takeover came first. */
+    takenBySystem: "KI-spilleren har allerede tatt over setet etter ventetiden.",
+    /** [ASSUMPTION] someone no longer named in the Class came first. */
+    takenByUnknown: "En KI-spiller er allerede satt inn.",
+    /** The other refusals. [ASSUMPTION] */
+    refusals: {
+      seat_not_student_held: "Ingen student har dette setet nå.",
+      game_not_running: "Spillet er ikke i gang.",
+      takeover_not_allowed: "KI-spiller kan ikke settes inn i dette spillet.",
+      /** The Student has ordered the game's last Uke: no Uke is left for a KI-spiller. */
+      order_exists: "Studenten har bestilt, og det er ingen neste Uke.",
+    } as Record<string, string>,
+    /** [ASSUMPTION] */
+    failed: "KI-spilleren ble ikke satt inn. Prøv igjen.",
   },
 
   /** Links between pages (Story 3.3). Each names where it goes. */

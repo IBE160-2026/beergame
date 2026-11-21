@@ -85,6 +85,8 @@ async def recompute(
                 "user_id": _text(seat["user_id"]),
                 # The latest occupancy row's reason (Story 8.3): the AD-15 mark is read from it.
                 "reason": _text(seat["reason"]),
+                # Who triggered that row (Story 8.5): the Oversikt names them, read at read time.
+                "actor_user_id": _text(seat["actor_user_id"]),
             }
             for seat in seats
         ],

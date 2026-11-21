@@ -781,6 +781,10 @@ class OverviewSeatOut(BaseModel):
     """Why an AI player holds the Seat, from the one AD-15 mapping (Story 8.3, FR-34): a Takeover
     and its reason, a switch or the playout; None for a Student, a free Seat, or an AI player with
     no mark (put in at the start)."""
+    mark_by: str | None = None
+    """Who put the AI player in (Story 8.5, FR-37): the name now of the staff member or Student of
+    a Takeover by a person; None for any other mark, or one no longer staff or Student of the
+    Class."""
 
 
 class OverviewWaitOut(BaseModel):
@@ -970,6 +974,12 @@ class InsightSeatOut(BaseModel):
     """Only on a Student-held Seat; empty until Epic 9 registers a provider."""
     mark: SeatMark | None = None
     """Why an AI player holds the Seat now, as on the Oversikt (Story 8.3, AD-15); else None."""
+    mark_by: str | None = None
+    """Who put the AI player in, as on the Oversikt (Story 8.5); else None."""
+    takeover: Literal["this_week", "next_week"] | None = None
+    """«Sett inn KI-spiller» (Story 8.5, FR-37): from when an AI player would order for the
+    Student if the staff put one in now, this Week or (the Student has ordered this Week) the next;
+    None where Spillstyring offers no Takeover: a Seat no Student holds, a game not running."""
 
 
 class InsightWeekOut(BaseModel):

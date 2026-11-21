@@ -13,7 +13,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,7 +21,7 @@ from app.engine import GameSettings, WeekState
 from app.modules.games import overview, repo, rules
 from app.modules.games.marks import seat_mark
 from app.modules.games.policy import policy
-from app.modules.games.schemas import GameStatus, OccupantKind, SeatMark
+from app.modules.games.schemas import GameStatus, Lifecycle, OccupantKind, SeatMark
 
 __all__ = [
     "LARGE_ORDER",
@@ -80,6 +80,12 @@ class InsightSeat:
     links: tuple[InsightLink, ...]
     reason: str | None = None
     """The latest occupancy row's reason (Story 8.3): the Seat's AD-15 mark is read from it."""
+    actor_user_id: uuid.UUID | None = None
+    """Who triggered the latest occupancy row (Story 8.5): a Takeover's staff member or Student."""
+    takeover: Literal["this_week", "next_week"] | None = None
+    """Whether staff may put an AI player in the Seat now (Story 8.5, FR-37) and from when: this
+    Week when its Student has not ordered in the open Week (in a Guided Week: not opened it), the
+    next Week when they have. None for a Seat no Student holds or a Game not running."""
 
 
 @dataclass(frozen=True)
@@ -238,6 +244,7 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
         roles.append(InsightRole(role=role, weeks=tuple(rows), first_large_order_week=large))
 
     first = held[0]["role"] if held else None
+    takeover = await _takeover_from(session, game, settings, clock)
     return GameInsight(
         game_id=game["id"],
         class_session_id=game["class_session_id"],
@@ -254,6 +261,10 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
                 occupant_kind=seat["occupant_kind"],
                 user_id=seat["user_id"],
                 reason=None if seat["reason"] is None else str(seat["reason"]),
+                actor_user_id=seat["actor_user_id"],
+                takeover=takeover.get(seat["role"])
+                if seat["occupant_kind"] == OccupantKind.STUDENT
+                else None,
                 links=tuple(link for link in links if link.role == seat["role"])
                 if seat["occupant_kind"] == OccupantKind.STUDENT
                 else (),
@@ -262,3 +273,34 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
         ),
         roles=tuple(roles),
     )
+
+
+async def _takeover_from(
+    session: AsyncSession,
+    game: Mapping[str, Any],
+    settings: GameSettings | None,
+    clock: Mapping[tuple[int, str], Mapping[str, Any]],
+) -> dict[str, Literal["this_week", "next_week"]]:
+    """Per Role, from when a staff Takeover would apply (Story 8.5): read from the open Week's
+    turns while the Game runs and its policy has Takeover; the caller keeps it to Student-held
+    Seats, as `rules.can_take_over` does."""
+    game_policy = policy(str(game["purpose"]))
+    if (
+        game["lifecycle"] != Lifecycle.RUNNING
+        or settings is None
+        or not game_policy.inactivity_takeover
+    ):
+        return {}
+    week = await repo.open_week(session, game["id"])
+    if week is None:
+        return {}
+    guided = rules.guided_week(game_policy, settings, week)
+    found: dict[str, Literal["this_week", "next_week"]] = {}
+    for (turn_week, role), turn in clock.items():
+        if turn_week != week:
+            continue
+        ordered = _ordered_at(turn, OccupantKind.STUDENT, guided) is not None
+        if ordered and week >= settings.weeks:
+            continue  # the last Week: no next Week for an AI player to take (as the command)
+        found[role] = "next_week" if ordered else "this_week"
+    return found

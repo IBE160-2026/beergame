@@ -320,6 +320,38 @@ async def get_game_insight(
     return JSONResponse(found.model_dump(mode="json"), headers=headers)
 
 
+@router.post(
+    "/games/{game_id}/seats/{role}/takeover",
+    response_model=GameInsightOut,
+    responses=documented(401, 403, 409),
+    operation_id="takeOverSeat",
+)
+async def take_over_seat(
+    game_id: str,
+    role: Role,
+    user: Annotated[authz.Principal, Depends(authz.require("games.takeover"))],
+) -> Response:
+    """«Sett inn KI-spiller for …» (Story 8.5, FR-37, AD-2, AD-12): a Lecturer or Assistant
+    lecturer of the game's Class puts an AI player in the Student's Seat `role`, from this Uke when
+    the Student has not ordered in it, else from the next. One press, no dialog; recorded in the
+    audit log. Answers Spillinnsikt as it now stands. 409 `takeover_exists` with `fields.acted_by`
+    (`kind` `staff`, `student` or `system`, and `user_id`) and `fields.acted_at` when an AI player
+    was put in first; `seat_not_student_held`, `game_not_running` or `takeover_not_allowed`.
+    403 `forbidden` for anyone not staff of the game's Class and any Game the Oversikt does not
+    list (FR-5)."""
+    try:
+        found = await overview.take_over_seat(user, _id(game_id), role)
+    except overview.TakeoverRefused as refused:
+        if refused.code == "seat_not_found":
+            raise authz.Forbidden from None
+        return error_response(
+            refused.status, refused.code, "The AI player was not put in.", refused.fields
+        )
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
 TEST_GAME_REFUSED = {
     "not_found": "Not found.",
     "session_locked": "A test game starts only before the Start date.",

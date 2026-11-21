@@ -24,6 +24,7 @@ import { roleName } from "@/modules/sessions/sessions";
 
 import { type GameInsight, gameInsightKey, type InsightSeat, useGameInsight } from "./api";
 import { InsightCharts } from "./insight-charts";
+import { Spillstyring } from "./spillstyring";
 import { hasWeeks, holderText, linkTexts, roleTables, seatMarkText, seatsUpstreamFirst, type WeekRow } from "./insight";
 
 const copy = nb.insight;
@@ -145,6 +146,8 @@ export function InsightBody({ data }: { data: GameInsight }) {
           ))}
         </ol>
       </section>
+      {/* Spillstyring under the four Seats while the game runs (Story 8.5). */}
+      <Spillstyring data={data} />
       {!hasWeeks(data) ? (
         <p className="mt-8 text-body-phone text-ink lg:text-body">{copy.notStarted}</p>
       ) : (

@@ -26,10 +26,17 @@ export function holderText(holder: Pick<InsightSeat, "holder" | "name">): string
   return holder.name ?? copy.unknownStudent;
 }
 
-/** Why an AI player holds the Seat now, in text (Story 8.3, FR-34): «KI tok over etter
- * ventetiden»; null for a Student, a free Seat or an AI player with no mark. */
-export function seatMarkText(seat: Pick<InsightSeat, "holder" | "mark">): string | null {
-  return seat.holder === "ai" && seat.mark ? MARKS[seat.mark] : null;
+/** A Seat's mark in words, with who put the AI player in when the api names them (Story 8.5):
+ * «KI satt inn av Bård» for a Takeover by a person, else the mark's own words. */
+export function markWords(mark: SeatMark, by: string | null | undefined): string {
+  return by && (mark === "takeover_staff" || mark === "takeover_peer") ? copy.markedBy(by) : MARKS[mark];
+}
+
+/** Why an AI player holds the Seat now, in text (Stories 8.3 and 8.5, FR-34): «KI tok over etter
+ * ventetiden», «KI satt inn av Bård»; null for a Student, a free Seat or an AI player with no
+ * mark. */
+export function seatMarkText(seat: Pick<InsightSeat, "holder" | "mark"> & { mark_by?: string | null }): string | null {
+  return seat.holder === "ai" && seat.mark ? markWords(seat.mark, seat.mark_by) : null;
 }
 
 /** The words of a Student Seat's links, or the line that none exists yet; nothing for the others. */

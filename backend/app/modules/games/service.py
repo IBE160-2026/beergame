@@ -647,6 +647,9 @@ class SummarySeat:
     user_id: uuid.UUID | None
     reason: str | None = None
     """The latest occupancy row's reason (Story 8.3); None for a free Seat or an older row."""
+    actor_user_id: uuid.UUID | None = None
+    """Who triggered that row (Story 8.5): the staff member or Student of a Takeover by a person;
+    None otherwise or in an older row."""
 
 
 @dataclass(frozen=True)
@@ -717,6 +720,7 @@ async def class_overview(
                     occupant_kind=seat["occupant_kind"],
                     user_id=_user(seat["user_id"]),
                     reason=seat.get("reason"),
+                    actor_user_id=_user(seat.get("actor_user_id")),
                 )
                 for seat in row["occupants"]
             ),

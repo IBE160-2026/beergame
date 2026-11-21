@@ -156,18 +156,21 @@ async def test_the_sweep_takes_the_seat_over_within_a_minute_of_the_due_time(gam
     assert {e["id"] for e in received if e["topic"] == "user"} >= {
         str(u) for u in students.values()
     }
-    # Each Student is told at once, ids only, one notice per Seat and Week.
+    # Each Student is told at once, ids only.
     notices = query(
         TEST_DATABASE_URL,
         "SELECT user_id, dedupe_key FROM notices WHERE kind = 'takeover_notice' ORDER BY user_id",
     )
-    seat = query(
+    [(occupancy,)] = query(
         TEST_DATABASE_URL,
-        "SELECT id FROM seats WHERE game_id = %s AND role = 'factory'",
+        "SELECT o.id FROM seat_occupancy o JOIN seats s ON s.id = o.seat_id "
+        "WHERE s.game_id = %s AND o.reason = 'takeover_inactivity'",
         (game_id,),
-    )[0][0]
+    )
+    # One notice per occupancy row and Student (Story 8.5: a later Takeover of the Seat in the
+    # same Week, after a Reclaim, is told too).
     assert sorted(notices) == sorted(
-        (user, f"takeover_notice:{seat}:1:{user}") for user in students.values()
+        (user, f"takeover_notice:{occupancy}:{user}") for user in students.values()
     )
     assert delivery.KINDS["takeover_notice"].mode == delivery.IMMEDIATE
     # An Order the Student sends after the Takeover is not theirs to place.
@@ -208,7 +211,10 @@ async def test_two_takeovers_race_and_one_row_is_appended(games_db, mail_db):
         return_exceptions=True,
     )
     refused = [r for r in results if isinstance(r, commands.CommandError)]
-    assert len(refused) == 1 and refused[0].code == "seat_not_student_held"
+    # Story 8.5: the loser is told a Takeover exists and who made it (here the system).
+    assert len(refused) == 1 and refused[0].code == "takeover_exists"
+    assert refused[0].fields["acted_by"] == {"kind": "system", "user_id": None}
+    assert refused[0].fields["acted_at"]
     assert len(takeovers(game_id)) == 1
 
 

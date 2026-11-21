@@ -8,7 +8,8 @@ import { GAME_COLUMN, type TableColumn, type TableFooterRow, type TableRow } fro
 import type { TableSort } from "@/components/charts/matrix-table-sort";
 import type { WallGroup, WallLink, WallRow } from "@/components/charts/matrix-wall";
 
-import type { ClassOverview, GameWeeks, OverviewGame, SeatMark, WallAggregates, WallFilter } from "./api";
+import type { ClassOverview, GameWeeks, OverviewGame, WallAggregates, WallFilter } from "./api";
+import { markWords } from "./insight";
 import { waitDuration } from "./seat-status";
 import type { WallCells, WallRole } from "./wall-copy";
 
@@ -141,16 +142,13 @@ function longestWait(game: OverviewGame, now: number): string {
   return waitDuration(Number.isFinite(since) ? Math.max(0, now - since) : 0);
 }
 
-/** Every mark of the one AD-15 mapping in words (Story 7.7), shared with Spillinnsikt. */
-const MARKS: Record<SeatMark, string> = nb.insight.marks;
-
 /** «Fabrikk: Mikkel», «Grossist: KI-spiller», «Detaljist: Ledig», in the order the api sent
  * (Fabrikk first); an AI player with a mark says why it holds the Seat, in text (Story 8.3,
  * FR-34): «Grossist: KI-spiller (KI tok over etter ventetiden)». */
 export function seatTexts(game: OverviewGame): string[] {
   return game.seats.map((seat) => {
     const role = roleName(seat.role);
-    if (seat.holder === "ai" && seat.mark) return copy.seatMarked(role, copy.aiPlayer, MARKS[seat.mark]);
+    if (seat.holder === "ai" && seat.mark) return copy.seatMarked(role, copy.aiPlayer, markWords(seat.mark, seat.mark_by));
     const holder =
       seat.holder === "ai" ? copy.aiPlayer : seat.holder === "free" ? copy.freeSeat : (seat.name ?? copy.unknownStudent);
     return copy.seat(role, holder);
@@ -160,7 +158,7 @@ export function seatTexts(game: OverviewGame): string[] {
 /** «Grossist: KI tok over etter ventetiden» for each AI-held Seat with a mark (Story 8.3): the
  * wall row's note names the Takeover and its reason in text. */
 export function seatMarks(game: OverviewGame): string[] {
-  return game.seats.flatMap((seat) => (seat.holder === "ai" && seat.mark ? [copy.seatMark(roleName(seat.role), MARKS[seat.mark])] : []));
+  return game.seats.flatMap((seat) => (seat.holder === "ai" && seat.mark ? [copy.seatMark(roleName(seat.role), markWords(seat.mark, seat.mark_by))] : []));
 }
 
 /** «1 058 kr»: the chain's Total cost so far in whole kroner; null when there is none yet. */

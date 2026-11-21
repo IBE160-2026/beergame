@@ -33,9 +33,13 @@ def week_complete(turns: Sequence[Mapping[str, object]], *, guided: bool) -> boo
     return bool(turns) and all(has_ordered(turn, guided=guided) for turn in turns)
 
 
-TakeoverActor = Literal["system"]
+TakeoverActor = Literal["system", "staff"]
 """Who asks for a Takeover: `system`, the sweep's automatic Takeover after the Inactivity limit
-(Story 8.2). Staff (8.5) and peer (8.8) Takeovers extend this one check."""
+(Story 8.2); `staff`, a Lecturer or Assistant lecturer from Spillstyring (Story 8.5). Peer
+Takeovers (8.8) extend this one check."""
+
+TAKEOVER_REASONS = frozenset({"takeover_inactivity", "takeover_staff", "takeover_peer"})
+"""The occupancy reasons of a Takeover: a Seat whose latest row has one is taken over already."""
 
 
 def can_take_over(
@@ -45,25 +49,34 @@ def can_take_over(
     now: datetime,
     *,
     guided: bool,
+    seat: Mapping[str, object] | None = None,
 ) -> str | None:
-    """The one eligibility check of a Takeover (FR-36, AD-2, AD-13): None when `actor` may hand
-    the Seat of `turn` to an AI player at `now`, else the stable refusal code.
+    """The one eligibility check of a Takeover (FR-36, FR-37, AD-2, AD-13): None when `actor` may
+    hand the Seat of `turn` to an AI player at `now`, else the stable refusal code.
 
     `game` is a `games` row (`lifecycle`, `purpose`); `turn` the Seat's `seat_turns` row in the
     open Week with the `occupant_kind` in force (`repo.week_turns_with_occupant`), None when the
-    Seat has none. The Game must be running and its policy have inactivity Takeover; the Seat must
-    be Student-held in the open Week and not have ordered (`has_ordered`: in a Guided Week the
-    view counts); and for the `system` actor its stored `takeover_due_at` must be set, which
-    happens only once another Student has ordered (Story 8.1), and lie at or before `now`. Pure:
-    no I/O, no clock."""
-    if actor != "system":
+    Seat has none; `seat` the Seat's latest occupancy row (`occupant_kind`, `reason`), which may
+    apply from the next Week. The Game must be running and its policy have inactivity Takeover.
+    A Seat whose latest row is an AI player's is `takeover_exists` when a Takeover put it there,
+    else `seat_not_student_held`; so is a Seat not Student-held in the open Week. For the `system`
+    actor the Seat must not have ordered (`has_ordered`: in a Guided Week the view counts), and
+    its stored `takeover_due_at` must be set, which happens only once another Student has ordered
+    (Story 8.1), and lie at or before `now`. The `staff` actor needs no due time and may act on a
+    Seat that has ordered: its AI player then takes the next Week (the command decides when).
+    Pure: no I/O, no clock."""
+    if actor not in ("system", "staff"):
         raise ValueError(f"unknown Takeover actor {actor!r}")
     if game["lifecycle"] != Lifecycle.RUNNING:
         return "game_not_running"
     if not policy(str(game["purpose"])).inactivity_takeover:
         return "takeover_not_allowed"
+    if seat is not None and seat["occupant_kind"] != OccupantKind.STUDENT:
+        return "takeover_exists" if seat["reason"] in TAKEOVER_REASONS else "seat_not_student_held"
     if turn is None or turn["occupant_kind"] != OccupantKind.STUDENT:
         return "seat_not_student_held"
+    if actor == "staff":
+        return None
     if has_ordered(turn, guided=guided):
         return "order_exists"
     due = turn["takeover_due_at"]
