@@ -19,8 +19,8 @@ export type OrderBarsRole = {
   firstLargeWeek: number | null;
 };
 
-/** One week column: 1.6 em, so 12 columns fit at 360 px; 1.8 em from 1024 px (36 Uker on a laptop). */
-const WEEK_COL = "w-[1.6em] min-w-[1.6em] px-[0.1em] text-center lg:w-[1.8em] lg:min-w-[1.8em]";
+/** One week column: 1.6 em, so 12 columns fit at 360 px; 1.65 em from 1024 px, so 36 Uker and the Forsterkning column fit the 1280 px laptop page without a scroll. */
+const WEEK_COL = "w-[1.6em] min-w-[1.6em] px-[0.1em] text-center lg:w-[1.65em] lg:min-w-[1.65em]";
 const ROW_LABEL =
   "sticky left-0 z-10 min-w-row-label-phone bg-paper pr-2 text-left align-middle font-normal text-ink lg:min-w-row-label-laptop";
 /** Four rows of bars, each about three lines of `caption` high. */

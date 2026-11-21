@@ -139,7 +139,7 @@ export function WeekScrubber({
             style={{ left: percent }}
           />
         </div>
-        <div aria-hidden="true" className="flex justify-between text-caption text-ink-secondary tabular-nums">
+        <div aria-hidden="true" className="mt-1.5 flex justify-between text-caption text-ink-secondary tabular-nums">
           <span>{weekText(1)}</span>
           <span>{weekText(last)}</span>
         </div>
