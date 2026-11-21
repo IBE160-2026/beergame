@@ -21,13 +21,16 @@ from unittest import mock
 import pytest
 
 from app import sim
+from app.analysis.facts import ANALYSIS_VERSION, FactSet
 from app.analysis.moments import position
 from app.analysis.moments import render as render_moments
 from app.analysis.patterns import PatternSet
+from app.analysis.simulated import simulate
 from app.engine import ROLES, RULES_VERSION, DemandFixed, GameSettings, demand_series
 from app.modules.content import service as content
 from app.modules.games import commands, facts
 from app.modules.games.views import ViewError
+from app.sim import load_rule_based_params
 from tests.analysis.test_moments import TEMPLATES as MOMENT_TEMPLATES
 from tests.analysis.test_moments import assert_every_number_from_the_facts
 from tests.analysis.test_patterns import V1
@@ -250,6 +253,28 @@ def assert_recomputed(game_id: str, sets: dict[str, facts.StoredFactSet]) -> Non
             assert raw[(moment["week"], role)]["decided_by"] == "student"
         if not seat["sm_excluded"]:
             assert len(seat["moments"]) == 3
+    assert_simulated(game_id, sets)
+
+
+def assert_simulated(game_id: str, sets: dict[str, facts.StoredFactSet]) -> None:
+    """Story 9.8: each Seat's «Simulert, samme kunder» rows are `analysis.simulated` run over the
+    Game's own snapshot and frozen Rule-based set; the `all` row is the same for every Seat."""
+    [(settings, rules_version, series, runtime)] = query(
+        TEST_DATABASE_URL,
+        "SELECT settings, rules_version, demand_series, session_runtime FROM games WHERE id = %s",
+        (game_id,),
+    )
+    params = load_rule_based_params(runtime["rule_based_params"])
+    assert params.version == runtime["rule_based_params_version"]
+    every = set()
+    for role, stored in sets.items():
+        found = stored.facts.seat.simulated
+        assert found is not None
+        assert found == simulate(
+            GameSettings.model_validate(settings), rules_version, series, params, role
+        )
+        every.add(found.rows[1])
+    assert len(every) == 1
 
 
 def assert_golden(name: str, sets: dict[str, facts.StoredFactSet]) -> None:
@@ -351,7 +376,7 @@ async def test_a_set_is_stored_once_and_returned_as_stored(games_db):
         "SELECT id, analysis_version, payload FROM fact_sets WHERE game_id = %s",
         (game_id,),
     )
-    assert len(rows) == 1 and str(rows[0][0]) == first.id and rows[0][1] == 1
+    assert len(rows) == 1 and str(rows[0][0]) == first.id and rows[0][1] == ANALYSIS_VERSION == 2
     # No names, no user ids, no Seat ids: no UUID at all in the payload.
     assert not UUID.search(json.dumps(rows[0][2]))
     assert set(rows[0][2]) == {"patterns_version", "facts"}
@@ -366,7 +391,14 @@ async def test_a_stored_set_is_never_rebuilt_nor_changed(games_db):
     await content.publish("detected_patterns", {**V1, "following_weeks": 1})
     assert await facts.get_or_create(game_id, "factory") == stored
     with pytest.raises(psycopg.errors.RestrictViolation):
-        execute(TEST_DATABASE_URL, "UPDATE fact_sets SET analysis_version = 2")
+        execute(TEST_DATABASE_URL, "UPDATE fact_sets SET analysis_version = 3")
+    # A set stored under version 1 has no simulated rows and reads as stored (Story 9.8).
+    [(payload,)] = query(
+        TEST_DATABASE_URL, "SELECT payload FROM fact_sets WHERE game_id = %s", (game_id,)
+    )
+    del payload["facts"]["seat"]["simulated"]
+    old = FactSet.model_validate(payload["facts"])
+    assert old.seat.simulated is None and old.chain == stored.facts.chain
 
 
 async def test_the_pinned_pattern_version_is_used_and_the_latest_without_a_pin(games_db):

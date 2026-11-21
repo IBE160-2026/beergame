@@ -181,3 +181,64 @@ export function withAnswer(reflection: Reflection, answered: ReflectionQuestion)
 export function reflectionDone(reflection: Reflection | undefined): boolean {
   return Boolean(reflection && reflection.questions.length > 0 && currentQuestion(reflection) === null);
 }
+
+/** Step 4's lines under Kjedens regning (Story 9.8): the restordre share, the AI-held share and
+ * «Simulert, samme kunder», every number from the stored facts set. */
+export type Bill = components["schemas"]["BillOut"];
+export type SimulatedRow = components["schemas"]["SimulatedRowOut"];
+/** A finished Debrief (Story 9.8): the key moments, the reflection answers and the time. */
+export type Summary = components["schemas"]["SummaryOut"];
+export type MySummary = components["schemas"]["MySummaryOut"];
+/** A Student's Explanation and Debrief summary for the Class's staff. */
+export type StaffSummary = components["schemas"]["StaffSummaryOut"];
+
+export const summaryKey = (debriefId: string) => [...debriefsKey, debriefId, "summary"] as const;
+
+/** The Student's own Debrief summary, `summary` null until «Fullfør Debriefen». */
+export function useMySummary(debriefId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: summaryKey(debriefId),
+    queryFn: () =>
+      request(() => api.GET("/api/debriefs/{debrief_id}/summary", { params: { path: { debrief_id: debriefId } } })),
+    enabled,
+    retry: false,
+  });
+}
+
+/** «Fullfør Debriefen»: stores the summary once and records the `debrief` step (FR-47). A
+ * finished Debrief answers its stored summary unchanged. */
+export function finishDebrief(debriefId: string): Promise<MySummary> {
+  return request(() => api.POST("/api/debriefs/{debrief_id}/finish", { params: { path: { debrief_id: debriefId } } }));
+}
+
+export const staffSummaryKey = (classSessionId: string, studentId: string) =>
+  ["class-sessions", classSessionId, "students", studentId, "debrief-summary"] as const;
+
+/** A Student's Explanation and Debrief summary, for the Class's owners and Assistant lecturers;
+ * 403 `forbidden` for everyone else. */
+export function useStaffSummary(classSessionId: string, studentId: string) {
+  return useQuery({
+    queryKey: staffSummaryKey(classSessionId, studentId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/students/{student_id}/debrief-summary", {
+          params: { path: { session_id: classSessionId, student_id: studentId } },
+        }),
+      ),
+    retry: false,
+  });
+}
+
+/** The bill's restordre line: «Restordre er 60 % av kjedens regning, fordi den koster dobbelt.»,
+ * without the reason when backlog does not cost twice inventory; null when the chain cost
+ * nothing. */
+export function backorderLine(bill: Bill, copy: { share: (p: number) => string; shareDouble: (p: number) => string }): string | null {
+  if (bill.backorder_share_percent === null) return null;
+  return bill.backorder_costs_double ? copy.shareDouble(bill.backorder_share_percent) : copy.share(bill.backorder_share_percent);
+}
+
+/** Whether AI players held Seats in Weeks that cost something, at least half a percent of the
+ * chain's cost (so the line never reads «0 %»): only then the AI line shows. */
+export function aiHeld(bill: Bill): boolean {
+  return Number(bill.ai_held_cost) > 0 && (bill.ai_held_share_percent ?? 0) > 0;
+}

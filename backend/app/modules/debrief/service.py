@@ -1,4 +1,4 @@
-"""What other modules and the routes use of `debrief` (Stories 9.2 to 9.7).
+"""What other modules and the routes use of `debrief` (Stories 9.2 to 9.8).
 
 - `open_mine(user, class_session_id)`: the Student's Debrief, opened on first use; raises
   `NotAvailable` with the code the route answers (`debrief_not_open`, `debrief_held`), and None
@@ -17,11 +17,17 @@
   `commands.AnswerOutOfOrder`), both behind the gate.
 - `staff_explanation(user, class_session_id, student_id)`: the Explanation for the Class's staff
   (`explanations.read`, AD-12); None for everyone else.
+- Story 9.8: step 4 also carries `bill` (the Debrief's lines under Kjedens regning);
+  `finish_mine` («Fullfør Debriefen», raises `commands.DebriefIncomplete`,
+  `commands.TestDeadlinePassed`), `own_summary`, and `staff_summary(user, class_session_id,
+  student_id)`, the Explanation and Debrief summary for the Class's staff
+  (`debrief_summaries.read`), the read Studentside and the Student report reuse.
 """
 
 import uuid
 from collections.abc import Sequence
 from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import select
 
@@ -30,7 +36,7 @@ from app.analysis import sentences
 from app.analysis.facts import LARGE_ORDER
 from app.engine.settings import Role
 from app.modules.content import service as content
-from app.modules.debrief import commands, rules
+from app.modules.debrief import commands, insight, rules
 from app.modules.debrief.models import (
     ANSWER_MAX,
     EXPLANATION_MAX,
@@ -38,8 +44,10 @@ from app.modules.debrief.models import (
     debrief_reflection_answers,
     debrief_releases,
     debrief_sessions,
+    debrief_summaries,
 )
 from app.modules.debrief.schemas import (
+    BillOut,
     ChainOut,
     ChainRoleOut,
     ChainWeekOut,
@@ -50,6 +58,7 @@ from app.modules.debrief.schemas import (
     MomentOut,
     MomentsOut,
     MyExplanationOut,
+    MySummaryOut,
     NetInventoryOut,
     NetWeekOut,
     OtherSeenOut,
@@ -59,6 +68,12 @@ from app.modules.debrief.schemas import (
     RenderedTextOut,
     RevealOut,
     RevealWeekOut,
+    SimulatedOut,
+    SimulatedRowOut,
+    StaffSummaryOut,
+    SummaryAnswerOut,
+    SummaryMomentOut,
+    SummaryOut,
 )
 from app.modules.games import service as games
 from app.modules.progress import service as progress
@@ -76,18 +91,24 @@ __all__ = [
     "UnknownQuestion",
     "answer_mine",
     "due_releases",
+    "finish_mine",
     "judge_explanation",
     "mine",
     "open_mine",
     "own_explanation",
     "own_net_inventory",
     "own_reflection",
+    "own_summary",
     "release_due",
     "require_explanation",
     "save_mine",
     "staff_explanation",
+    "staff_summary",
     "step",
 ]
+
+# Spillinnsikt's links to the Explanation and Debrief summary (registered on import).
+_LINKS = insight.links
 
 
 class NotAvailable(Exception):
@@ -271,31 +292,76 @@ async def step(user: authz.Principal, debrief_id: uuid.UUID, number: int) -> Deb
     await require_explanation(user.id, row.class_session_id)
     shown = await _reveal(row.game_id, game.role) if number == 2 else None
     chain = await _chain(row.game_id, game.role) if number == 3 else None
-    own = await _moments(user.id, row, game.role) if number == 4 else None
-    return DebriefStepOut(debrief_id=row.id, step=number, reveal=shown, chain=chain, moments=own)
+    own = bill = None
+    if number == 4:
+        stored = await games.fact_set(str(row.game_id), game.role)
+        own = await _moments(user.id, row, game.role, stored)
+        bill = await _bill(row.game_id, game.role, stored)
+    return DebriefStepOut(
+        debrief_id=row.id, step=number, reveal=shown, chain=chain, moments=own, bill=bill
+    )
 
 
-async def _moments(user_id: uuid.UUID, row: commands.DebriefRow, role: str) -> MomentsOut:
+def _percent(part: Decimal, whole: Decimal) -> int | None:
+    """`part` as a whole percent of `whole`, half up; None when `whole` is 0."""
+    if not whole:
+        return None
+    return int((part * 100 / whole).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
+async def _bill(game_id: uuid.UUID, role: str, stored: games.StoredFactSet) -> BillOut:
+    """The Debrief's lines under Kjedens regning (Story 9.8, FR-44, UX-DR36): the restordre share,
+    the AI-held share and «Simulert, samme kunder», every number from the stored facts set of the
+    Student's own Seat (AD-7). Call only behind `require_explanation`."""
+    found = await games.get_game(str(game_id))
+    if found is None or found.settings is None:
+        raise RuntimeError(f"a finished Game {game_id} has no settings")
+    chain = stored.facts.chain
+    backorder = sum((each.backorder_cost for each in chain.by_role), Decimal(0))
+    simulated = stored.facts.seat.simulated
+    return BillOut(
+        role=Role(role),
+        total_cost=chain.total_cost,
+        backorder_cost=backorder,
+        backorder_share_percent=_percent(backorder, chain.total_cost),
+        backorder_costs_double=found.settings.backorder_cost == 2 * found.settings.holding_cost,
+        ai_held_cost=chain.ai_held_cost,
+        ai_held_share_percent=_percent(chain.ai_held_cost, chain.total_cost),
+        simulated=(
+            None
+            if simulated is None
+            else SimulatedOut(
+                params_id=simulated.params_id,
+                rows=[
+                    SimulatedRowOut(
+                        counts_supply_line=each.counts_supply_line,
+                        holding_cost=each.holding_cost,
+                        backorder_cost=each.backorder_cost,
+                        total_cost=each.total_cost,
+                    )
+                    for each in simulated.rows
+                ],
+            )
+        ),
+    )
+
+
+async def _moments(
+    user_id: uuid.UUID, row: commands.DebriefRow, role: str, stored: games.StoredFactSet
+) -> MomentsOut:
     """Step 4 (Story 9.7, FR-44, AD-7): the Student's own moments, rendered by code from the facts
     set of their Seat. The set comes from `games.facts.get_or_create` (stored once, never rebuilt
     here) and its id is recorded for the Student at the first view, so every view cites the same
     set. The templates are the ones the Class session pinned at the lock (the latest for a session
     locked before the pin); the pattern names are those of the version the facts were built with.
     Call only behind `require_explanation`."""
-    stored = await games.fact_set(str(row.game_id), role)
     cited = await commands.record_facts(
         row.game_id, row.class_session_id, user_id, uuid.UUID(stored.id)
     )
     if str(cited) != stored.id:
         raise RuntimeError(f"the moments of Debrief {row.id} cite another facts set")
     seat = stored.facts.seat
-    found = await games.get_game(str(row.game_id))
-    pins = found.session_runtime.pins if found and found.session_runtime else None
-    _, templates = await content.moment_templates(
-        content.pinned_version(pins, content.Kind.MOMENT_TEMPLATES)
-    )
-    _, patterns = await content.detected_patterns(stored.patterns_version)
-    rendered = moment_text.render(stored.facts, templates, patterns)
+    rendered = await _rendered(row.game_id, stored)
     logged = {
         e.week: e.state_seen
         for e in await games.decision_log(str(row.game_id))
@@ -303,9 +369,7 @@ async def _moments(user_id: uuid.UUID, row: commands.DebriefRow, role: str) -> M
     }
     by_id = {moment.id: moment for moment in seat.moments}
 
-    def text(rendered_text: sentences.RenderedText) -> RenderedTextOut:
-        return RenderedTextOut(text=rendered_text.text)
-
+    text = _text
     shown = []
     for each in rendered.moments:
         moment = by_id[each.id]
@@ -339,6 +403,23 @@ async def _moments(user_id: uuid.UUID, row: commands.DebriefRow, role: str) -> M
         heading=text(rendered.heading) if rendered.heading else None,
         moments=shown,
     )
+
+
+def _text(rendered_text: sentences.RenderedText) -> RenderedTextOut:
+    return RenderedTextOut(text=rendered_text.text)
+
+
+async def _rendered(game_id: uuid.UUID, stored: games.StoredFactSet) -> moment_text.RenderedMoments:
+    """The own moments of a stored facts set, rendered with the moment templates the Game's Class
+    session pinned at the lock (the latest for a session locked before the pin) and the pattern
+    names of the version the facts were built with."""
+    found = await games.get_game(str(game_id))
+    pins = found.session_runtime.pins if found and found.session_runtime else None
+    _, templates = await content.moment_templates(
+        content.pinned_version(pins, content.Kind.MOMENT_TEMPLATES)
+    )
+    _, patterns = await content.detected_patterns(stored.patterns_version)
+    return moment_text.render(stored.facts, templates, patterns)
 
 
 async def _chain(game_id: uuid.UUID, role: str) -> ChainOut:
@@ -531,6 +612,136 @@ async def staff_explanation(
     if found is None:
         raise NoExplanation
     return found
+
+
+async def _summary_row(
+    user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> commands.SummaryRow | None:
+    async with get_sessionmaker()() as s:
+        row = (
+            (
+                await s.execute(
+                    select(debrief_summaries).where(
+                        debrief_summaries.c.user_id == user_id,
+                        debrief_summaries.c.class_session_id == class_session_id,
+                    )
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+    return commands.summary_of(row) if row is not None else None
+
+
+async def _summary(
+    user_id: uuid.UUID, class_session_id: uuid.UUID, role: str, found: commands.SummaryRow
+) -> SummaryOut:
+    """The stored summary with its key moments rendered by code from the facts set it cites and
+    each answer's question prompt; `late` from the stored time against the Student's Debrief
+    deadline (FR-18), never against the clock."""
+    stored = await games.fact_set(str(found.game_id), role)
+    if stored.id != str(found.fact_set_id):
+        raise RuntimeError(f"the Debrief summary of {user_id} cites another facts set")
+    rendered = {each.id: each for each in (await _rendered(found.game_id, stored)).moments}
+    weeks = {moment.id: moment.week for moment in stored.facts.seat.moments}
+    _, questions = await _questions(found.game_id)
+    prompts = {q.id: q.prompt for q in questions.questions}
+    deadline, _ = await sessions.student_deadlines(user_id, class_session_id)
+    return SummaryOut(
+        fact_set_id=found.fact_set_id,
+        finished_at=found.finished_at,
+        late=deadline is not None and found.finished_at > deadline,
+        moments=[
+            SummaryMomentOut(
+                id=moment_id,
+                week=weeks[moment_id],
+                heading=_text(rendered[moment_id].heading),
+                reckoning=_text(rendered[moment_id].reckoning),
+                later=_text(rendered[moment_id].later),
+                patterns=[_text(p) for p in rendered[moment_id].patterns],
+            )
+            for moment_id in found.moment_ids
+        ],
+        reflection=[
+            SummaryAnswerOut(
+                question_id=each["question_id"],
+                prompt=prompts.get(each["question_id"], ""),
+                text=each["text"],
+            )
+            for each in found.reflection
+        ],
+    )
+
+
+async def own_summary(user: authz.Principal, debrief_id: uuid.UUID) -> MySummaryOut | None:
+    """The Student's own Debrief summary (Story 9.8), `summary` None until they finish. Behind
+    the Explanation gate."""
+    found = await _own(user, debrief_id)
+    if found is None:
+        return None
+    row, game = found
+    await require_explanation(user.id, row.class_session_id)
+    stored = await _summary_row(user.id, row.class_session_id)
+    if stored is None:
+        return MySummaryOut(summary=None)
+    return MySummaryOut(summary=await _summary(user.id, row.class_session_id, game.role, stored))
+
+
+async def finish_mine(user: authz.Principal, debrief_id: uuid.UUID) -> MySummaryOut | None:
+    """«Fullfør Debriefen» (Story 9.8, FR-47): `debrief.commands.finish` for the Student's own
+    Debrief, behind the gate. Raises `NotAvailable`, `ExplanationRequired`,
+    `commands.DebriefIncomplete` or `commands.TestDeadlinePassed`."""
+    found = await _own(user, debrief_id)
+    if found is None:
+        return None
+    row, game = found
+    await require_explanation(user.id, row.class_session_id)
+    _, questions = await _questions(row.game_id)
+    _, test_deadline = await sessions.student_deadlines(user.id, row.class_session_id)
+
+    async def moment_ids(fact_set_id: uuid.UUID) -> list[str]:
+        stored = await games.fact_set(str(row.game_id), game.role)
+        if stored.id != str(fact_set_id):
+            raise RuntimeError(f"Debrief {row.id} cites another facts set")
+        return [moment.id for moment in stored.facts.seat.moments]
+
+    saved, _ = await commands.finish(
+        row.game_id,
+        row.class_session_id,
+        user.id,
+        [q.id for q in questions.questions],
+        moment_ids,
+        test_deadline,
+    )
+    return MySummaryOut(summary=await _summary(user.id, row.class_session_id, game.role, saved))
+
+
+async def staff_summary(
+    user: authz.Principal, class_session_id: uuid.UUID, student_id: uuid.UUID
+) -> StaffSummaryOut | None:
+    """A Student's Explanation and Debrief summary for the staff of the Class
+    (`debrief_summaries.read`: its owners and Assistant lecturers, AD-12), each None while not
+    sent or not finished; None for every other caller alike (FR-5). The read Studentside and the
+    Student report reuse (FR-47)."""
+    if not await sessions.class_staff_may(user, class_session_id, "debrief_summaries.read"):
+        return None
+    async with get_sessionmaker()() as s:
+        game = await games.student_game(s, student_id, class_session_id)
+    explanation = await _stored(student_id, class_session_id)
+    stored = await _summary_row(student_id, class_session_id)
+    summary = (
+        await _summary(student_id, class_session_id, game.role, stored)
+        if stored is not None and game is not None
+        else None
+    )
+    return StaffSummaryOut(
+        student_id=student_id,
+        game_id=game.game_id if game else None,
+        game_number=game.number if game else None,
+        role=Role(game.role) if game else None,
+        explanation=explanation,
+        summary=summary,
+    )
 
 
 async def due_releases(now: datetime) -> Sequence[str]:

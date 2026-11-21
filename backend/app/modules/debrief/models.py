@@ -1,4 +1,4 @@
-"""The tables owned by `modules/debrief` (Stories 9.2, 9.3, 9.6, 9.7, AD-21). Written by
+"""The tables owned by `modules/debrief` (Stories 9.2, 9.3, 9.6 to 9.8, AD-21). Written by
 `debrief.commands` only."""
 
 from sqlalchemy import (
@@ -13,6 +13,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.platform.db import metadata
 
@@ -123,4 +124,27 @@ debrief_fact_sets = Table(
     Column("game_id", Uuid, ForeignKey("games.id", ondelete="CASCADE"), nullable=False),
     Column("fact_set_id", Uuid, ForeignKey("fact_sets.id", ondelete="CASCADE"), nullable=False),
     Column("recorded_at", DateTime(timezone=True), nullable=False),
+)
+
+debrief_summaries = Table(
+    "debrief_summaries",
+    metadata,
+    # A Student's finished Debrief in a Class session (Story 9.8, FR-47, AD-7, AD-16): the key
+    # moments by fact id, the reflection answers and the facts set they cite, with the database
+    # time it was finished; stored once and never changed (a trigger refuses updates).
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("game_id", Uuid, ForeignKey("games.id", ondelete="CASCADE"), nullable=False),
+    Column("fact_set_id", Uuid, ForeignKey("fact_sets.id", ondelete="CASCADE"), nullable=False),
+    # The ids of the Seat's own moments (`moment:<role>:<week>`), by Week; empty when the game
+    # was played mostly by AI players.
+    Column("moment_ids", JSONB, nullable=False),
+    # `[{question_id, questions_version, text}]`, in the order asked.
+    Column("reflection", JSONB, nullable=False),
+    Column("finished_at", DateTime(timezone=True), nullable=False),
 )

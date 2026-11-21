@@ -1,4 +1,4 @@
-"""What the Debrief routes answer (Stories 9.2 to 9.7, AD-3)."""
+"""What the Debrief routes answer (Stories 9.2 to 9.8, AD-3)."""
 
 import uuid
 from datetime import datetime
@@ -196,11 +196,53 @@ class MomentsOut(BaseModel):
     """By Uke; three when not `mostly_ai`."""
 
 
+class SimulatedRowOut(BaseModel):
+    """One «Simulert, samme kunder» row: the chain's cost over the whole simulated Game."""
+
+    counts_supply_line: Literal["own", "all"]
+    """`own`: only the viewer's Seat counts På vei; `all`: all four Seats do."""
+    holding_cost: Decimal
+    backorder_cost: Decimal
+    total_cost: Decimal
+
+
+class SimulatedOut(BaseModel):
+    """«Simulert, samme kunder» (Story 9.8, FR-44, UX-DR36): the two rows stored in the facts set,
+    played with the Rule-based parameter set `params_id` (placeholders, issues #8, #17)."""
+
+    params_id: str
+    rows: list[SimulatedRowOut]
+    """`own`, then `all`."""
+
+
+class BillOut(BaseModel):
+    """The Debrief's extra lines under Kjedens regning (Story 9.8, FR-44, UX-DR36), every number
+    from the stored facts set of the Student's own Seat (AD-7). The Role rows and Kjedens kostnad
+    over tid are the game result's (`/api/me/games/{id}/result`, Story 6.18)."""
+
+    role: Role
+    total_cost: Decimal
+    """The chain's Total cost."""
+    backorder_cost: Decimal
+    """The chain's backorder cost."""
+    backorder_share_percent: int | None
+    """Backorder cost as a whole percent of the chain's Total cost (half up); None when the chain
+    cost nothing."""
+    backorder_costs_double: bool
+    """Whether a unit in backlog costs twice a unit in inventory (the Classic 1,00 and 0,50)."""
+    ai_held_cost: Decimal
+    """The part of the chain's cost incurred in Weeks a Seat was held by an AI player."""
+    ai_held_share_percent: int | None
+    """`ai_held_cost` as a whole percent of the Total cost (half up); None when it cost nothing."""
+    simulated: SimulatedOut | None
+    """None for a facts set stored before the simulation (analysis version 1)."""
+
+
 class DebriefStepOut(BaseModel):
     """A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2
     carries the reveal (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the own moments
-    (Story 9.7); step 5 gets its content with Story 9.9 and until then answers the step number
-    only."""
+    (Story 9.7) and the Debrief's lines under Kjedens regning (Story 9.8); step 5 gets its content
+    with Story 9.9 and until then answers the step number only."""
 
     debrief_id: uuid.UUID
     step: int
@@ -210,6 +252,58 @@ class DebriefStepOut(BaseModel):
     """Step 3 only."""
     moments: MomentsOut | None = None
     """Step 4 only."""
+    bill: BillOut | None = None
+    """Step 4 only."""
+
+
+class SummaryAnswerOut(BaseModel):
+    """A reflection answer as the Debrief summary stored it, with its question's prompt."""
+
+    question_id: str
+    prompt: str
+    text: str
+
+
+class SummaryMomentOut(BaseModel):
+    """A key moment of the summary, rendered by code from the cited facts set (AD-7)."""
+
+    id: str
+    week: int
+    heading: RenderedTextOut
+    reckoning: RenderedTextOut
+    later: RenderedTextOut
+    patterns: list[RenderedTextOut]
+
+
+class SummaryOut(BaseModel):
+    """A Student's finished Debrief (Story 9.8, FR-47): the facts set it cites, the key moments,
+    the reflection answers in the order asked, when it was finished and whether that was after
+    the Student's Debrief deadline (`late`, from the stored time)."""
+
+    fact_set_id: uuid.UUID
+    finished_at: datetime
+    late: bool
+    moments: list[SummaryMomentOut]
+    """Empty when the game was played mostly by AI players."""
+    reflection: list[SummaryAnswerOut]
+
+
+class MySummaryOut(BaseModel):
+    """The Student's own Debrief summary, `summary` None until «Fullfør Debriefen»."""
+
+    summary: SummaryOut | None
+
+
+class StaffSummaryOut(BaseModel):
+    """A Student's Explanation and Debrief summary for the Class's staff (Story 9.8, FR-47,
+    AD-12); each None while not sent or not finished. Ids and Roles only, no names (AD-14)."""
+
+    student_id: uuid.UUID
+    game_id: uuid.UUID | None
+    game_number: int | None
+    role: Role | None
+    explanation: ExplanationOut | None
+    summary: SummaryOut | None
 
 
 class ReflectionAnswerIn(BaseModel):

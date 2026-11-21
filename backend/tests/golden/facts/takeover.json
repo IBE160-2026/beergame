@@ -2,7 +2,7 @@
   "retailer": {
     "patterns_version": 1,
     "facts": {
-      "analysis_version": 1,
+      "analysis_version": 2,
       "chain": {
         "weeks": 16,
         "roles": [
@@ -390,14 +390,32 @@
             "patterns": [],
             "chosen_by": "order_gap"
           }
-        ]
+        ],
+        "simulated": {
+          "params_id": "placeholder-unverified",
+          "params_version": 1,
+          "rows": [
+            {
+              "counts_supply_line": "own",
+              "holding_cost": "183.00",
+              "backorder_cost": "1245.00",
+              "total_cost": "1428.00"
+            },
+            {
+              "counts_supply_line": "all",
+              "holding_cost": "179.50",
+              "backorder_cost": "1034.00",
+              "total_cost": "1213.50"
+            }
+          ]
+        }
       }
     }
   },
   "wholesaler": {
     "patterns_version": 1,
     "facts": {
-      "analysis_version": 1,
+      "analysis_version": 2,
       "chain": {
         "weeks": 16,
         "roles": [
@@ -733,14 +751,32 @@
             ]
           }
         ],
-        "moments": []
+        "moments": [],
+        "simulated": {
+          "params_id": "placeholder-unverified",
+          "params_version": 1,
+          "rows": [
+            {
+              "counts_supply_line": "own",
+              "holding_cost": "184.50",
+              "backorder_cost": "1332.00",
+              "total_cost": "1516.50"
+            },
+            {
+              "counts_supply_line": "all",
+              "holding_cost": "179.50",
+              "backorder_cost": "1034.00",
+              "total_cost": "1213.50"
+            }
+          ]
+        }
       }
     }
   },
   "distributor": {
     "patterns_version": 1,
     "facts": {
-      "analysis_version": 1,
+      "analysis_version": 2,
       "chain": {
         "weeks": 16,
         "roles": [
@@ -1180,14 +1216,32 @@
             ]
           }
         ],
-        "moments": []
+        "moments": [],
+        "simulated": {
+          "params_id": "placeholder-unverified",
+          "params_version": 1,
+          "rows": [
+            {
+              "counts_supply_line": "own",
+              "holding_cost": "185.50",
+              "backorder_cost": "1414.00",
+              "total_cost": "1599.50"
+            },
+            {
+              "counts_supply_line": "all",
+              "holding_cost": "179.50",
+              "backorder_cost": "1034.00",
+              "total_cost": "1213.50"
+            }
+          ]
+        }
       }
     }
   },
   "factory": {
     "patterns_version": 1,
     "facts": {
-      "analysis_version": 1,
+      "analysis_version": 2,
       "chain": {
         "weeks": 16,
         "roles": [
@@ -1627,7 +1681,25 @@
             ]
           }
         ],
-        "moments": []
+        "moments": [],
+        "simulated": {
+          "params_id": "placeholder-unverified",
+          "params_version": 1,
+          "rows": [
+            {
+              "counts_supply_line": "own",
+              "holding_cost": "186.50",
+              "backorder_cost": "1406.00",
+              "total_cost": "1592.50"
+            },
+            {
+              "counts_supply_line": "all",
+              "holding_cost": "179.50",
+              "backorder_cost": "1034.00",
+              "total_cost": "1213.50"
+            }
+          ]
+        }
       }
     }
   }

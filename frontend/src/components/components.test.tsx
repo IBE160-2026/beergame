@@ -400,14 +400,15 @@ describe("ChainBill (Kjedens regning, Story 6.18)", () => {
     expect(html).toContain(">2 266,00</td>");
   });
 
-  it("keeps the Debrief's slot for extra rows inside the body, empty unless given", () => {
+  it("puts the Debrief's extra rows in a body of their own after Kjeden, empty unless given", () => {
     const extra = (
       <tr data-extra="">
         <th scope="row">Simulert</th>
       </tr>
     );
     const html = renderToStaticMarkup(<ChainBill rows={[row("retailer", "Detaljist")]} chain={chain} titleId="b" extraRows={extra} />);
-    expect(html.indexOf("data-extra")).toBeLessThan(html.indexOf("<tfoot>"));
+    expect(html.indexOf("data-chain-row")).toBeLessThan(html.indexOf('<tbody data-extra-rows=""><tr data-extra="">'));
+    expect(html).not.toContain("<tfoot>");
     expect(renderToStaticMarkup(<ChainBill rows={[]} chain={chain} titleId="b" />)).not.toContain("data-extra");
   });
 });

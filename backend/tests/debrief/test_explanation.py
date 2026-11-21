@@ -9,8 +9,10 @@ the others Rule-based), then marked finished, serves each test."""
 
 import json
 import uuid
+from datetime import UTC, datetime
+from decimal import ROUND_HALF_UP, Decimal
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import psycopg
 import pytest
@@ -18,6 +20,7 @@ import pytest
 from app.analysis import moments as moment_text
 from app.engine import ROLES
 from app.modules.content import service as content
+from app.modules.debrief import insight
 from app.modules.games import commands as game_commands
 from app.modules.games import service as games
 from app.modules.identity.schemas import AccountRole
@@ -188,11 +191,14 @@ async def test_step_one_the_one_send_the_gate_and_the_readers(klass, emitted):
         "reveal": None,
         "chain": None,
         "moments": None,
+        "bill": None,
     }
     await revealed(me, path, debrief, game_id)
     await chained(me, path, debrief, game_id)
     await reflected(me, mate, path, debrief, emitted)
     await momented(me, mate, path, debrief, game_id, emitted)
+    await billed(me, path, game_id)
+    await finished(me, mate, path, debrief, session_id, game_id, emitted)
 
     # Another Student of the same game reads only their own (none) and is still gated.
     other = mate
@@ -479,6 +485,148 @@ async def momented(me: str, mate: str, path: str, debrief: dict, game_id: str, e
     refused(await call(mate, "GET", f"{path}/steps/4"), "explanation_required")
 
 
+def _percent(part: Decimal, whole: Decimal) -> int:
+    return int((part * 100 / whole).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
+async def billed(me: str, path: str, game_id: str) -> None:
+    """Step 4's lines under Kjedens regning (Story 9.8, FR-44, UX-DR36, NFR-9): every number from
+    the stored facts set, which equals the `seat_weeks` rows read here by SQL. Part of the test
+    above."""
+    body = (await call(me, "GET", f"{path}/steps/4")).json()
+    bill = body["bill"]
+    role = body["moments"]["role"]
+    stored = await games.fact_set(game_id, role)
+    [(total, backorder, ai_held)] = rows(
+        "SELECT sum((w.state_seen->>'week_cost')::numeric), "
+        "sum((SELECT coalesce(sum((l->>'amount')::numeric), 0) "
+        "     FROM jsonb_array_elements(w.state_seen->'cost_lines') l "
+        "     WHERE l->>'kind' = 'backorder')), "
+        "coalesce(sum((w.state_seen->>'week_cost')::numeric) "
+        "FILTER (WHERE w.occupant_kind <> 'student'), 0) "
+        "FROM seat_weeks w WHERE w.game_id = %s",
+        game_id,
+    )
+    assert Decimal(bill["total_cost"]) == total == stored.facts.chain.total_cost
+    assert Decimal(bill["backorder_cost"]) == backorder
+    assert Decimal(bill["ai_held_cost"]) == ai_held == stored.facts.chain.ai_held_cost
+    assert bill["backorder_share_percent"] == _percent(backorder, total)
+    assert bill["ai_held_share_percent"] == _percent(ai_held, total)
+    # Every Seat stayed a Student's (the Rule-based Orders were placed for them): none was held
+    # by an AI player, so the web app shows no AI line (it shows one only above 0).
+    assert (ai_held, bill["ai_held_share_percent"]) == (0, 0)
+    # The Classic costs: a unit in backlog costs 1,00, in inventory 0,50.
+    assert (bill["role"], bill["backorder_costs_double"]) == (role, True)
+    simulated = stored.facts.seat.simulated
+    assert simulated is not None
+    assert bill["simulated"] == {
+        "params_id": "placeholder-unverified",
+        "rows": [row.model_dump(mode="json") for row in simulated.rows],
+    }
+    assert [r["counts_supply_line"] for r in bill["simulated"]["rows"]] == ["own", "all"]
+
+
+def conflict(response, code: str) -> None:
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == code
+
+
+def summaries() -> list[tuple]:
+    return rows("SELECT user_id, moment_ids, reflection FROM debrief_summaries ORDER BY user_id")
+
+
+async def finished(
+    me: str, mate: str, path: str, debrief: dict, session_id: str, game_id: str, emitted
+) -> None:
+    """«Fullfør Debriefen» (Story 9.8, FR-47, AD-7, AD-16): the summary is stored once with the
+    `debrief` step in the same transaction; not before every reflection answer and step 4, and
+    not after the Test deadline. Part of the test above."""
+    mine, theirs = user_id(me), user_id(mate)
+    assert (await call(me, "GET", f"{path}/summary")).json() == {"summary": None}
+    refused(await call(mate, "POST", f"{path}/finish"), "explanation_required")
+    refused(await call(mate, "GET", f"{path}/summary"), "explanation_required")
+
+    emitted.clear()
+    done = await call(me, "POST", f"{path}/finish")
+    assert done.status_code == 200
+    summary = done.json()["summary"]
+    stored = await games.fact_set(game_id, debrief["role"])
+    moment_ids = [moment.id for moment in stored.facts.seat.moments]
+    assert summary["fact_set_id"] == stored.id
+    assert [m["id"] for m in summary["moments"]] == moment_ids and len(moment_ids) == 3
+    shown = (await call(me, "GET", f"{path}/steps/4")).json()["moments"]["moments"]
+    for out, moment in zip(summary["moments"], shown, strict=True):
+        assert out["week"] == moment["week"]
+        for key in ("heading", "reckoning", "later", "patterns"):
+            assert out[key] == moment[key]
+    assert [(a["question_id"], a["text"]) for a in summary["reflection"]] == [
+        ("feelings", " Stressende. "),
+        ("evidence", "Fabrikken svingte mest."),
+        ("structure", "Forsinkelser."),
+    ]
+    assert all(a["prompt"] for a in summary["reflection"])
+    [(finished_at, late)] = rows(
+        "SELECT s.finished_at, s.finished_at > c.debrief_deadline FROM debrief_summaries s "
+        "JOIN class_sessions c ON c.id = s.class_session_id WHERE s.user_id = %s",
+        mine,
+    )
+    assert summary["late"] is bool(late)
+    assert summaries() == [
+        (
+            mine,
+            moment_ids,
+            [
+                {"question_id": q, "questions_version": 1, "text": t}
+                for q, t in (
+                    ("feelings", " Stressende. "),
+                    ("evidence", "Fabrikken svingte mest."),
+                    ("structure", "Forsinkelser."),
+                )
+            ],
+        )
+    ]
+    [(step_at,)] = rows(
+        "SELECT at FROM progress_steps WHERE user_id = %s AND step = 'debrief'", mine
+    )
+    assert step_at == finished_at
+    assert await progress.has_step(mine, uuid.UUID(session_id), "debrief")
+    assert {topic for topic, _ in emitted} == COMMAND_TOPICS["debrief.finish"]
+    assert ("debrief", debrief["id"]) in emitted
+
+    # Again: the stored summary, unchanged, and no event; the row cannot be changed; every step
+    # still reads.
+    emitted.clear()
+    again = await call(me, "POST", f"{path}/finish")
+    assert again.status_code == 200 and again.json() == done.json()
+    assert (await call(me, "GET", f"{path}/summary")).json() == done.json()
+    assert emitted == []
+    with pytest.raises(psycopg.errors.RestrictViolation):
+        execute("UPDATE debrief_summaries SET reflection = '[]'")
+    for step in (2, 3, 4):
+        assert (await call(me, "GET", f"{path}/steps/{step}")).status_code == 200
+
+    # The mate: not before every reflection answer, nor before step 4 was read, nor after the
+    # Test deadline (judged in the database's time); nothing is stored for them.
+    assert (
+        await call(mate, "POST", f"{path}/explanation", json={"text": "Min."})
+    ).status_code == 201
+    conflict(await call(mate, "POST", f"{path}/finish"), "debrief_incomplete")
+    for qid in ("feelings", "evidence", "structure"):
+        answer = await call(mate, "POST", f"{path}/reflection/{qid}", json={"text": "Svar."})
+        assert answer.status_code == 200
+    execute("DELETE FROM debrief_fact_sets WHERE user_id = %s", theirs)
+    conflict(await call(mate, "POST", f"{path}/finish"), "debrief_incomplete")
+    assert (await call(mate, "GET", f"{path}/steps/4")).status_code == 200
+    past = AsyncMock(return_value=(None, datetime(2000, 1, 1, tzinfo=UTC)))
+    with patch("app.modules.debrief.service.sessions.student_deadlines", past):
+        conflict(await call(mate, "POST", f"{path}/finish"), "test_deadline_passed")
+    assert [row[0] for row in summaries()] == [mine]
+    assert not await progress.has_step(theirs, uuid.UUID(session_id), "debrief")
+    execute("DELETE FROM debrief_reflection_answers WHERE user_id = %s", theirs)
+    execute("DELETE FROM debrief_explanations WHERE user_id = %s", theirs)
+    execute("DELETE FROM progress_steps WHERE user_id = %s AND step = 'explanation'", theirs)
+
+
 async def readers(
     session_id: str,
     game_id: str,
@@ -512,6 +660,44 @@ async def readers(
             "forbidden",
         )
 
+    # The Debrief summary (Story 9.8, FR-47, AD-12): the same readers; the Explanation beside it.
+    summary_path = f"/api/class-sessions/{session_id}/students/{user_id(me)}/debrief-summary"
+    own = (await call(me, "GET", f"{path}/summary")).json()["summary"]
+    for who in (ASSISTANT, LECTURER):
+        read = await call(who, "GET", summary_path)
+        assert read.status_code == 200
+        body = read.json()
+        assert (body["student_id"], body["game_id"]) == (str(user_id(me)), game_id)
+        assert body["explanation"] == sent and body["summary"] == own
+        assert body["role"] is not None and body["game_number"] is not None
+        assert "name" not in json.dumps(body)
+    unfinished = f"/api/class-sessions/{session_id}/students/{user_id(mate)}/debrief-summary"
+    theirs = (await call(LECTURER, "GET", unfinished)).json()
+    assert (theirs["explanation"], theirs["summary"]) == (None, None)
+    for who in (me, mate, ADMIN, OTHER):
+        refused(await call(who, "GET", summary_path), "forbidden")
+    for bad in ("nope", str(uuid.uuid4())):
+        url = f"/api/class-sessions/{bad}/students/{user_id(me)}/debrief-summary"
+        refused(await call(LECTURER, "GET", url), "forbidden")
+
+    # Spillinnsikt's links (Story 7.7's hook, on another branch): one Explanation and one summary
+    # link per Student-held Seat, registered once the hook exists.
+    links = await insight.links(None, uuid.UUID(game_id))  # type: ignore[arg-type]
+    held = [s for s in (await games.get_game(game_id)).seats if s.user_id is not None]
+    assert len(links) == 2 * len(held) >= 4
+    page = insight.summary_path(session_id, user_id(me))
+    assert page == f"/klasseokter/{session_id}/studenter/{user_id(me)}/debrief"
+    mine = [link for link in links if str(user_id(me)) in link.href]
+    assert [(link.kind, link.href) for link in mine] == [
+        ("explanation", f"{page}#forklaring"),
+        ("debrief_summary", page),
+    ]
+    registered = []
+    assert insight.register() is hasattr(games, "register_insight_links")
+    with patch.object(games, "register_insight_links", registered.append, create=True):
+        assert insight.register() is True
+    assert registered == [insight.links]
+
     # The Student of the other Class game and the staff reach none of the Debrief's routes.
     for who in (stranger, ASSISTANT):
         for method, url in (
@@ -523,6 +709,8 @@ async def readers(
             ("GET", f"{path}/steps/4"),
             ("GET", f"{path}/reflection"),
             ("POST", f"{path}/reflection/feelings"),
+            ("GET", f"{path}/summary"),
+            ("POST", f"{path}/finish"),
         ):
             kw = {"json": {"text": "x"}} if method == "POST" else {}
             refused(await call(who, method, url, **kw), "forbidden")
@@ -536,7 +724,9 @@ async def readers(
         f"{path}/steps/3",
         f"{path}/steps/4",
         f"{path}/reflection",
+        f"{path}/summary",
     ):
         refused(await call(me, "GET", url), "debrief_not_open")
+    refused(await call(me, "POST", f"{path}/finish"), "debrief_not_open")
     late = await call(me, "POST", f"{path}/reflection/feelings", json={"text": "x"})
     refused(late, "debrief_not_open")

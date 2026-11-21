@@ -28,7 +28,8 @@ export type ChainBillTotal = { holding: string; backorder: string; total: string
  * never per name and never sorted by cost. Under each Role's name a split bar (`lager` | `restordre`)
  * whose numbers stand in the same row; the bar is `aria-hidden`. The viewer's own row is in weight
  * 600 with «(deg)»; «Kjeden», weight 700, stands under an `axis` rule. `extraRows` is the Debrief's
- * slot for its «Simulert» rows (Epic 9) and stays empty on «Spillet er ferdig».
+ * slot for its «Simulert» rows (Story 9.8), in a body of their own after «Kjeden»; it stays empty
+ * on «Spillet er ferdig».
  */
 export function ChainBill({
   rows,
@@ -44,6 +45,16 @@ export function ChainBill({
   className?: string;
 }) {
   const cell = "py-1.5 pl-3 text-right align-top";
+  const chainRow = (
+    <tr data-chain-row="" className="border-t border-axis font-bold">
+      <th scope="row" className="py-1.5 text-left">
+        {copy.chain}
+      </th>
+      <td className={cell}>{chain.holding}</td>
+      <td className={cell}>{chain.backorder}</td>
+      <td className={cell}>{chain.total}</td>
+    </tr>
+  );
   return (
     <section aria-labelledby={titleId} data-chain-bill="" className={className}>
       <h2 id={titleId} className="text-headline text-ink">
@@ -100,18 +111,11 @@ export function ChainBill({
                 <td className={cn(cell, "pb-3")}>{row.total}</td>
               </tr>
             ))}
-            {extraRows}
+            {extraRows ? chainRow : null}
           </tbody>
-          <tfoot>
-            <tr data-chain-row="" className="border-t border-axis font-bold">
-              <th scope="row" className="py-1.5 text-left">
-                {copy.chain}
-              </th>
-              <td className={cell}>{chain.holding}</td>
-              <td className={cell}>{chain.backorder}</td>
-              <td className={cell}>{chain.total}</td>
-            </tr>
-          </tfoot>
+          {/* The Debrief's rows come after «Kjeden», so they never read as part of its sum; a
+              table may have nothing after its `tfoot`, so the sum row then ends the first body. */}
+          {extraRows ? <tbody data-extra-rows="">{extraRows}</tbody> : <tfoot>{chainRow}</tfoot>}
         </table>
       </ScrollRegion>
     </section>

@@ -96,3 +96,30 @@ The Debrief (Epic 9, FR-41 to FR-47, AD-21). Never imports `modules/players`
   facts set carries the flag that leaves the Student out of SM-1 and SM-2.
 - Only the caller's own Seat: the route takes no Student or Seat, so no Group member or shared
   screen reads another Student's moments (FR-43).
+
+## Kjedens regning and finishing (Story 9.8, FR-44, FR-47, FR-18, AD-1, AD-7, AD-12, AD-16)
+
+- Step 4 also answers `bill`, from the same stored facts set: the chain's Total and backorder
+  cost, the restordre share (whole percent, half up), whether backlog costs twice inventory, the
+  AI-held cost and share, and «Simulert, samme kunder» (`seat.simulated`, analysis version 2:
+  `analysis.simulated.simulate` over the Game's settings, stored demand series and frozen
+  Rule-based set; row `own`, only the viewer counts På vei; row `all`, every Seat does). A set
+  stored under version 1 has no rows (`simulated` null). The Role rows and Kjedens kostnad over
+  tid are the game result's (`/api/me/games/{id}/result`, Story 6.18).
+- `POST /api/debriefs/{id}/finish` («Fullfør Debriefen») runs `commands.finish`: the Debrief row
+  locked; 409 `debrief_incomplete` until every pinned reflection question is answered and step 4
+  was read (`debrief_fact_sets`), 409 `test_deadline_passed` once the database time is past the
+  Student's `effective_test_deadline`; then one `debrief_summaries` row (moment ids, reflection
+  answers with their version, the cited `fact_set_id`, `finished_at` in database time; never
+  changed, trigger) and `progress.record_step(debrief, finished_at)` in the same transaction;
+  `debrief:<id>` emitted (registry `debrief.finish`). A repeat answers the stored summary and
+  emits nothing. `GET /api/debriefs/{id}/summary` reads the own summary (null until finished).
+- `GET /api/class-sessions/{id}/students/{user_id}/debrief-summary` (`debrief_summaries.read`:
+  the Class's owners and Assistant lecturers) answers `service.staff_summary`: the Explanation
+  and the summary (moments rendered from the cited set, answers with their prompts,
+  `finished_at`, `late` against the effective Debrief deadline), each null while missing; ids and
+  Roles only. Studentside and the Student report read through the same function.
+- `insight.links` offers Spillinnsikt (Story 7.7) one `explanation` and one `debrief_summary`
+  link per Student-held Seat, to `/klasseokter/<session>/studenter/<student>/debrief`; it is
+  registered through `games.service.register_insight_links` when that hook exists (Story 7.7 is
+  on another branch until the merge), so `games` imports nothing from `debrief`.

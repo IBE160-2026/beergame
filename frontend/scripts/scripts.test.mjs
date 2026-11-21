@@ -45,6 +45,12 @@ describe("copy check", () => {
     expect(checkText("Fasit!", { preDebrief: false })).toEqual(["exclamation", "fasit"]);
   });
 
+  it("allows the spine's «Simulert» line word for word and no other «fasit»", () => {
+    expect(checkText("Simulert viser sammenhengen, ikke en fasit.")).toEqual([]);
+    expect(checkText("Simulert viser sammenhengen, ikke en fasit")).toEqual(["fasit"]);
+    expect(checkText("Simulert viser sammenhengen, ikke en fasit. Men en fasit likevel.")).toEqual(["fasit"]);
+  });
+
   it("reads string values but not keys, imports or comments, and knows each string's section", () => {
     const strings = stringsFromSource(
       `import x from "bad!";\n// optimal!\nexport const nb = { "a!": "ok", debrief: { b: \`Uke \${n}!\` } };`,

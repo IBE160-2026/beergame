@@ -643,6 +643,74 @@
         "title": "AuditTarget",
         "type": "object"
       },
+      "BillOut": {
+        "description": "The Debrief's extra lines under Kjedens regning (Story 9.8, FR-44, UX-DR36), every number\nfrom the stored facts set of the Student's own Seat (AD-7). The Role rows and Kjedens kostnad\nover tid are the game result's (`/api/me/games/{id}/result`, Story 6.18).",
+        "properties": {
+          "ai_held_cost": {
+            "title": "Ai Held Cost",
+            "type": "string"
+          },
+          "ai_held_share_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Held Share Percent"
+          },
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "backorder_costs_double": {
+            "title": "Backorder Costs Double",
+            "type": "boolean"
+          },
+          "backorder_share_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backorder Share Percent"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "simulated": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SimulatedOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "total_cost",
+          "backorder_cost",
+          "backorder_share_percent",
+          "backorder_costs_double",
+          "ai_held_cost",
+          "ai_held_share_percent",
+          "simulated"
+        ],
+        "title": "BillOut",
+        "type": "object"
+      },
       "BounceClass": {
         "description": "Why a mail did not reach its address: `hard` the provider calls permanent (the address\ndoes not exist or refuses mail), `soft` every other bounce (a full mailbox, a server down).",
         "enum": [
@@ -1786,8 +1854,18 @@
         "type": "string"
       },
       "DebriefStepOut": {
-        "description": "A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2\ncarries the reveal (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the own moments\n(Story 9.7); step 5 gets its content with Story 9.9 and until then answers the step number\nonly.",
+        "description": "A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2\ncarries the reveal (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the own moments\n(Story 9.7) and the Debrief's lines under Kjedens regning (Story 9.8); step 5 gets its content\nwith Story 9.9 and until then answers the step number only.",
         "properties": {
+          "bill": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BillOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "chain": {
             "anyOf": [
               {
@@ -3354,6 +3432,26 @@
           "explanation"
         ],
         "title": "MyExplanationOut",
+        "type": "object"
+      },
+      "MySummaryOut": {
+        "description": "The Student's own Debrief summary, `summary` None until «Fullfør Debriefen».",
+        "properties": {
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SummaryOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "summary"
+        ],
+        "title": "MySummaryOut",
         "type": "object"
       },
       "NeighbourNumber": {
@@ -5136,6 +5234,61 @@
         "title": "SettingsCheckOut",
         "type": "object"
       },
+      "SimulatedOut": {
+        "description": "«Simulert, samme kunder» (Story 9.8, FR-44, UX-DR36): the two rows stored in the facts set,\nplayed with the Rule-based parameter set `params_id` (placeholders, issues #8, #17).",
+        "properties": {
+          "params_id": {
+            "title": "Params Id",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/SimulatedRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "params_id",
+          "rows"
+        ],
+        "title": "SimulatedOut",
+        "type": "object"
+      },
+      "SimulatedRowOut": {
+        "description": "One «Simulert, samme kunder» row: the chain's cost over the whole simulated Game.",
+        "properties": {
+          "backorder_cost": {
+            "title": "Backorder Cost",
+            "type": "string"
+          },
+          "counts_supply_line": {
+            "enum": [
+              "own",
+              "all"
+            ],
+            "title": "Counts Supply Line",
+            "type": "string"
+          },
+          "holding_cost": {
+            "title": "Holding Cost",
+            "type": "string"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          }
+        },
+        "required": [
+          "counts_supply_line",
+          "holding_cost",
+          "backorder_cost",
+          "total_cost"
+        ],
+        "title": "SimulatedRowOut",
+        "type": "object"
+      },
       "StaffAssistant": {
         "description": "An Assistant of the Class: `active` (staff, `user_id` set), or an Invitation not yet\naccepted (`invitation_id` set): `invited` with its last valid day, or `expired`.",
         "properties": {
@@ -5283,6 +5436,79 @@
         ],
         "title": "StaffStatus",
         "type": "string"
+      },
+      "StaffSummaryOut": {
+        "description": "A Student's Explanation and Debrief summary for the Class's staff (Story 9.8, FR-47,\nAD-12); each None while not sent or not finished. Ids and Roles only, no names (AD-14).",
+        "properties": {
+          "explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExplanationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "game_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Id"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Role"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "student_id": {
+            "format": "uuid",
+            "title": "Student Id",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SummaryOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "student_id",
+          "game_id",
+          "game_number",
+          "role",
+          "explanation",
+          "summary"
+        ],
+        "title": "StaffSummaryOut",
+        "type": "object"
       },
       "StartedTestGameOut": {
         "description": "The test Game just started (Story 6.20); the web app opens its play route.",
@@ -5590,6 +5816,111 @@
           "value"
         ],
         "title": "SumTermOut",
+        "type": "object"
+      },
+      "SummaryAnswerOut": {
+        "description": "A reflection answer as the Debrief summary stored it, with its question's prompt.",
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "prompt",
+          "text"
+        ],
+        "title": "SummaryAnswerOut",
+        "type": "object"
+      },
+      "SummaryMomentOut": {
+        "description": "A key moment of the summary, rendered by code from the cited facts set (AD-7).",
+        "properties": {
+          "heading": {
+            "$ref": "#/components/schemas/RenderedTextOut"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "later": {
+            "$ref": "#/components/schemas/RenderedTextOut"
+          },
+          "patterns": {
+            "items": {
+              "$ref": "#/components/schemas/RenderedTextOut"
+            },
+            "title": "Patterns",
+            "type": "array"
+          },
+          "reckoning": {
+            "$ref": "#/components/schemas/RenderedTextOut"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "week",
+          "heading",
+          "reckoning",
+          "later",
+          "patterns"
+        ],
+        "title": "SummaryMomentOut",
+        "type": "object"
+      },
+      "SummaryOut": {
+        "description": "A Student's finished Debrief (Story 9.8, FR-47): the facts set it cites, the key moments,\nthe reflection answers in the order asked, when it was finished and whether that was after\nthe Student's Debrief deadline (`late`, from the stored time).",
+        "properties": {
+          "fact_set_id": {
+            "format": "uuid",
+            "title": "Fact Set Id",
+            "type": "string"
+          },
+          "finished_at": {
+            "format": "date-time",
+            "title": "Finished At",
+            "type": "string"
+          },
+          "late": {
+            "title": "Late",
+            "type": "boolean"
+          },
+          "moments": {
+            "items": {
+              "$ref": "#/components/schemas/SummaryMomentOut"
+            },
+            "title": "Moments",
+            "type": "array"
+          },
+          "reflection": {
+            "items": {
+              "$ref": "#/components/schemas/SummaryAnswerOut"
+            },
+            "title": "Reflection",
+            "type": "array"
+          }
+        },
+        "required": [
+          "fact_set_id",
+          "finished_at",
+          "late",
+          "moments",
+          "reflection"
+        ],
+        "title": "SummaryOut",
         "type": "object"
       },
       "SupplyLineSlot": {
@@ -8857,6 +9188,78 @@
         ]
       }
     },
+    "/api/class-sessions/{session_id}/students/{student_id}/debrief-summary": {
+      "get": {
+        "description": "A Student's Explanation and Debrief summary for the Class's owners and Assistant\nlecturers (Story 9.8, FR-47, AD-12), each null while not sent or not finished: the key\nmoments, the reflection answers, the completion time and whether it was after the Debrief\ndeadline. 403 `forbidden` for every other caller.",
+        "operationId": "getStudentDebriefSummary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "student_id",
+            "required": true,
+            "schema": {
+              "title": "Student Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffSummaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Student Debrief Summary",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
     "/api/class-sessions/{session_id}/students/{student_id}/explanation": {
       "get": {
         "description": "A Student's Explanation for the Class's owners and Assistant lecturers (AD-12). 404\n`not_found` when the Student has not sent one; 403 `forbidden` for every other caller.",
@@ -11108,6 +11511,79 @@
         ]
       }
     },
+    "/api/debriefs/{debrief_id}/finish": {
+      "post": {
+        "description": "«Fullfør Debriefen» (Story 9.8, FR-47, AD-16): stores the Student's Debrief summary once\n(the key moments by fact id, the reflection answers, the facts set they cite and the time)\nand records the `debrief` step with it; a finished Debrief answers its stored summary\nunchanged. 409 `debrief_incomplete` while a reflection question is unanswered or step 4 was\nnot read, 409 `test_deadline_passed` after the Student's Test deadline, 403\n`explanation_required` before the Explanation.",
+        "operationId": "finishMyDebrief",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MySummaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finish My Debrief",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
     "/api/debriefs/{debrief_id}/net-inventory": {
       "get": {
         "description": "«Ditt netto lager, hele spillet» (Story 9.3, step 1): the Netto lager of the Student's own\nSeat in every Uke, oldest first. Never demand or another Seat (FR-14).",
@@ -11405,6 +11881,69 @@
           }
         },
         "summary": "Get Debrief Step",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/summary": {
+      "get": {
+        "description": "The Student's own Debrief summary (Story 9.8), `summary` null until «Fullfør Debriefen».\n403 `explanation_required` before the Explanation.",
+        "operationId": "getMyDebriefSummary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MySummaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Debrief Summary",
         "tags": [
           "debrief"
         ]

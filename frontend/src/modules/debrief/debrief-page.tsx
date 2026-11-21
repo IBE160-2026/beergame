@@ -19,6 +19,7 @@ import {
   useMyExplanation,
   useMyReflection,
 } from "./api";
+import { BillStep } from "./bill-step";
 import { ExplanationStep } from "./explanation-step";
 import { ChainStep } from "./chain-step";
 import { MomentsStep } from "./moments-step";
@@ -88,7 +89,8 @@ function DebriefView({
 /** The Student's Role under the title, then the steps as `07-debrief.png` numbers them («1 Skriv
  * Forklaringen først»): step 1, and once the Explanation is saved, steps 2 and 3 under it, so the
  * Explanation stays beside the data, then the reflection questions (Story 9.6) and, once they are
- * all answered, the own moments (Story 9.7). The step pointer stays where the session stands
+ * all answered, the own moments (Story 9.7), then Kjedens regning and «Fullfør Debriefen» (Story
+ * 9.8). A finished Debrief reads the same, with nothing left to send. The step pointer stays where the session stands
  * (moving on together comes with the Group debrief, Story 9.11). */
 function Steps({ debrief, userId }: { debrief: Debrief; userId: string }) {
   const heading = debrief.step === 1 ? copy.firstStep : null;
@@ -119,6 +121,7 @@ function Steps({ debrief, userId }: { debrief: Debrief; userId: string }) {
       {sent ? <ChainStep debrief={debrief} /> : null}
       {sent ? <ReflectionStep debrief={debrief} userId={userId} /> : null}
       {sent && reflected ? <MomentsStep debrief={debrief} /> : null}
+      {sent && reflected ? <BillStep debrief={debrief} /> : null}
     </>
   );
 }

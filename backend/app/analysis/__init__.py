@@ -8,4 +8,7 @@
 - `sentences`: the sentence templates' shape and the code-rendered Debrief text
   (`demand_heading`, Story 9.4, AD-7).
 - `moments`: the own moments rendered from a stored facts set (`render`, Story 9.7, FR-44, AD-7).
+- `simulated`: «Simulert, samme kunder», the Game played again by the Rule-based rule with only
+  the viewer's Seat, then every Seat, counting På vei (`simulate`, Story 9.8, FR-44); stored in
+  the facts set.
 """

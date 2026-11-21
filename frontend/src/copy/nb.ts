@@ -2246,6 +2246,57 @@ export const nb = {
       /** [ASSUMPTION] the moments could not be read; «Prøv igjen» beside it. */
       loadFailed: "Øyeblikkene kunne ikke hentes.",
     },
+    /** The end of step 4: Kjedens regning with the Debrief's rows and lines, and «Fullfør
+     * Debriefen» (Story 9.8, UX-DR36, EXPERIENCE.md → Debrief). «Simulert, samme kunder», the
+     * restordre line and «Simulert viser sammenhengen, ikke en fasit.» are the spine's (with «du»
+     * for the viewer's name); the rest is [ASSUMPTION] draft copy. */
+    bill: {
+      simulated: "Simulert, samme kunder",
+      simulatedOwn: "Bare du teller på vei",
+      simulatedAll: "Alle fire teller på vei",
+      simulatedNote: "Simulert viser sammenhengen, ikke en fasit.",
+      /** [ASSUMPTION] how the simulated rows were played. */
+      simulatedRule:
+        "Samme kunder og samme kjede, spilt med én fast regel for alle fire roller. En rolle som teller på vei, regner med det den har bestilt og ikke fått ennå.",
+      shareDouble: (percent: number) => `Restordre er ${percent} % av kjedens regning, fordi den koster dobbelt.`,
+      /** [ASSUMPTION] when backlog does not cost twice inventory. */
+      share: (percent: number) => `Restordre er ${percent} % av kjedens regning.`,
+      /** [ASSUMPTION] the AI-held share (FR-44), under Kjedens regning. */
+      aiShare: (percent: number, kroner: string) =>
+        `${percent} % av kjedens regning, ${kroner}, kom i uker der en KI-spiller hadde et sete.`,
+      /** [ASSUMPTION] */
+      finish: "Fullfør Debriefen",
+      /** [ASSUMPTION] above the button. */
+      finishHint: "Når du fullfører, lagres Debriefen din. Du kan lese alt igjen etterpå, men ingenting kan endres.",
+      /** [ASSUMPTION] once finished, with «ti. 24. nov. kl. 10:00». */
+      finished: (when: string) => `Debriefen er fullført ${when}. Du kan lese alt igjen, men ingenting kan endres.`,
+      /** [ASSUMPTION] 409 `debrief_incomplete`. */
+      incomplete: "Svar på alle spørsmålene og les øyeblikkene før du fullfører.",
+      /** [ASSUMPTION] 409 `test_deadline_passed`. */
+      deadlinePassed: "Testfristen er passert, så Debriefen kan ikke fullføres lenger.",
+      failed: "Det ble ikke lagret. Prøv igjen.",
+      /** [ASSUMPTION] the bill could not be read; «Prøv igjen» beside it. */
+      loadFailed: "Kjedens regning kunne ikke hentes.",
+      /** [ASSUMPTION] whether the Debrief is finished could not be read; «Prøv igjen» beside it. */
+      summaryFailed: "Det kunne ikke hentes om Debriefen er fullført.",
+    },
+    /** A Student's Explanation and Debrief summary for the Class's staff (Story 9.8, FR-47),
+     * reached from Spillinnsikt. All [ASSUMPTION] draft copy. */
+    staffSummary: {
+      title: "Debrief-sammendrag",
+      crumb: "Debrief-sammendrag",
+      explanation: "Forklaring",
+      noExplanation: "Studenten har ikke sendt Forklaringen ennå.",
+      sentAt: (when: string) => `Sendt ${when}.`,
+      summary: "Debriefen",
+      notFinished: "Studenten har ikke fullført Debriefen ennå.",
+      finishedAt: (when: string) => `Fullført ${when}.`,
+      late: "Det var etter Debrief-fristen.",
+      moments: "Øyeblikk",
+      noMoments: "Ingen egne øyeblikk: Klassespillet ble spilt mest av KI-spillere.",
+      reflection: "Spørsmål til ettertanke",
+      noStudent: "Studenten har ikke noe Klassespill i denne Klasseøkten.",
+    },
   },
 
   /** Links between pages (Story 3.3). Each names where it goes. */

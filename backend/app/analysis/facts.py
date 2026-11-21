@@ -15,6 +15,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.analysis.patterns import Mechanism, PatternSet
+from app.analysis.simulated import SimulatedChain, SimulationInput, simulate
 from app.engine import Role
 
 __all__ = [
@@ -34,8 +35,9 @@ __all__ = [
     "facts",
 ]
 
-ANALYSIS_VERSION = 1
-"""The version of these rules; stored with every facts set (AD-7)."""
+ANALYSIS_VERSION = 2
+"""The version of these rules; stored with every facts set (AD-7). Version 2 (Story 9.8) adds the
+Seat's «Simulert, samme kunder» rows; a set stored under version 1 has none and stays as stored."""
 LARGE_ORDER = 10
 """An Order of this many units or more is large (FR-44: the first such Week per Role)."""
 MIN_STUDENT_ORDERS = 10
@@ -200,6 +202,9 @@ class SeatFacts(BaseModel):
     """Fewer than `MIN_STUDENT_ORDERS` Student Orders: left out of SM-1 and SM-2 (FR-44)."""
     patterns: tuple[PatternOccurrence, ...]
     moments: tuple[Moment, ...]
+    simulated: SimulatedChain | None = None
+    """«Simulert, samme kunder» for this Seat (`analysis.simulated`, Story 9.8); None in a set
+    stored under version 1 and when no simulation input was given."""
 
 
 class FactSet(BaseModel):
@@ -371,8 +376,15 @@ def _moments(weeks: Sequence[_SeatWeek], found: Sequence[PatternOccurrence]) -> 
     ]
 
 
-def facts(decision_log: DecisionLog, seat: Role | str, pattern_definitions: PatternSet) -> FactSet:
-    """The facts set of the Seat of `seat` (its Role) from the Game's whole Decision log."""
+def facts(
+    decision_log: DecisionLog,
+    seat: Role | str,
+    pattern_definitions: PatternSet,
+    simulation: SimulationInput | None = None,
+) -> FactSet:
+    """The facts set of the Seat of `seat` (its Role) from the Game's whole Decision log, with its
+    «Simulert, samme kunder» rows when `simulation` (the Game's snapshot and frozen Rule-based
+    parameter set) is given."""
     role = Role(seat)
     if role not in decision_log.roles:
         raise ValueError(f"{role} is not a Role in this Game")
@@ -389,5 +401,16 @@ def facts(decision_log: DecisionLog, seat: Role | str, pattern_definitions: Patt
             sm_excluded=excluded,
             patterns=tuple(found),
             moments=() if excluded else tuple(_moments(weeks, found)),
+            simulated=(
+                None
+                if simulation is None
+                else simulate(
+                    simulation.settings,
+                    simulation.rules_version,
+                    simulation.demand,
+                    simulation.params,
+                    role,
+                )
+            ),
         ),
     )

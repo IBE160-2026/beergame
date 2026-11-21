@@ -1,15 +1,16 @@
-"""The only writer of the Debrief tables (Stories 9.2, 9.3, 9.6, 9.7, AD-21, AD-8).
+"""The only writer of the Debrief tables (Stories 9.2, 9.3, 9.6 to 9.8, AD-21, AD-8).
 
 Each command on a Debrief session locks its row and emits `debrief:<id>` (`platform/events`
 registry: `debrief.open`, `debrief.save_explanation`, `debrief.complete_step`,
-`debrief.record_facts`). `release` writes
+`debrief.record_facts`, `debrief.finish`). `release` writes
 the Class session's release once and tells each Student who holds a Seat through
 `platform/notify` (`debrief.release`). Arguments are ids and the Student's text only."""
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 import structlog
 from sqlalchemy import func, select
@@ -22,6 +23,7 @@ from app.modules.debrief.models import (
     debrief_reflection_answers,
     debrief_releases,
     debrief_sessions,
+    debrief_summaries,
 )
 from app.modules.debrief.rules import all_class_games_finished
 from app.modules.progress import service as progress
@@ -277,3 +279,118 @@ async def record_facts(
         )
     assert stored is not None
     return stored
+
+
+class DebriefIncomplete(Exception):
+    """«Fullfør Debriefen» before every reflection question is answered or before step 4 was seen
+    (409 `debrief_incomplete`)."""
+
+
+class TestDeadlinePassed(Exception):
+    """«Fullfør Debriefen» after the Student's Test deadline (409 `test_deadline_passed`): the
+    Debrief stays open until then (FR-18)."""
+
+
+@dataclass(frozen=True)
+class SummaryRow:
+    game_id: uuid.UUID
+    fact_set_id: uuid.UUID
+    moment_ids: tuple[str, ...]
+    reflection: tuple[dict[str, Any], ...]
+    finished_at: datetime
+
+
+def summary_of(row) -> SummaryRow:
+    return SummaryRow(
+        game_id=row["game_id"],
+        fact_set_id=row["fact_set_id"],
+        moment_ids=tuple(row["moment_ids"]),
+        reflection=tuple(row["reflection"]),
+        finished_at=row["finished_at"],
+    )
+
+
+async def finish(
+    game_id: uuid.UUID,
+    class_session_id: uuid.UUID,
+    user_id: uuid.UUID,
+    question_ids: Sequence[str],
+    moment_ids_of: Callable[[uuid.UUID], Awaitable[Sequence[str]]],
+    test_deadline: datetime | None,
+) -> tuple[SummaryRow, bool]:
+    """«Fullfør Debriefen» (Story 9.8, FR-47, AD-7, AD-16): store the Student's Debrief summary
+    once (the key moments by fact id, the reflection answers in the order asked, the facts set
+    their moments cite and the database time) and record the `debrief` step at that time in the
+    same transaction. The Debrief row of the Game is locked; a new summary emits `debrief:<id>`
+    (and `progress` its `user` and `session`). `question_ids` are the pinned reflection questions
+    in the order asked; `moment_ids_of(fact_set_id)` gives the cited set's moment ids.
+
+    A stored summary is returned unchanged with False, and emits nothing (a retry, a second
+    device). Raises `DebriefIncomplete` while a question is unanswered or the facts set is not
+    recorded (step 4 not seen), and `TestDeadlinePassed` once the database time is past
+    `test_deadline`."""
+    async with get_sessionmaker().begin() as session:
+        debrief = await _locked(session, game_id)
+        mine = (
+            debrief_summaries.c.user_id == user_id,
+            debrief_summaries.c.class_session_id == class_session_id,
+        )
+        stored = (
+            (await session.execute(select(debrief_summaries).where(*mine))).mappings().one_or_none()
+        )
+        if stored is not None:
+            return summary_of(stored), False
+        if test_deadline is not None and await session.scalar(select(func.now() > test_deadline)):
+            raise TestDeadlinePassed
+        cited = await session.scalar(
+            select(debrief_fact_sets.c.fact_set_id).where(
+                debrief_fact_sets.c.user_id == user_id,
+                debrief_fact_sets.c.class_session_id == class_session_id,
+            )
+        )
+        answered = {
+            row["question_id"]: row
+            for row in (
+                await session.execute(
+                    select(debrief_reflection_answers).where(
+                        debrief_reflection_answers.c.user_id == user_id,
+                        debrief_reflection_answers.c.class_session_id == class_session_id,
+                    )
+                )
+            ).mappings()
+        }
+        if cited is None or not question_ids or any(q not in answered for q in question_ids):
+            raise DebriefIncomplete
+        reflection = [
+            {
+                "question_id": q,
+                "questions_version": answered[q]["questions_version"],
+                "text": answered[q]["text"],
+            }
+            for q in question_ids
+        ]
+        saved = (
+            (
+                await session.execute(
+                    insert(debrief_summaries)
+                    .values(
+                        user_id=user_id,
+                        class_session_id=class_session_id,
+                        game_id=game_id,
+                        fact_set_id=cited,
+                        moment_ids=list(await moment_ids_of(cited)),
+                        reflection=reflection,
+                        finished_at=func.now(),
+                    )
+                    .returning(*debrief_summaries.c)
+                )
+            )
+            .mappings()
+            .one()
+        )
+        await progress.record_step(
+            user_id, class_session_id, progress.Step.DEBRIEF, saved["finished_at"], within=session
+        )
+        await events.emit(session, "debrief", str(debrief.id))
+    log.info("debrief_finished", debrief_id=str(debrief.id))
+    return summary_of(saved), True

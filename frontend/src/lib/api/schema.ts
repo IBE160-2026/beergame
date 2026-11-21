@@ -778,6 +778,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/students/{student_id}/debrief-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Student Debrief Summary
+         * @description A Student's Explanation and Debrief summary for the Class's owners and Assistant
+         *     lecturers (Story 9.8, FR-47, AD-12), each null while not sent or not finished: the key
+         *     moments, the reflection answers, the completion time and whether it was after the Debrief
+         *     deadline. 403 `forbidden` for every other caller.
+         */
+        get: operations["getStudentDebriefSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/students/{student_id}/explanation": {
         parameters: {
             query?: never;
@@ -1409,6 +1432,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/debriefs/{debrief_id}/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish My Debrief
+         * @description «Fullfør Debriefen» (Story 9.8, FR-47, AD-16): stores the Student's Debrief summary once
+         *     (the key moments by fact id, the reflection answers, the facts set they cite and the time)
+         *     and records the `debrief` step with it; a finished Debrief answers its stored summary
+         *     unchanged. 409 `debrief_incomplete` while a reflection question is unanswered or step 4 was
+         *     not read, 409 `test_deadline_passed` after the Student's Test deadline, 403
+         *     `explanation_required` before the Explanation.
+         */
+        post: operations["finishMyDebrief"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/debriefs/{debrief_id}/net-inventory": {
         parameters: {
             query?: never;
@@ -1498,6 +1546,27 @@ export interface paths {
          *     no route serves another Student's moments (FR-43).
          */
         get: operations["getDebriefStep"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Debrief Summary
+         * @description The Student's own Debrief summary (Story 9.8), `summary` null until «Fullfør Debriefen».
+         *     403 `explanation_required` before the Explanation.
+         */
+        get: operations["getMyDebriefSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2193,6 +2262,28 @@ export interface components {
             label: string | null;
         };
         /**
+         * BillOut
+         * @description The Debrief's extra lines under Kjedens regning (Story 9.8, FR-44, UX-DR36), every number
+         *     from the stored facts set of the Student's own Seat (AD-7). The Role rows and Kjedens kostnad
+         *     over tid are the game result's (`/api/me/games/{id}/result`, Story 6.18).
+         */
+        BillOut: {
+            /** Ai Held Cost */
+            ai_held_cost: string;
+            /** Ai Held Share Percent */
+            ai_held_share_percent: number | null;
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Backorder Costs Double */
+            backorder_costs_double: boolean;
+            /** Backorder Share Percent */
+            backorder_share_percent: number | null;
+            role: components["schemas"]["Role"];
+            simulated: components["schemas"]["SimulatedOut"] | null;
+            /** Total Cost */
+            total_cost: string;
+        };
+        /**
          * BounceClass
          * @description Why a mail did not reach its address: `hard` the provider calls permanent (the address
          *     does not exist or refuses mail), `soft` every other bounce (a full mailbox, a server down).
@@ -2662,10 +2753,11 @@ export interface components {
          * DebriefStepOut
          * @description A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2
          *     carries the reveal (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the own moments
-         *     (Story 9.7); step 5 gets its content with Story 9.9 and until then answers the step number
-         *     only.
+         *     (Story 9.7) and the Debrief's lines under Kjedens regning (Story 9.8); step 5 gets its content
+         *     with Story 9.9 and until then answers the step number only.
          */
         DebriefStepOut: {
+            bill?: components["schemas"]["BillOut"] | null;
             chain?: components["schemas"]["ChainOut"] | null;
             /**
              * Debrief Id
@@ -3410,6 +3502,13 @@ export interface components {
          */
         MyExplanationOut: {
             explanation: components["schemas"]["ExplanationOut"] | null;
+        };
+        /**
+         * MySummaryOut
+         * @description The Student's own Debrief summary, `summary` None until «Fullfør Debriefen».
+         */
+        MySummaryOut: {
+            summary: components["schemas"]["SummaryOut"] | null;
         };
         /**
          * NeighbourNumber
@@ -4237,6 +4336,34 @@ export interface components {
             warnings: components["schemas"]["SettingWarning"][];
         };
         /**
+         * SimulatedOut
+         * @description «Simulert, samme kunder» (Story 9.8, FR-44, UX-DR36): the two rows stored in the facts set,
+         *     played with the Rule-based parameter set `params_id` (placeholders, issues #8, #17).
+         */
+        SimulatedOut: {
+            /** Params Id */
+            params_id: string;
+            /** Rows */
+            rows: components["schemas"]["SimulatedRowOut"][];
+        };
+        /**
+         * SimulatedRowOut
+         * @description One «Simulert, samme kunder» row: the chain's cost over the whole simulated Game.
+         */
+        SimulatedRowOut: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /**
+             * Counts Supply Line
+             * @enum {string}
+             */
+            counts_supply_line: "own" | "all";
+            /** Holding Cost */
+            holding_cost: string;
+            /** Total Cost */
+            total_cost: string;
+        };
+        /**
          * StaffAssistant
          * @description An Assistant of the Class: `active` (staff, `user_id` set), or an Invitation not yet
          *     accepted (`invitation_id` set): `invited` with its last valid day, or `expired`.
@@ -4301,6 +4428,25 @@ export interface components {
          * @enum {string}
          */
         StaffStatus: "active" | "invited" | "expired";
+        /**
+         * StaffSummaryOut
+         * @description A Student's Explanation and Debrief summary for the Class's staff (Story 9.8, FR-47,
+         *     AD-12); each None while not sent or not finished. Ids and Roles only, no names (AD-14).
+         */
+        StaffSummaryOut: {
+            explanation: components["schemas"]["ExplanationOut"] | null;
+            /** Game Id */
+            game_id: string | null;
+            /** Game Number */
+            game_number: number | null;
+            role: components["schemas"]["Role"] | null;
+            /**
+             * Student Id
+             * Format: uuid
+             */
+            student_id: string;
+            summary: components["schemas"]["SummaryOut"] | null;
+        };
         /**
          * StartedTestGameOut
          * @description The test Game just started (Story 6.20); the web app opens its play route.
@@ -4424,6 +4570,57 @@ export interface components {
             sign: 1 | -1;
             /** Value */
             value: number;
+        };
+        /**
+         * SummaryAnswerOut
+         * @description A reflection answer as the Debrief summary stored it, with its question's prompt.
+         */
+        SummaryAnswerOut: {
+            /** Prompt */
+            prompt: string;
+            /** Question Id */
+            question_id: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * SummaryMomentOut
+         * @description A key moment of the summary, rendered by code from the cited facts set (AD-7).
+         */
+        SummaryMomentOut: {
+            heading: components["schemas"]["RenderedTextOut"];
+            /** Id */
+            id: string;
+            later: components["schemas"]["RenderedTextOut"];
+            /** Patterns */
+            patterns: components["schemas"]["RenderedTextOut"][];
+            reckoning: components["schemas"]["RenderedTextOut"];
+            /** Week */
+            week: number;
+        };
+        /**
+         * SummaryOut
+         * @description A Student's finished Debrief (Story 9.8, FR-47): the facts set it cites, the key moments,
+         *     the reflection answers in the order asked, when it was finished and whether that was after
+         *     the Student's Debrief deadline (`late`, from the stored time).
+         */
+        SummaryOut: {
+            /**
+             * Fact Set Id
+             * Format: uuid
+             */
+            fact_set_id: string;
+            /**
+             * Finished At
+             * Format: date-time
+             */
+            finished_at: string;
+            /** Late */
+            late: boolean;
+            /** Moments */
+            moments: components["schemas"]["SummaryMomentOut"][];
+            /** Reflection */
+            reflection: components["schemas"]["SummaryAnswerOut"][];
         };
         /**
          * SupplyLineSlot
@@ -6714,6 +6911,56 @@ export interface operations {
             };
         };
     };
+    getStudentDebriefSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                student_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffSummaryOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getStudentExplanation: {
         parameters: {
             query?: never;
@@ -8446,6 +8693,64 @@ export interface operations {
             };
         };
     };
+    finishMyDebrief: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySummaryOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getMyNetInventory: {
         parameters: {
             query?: never;
@@ -8635,6 +8940,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DebriefStepOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyDebriefSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySummaryOut"];
                 };
             };
             /** @description Unauthorized */

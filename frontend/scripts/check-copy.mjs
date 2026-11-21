@@ -21,6 +21,10 @@ export const POST_DEBRIEF_SECTIONS = new Set(["debrief", "replay", "individualTe
 
 const NOT_LETTER_BEFORE = "(?<![\\p{L}\\p{N}])";
 
+/** The spine's line under every «Simulert» number (EXPERIENCE.md → Voice), the only «fasit» copy
+ * may hold, and only word for word. */
+export const SIMULATED_NOTE = "Simulert viser sammenhengen, ikke en fasit.";
+
 export const RULES = [
   { id: "exclamation", message: "utropstegn", pattern: /!/u },
   {
@@ -30,7 +34,14 @@ export const RULES = [
     prepare: (text) => text.replace(/ØL-spillet\p{L}*/gu, ""),
   },
   { id: "optimal", message: "«optimal»", pattern: new RegExp(`${NOT_LETTER_BEFORE}optimal`, "iu") },
-  { id: "fasit", message: "«fasit»", pattern: new RegExp(`${NOT_LETTER_BEFORE}fasit`, "iu") },
+  {
+    id: "fasit",
+    message: "«fasit»",
+    pattern: new RegExp(`${NOT_LETTER_BEFORE}fasit`, "iu"),
+    // The spine's one line under «Simulert» (EXPERIENCE.md, UX-DR36), word for word, denies the
+    // claim; every other «fasit» fails (Story 9.8).
+    prepare: (text) => text.replaceAll(SIMULATED_NOTE, ""),
+  },
   { id: "beer-game", message: "«Beer Game» før Debriefen", pattern: /beer[\s-]*game/iu, preDebriefOnly: true },
   { id: "bullwhip", message: "«bullwhip» før Debriefen", pattern: /bullwhip/iu, preDebriefOnly: true },
 ];

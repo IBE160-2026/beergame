@@ -2,7 +2,7 @@
   "retailer": {
     "patterns_version": 1,
     "facts": {
-      "analysis_version": 1,
+      "analysis_version": 2,
       "chain": {
         "weeks": 8,
         "roles": [
@@ -69,14 +69,32 @@
         "student_orders": 0,
         "sm_excluded": true,
         "patterns": [],
-        "moments": []
+        "moments": [],
+        "simulated": {
+          "params_id": "placeholder-unverified",
+          "params_version": 1,
+          "rows": [
+            {
+              "counts_supply_line": "own",
+              "holding_cost": "192.00",
+              "backorder_cost": "0.00",
+              "total_cost": "192.00"
+            },
+            {
+              "counts_supply_line": "all",
+              "holding_cost": "192.00",
+              "backorder_cost": "0.00",
+              "total_cost": "192.00"
+            }
+          ]
+        }
       }
     }
   },
   "wholesaler": {
     "patterns_version": 1,
     "facts": {
-      "analysis_version": 1,
+      "analysis_version": 2,
       "chain": {
         "weeks": 8,
         "roles": [
@@ -143,14 +161,32 @@
         "student_orders": 0,
         "sm_excluded": true,
         "patterns": [],
-        "moments": []
+        "moments": [],
+        "simulated": {
+          "params_id": "placeholder-unverified",
+          "params_version": 1,
+          "rows": [
+            {
+              "counts_supply_line": "own",
+              "holding_cost": "192.00",
+              "backorder_cost": "0.00",
+              "total_cost": "192.00"
+            },
+            {
+              "counts_supply_line": "all",
+              "holding_cost": "192.00",
+              "backorder_cost": "0.00",
+              "total_cost": "192.00"
+            }
+          ]
+        }
       }
     }
   },
   "distributor": {
     "patterns_version": 1,
     "facts": {
-      "analysis_version": 1,
+      "analysis_version": 2,
       "chain": {
         "weeks": 8,
         "roles": [
@@ -217,14 +253,32 @@
         "student_orders": 0,
         "sm_excluded": true,
         "patterns": [],
-        "moments": []
+        "moments": [],
+        "simulated": {
+          "params_id": "placeholder-unverified",
+          "params_version": 1,
+          "rows": [
+            {
+              "counts_supply_line": "own",
+              "holding_cost": "192.00",
+              "backorder_cost": "0.00",
+              "total_cost": "192.00"
+            },
+            {
+              "counts_supply_line": "all",
+              "holding_cost": "192.00",
+              "backorder_cost": "0.00",
+              "total_cost": "192.00"
+            }
+          ]
+        }
       }
     }
   },
   "factory": {
     "patterns_version": 1,
     "facts": {
-      "analysis_version": 1,
+      "analysis_version": 2,
       "chain": {
         "weeks": 8,
         "roles": [
@@ -291,7 +345,25 @@
         "student_orders": 0,
         "sm_excluded": true,
         "patterns": [],
-        "moments": []
+        "moments": [],
+        "simulated": {
+          "params_id": "placeholder-unverified",
+          "params_version": 1,
+          "rows": [
+            {
+              "counts_supply_line": "own",
+              "holding_cost": "192.00",
+              "backorder_cost": "0.00",
+              "total_cost": "192.00"
+            },
+            {
+              "counts_supply_line": "all",
+              "holding_cost": "192.00",
+              "backorder_cost": "0.00",
+              "total_cost": "192.00"
+            }
+          ]
+        }
       }
     }
   }

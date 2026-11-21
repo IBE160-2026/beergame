@@ -13,15 +13,20 @@ from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from typing import Any
 
+import structlog
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from app.analysis import facts as analysis
-from app.engine import GameSettings
+from app.analysis.simulated import SimulationInput
+from app.engine import GameSettings, rule_based
 from app.modules.content import service as content
 from app.modules.games import repo
 from app.modules.games.schemas import Lifecycle, SeatState
 from app.modules.games.views import ViewError
 from app.platform.db import get_sessionmaker
+from app.platform.parameter_sets import UnknownParameterSetError, read_parameter_set
+
+log = structlog.get_logger(__name__)
 
 __all__ = ["StoredFactSet", "compute", "get_or_create"]
 
@@ -110,7 +115,31 @@ async def _build(
         # A pinned version gone, or a Decision log that is not a complete, consistent Game.
         raise ViewError("facts_unavailable", f"no facts can be built: {exc}", 409) from None
     role = next(row["role"] for row in seats if row["id"] == seat_id)
-    return version, analysis.facts(log, role, patterns)
+    return version, analysis.facts(log, role, patterns, _simulation(game))
+
+
+def _simulation(game: Mapping[str, Any]) -> SimulationInput | None:
+    """What «Simulert, samme kunder» runs on (Story 9.8): the Game's snapshot and the Rule-based
+    parameter set it froze. None when the snapshot lacks a part or the set is gone or changed
+    version since the Game froze it: the facts then carry no simulated rows."""
+    runtime = game["session_runtime"] or {}
+    set_id, version = runtime.get("rule_based_params"), runtime.get("rule_based_params_version")
+    if game["settings"] is None or game["demand_series"] is None or set_id is None:
+        return None
+    try:
+        params = rule_based.parse_params(read_parameter_set("rule_based", set_id), set_id)
+    except UnknownParameterSetError, ValueError:
+        log.warning("simulation_params_unavailable", game_id=str(game["id"]), set_id=set_id)
+        return None
+    if params.version != version:
+        log.warning("simulation_params_changed", game_id=str(game["id"]), set_id=set_id)
+        return None
+    return SimulationInput(
+        settings=GameSettings.model_validate(game["settings"]),
+        rules_version=game["rules_version"],
+        demand=tuple(int(value) for value in game["demand_series"]),
+        params=params,
+    )
 
 
 def _stored(row: Mapping[str, Any]) -> StoredFactSet:

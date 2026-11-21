@@ -1,6 +1,6 @@
 # Facts set of a finished Game (FR-44, AD-7) — rules
 
-Status: **analysis version 1**; the Detected pattern thresholds are **placeholders**, to be reviewed by two lecturers before pilot (FR-44). The pattern thresholds live in the `detected_patterns` content record (version 1 stored by migration 0101), not in code; a reviewed set is a new version of that record. The other numbers here (an Order of 10 or more, 10 Student Orders, three moments) are code constants of `analysis/facts.py`: changing one is a new `ANALYSIS_VERSION`.
+Status: **analysis version 2** (version 2 adds the Seat's «Simulert, samme kunder» rows; a set stored under version 1 has none and is never rebuilt); the Detected pattern thresholds are **placeholders**, to be reviewed by two lecturers before pilot (FR-44). The pattern thresholds live in the `detected_patterns` content record (version 1 stored by migration 0101), not in code; a reviewed set is a new version of that record. The other numbers here (an Order of 10 or more, 10 Student Orders, three moments) are code constants of `analysis/facts.py`: changing one is a new `ANALYSIS_VERSION`.
 
 `analysis.facts(decision_log, seat, pattern_definitions)` reads the whole Decision log of a finished Game (one row per Role per Week, `state_seen` as the Seat saw it) and returns the facts set of one Seat. `games.facts.get_or_create(game, seat)` stores it once in `fact_sets`; everything that cites a fact stores that row's id.
 
@@ -20,6 +20,8 @@ Status: **analysis version 1**; the Detected pattern thresholds are **placeholde
 - `student_orders`: the Seat's rows with `decided_by = student`. Fewer than 10: `sm_excluded` is true (the Student is left out of SM-1 and SM-2) and the Seat gets no own moments.
 - `patterns`: every Detected pattern occurrence on the Seat's rows, except Guided Weeks (`decided_by = guided`: the Order is the starting demand, not a decision). AI Weeks are included and carry their `decided_by`. Id `<pattern>:<role>:<week>`. Each carries the Week, the Order, what the Seat saw, the later cost and what the other Roles saw that Week.
 - **Later cost**: the Seat's cost over the `following_weeks` Weeks after the Week (4 in version 1), fewer at the end of the Game (`later_weeks` says how many; ranking uses the sum as it is). It is the Seat's cost whoever held the Seat in those Weeks, so after a Takeover it includes Weeks an AI player decided.
+
+- `simulated` (version 2, Story 9.8): «Simulert, samme kunder», from `analysis.simulated.simulate`. The Game is played again from Week 1 with `engine.advance` over its settings (whose demand must equal the stored demand series) and its rules version. Guided Weeks order the starting demand; every later Order is the Rule-based rule's with the Game's frozen parameter set (`session_runtime.rule_based_params`, placeholders until issues #8 and #17). Row `own`: only this Seat counts På vei, the three others order with `beta` 0. Row `all`: every Seat orders with the set's `beta`. Each row is the chain's holding, backorder and total cost over the whole Game (inventory × holding cost and backlog × backorder cost of every Seat in every Week). None when the Game's frozen set is gone or has another version than the one it froze.
 
 ## Detected patterns (version 1, placeholders)
 

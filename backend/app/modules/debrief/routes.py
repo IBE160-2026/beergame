@@ -15,6 +15,10 @@
   (one answer, stored once, in order; 409 `reflection_out_of_order`), behind the same gate.
 - `GET /api/class-sessions/{id}/students/{user_id}/explanation`: a Student's Explanation for the
   Class's owners and Assistant lecturers (`explanations.read`).
+- Story 9.8: step 4 also carries `bill`; `POST /api/debriefs/{id}/finish` («Fullfør Debriefen»,
+  409 `debrief_incomplete`, `test_deadline_passed`) and `GET /api/debriefs/{id}/summary` (the
+  Student's own summary); `GET /api/class-sessions/{id}/students/{user_id}/debrief-summary`, the
+  Explanation and Debrief summary for the Class's staff (`debrief_summaries.read`).
 
 Every Debrief route answers 403 `debrief_not_open` while the Student's Class game has not
 finished and 403 `debrief_held` while the Lecturer holds the Debriefs and a Class game has not
@@ -36,10 +40,12 @@ from app.modules.debrief.schemas import (
     ExplanationIn,
     ExplanationOut,
     MyExplanationOut,
+    MySummaryOut,
     NetInventoryOut,
     ReflectionAnswerIn,
     ReflectionOut,
     ReflectionQuestionOut,
+    StaffSummaryOut,
 )
 from app.platform import authz
 from app.platform.errors import documented, error_response
@@ -137,6 +143,14 @@ async def _answer(read, status: int = 200) -> Response:
         return error_response(
             409, "reflection_out_of_order", "Answer the reflection questions in order."
         )
+    except commands.DebriefIncomplete:
+        return error_response(
+            409,
+            "debrief_incomplete",
+            "Answer every reflection question and read your moments before you finish.",
+        )
+    except commands.TestDeadlinePassed:
+        return error_response(409, "test_deadline_passed", "The Test deadline has passed.")
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"), status_code=status)
@@ -232,6 +246,55 @@ async def answer_reflection_question(
     white space only or more than 2000 characters, 403 `explanation_required` before the
     Explanation."""
     return await _answer(service.answer_mine(user, _id(debrief_id), question_id, body.text))
+
+
+@router.get(
+    "/debriefs/{debrief_id}/summary",
+    response_model=MySummaryOut,
+    responses=documented(401, 403),
+    operation_id="getMyDebriefSummary",
+)
+async def get_my_debrief_summary(debrief_id: str, user: OWN) -> Response:
+    """The Student's own Debrief summary (Story 9.8), `summary` null until «Fullfør Debriefen».
+    403 `explanation_required` before the Explanation."""
+    return await _answer(service.own_summary(user, _id(debrief_id)))
+
+
+@router.post(
+    "/debriefs/{debrief_id}/finish",
+    response_model=MySummaryOut,
+    responses=documented(401, 403, 409),
+    operation_id="finishMyDebrief",
+)
+async def finish_my_debrief(debrief_id: str, user: OWN) -> Response:
+    """«Fullfør Debriefen» (Story 9.8, FR-47, AD-16): stores the Student's Debrief summary once
+    (the key moments by fact id, the reflection answers, the facts set they cite and the time)
+    and records the `debrief` step with it; a finished Debrief answers its stored summary
+    unchanged. 409 `debrief_incomplete` while a reflection question is unanswered or step 4 was
+    not read, 409 `test_deadline_passed` after the Student's Test deadline, 403
+    `explanation_required` before the Explanation."""
+    return await _answer(service.finish_mine(user, _id(debrief_id)))
+
+
+@router.get(
+    "/class-sessions/{session_id}/students/{student_id}/debrief-summary",
+    response_model=StaffSummaryOut,
+    responses=documented(401, 403),
+    operation_id="getStudentDebriefSummary",
+)
+async def get_student_debrief_summary(
+    session_id: str,
+    student_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("debrief_summaries.read"))],
+) -> Response:
+    """A Student's Explanation and Debrief summary for the Class's owners and Assistant
+    lecturers (Story 9.8, FR-47, AD-12), each null while not sent or not finished: the key
+    moments, the reflection answers, the completion time and whether it was after the Debrief
+    deadline. 403 `forbidden` for every other caller."""
+    found = await service.staff_summary(user, _id(session_id), _id(student_id))
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
 
 
 @router.get(

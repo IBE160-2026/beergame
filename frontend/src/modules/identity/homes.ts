@@ -53,6 +53,11 @@ export const startingTaskPath = (id: string) => `${gamePath(id)}/startoppgave`;
  * ferdig» and Stegene's Debrief step lead. One Debrief per Student and Class session. */
 export const DEBRIEF_PATH = (classSessionId: string) => `/debrief/${encodeURIComponent(classSessionId)}`;
 
+/** A Student's Explanation and Debrief summary for the Class's staff (Story 9.8), where
+ * Spillinnsikt's links lead (`debrief.insight` in the api builds the same path). */
+export const studentDebriefPath = (classSessionId: string, studentId: string) =>
+  `${classSessionPath(classSessionId)}/studenter/${encodeURIComponent(studentId)}/debrief`;
+
 /** The link that leads to each home («Til Lærerhjem» …). */
 export const HOME_LINK: Record<Home, string> = {
   adminArea: nb.navigation.toAdminArea,

@@ -117,6 +117,8 @@ POLICIES: dict[str, frozenset[str]] = {
     # A Student's Explanation (Story 9.3, FR-41, AD-12): the Class's owners and Assistant
     # lecturers (`CLASS_STAFF_ROLES`); never another Student, never an Admin without a staff role.
     "explanations.read": frozenset({LECTURER, ASSISTANT}),
+    # A Student's Debrief summary (Story 9.8, FR-47, AD-12): the same readers as the Explanation.
+    "debrief_summaries.read": frozenset({LECTURER, ASSISTANT}),
     # The own session.
     "session.read": frozenset({ANY_USER}),
     # The live event stream (Story 6.4, AD-8): any User; the scope decides which topics it sends.
@@ -139,6 +141,7 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "class_sessions.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "class_sessions.manage": frozenset({OWNER}),
     "explanations.read": frozenset({OWNER, ASSISTANT_STAFF}),
+    "debrief_summaries.read": frozenset({OWNER, ASSISTANT_STAFF}),
 }
 """Class action → the staff roles in the Class that may do it. Later stories add theirs."""
 

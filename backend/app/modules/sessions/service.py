@@ -1281,6 +1281,19 @@ async def debrief_session_of(
     )
 
 
+async def student_deadlines(
+    user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> tuple[datetime | None, datetime | None]:
+    """The Student's effective Debrief and Test deadlines in the Class session (Story 9.8): read
+    through `effective_debrief_deadline` and `effective_test_deadline`, so another module never
+    reads the dates itself. (None, None) for a session that does not exist."""
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, class_session_id)
+    if row is None:
+        return None, None
+    return effective_debrief_deadline(user_id, row), effective_test_deadline(user_id, row)
+
+
 async def class_staff_may(user: authz.Principal, class_session_id: uuid.UUID, action: str) -> bool:
     """Whether `user` may do the Class action `action` on the Class of the Class session (its
     staff role there, `authz.can`): how another module asks without reading Classes itself

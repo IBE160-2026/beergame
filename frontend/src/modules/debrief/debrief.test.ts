@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { nb } from "@/copy/nb";
-import { DEBRIEF_PATH } from "@/modules/identity/homes";
+import { DEBRIEF_PATH, studentDebriefPath } from "@/modules/identity/homes";
 
 import {
+  aiHeld,
+  backorderLine,
+  type Bill,
   type Chain,
   currentQuestion,
   type Debrief,
@@ -216,5 +219,50 @@ describe("the own moments (Story 9.7)", () => {
     for (const line of [copy.heading, copy.mostlyAi, copy.mostlyAiChain, copy.previous, copy.next, copy.explanationNote, copy.loadFailed]) {
       expect(line).not.toMatch(/!|flink|bra jobbet|feil av/i);
     }
+  });
+});
+
+describe("Kjedens regning in the Debrief (Story 9.8)", () => {
+  const bill = (over: Partial<Bill> = {}): Bill => ({
+    role: "wholesaler",
+    total_cost: "2266.00",
+    backorder_cost: "1365.00",
+    backorder_share_percent: 60,
+    backorder_costs_double: true,
+    ai_held_cost: "0.00",
+    ai_held_share_percent: 0,
+    simulated: null,
+    ...over,
+  });
+  const copy = nb.debrief.bill;
+
+  it("words the restordre share as the spine does, with the reason only when backlog costs twice", () => {
+    expect(backorderLine(bill(), copy)).toBe("Restordre er 60 % av kjedens regning, fordi den koster dobbelt.");
+    expect(backorderLine(bill({ backorder_costs_double: false }), copy)).toBe("Restordre er 60 % av kjedens regning.");
+    expect(backorderLine(bill({ backorder_share_percent: null }), copy)).toBeNull();
+  });
+
+  it("shows the AI line only when AI-held Weeks cost something", () => {
+    expect(aiHeld(bill())).toBe(false);
+    expect(aiHeld(bill({ ai_held_cost: "271.50", ai_held_share_percent: 12 }))).toBe(true);
+    // A share that rounds to 0 % says nothing worth a line.
+    expect(aiHeld(bill({ ai_held_cost: "3.50", ai_held_share_percent: 0 }))).toBe(false);
+    expect(copy.aiShare(12, "271,50 kr")).toBe("12 % av kjedens regning, 271,50 kr, kom i uker der en KI-spiller hadde et sete.");
+  });
+
+  it("labels the simulated rows Simulert and never claims an answer", () => {
+    expect([copy.simulated, copy.simulatedOwn, copy.simulatedAll, copy.simulatedNote]).toEqual([
+      "Simulert, samme kunder",
+      "Bare du teller på vei",
+      "Alle fire teller på vei",
+      "Simulert viser sammenhengen, ikke en fasit.",
+    ]);
+    for (const line of (Object.values(copy) as unknown[]).filter((v): v is string => typeof v === "string")) {
+      expect(line).not.toMatch(/!|optimal|beste ordre/i);
+    }
+  });
+
+  it("leads the staff to one page per Student", () => {
+    expect(studentDebriefPath("s 1", "u/2")).toBe("/klasseokter/s%201/studenter/u%2F2/debrief");
   });
 });

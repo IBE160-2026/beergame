@@ -81,6 +81,8 @@ REFLECTION_TABLES = {"debrief_reflection_answers"}
 """The table of revision 0105 (Story 9.6)."""
 MOMENT_TABLES = {"debrief_fact_sets"}
 """The table of revision 0106 (Story 9.7)."""
+SUMMARY_TABLES = {"debrief_summaries"}
+"""The table of revision 0107 (Story 9.8)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -92,8 +94,9 @@ HEAD_TABLES = (
     | EXPLANATION_TABLES
     | REFLECTION_TABLES
     | MOMENT_TABLES
+    | SUMMARY_TABLES
 )
-HEAD = "0106"  # 0106 stores the moment templates and each Student's moments' facts set (9.7)
+HEAD = "0107"  # 0107 stores each Student's Debrief summary (Story 9.8)
 
 
 def reset_schema(url: str) -> None:
@@ -256,6 +259,13 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "moments-heading" in [t["id"] for t in moments["templates"]]
     assert function_names(url, "debrief_fact_sets_immutable")
 
+    # 0107 (Story 9.8): a Student's Debrief summary, stored once and never changed.
+    assert function_names(url, "debrief_summaries_immutable")
+    assert {"moment_ids", "reflection", "finished_at"} <= columns(url, "debrief_summaries")
+
+    command.downgrade(cfg, "0106")
+    assert SUMMARY_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "debrief_summaries_immutable")
     command.downgrade(cfg, "0105")
     assert MOMENT_TABLES.isdisjoint(tables(url))
     assert not function_names(url, "debrief_fact_sets_immutable")
