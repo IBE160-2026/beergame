@@ -88,6 +88,8 @@ function ChartBlock({ kind, title, chart, table }: { kind: string; title: string
 }
 
 const CELL = "border-b border-hairline px-[0.4em] py-[0.35em] text-right whitespace-nowrap";
+/** Every Uke column the same width, so the numbers line up from row to row and between the two tables. */
+const WEEK_CELL = "min-w-[2.75em]";
 
 /** A chart's «Vis som tabell»: a Rolle × Uke table, every cell printing its number (NFR-6), in its
  * own sideways-scrolling region with the row labels sticky. */
@@ -105,7 +107,7 @@ function ChartTable({ label, weeks, rows }: { label: string; weeks: readonly num
               {copy.week}
             </th>
             {weeks.map((week) => (
-              <th key={week} scope="col" className={cn(CELL, "font-normal text-ink-secondary")}>
+              <th key={week} scope="col" className={cn(CELL, WEEK_CELL, "font-normal text-ink-secondary")}>
                 {week}
               </th>
             ))}
@@ -118,7 +120,7 @@ function ChartTable({ label, weeks, rows }: { label: string; weeks: readonly num
                 {row.label}
               </th>
               {row.cells.map((cell, i) => (
-                <td key={weeks[i]} className={CELL}>
+                <td key={weeks[i]} className={cn(CELL, WEEK_CELL)}>
                   {cell}
                 </td>
               ))}
