@@ -1811,3 +1811,25 @@ Bygge med `bmad-build-auto`, gjøre en visuell kontroll med Playwright og avslut
 
 ### Åpne punkter
 - Issue 131: beslutninger i Story 6.13.
+
+## Story 6.14: Se hvilke plasser som har bestilt, og hvem spillet venter på (2026-11-21)
+
+### Oppgave
+Bygge Story 6.14 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto`, og kjøre bare e2e-filene for de berørte skjermene (ny regel). Gjøre en visuell kontroll med full backend-kjøring og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-14-see-which-seats-have-ordered-and-whom-the-game-waits-for.md`.
+- **Commit 1230594:** migrasjon 0048 `wait_started_at`, `next_change_at` fra fristene til KI-spillerne, og Setestatus på spillskjermen og Hjem.
+- **Tester:**
+  - backend: hele pakken passerte i den visuelle kontrollen;
+  - frontend: Vitest 653 og bygg;
+  - Playwright: 145 målrettede tester.
+- **Gjennomgang:** 36 funn, 1 middels. Det middels er rettet.
+- **Visuell kontroll:** 23 skjermbilder i `screenshots/6.14/`. Ingen klare avvik; to punkter er samlet til avslutningen av epicet.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 132: beslutninger i Story 6.14.
