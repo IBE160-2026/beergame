@@ -174,3 +174,19 @@ async def test_only_a_time_from_now_to_the_play_deadline_and_none_once_passed_or
     item = await home(email(0))
     assert item["game"]["status"] == "finished" and item["game"]["time_proposal"] is None
     assert refusal(await propose(email(0), game_id, db_time("1 day"))) == (409, "game_finished")
+
+
+async def test_with_no_play_deadline_a_time_at_most_the_horizon_ahead(klass):
+    """Follow-up review of Epic 6: a Class session without a Play deadline still bounds the
+    proposal, at `PROPOSAL_HORIZON` (90 days) ahead on the database clock."""
+    session_id, game_id, _ = await short_game(klass, students=1)
+    execute(
+        TEST_DATABASE_URL,
+        "UPDATE class_sessions SET play_deadline = NULL WHERE id = %s",
+        (session_id,),
+    )
+    assert refusal(await propose(email(0), game_id, db_time("90 days 1 minute"))) == (
+        422,
+        "time_out_of_range",
+    )
+    assert (await propose(email(0), game_id, db_time("89 days"))).status_code == 200

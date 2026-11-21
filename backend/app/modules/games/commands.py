@@ -15,9 +15,17 @@ the Game's proposal of a time to play, never a turn, so no Week moves and no wai
 
 import secrets
 import uuid
-from collections.abc import AsyncIterator, Collection, Iterable, Mapping, Sequence
+from collections.abc import (
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Collection,
+    Iterable,
+    Mapping,
+    Sequence,
+)
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import structlog
@@ -1668,6 +1676,14 @@ async def _record_class_game_step(session: AsyncSession, game_id: uuid.UUID) -> 
 
 
 TIME_PROPOSED_NOTICE = "time_proposed"
+
+PROPOSAL_HORIZON = timedelta(days=90)
+"""How far ahead a proposed time to play may lie when the Class session has no Play deadline
+(follow-up review of Epic 6): about one teaching term."""
+
+Latest = datetime | Callable[[AsyncSession], Awaitable[datetime | None]] | None
+"""The Play deadline a proposal may not pass: a time, none, or a read of it in the command's
+transaction, before the Game row lock (the caller's lock order: Class session, then Game)."""
 """The notice kind each other Student of a Class game gets when a time to play is proposed,
 `digest` (Story 6.19, AD-9). Its `ref` is the proposal; the mail reads it at send time."""
 
@@ -1689,11 +1705,13 @@ async def _scheduling_game(
 
 
 async def propose_time(
-    game_id: str, at: datetime, *, actor: uuid.UUID | str, latest: datetime | None
+    game_id: str, at: datetime, *, actor: uuid.UUID | str, latest: Latest
 ) -> str:
     """A Student proposes a time to play (Story 6.19, FR-22, AD-2): a date and a time, never
     text. The time must lie after now on the database clock and, when the caller gives the Play
-    deadline as `latest`, not after it (`time_out_of_range`). The Game keeps one open proposal: this
+    deadline as `latest`, not after it; with no Play deadline, not more than `PROPOSAL_HORIZON`
+    ahead (`time_out_of_range`). A callable `latest` is read in the transaction, so the deadline
+    holds while the proposal is stored. The Game keeps one open proposal: this
     one replaces the earlier proposal and its acceptances.
 
     One transaction with the Game row lock and a version bump, emitting `game:<id>`,
@@ -1706,10 +1724,13 @@ async def propose_time(
     if not isinstance(at, datetime) or at.tzinfo is None:
         raise CommandError("time_out_of_range", "the time carries no time zone", 422)
     async with get_sessionmaker().begin() as session:
+        deadline = await latest(session) if callable(latest) else latest
         students = await _scheduling_game(session, game_uuid, game_id, actor_id)
         assert actor_id is not None  # `_scheduling_game` refuses a missing actor
         now = await repo.clock_now(session)
-        if not (now < at and (latest is None or at <= latest)):
+        if deadline is None:
+            deadline = now + PROPOSAL_HORIZON
+        if not (now < at <= deadline):
             raise CommandError(
                 "time_out_of_range", "the time is not between now and the Play deadline", 422
             )

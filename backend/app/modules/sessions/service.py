@@ -1583,11 +1583,24 @@ async def propose_own_time(
     found, row = own
     try:
         await games_commands.propose_time(
-            str(found.game_id), at, actor=user.id, latest=row["play_deadline"]
+            str(found.game_id), at, actor=user.id, latest=_play_deadline_of(row["id"])
         )
     except games_commands.CommandError as refused:
         return _proposal_refusal(refused)
     return await student_game_of(user, game_id)
+
+
+def _play_deadline_of(
+    session_id: uuid.UUID,
+) -> Callable[[AsyncSession], Awaitable[datetime | None]]:
+    """The Class session's Play deadline, read share-locked in the proposal's transaction before
+    the Game row lock, so a deadline the Lecturer moves meanwhile is not passed (Story 6.19)."""
+
+    async def read(s: AsyncSession) -> datetime | None:
+        row = await repo.session_row(s, session_id, share=True)
+        return None if row is None else row["play_deadline"]
+
+    return read
 
 
 async def accept_own_time(
