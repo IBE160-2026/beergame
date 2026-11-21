@@ -146,3 +146,23 @@ The Debrief (Epic 9, FR-41 to FR-47, AD-21). Never imports `modules/players`
   their own device: nothing here is shared.
 - The Debrief summary answers `quiz_attempts` (until and with the passing one) and
   `quiz_passed_at`, read from `quiz_attempts` at request time; the summary row never changes.
+
+## Quiz exclusions and attempts for the staff (Story 9.10, FR-46, FR-47, AD-12, AD-15, AD-23)
+
+- `quiz_exclusions` (migration 0109): one row per question a Lecturer took out of a Class
+  session's quiz; never an edit of the content record. Written only by
+  `commands.set_quiz_exclusions`: the Class session row locked (`sessions.lock_for_quiz_exclusions`,
+  which refuses an archived Class), 422 for an unknown id, 409 `last_question` when nothing would
+  be asked, 409 `test_deadline_passed` once the database time is past the Class session's Test
+  deadline; a change writes one `platform/audit` row `debrief_quiz.exclusions_changed` (ids
+  only), emits `session:<id>`, and enqueues a `quiz_changed` notice (digest) for each Student who
+  has not passed and whose last attempt got wrong only questions now taken out, at least one
+  of them in this change; a lift that ends «quizen er endret» for a Student emits `user:<id>`.
+- `GET /api/class-sessions/{id}/debrief-quiz` (`debrief_quiz.read`: owners and Assistant
+  lecturers) and `PUT …/debrief-quiz/exclusions` (`debrief_quiz.exclude`: owners).
+- Every attempt asks the pinned questions not taken out; an answer to a taken-out question from
+  a stale form is dropped. Nobody is passed by an exclusion, and a passed Student stays passed
+  when one is lifted. `rules.quiz_changed` (registered with `sessions`) marks Stegene's current
+  Quiz step `quiz_changed` until the next attempt.
+- The staff summary adds the Student's Roster name (read now through `sessions.student_name`,
+  never stored) and every attempt's number, time and result.

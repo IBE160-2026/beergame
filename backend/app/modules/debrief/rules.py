@@ -9,14 +9,22 @@ route, Hjem's Stegene and «Spillet er ferdig» use.
 - `open` otherwise.
 
 Game status is read only through `games.service`. `sessions` reaches this rule through the
-provider registered below, so it never imports `debrief`."""
+provider registered below, so it never imports `debrief`.
+
+Story 9.10: `quiz_changed` is the one rule for «the quiz has changed» on Hjem's Stegene: the
+Student has not passed, and every question their last attempt got wrong is now taken out of the
+Class session's quiz. Registered with `sessions` the same way."""
 
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.debrief.models import quiz_attempts, quiz_exclusions
 from app.modules.games import service as games
 from app.modules.sessions import service as sessions
 from app.platform import authz
@@ -70,4 +78,46 @@ async def available(user: authz.Principal, class_session_id: uuid.UUID) -> Avail
     return Availability(judged, game)
 
 
+async def excluded_questions(session: AsyncSession, class_session_id: uuid.UUID) -> set[str]:
+    """The ids of the Debrief quiz questions taken out of the Class session's quiz (Story 9.10)."""
+    return set(
+        (
+            await session.scalars(
+                select(quiz_exclusions.c.question_id).where(
+                    quiz_exclusions.c.class_session_id == class_session_id
+                )
+            )
+        ).all()
+    )
+
+
+async def last_attempts(
+    session: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID | None = None
+) -> dict[uuid.UUID, Mapping[str, Any]]:
+    """Each Student's latest Debrief quiz attempt in the Class session (or only `user_id`'s), by
+    User id: `answers` and `passed`."""
+    query = (
+        select(quiz_attempts.c.user_id, quiz_attempts.c.answers, quiz_attempts.c.passed)
+        .where(quiz_attempts.c.class_session_id == class_session_id)
+        .order_by(quiz_attempts.c.user_id, quiz_attempts.c.number.desc())
+        .ext(distinct_on(quiz_attempts.c.user_id))
+    )
+    if user_id is not None:
+        query = query.where(quiz_attempts.c.user_id == user_id)
+    return {row["user_id"]: row for row in (await session.execute(query)).mappings()}
+
+
+async def quiz_changed(
+    session: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> bool:
+    """Whether Hjem says the Debrief quiz has changed for the Student: not passed, and every
+    question their last attempt got wrong is now taken out. The next attempt ends it."""
+    last = (await last_attempts(session, class_session_id, user_id)).get(user_id)
+    if last is None or last["passed"]:
+        return False
+    wrong = {a["question_id"] for a in last["answers"] if not a["correct"]}
+    return bool(wrong) and wrong <= await excluded_questions(session, class_session_id)
+
+
 sessions.register_debrief_state(state)
+sessions.register_quiz_changed(quiz_changed)

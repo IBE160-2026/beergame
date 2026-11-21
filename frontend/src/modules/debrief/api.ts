@@ -295,3 +295,43 @@ export function withAttempt(quiz: Quiz, attempt: QuizAttempt): Quiz {
     questions: attempt.passed ? [] : quiz.questions,
   };
 }
+
+/** The Klasseøkt's «Debrief-quiz» block (Story 9.10, FR-46): the Class session's quiz with its
+ * answer keys and which questions are taken out, for its owners and Assistant lecturers. */
+export type SessionQuiz = components["schemas"]["StaffQuizOut"];
+export type SessionQuizQuestion = components["schemas"]["StaffQuizQuestionOut"];
+
+/** Under the `["class-sessions", id]` prefix, so the `session` topic reads it again. */
+export const sessionQuizKey = (classSessionId: string) => ["class-sessions", classSessionId, "debrief-quiz"] as const;
+
+export function useSessionQuiz(classSessionId: string) {
+  return useQuery({
+    queryKey: sessionQuizKey(classSessionId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/class-sessions/{session_id}/debrief-quiz", { params: { path: { session_id: classSessionId } } }),
+      ),
+    retry: false,
+  });
+}
+
+/** «Lagre quizvalg»: the whole set of questions to take out; the api stores, audits and tells the
+ * Students it concerns. 409 `last_question`, `test_deadline_passed`, `class_archived`. */
+export function saveQuizExclusions(classSessionId: string, excluded: readonly string[]): Promise<SessionQuiz> {
+  return request(() =>
+    api.PUT("/api/class-sessions/{session_id}/debrief-quiz/exclusions", {
+      params: { path: { session_id: classSessionId } },
+      body: { excluded: [...excluded] },
+    }),
+  );
+}
+
+/** The ids taken out in `quiz`, in the quiz's order. */
+export function excludedIds(quiz: SessionQuiz): string[] {
+  return quiz.questions.filter((q) => q.excluded).map((q) => q.id);
+}
+
+/** The text of a question's right choice (its answer key). */
+export function answerText(question: SessionQuizQuestion): string {
+  return question.choices.find((c) => c.id === question.answer)?.text ?? question.answer;
+}

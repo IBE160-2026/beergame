@@ -35,9 +35,16 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
         debriefsKey,
       ];
     // A Class session, for its staff: the Klasseøkt, its allocation block, the Lærerhjem parts of
-    // Stories 5.2 and 5.9, and the Class page's list of its sessions.
+    // Stories 5.2 and 5.9, and the Class page's list of its sessions. Story 9.10: the Klasseøkt's
+    // «Debrief-quiz» block and the staff's Debrief summaries of its Students (`["class-sessions", id]`).
     case "session":
-      return [classSessionKey(event.id), allocationKey(event.id), lecturerHomeKey, ["class-sessions", "of-class"]];
+      return [
+        classSessionKey(event.id),
+        allocationKey(event.id),
+        lecturerHomeKey,
+        ["class-sessions", "of-class"],
+        ["class-sessions", event.id],
+      ];
     // A Game: the Student's own game and what hangs under it (briefing, Starting task, the play
     // screen's envelope), and Hjem, whose Setestatus shows who has ordered (Story 6.14).
     case "game":

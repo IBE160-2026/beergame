@@ -91,7 +91,9 @@ function Attempts({ debrief, quiz }: { debrief: Debrief; quiz: Quiz }) {
         return await submitQuiz(debrief.id, answers);
       } catch (error) {
         // Passed on another device: read the quiz again, so the passed result replaces the form.
-        if (error instanceof ApiRequestError && error.code === "quiz_passed") {
+        // Story 9.10: a refused set (the Faglærer put a question back meanwhile) reads the
+        // questions again too, so the form shows what is asked now.
+        if (error instanceof ApiRequestError && (error.code === "quiz_passed" || error.code === "validation_error")) {
           void queryClient.invalidateQueries({ queryKey: quizKey(debrief.id) });
         }
         throw error;

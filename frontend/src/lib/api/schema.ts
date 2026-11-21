@@ -683,6 +683,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/debrief-quiz": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session Debrief Quiz
+         * @description The Klasseøkt's «Debrief-quiz» block (Story 9.10, FR-46, AD-12): the Class session's
+         *     Debrief quiz (the version its lock pinned; the latest before), each question with its answer
+         *     key and whether it is taken out, whether the User may take questions out and whether that can
+         *     still change (until the Test deadline). For the Class's owners and Assistant lecturers; 403
+         *     `forbidden` for every other caller.
+         */
+        get: operations["getSessionDebriefQuiz"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/debrief-quiz/exclusions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Session Quiz Exclusions
+         * @description «Lagre quizvalg» (Story 9.10, FR-46, AD-23, AD-15): the questions to take out of the Class
+         *     session's Debrief quiz, the whole set; the others are asked. Stored as Class session rows and
+         *     recorded in the audit log; a Student who has not passed answers only the rest on their next
+         *     attempt, and one whose last attempt it now covers is told. No Student is passed by it. 409
+         *     `last_question` when no question would be asked, `test_deadline_passed` after the Class
+         *     session's Test deadline, `class_archived` for an archived Class; 422 `validation_error` for an
+         *     id the quiz does not have; 403 `forbidden` for an Assistant lecturer and every other caller.
+         */
+        put: operations["setSessionQuizExclusions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/demand-series": {
         parameters: {
             query?: never;
@@ -790,7 +840,9 @@ export interface paths {
          * @description A Student's Explanation and Debrief summary for the Class's owners and Assistant
          *     lecturers (Story 9.8, FR-47, AD-12), each null while not sent or not finished: the key
          *     moments, the reflection answers, the completion time and whether it was after the Debrief
-         *     deadline. 403 `forbidden` for every other caller.
+         *     deadline. Story 9.10: the Student's Roster name now (null once they are no longer a Student
+         *     of the Class) and every Debrief quiz attempt with its time and result. 403 `forbidden` for
+         *     every other caller.
          */
         get: operations["getStudentDebriefSummary"];
         put?: never;
@@ -3793,6 +3845,14 @@ export interface components {
             text: string;
         };
         /**
+         * QuizExclusionsIn
+         * @description «Lagre quizvalg»: the ids of every question to take out; the others are asked.
+         */
+        QuizExclusionsIn: {
+            /** Excluded */
+            excluded: string[];
+        };
+        /**
          * QuizOut
          * @description Step 5, the Debrief quiz (Story 9.9, FR-46, UX-DR37): the version the Class session pinned
          *     at the lock, whether it is placeholder content (issue #16), the attempts so far and when it was
@@ -4529,6 +4589,22 @@ export interface components {
             user_id?: string | null;
         };
         /**
+         * StaffAttemptOut
+         * @description One of a Student's Debrief quiz attempts as the staff see it (Story 9.10): its number,
+         *     time and whether it passed; never the answers.
+         */
+        StaffAttemptOut: {
+            /** Number */
+            number: number;
+            /** Passed */
+            passed: boolean;
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+        };
+        /**
          * StaffEmailIn
          * @description «Legg til Faglærer» or «Inviter Assistent»: one address. A refused address answers 422
          *     `invalid_request` with `fields.email`: an address problem, `not_lecturer` (Faglærer: no
@@ -4564,6 +4640,57 @@ export interface components {
             lecturers: components["schemas"]["StaffLecturer"][];
         };
         /**
+         * StaffQuizAttemptsOut
+         * @description A Student's Debrief quiz attempts for the Class's staff (Story 9.10, FR-46, FR-47): every
+         *     attempt, oldest first, and when the quiz was passed (None while not).
+         */
+        StaffQuizAttemptsOut: {
+            /** Attempts */
+            attempts: components["schemas"]["StaffAttemptOut"][];
+            /** Passed At */
+            passed_at: string | null;
+        };
+        /**
+         * StaffQuizOut
+         * @description The Debrief quiz of a Class session for its staff (Story 9.10, FR-46, AD-23): the version
+         *     its lock pinned (`pinned` False: the latest, which the lock will pin), the questions in order,
+         *     whether the User may take questions out (`can_exclude`: an owner of a Class that is not
+         *     archived) and whether exclusions can still change (`open`: until the Test deadline).
+         */
+        StaffQuizOut: {
+            /** Can Exclude */
+            can_exclude: boolean;
+            /** Open */
+            open: boolean;
+            /** Pinned */
+            pinned: boolean;
+            /** Placeholder */
+            placeholder: boolean;
+            /** Questions */
+            questions: components["schemas"]["StaffQuizQuestionOut"][];
+            /** Test Deadline */
+            test_deadline: string | null;
+            /** Version */
+            version: number;
+        };
+        /**
+         * StaffQuizQuestionOut
+         * @description A Debrief quiz question for the Class's staff (Story 9.10): with its answer key and
+         *     whether it is taken out of the Class session's quiz.
+         */
+        StaffQuizQuestionOut: {
+            /** Answer */
+            answer: string;
+            /** Choices */
+            choices: components["schemas"]["QuizChoiceOut"][];
+            /** Excluded */
+            excluded: boolean;
+            /** Id */
+            id: string;
+            /** Prompt */
+            prompt: string;
+        };
+        /**
          * StaffRole
          * @description A User's role in one Class (`class_staff.role`). Co-owners (4.9) are owners too: one role,
          *     so they have exactly the owner's rights. An Assistant lecturer (4.9) reads the Class.
@@ -4578,7 +4705,9 @@ export interface components {
         /**
          * StaffSummaryOut
          * @description A Student's Explanation and Debrief summary for the Class's staff (Story 9.8, FR-47,
-         *     AD-12); each None while not sent or not finished. Ids and Roles only, no names (AD-14).
+         *     AD-12); each None while not sent or not finished. Story 9.10 adds the Student's Roster name,
+         *     read now and never stored (AD-14; None once they are no longer a Student of the Class), and
+         *     their Debrief quiz attempts.
          */
         StaffSummaryOut: {
             explanation: components["schemas"]["ExplanationOut"] | null;
@@ -4586,6 +4715,9 @@ export interface components {
             game_id: string | null;
             /** Game Number */
             game_number: number | null;
+            /** Name */
+            name: string | null;
+            quiz: components["schemas"]["StaffQuizAttemptsOut"];
             role: components["schemas"]["Role"] | null;
             /**
              * Student Id
@@ -4647,6 +4779,11 @@ export interface components {
              * @default false
              */
             held: boolean;
+            /**
+             * Quiz Changed
+             * @default false
+             */
+            quiz_changed: boolean;
             /**
              * State
              * @enum {string}
@@ -6765,6 +6902,117 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getSessionDebriefQuiz: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffQuizOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    setSessionQuizExclusions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuizExclusionsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffQuizOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

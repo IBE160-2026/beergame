@@ -5,6 +5,7 @@ import { DEBRIEF_PATH, studentDebriefPath } from "@/modules/identity/homes";
 
 import {
   aiHeld,
+  answerText,
   backorderLine,
   type Bill,
   type Chain,
@@ -12,6 +13,7 @@ import {
   type Debrief,
   debriefView,
   downstreamRole,
+  excludedIds,
   explanationDraftField,
   hasText,
   type Quiz,
@@ -20,6 +22,7 @@ import {
   type Reflection,
   reflectionDone,
   reflectionDraftField,
+  type SessionQuiz,
   withAnswer,
   withAttempt,
 } from "./api";
@@ -309,5 +312,36 @@ describe("the Debrief quiz (Story 9.9)", () => {
     expect(copy.passed(1)).toBe("Alle svarene er riktige. Quizen er bestått på første forsøk.");
     expect(copy.passed(3)).toBe("Alle svarene er riktige. Quizen er bestått etter 3 forsøk.");
     for (const line of [copy.intro, copy.placeholder, copy.retryHint, copy.passed(2)]) expect(line).not.toContain("!");
+  });
+});
+
+describe("the Klasseøkt's Debrief quiz block (Story 9.10)", () => {
+  const quiz: SessionQuiz = {
+    version: 1,
+    placeholder: true,
+    pinned: true,
+    can_exclude: true,
+    open: true,
+    test_deadline: null,
+    questions: [
+      { id: "a", prompt: "A?", choices: [{ id: "x", text: "−13" }, { id: "y", text: "3" }], answer: "y", excluded: true },
+      { id: "b", prompt: "B?", choices: [{ id: "x", text: "1" }], answer: "x", excluded: false },
+    ],
+  };
+
+  it("lists the taken-out ids in the quiz's order and words the answer key by its choice", () => {
+    expect(excludedIds(quiz)).toEqual(["a"]);
+    expect(answerText(quiz.questions[0]!)).toBe("3");
+    expect(nb.debrief.quizExclusions.answer(answerText(quiz.questions[0]!))).toBe("Riktig svar: 3");
+  });
+
+  it("words a Student's attempts for the staff, never with an exclamation mark", () => {
+    const copy = nb.debrief.staffSummary;
+    expect(copy.attempts(1)).toBe("1 forsøk.");
+    expect(copy.attempts(3)).toBe("3 forsøk.");
+    expect(copy.attempt(2, "lø. 21. nov. kl. 14:30", true)).toBe("Forsøk 2, lø. 21. nov. kl. 14:30: bestått");
+    for (const line of Object.values(nb.debrief.quizExclusions)) {
+      if (typeof line === "string") expect(line).not.toMatch(/!/);
+    }
   });
 });

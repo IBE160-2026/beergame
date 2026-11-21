@@ -47,9 +47,18 @@ export const SUMMARY = {
 
 export const STAFF_SUMMARY = {
   student_id: "01a1aaaa-0000-7000-8000-0000000009e1",
+  // Story 9.10: the Roster name, read now, and the quiz attempts.
+  name: "Sara Nilsen",
   game_id: "01a1aaaa-0000-7000-8000-0000000009a7",
   game_number: 17,
   role: "wholesaler",
   explanation: { text: "Restordren vokste, så jeg bestilte mye.", length: 39, saved_at: "2026-11-21T12:00:00Z" },
-  summary: { ...SUMMARY, late: true },
+  summary: { ...SUMMARY, late: true, quiz_attempts: 2, quiz_passed_at: "2026-11-21T13:30:00Z" },
+  quiz: {
+    attempts: [
+      { number: 1, submitted_at: "2026-11-21T13:20:00Z", passed: false },
+      { number: 2, submitted_at: "2026-11-21T13:30:00Z", passed: true },
+    ],
+    passed_at: "2026-11-21T13:30:00Z",
+  },
 };

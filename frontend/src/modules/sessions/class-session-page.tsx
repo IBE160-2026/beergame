@@ -15,6 +15,7 @@ import { usePageState } from "@/lib/page-state";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { useClass } from "@/modules/classes/api";
+import { QuizExclusionsBlock } from "@/modules/debrief/quiz-exclusions";
 import { classPath, classSessionPath, HOME_PATH } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 import { LINK_BUTTON } from "@/modules/classes/roster-entry-forms";
@@ -413,6 +414,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
         onShareLeave={() => setShareChecked(true)}
       />
       {saveShown && !item.locked ? saveRow : null}
+      {/* Story 9.10: its own save, since exclusions stay open after the lock until the Test deadline. */}
+      <QuizExclusionsBlock classSessionId={item.id} />
       <TestGameBlock item={item} />
     </>
   );

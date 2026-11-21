@@ -161,6 +161,16 @@ async def _debrief_released_context(
     return await sessions.debrief_released_mail_context(session, user_id, ref, now)
 
 
+QUIZ_CHANGED_KIND = "quiz_changed"
+"""`debrief.commands.QUIZ_CHANGED_NOTICE` (Story 9.10), named here for the same reason."""
+
+
+async def _quiz_changed_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.quiz_changed_mail_context(session, user_id, ref, now)
+
+
 KINDS: Mapping[str, Delivery] = MappingProxyType(
     {
         **{
@@ -176,6 +186,7 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
         DEBRIEF_RELEASED_KIND: Delivery(
             DIGEST, DEBRIEF_RELEASED_KIND, context=_debrief_released_context
         ),
+        QUIZ_CHANGED_KIND: Delivery(DIGEST, QUIZ_CHANGED_KIND, context=_quiz_changed_context),
         # Immediate: the Start date has passed and the Class games wait for the lock.
         LOCK_REFUSED_KIND: Delivery(IMMEDIATE, LOCK_REFUSED_KIND, context=_lock_refused_context),
         identity.PASSWORD_RESET: Delivery(
@@ -196,7 +207,8 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
 notice (Story 5.7, digest), the allocation notice (Story 5.9, digest), the Student choice notice
 (Story 5.17, digest), the refused lock
 (Story 5.11, immediate), the deadline reminder (Story 5.14, digest), the proposed time to play
-(Story 6.19, digest) and the release of held Debriefs (Story 9.2, digest)."""
+(Story 6.19, digest), the release of held Debriefs (Story 9.2, digest) and a changed Debrief
+quiz (Story 9.10, digest)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

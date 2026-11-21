@@ -3967,6 +3967,23 @@
         "title": "QuizChoiceOut",
         "type": "object"
       },
+      "QuizExclusionsIn": {
+        "description": "«Lagre quizvalg»: the ids of every question to take out; the others are asked.",
+        "properties": {
+          "excluded": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded",
+            "type": "array"
+          }
+        },
+        "required": [
+          "excluded"
+        ],
+        "title": "QuizExclusionsIn",
+        "type": "object"
+      },
       "QuizOut": {
         "description": "Step 5, the Debrief quiz (Story 9.9, FR-46, UX-DR37): the version the Class session pinned\nat the lock, whether it is placeholder content (issue #16), the attempts so far and when it was\npassed, the questions of the next attempt (the order may change between attempts; none once\npassed) and the latest attempt's result.",
         "properties": {
@@ -5586,6 +5603,31 @@
         "title": "StaffAssistant",
         "type": "object"
       },
+      "StaffAttemptOut": {
+        "description": "One of a Student's Debrief quiz attempts as the staff see it (Story 9.10): its number,\ntime and whether it passed; never the answers.",
+        "properties": {
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "submitted_at",
+          "passed"
+        ],
+        "title": "StaffAttemptOut",
+        "type": "object"
+      },
       "StaffEmailIn": {
         "description": "«Legg til Faglærer» or «Inviter Assistent»: one address. A refused address answers 422\n`invalid_request` with `fields.email`: an address problem, `not_lecturer` (Faglærer: no\nactive account with the Lecturer role, one reason for all) or `already_staff`.",
         "properties": {
@@ -5651,6 +5693,128 @@
         "title": "StaffOut",
         "type": "object"
       },
+      "StaffQuizAttemptsOut": {
+        "description": "A Student's Debrief quiz attempts for the Class's staff (Story 9.10, FR-46, FR-47): every\nattempt, oldest first, and when the quiz was passed (None while not).",
+        "properties": {
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/StaffAttemptOut"
+            },
+            "title": "Attempts",
+            "type": "array"
+          },
+          "passed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passed At"
+          }
+        },
+        "required": [
+          "attempts",
+          "passed_at"
+        ],
+        "title": "StaffQuizAttemptsOut",
+        "type": "object"
+      },
+      "StaffQuizOut": {
+        "description": "The Debrief quiz of a Class session for its staff (Story 9.10, FR-46, AD-23): the version\nits lock pinned (`pinned` False: the latest, which the lock will pin), the questions in order,\nwhether the User may take questions out (`can_exclude`: an owner of a Class that is not\narchived) and whether exclusions can still change (`open`: until the Test deadline).",
+        "properties": {
+          "can_exclude": {
+            "title": "Can Exclude",
+            "type": "boolean"
+          },
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          },
+          "pinned": {
+            "title": "Pinned",
+            "type": "boolean"
+          },
+          "placeholder": {
+            "title": "Placeholder",
+            "type": "boolean"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/StaffQuizQuestionOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "placeholder",
+          "pinned",
+          "can_exclude",
+          "open",
+          "test_deadline",
+          "questions"
+        ],
+        "title": "StaffQuizOut",
+        "type": "object"
+      },
+      "StaffQuizQuestionOut": {
+        "description": "A Debrief quiz question for the Class's staff (Story 9.10): with its answer key and\nwhether it is taken out of the Class session's quiz.",
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/QuizChoiceOut"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "excluded": {
+            "title": "Excluded",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "prompt",
+          "choices",
+          "answer",
+          "excluded"
+        ],
+        "title": "StaffQuizQuestionOut",
+        "type": "object"
+      },
       "StaffRole": {
         "description": "A User's role in one Class (`class_staff.role`). Co-owners (4.9) are owners too: one role,\nso they have exactly the owner's rights. An Assistant lecturer (4.9) reads the Class.",
         "enum": [
@@ -5670,7 +5834,7 @@
         "type": "string"
       },
       "StaffSummaryOut": {
-        "description": "A Student's Explanation and Debrief summary for the Class's staff (Story 9.8, FR-47,\nAD-12); each None while not sent or not finished. Ids and Roles only, no names (AD-14).",
+        "description": "A Student's Explanation and Debrief summary for the Class's staff (Story 9.8, FR-47,\nAD-12); each None while not sent or not finished. Story 9.10 adds the Student's Roster name,\nread now and never stored (AD-14; None once they are no longer a Student of the Class), and\ntheir Debrief quiz attempts.",
         "properties": {
           "explanation": {
             "anyOf": [
@@ -5705,6 +5869,20 @@
             ],
             "title": "Game Number"
           },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "quiz": {
+            "$ref": "#/components/schemas/StaffQuizAttemptsOut"
+          },
           "role": {
             "anyOf": [
               {
@@ -5733,11 +5911,13 @@
         },
         "required": [
           "student_id",
+          "name",
           "game_id",
           "game_number",
           "role",
           "explanation",
-          "summary"
+          "summary",
+          "quiz"
         ],
         "title": "StaffSummaryOut",
         "type": "object"
@@ -5860,6 +6040,11 @@
           "held": {
             "default": false,
             "title": "Held",
+            "type": "boolean"
+          },
+          "quiz_changed": {
+            "default": false,
+            "title": "Quiz Changed",
             "type": "boolean"
           },
           "state": {
@@ -9044,6 +9229,152 @@
         ]
       }
     },
+    "/api/class-sessions/{session_id}/debrief-quiz": {
+      "get": {
+        "description": "The Klasseøkt's «Debrief-quiz» block (Story 9.10, FR-46, AD-12): the Class session's\nDebrief quiz (the version its lock pinned; the latest before), each question with its answer\nkey and whether it is taken out, whether the User may take questions out and whether that can\nstill change (until the Test deadline). For the Class's owners and Assistant lecturers; 403\n`forbidden` for every other caller.",
+        "operationId": "getSessionDebriefQuiz",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffQuizOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Session Debrief Quiz",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/debrief-quiz/exclusions": {
+      "put": {
+        "description": "«Lagre quizvalg» (Story 9.10, FR-46, AD-23, AD-15): the questions to take out of the Class\nsession's Debrief quiz, the whole set; the others are asked. Stored as Class session rows and\nrecorded in the audit log; a Student who has not passed answers only the rest on their next\nattempt, and one whose last attempt it now covers is told. No Student is passed by it. 409\n`last_question` when no question would be asked, `test_deadline_passed` after the Class\nsession's Test deadline, `class_archived` for an archived Class; 422 `validation_error` for an\nid the quiz does not have; 403 `forbidden` for an Assistant lecturer and every other caller.",
+        "operationId": "setSessionQuizExclusions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuizExclusionsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffQuizOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Set Session Quiz Exclusions",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
     "/api/class-sessions/{session_id}/demand-series": {
       "get": {
         "description": "The customer demand Week by Week, materialised by the engine from the stored Demand\npattern and seed (FR-13, AD-1). For the Class's staff; the same settings and seed always give\nthe same series.",
@@ -9440,7 +9771,7 @@
     },
     "/api/class-sessions/{session_id}/students/{student_id}/debrief-summary": {
       "get": {
-        "description": "A Student's Explanation and Debrief summary for the Class's owners and Assistant\nlecturers (Story 9.8, FR-47, AD-12), each null while not sent or not finished: the key\nmoments, the reflection answers, the completion time and whether it was after the Debrief\ndeadline. 403 `forbidden` for every other caller.",
+        "description": "A Student's Explanation and Debrief summary for the Class's owners and Assistant\nlecturers (Story 9.8, FR-47, AD-12), each null while not sent or not finished: the key\nmoments, the reflection answers, the completion time and whether it was after the Debrief\ndeadline. Story 9.10: the Student's Roster name now (null once they are no longer a Student\nof the Class) and every Debrief quiz attempt with its time and result. 403 `forbidden` for\nevery other caller.",
         "operationId": "getStudentDebriefSummary",
         "parameters": [
           {

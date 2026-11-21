@@ -119,6 +119,10 @@ POLICIES: dict[str, frozenset[str]] = {
     "explanations.read": frozenset({LECTURER, ASSISTANT}),
     # A Student's Debrief summary (Story 9.8, FR-47, AD-12): the same readers as the Explanation.
     "debrief_summaries.read": frozenset({LECTURER, ASSISTANT}),
+    # The Debrief quiz of a Class session with its answer keys and exclusions (Story 9.10, FR-46,
+    # AD-12): its owners and Assistant lecturers read it; only its owners take questions out.
+    "debrief_quiz.read": frozenset({LECTURER, ASSISTANT}),
+    "debrief_quiz.exclude": frozenset({LECTURER}),
     # The own session.
     "session.read": frozenset({ANY_USER}),
     # The live event stream (Story 6.4, AD-8): any User; the scope decides which topics it sends.
@@ -142,6 +146,8 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "class_sessions.manage": frozenset({OWNER}),
     "explanations.read": frozenset({OWNER, ASSISTANT_STAFF}),
     "debrief_summaries.read": frozenset({OWNER, ASSISTANT_STAFF}),
+    "debrief_quiz.read": frozenset({OWNER, ASSISTANT_STAFF}),
+    "debrief_quiz.exclude": frozenset({OWNER}),
 }
 """Class action → the staff roles in the Class that may do it. Later stories add theirs."""
 

@@ -1,4 +1,4 @@
-"""What the Debrief routes answer (Stories 9.2 to 9.9, AD-3)."""
+"""What the Debrief routes answer (Stories 9.2 to 9.10, AD-3)."""
 
 import uuid
 from datetime import datetime
@@ -298,16 +298,37 @@ class MySummaryOut(BaseModel):
     summary: SummaryOut | None
 
 
+class StaffAttemptOut(BaseModel):
+    """One of a Student's Debrief quiz attempts as the staff see it (Story 9.10): its number,
+    time and whether it passed; never the answers."""
+
+    number: int
+    submitted_at: datetime
+    passed: bool
+
+
+class StaffQuizAttemptsOut(BaseModel):
+    """A Student's Debrief quiz attempts for the Class's staff (Story 9.10, FR-46, FR-47): every
+    attempt, oldest first, and when the quiz was passed (None while not)."""
+
+    attempts: list[StaffAttemptOut]
+    passed_at: datetime | None
+
+
 class StaffSummaryOut(BaseModel):
     """A Student's Explanation and Debrief summary for the Class's staff (Story 9.8, FR-47,
-    AD-12); each None while not sent or not finished. Ids and Roles only, no names (AD-14)."""
+    AD-12); each None while not sent or not finished. Story 9.10 adds the Student's Roster name,
+    read now and never stored (AD-14; None once they are no longer a Student of the Class), and
+    their Debrief quiz attempts."""
 
     student_id: uuid.UUID
+    name: str | None
     game_id: uuid.UUID | None
     game_number: int | None
     role: Role | None
     explanation: ExplanationOut | None
     summary: SummaryOut | None
+    quiz: StaffQuizAttemptsOut
 
 
 class ReflectionAnswerIn(BaseModel):
@@ -409,3 +430,35 @@ class QuizAttemptIn(BaseModel):
     otherwise)."""
 
     answers: list[QuizAnswerIn]
+
+
+class StaffQuizQuestionOut(BaseModel):
+    """A Debrief quiz question for the Class's staff (Story 9.10): with its answer key and
+    whether it is taken out of the Class session's quiz."""
+
+    id: str
+    prompt: str
+    choices: list[QuizChoiceOut]
+    answer: str
+    excluded: bool
+
+
+class StaffQuizOut(BaseModel):
+    """The Debrief quiz of a Class session for its staff (Story 9.10, FR-46, AD-23): the version
+    its lock pinned (`pinned` False: the latest, which the lock will pin), the questions in order,
+    whether the User may take questions out (`can_exclude`: an owner of a Class that is not
+    archived) and whether exclusions can still change (`open`: until the Test deadline)."""
+
+    version: int
+    placeholder: bool
+    pinned: bool
+    can_exclude: bool
+    open: bool
+    test_deadline: datetime | None
+    questions: list[StaffQuizQuestionOut]
+
+
+class QuizExclusionsIn(BaseModel):
+    """«Lagre quizvalg»: the ids of every question to take out; the others are asked."""
+
+    excluded: list[str]

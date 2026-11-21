@@ -186,6 +186,13 @@ for (const viewport of [
     await expect(page.locator("[data-summary-moment]")).toHaveCount(3);
     await expect(page.locator("[data-summary-moment]").first()).toContainText(MOMENTS.moments[0]!.reckoning.text);
     await expect(page.locator("[data-summary-answer=evidence]")).toContainText("Fabrikken svingte mest.");
+    // Story 9.10: the Student by name, and every quiz attempt with its time and result.
+    await expect(page.locator("[data-summary-student]")).toHaveText(STAFF_SUMMARY.name);
+    await expect(page.locator("[data-quiz-total]")).toHaveText(/^2 forsøk\. Bestått .*14:30\.$/);
+    await expect(page.locator("[data-quiz-attempt]")).toHaveText([
+      /^Forsøk 1, .*14:20: ikke bestått$/,
+      /^Forsøk 2, .*14:30: bestått$/,
+    ]);
     await expectAccessible(page, viewport.phone);
     await expectReflow(page, viewport.phone);
     await unroute();

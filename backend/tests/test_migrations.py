@@ -85,6 +85,8 @@ SUMMARY_TABLES = {"debrief_summaries"}
 """The table of revision 0107 (Story 9.8)."""
 QUIZ_TABLES = {"quiz_attempts"}
 """The table of revision 0108 (Story 9.9)."""
+EXCLUSION_TABLES = {"quiz_exclusions"}
+"""The table of revision 0109 (Story 9.10)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -98,8 +100,9 @@ HEAD_TABLES = (
     | MOMENT_TABLES
     | SUMMARY_TABLES
     | QUIZ_TABLES
+    | EXCLUSION_TABLES
 )
-HEAD = "0108"  # 0108 stores the Debrief quiz and its attempts (Story 9.9)
+HEAD = "0109"  # 0109 stores the Debrief quiz exclusions (Story 9.10)
 
 
 def reset_schema(url: str) -> None:
@@ -272,6 +275,11 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert function_names(url, "quiz_attempts_immutable")
     assert {"answers", "passed", "quiz_version", "number"} <= columns(url, "quiz_attempts")
 
+    # 0109 (Story 9.10): a Class session's quiz exclusions, as rows of their own.
+    assert {"question_id", "quiz_version", "excluded_at"} <= columns(url, "quiz_exclusions")
+
+    command.downgrade(cfg, "0108")
+    assert EXCLUSION_TABLES.isdisjoint(tables(url))
     command.downgrade(cfg, "0107")
     assert QUIZ_TABLES.isdisjoint(tables(url))
     assert not function_names(url, "quiz_attempts_immutable")

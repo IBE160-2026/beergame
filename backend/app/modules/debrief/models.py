@@ -1,4 +1,4 @@
-"""The tables owned by `modules/debrief` (Stories 9.2, 9.3, 9.6 to 9.9, AD-21). Written by
+"""The tables owned by `modules/debrief` (Stories 9.2, 9.3, 9.6 to 9.10, AD-21). Written by
 `debrief.commands` only."""
 
 from sqlalchemy import (
@@ -176,4 +176,23 @@ quiz_attempts = Table(
         "user_id", "class_session_id", "number", name="uq_quiz_attempts_user_session_number"
     ),
     CheckConstraint("number >= 1", name="ck_quiz_attempts_number"),
+)
+
+quiz_exclusions = Table(
+    "quiz_exclusions",
+    metadata,
+    # A Debrief quiz question the Lecturer took out of a Class session's quiz (Story 9.10, FR-46,
+    # AD-23): a Class session row, never an edit of the content record. Lifting deletes it.
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("question_id", Text, primary_key=True),
+    # The version it was taken out of (the pinned one, or the latest before the lock).
+    Column("quiz_version", Integer, nullable=False),
+    # Ids only (AD-14); no foreign key, so the row outlives a removed account.
+    Column("excluded_by", Uuid, nullable=True),
+    Column("excluded_at", DateTime(timezone=True), nullable=False),
 )

@@ -26,6 +26,11 @@
   latest result) and `submit_quiz_mine` (raises `InvalidQuizAnswers`, `commands.QuizPassed`,
   `commands.TestDeadlinePassed`), both behind `require_debrief` (403 `debrief_required`). The
   summary carries the number of quiz attempts and when the quiz was passed.
+- Story 9.10: `staff_quiz(user, class_session_id)` (the Class session's Debrief quiz with its
+  answer keys and exclusions, `debrief_quiz.read`) and `set_quiz_exclusions` (raises
+  `InvalidExclusions`, `commands.LastQuestion`, `commands.TestDeadlinePassed`); every attempt
+  asks the pinned questions that are not taken out. `staff_summary` adds the Student's Roster name
+  and their quiz attempts.
 """
 
 import random
@@ -34,7 +39,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.analysis import moments as moment_text
 from app.analysis import quiz as quiz_rules
@@ -82,6 +87,10 @@ from app.modules.debrief.schemas import (
     RevealWeekOut,
     SimulatedOut,
     SimulatedRowOut,
+    StaffAttemptOut,
+    StaffQuizAttemptsOut,
+    StaffQuizOut,
+    StaffQuizQuestionOut,
     StaffSummaryOut,
     SummaryAnswerOut,
     SummaryMomentOut,
@@ -97,6 +106,7 @@ from app.platform.db import get_sessionmaker
 __all__ = [
     "DebriefRequired",
     "ExplanationRequired",
+    "InvalidExclusions",
     "InvalidQuizAnswers",
     "InvalidAnswer",
     "InvalidExplanation",
@@ -118,7 +128,9 @@ __all__ = [
     "require_debrief",
     "require_explanation",
     "save_mine",
+    "set_quiz_exclusions",
     "staff_explanation",
+    "staff_quiz",
     "staff_summary",
     "step",
     "submit_quiz_mine",
@@ -175,6 +187,11 @@ class InvalidQuizAnswers(Exception):
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
+
+
+class InvalidExclusions(Exception):
+    """Quiz exclusions that name a question the Class session's quiz does not have (422
+    `validation_error`, `unknown_question`)."""
 
 
 class NoExplanation(Exception):
@@ -769,13 +786,25 @@ async def staff_summary(
         if stored is not None and game is not None
         else None
     )
+    attempts = await _attempts(student_id, class_session_id)
+    passing = next((each for each in attempts if each.passed), None)
     return StaffSummaryOut(
         student_id=student_id,
+        name=await sessions.student_name(class_session_id, student_id),
         game_id=game.game_id if game else None,
         game_number=game.number if game else None,
         role=Role(game.role) if game else None,
         explanation=explanation,
         summary=summary,
+        quiz=StaffQuizAttemptsOut(
+            attempts=[
+                StaffAttemptOut(
+                    number=each.number, submitted_at=each.submitted_at, passed=each.passed
+                )
+                for each in attempts
+            ],
+            passed_at=passing.submitted_at if passing else None,
+        ),
     )
 
 
@@ -810,16 +839,27 @@ async def _attempts(user_id: uuid.UUID, class_session_id: uuid.UUID) -> list[com
         return [commands.attempt_of(row) for row in found]
 
 
-def _asked(quiz: quiz_rules.DebriefQuiz) -> list[str]:
-    """The questions every attempt answers: all of the version (exclusions come with 9.10)."""
-    return [question.id for question in quiz.questions]
+async def _excluded(class_session_id: uuid.UUID) -> set[str]:
+    """The questions the Lecturer took out of the Class session's quiz (Story 9.10)."""
+    async with get_sessionmaker()() as s:
+        return await rules.excluded_questions(s, class_session_id)
 
 
-def _order(quiz: quiz_rules.DebriefQuiz, user_id: uuid.UUID, number: int) -> list[str]:
+def _asked(quiz: quiz_rules.DebriefQuiz, excluded: set[str]) -> list[str]:
+    """The questions an attempt answers (Story 9.10, FR-46): those of the version the Lecturer
+    has not taken out, in the content's order. Never empty: the last one cannot be taken out, and
+    should rows taken out of another version cover every question of this one, all are asked."""
+    asked = [question.id for question in quiz.questions if question.id not in excluded]
+    return asked or [question.id for question in quiz.questions]
+
+
+def _order(
+    quiz: quiz_rules.DebriefQuiz, user_id: uuid.UUID, number: int, excluded: set[str]
+) -> list[str]:
     """The order attempt `number` asks the questions in (FR-46: they may be reshuffled): the
     content's order the first time, then shuffled with a seed of the Student and the attempt, so
     a reload of the same attempt shows the same order."""
-    asked = _asked(quiz)
+    asked = _asked(quiz, excluded)
     if number > 1:
         random.Random(f"{user_id}:{number}").shuffle(asked)
     return asked
@@ -877,6 +917,7 @@ async def own_quiz(user: authz.Principal, debrief_id: uuid.UUID) -> QuizOut | No
     await require_debrief(user.id, row.class_session_id)
     version, quiz = await _quiz(row.game_id)
     attempts = await _attempts(user.id, row.class_session_id)
+    excluded = await _excluded(row.class_session_id)
     last = attempts[-1] if attempts else None
     passed = last is not None and last.passed
     questions = (
@@ -884,7 +925,7 @@ async def own_quiz(user: authz.Principal, debrief_id: uuid.UUID) -> QuizOut | No
         if passed
         else [
             QuizQuestionOut(id=q.id, prompt=q.prompt, choices=_choices(q))
-            for q in map(quiz.question, _order(quiz, user.id, len(attempts) + 1))
+            for q in map(quiz.question, _order(quiz, user.id, len(attempts) + 1, excluded))
         ]
     )
     return QuizOut(
@@ -911,8 +952,12 @@ async def submit_quiz_mine(
     row, game = found
     await require_debrief(user.id, row.class_session_id)
     version, quiz = await _quiz(row.game_id)
+    excluded = await _excluded(row.class_session_id)
+    # A form opened before the Lecturer took a question out still sends its answer: it is left
+    # out, never scored or stored (Story 9.10).
+    kept = [(question, choice) for question, choice in answers if question not in excluded]
     try:
-        scored = quiz_rules.score(quiz, _asked(quiz), answers)
+        scored = quiz_rules.score(quiz, _asked(quiz, excluded), kept)
     except quiz_rules.WrongAnswers as wrong:
         raise InvalidQuizAnswers(wrong.reason) from None
     _, test_deadline = await sessions.student_deadlines(user.id, row.class_session_id)
@@ -925,6 +970,75 @@ async def submit_quiz_mine(
         test_deadline,
     )
     return await _result(row.game_id, game.role, saved)
+
+
+async def _staff_quiz_out(
+    found: sessions.QuizSession, version: int, quiz: quiz_rules.DebriefQuiz, excluded: set[str]
+) -> StaffQuizOut:
+    async with get_sessionmaker()() as s:
+        now = await s.scalar(select(func.now()))
+    return StaffQuizOut(
+        version=version,
+        placeholder=quiz.placeholder,
+        pinned=content.pinned_version(found.pins, content.Kind.DEBRIEF_QUIZ) is not None,
+        can_exclude=found.can_exclude,
+        open=found.test_deadline is None or now <= found.test_deadline,
+        test_deadline=found.test_deadline,
+        questions=[
+            StaffQuizQuestionOut(
+                id=q.id,
+                prompt=q.prompt,
+                choices=_choices(q),
+                answer=q.answer,
+                excluded=q.id in excluded,
+            )
+            for q in quiz.questions
+        ],
+    )
+
+
+async def _session_quiz(pins: object) -> tuple[int, quiz_rules.DebriefQuiz]:
+    """The Debrief quiz a Class session uses: the version its lock pinned, the latest before."""
+    return await content.debrief_quiz(content.pinned_version(pins, content.Kind.DEBRIEF_QUIZ))
+
+
+async def staff_quiz(user: authz.Principal, class_session_id: uuid.UUID) -> StaffQuizOut | None:
+    """The Klasseøkt's «Debrief-quiz» block (Story 9.10, FR-46, AD-12): the Class session's quiz
+    with each question's answer key and whether it is taken out, for its owners and Assistant
+    lecturers (`debrief_quiz.read`); None for every other caller alike (FR-5)."""
+    found = await sessions.quiz_session(user, class_session_id)
+    if found is None:
+        return None
+    version, quiz = await _session_quiz(found.pins)
+    return await _staff_quiz_out(found, version, quiz, await _excluded(class_session_id))
+
+
+async def set_quiz_exclusions(
+    user: authz.Principal, class_session_id: uuid.UUID, wanted: Sequence[str]
+) -> StaffQuizOut | None:
+    """«Lagre quizvalg» (Story 9.10, FR-46, AD-23): `debrief.commands.set_quiz_exclusions` for an
+    owner of the Class (`debrief_quiz.exclude`); None for every other caller alike (FR-5). Raises
+    `InvalidExclusions`, `commands.LastQuestion`, `commands.TestDeadlinePassed` or
+    `classes.ClassArchived` (an archived Class, refused under the Class session's lock)."""
+    if not await sessions.class_staff_may(user, class_session_id, "debrief_quiz.exclude"):
+        return None
+    found = await sessions.quiz_session(user, class_session_id)
+    if found is None:
+        return None
+    loaded: dict[str, quiz_rules.DebriefQuiz] = {}
+
+    async def resolve(pins: object) -> commands.QuizVersion:
+        version, quiz = await _session_quiz(pins)
+        loaded["quiz"] = quiz
+        return commands.QuizVersion(version, tuple(q.id for q in quiz.questions))
+
+    try:
+        saved, excluded = await commands.set_quiz_exclusions(
+            class_session_id, user.id, wanted, resolve
+        )
+    except commands.UnknownQuizQuestion:
+        raise InvalidExclusions from None
+    return await _staff_quiz_out(found, saved.version, loaded["quiz"], set(excluded))
 
 
 async def due_releases(now: datetime) -> Sequence[str]:

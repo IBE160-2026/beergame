@@ -31,15 +31,18 @@ export function holderText(seat: TableSeat): string {
 /** Stegene's items in words, from the states the api computed (AD-10): the web app decides
  * nothing about which step is open. A Debrief step held until every Class game has finished says
  * so (Story 9.2); the current Debrief step leads to the Debrief of `sessionId`, the current Quiz
- * step to its step 5, the Debrief quiz (Story 9.9). */
+ * step to its step 5, the Debrief quiz (Story 9.9), and says when the Faglærer has changed the quiz
+ * (Story 9.10). */
 export function stepItems(steps: EnrolledSession["steps"], sessionId?: string): StegeneItem[] {
-  return (steps ?? []).map(({ step, state, held }) => ({
+  return (steps ?? []).map(({ step, state, held, quiz_changed }) => ({
     key: step,
     name: copy.stepNames[step],
     state,
     note:
       state === "current"
-        ? copy.current
+        ? quiz_changed && step === "quiz"
+          ? copy.quizChanged
+          : copy.current
         : state === "done"
           ? copy.done
           : held && step === "debrief"

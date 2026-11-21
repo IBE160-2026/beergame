@@ -1,10 +1,13 @@
-"""The only writer of the Debrief tables (Stories 9.2, 9.3, 9.6 to 9.9, AD-21, AD-8).
+"""The only writer of the Debrief tables (Stories 9.2, 9.3, 9.6 to 9.10, AD-21, AD-8).
 
 Each command on a Debrief session locks its row and emits `debrief:<id>` (`platform/events`
 registry: `debrief.open`, `debrief.save_explanation`, `debrief.complete_step`,
 `debrief.record_facts`, `debrief.finish`, `debrief.submit_quiz`). `release` writes
 the Class session's release once and tells each Student who holds a Seat through
-`platform/notify` (`debrief.release`). Arguments are ids and the Student's text only."""
+`platform/notify` (`debrief.release`). `set_quiz_exclusions` (Story 9.10) locks the Class
+session row instead, records the change through `platform/audit`, emits `session:<id>` and tells
+each Student whose last attempt it covers (`debrief.set_quiz_exclusions`). Arguments are ids and
+the Student's text only."""
 
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
@@ -25,16 +28,25 @@ from app.modules.debrief.models import (
     debrief_sessions,
     debrief_summaries,
     quiz_attempts,
+    quiz_exclusions,
 )
-from app.modules.debrief.rules import all_class_games_finished
+from app.modules.debrief.rules import all_class_games_finished, last_attempts
 from app.modules.progress import service as progress
-from app.platform import events, notify
+from app.modules.sessions import service as sessions
+from app.platform import audit, events, notify
 from app.platform.db import get_sessionmaker
 
 log = structlog.get_logger(__name__)
 
 RELEASED_NOTICE = "debrief_released"
 """The notice each seated Student gets when a held Class session's Debriefs open (digest)."""
+
+QUIZ_CHANGED_NOTICE = "quiz_changed"
+"""The notice a Student gets when the Lecturer takes out every question their last Debrief quiz
+attempt got wrong (Story 9.10, digest)."""
+
+EXCLUSIONS_CHANGED = "debrief_quiz.exclusions_changed"
+"""The audit action of a change to a Class session's Debrief quiz exclusions (Story 9.10)."""
 
 
 class ExplanationExists(Exception):
@@ -487,3 +499,116 @@ async def submit_quiz(
         await events.emit(session, "debrief", str(debrief.id))
     log.info("quiz_attempted", debrief_id=str(debrief.id), number=saved["number"], passed=passed)
     return attempt_of(saved)
+
+
+class LastQuestion(Exception):
+    """An exclusion that would leave the Debrief quiz with no question (409 `last_question`)."""
+
+
+class UnknownQuizQuestion(Exception):
+    """An exclusion of a question the Class session's quiz version does not have (422)."""
+
+
+@dataclass(frozen=True)
+class QuizVersion:
+    """The Debrief quiz a Class session uses: its version and its question ids, in order."""
+
+    version: int
+    question_ids: tuple[str, ...]
+
+
+async def set_quiz_exclusions(
+    class_session_id: uuid.UUID,
+    actor_id: uuid.UUID,
+    wanted: Sequence[str],
+    resolve: Callable[[Any], Awaitable[QuizVersion]],
+) -> tuple[QuizVersion, frozenset[str]]:
+    """«Lagre quizvalg» (Story 9.10, FR-46, AD-23, AD-15): make `wanted` the Class session's
+    Debrief quiz exclusions, as Class session rows (never an edit of the content record). In one
+    transaction holding the Class session's lock (`sessions.lock_for_quiz_exclusions`, which
+    refuses an archived Class): `resolve(pins)` gives the quiz version the lock pinned (the latest
+    before the lock). Raises `UnknownQuizQuestion` for an id the version does not have,
+    `LastQuestion` when no question would be asked and `TestDeadlinePassed` once the database
+    time is past the Class session's Test deadline; nothing is stored then. An unchanged set
+    writes nothing. A change stores and deletes rows, records one audit row (ids only), emits
+    `session:<id>`, and enqueues a `quiz_changed` notice for each Student who has not passed and
+    whose last attempt got wrong only questions now taken out, one of them in this change. No
+    Student is passed by it. Answers the version and the exclusions now."""
+    wanted_set = frozenset(wanted)
+    async with get_sessionmaker().begin() as session:
+        pins, test_deadline = await sessions.lock_for_quiz_exclusions(session, class_session_id)
+        quiz = await resolve(pins)
+        if not wanted_set <= set(quiz.question_ids):
+            raise UnknownQuizQuestion
+        if wanted_set >= set(quiz.question_ids):
+            raise LastQuestion
+        if test_deadline is not None and await session.scalar(select(func.now() > test_deadline)):
+            raise TestDeadlinePassed
+        stored = frozenset(
+            (
+                await session.scalars(
+                    select(quiz_exclusions.c.question_id).where(
+                        quiz_exclusions.c.class_session_id == class_session_id
+                    )
+                )
+            ).all()
+        )
+        # Rows of another version (taken out before a lock pinned a newer one) count as they are.
+        excluded = sorted(wanted_set - stored)
+        lifted = sorted((stored - wanted_set) & set(quiz.question_ids))
+        if not excluded and not lifted:
+            return quiz, stored & set(quiz.question_ids)
+        if lifted:
+            await session.execute(
+                quiz_exclusions.delete().where(
+                    quiz_exclusions.c.class_session_id == class_session_id,
+                    quiz_exclusions.c.question_id.in_(lifted),
+                )
+            )
+        for question_id in excluded:
+            await session.execute(
+                insert(quiz_exclusions).values(
+                    class_session_id=class_session_id,
+                    question_id=question_id,
+                    quiz_version=quiz.version,
+                    excluded_by=actor_id,
+                    excluded_at=func.now(),
+                )
+            )
+        now = await session.scalar(select(func.now()))
+        change_id = await audit.record(
+            session,
+            actor_id,
+            EXCLUSIONS_CHANGED,
+            {"class_session_id": class_session_id},
+            {"excluded": excluded, "lifted": lifted, "quiz_version": quiz.version},
+            now,
+        )
+        told = 0
+        newly = set(excluded)
+        for user_id, attempt in (await last_attempts(session, class_session_id)).items():
+            wrong = {a["question_id"] for a in attempt["answers"] if not a["correct"]}
+            if attempt["passed"] or not wrong:
+                continue
+            if not wrong <= wanted_set or not wrong & newly:
+                # Hjem's «quizen er endret» turned off by a lift: the Student's pages read again.
+                if wrong <= stored:
+                    await events.emit(session, "user", str(user_id))
+                continue
+            await notify.enqueue(
+                session,
+                user_id,
+                QUIZ_CHANGED_NOTICE,
+                f"{QUIZ_CHANGED_NOTICE}:{class_session_id}:{user_id}:{change_id}",
+                ref=class_session_id,
+            )
+            told += 1
+        await events.emit(session, "session", str(class_session_id))
+    log.info(
+        "quiz_exclusions_changed",
+        class_session_id=str(class_session_id),
+        excluded=excluded,
+        lifted=lifted,
+        told=told,
+    )
+    return quiz, wanted_set

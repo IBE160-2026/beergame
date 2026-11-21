@@ -23,7 +23,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * finished Debrief, its time (and whether it was after the Debrief deadline), the key moments as
  * the Student read them and the reflection answers. Each part says when it is missing. An Admin
  * outside the Class and every Student get the permission-denied page (the api refuses them).
- * Ids and Roles only; the page names no Student (AD-14).
+ * Story 9.10: the page names the Student by their Roster name, read now (staff see the Roster;
+ * nothing stores it, AD-14), and lists their Debrief quiz attempts with each time and result.
  */
 export function SummaryPage({ classSessionId, studentId }: { classSessionId: string; studentId: string }) {
   const named = UUID.test(classSessionId) && UUID.test(studentId);
@@ -81,7 +82,10 @@ function SummaryView({
 function SummaryBody({ item }: { item: StaffSummary }) {
   return (
     <>
-      <p className={`${LINE} mt-1 text-ink-secondary`}>
+      <p data-summary-student="" className={`${LINE} mt-1 font-semibold text-ink`}>
+        {item.name ?? copy.removed}
+      </p>
+      <p className={`${LINE} text-ink-secondary`}>
         {item.role ? nb.debriefEntry.roleGame(roleName(item.role), item.game_number ?? null) : copy.noStudent}
       </p>
       <section id="forklaring" aria-labelledby="summary-explanation" data-summary-explanation="" className={SECTION}>
@@ -103,6 +107,33 @@ function SummaryBody({ item }: { item: StaffSummary }) {
         </h2>
         {item.summary ? <Finished summary={item.summary} /> : <p className={`${LINE} mt-3 text-ink`}>{copy.notFinished}</p>}
       </section>
+      <section aria-labelledby="summary-quiz" data-summary-quiz="" className={SECTION}>
+        <h2 id="summary-quiz" className="text-headline text-ink">
+          {copy.quiz}
+        </h2>
+        <QuizAttempts quiz={item.quiz} />
+      </section>
+    </>
+  );
+}
+
+/** The Student's Debrief quiz attempts (Story 9.10, FR-46, FR-47): how many, whether and when it
+ * was passed, then each attempt's time and result in words, oldest first. */
+function QuizAttempts({ quiz }: { quiz: StaffSummary["quiz"] }) {
+  if (quiz.attempts.length === 0) return <p className={`${LINE} mt-3 text-ink`}>{copy.noAttempts}</p>;
+  return (
+    <>
+      <p data-quiz-total="" className={`${LINE} mt-3 text-ink`}>
+        {copy.attempts(quiz.attempts.length)}{" "}
+        {quiz.passed_at ? copy.passedAt(osloDateText(quiz.passed_at)) : copy.notPassed}
+      </p>
+      <ol className="mt-2 flex flex-col gap-1">
+        {quiz.attempts.map((attempt) => (
+          <li key={attempt.number} data-quiz-attempt={attempt.number} className={`${LINE} tabular-nums text-ink-secondary`}>
+            {copy.attempt(attempt.number, osloDateText(attempt.submitted_at), attempt.passed)}
+          </li>
+        ))}
+      </ol>
     </>
   );
 }

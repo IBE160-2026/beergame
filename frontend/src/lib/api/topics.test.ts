@@ -2,7 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 
 import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
-import { debriefsKey } from "@/modules/debrief/api";
+import { debriefsKey, sessionQuizKey, staffSummaryKey } from "@/modules/debrief/api";
 import { myGameKey, playKey, startingTaskKey } from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
 import {
@@ -65,6 +65,14 @@ describe("topicKeys", () => {
       classSessionKey("s1"),
       allocationKey("s1"),
       classSessionsKey("c1"),
+    ]);
+  });
+
+  it("maps session:<id> to its Debrief quiz block and its Students' Debrief summaries (Story 9.10)", () => {
+    const keys = [sessionQuizKey("s1"), sessionQuizKey("s2"), staffSummaryKey("s1", "u1"), staffSummaryKey("s2", "u1")];
+    expect(invalidated({ topic: "session", id: "s1", version: null }, keys)).toEqual([
+      sessionQuizKey("s1"),
+      staffSummaryKey("s1", "u1"),
     ]);
   });
 

@@ -155,7 +155,7 @@ async def test_held_debriefs_wait_for_every_class_game_and_are_released_once(kla
     item = await home(who)
     assert item["game"]["debrief"] == "held"
     debrief = [step for step in item["steps"] if step["step"] == "debrief"]
-    assert debrief == [{"step": "debrief", "state": "locked", "held": True}]
+    assert debrief == [{"step": "debrief", "state": "locked", "held": True, "quiz_changed": False}]
     # The other game still running: its Students are told it has not finished.
     refused(await open_(by_game[second][0], session_id), "debrief_not_open")
     assert (await sweep.run(LOCKED + MINUTE))["debrief.release"] == 0

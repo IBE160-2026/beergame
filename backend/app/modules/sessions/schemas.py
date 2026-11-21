@@ -570,6 +570,10 @@ class StepOut(BaseModel):
     held: bool = False
     """Story 9.2: the Debrief step is locked because the Lecturer holds every Debrief until all
     Class games have finished; Stegene says so, without how many remain."""
+    quiz_changed: bool = False
+    """Story 9.10: the current Quiz step, after the Lecturer took out every question the
+    Student's last attempt got wrong; Stegene says the quiz has changed. The Student is not
+    passed: the next attempt applies the change."""
 
 
 class EnrolledSessionOut(BaseModel):

@@ -1,4 +1,4 @@
-"""The Debrief routes (Stories 9.2 to 9.9, FR-41, FR-42, FR-44 to FR-47, AD-3, AD-12).
+"""The Debrief routes (Stories 9.2 to 9.10, FR-41, FR-42, FR-44 to FR-47, AD-3, AD-12).
 
 - `POST /api/me/class-sessions/{id}/debrief`: «Gå til Debrief» and Stegene's Debrief step open
   the Student's Debrief session (created at step 1 the first time) and answer it.
@@ -22,6 +22,9 @@
 - Story 9.9, step 5: `GET /api/debriefs/{id}/quiz` (the Debrief quiz) and
   `POST /api/debriefs/{id}/quiz/attempts` (one scored attempt; 409 `quiz_passed`,
   `test_deadline_passed`), both 403 `debrief_required` until the Debrief is finished.
+- Story 9.10: `GET /api/class-sessions/{id}/debrief-quiz` (the Class session's Debrief quiz with
+  its answer keys and exclusions, for its owners and Assistant lecturers) and
+  `PUT /api/class-sessions/{id}/debrief-quiz/exclusions` («Lagre quizvalg», owners only).
 
 Every Debrief route answers 403 `debrief_not_open` while the Student's Class game has not
 finished and 403 `debrief_held` while the Lecturer holds the Debriefs and a Class game has not
@@ -47,10 +50,12 @@ from app.modules.debrief.schemas import (
     NetInventoryOut,
     QuizAttemptIn,
     QuizAttemptOut,
+    QuizExclusionsIn,
     QuizOut,
     ReflectionAnswerIn,
     ReflectionOut,
     ReflectionQuestionOut,
+    StaffQuizOut,
     StaffSummaryOut,
 )
 from app.platform import authz
@@ -339,7 +344,9 @@ async def get_student_debrief_summary(
     """A Student's Explanation and Debrief summary for the Class's owners and Assistant
     lecturers (Story 9.8, FR-47, AD-12), each null while not sent or not finished: the key
     moments, the reflection answers, the completion time and whether it was after the Debrief
-    deadline. 403 `forbidden` for every other caller."""
+    deadline. Story 9.10: the Student's Roster name now (null once they are no longer a Student
+    of the Class) and every Debrief quiz attempt with its time and result. 403 `forbidden` for
+    every other caller."""
     found = await service.staff_summary(user, _id(session_id), _id(student_id))
     if found is None:
         raise authz.Forbidden
@@ -363,6 +370,63 @@ async def get_student_explanation(
         found = await service.staff_explanation(user, _id(session_id), _id(student_id))
     except service.NoExplanation:
         return error_response(404, "not_found", "No Explanation is sent.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/class-sessions/{session_id}/debrief-quiz",
+    response_model=StaffQuizOut,
+    responses=documented(401, 403),
+    operation_id="getSessionDebriefQuiz",
+)
+async def get_session_debrief_quiz(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("debrief_quiz.read"))],
+) -> Response:
+    """The Klasseøkt's «Debrief-quiz» block (Story 9.10, FR-46, AD-12): the Class session's
+    Debrief quiz (the version its lock pinned; the latest before), each question with its answer
+    key and whether it is taken out, whether the User may take questions out and whether that can
+    still change (until the Test deadline). For the Class's owners and Assistant lecturers; 403
+    `forbidden` for every other caller."""
+    found = await service.staff_quiz(user, _id(session_id))
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.put(
+    "/class-sessions/{session_id}/debrief-quiz/exclusions",
+    response_model=StaffQuizOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="setSessionQuizExclusions",
+)
+async def set_session_quiz_exclusions(
+    session_id: str,
+    body: QuizExclusionsIn,
+    user: Annotated[authz.Principal, Depends(authz.require("debrief_quiz.exclude"))],
+) -> Response:
+    """«Lagre quizvalg» (Story 9.10, FR-46, AD-23, AD-15): the questions to take out of the Class
+    session's Debrief quiz, the whole set; the others are asked. Stored as Class session rows and
+    recorded in the audit log; a Student who has not passed answers only the rest on their next
+    attempt, and one whose last attempt it now covers is told. No Student is passed by it. 409
+    `last_question` when no question would be asked, `test_deadline_passed` after the Class
+    session's Test deadline, `class_archived` for an archived Class; 422 `validation_error` for an
+    id the quiz does not have; 403 `forbidden` for an Assistant lecturer and every other caller."""
+    try:
+        found = await service.set_quiz_exclusions(user, _id(session_id), body.excluded)
+    except service.InvalidExclusions:
+        return error_response(
+            422,
+            "validation_error",
+            "The quiz has no such question.",
+            {"excluded": "unknown_question"},
+        )
+    except commands.LastQuestion:
+        return error_response(409, "last_question", "At least one question must be asked.")
+    except commands.TestDeadlinePassed:
+        return error_response(409, "test_deadline_passed", "The Test deadline has passed.")
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))

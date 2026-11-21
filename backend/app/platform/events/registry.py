@@ -118,6 +118,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # passing one records `quiz_passed` in the same transaction, which emits `user` and
         # `session`.
         "debrief.submit_quiz": frozenset({"debrief", "session", "user"}),
+        # The Debrief quiz exclusions of a Class session changed (Story 9.10, FR-46, AD-23): the
+        # Class session row locked; its staff read the block again (`session`), and each Student
+        # whose last attempt it now covers gets a `quiz_changed` notice, which emits `user`.
+        "debrief.set_quiz_exclusions": frozenset({"session", "user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

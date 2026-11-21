@@ -420,6 +420,9 @@ export const nb = {
       held: {
         debrief: "Debrief, åpnes når alle Klassespillene er ferdige.",
       },
+      /** Story 9.10: the current Quiz step after the Faglærer took out every question the
+       * Student's last attempt got wrong. [ASSUMPTION] */
+      quizChanged: "pågår, quizen er endret",
       nextDeadline: "Neste frist",
       /** «Spillfrist ti. 8. des.» */
       deadline: (kind: string, day: string) => `${kind} ${day}`,
@@ -2296,6 +2299,44 @@ export const nb = {
       noMoments: "Ingen egne øyeblikk: Klassespillet ble spilt mest av KI-spillere.",
       reflection: "Spørsmål til ettertanke",
       noStudent: "Studenten har ikke noe Klassespill i denne Klasseøkten.",
+      /** Story 9.10: the Student's name is read from the Roster now; gone once removed. [ASSUMPTION] */
+      removed: "Studenten er ikke lenger i Klassen.",
+      /** Story 9.10 (FR-46, FR-47): the Student's Debrief quiz attempts. [ASSUMPTION] */
+      quiz: "Debrief-quiz",
+      noAttempts: "Studenten har ikke tatt quizen ennå.",
+      attempts: (n: number) => (n === 1 ? "1 forsøk." : `${n} forsøk.`),
+      passedAt: (when: string) => `Bestått ${when}.`,
+      notPassed: "Ikke bestått ennå.",
+      /** One attempt: «Forsøk 2, to. 26. nov. kl. 14:15: bestått». */
+      attempt: (n: number, when: string, passed: boolean) =>
+        `Forsøk ${n}, ${when}: ${passed ? "bestått" : "ikke bestått"}`,
+    },
+    /** Story 9.10 (FR-46, UX-DR12): the Klasseøkt's «Debrief-quiz» block, where the Faglærer takes
+     * a question out. Draft copy, [ASSUMPTION]. */
+    quizExclusions: {
+      heading: "Debrief-quiz",
+      help: "Et spørsmål du tar ut, stilles ikke i studentenes neste forsøk. Gjelder alle studentene i denne Klasseøkten fram til Testfristen. Ingen blir bestått av endringen, og en student som har bestått, forblir bestått.",
+      /** Before the lock: the version the lock will pin. */
+      latest: "Quizen låses ved startdatoen. Til da vises den nyeste versjonen.",
+      placeholder: "Spørsmålene er foreløpige og byttes ut før kurset tar dem i bruk.",
+      /** «Spørsmål 1 av 3». */
+      questionOf: (n: number, total: number) => `Spørsmål ${n} av ${total}`,
+      answer: (text: string) => `Riktig svar: ${text}`,
+      /** The Bryter's state text. */
+      included: "Med i quizen",
+      excluded: "Tatt ut",
+      save: "Lagre quizvalg",
+      saving: "Lagrer …",
+      saved: "Quizvalgene er lagret.",
+      /** Read-only reasons. */
+      assistant: "Bare Faglærerne i Klassen kan ta ut spørsmål.",
+      closed: "Testfristen er passert, så quizvalgene kan ikke endres lenger.",
+      /** Refusals beside «Lagre quizvalg». */
+      lastQuestion: "Minst ett spørsmål må være med i quizen.",
+      deadlinePassed: "Testfristen er passert, så quizvalgene kan ikke endres lenger.",
+      archived: "Klassen er arkivert, så quizvalgene kan ikke endres.",
+      failed: "Quizvalgene ble ikke lagret. Prøv igjen.",
+      loadFailed: "Debrief-quizen kunne ikke hentes.",
     },
     /** Step 5, the Debrief quiz (Story 9.9, FR-46, UX-DR37). «Debrief-quiz» is the spine's; the
      * rest is [ASSUMPTION] draft copy. The marks on each row are `quizChoice`'s. */

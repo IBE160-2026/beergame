@@ -1147,6 +1147,10 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
             row["id"]: await _student_card(s, user.id, row, done.get(row["id"], set()))
             for row in locked
         }
+        changed = {
+            row["id"]: await _quiz_changed_of(s, user.id, row["id"], done.get(row["id"], set()))
+            for row in locked
+        }
     upcoming: dict[uuid.UUID, list[EnrolledLabHourOut]] = {}
     for lab in labs:
         upcoming.setdefault(lab["class_session_id"], []).append(
@@ -1177,6 +1181,7 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                     cards.get(row["id"]) is not None,
                     done.get(row["id"], set()),
                     held=_held(cards.get(row["id"])),
+                    quiz_changed=changed.get(row["id"], False),
                 ),
             )
             for row in rows
@@ -1196,12 +1201,19 @@ STEGENE: tuple[tuple[str, progress.Step], ...] = (
 """Stegene's six steps in order (UX-DR29) and the `progress` step that marks each done."""
 
 
-def stegene(has_game: bool, done: set[progress.Step], *, held: bool = False) -> list[StepOut]:
+def stegene(
+    has_game: bool,
+    done: set[progress.Step],
+    *,
+    held: bool = False,
+    quiz_changed: bool = False,
+) -> list[StepOut]:
     """The state of each of Stegene's steps (Story 6.1, AD-10): a done step is `done`; with a
     game the first step not done is `current` and the later ones `locked`; with no game (before
     the Start date, or no Seat yet) every step not done is `locked`. `held` (Story 9.2): the
     Lecturer holds the Debriefs until every Class game has finished, so a Debrief step that would
-    be current is `locked` and says so, and no step is current until the release."""
+    be current is `locked` and says so, and no step is current until the release.
+    `quiz_changed` (Story 9.10): a current Quiz step says the Lecturer has changed the quiz."""
     steps: list[StepOut] = []
     current_given = not has_game
     for name, step in STEGENE:
@@ -1211,6 +1223,9 @@ def stegene(has_game: bool, done: set[progress.Step], *, held: bool = False) -> 
             state, current_given = "current", True
             if name == "debrief" and held:
                 steps.append(StepOut(step=name, state="locked", held=True))
+                continue
+            if name == "quiz" and quiz_changed:
+                steps.append(StepOut(step=name, state=state, quiz_changed=True))
                 continue
         else:
             state = "locked"
@@ -1247,6 +1262,34 @@ async def _debrief_of(
         return None
     hold = row.get("debrief_release") == DebriefRelease.hold.value
     return await _debrief_state[0](s, user_id, row["id"], hold)
+
+
+# Story 9.10: whether the Lecturer has taken out every question the Student's last quiz attempt
+# got wrong, as `debrief.rules` judges it; registered by `debrief`, as the Debrief state above.
+
+QuizChangedProvider = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[bool]]
+"""`(session, user_id, class_session_id)` → whether Hjem says the quiz has changed."""
+
+_quiz_changed: list[QuizChangedProvider] = []
+
+
+def register_quiz_changed(provider: QuizChangedProvider) -> None:
+    """`debrief.rules` registers its one rule at import; another is refused."""
+    if _quiz_changed and _quiz_changed[0] is not provider:
+        raise ValueError("a quiz-changed provider is registered already")
+    _quiz_changed[:] = [provider]
+
+
+async def _quiz_changed_of(
+    s: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID, done: set[progress.Step]
+) -> bool:
+    """Whether Stegene's current Quiz step says the quiz has changed: only while the Debrief is
+    done and the quiz not passed, and never before `debrief` has registered its rule."""
+    if not _quiz_changed or progress.Step.DEBRIEF not in done:
+        return False
+    if progress.Step.QUIZ_PASSED in done:
+        return False
+    return await _quiz_changed[0](s, user_id, class_session_id)
 
 
 def _held(card: StudentGameOut | None) -> bool:
@@ -1303,6 +1346,65 @@ async def class_staff_may(user: authz.Principal, class_session_id: uuid.UUID, ac
     if row is None:
         return False
     return await _class_for(user, row["class_id"], action) is not None
+
+
+@dataclass(frozen=True)
+class QuizSession:
+    """A Class session as the Debrief quiz's staff block reads it (Story 9.10): the pins its lock
+    stored (None before the lock), its Test deadline, and whether the User may take questions out
+    (an owner of a Class that is not archived)."""
+
+    id: uuid.UUID
+    class_id: uuid.UUID
+    pins: Any
+    test_deadline: datetime | None
+    can_exclude: bool
+
+
+async def quiz_session(user: authz.Principal, class_session_id: uuid.UUID) -> QuizSession | None:
+    """The Class session for its staff's Debrief quiz block (`debrief_quiz.read`); None for
+    every other caller and for a session that does not exist alike (FR-5)."""
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, class_session_id)
+        pins = await repo.session_pins(s, class_session_id) if row is not None else None
+    if row is None:
+        return None
+    found = await _class_for(user, row["class_id"], "debrief_quiz.read")
+    if found is None:
+        return None
+    return QuizSession(
+        id=row["id"],
+        class_id=row["class_id"],
+        pins=pins,
+        test_deadline=row["test_deadline"],
+        can_exclude=authz.can(user, "debrief_quiz.exclude", found) and not found.archived,
+    )
+
+
+async def lock_for_quiz_exclusions(
+    s: AsyncSession, class_session_id: uuid.UUID
+) -> tuple[Any, datetime | None]:
+    """In the caller's transaction (Story 9.10): locks the Class session row, refuses an archived
+    Class (`classes.ClassArchived`, 409 `class_archived`) and answers the pins its lock stored
+    (None before the lock) with its Test deadline. The caller has checked
+    `debrief_quiz.exclude`."""
+    row = await repo.session_row(s, class_session_id, lock=True)
+    if row is None:
+        raise LookupError(f"no Class session {class_session_id}")
+    await _writable(s, row["class_id"])
+    return await repo.session_pins(s, class_session_id), row["test_deadline"]
+
+
+async def student_name(class_session_id: uuid.UUID, user_id: uuid.UUID) -> str | None:
+    """The Student's name on the Roster of the Class session's Class now (Story 9.10), read at
+    request time and never stored (AD-14); None when they are no longer a Student of it. The
+    caller has checked that the User may read the Class's Students."""
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, class_session_id)
+        if row is None:
+            return None
+        names = await classes.student_names(row["class_id"], [user_id], session=s)
+    return names.get(user_id)
 
 
 async def held_debrief_sessions(s: AsyncSession) -> list[uuid.UUID]:
@@ -2123,6 +2225,24 @@ async def obligatory_mail_context(
     if user_id not in await classes.registered_students(row["class_id"]):
         return None
     return {"class_name": label.name}
+
+
+async def quiz_changed_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `quiz_changed` notice (Story 9.10): the Class's name, under
+    the same rules as `debrief_released_mail_context`. None, so the notice is left out, once the
+    quiz no longer counts as changed for the Student (they tried again, passed, or the exclusion
+    was lifted before the digest left)."""
+    if ref is None or not await _quiz_changed_now(session, user_id, ref):
+        return None
+    return await debrief_released_mail_context(session, user_id, ref, now)
+
+
+async def _quiz_changed_now(
+    s: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> bool:
+    return bool(_quiz_changed) and await _quiz_changed[0](s, user_id, class_session_id)
 
 
 async def debrief_released_mail_context(

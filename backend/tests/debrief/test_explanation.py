@@ -670,7 +670,7 @@ async def readers(
         assert (body["student_id"], body["game_id"]) == (str(user_id(me)), game_id)
         assert body["explanation"] == sent and body["summary"] == own
         assert body["role"] is not None and body["game_number"] is not None
-        assert "name" not in json.dumps(body)
+        assert body["name"]  # the Roster name, read now (Story 9.10)
     unfinished = f"/api/class-sessions/{session_id}/students/{user_id(mate)}/debrief-summary"
     theirs = (await call(LECTURER, "GET", unfinished)).json()
     assert (theirs["explanation"], theirs["summary"]) == (None, None)
