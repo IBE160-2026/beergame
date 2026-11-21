@@ -2182,3 +2182,23 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #146: beslutninger, og at en tilbakeholdt Debrief blir stående hvis et klassespill aldri blir ferdig (Epic 8).
+
+## Story 7.3: Bytt veggen til «Vis som tabell» (spor 1)
+
+### Oppgave
+Bygge Story 7.3 på `epic-7` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-3-switch-the-wall-to-vis-som-tabell.md`.
+- Commit: b131971.
+- Bare frontend: valget «Visning», tabellen `components/charts/matrix-table.tsx` med sortering og `aria-sort`, og felles posisjon med veggen slik at fokus følger samme spill.
+- Tester: backend 2797 på 79 s, Vitest 750, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 54 med axe i tre bredder.
+- Gjennomgang: 21 funn, 5 rettet (blant dem at sorteringen forsvant ved bytte av visning), 14 avvist.
+- Visuell kontroll (Sonnet): 18 skjermbilder i `screenshots/7.3/`. Rettet fokusringen på radoverskriftene, som ikke tegnet noe (9e1a4fc). Tre avvik går til Story 7.4 på samme side: «Visning» står som en blokk på 450 px over veggen i stedet for et lite valg ved siden av, tabellen er bare 590 px bred ved 1280 px, og «Venter på» brytes over 3–4 linjer.
+- Status: done.
+
+### Åpne punkter
+- Issue #147: beslutninger og risiko (tastaturnavigasjon med flere spill bare testet i Vitest).
