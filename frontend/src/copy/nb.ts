@@ -2358,6 +2358,44 @@ export const nb = {
     breadcrumb: "Du er her",
   },
 
+  /** The Meldingsskjema (Story 7.9, FR-40, UX-DR46): a one-way Message from staff to Students.
+   * «Send Melding», «Meldingen er sendt til 4 studenter.» and «Sendt tidligere: 3» are the spine's;
+   * the rest is [ASSUMPTION] draft copy. */
+  messages: {
+    crumb: "Melding",
+    /** The page title names the recipient: «Melding til Noah, Spill 2». */
+    title: {
+      student: (name: string, game: number | null) =>
+        game === null ? `Melding til ${name}` : `Melding til ${name}, ${gameName(game)}`,
+      classGame: (game: number | null) => `Melding til ${gameName(game)}`,
+      classSession: (session: number) => `Melding til alle i Klasseøkt ${session}`,
+    },
+    /** A Student whose name the api no longer gives. */
+    unknownStudent: "studenten",
+    /** Who gets it, under the title. */
+    reach: (n: number) => (n === 1 ? "Meldingen går til 1 student." : `Meldingen går til ${n} studenter.`),
+    noStudents: "Ingen studenter får denne meldingen nå.",
+    field: "Melding",
+    /** Under the field: the length limit and the one-way rule. */
+    hint: (max: string) => `Høyst ${max} tegn. Studentene får meldingen her og på e-post, og kan ikke svare.`,
+    send: "Send Melding",
+    sending: "Sender …",
+    sent: (n: number) => (n === 1 ? "Meldingen er sendt til 1 student." : `Meldingen er sendt til ${n} studenter.`),
+    sentBefore: (n: number) => `Sendt tidligere: ${n}`,
+    /** After a send: one more Message to the same recipient. */
+    writeAnother: "Skriv en ny melding",
+    tooLong: (max: string) => `Meldingen er for lang. Høyst ${max} tegn.`,
+    empty: "Skriv en melding først.",
+    /** The Lenke in the Oversikt header: worded unlike the Varselbånd's «Send Melding». */
+    toSession: "Skriv melding til alle",
+    /** On Spillinnsikt: to the whole Class game, and beside a Student's Seat. */
+    toGame: "Melding",
+    toStudent: "Melding",
+    /** The accessible names of those two, which read the same on screen. */
+    toGameLabel: (game: number | null) => `Melding til alle i ${gameName(game)}`,
+    toStudentLabel: (name: string) => `Melding til ${name}`,
+  },
+
   /** EXPERIENCE.md → State Patterns (UX-DR59). */
   access: {
     denied: "Du har ikke tilgang til denne siden.",

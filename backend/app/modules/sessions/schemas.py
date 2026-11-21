@@ -921,6 +921,8 @@ class InsightSeatOut(BaseModel):
     name: str | None
     """The Student's name now; None for an AI player, a free Seat, or a Student no longer in the
     Class."""
+    user_id: uuid.UUID | None = None
+    """The Student's id when `name` is set, for the Seat's «Melding» (Story 7.9); else None."""
     links: list[InsightLinkOut]
     """Only on a Student-held Seat; empty until Epic 9 registers a provider."""
 

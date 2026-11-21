@@ -11,7 +11,14 @@ import { usePageState } from "@/lib/page-state";
 import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
-import { classPath, classSessionPath, gameInsightPath, HOME_PATH, overviewReturnPath } from "@/modules/identity/homes";
+import {
+  classPath,
+  classSessionPath,
+  gameInsightPath,
+  HOME_PATH,
+  messagePath,
+  overviewReturnPath,
+} from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 import { roleName } from "@/modules/sessions/sessions";
 
@@ -90,14 +97,14 @@ function InsightView({
       phase={data ? "ready" : phase === "ready" ? "loading" : phase}
       onRetry={retry}
       skeleton={{ rows: 8, columns: 6 }}
-      header={data && title ? <InsightHeader data={data} title={title} /> : undefined}
+      header={data && title ? <InsightHeader data={data} title={title} sessionId={sessionId} /> : undefined}
     >
       {data ? <InsightBody data={data} /> : null}
     </PageShell>
   );
 }
 
-function InsightHeader({ data, title }: { data: GameInsight; title: string }) {
+function InsightHeader({ data, title, sessionId }: { data: GameInsight; title: string; sessionId: string }) {
   return (
     <header className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
       <h1 className="text-title-phone text-ink lg:text-title-page">{title}</h1>
@@ -105,6 +112,15 @@ function InsightHeader({ data, title }: { data: GameInsight; title: string }) {
         <span className="sr-only">{copy.statusLabel}: </span>
         {copy.status[data.status]}
       </p>
+      {/* A Message to every Student of this Class game (Story 7.9). */}
+      <Link
+        href={messagePath(sessionId, { game: data.game_id })}
+        aria-label={nb.messages.toGameLabel(data.game_number ?? null)}
+        data-message-game=""
+        standalone
+      >
+        {nb.messages.toGame}
+      </Link>
     </header>
   );
 }
@@ -124,7 +140,7 @@ export function InsightBody({ data }: { data: GameInsight }) {
           data-insight-seats=""
         >
           {seatsUpstreamFirst(data).map((seat) => (
-            <SeatItem key={seat.role} seat={seat} />
+            <SeatItem key={seat.role} seat={seat} sessionId={data.class_session_id} gameId={data.game_id} />
           ))}
         </ol>
       </section>
@@ -147,12 +163,25 @@ export function InsightBody({ data }: { data: GameInsight }) {
   );
 }
 
-function SeatItem({ seat }: { seat: InsightSeat }) {
+function SeatItem({ seat, sessionId, gameId }: { seat: InsightSeat; sessionId: string; gameId: string }) {
   const links = linkTexts(seat);
   return (
     <li className="min-w-0" data-role={seat.role}>
       <p className="text-label text-ink">{roleName(seat.role)}</p>
-      <p className="text-body-phone text-ink [overflow-wrap:anywhere] lg:text-body">{holderText(seat)}</p>
+      <p className="flex flex-wrap items-baseline gap-x-3 text-body-phone text-ink [overflow-wrap:anywhere] lg:text-body">
+        <span>{holderText(seat)}</span>
+        {/* A Message to the Student of this Seat (Story 7.9), titled with the game. */}
+        {seat.holder === "student" && seat.user_id && seat.name ? (
+          <Link
+            href={messagePath(sessionId, { game: gameId, student: seat.user_id })}
+            aria-label={nb.messages.toStudentLabel(seat.name)}
+            data-message-student=""
+            standalone
+          >
+            {nb.messages.toStudent}
+          </Link>
+        ) : null}
+      </p>
       {typeof links === "string" ? (
         <p className="mt-1 text-caption text-ink-secondary" data-links="">
           {links}

@@ -54,6 +54,16 @@ export const overviewReturnPath = (id: string, gameId: string, view: "wall" | "t
 export const gameInsightPath = (sessionId: string, gameId: string, view: "wall" | "table" = "wall") =>
   `${classOverviewPath(sessionId)}/spill/${encodeURIComponent(gameId)}${view === "table" ? "?visning=tabell" : ""}`;
 
+/** The Meldingsskjema (Story 7.9): to the whole Class session, a Class game (`game`), or one
+ * Student (`student`, with the game it is written from, if any). */
+export const messagePath = (sessionId: string, to: { game?: string; student?: string } = {}) => {
+  const params = new URLSearchParams();
+  if (to.game) params.set("spill", to.game);
+  if (to.student) params.set("student", to.student);
+  const query = params.toString();
+  return `${classSessionPath(sessionId)}/melding${query ? `?${query}` : ""}`;
+};
+
 /** A Student's «Velg spill og sete» in a Class session with Student choice (Story 5.17). */
 export const seatChoicePath = (id: string) => `${classSessionPath(id)}/velg-sete`;
 

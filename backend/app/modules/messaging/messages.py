@@ -1,0 +1,389 @@
+"""Messages from staff to Students (Story 7.9, FR-40, AD-9, AD-12, AD-14).
+
+A Lecturer or Assistant lecturer of a Class writes one Message to one Student, a Class game or a
+whole Class session; a calling module may also pass an explicit list of Students (Epic 13).
+`send_message` stores the Message and one recipient row per Student in the caller's transaction,
+asks `platform/notify` to tell each of them (kind `message`, delivered at once by Story 3.5's
+pipeline) and emits `session:<id>`. A repeated request carries the same client-made key and finds
+the Message it stored: it is never sent twice.
+
+Recipients are resolved when the Message is sent and are always narrowed to the registered
+Students of the Class: an AI player or an unregistered Roster address never gets anything.
+Messages are one-way; nothing here lets a Student write one.
+"""
+
+import uuid
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import datetime
+from enum import StrEnum
+
+import structlog
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.modules.classes import service as classes
+from app.modules.games import service as games
+from app.modules.messaging.models import message_recipients, messages
+from app.modules.sessions import service as sessions
+from app.platform import authz, events, notify
+from app.platform.config import get_settings
+from app.platform.db import get_sessionmaker
+
+__all__ = [
+    "MESSAGE_KIND",
+    "MessageForm",
+    "MessageRefused",
+    "Recipient",
+    "RecipientKind",
+    "SentMessage",
+    "message_form",
+    "message_mail_context",
+    "send",
+    "send_message",
+]
+
+log = structlog.get_logger(__name__)
+
+MESSAGE_KIND = "message"
+"""The notice kind of a Message (`delivery.KINDS`, immediate)."""
+SEND = "messages.send"
+"""The `platform/authz` action: the staff of the Class, Lecturers and Assistant lecturers."""
+
+
+class RecipientKind(StrEnum):
+    STUDENT = "student"
+    CLASS_GAME = "class_game"
+    CLASS_SESSION = "class_session"
+    LIST = "list"
+    """Students a calling module names (Epic 13); never offered by the api."""
+
+
+@dataclass(frozen=True)
+class Recipient:
+    """Whom a Message is written to. `game_id` names the Class game of a `class_game` Message, and
+    may name the game a `student` Message was written from (its title only)."""
+
+    kind: RecipientKind
+    game_id: uuid.UUID | None = None
+    user_id: uuid.UUID | None = None
+    user_ids: tuple[uuid.UUID, ...] = ()
+
+    def __post_init__(self) -> None:
+        if (self.kind == RecipientKind.STUDENT) != (self.user_id is not None):
+            raise ValueError("a Message to one Student names that Student, and only then")
+        if self.kind == RecipientKind.CLASS_GAME and self.game_id is None:
+            raise ValueError("a Message to a Class game names the game")
+        if self.kind in (RecipientKind.CLASS_SESSION, RecipientKind.LIST) and self.game_id:
+            raise ValueError("a Message to a Class session or a list names no game")
+
+
+def recipient_of(game_id: uuid.UUID | None, student_id: uuid.UUID | None) -> Recipient:
+    """The api's recipient: a Student when one is named (the game, if any, names the title), a
+    Class game when only a game is named, else the whole Class session."""
+    if student_id is not None:
+        return Recipient(RecipientKind.STUDENT, game_id=game_id, user_id=student_id)
+    if game_id is not None:
+        return Recipient(RecipientKind.CLASS_GAME, game_id=game_id)
+    return Recipient(RecipientKind.CLASS_SESSION)
+
+
+class MessageRefused(Exception):
+    """A Message that is not stored: `message_empty`, `message_too_long` (with `max_length`),
+    `no_recipients` (422) or `message_key_conflict` (409)."""
+
+    def __init__(self, code: str, status: int = 422, fields: Mapping[str, object] | None = None):
+        super().__init__(code)
+        self.code = code
+        self.status = status
+        self.fields = dict(fields or {})
+
+
+@dataclass(frozen=True)
+class Target:
+    """A recipient resolved in its Class session: the Students who get the Message now, and what
+    its title names."""
+
+    students: tuple[uuid.UUID, ...]
+    game_number: int | None
+    student_name: str | None
+
+
+async def _resolve(
+    session: AsyncSession, class_id: uuid.UUID, session_id: uuid.UUID, recipient: Recipient
+) -> Target | None:
+    """The Students `recipient` means now, or None when it names a game outside the Class session
+    (or one the Lecturer overview does not list, AD-13) or a Student not registered in the Class:
+    one answer, like a Class session the User may not reach (FR-5)."""
+    registered = set(await classes.registered_students(class_id))
+    game_number: int | None = None
+    game: games.ClassGameStudents | None = None
+    if recipient.game_id is not None:
+        game = await games.class_game_students(session, recipient.game_id)
+        if game is None or game.class_session_id != session_id or not game.listed:
+            return None
+        game_number = game.game_number
+    if recipient.kind == RecipientKind.STUDENT:
+        assert recipient.user_id is not None
+        if recipient.user_id not in registered:
+            return None
+        # A game in the title is one the Student is assigned to (as a Message to it would reach).
+        if game is not None and recipient.user_id not in game.students:
+            return None
+        names = await classes.student_names(class_id, [recipient.user_id], session=session)
+        return Target((recipient.user_id,), game_number, names.get(recipient.user_id))
+    if recipient.kind == RecipientKind.CLASS_GAME:
+        assert game is not None
+        return Target(tuple(u for u in game.students if u in registered), game_number, None)
+    if recipient.kind == RecipientKind.CLASS_SESSION:
+        return Target(tuple(sorted(registered, key=str)), None, None)
+    listed = tuple(dict.fromkeys(u for u in recipient.user_ids if u in registered))
+    return Target(listed, None, None)
+
+
+async def _sent_before(session: AsyncSession, session_id: uuid.UUID, recipient: Recipient) -> int:
+    """The Messages of the Class session written to the same recipient (Story 7.9). A list is
+    never the same recipient twice: it counts 0."""
+    if recipient.kind == RecipientKind.LIST:
+        return 0
+    query = select(func.count()).where(
+        messages.c.class_session_id == session_id,
+        messages.c.recipient_kind == recipient.kind.value,
+    )
+    if recipient.kind == RecipientKind.STUDENT:
+        query = query.where(messages.c.recipient_user_id == recipient.user_id)
+    elif recipient.kind == RecipientKind.CLASS_GAME:
+        query = query.where(messages.c.recipient_game_id == recipient.game_id)
+    return (await session.execute(query)).scalar_one()
+
+
+def _clean(text: str) -> str:
+    """The text as stored: line breaks as `\\n`, blank lines and spaces around it removed, and the
+    characters a database text cannot hold (NUL, lone surrogates) left out."""
+    kept = "".join(c for c in text if c != "\x00" and not 0xD800 <= ord(c) <= 0xDFFF)
+    return kept.replace("\r\n", "\n").replace("\r", "\n").strip()
+
+
+@dataclass(frozen=True)
+class SentMessage:
+    message_id: uuid.UUID
+    students: int
+    """The Students it went to."""
+    sent_before: int
+    """The Messages of the Class session to the same recipient, this one included."""
+    repeated: bool = False
+    """The key was used before: nothing new was stored or sent."""
+
+
+async def _stored(
+    session: AsyncSession,
+    key: uuid.UUID,
+    session_id: uuid.UUID,
+    sender_id: uuid.UUID,
+    recipient: Recipient,
+    text: str,
+) -> SentMessage | None:
+    row = (
+        (await session.execute(select(messages).where(messages.c.key == key)))
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        return None
+    same = (
+        row["class_session_id"] == session_id
+        and row["sender_id"] == sender_id
+        and row["recipient_kind"] == recipient.kind.value
+        and row["recipient_game_id"] == recipient.game_id
+        and row["recipient_user_id"] == recipient.user_id
+        and row["text"] == text
+    )
+    if not same:
+        # The key of another Message: a client that reused it is told, and nothing is sent.
+        raise MessageRefused("message_key_conflict", status=409)
+    count = (
+        await session.execute(
+            select(func.count()).where(message_recipients.c.message_id == row["id"])
+        )
+    ).scalar_one()
+    stored = Recipient(
+        RecipientKind(row["recipient_kind"]),
+        game_id=row["recipient_game_id"],
+        user_id=row["recipient_user_id"],
+    )
+    return SentMessage(row["id"], count, await _sent_before(session, session_id, stored), True)
+
+
+async def send_message(
+    session: AsyncSession,
+    *,
+    class_session_id: uuid.UUID,
+    class_id: uuid.UUID,
+    sender_id: uuid.UUID,
+    key: uuid.UUID,
+    recipient: Recipient,
+    text: str,
+) -> SentMessage | None:
+    """Store and send one Message in the caller's transaction. None when the recipient is not of
+    this Class session (see `_resolve`). The caller has checked that the sender is staff of the
+    Class (`messages.send`). Raises `MessageRefused`."""
+    text = _clean(text)
+    if not text:
+        raise MessageRefused("message_empty")
+    limit = get_settings().message_max_length
+    if len(text) > limit:
+        raise MessageRefused("message_too_long", fields={"max_length": limit})
+    found = await _stored(session, key, class_session_id, sender_id, recipient, text)
+    if found is not None:
+        return found
+    target = await _resolve(session, class_id, class_session_id, recipient)
+    if target is None:
+        return None
+    if not target.students:
+        raise MessageRefused("no_recipients")
+    message_id = uuid.uuid7()
+    inserted = await session.execute(
+        insert(messages)
+        .values(
+            id=message_id,
+            key=key,
+            class_session_id=class_session_id,
+            sender_id=sender_id,
+            recipient_kind=recipient.kind.value,
+            recipient_game_id=recipient.game_id,
+            recipient_user_id=recipient.user_id,
+            text=text,
+        )
+        .on_conflict_do_nothing(index_elements=[messages.c.key])
+        .returning(messages.c.id)
+    )
+    if inserted.scalar_one_or_none() is None:
+        # Another request with the same key stored it first: answer as that one did.
+        found = await _stored(session, key, class_session_id, sender_id, recipient, text)
+        assert found is not None
+        return found
+    await session.execute(
+        insert(message_recipients),
+        [{"message_id": message_id, "user_id": user_id} for user_id in target.students],
+    )
+    for user_id in target.students:
+        await notify.enqueue(
+            session, user_id, MESSAGE_KIND, f"message:{message_id}:{user_id}", ref=message_id
+        )
+    await events.emit(session, "session", str(class_session_id))
+    log.info(
+        "message_sent",
+        message_id=str(message_id),
+        class_session_id=str(class_session_id),
+        recipient_kind=recipient.kind.value,
+        recipient_count=len(target.students),
+    )
+    return SentMessage(
+        message_id,
+        len(target.students),
+        await _sent_before(session, class_session_id, recipient),
+    )
+
+
+@dataclass(frozen=True)
+class MessageForm:
+    """What the Meldingsskjema shows before a send (Story 7.9, UX-DR46)."""
+
+    kind: RecipientKind
+    session: sessions.StaffedSession
+    game_id: uuid.UUID | None
+    game_number: int | None
+    student_name: str | None
+    students: int
+    sent_before: int
+    max_length: int
+
+
+async def message_form(
+    user: authz.Principal,
+    session_id: uuid.UUID,
+    *,
+    game_id: uuid.UUID | None,
+    student_id: uuid.UUID | None,
+) -> MessageForm | None:
+    """The form for the recipient the params name, or None, one answer, when the User is not
+    staff of the Class or the recipient is not of this Class session (FR-5)."""
+    staffed = await sessions.staffed_session(user, session_id, SEND)
+    if staffed is None:
+        return None
+    recipient = recipient_of(game_id, student_id)
+    async with get_sessionmaker()() as s:
+        target = await _resolve(s, staffed.class_id, session_id, recipient)
+        if target is None:
+            return None
+        before = await _sent_before(s, session_id, recipient)
+    return MessageForm(
+        kind=recipient.kind,
+        session=staffed,
+        game_id=game_id,
+        game_number=target.game_number,
+        student_name=target.student_name,
+        students=len(target.students),
+        sent_before=before,
+        max_length=get_settings().message_max_length,
+    )
+
+
+async def send(
+    user: authz.Principal,
+    session_id: uuid.UUID,
+    *,
+    key: uuid.UUID,
+    game_id: uuid.UUID | None,
+    student_id: uuid.UUID | None,
+    text: str,
+) -> SentMessage | None:
+    """«Send Melding»: None, one answer, when the User is not staff of the Class or the recipient
+    is not of this Class session (FR-5). Raises `MessageRefused` and, for an archived Class,
+    `classes.ClassArchived`."""
+    staffed = await sessions.staffed_session(user, session_id, SEND)
+    if staffed is None:
+        return None
+    if staffed.archived:
+        raise classes.ClassArchived
+    async with get_sessionmaker().begin() as s:
+        return await send_message(
+            s,
+            class_session_id=session_id,
+            class_id=staffed.class_id,
+            sender_id=user.id,
+            key=key,
+            recipient=recipient_of(game_id, student_id),
+            text=text,
+        )
+
+
+async def message_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `message` notice, for the mail at send time (AD-9): the text
+    by lines and the Class's name. None, so no mail is sent, when the Message is gone, the Class is
+    archived or the User is no longer a registered Student of it."""
+    if ref is None:
+        return None
+    row = (
+        (
+            await session.execute(
+                select(messages.c.text, messages.c.class_session_id).where(messages.c.id == ref)
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        return None
+    class_id = await sessions.class_id_of(session, row["class_session_id"])
+    if class_id is None:
+        return None
+    label = await classes.label_of_class(session, class_id)
+    if label is None or label.archived:
+        return None
+    if user_id not in await classes.registered_students(class_id):
+        return None
+    return {"lines": row["text"].split("\n"), "class_name": label.name}

@@ -101,6 +101,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # Spillinnsikt (Story 7.7, FR-62): one Game week by week, with the full chain, the demand
     # series and the number of Weeks, for the staff of its Class only.
     "games.insight": frozenset({LECTURER, ASSISTANT}),
+    # A Message to a Student, a Class game or a whole Class session (Story 7.9, FR-40): the staff
+    # of its Class, Lecturers and Assistant lecturers alike.
+    "messages.send": frozenset({LECTURER, ASSISTANT}),
     # The Class sessions of the Classes a User is a Student in, with their dates (Story 5.2): any
     # User, held to `classes_enrolled_by`.
     "class_sessions.read_enrolled": frozenset({ANY_USER}),
@@ -140,6 +143,7 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "class_sessions.manage": frozenset({OWNER}),
     "class_sessions.overview": frozenset({OWNER, ASSISTANT_STAFF}),
     "games.insight": frozenset({OWNER, ASSISTANT_STAFF}),
+    "messages.send": frozenset({OWNER, ASSISTANT_STAFF}),
 }
 """Class action → the staff roles in the Class that may do it. Later stories add theirs."""
 

@@ -2741,6 +2741,18 @@
           },
           "role": {
             "$ref": "#/components/schemas/Role"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
           }
         },
         "required": [
@@ -3452,6 +3464,167 @@
           "name"
         ],
         "title": "ManualRegistrationIn",
+        "type": "object"
+      },
+      "MessageFormOut": {
+        "description": "What the Meldingsskjema shows before a send (UX-DR46).",
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "game_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Id"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "kind": {
+            "enum": [
+              "student",
+              "class_game",
+              "class_session"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "max_length": {
+            "title": "Max Length",
+            "type": "integer"
+          },
+          "sent_before": {
+            "title": "Sent Before",
+            "type": "integer"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          },
+          "student_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Name"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "class_session_id",
+          "class_id",
+          "class_name",
+          "session_number",
+          "game_id",
+          "game_number",
+          "student_name",
+          "students",
+          "sent_before",
+          "max_length"
+        ],
+        "title": "MessageFormOut",
+        "type": "object"
+      },
+      "MessageIn": {
+        "properties": {
+          "game_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Id"
+          },
+          "key": {
+            "format": "uuid",
+            "title": "Key",
+            "type": "string"
+          },
+          "student_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Id"
+          },
+          "text": {
+            "maxLength": 100000,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "text"
+        ],
+        "title": "MessageIn",
+        "type": "object"
+      },
+      "MessageSentOut": {
+        "properties": {
+          "message_id": {
+            "format": "uuid",
+            "title": "Message Id",
+            "type": "string"
+          },
+          "sent_before": {
+            "title": "Sent Before",
+            "type": "integer"
+          },
+          "students": {
+            "title": "Students",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "message_id",
+          "students",
+          "sent_before"
+        ],
+        "title": "MessageSentOut",
         "type": "object"
       },
       "NeighbourNumber": {
@@ -8969,6 +9142,186 @@
         "summary": "Change Lab Hour",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/messages": {
+      "post": {
+        "description": "«Send Melding» (Story 7.9, FR-40, AD-9): stores the Message with one recipient row per\nStudent and tells each of them in the product and by e-mail. A repeat with the same `key`\nanswers as the first and sends nothing. 422 `message_empty`, `message_too_long` (with\n`fields.max_length`) or `no_recipients`; 409 `message_key_conflict` or `class_archived`; 403\n`forbidden` as the form's read.",
+        "operationId": "sendMessage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageSentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Send Message",
+        "tags": [
+          "messaging"
+        ]
+      }
+    },
+    "/api/class-sessions/{session_id}/messages/form": {
+      "get": {
+        "description": "The Meldingsskjema's recipient (Story 7.9): its title's parts, the Students it reaches now,\nthe earlier Messages to it and the length limit. 403 `forbidden`, one answer, for anyone who\nis not staff of the Class and for a Class session, game or Student outside it (FR-5).",
+        "operationId": "getMessageForm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "game_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Game Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "student_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Student Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageFormOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Message Form",
+        "tags": [
+          "messaging"
         ]
       }
     },

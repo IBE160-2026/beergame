@@ -756,6 +756,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Message
+         * @description «Send Melding» (Story 7.9, FR-40, AD-9): stores the Message with one recipient row per
+         *     Student and tells each of them in the product and by e-mail. A repeat with the same `key`
+         *     answers as the first and sends nothing. 422 `message_empty`, `message_too_long` (with
+         *     `fields.max_length`) or `no_recipients`; 409 `message_key_conflict` or `class_archived`; 403
+         *     `forbidden` as the form's read.
+         */
+        post: operations["sendMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/messages/form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Message Form
+         * @description The Meldingsskjema's recipient (Story 7.9): its title's parts, the Students it reaches now,
+         *     the earlier Messages to it and the length limit. 403 `forbidden`, one answer, for anyone who
+         *     is not staff of the Class and for a Class session, game or Student outside it (FR-5).
+         */
+        get: operations["getMessageForm"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/overview": {
         parameters: {
             query?: never;
@@ -3022,6 +3068,8 @@ export interface components {
             /** Name */
             name: string | null;
             role: components["schemas"]["Role"];
+            /** User Id */
+            user_id?: string | null;
         };
         /**
          * InsightWeekOut
@@ -3344,6 +3392,69 @@ export interface components {
             /** Roster Entry Id */
             roster_entry_id?: string | null;
             upload_row?: components["schemas"]["UploadRow"] | null;
+        };
+        /**
+         * MessageFormOut
+         * @description What the Meldingsskjema shows before a send (UX-DR46).
+         */
+        MessageFormOut: {
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Game Id */
+            game_id: string | null;
+            /** Game Number */
+            game_number: number | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "student" | "class_game" | "class_session";
+            /** Max Length */
+            max_length: number;
+            /** Sent Before */
+            sent_before: number;
+            /** Session Number */
+            session_number: number;
+            /** Student Name */
+            student_name: string | null;
+            /** Students */
+            students: number;
+        };
+        /** MessageIn */
+        MessageIn: {
+            /** Game Id */
+            game_id?: string | null;
+            /**
+             * Key
+             * Format: uuid
+             */
+            key: string;
+            /** Student Id */
+            student_id?: string | null;
+            /** Text */
+            text: string;
+        };
+        /** MessageSentOut */
+        MessageSentOut: {
+            /**
+             * Message Id
+             * Format: uuid
+             */
+            message_id: string;
+            /** Sent Before */
+            sent_before: number;
+            /** Students */
+            students: number;
         };
         /**
          * NeighbourNumber
@@ -6578,6 +6689,120 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sendMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageSentOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getMessageForm: {
+        parameters: {
+            query?: {
+                game_id?: string | null;
+                student_id?: string | null;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageFormOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

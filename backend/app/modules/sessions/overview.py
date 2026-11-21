@@ -298,6 +298,7 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
                 role=Role(seat.role),
                 holder=_holder(seat.occupant_kind),
                 name=names.get(seat.user_id) if seat.user_id else None,
+                user_id=seat.user_id if seat.user_id in names else None,
                 links=[InsightLinkOut(kind=link.kind, href=link.href) for link in seat.links],
             )
             for seat in insight.seats

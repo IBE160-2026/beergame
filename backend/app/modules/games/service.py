@@ -83,7 +83,10 @@ __all__ = [
     "ClassGameSummary",
     "ClassGameWeeks",
     "WeekSeatValues",
+    "assigned_students",
     "class_game_head",
+    "class_game_students",
+    "ClassGameStudents",
     "class_game_weeks",
     "class_played",
     "cost_parts",
@@ -672,6 +675,55 @@ async def class_game_head(session: AsyncSession, game_id: uuid.UUID) -> ClassGam
         class_session_id=game["class_session_id"],
         listed=str(game["purpose"]) in purposes_with("lecturer_overview"),
         version=game["version"],
+    )
+
+
+@dataclass(frozen=True)
+class ClassGameStudents:
+    """A Class game as a Message to it sees it (Story 7.9): its Class session, number, whether
+    the Lecturer overview lists it (AD-13), and its Students."""
+
+    game_id: uuid.UUID
+    class_session_id: uuid.UUID | None
+    game_number: int | None
+    listed: bool
+    students: tuple[uuid.UUID, ...]
+    """Per Seat in chain order its Student now, or, where an AI player holds it now, the Student
+    who held it last. A free row (a Student moved away before the start) ends a Student's claim,
+    so a moved Student belongs to the game they were moved to."""
+
+
+def assigned_students(rows) -> tuple[uuid.UUID, ...]:
+    """`ClassGameStudents.students` from `repo.occupancy_history` rows (one rule, tested)."""
+    held: dict[uuid.UUID, uuid.UUID | None] = {}
+    for row in rows:
+        if row["occupant_kind"] == OccupantKind.STUDENT and row["user_id"] is not None:
+            held[row["seat_id"]] = row["user_id"]
+        elif row["occupant_kind"] is None:
+            held[row["seat_id"]] = None
+        else:
+            held.setdefault(row["seat_id"], None)
+    found: list[uuid.UUID] = []
+    for user_id in held.values():
+        if user_id is not None and user_id not in found:
+            found.append(user_id)
+    return tuple(found)
+
+
+async def class_game_students(
+    session: AsyncSession, game_id: uuid.UUID
+) -> ClassGameStudents | None:
+    """The Game with its Students for a Message (Story 7.9), or None for no such Game. Read in the
+    caller's transaction; the caller checks the User and the Class session."""
+    game = await repo.get_game(session, game_id)
+    if game is None:
+        return None
+    return ClassGameStudents(
+        game_id=game["id"],
+        class_session_id=game["class_session_id"],
+        game_number=game["game_number"],
+        listed=str(game["purpose"]) in purposes_with("lecturer_overview"),
+        students=assigned_students(await repo.occupancy_history(session, game_id)),
     )
 
 

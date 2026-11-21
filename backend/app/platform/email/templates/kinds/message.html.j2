@@ -1,0 +1,5 @@
+{# A Message from the staff of a Class (Story 7.9, FR-40, FR-72), an immediate kind. Every line is
+   escaped; the line breaks are kept as <br> (NFR-7). #}
+<p style="margin:0 0 12px;">Du har fått en melding i Klassen {{ class_name }}:</p>
+<p style="margin:0 0 12px;padding-left:12px;border-left:3px solid #E1E6EC;">{% for line in lines %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
+<p style="margin:0;">Du finner meldingen også på <a href="{{ url('/hjem') }}" style="color:#2B6CA3;font-weight:600;">Hjem</a>. Meldingen kan ikke besvares.</p>

@@ -9,6 +9,9 @@
 - `send(delivery_id)`: the `mail` job. It locks the delivery, resolves the address through the
   owning module, renders, sends and stores the provider's id. A delivery that is sent, given up
   or held by another job is left alone, so a job that runs twice sends one mail.
+- `send_message(session, …)` (Story 7.9, `messages.py`): a staff member's Message to Students,
+  stored and told through `platform/notify` as kind `message`. A calling module passes a
+  `Recipient` (Epic 13: an explicit list of Students).
 - `receive_webhook(body, headers, now)` (Story 4.6): a signed provider event about a sent mail,
   stored on its delivery. `invitation_deliveries(refs)` reads what was stored per Invitation, for
   `classes`; `simulate_bounce` is the local stand-in for the provider's bounce.
@@ -51,6 +54,21 @@ __all__ = [
 ]
 
 log = structlog.get_logger(__name__)
+
+_MESSAGES = frozenset(
+    {"MESSAGE_KIND", "MessageRefused", "Recipient", "RecipientKind", "SentMessage", "send_message"}
+)
+"""`messages.py`'s names, served from here (Story 7.9). Read on first use, not imported here:
+`messages` imports `classes.service`, which imports this module."""
+
+
+def __getattr__(name: str) -> object:
+    if name in _MESSAGES:
+        from app.modules.messaging import messages
+
+        return getattr(messages, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 SEND_MAIL = "messaging.send_mail"
 """The `mail` job, keyed by its delivery."""

@@ -15,7 +15,14 @@ import { formatClock } from "@/lib/connection";
 import { usePageState } from "@/lib/page-state";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
-import { classOverviewPath, classPath, classSessionPath, gameInsightPath, HOME_PATH } from "@/modules/identity/homes";
+import {
+  classOverviewPath,
+  classPath,
+  classSessionPath,
+  gameInsightPath,
+  HOME_PATH,
+  messagePath,
+} from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 import { osloDateText } from "@/modules/sessions/dates";
 
@@ -112,7 +119,7 @@ function OverviewView({ sessionId, user, updatedAt }: { sessionId: string; user:
       phase={data ? "ready" : phase === "ready" ? "loading" : phase}
       onRetry={retry}
       skeleton={{ rows: 8, columns: 4 }}
-      header={data ? <OverviewHeader data={data} /> : undefined}
+      header={data ? <OverviewHeader data={data} sessionId={sessionId} /> : undefined}
       liveLines={liveLines}
     >
       {shown && latest ? (
@@ -173,13 +180,18 @@ function useReadAt(sessionId: string, answer: OverviewAnswer | undefined) {
   }, [queryClient, sessionId, next, serverNow, receivedAt]);
 }
 
-function OverviewHeader({ data }: { data: ClassOverview }) {
+function OverviewHeader({ data, sessionId }: { data: ClassOverview; sessionId: string }) {
   return (
     <header className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
       <h1 className="text-title-phone text-ink lg:text-title-page">{copy.title}</h1>
       <p className="text-body-phone text-ink-secondary [overflow-wrap:anywhere] lg:text-body">
         {copy.session(data.session_number, data.class_name)}
       </p>
+      {/* A Message to every registered Student of the Class session (Story 7.9); worded unlike
+          the Varselbånd's «Send Melding». */}
+      <Link href={messagePath(sessionId)} data-message-session="" standalone>
+        {nb.messages.toSession}
+      </Link>
     </header>
   );
 }
