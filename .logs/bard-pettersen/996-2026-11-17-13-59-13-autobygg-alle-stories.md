@@ -2791,3 +2791,24 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste b
 
 ### Åpne punkter
 - Issue #177: beslutninger (avtalt tid som innsettingstid, kunngjøring én gang, tekst for elevene).
+
+## Story 10.1: Få et standard Replay-scenario som er ulikt for hver student (spor 2)
+
+### Oppgave
+Bygge Story 10.1 på `epic-10` i spor 2, den første storyen i Epic 10. `epic-10` er laget fra den ferdige `epic-9`, mens avslutningen av Epic 9 kjører i eget worktree.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-1-get-a-default-replay-scenario-that-differs-per-student.md`, pluss `epic-10-context.md` (på `epic-10`).
+- Commit: 86a4606. Migrasjon 0114.
+- Mal for Replay-scenario i motoren, festet ved låsing, og en blokk «Replay-scenario» på Klasseøkt som bare kan leses. Simuleringer kan kjøre scenariet; 10 spill med alle kontroller i orden.
+- Tester: backend 3046, motoren med 100 % dekning, Vitest 788, typecheck, `check:copy`, `lint:colours`, bygg, Playwright 151.
+- Postgres i spor 2 gikk i gjenoppretting etter krasj i rundt 10 minutter under kjøringen; to tester feilet på tilkobling og passerte etterpå.
+- Gjennomgang: 34 funn, 11 rettet.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): tolv skjermbilder i `screenshots/10.1/`, ingen klare feil. Tre punkter om blokken (overskrift, plassering, bredde) sendt til 10.2, som gjør blokken redigerbar.
+- Status: done.
+
+### Åpne punkter
+- Issue #178: beslutninger (ny Play guard-sett `placeholder-1`, hvordan etterspørselen trekkes) og oppfølgende gjennomgang anbefalt.
