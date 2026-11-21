@@ -181,6 +181,16 @@ async def _group_debrief_opened_context(
     return await sessions.group_debrief_opened_mail_context(session, user_id, ref, now)
 
 
+DEBRIEF_FALLBACK_KIND = "debrief_fallback"
+"""`debrief.commands.FALLBACK_NOTICE` (Story 9.12), named here for the same reason."""
+
+
+async def _debrief_fallback_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.debrief_fallback_mail_context(session, user_id, ref, now)
+
+
 KINDS: Mapping[str, Delivery] = MappingProxyType(
     {
         **{
@@ -197,6 +207,9 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
             DIGEST, DEBRIEF_RELEASED_KIND, context=_debrief_released_context
         ),
         QUIZ_CHANGED_KIND: Delivery(DIGEST, QUIZ_CHANGED_KIND, context=_quiz_changed_context),
+        DEBRIEF_FALLBACK_KIND: Delivery(
+            DIGEST, DEBRIEF_FALLBACK_KIND, context=_debrief_fallback_context
+        ),
         # Immediate: the group is meeting now (Story 9.11); left out once the Student joined.
         GROUP_DEBRIEF_OPENED_KIND: Delivery(
             IMMEDIATE, GROUP_DEBRIEF_OPENED_KIND, context=_group_debrief_opened_context
@@ -221,8 +234,9 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
 notice (Story 5.7, digest), the allocation notice (Story 5.9, digest), the Student choice notice
 (Story 5.17, digest), the refused lock
 (Story 5.11, immediate), the deadline reminder (Story 5.14, digest), the proposed time to play
-(Story 6.19, digest), the release of held Debriefs (Story 9.2, digest) and a changed Debrief
-quiz (Story 9.10, digest)."""
+(Story 6.19, digest), the release of held Debriefs (Story 9.2, digest), a changed Debrief
+quiz (Story 9.10, digest), the opened Group debrief (Story 9.11, immediate) and its 48-hour
+fallback to a Personal debrief (Story 9.12, digest)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

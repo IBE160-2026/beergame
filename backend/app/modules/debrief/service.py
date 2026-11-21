@@ -30,6 +30,9 @@
   Students in a Group-debrief session); `DebriefOut.group` carries the shared pointer;
   `join_mine`, `complete_step_mine` and `move_on_mine` are «Bli med», «Ferdig med steget» and
   «Gå videre for alle»; `require_step` refuses a step after the pointer (403 `step_locked`).
+- Story 9.12: `leave_mine` («Forlat gruppen», «Ta en Personlig debrief»); a Student who goes on
+  alone reads every step as in a Personal debrief and `GroupOut.alone` says why; the sweep's
+  `due_dropouts`/`drop_out_due` and `due_fallbacks`/`fallback_due`.
 - Story 9.10: `staff_quiz(user, class_session_id)` (the Class session's Debrief quiz with its
   answer keys and exclusions, `debrief_quiz.read`) and `set_quiz_exclusions` (raises
   `InvalidExclusions`, `commands.LastQuestion`, `commands.TestDeadlinePassed`); every attempt
@@ -40,6 +43,7 @@
 import random
 import uuid
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -54,8 +58,10 @@ from app.modules.content import service as content
 from app.modules.debrief import commands, insight, rules
 from app.modules.debrief.models import (
     ANSWER_MAX,
+    DROPOUT_AFTER,
     EXPLANATION_MAX,
     INDIVIDUAL_STEP,
+    debrief_alone,
     debrief_explanations,
     debrief_members,
     debrief_reflection_answers,
@@ -126,6 +132,11 @@ __all__ = [
     "answer_mine",
     "complete_step_mine",
     "join_mine",
+    "leave_mine",
+    "due_dropouts",
+    "drop_out_due",
+    "due_fallbacks",
+    "fallback_due",
     "move_on_mine",
     "move_on_wait",
     "require_step",
@@ -248,15 +259,29 @@ async def _group(row: commands.DebriefRow, user_id: uuid.UUID) -> GroupOut:
     Students with their names read now, and whether each has sent and finished the shared step,
     only for a joined caller (never the text)."""
     async with get_sessionmaker()() as s:
-        joined = list(
+        alone = (
             (
+                await s.execute(
+                    select(
+                        debrief_alone.c.user_id, debrief_alone.c.step, debrief_alone.c.reason
+                    ).where(debrief_alone.c.debrief_id == row.id)
+                )
+            )
+            .mappings()
+            .all()
+        )
+        gone = {each["user_id"]: each for each in alone}
+        joined = [
+            each
+            for each in (
                 await s.scalars(
                     select(debrief_members.c.user_id)
                     .where(debrief_members.c.debrief_id == row.id)
                     .order_by(debrief_members.c.joined_at, debrief_members.c.user_id)
                 )
             ).all()
-        )
+            if each not in gone
+        ]
         sent: set[uuid.UUID] = set()
         marked: set[uuid.UUID] = set()
         if user_id in joined:
@@ -291,13 +316,16 @@ async def _group(row: commands.DebriefRow, user_id: uuid.UUID) -> GroupOut:
             for each in joined
         ]
     opened = row.step_opened_at
+    mine = gone.get(user_id)
     return GroupOut(
         step=row.step,
         joined=user_id in joined,
-        opener=row.opener_id == user_id,
+        opener=user_id in joined and commands.effective_opener(row.opener_id, joined) == user_id,
         step_opened_at=opened,
         move_on_at=opened + move_on_wait() if opened is not None else None,
         members=members,
+        alone=mine["reason"] if mine else None,
+        alone_from=mine["step"] if mine else None,
     )
 
 
@@ -349,7 +377,17 @@ async def _own(
     if found is None or found.game.game_id != row["game_id"]:
         return None
     _open_or_raise(found)
-    return commands.row_of(row), found.game
+    debrief = commands.row_of(row)
+    if debrief.shared:
+        # Story 9.12: a Student who goes on alone reads it as a Personal debrief.
+        async with get_sessionmaker()() as s:
+            alone = await s.scalar(
+                select(debrief_alone.c.user_id).where(
+                    debrief_alone.c.debrief_id == debrief.id, debrief_alone.c.user_id == user.id
+                )
+            )
+        debrief = replace(debrief, alone=alone is not None)
+    return debrief, found.game
 
 
 async def mine(user: authz.Principal, debrief_id: uuid.UUID) -> DebriefOut | None:
@@ -363,8 +401,9 @@ def require_step(row: commands.DebriefRow, number: int) -> None:
     """The Group debrief's gate (Story 9.11, FR-43, AD-21): in a shared Debrief session a step
     after the pointer is refused (`StepLocked`, 403 `step_locked`), in the api: steps 2 and 3 by
     their number, the reflection questions and everything after them from `INDIVIDUAL_STEP`. A
-    Personal debrief has no such gate. Call after `require_explanation`."""
-    if row.shared and min(number, INDIVIDUAL_STEP) > row.step:
+    Personal debrief has no such gate, nor has a Student who goes on alone (Story 9.12, `_own`).
+    Call after `require_explanation`."""
+    if row.shared and not row.alone and min(number, INDIVIDUAL_STEP) > row.step:
         raise StepLocked
 
 
@@ -377,6 +416,17 @@ async def join_mine(user: authz.Principal, debrief_id: uuid.UUID) -> DebriefOut 
     row, game = found
     joined = await commands.join(row.game_id, user.id)
     return await _out(joined, game, user.id)
+
+
+async def leave_mine(user: authz.Principal, debrief_id: uuid.UUID) -> DebriefOut | None:
+    """«Forlat gruppen» / «Ta en Personlig debrief» (Story 9.12): `debrief.commands.leave` for
+    the Student's own game's Debrief. Raises `NotAvailable` or `commands.NotGroup`."""
+    found = await _own(user, debrief_id)
+    if found is None:
+        return None
+    row, game = found
+    left = await commands.leave(row.game_id, user.id)
+    return await _out(left, game, user.id)
 
 
 async def complete_step_mine(
@@ -1233,3 +1283,58 @@ async def release_due(class_session_id: object, now: datetime) -> bool:
     """The sweep's act: `debrief.commands.release` for one Class session id."""
     assert isinstance(class_session_id, str)
     return await commands.release(uuid.UUID(class_session_id), now)
+
+
+async def due_dropouts(now: datetime) -> Sequence[tuple[str, str]]:
+    """The joined Students of shared Debrief sessions still on their shared steps who have been
+    silent longer than `DROPOUT_AFTER` (Story 9.12, FR-43), as `(game_id, user_id)`. Judged by
+    database time, as `leave` judges it again; the sweep's `now` is not used."""
+    alone = (
+        select(debrief_alone.c.user_id)
+        .where(
+            debrief_alone.c.debrief_id == debrief_members.c.debrief_id,
+            debrief_alone.c.user_id == debrief_members.c.user_id,
+        )
+        .exists()
+    )
+    async with get_sessionmaker()() as s:
+        found = await s.execute(
+            select(debrief_sessions.c.game_id, debrief_members.c.user_id)
+            .join(debrief_members, debrief_members.c.debrief_id == debrief_sessions.c.id)
+            .where(
+                debrief_sessions.c.shared,
+                debrief_sessions.c.step < INDIVIDUAL_STEP,
+                debrief_sessions.c.fallback_at.is_(None),
+                debrief_members.c.last_seen_at < func.now() - DROPOUT_AFTER,
+                ~alone,
+            )
+        )
+        return [(str(game_id), str(user_id)) for game_id, user_id in found]
+
+
+async def drop_out_due(item: object, now: datetime) -> commands.DebriefRow:
+    """The sweep's act: `debrief.commands.leave` as a dropout for one `(game_id, user_id)`."""
+    assert isinstance(item, tuple)
+    game_id, user_id = item
+    return await commands.leave(uuid.UUID(game_id), uuid.UUID(user_id), dropout=True)
+
+
+async def due_fallbacks(now: datetime) -> Sequence[str]:
+    """The shared Debrief sessions whose 48-hour fallback is due at `now` (Story 9.12, FR-43):
+    not run yet and the pointer still on the shared steps. Ids only."""
+    async with get_sessionmaker()() as s:
+        found = await s.scalars(
+            select(debrief_sessions.c.id).where(
+                debrief_sessions.c.shared,
+                debrief_sessions.c.fallback_at.is_(None),
+                debrief_sessions.c.step < INDIVIDUAL_STEP,
+                debrief_sessions.c.fallback_due_at <= now,
+            )
+        )
+        return [str(each) for each in found.all()]
+
+
+async def fallback_due(debrief_id: object, now: datetime) -> bool:
+    """The sweep's act: `debrief.commands.open_personal_fallback` for one Debrief session id."""
+    assert isinstance(debrief_id, str)
+    return await commands.open_personal_fallback(uuid.UUID(debrief_id))

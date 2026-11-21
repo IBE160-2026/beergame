@@ -89,6 +89,8 @@ EXCLUSION_TABLES = {"quiz_exclusions"}
 """The table of revision 0109 (Story 9.10)."""
 GROUP_TABLES = {"debrief_members", "debrief_step_marks"}
 """The tables of revision 0110 (Story 9.11)."""
+ALONE_TABLES = {"debrief_alone"}
+"""The table of revision 0111 (Story 9.12)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -104,8 +106,9 @@ HEAD_TABLES = (
     | QUIZ_TABLES
     | EXCLUSION_TABLES
     | GROUP_TABLES
+    | ALONE_TABLES
 )
-HEAD = "0110"  # 0110 adds the Group debrief (Story 9.11)
+HEAD = "0111"  # 0111 lets a Student of a Group debrief go on alone (Story 9.12)
 
 
 def reset_schema(url: str) -> None:
@@ -284,6 +287,14 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0110 (Story 9.11): a shared Debrief session, its joined Students and their step marks.
     assert {"shared", "opener_id", "step_opened_at"} <= columns(url, "debrief_sessions")
 
+    # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
+    assert "last_seen_at" in columns(url, "debrief_members")
+    assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    command.downgrade(cfg, "0110")
+    assert ALONE_TABLES.isdisjoint(tables(url))
+    assert "last_seen_at" not in columns(url, "debrief_members")
+    assert "fallback_at" not in columns(url, "debrief_sessions")
     command.downgrade(cfg, "0109")
     assert GROUP_TABLES.isdisjoint(tables(url))
     assert "shared" not in columns(url, "debrief_sessions")

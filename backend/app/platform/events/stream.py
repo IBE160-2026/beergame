@@ -7,7 +7,9 @@ Push invalidates, pull reads. The stream sends:
 - the default `message` event with data `{topic, id, version}` for each event the User's scope
   allows, and nothing else of the change;
 - `heartbeat` every `HEARTBEAT_S`, so the web app can tell quiet from stale (`EventSource` never
-  sees SSE comments, so FastAPI's own pings do not do it).
+  sees SSE comments, so FastAPI's own pings do not do it). Each heartbeat first runs the presence
+  hooks modules register with `events.on_heartbeat` (Story 9.12), each in a short database session
+  of its own.
 
 The scope is resolved on connect and again on each `user:<id>` event for the User; if the User is
 then deactivated (or the session is older than the User's session version) the stream ends. A
@@ -34,6 +36,7 @@ from sqlalchemy import union
 
 from app.platform import auth, authz
 from app.platform.db import get_sessionmaker
+from app.platform.events import heartbeat as presence
 from app.platform.events.hub import ENDED, Event, Hub, hub
 
 HEARTBEAT_S = 15.0
@@ -101,8 +104,10 @@ async def events(
     heartbeat: float | None = None,
     coalesce: float | None = None,
     lifetime: float | None = None,
+    beat: Callable[[], Awaitable[None]] | None = None,
 ) -> AsyncIterator[ServerSentEvent]:
-    """The stream's events for `user_id`, read from `source`."""
+    """The stream's events for `user_id`, read from `source`. `beat()` runs on each heartbeat
+    (Story 9.12: the presence hooks, `events.heartbeat`); it must not raise."""
     heartbeat = HEARTBEAT_S if heartbeat is None else heartbeat
     coalesce = COALESCE_S if coalesce is None else coalesce
     lifetime = random.uniform(*LIFETIME_S) if lifetime is None else lifetime
@@ -128,6 +133,8 @@ async def events(
                 return
             if now >= next_beat:
                 next_beat = now + heartbeat
+                if beat is not None:
+                    await beat()
                 yield ServerSentEvent(event="heartbeat", raw_data="")
                 continue
             due = min([end, next_beat, *(last_session[s] + coalesce for s in pending)])
@@ -184,5 +191,11 @@ async def stream_events(
     async def still_active() -> bool:
         return await authz.load_principal(user.id, version) is not None
 
-    async for item in events(str(user.id), hub, lambda: resolve_scope(user.id), still_active):
+    async for item in events(
+        str(user.id),
+        hub,
+        lambda: resolve_scope(user.id),
+        still_active,
+        beat=lambda: presence(user.id),
+    ):
         yield item

@@ -44,7 +44,10 @@ class GroupOut(BaseModel):
     """A Group debrief's shared step pointer (Story 9.11, FR-43): `step` 1 to 3 is shared, 4 means
     each Student works alone from the reflection questions on. `move_on_at` is when the opener may
     move every joined Student on (database time). `members` only for a joined caller, else
-    empty."""
+    empty. Story 9.12: `opener` is whoever may move on now (the earliest-joined Student still
+    there once the opener has gone); `alone` says why the caller goes on as a Personal debrief
+    (`left`, `dropout`, `fallback`, `missed`), from shared step `alone_from`; both None
+    otherwise."""
 
     step: int
     joined: bool
@@ -52,6 +55,8 @@ class GroupOut(BaseModel):
     step_opened_at: datetime | None
     move_on_at: datetime | None
     members: list[GroupMemberOut]
+    alone: Literal["left", "dropout", "fallback", "missed"] | None = None
+    alone_from: int | None = None
 
 
 DebriefOut.model_rebuild()

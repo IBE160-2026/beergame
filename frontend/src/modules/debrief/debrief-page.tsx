@@ -12,6 +12,7 @@ import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { roleName } from "@/modules/sessions/sessions";
 
 import {
+  aloneAt,
   DEBRIEF_STEPS,
   type Debrief,
   debriefView,
@@ -26,7 +27,7 @@ import {
 import { BillStep } from "./bill-step";
 import { ChainStep } from "./chain-step";
 import { ExplanationStep } from "./explanation-step";
-import { GroupAnnouncer, GroupJoin, GroupStepBar, STEP_HEADING_ID } from "./group";
+import { ALONE_LINE_ID, AloneLine, GroupAnnouncer, GroupJoin, GroupStepBar, STEP_HEADING_ID } from "./group";
 import { MomentsStep } from "./moments-step";
 import { QuizStep } from "./quiz-step";
 import { ReflectionStep } from "./reflection-step";
@@ -102,7 +103,10 @@ function DebriefView({
  * Story 9.11, the Group debrief: a Student of the game who has not joined sees only «Bli med i
  * Gruppedebriefen». A joined Student sees the steps up to the shared pointer (`reach`), with the
  * group's line under the step it is on, and from the reflection questions on works alone; the
- * pointer moves with the `debrief:<id>` event, without reload, and the move is announced. */
+ * pointer moves with the `debrief:<id>` event, without reload, and the move is announced.
+ *
+ * Story 9.12: a Student who goes on alone (left, dropped out, or the 48-hour fallback) reads it
+ * as a Personal debrief, with a line under the step they were on that says why. */
 function Steps({ debrief, userId }: { debrief: Debrief; userId: string }) {
   const group = debrief.group ?? null;
   const explanation = useMyExplanation(debrief.id);
@@ -116,15 +120,26 @@ function Steps({ debrief, userId }: { debrief: Debrief; userId: string }) {
     if (joined && !wasJoined.current) document.getElementById(STEP_HEADING_ID)?.focus();
     wasJoined.current = joined;
   }, [group?.joined]);
-  const bar = (step: number) =>
-    group && group.joined && explanation.isSuccess && Math.min(group.step, sent ? group.step : 1) === step ? (
+  // Left just now (Story 9.12): focus moves to the line that says so, under the step. Only for the
+  // Student's own leave; a dropout or the fallback arriving over the stream moves nothing.
+  const left = group?.alone === "left";
+  const wasLeft = useRef(left);
+  useEffect(() => {
+    if (left && !wasLeft.current) document.getElementById(ALONE_LINE_ID)?.focus();
+    wasLeft.current = left;
+  }, [left]);
+  const bar = (step: number) => {
+    if (!group || !explanation.isSuccess) return null;
+    if (group.alone) return aloneAt(group, sent) === step ? <AloneLine group={group} /> : null;
+    return group.joined && Math.min(group.step, sent ? group.step : 1) === step ? (
       <GroupStepBar debrief={debrief} group={group} sent={sent} />
     ) : null;
+  };
   return (
     <>
       <p className={`${LINE} mt-1 text-ink-secondary`}>{copy.roleGame(roleName(debrief.role), debrief.game_number)}</p>
       <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
-      {group ? <GroupAnnouncer group={group} /> : null}
+      {group && !group.alone ? <GroupAnnouncer group={group} /> : null}
       {far === 0 ? (
         <GroupJoin debrief={debrief} />
       ) : (

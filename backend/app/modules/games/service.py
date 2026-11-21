@@ -106,6 +106,7 @@ __all__ = [
     "complete_running_games",
     "create_batch",
     "database_now",
+    "finished_at",
     "demand_series",
     "fact_set",
     "StoredFactSet",
@@ -314,6 +315,12 @@ async def play_status(session: AsyncSession, game_id: uuid.UUID) -> PlayStatus:
     if lifecycle in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT):
         return PlayStatus("running", await repo.open_week(session, game_id))
     raise ValueError(f"unknown lifecycle {lifecycle!r}")
+
+
+async def finished_at(session: AsyncSession, game_id: uuid.UUID) -> datetime | None:
+    """When the Game finished (its finished Week state was stored, database time), read in the
+    caller's transaction; None before then (Story 9.12)."""
+    return await repo.finished_at(session, game_id)
 
 
 async def database_now(session: AsyncSession) -> datetime:

@@ -28,6 +28,8 @@ from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.debrief.models import (
+    INDIVIDUAL_STEP,
+    debrief_alone,
     debrief_members,
     debrief_sessions,
     quiz_attempts,
@@ -145,9 +147,24 @@ async def group_open(
         )
         .exists()
     )
+    # Story 9.12: nor once they go alone, after the 48-hour fallback, or once the group has
+    # finished its shared steps (they open it as a Personal debrief then).
+    alone = (
+        select(debrief_alone.c.user_id)
+        .where(
+            debrief_alone.c.debrief_id == debrief_sessions.c.id,
+            debrief_alone.c.user_id == user_id,
+        )
+        .exists()
+    )
     waiting = await session.scalar(
         select(debrief_sessions.c.id).where(
-            debrief_sessions.c.game_id == found.game_id, debrief_sessions.c.shared, ~joined
+            debrief_sessions.c.game_id == found.game_id,
+            debrief_sessions.c.shared,
+            debrief_sessions.c.fallback_at.is_(None),
+            debrief_sessions.c.step < INDIVIDUAL_STEP,
+            ~joined,
+            ~alone,
         )
     )
     return waiting is not None

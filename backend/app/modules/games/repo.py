@@ -3,6 +3,7 @@
 
 import uuid
 from collections.abc import Collection, Sequence
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import RowMapping, func, select, update
@@ -640,6 +641,16 @@ async def finished_state(session: AsyncSession, game_id: uuid.UUID) -> dict[str,
     """The Game's finished Week state, or None before the Game has finished."""
     result = await session.execute(
         select(game_weeks.c.state).where(game_weeks.c.game_id == game_id, game_weeks.c.finished)
+    )
+    return result.scalar_one_or_none()
+
+
+async def finished_at(session: AsyncSession, game_id: uuid.UUID) -> datetime | None:
+    """When the Game's finished Week state was stored (database time), or None before then."""
+    result = await session.execute(
+        select(game_weeks.c.created_at).where(
+            game_weeks.c.game_id == game_id, game_weeks.c.finished
+        )
     )
     return result.scalar_one_or_none()
 

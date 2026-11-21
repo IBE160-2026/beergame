@@ -1522,9 +1522,34 @@ export interface paths {
          * Join Debrief
          * @description «Bli med» (Story 9.11, FR-43): the Student joins the Group debrief of their own game; a
          *     second join changes nothing. 409 `not_group` on a Personal debrief; 403 `forbidden` for anyone
-         *     whose game it is not.
+         *     whose game it is not. Story 9.12: 409 `group_closed` for a Student who goes on alone, or
+         *     after the 48-hour fallback.
          */
         post: operations["joinDebrief"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Debrief
+         * @description «Forlat gruppen» / «Ta en Personlig debrief» (Story 9.12, FR-43): the Student goes on as a
+         *     Personal debrief from the shared step they were on, keeping what they saved; final. The group
+         *     no longer waits for them, and when they were the opener the earliest-joined Student still
+         *     there may move on. Changes nothing once the shared steps are over. 409 `not_group` on a
+         *     Personal debrief; 403 `forbidden` for anyone whose game it is not.
+         */
+        post: operations["leaveDebrief"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3319,9 +3344,16 @@ export interface components {
          * @description A Group debrief's shared step pointer (Story 9.11, FR-43): `step` 1 to 3 is shared, 4 means
          *     each Student works alone from the reflection questions on. `move_on_at` is when the opener may
          *     move every joined Student on (database time). `members` only for a joined caller, else
-         *     empty.
+         *     empty. Story 9.12: `opener` is whoever may move on now (the earliest-joined Student still
+         *     there once the opener has gone); `alone` says why the caller goes on as a Personal debrief
+         *     (`left`, `dropout`, `fallback`, `missed`), from shared step `alone_from`; both None
+         *     otherwise.
          */
         GroupOut: {
+            /** Alone */
+            alone?: ("left" | "dropout" | "fallback" | "missed") | null;
+            /** Alone From */
+            alone_from?: number | null;
             /** Joined */
             joined: boolean;
             /** Members */
@@ -9263,6 +9295,64 @@ export interface operations {
         };
     };
     joinDebrief: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebriefOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    leaveDebrief: {
         parameters: {
             query?: never;
             header?: never;

@@ -1341,6 +1341,20 @@ async def group_debrief_opened_mail_context(
     return await debrief_released_mail_context(session, user_id, ref, now)
 
 
+async def debrief_fallback_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `debrief_fallback` notice (Story 9.12): the Class's name,
+    under the same rules as `debrief_released_mail_context`. None, so the mail is left out, once
+    the Student has finished the Debrief."""
+    if ref is None:
+        return None
+    done = await progress.steps_of(session, user_id, [ref])
+    if progress.Step.DEBRIEF in done.get(ref, set()):
+        return None
+    return await debrief_released_mail_context(session, user_id, ref, now)
+
+
 async def student_names(
     class_session_id: uuid.UUID, user_ids: list[uuid.UUID]
 ) -> dict[uuid.UUID, str]:

@@ -104,6 +104,14 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         "debrief.join": frozenset({"debrief"}),
         # The opener moved a Group debrief's shared step pointer on (Story 9.11, FR-43).
         "debrief.move_on": frozenset({"debrief"}),
+        # A Student went on alone from a Group debrief, by leaving or by the sweep's dropout
+        # (Story 9.12, FR-43): the row locked; one alone already emits nothing.
+        "debrief.leave": frozenset({"debrief"}),
+        # Presence on each SSE heartbeat (Story 9.12): no Debrief row lock and no event.
+        "debrief.touch": frozenset(),
+        # The sweep's 48-hour fallback to a Personal debrief (Story 9.12, FR-43, AD-9): the row
+        # locked; each Student told by a `debrief_fallback` notice, which emits `user`.
+        "debrief.open_personal_fallback": frozenset({"debrief", "user"}),
         # A held Class session's Debriefs released by the sweep (Story 9.2, AD-9): each seated
         # Student's `debrief_released` notice emits `user`, so Hjem updates without reload.
         "debrief.release": frozenset({"user"}),

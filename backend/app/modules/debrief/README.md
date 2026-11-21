@@ -22,8 +22,7 @@ The Debrief (Epic 9, FR-41 to FR-47, AD-21). Never imports `modules/players`
 - Routes (`debriefs.own`): `POST /api/me/class-sessions/{id}/debrief` (`openMyDebrief`) and
   `GET /api/debriefs/{id}` (`getMyDebrief`) answer `DebriefOut`, or 403 `debrief_not_open`,
   `debrief_held` or `forbidden` with the error envelope only (FR-14, FR-5).
-- The `debrief:` topic is emitted but not yet forwarded by the event stream: Story 9.11 decides
-  who is joined to a Debrief session.
+- The `debrief:` topic is forwarded by the event stream to the Students of the game (Story 9.11).
 
 ## The Explanation before the reveal (Story 9.3, FR-41, AD-14, AD-16)
 
@@ -166,3 +165,27 @@ The Debrief (Epic 9, FR-41 to FR-47, AD-21). Never imports `modules/players`
   Quiz step `quiz_changed` until the next attempt.
 - The staff summary adds the Student's Roster name (read now through `sessions.student_name`,
   never stored) and every attempt's number, time and result.
+
+## Continue alone (Story 9.12, FR-43, AD-8, AD-9, AD-21)
+
+- `debrief_alone` (migration 0111): a Student of a shared Debrief session who goes on as a
+  Personal debrief, with the shared step they were on and why: `left` (`POST
+  /api/debriefs/{id}/leave`, `leaveDebrief`, joined or not), `dropout` (two minutes without an
+  SSE heartbeat), `fallback` (48 hours) or `missed` (`open` by a Student who never joined, once
+  the pointer is at 4: the group finished without them; `join` then does the same). Final:
+  `join` answers 409 `group_closed`. The joined set is the members without such a row; an
+  alone Student reads every step as in a Personal debrief (no `step_locked`), keeps what they
+  saved, and `GroupOut.alone`/`alone_from` say why.
+- Presence: `platform/events.on_heartbeat(commands.touch)`, registered at import; each 15-second
+  heartbeat of the User's stream writes `debrief_members.last_seen_at` in a short session of its
+  own. No row lock, no event (registry `debrief.touch` → nothing).
+- Every command that evaluates the joined set settles it first under the row lock: silent joined
+  Students (not the caller) drop out, an opener no longer joined hands over to the earliest-joined
+  Student who is (`commands.effective_opener`, which the read uses too), then the pointer moves as
+  in 9.11. `move_on` commits its settle before judging the caller.
+- Sweep: `debrief.dropouts` (`service.due_dropouts`, database time) → `commands.leave(dropout=True)`;
+  `debrief.fallback` (`service.due_fallbacks`: shared, not run, pointer < 4,
+  `fallback_due_at` = the Game's finish time + 48 h, stored at the open) →
+  `commands.open_personal_fallback(debrief_id)`: once, each Student of the game who has not
+  finished goes alone and gets a `debrief_fallback` notice (digest). Registry `debrief.leave` →
+  `debrief`; `debrief.open_personal_fallback` → `debrief`, `user`.

@@ -16,6 +16,7 @@ import {
   type Group,
   INDIVIDUAL_STEP,
   joinDebrief,
+  leaveDebrief,
   lockedLine,
   moveOn,
   myDebriefKey,
@@ -27,6 +28,8 @@ const LINE = "text-body-phone lg:text-body";
 
 /** The step heading the page moves focus to once the Student has joined (`debrief-page.tsx`). */
 export const STEP_HEADING_ID = "debrief-step";
+/** The alone line the page moves focus to once the Student goes alone (Story 9.12). */
+export const ALONE_LINE_ID = "debrief-alone";
 
 function useStore(debrief: Debrief) {
   const queryClient = useQueryClient();
@@ -42,10 +45,18 @@ export function GroupJoin({ debrief }: { debrief: Debrief }) {
   const store = useStore(debrief);
   const join = useAction({
     mutationFn: () => joinDebrief(debrief.id),
-    messages: { not_group: copy.notGroup },
+    messages: { not_group: copy.notGroup, group_closed: copy.groupClosed },
     fallback: copy.joinFailed,
     onSuccess: store,
   });
+  // Story 9.12: going alone instead, while the group is still on its shared steps.
+  const alone = useAction({
+    mutationFn: () => leaveDebrief(debrief.id),
+    messages: { not_group: copy.notGroup },
+    fallback: copy.aloneFailed,
+    onSuccess: store,
+  });
+  const shared = (debrief.group?.step ?? INDIVIDUAL_STEP) < INDIVIDUAL_STEP;
   return (
     <section aria-labelledby="debrief-group-join" data-group-join="" className="mt-8 max-w-md border-t border-axis pt-4">
       <h2 id="debrief-group-join" className="text-headline text-ink">
@@ -53,12 +64,81 @@ export function GroupJoin({ debrief }: { debrief: Debrief }) {
       </h2>
       <p className={`${LINE} mt-2 text-ink`}>{copy.joinLead}</p>
       <div className="mt-4 flex flex-col items-start gap-2">
-        <Button variant="primary" unavailable={join.isPending} onClick={() => join.mutate()}>
+        <Button variant="primary" unavailable={join.isPending || alone.isPending} onClick={() => join.mutate()}>
           {copy.join}
         </Button>
         <ActionError message={join.errorMessage} />
       </div>
+      {shared ? (
+        <div className="mt-6 flex flex-col items-start gap-2">
+          <p className={`${LINE} text-ink-secondary`}>{copy.aloneLead}</p>
+          <Button unavailable={join.isPending || alone.isPending} onClick={() => alone.mutate()}>
+            {copy.goAlone}
+          </Button>
+          <ActionError message={alone.errorMessage} />
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+/**
+ * Why the Student goes on as a Personal debrief (Story 9.12, FR-43): under the shared step they
+ * were on. The page moves focus here when they go alone while it is open.
+ */
+export function AloneLine({ group }: { group: Group }) {
+  if (!group.alone) return null;
+  return (
+    <p
+      id={ALONE_LINE_ID}
+      tabIndex={-1}
+      data-group-alone={group.alone}
+      className={`${LINE} mt-6 max-w-md border-l-2 border-axis pl-3 text-ink focus:outline-none`}
+    >
+      {copy.aloneLine[group.alone]}
+    </p>
+  );
+}
+
+/** «Forlat gruppen» with its confirmation in place (Story 9.12): going alone is final. */
+function LeaveGroup({ debrief }: { debrief: Debrief }) {
+  const store = useStore(debrief);
+  const [confirming, setConfirming] = useState(false);
+  const opened = useRef(false);
+  const cancel = useRef<HTMLButtonElement>(null);
+  const start = useRef<HTMLButtonElement>(null);
+  const leave = useAction({
+    mutationFn: () => leaveDebrief(debrief.id),
+    fallback: copy.leaveFailed,
+    onSuccess: store,
+  });
+  // Focus follows the press: to the safe «Avbryt» of the confirmation (a second Enter never
+  // leaves), and back to «Forlat gruppen» on «Avbryt».
+  useEffect(() => {
+    if (confirming) cancel.current?.focus();
+    else if (opened.current) start.current?.focus();
+    opened.current = confirming || opened.current;
+  }, [confirming]);
+  if (!confirming) {
+    return (
+      <Button ref={start} onClick={() => setConfirming(true)} data-group-leave="">
+        {copy.leave}
+      </Button>
+    );
+  }
+  return (
+    <div data-group-leave-confirm="" className="flex flex-col items-start gap-2">
+      <p className={`${LINE} text-ink`}>{copy.leaveConfirm}</p>
+      <div className="flex flex-wrap gap-2">
+        <Button unavailable={leave.isPending} onClick={() => leave.mutate()}>
+          {copy.leave}
+        </Button>
+        <Button ref={cancel} unavailable={leave.isPending} onClick={() => setConfirming(false)}>
+          {copy.cancel}
+        </Button>
+      </div>
+      <ActionError message={leave.errorMessage} />
+    </div>
   );
 }
 
@@ -118,7 +198,8 @@ export function GroupStepBar({ debrief, group, sent }: { debrief: Debrief; group
   }
   const canFinish = sent && group.step > 1 && group.step < INDIVIDUAL_STEP && !me?.done;
   const canMove = group.opener && group.step < INDIVIDUAL_STEP && (sent || group.step === 1);
-  if (!line && !canFinish && !canMove) return null;
+  const canLeave = group.step < INDIVIDUAL_STEP;
+  if (!line && !canFinish && !canMove && !canLeave) return null;
   return (
     <div data-group-bar={group.step} className="mt-6 flex max-w-md flex-col items-start gap-3 border-l-2 border-axis pl-3">
       {line ? (
@@ -143,6 +224,7 @@ export function GroupStepBar({ debrief, group, sent }: { debrief: Debrief; group
           <ActionError message={early} />
         </>
       ) : null}
+      {canLeave ? <LeaveGroup debrief={debrief} /> : null}
     </div>
   );
 }

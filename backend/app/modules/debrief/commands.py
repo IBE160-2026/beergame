@@ -2,10 +2,14 @@
 
 Each command on a Debrief session locks its row and emits `debrief:<id>` (`platform/events`
 registry: `debrief.open`, `debrief.join`, `debrief.save_explanation`, `debrief.complete_step`,
-`debrief.move_on`, `debrief.record_facts`, `debrief.finish`, `debrief.submit_quiz`). Story 9.11:
+`debrief.move_on`, `debrief.leave`, `debrief.open_personal_fallback`, `debrief.record_facts`,
+`debrief.finish`, `debrief.submit_quiz`). Story 9.11:
 a Group debrief's session is shared; its joined Students share the step pointer over steps 1 to 3
 (`save_explanation` and `complete_step` move it once all have finished, `move_on` lets the opener
-move it after the minimum wait). `release` writes
+move it after the minimum wait). Story 9.12: `leave` lets a Student go on as a Personal debrief
+(also the sweep's dropout after two silent minutes), `touch` records presence on each SSE heartbeat
+(no lock, no event), `open_personal_fallback` is the sweep's 48-hour fallback, and every command
+that evaluates the joined set settles it first (dropouts, the opener's hand-over). `release` writes
 the Class session's release once and tells each Student who holds a Seat through
 `platform/notify` (`debrief.release`). `set_quiz_exclusions` (Story 9.10) locks the Class
 session row instead, records the change through `platform/audit`, emits `session:<id>` and tells
@@ -14,7 +18,7 @@ the Student's text only."""
 
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -24,7 +28,10 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.debrief.models import (
+    DROPOUT_AFTER,
+    FALLBACK_AFTER,
     INDIVIDUAL_STEP,
+    debrief_alone,
     debrief_explanations,
     debrief_fact_sets,
     debrief_members,
@@ -37,6 +44,7 @@ from app.modules.debrief.models import (
     quiz_exclusions,
 )
 from app.modules.debrief.rules import all_class_games_finished, last_attempts
+from app.modules.games import service as games
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
 from app.platform import audit, events, notify
@@ -86,6 +94,12 @@ class DebriefRow:
     """Story 9.11: a Group debrief's session, whose joined Students share the step pointer."""
     opener_id: uuid.UUID | None = None
     step_opened_at: datetime | None = None
+    fallback_at: datetime | None = None
+    """Story 9.12: when the 48-hour fallback made it a Personal debrief for everyone not
+    finished."""
+    alone: bool = False
+    """Story 9.12, set by `debrief.service` for the reading Student only: they go on as a Personal
+    debrief in this shared session (`debrief_alone`)."""
 
 
 def row_of(row) -> DebriefRow:
@@ -97,7 +111,16 @@ def row_of(row) -> DebriefRow:
         shared=row["shared"],
         opener_id=row["opener_id"],
         step_opened_at=row["step_opened_at"],
+        fallback_at=row["fallback_at"],
     )
+
+
+def effective_opener(opener_id: uuid.UUID | None, joined: Sequence[uuid.UUID]) -> uuid.UUID | None:
+    """Who may move a shared step on (Story 9.12): the opener while they are joined, else the
+    earliest-joined Student who is (`joined` in joining order), else nobody."""
+    if opener_id is not None and opener_id in joined:
+        return opener_id
+    return joined[0] if joined else None
 
 
 async def _locked(session: AsyncSession, game_id: uuid.UUID) -> DebriefRow:
@@ -120,9 +143,18 @@ async def open(
     is joined at once, and each other Student in `tell` gets a `group_debrief_opened` notice
     (which emits `user:<id>`, so their Hjem offers to join). Whether a session is shared is fixed
     at its creation. The row is locked; a new row emits `debrief:<id>`, an existing one is
-    returned as it stands and emits nothing."""
+    returned as it stands and emits nothing. Story 9.12: a shared row stores when it falls back
+    to a Personal debrief, `FALLBACK_AFTER` after the Game's finish time (database time); and a
+    Student who opens an existing one whose group has finished the shared steps without them goes
+    on alone at once (`missed`), which emits `debrief:<id>`."""
     shared = shared and opener_id is not None
     async with get_sessionmaker().begin() as session:
+        fallback_due_at = None
+        if shared:
+            finished = await games.finished_at(session, game_id)
+            if finished is None:
+                finished = await games.database_now(session)
+            fallback_due_at = finished + FALLBACK_AFTER
         created = await session.scalar(
             insert(debrief_sessions)
             .values(
@@ -134,6 +166,7 @@ async def open(
                 shared=shared,
                 opener_id=opener_id if shared else None,
                 step_opened_at=func.now(),
+                fallback_due_at=fallback_due_at,
             )
             .on_conflict_do_nothing(constraint="uq_debrief_sessions_game")
             .returning(debrief_sessions.c.id)
@@ -159,7 +192,28 @@ async def open(
             log.info(
                 "debrief_opened", debrief_id=str(found.id), game_id=str(game_id), shared=shared
             )
+        elif opener_id is not None and await _missed(session, found, opener_id):
+            # Story 9.12: the group has finished its shared steps without this Student, who
+            # goes on as a Personal debrief at once, without waiting for the fallback.
+            await _go_alone(session, found, opener_id, "missed", 1)
+            await events.emit(session, "debrief", str(found.id))
     return found
+
+
+async def _missed(session: AsyncSession, debrief: DebriefRow, user_id: uuid.UUID) -> bool:
+    """Whether the Student missed the Group debrief (Story 9.12, FR-43): its joined Students have
+    finished the shared steps (the pointer is at `INDIVIDUAL_STEP`, no fallback) and the Student
+    never joined it nor goes alone already."""
+    if not debrief.shared or debrief.fallback_at is not None:
+        return False
+    if debrief.step < INDIVIDUAL_STEP:
+        return False
+    joined = await session.scalar(
+        select(debrief_members.c.user_id).where(
+            debrief_members.c.debrief_id == debrief.id, debrief_members.c.user_id == user_id
+        )
+    )
+    return joined is None and not await _is_alone(session, debrief.id, user_id)
 
 
 class NotGroup(Exception):
@@ -183,14 +237,104 @@ class TooEarly(Exception):
         self.available_at = available_at
 
 
+class GroupClosed(Exception):
+    """«Bli med» by a Student who goes on alone, or after the 48-hour fallback (409
+    `group_closed`, Story 9.12): going alone is final."""
+
+
+def _alone_ids(debrief_id: uuid.UUID):
+    return select(debrief_alone.c.user_id).where(debrief_alone.c.debrief_id == debrief_id)
+
+
 async def _members(session: AsyncSession, debrief_id: uuid.UUID) -> list[uuid.UUID]:
+    """The joined Students of a shared Debrief session, in joining order: those who joined and
+    have not gone alone (Story 9.12)."""
     return list(
         (
             await session.scalars(
-                select(debrief_members.c.user_id).where(debrief_members.c.debrief_id == debrief_id)
+                select(debrief_members.c.user_id)
+                .where(
+                    debrief_members.c.debrief_id == debrief_id,
+                    debrief_members.c.user_id.not_in(_alone_ids(debrief_id)),
+                )
+                .order_by(debrief_members.c.joined_at, debrief_members.c.user_id)
             )
         ).all()
     )
+
+
+async def _is_alone(session: AsyncSession, debrief_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    found = await session.scalar(
+        select(debrief_alone.c.user_id).where(
+            debrief_alone.c.debrief_id == debrief_id, debrief_alone.c.user_id == user_id
+        )
+    )
+    return found is not None
+
+
+async def _go_alone(
+    session: AsyncSession, debrief: DebriefRow, user_id: uuid.UUID, reason: str, step: int
+) -> bool:
+    """Store that the Student goes on as a Personal debrief from `step` (Story 9.12); False when
+    they already do."""
+    stored = await session.scalar(
+        insert(debrief_alone)
+        .values(debrief_id=debrief.id, user_id=user_id, step=step, reason=reason, since=func.now())
+        .on_conflict_do_nothing(
+            index_elements=[debrief_alone.c.debrief_id, debrief_alone.c.user_id]
+        )
+        .returning(debrief_alone.c.user_id)
+    )
+    if stored is not None:
+        log.info("debrief_alone", debrief_id=str(debrief.id), reason=reason, step=step)
+    return stored is not None
+
+
+async def _settle(
+    session: AsyncSession, debrief: DebriefRow, keep: uuid.UUID | None
+) -> tuple[DebriefRow, bool]:
+    """In the caller's transaction, holding the row's lock, evaluate a shared session's joined set
+    (Story 9.12, FR-43): the caller `keep`, whose command shows they are there, is seen now; each
+    other joined Student silent longer than `DROPOUT_AFTER` (database time) drops out, as `leave`
+    would; an opener no longer joined hands over to the earliest-joined Student who is; then the
+    pointer moves on while every joined Student has finished its step. Returns the row and whether
+    any of it changed (the caller's presence is not a change)."""
+    if not debrief.shared or debrief.fallback_at is not None:
+        return debrief, False
+    changed = False
+    if debrief.step < INDIVIDUAL_STEP:
+        if keep is not None:
+            await session.execute(
+                update(debrief_members)
+                .where(
+                    debrief_members.c.debrief_id == debrief.id, debrief_members.c.user_id == keep
+                )
+                .values(last_seen_at=func.now())
+            )
+        silent = (
+            await session.scalars(
+                select(debrief_members.c.user_id).where(
+                    debrief_members.c.debrief_id == debrief.id,
+                    debrief_members.c.user_id.not_in(_alone_ids(debrief.id)),
+                    debrief_members.c.last_seen_at < func.now() - DROPOUT_AFTER,
+                )
+            )
+        ).all()
+        for user_id in silent:
+            if user_id != keep:
+                changed |= await _go_alone(session, debrief, user_id, "dropout", debrief.step)
+        opener = effective_opener(debrief.opener_id, await _members(session, debrief.id))
+        if opener != debrief.opener_id:
+            await session.execute(
+                update(debrief_sessions)
+                .where(debrief_sessions.c.id == debrief.id)
+                .values(opener_id=opener)
+            )
+            debrief = replace(debrief, opener_id=opener)
+            changed = True
+            log.info("debrief_opener_handed_over", debrief_id=str(debrief.id))
+    moved = await _advance(session, debrief)
+    return moved, changed or moved.step != debrief.step
 
 
 async def _finished(
@@ -241,11 +385,19 @@ async def join(game_id: uuid.UUID, user_id: uuid.UUID) -> DebriefRow:
     """«Bli med» (Story 9.11, FR-43): add the Student to the joined set of the Game's shared
     Debrief session. The caller has judged that it is their game. The row is locked; a new member
     emits `debrief:<id>`, a second join changes nothing and emits nothing. Raises `NotGroup` on a
-    Personal debrief."""
+    Personal debrief, and `GroupClosed` for a Student who goes alone or after the fallback (Story
+    9.12). Settles the joined set (`_settle`)."""
     async with get_sessionmaker().begin() as session:
         debrief = await _locked(session, game_id)
         if not debrief.shared:
             raise NotGroup
+        if debrief.fallback_at is not None or await _is_alone(session, debrief.id, user_id):
+            raise GroupClosed
+        if await _missed(session, debrief, user_id):
+            # The group finished its shared steps without them: alone at once, as on `open`.
+            await _go_alone(session, debrief, user_id, "missed", 1)
+            await events.emit(session, "debrief", str(debrief.id))
+            return debrief
         added = await session.scalar(
             insert(debrief_members)
             .values(debrief_id=debrief.id, user_id=user_id, joined_at=func.now())
@@ -254,8 +406,10 @@ async def join(game_id: uuid.UUID, user_id: uuid.UUID) -> DebriefRow:
             )
             .returning(debrief_members.c.user_id)
         )
-        if added is not None:
+        debrief, settled = await _settle(session, debrief, keep=user_id)
+        if added is not None or settled:
             await events.emit(session, "debrief", str(debrief.id))
+        if added is not None:
             log.info("debrief_joined", debrief_id=str(debrief.id))
     return debrief
 
@@ -265,12 +419,23 @@ async def move_on(game_id: uuid.UUID, user_id: uuid.UUID, wait: timedelta) -> De
     step although not every joined Student has finished it, once the step has been open `wait`
     (database time). The row is locked; a move emits `debrief:<id>`; at `INDIVIDUAL_STEP` nothing
     moves. Raises `NotGroup` on a Personal debrief, `NotJoined` for anyone but the opener and
-    `TooEarly` with the time it becomes possible."""
+    `TooEarly` with the time it becomes possible. Story 9.12: the joined set is settled first, so
+    once the opener has gone the earliest-joined Student who is still there moves on, and a
+    settle that moved the pointer is the move. The settle commits on its own, so a refusal after
+    it keeps it."""
     async with get_sessionmaker().begin() as session:
         debrief = await _locked(session, game_id)
         if not debrief.shared:
             raise NotGroup
-        if debrief.opener_id != user_id:
+        before = debrief.step
+        debrief, settled = await _settle(session, debrief, keep=user_id)
+        if settled:
+            await events.emit(session, "debrief", str(debrief.id))
+    if debrief.step != before and debrief.opener_id == user_id:
+        return debrief
+    async with get_sessionmaker().begin() as session:
+        debrief = await _locked(session, game_id)
+        if debrief.opener_id != user_id or debrief.fallback_at is not None:
             raise NotJoined
         if debrief.step >= INDIVIDUAL_STEP:
             return debrief
@@ -281,6 +446,137 @@ async def move_on(game_id: uuid.UUID, user_id: uuid.UUID, wait: timedelta) -> De
         debrief = await _move(session, debrief, debrief.step + 1)
         await events.emit(session, "debrief", str(debrief.id))
     return debrief
+
+
+async def leave(game_id: uuid.UUID, user_id: uuid.UUID, dropout: bool = False) -> DebriefRow:
+    """«Forlat gruppen» / «Ta en Personlig debrief» (Story 9.12, FR-43): the Student goes on as a
+    Personal debrief, from the shared step they were on (step 1 for one who never joined), with
+    everything they saved kept; final. With `dropout` (the sweep), only a joined Student silent
+    longer than `DROPOUT_AFTER` (database time) goes, as `dropout`. The row is locked; the joined
+    set is then settled (the opener handed over, the pointer moved when the others have all
+    finished) and `debrief:<id>` emitted. Once the pointer reached `INDIVIDUAL_STEP`, after the
+    fallback, or for a Student already alone, nothing changes and nothing is emitted. Raises
+    `NotGroup` on a Personal debrief."""
+    async with get_sessionmaker().begin() as session:
+        debrief = await _locked(session, game_id)
+        if not debrief.shared:
+            raise NotGroup
+        if debrief.fallback_at is not None or debrief.step >= INDIVIDUAL_STEP:
+            return debrief
+        joined = user_id in await _members(session, debrief.id)
+        if dropout:
+            silent = await session.scalar(
+                select(debrief_members.c.last_seen_at < func.now() - DROPOUT_AFTER).where(
+                    debrief_members.c.debrief_id == debrief.id,
+                    debrief_members.c.user_id == user_id,
+                )
+            )
+            if not joined or not silent:
+                return debrief
+        reason = "dropout" if dropout else "left"
+        if not await _go_alone(session, debrief, user_id, reason, debrief.step if joined else 1):
+            return debrief
+        debrief, _ = await _settle(session, debrief, keep=None if dropout else user_id)
+        await events.emit(session, "debrief", str(debrief.id))
+    return debrief
+
+
+async def touch(user_id: uuid.UUID) -> None:
+    """Presence (Story 9.12, FR-43, AD-21): on each SSE heartbeat of the User (`platform/events`
+    `on_heartbeat`), record the database time as `last_seen_at` on each of their joined rows of a
+    shared Debrief session still on its shared steps. The one command that takes no Debrief row
+    lock and emits no event: a short database session of its own, so the stream holds none."""
+    async with get_sessionmaker().begin() as session:
+        await session.execute(
+            update(debrief_members)
+            .where(
+                debrief_members.c.user_id == user_id,
+                debrief_members.c.debrief_id.in_(
+                    select(debrief_sessions.c.id).where(
+                        debrief_sessions.c.shared,
+                        debrief_sessions.c.step < INDIVIDUAL_STEP,
+                        debrief_sessions.c.fallback_at.is_(None),
+                    )
+                ),
+                ~select(debrief_alone.c.user_id)
+                .where(
+                    debrief_alone.c.debrief_id == debrief_members.c.debrief_id,
+                    debrief_alone.c.user_id == debrief_members.c.user_id,
+                )
+                .exists(),
+            )
+            .values(last_seen_at=func.now())
+        )
+
+
+FALLBACK_NOTICE = "debrief_fallback"
+"""The notice each Student a Group debrief's 48-hour fallback makes go alone gets (Story 9.12,
+digest)."""
+
+
+async def open_personal_fallback(debrief_id: uuid.UUID) -> bool:
+    """The 48-hour fallback (Story 9.12, FR-43, AD-9), the sweep's act: a shared Debrief session
+    that has not reached `INDIVIDUAL_STEP` becomes a Personal debrief for each Student of its
+    Class game who has not finished the Debrief and does not go alone already, from the shared
+    step they were on (step 1 for one who never joined), each told by a `debrief_fallback` notice
+    (which emits `user:<id>`). Once: the row is locked and stores when it ran. Emits
+    `debrief:<id>`. True when this call did it."""
+    async with get_sessionmaker().begin() as session:
+        found = (
+            (
+                await session.execute(
+                    select(debrief_sessions)
+                    .where(debrief_sessions.c.id == debrief_id)
+                    .with_for_update()
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if found is None:
+            return False
+        debrief = row_of(found)
+        if not debrief.shared or debrief.fallback_at is not None:
+            return False
+        if debrief.step >= INDIVIDUAL_STEP:
+            return False
+        await session.execute(
+            update(debrief_sessions)
+            .where(debrief_sessions.c.id == debrief.id)
+            .values(fallback_at=func.now())
+        )
+        joined = await _members(session, debrief.id)
+        # The game's Students, and any joined Student no longer counted among them.
+        students = [each.user_id for each in await games.game_students(session, debrief.game_id)]
+        students += [each for each in joined if each not in students]
+        finished = set(
+            (
+                await session.scalars(
+                    select(debrief_summaries.c.user_id).where(
+                        debrief_summaries.c.class_session_id == debrief.class_session_id,
+                        debrief_summaries.c.user_id.in_(students),
+                    )
+                )
+            ).all()
+        )
+        told = 0
+        for user_id in students:
+            if user_id in finished:
+                continue
+            step = debrief.step if user_id in joined else 1
+            if not await _go_alone(session, debrief, user_id, "fallback", step):
+                continue
+            await notify.enqueue(
+                session,
+                user_id,
+                FALLBACK_NOTICE,
+                f"{FALLBACK_NOTICE}:{debrief.id}:{user_id}",
+                ref=debrief.class_session_id,
+            )
+            told += 1
+        await events.emit(session, "debrief", str(debrief.id))
+    log.info("debrief_fallback_opened", debrief_id=str(debrief_id), students=told)
+    return True
 
 
 async def backdate_step(debrief_id: uuid.UUID, by: timedelta) -> None:
@@ -369,8 +665,9 @@ async def save_explanation(
         await progress.record_step(
             user_id, class_session_id, progress.Step.EXPLANATION, stored["saved_at"], within=session
         )
-        # Story 9.11: in a Group debrief the last joined Student's Explanation moves the pointer.
-        await _advance(session, debrief)
+        # Story 9.11: in a Group debrief the last joined Student's Explanation moves the pointer
+        # (Story 9.12: after the joined set is settled).
+        await _settle(session, debrief, keep=user_id)
         await events.emit(session, "debrief", str(debrief.id))
     log.info("explanation_saved", debrief_id=str(debrief.id), length=stored["length"])
     return ExplanationRow(stored["text"], stored["length"], stored["saved_at"])
@@ -434,8 +731,8 @@ async def complete_step(
             )
             .returning(debrief_step_marks.c.step)
         )
-        if marked is not None:
-            debrief = await _advance(session, debrief)
+        debrief, settled = await _settle(session, debrief, keep=user_id)
+        if marked is not None or settled:
             await events.emit(session, "debrief", str(debrief.id))
     return debrief
 
@@ -847,3 +1144,7 @@ async def set_quiz_exclusions(
         told=told,
     )
     return quiz, wanted_set
+
+
+# Story 9.12: presence. Registered at import, which the app does at startup through the routes.
+events.on_heartbeat(touch)

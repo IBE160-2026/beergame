@@ -28,6 +28,8 @@
 - Story 9.11, the Group debrief: `POST /api/debriefs/{id}/join`, `POST
   /api/debriefs/{id}/steps/{step}/done` and `POST /api/debriefs/{id}/move-on`. In a shared
   Debrief every read after the pointer answers 403 `step_locked`, after the Explanation gate.
+- Story 9.12: `POST /api/debriefs/{id}/leave`; a Student who goes on alone reads every step as in
+  a Personal debrief.
 
 Every Debrief route answers 403 `debrief_not_open` while the Student's Class game has not
 finished and 403 `debrief_held` while the Lecturer holds the Debriefs and a Class game has not
@@ -180,6 +182,8 @@ async def _answer(read, status: int = 200) -> Response:
         return error_response(403, "step_locked", "Your group has not reached this step yet.")
     except commands.NotGroup:
         return error_response(409, "not_group", "This is a Personal debrief.")
+    except commands.GroupClosed:
+        return error_response(409, "group_closed", "You go through this Debrief on your own.")
     except commands.NotJoined:
         raise authz.Forbidden from None
     except commands.StepNotOpen:
@@ -265,8 +269,24 @@ async def get_debrief_step(
 async def join_debrief(debrief_id: str, user: OWN) -> Response:
     """«Bli med» (Story 9.11, FR-43): the Student joins the Group debrief of their own game; a
     second join changes nothing. 409 `not_group` on a Personal debrief; 403 `forbidden` for anyone
-    whose game it is not."""
+    whose game it is not. Story 9.12: 409 `group_closed` for a Student who goes on alone, or
+    after the 48-hour fallback."""
     return await _answer(service.join_mine(user, _id(debrief_id)))
+
+
+@router.post(
+    "/debriefs/{debrief_id}/leave",
+    response_model=DebriefOut,
+    responses=documented(401, 403, 409),
+    operation_id="leaveDebrief",
+)
+async def leave_debrief(debrief_id: str, user: OWN) -> Response:
+    """«Forlat gruppen» / «Ta en Personlig debrief» (Story 9.12, FR-43): the Student goes on as a
+    Personal debrief from the shared step they were on, keeping what they saved; final. The group
+    no longer waits for them, and when they were the opener the earliest-joined Student still
+    there may move on. Changes nothing once the shared steps are over. 409 `not_group` on a
+    Personal debrief; 403 `forbidden` for anyone whose game it is not."""
+    return await _answer(service.leave_mine(user, _id(debrief_id)))
 
 
 @router.post(

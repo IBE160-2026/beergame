@@ -45,11 +45,12 @@ export const INDIVIDUAL_STEP = 4;
  * How far the Student's page reaches (Story 9.11), from the api's answer alone: a Personal debrief
  * every step the Student's own progress opens (5); a Group debrief the Student has not joined
  * none (only the way to join, 0); a joined Student step 1 until their Explanation is sent, then
- * the shared pointer (the api refuses the steps after it, 403 `step_locked`).
+ * the shared pointer (the api refuses the steps after it, 403 `step_locked`). A Student who goes on
+ * alone (Story 9.12: left, dropped out or the 48-hour fallback) reads it as a Personal debrief.
  */
 export function reach(debrief: Pick<Debrief, "group">, sent: boolean): number {
   const group = debrief.group;
-  if (!group) return DEBRIEF_STEPS;
+  if (!group || group.alone) return DEBRIEF_STEPS;
   if (!group.joined) return 0;
   return sent ? group.step : 1;
 }
@@ -101,6 +102,19 @@ export function waitingFor(members: readonly GroupMember[], words: { you: string
 /** «Bli med»: joins the Group debrief of the Student's game (409 `not_group` on a Personal one). */
 export function joinDebrief(debriefId: string): Promise<Debrief> {
   return request(() => api.POST("/api/debriefs/{debrief_id}/join", { params: { path: { debrief_id: debriefId } } }));
+}
+
+/** «Forlat gruppen» / «Ta en Personlig debrief» (Story 9.12): the Student goes on alone, final;
+ * 409 `not_group` on a Personal debrief. */
+export function leaveDebrief(debriefId: string): Promise<Debrief> {
+  return request(() => api.POST("/api/debriefs/{debrief_id}/leave", { params: { path: { debrief_id: debriefId } } }));
+}
+
+/** Where the alone line stands (Story 9.12): under the shared step the Student was on, or step 1
+ * while their Explanation is not sent; at most step 3, the last shared one. */
+export function aloneAt(group: Pick<Group, "alone_from">, sent: boolean): number {
+  const from = Math.min(group.alone_from ?? 1, INDIVIDUAL_STEP - 1);
+  return sent ? from : 1;
 }
 
 /** «Ferdig med steget» on shared step 2 or 3. */

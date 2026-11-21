@@ -1,6 +1,8 @@
 """The tables owned by `modules/debrief` (Stories 9.2, 9.3, 9.6 to 9.10, AD-21). Written by
 `debrief.commands` only."""
 
+from datetime import timedelta
+
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -14,6 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     false,
+    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -45,6 +48,11 @@ debrief_sessions = Table(
     Column("shared", Boolean, nullable=False, server_default=false()),
     Column("opener_id", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
     Column("step_opened_at", DateTime(timezone=True), nullable=True),
+    # Story 9.12: when a shared session that has not reached `INDIVIDUAL_STEP` falls back to a
+    # Personal debrief for every Student who has not finished (the Game's finish time plus
+    # `FALLBACK_AFTER`), and when the sweep did it.
+    Column("fallback_due_at", DateTime(timezone=True), nullable=True),
+    Column("fallback_at", DateTime(timezone=True), nullable=True),
     UniqueConstraint("game_id", name="uq_debrief_sessions_game"),
     CheckConstraint(f"step BETWEEN 1 AND {STEPS}", name="ck_debrief_sessions_step"),
 )
@@ -63,8 +71,43 @@ debrief_members = Table(
         ForeignKey("debrief_sessions.id", ondelete="CASCADE"),
         primary_key=True,
     ),
-    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True
+    ),
     Column("joined_at", DateTime(timezone=True), nullable=False),
+    # Story 9.12: the database time of the Student's last SSE heartbeat (`commands.touch`), or of
+    # joining. Silent longer than `DROPOUT_AFTER`, they drop out.
+    Column("last_seen_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
+DROPOUT_AFTER = timedelta(minutes=2)
+"""How long a joined Student may be without a heartbeat before they drop out (FR-43)."""
+
+FALLBACK_AFTER = timedelta(hours=48)
+"""How long after the Game's finish a shared session that never got past the shared steps falls
+back to a Personal debrief for every Student who has not finished (FR-43)."""
+
+debrief_alone = Table(
+    "debrief_alone",
+    metadata,
+    # A Student of a shared Debrief session who goes on as a Personal debrief (Story 9.12,
+    # FR-43): `left` (they chose it, joined or not), `dropout` (silent too long), `fallback` (the
+    # 48 hours) or `missed` (the group finished its shared steps without them). Final: they do
+    # not rejoin. `step` is the shared step they were on (1 for a Student who never joined).
+    Column(
+        "debrief_id",
+        Uuid,
+        ForeignKey("debrief_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("step", SmallInteger, nullable=False),
+    Column("reason", Text, nullable=False),
+    Column("since", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        "reason IN ('left', 'dropout', 'fallback', 'missed')", name="ck_debrief_alone_reason"
+    ),
+    CheckConstraint(f"step BETWEEN 1 AND {INDIVIDUAL_STEP - 1}", name="ck_debrief_alone_step"),
 )
 
 debrief_step_marks = Table(

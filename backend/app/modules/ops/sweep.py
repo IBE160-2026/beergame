@@ -145,6 +145,11 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # Story 9.2: release the Debriefs of a held Class session once its last Class game has
     # finished (by the last Week or the playout), and tell each seated Student (AD-9).
     DueAction("debrief.release", debrief.due_releases, debrief.release_due),
+    # Story 9.12 (FR-43): a joined Student two minutes without a heartbeat drops out of their
+    # Group debrief, and a Group debrief still on its shared steps 48 hours after the game ended
+    # falls back to a Personal debrief for each Student who has not finished.
+    DueAction("debrief.dropouts", debrief.due_dropouts, debrief.drop_out_due),
+    DueAction("debrief.fallback", debrief.due_fallbacks, debrief.fallback_due),
     # Story 5.14: remind every Student of a Play, Debrief or Test deadline 24 hours ahead, once
     # per deadline time (FR-18). The reminders join the next minute's digest claim.
     DueAction(

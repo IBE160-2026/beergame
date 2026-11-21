@@ -2683,8 +2683,36 @@
         "type": "object"
       },
       "GroupOut": {
-        "description": "A Group debrief's shared step pointer (Story 9.11, FR-43): `step` 1 to 3 is shared, 4 means\neach Student works alone from the reflection questions on. `move_on_at` is when the opener may\nmove every joined Student on (database time). `members` only for a joined caller, else\nempty.",
+        "description": "A Group debrief's shared step pointer (Story 9.11, FR-43): `step` 1 to 3 is shared, 4 means\neach Student works alone from the reflection questions on. `move_on_at` is when the opener may\nmove every joined Student on (database time). `members` only for a joined caller, else\nempty. Story 9.12: `opener` is whoever may move on now (the earliest-joined Student still\nthere once the opener has gone); `alone` says why the caller goes on as a Personal debrief\n(`left`, `dropout`, `fallback`, `missed`), from shared step `alone_from`; both None\notherwise.",
         "properties": {
+          "alone": {
+            "anyOf": [
+              {
+                "enum": [
+                  "left",
+                  "dropout",
+                  "fallback",
+                  "missed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alone"
+          },
+          "alone_from": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alone From"
+          },
           "joined": {
             "title": "Joined",
             "type": "boolean"
@@ -12276,7 +12304,7 @@
     },
     "/api/debriefs/{debrief_id}/join": {
       "post": {
-        "description": "«Bli med» (Story 9.11, FR-43): the Student joins the Group debrief of their own game; a\nsecond join changes nothing. 409 `not_group` on a Personal debrief; 403 `forbidden` for anyone\nwhose game it is not.",
+        "description": "«Bli med» (Story 9.11, FR-43): the Student joins the Group debrief of their own game; a\nsecond join changes nothing. 409 `not_group` on a Personal debrief; 403 `forbidden` for anyone\nwhose game it is not. Story 9.12: 409 `group_closed` for a Student who goes on alone, or\nafter the 48-hour fallback.",
         "operationId": "joinDebrief",
         "parameters": [
           {
@@ -12342,6 +12370,79 @@
           }
         },
         "summary": "Join Debrief",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/leave": {
+      "post": {
+        "description": "«Forlat gruppen» / «Ta en Personlig debrief» (Story 9.12, FR-43): the Student goes on as a\nPersonal debrief from the shared step they were on, keeping what they saved; final. The group\nno longer waits for them, and when they were the opener the earliest-joined Student still\nthere may move on. Changes nothing once the shared steps are over. 409 `not_group` on a\nPersonal debrief; 403 `forbidden` for anyone whose game it is not.",
+        "operationId": "leaveDebrief",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebriefOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Leave Debrief",
         "tags": [
           "debrief"
         ]

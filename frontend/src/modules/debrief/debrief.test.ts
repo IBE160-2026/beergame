@@ -5,6 +5,7 @@ import { DEBRIEF_PATH, studentDebriefPath } from "@/modules/identity/homes";
 
 import {
   aiHeld,
+  aloneAt,
   answerText,
   backorderLine,
   type Bill,
@@ -388,6 +389,31 @@ describe("the Group debrief (Story 9.11)", () => {
 
   it("has no exclamation mark and never names customers before the reveal", () => {
     for (const line of [words.joinLead, words.timeGuide, words.behind(2), words.unlocked, words.alone, words.moveOnAt("14:05")]) {
+      expect(line).not.toMatch(/!|kunde/i);
+    }
+  });
+});
+
+describe("going on alone (Story 9.12)", () => {
+  const words = nb.debriefEntry.group;
+  const alone = (reason: "left" | "dropout" | "fallback", from: number) => ({
+    group: { step: 2, joined: false, opener: false, step_opened_at: null, move_on_at: null, members: [], alone: reason, alone_from: from },
+  });
+
+  it("reaches every step once the Student goes alone, whatever the shared pointer", () => {
+    expect(reach(alone("left", 1), false)).toBe(5);
+    expect(reach(alone("dropout", 2), true)).toBe(5);
+  });
+
+  it("puts the alone line under the step they were on, step 1 until they have sent, never past step 3", () => {
+    expect(aloneAt({ alone_from: 2 }, true)).toBe(2);
+    expect(aloneAt({ alone_from: 2 }, false)).toBe(1);
+    expect(aloneAt({ alone_from: 4 }, true)).toBe(3);
+    expect(aloneAt({ alone_from: null }, true)).toBe(1);
+  });
+
+  it("says why without an exclamation mark or customers before the reveal", () => {
+    for (const line of [words.aloneLead, words.leaveConfirm, ...Object.values(words.aloneLine)]) {
       expect(line).not.toMatch(/!|kunde/i);
     }
   });

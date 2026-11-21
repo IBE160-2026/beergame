@@ -2136,6 +2136,26 @@ export const nb = {
       unlocked: "Alle har sendt. Avsløringen er åpen.",
       moved: (step: number) => `Gruppen er nå på steg ${step}.`,
       alone: "Gruppen har gått videre. Herfra svarer hver av dere på egen enhet.",
+      /** [ASSUMPTION] Story 9.12: going on alone, from the join panel. */
+      aloneLead: "Kan ikke gruppen møtes, går du gjennom Debriefen alene. Du kan ikke bli med i gruppen etterpå.",
+      goAlone: "Ta en Personlig debrief",
+      aloneFailed: "Det gikk ikke. Prøv igjen.",
+      /** A join refused because the Student goes on alone (409 `group_closed`). */
+      groupClosed: "Du går gjennom denne Debriefen alene.",
+      /** [ASSUMPTION] leaving the group, with its confirmation in place. */
+      leave: "Forlat gruppen",
+      leaveConfirm: "Du fortsetter alene fra steget du er på, og det du har skrevet, er lagret. Du kan ikke bli med igjen.",
+      cancel: "Avbryt",
+      leaveFailed: "Du er fortsatt i gruppen. Prøv igjen.",
+      /** [ASSUMPTION] why the Student goes on as a Personal debrief, under the step they were on. */
+      aloneLine: {
+        left: "Du går gjennom Debriefen alene, som en Personlig debrief. Det du har skrevet, er lagret.",
+        dropout:
+          "Du var borte fra Gruppedebriefen i mer enn to minutter, så gruppen gikk videre uten deg. Du fortsetter alene, som en Personlig debrief, fra steget du var på.",
+        fallback:
+          "Gruppedebriefen ble ikke ferdig innen 48 timer etter at spillet sluttet. Du fortsetter alene, som en Personlig debrief, fra steget du var på.",
+        missed: "Gruppen har gått gjennom de felles stegene uten deg. Du går gjennom Debriefen alene, som en Personlig debrief.",
+      },
     },
   },
 
