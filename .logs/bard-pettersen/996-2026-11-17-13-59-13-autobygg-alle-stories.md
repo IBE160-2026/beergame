@@ -2510,3 +2510,23 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #162: beslutninger (navn på stabssiden etter FR-47, egen lagreknapp, hvem som varsles).
+
+## Story 7.11: Handle på spillet som har ventet lengst, fra Varselbåndet (spor 1)
+
+### Oppgave
+Bygge Story 7.11 på `epic-7` i spor 1, den siste storyen i Epic 7.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres av agenten som avslutter Epic 7, etter den nye flyten i kjøreboka («Faster flow»).
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-11-act-on-the-longest-waiting-game-from-the-varselband.md`.
+- Commit: 114331e. Ingen migrasjon.
+- Overview-svaret velger spillet som har ventet lengst (`alert`). Varselbåndet viser «Spill 2 venter på Noah (Grossist) i 23 t.» med «Send Melding» til den studenten, leses høflig opp maks én gang i minuttet og står stille når «Oppdater automatisk» er av. Raden er markert i vegg, tabell og spilliste, og hver rad har «Melding» til sitt klassespill.
+- Tester: backend 2857, Vitest 829, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 69 i ti spesifikasjoner, ingen ustabile tester.
+- Gjennomgang: 20 funn, ingen høye eller middels, 3 rettet.
+- Visuell kontroll: gjøres i avslutningen av Epic 7.
+- Status: done.
+
+### Åpne punkter
+- Issue #163: beslutninger (hvem båndet nevner, likhet mellom spill, plassering av «Melding»).
