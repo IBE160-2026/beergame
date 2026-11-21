@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-21-2026 15:12
+last_updated: 11-21-2026 15:13
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -179,7 +179,7 @@ development_status:
   9-2-open-the-debrief-when-the-class-game-has-ended: done
   9-3-write-the-explanation-before-the-reveal: done
   9-4-see-the-reveal-of-customer-demand: done
-  9-5-scrub-the-whole-chain-and-see-the-amplification: in-progress
+  9-5-scrub-the-whole-chain-and-see-the-amplification: done
   9-6-answer-the-reflection-questions: backlog
   9-7-see-my-own-moments-rendered-from-the-facts: backlog
   9-8-see-the-chain-s-bill-and-finish-the-debrief: backlog
