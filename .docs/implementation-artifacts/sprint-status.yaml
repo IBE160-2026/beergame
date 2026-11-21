@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-21-2026 22:26
+last_updated: 11-21-2026 22:48
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -162,7 +162,7 @@ development_status:
   8-2-an-ai-player-takes-over-after-the-inactivity-limit: done
   8-3-see-on-the-oversikt-which-class-game-is-closest-to-takeover: done
   8-4-take-the-seat-back-with-ta-tilbake-setet: done
-  8-5-put-an-ai-player-in-one-seat-from-spillstyring: in-progress
+  8-5-put-an-ai-player-in-one-seat-from-spillstyring: done
   8-6-pause-the-class-game-with-ta-pause: backlog
   8-7-pause-a-class-game-with-an-agreed-time-as-lecturer: backlog
   8-8-put-an-ai-player-in-an-absent-seat-as-a-student: backlog
