@@ -4,6 +4,7 @@ import { useId, useRef, useState } from "react";
 
 import { CostArea, type CostAreaPoint } from "@/components/charts/cost-area";
 import { LINK_BUTTON } from "@/components/link";
+import { ScrollRegion } from "@/components/scroll-region";
 import { nb } from "@/copy/nb";
 import { useBoxSize } from "@/lib/box-size";
 import { formatNumber } from "@/lib/number-format";
@@ -52,7 +53,10 @@ export function ChainCostChart({
       </h2>
       <div ref={box} className="mt-2 text-caption">
         {asTable ? (
-          <ChainCostTable id={`${id}-table`} rows={rows} />
+          // At 200 % text the table outgrows a phone: it scrolls on its own, never the page (UX-DR75).
+          <ScrollRegion labelledBy={`${id}-title`}>
+            <ChainCostTable id={`${id}-table`} rows={rows} />
+          </ScrollRegion>
         ) : (
           <CostArea
             width={size.width}

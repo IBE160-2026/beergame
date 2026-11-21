@@ -78,8 +78,10 @@ for (const viewport of [
       await expect(main.getByText(copy.roleGame("Grossist", 17), { exact: true })).toBeVisible();
       // The spine's order (EXPERIENCE.md → Spillet er ferdig).
       const order = await main.evaluate((root, texts) => {
-        const body = root.textContent ?? "";
-        return texts.map((text) => body.indexOf(text));
+        // The hero total has a plain space before «kr», so «kr» can wrap at 200 % text.
+        const plain = (text: string) => text.replace(/ /g, " ");
+        const body = plain(root.textContent ?? "");
+        return texts.map((text) => body.indexOf(plain(text)));
       }, [copy.end.totalLabel, kr("2266"), copy.end.totalNote, chain.bill, chain.overTime, copy.end.why, copy.end.toDebrief]);
       expect(order.every((at) => at >= 0)).toBe(true);
       expect(order).toEqual([...order].sort((a, b) => a - b));

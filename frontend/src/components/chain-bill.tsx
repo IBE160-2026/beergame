@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { ScrollRegion } from "@/components/scroll-region";
 import { nb } from "@/copy/nb";
 import { cn } from "@/lib/utils";
 
@@ -48,67 +49,71 @@ export function ChainBill({
       <h2 id={titleId} className="text-headline text-ink">
         {copy.bill}
       </h2>
-      <table className="mt-3 w-full border-collapse text-body-phone text-ink tabular-nums lining-nums lg:text-body">
-        <caption className="sr-only">{copy.billCaption}</caption>
-        <thead>
-          <tr className="text-caption text-ink-secondary">
-            <th scope="col" className="py-1 text-left font-normal">
-              <span className="sr-only">{copy.role}</span>
-            </th>
-            <th scope="col" className={cn(cell, "font-normal")}>
-              {copy.holding}
-            </th>
-            <th scope="col" className={cn(cell, "font-normal")}>
-              {copy.backorder}
-            </th>
-            <th scope="col" className={cn(cell, "font-normal")}>
-              {copy.sum}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr
-              key={row.role}
-              data-role={row.role}
-              data-own={row.own ? "" : undefined}
-              className={cn("relative", row.own ? "font-semibold" : "font-normal")}
-            >
-              <th scope="row" className={cn("pt-1.5 pb-3 text-left align-top", row.own ? "font-semibold" : "font-normal")}>
-                {row.label}
-                {/* Drawn as top borders across the whole row, so the bar is no text background
-                    (as Kostnad så langt); the row is its positioned box. */}
-                <span aria-hidden="true" className="absolute inset-x-0 bottom-1.5 flex" data-bar="">
-                  <span
-                    data-bar-part="lager"
-                    className="block h-0 border-t-[3px] border-lager"
-                    style={{ width: `${(row.bar.holding * 100).toFixed(2)}%` }}
-                  />
-                  <span
-                    data-bar-part="restordre"
-                    className="block h-0 border-t-[3px] border-restordre"
-                    style={{ width: `${(row.bar.backorder * 100).toFixed(2)}%` }}
-                  />
-                </span>
+      {/* At 200 % text the four columns outgrow a phone: the table scrolls on its own, never the
+          page (UX-DR75). */}
+      <ScrollRegion labelledBy={titleId} className="mt-3">
+        <table className="w-full border-collapse text-body-phone text-ink tabular-nums lining-nums lg:text-body">
+          <caption className="sr-only">{copy.billCaption}</caption>
+          <thead>
+            <tr className="text-caption text-ink-secondary">
+              <th scope="col" className="py-1 text-left font-normal">
+                <span className="sr-only">{copy.role}</span>
               </th>
-              <td className={cn(cell, "pb-3")}>{row.holding}</td>
-              <td className={cn(cell, "pb-3")}>{row.backorder}</td>
-              <td className={cn(cell, "pb-3")}>{row.total}</td>
+              <th scope="col" className={cn(cell, "font-normal")}>
+                {copy.holding}
+              </th>
+              <th scope="col" className={cn(cell, "font-normal")}>
+                {copy.backorder}
+              </th>
+              <th scope="col" className={cn(cell, "font-normal")}>
+                {copy.sum}
+              </th>
             </tr>
-          ))}
-          {extraRows}
-        </tbody>
-        <tfoot>
-          <tr data-chain-row="" className="border-t border-axis font-bold">
-            <th scope="row" className="py-1.5 text-left">
-              {copy.chain}
-            </th>
-            <td className={cell}>{chain.holding}</td>
-            <td className={cell}>{chain.backorder}</td>
-            <td className={cell}>{chain.total}</td>
-          </tr>
-        </tfoot>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr
+                key={row.role}
+                data-role={row.role}
+                data-own={row.own ? "" : undefined}
+                className={cn("relative", row.own ? "font-semibold" : "font-normal")}
+              >
+                <th scope="row" className={cn("pt-1.5 pb-3 text-left align-top", row.own ? "font-semibold" : "font-normal")}>
+                  {row.label}
+                  {/* Drawn as top borders across the whole row, so the bar is no text background
+                      (as Kostnad så langt); the row is its positioned box. */}
+                  <span aria-hidden="true" className="absolute inset-x-0 bottom-1.5 flex" data-bar="">
+                    <span
+                      data-bar-part="lager"
+                      className="block h-0 border-t-[3px] border-lager"
+                      style={{ width: `${(row.bar.holding * 100).toFixed(2)}%` }}
+                    />
+                    <span
+                      data-bar-part="restordre"
+                      className="block h-0 border-t-[3px] border-restordre"
+                      style={{ width: `${(row.bar.backorder * 100).toFixed(2)}%` }}
+                    />
+                  </span>
+                </th>
+                <td className={cn(cell, "pb-3")}>{row.holding}</td>
+                <td className={cn(cell, "pb-3")}>{row.backorder}</td>
+                <td className={cn(cell, "pb-3")}>{row.total}</td>
+              </tr>
+            ))}
+            {extraRows}
+          </tbody>
+          <tfoot>
+            <tr data-chain-row="" className="border-t border-axis font-bold">
+              <th scope="row" className="py-1.5 text-left">
+                {copy.chain}
+              </th>
+              <td className={cell}>{chain.holding}</td>
+              <td className={cell}>{chain.backorder}</td>
+              <td className={cell}>{chain.total}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </ScrollRegion>
     </section>
   );
 }

@@ -7,6 +7,7 @@ import { buttonClassName } from "@/components/button";
 import { ChainBill } from "@/components/chain-bill";
 import { ChainCostChart } from "@/components/chain-cost-chart";
 import { nb } from "@/copy/nb";
+import { KRONER } from "@/lib/number-format";
 import { DEBRIEF_PATH } from "@/modules/identity/homes";
 import { roleName } from "@/modules/sessions/sessions";
 
@@ -15,6 +16,12 @@ import { gameEnd } from "./result";
 
 const copy = nb.games.play;
 const LINE = "text-body-phone lg:text-body";
+
+/** The hero total with a plain space before «kr», so at 200 % text on a phone «kr» wraps to the
+ * next line instead of pushing the page sideways; the number itself never breaks. */
+function heroTotal(total: string) {
+  return total.endsWith(KRONER) ? `${total.slice(0, -KRONER.length)} kr` : total;
+}
 
 /** The page's heading: «Spillet er ferdig» over «Grossist, Spill 17», as the Topplinje stands. */
 export function GameEndHeading({ game }: { game: MyGame }) {
@@ -45,7 +52,7 @@ export function GameEnd({ game, result, note }: { game: MyGame; result: GameResu
           {copy.end.totalLabel}
         </h2>
         <p data-chain-total="" className="mt-1 text-figure-hero leading-tight text-ink">
-          {model.total}
+          {heroTotal(model.total)}
         </p>
         <p className="mt-1 text-caption text-ink-secondary">{copy.end.totalNote}</p>
       </section>
