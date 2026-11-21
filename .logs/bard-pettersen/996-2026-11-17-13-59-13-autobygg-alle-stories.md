@@ -2410,3 +2410,23 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #157: beslutninger og punkter til merge av `epic-7` og `epic-9`.
+
+## Story 9.8: Se kjedens regning og fullfør Debrief (spor 2)
+
+### Oppgave
+Bygge Story 9.8 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2. Byggeagenten spurte om å merge `epic-7` for lenkepunktet fra Story 7.7; jeg sa nei og godkjente en registrering som bare skjer når lenkepunktet finnes, og som gjøres ubetinget ved merge.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-8-see-the-chains-bill-and-finish-the-debrief.md` (på `epic-9`).
+- Commit: b3e9488.
+- «Kjedens regning» med simulerte rader fra en ren simulering i faktasettet (analyseversjon 2), «Fullfør Debriefen» med `debrief_summaries` (migrasjon 0107), og en side der stab leser Forklaring og oppsummering.
+- Tester: backend 2912, Vitest 757, Playwright 144 med axe, ingen ustabile tester, ingen nye over 1 s.
+- Commit 719b43e: sjekken for lenkepunktet fra Story 7.7 samlet på ett sted, med TODO til merge.
+- Visuell kontroll (Sonnet, spor 2): 16 skjermbilder i `screenshots/9.8/` (9a25f4e), ingen avvik. Ved 200 % tekst og 390 px ruller regningstabellen i sin egen beholder, slik «Spillet er ferdig» gjør.
+- Status: done.
+
+### Åpne punkter
+- Issue #158: beslutninger, simulerte kostnader med plassholderparametre, og lenkene i Spillinnsikt etter merge.
