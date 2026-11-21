@@ -26,6 +26,12 @@ export function holderText(holder: Pick<InsightSeat, "holder" | "name">): string
   return holder.name ?? copy.unknownStudent;
 }
 
+/** Why an AI player holds the Seat now, in text (Story 8.3, FR-34): «KI tok over etter
+ * ventetiden»; null for a Student, a free Seat or an AI player with no mark. */
+export function seatMarkText(seat: Pick<InsightSeat, "holder" | "mark">): string | null {
+  return seat.holder === "ai" && seat.mark ? MARKS[seat.mark] : null;
+}
+
 /** The words of a Student Seat's links, or the line that none exists yet; nothing for the others. */
 export function linkTexts(seat: InsightSeat): { kind: string; text: string; href: string }[] | string | null {
   if (seat.holder !== "student") return null;

@@ -109,7 +109,7 @@ for (const width of [320, 1440]) {
       const stub = await openPlay(page);
       await expect(rows(page)).toHaveText([
         /^Fabrikk\s*KI-spiller\s*har bestilt$/,
-        /^Distributør\s*Jonas Berg\s*venter, \d+ min$/,
+        /^Distributør\s*Jonas Berg\s*venter, \d+\smin$/,
         /^Grossist\s*Demo Student \(deg\)\s*venter$/,
         /^Detaljist\s*KI-spiller\s*har bestilt$/,
       ]);

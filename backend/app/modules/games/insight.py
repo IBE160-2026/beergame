@@ -78,6 +78,8 @@ class InsightSeat:
     occupant_kind: str | None
     user_id: uuid.UUID | None
     links: tuple[InsightLink, ...]
+    reason: str | None = None
+    """The latest occupancy row's reason (Story 8.3): the Seat's AD-15 mark is read from it."""
 
 
 @dataclass(frozen=True)
@@ -251,6 +253,7 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
                 role=seat["role"],
                 occupant_kind=seat["occupant_kind"],
                 user_id=seat["user_id"],
+                reason=None if seat["reason"] is None else str(seat["reason"]),
                 links=tuple(link for link in links if link.role == seat["role"])
                 if seat["occupant_kind"] == OccupantKind.STUDENT
                 else (),

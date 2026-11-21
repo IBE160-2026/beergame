@@ -10,12 +10,13 @@ import { useThrottledAnnouncement } from "@/lib/announce";
 import { bandMessagePath, bandSaid, bandText, type OverviewAlert } from "./overview";
 
 /**
- * The Varselbånd (`attention-band`, Story 7.11, FR-39, FR-40, UX-DR45, DESIGN.md → Varselbånd): the
- * Class game the api names (`alert`; the page never picks it, AD-10) as a full-width
- * `restordre-fill` band with `ink` text, «Spill 2 venter på Noah (Grossist) i 23 t.», and the
+ * The Varselbånd (`attention-band`, Stories 7.11 and 8.3, FR-39, FR-40, UX-DR45, DESIGN.md →
+ * Varselbånd): the Class game the api names as closest to Takeover (`alert`; the page never picks
+ * it, AD-10) as a full-width `restordre-fill` band with `ink` text, «Spill 2 venter på Noah
+ * (Grossist) i 23 t. KI overtar om 1 t.», counted on the server's clock (`now`, AD-20), and the
  * primary «Send Melding» to the Meldingsskjema preset to the Student waited for. Below 1024 px the
  * action wraps under the text at full width. Nothing is drawn when nothing waits, and nothing
- * stands in its place. Epic 8 adds the countdown, «Pause spillet» and «Sett inn KI-spiller».
+ * stands in its place. Stories 8.5–8.7 add «Pause spillet» and «Sett inn KI-spiller».
  *
  * Its live region is always mounted: the band's game and Student are read out politely when they
  * appear or change, at most once a minute, never its ticking duration; focus never moves.

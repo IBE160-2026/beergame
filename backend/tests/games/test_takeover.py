@@ -383,8 +383,21 @@ async def test_the_sweep_skips_a_race_and_reports_any_other_refusal(games_db, ma
         return [(game_id, str(seat))]
 
     monkeypatch.setattr(games_service, "due_takeovers", found)
-    await sweep.run(due - SECOND)  # not due yet under the lock: skipped, nothing written
+    with listening(TEST_DATABASE_URL) as events:
+        await sweep.run(due - SECOND)  # not due yet under the lock: skipped, nothing written
+        received = events.drain()
     assert takeovers(game_id) == []
+    # The due time passed with no command (Story 8.3, AD-8): the Game and its Class session are
+    # announced again, at the Game's current version, so open pages read it again.
+    [(version, session_id)] = query(
+        TEST_DATABASE_URL, "SELECT version, class_session_id FROM games WHERE id = %s", (game_id,)
+    )
+    received = [e for e in received if e["id"] in (game_id, str(session_id))]
+    assert {item["topic"] for item in received} == COMMAND_TOPICS["ops.takeover_skipped"]
+    assert [(e["id"], e.get("version")) for e in received if e["topic"] == "game"] == [
+        (game_id, version)
+    ]
+    assert [e["id"] for e in received if e["topic"] == "session"] == [str(session_id)]
 
     async def broken(*args, **kwargs):
         raise commands.CommandError("parameter_set_changed", "changed", 409)

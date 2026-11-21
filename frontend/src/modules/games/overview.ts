@@ -8,7 +8,7 @@ import { GAME_COLUMN, type TableColumn, type TableFooterRow, type TableRow } fro
 import type { TableSort } from "@/components/charts/matrix-table-sort";
 import type { WallGroup, WallLink, WallRow } from "@/components/charts/matrix-wall";
 
-import type { ClassOverview, GameWeeks, OverviewGame, WallAggregates, WallFilter } from "./api";
+import type { ClassOverview, GameWeeks, OverviewGame, SeatMark, WallAggregates, WallFilter } from "./api";
 import { waitDuration } from "./seat-status";
 import type { WallCells, WallRole } from "./wall-copy";
 
@@ -141,14 +141,26 @@ function longestWait(game: OverviewGame, now: number): string {
   return waitDuration(Number.isFinite(since) ? Math.max(0, now - since) : 0);
 }
 
+/** Every mark of the one AD-15 mapping in words (Story 7.7), shared with Spillinnsikt. */
+const MARKS: Record<SeatMark, string> = nb.insight.marks;
+
 /** «Fabrikk: Mikkel», «Grossist: KI-spiller», «Detaljist: Ledig», in the order the api sent
- * (Fabrikk first). */
+ * (Fabrikk first); an AI player with a mark says why it holds the Seat, in text (Story 8.3,
+ * FR-34): «Grossist: KI-spiller (KI tok over etter ventetiden)». */
 export function seatTexts(game: OverviewGame): string[] {
   return game.seats.map((seat) => {
+    const role = roleName(seat.role);
+    if (seat.holder === "ai" && seat.mark) return copy.seatMarked(role, copy.aiPlayer, MARKS[seat.mark]);
     const holder =
       seat.holder === "ai" ? copy.aiPlayer : seat.holder === "free" ? copy.freeSeat : (seat.name ?? copy.unknownStudent);
-    return copy.seat(roleName(seat.role), holder);
+    return copy.seat(role, holder);
   });
+}
+
+/** «Grossist: KI tok over etter ventetiden» for each AI-held Seat with a mark (Story 8.3): the
+ * wall row's note names the Takeover and its reason in text. */
+export function seatMarks(game: OverviewGame): string[] {
+  return game.seats.flatMap((seat) => (seat.holder === "ai" && seat.mark ? [copy.seatMark(roleName(seat.role), MARKS[seat.mark])] : []));
 }
 
 /** «1 058 kr»: the chain's Total cost so far in whole kroner; null when there is none yet. */
@@ -262,13 +274,19 @@ export function messageLink(sessionId: string, game: OverviewGame): WallLink {
 }
 
 /**
- * The Varselbånd's line (Story 7.11, UX-DR45): «Spill 2 venter på Noah (Grossist) i 23 t.», the
- * wait counted from the api's `since` at `now` (ms on the server's clock); a Student no longer in
- * the Class is named by Role.
+ * The Varselbånd's line (Stories 7.11 and 8.3, UX-DR45): «Spill 2 venter på Noah (Grossist) i 23 t.
+ * KI overtar om 1 t.», the wait counted from the api's `since` and the countdown to its
+ * `takeover_due_at`, both at `now` (ms on the server's clock, AD-20); «KI overtar nå.» once the due
+ * time has passed, and no countdown when the api sent none. A Student no longer in the Class is
+ * named by Role.
  */
 export function bandText(alert: NonNullable<OverviewAlert>, now: number): string {
   const duration = waitDuration(Math.max(0, now - Date.parse(alert.since)));
-  return copy.band.text(copy.game(alert.game_number ?? null), alert.name, roleName(alert.role), duration);
+  const waiting = copy.band.text(copy.game(alert.game_number ?? null), alert.name, roleName(alert.role), duration);
+  const due = alert.takeover_due_at ? Date.parse(alert.takeover_due_at) : Number.NaN;
+  if (Number.isNaN(due)) return waiting;
+  const left = due - now;
+  return `${waiting} ${left > 0 ? copy.band.takeover(waitDuration(left)) : copy.band.takeoverNow}`;
 }
 
 /** What is announced when the band appears or names another game or Student: the line without
@@ -304,14 +322,14 @@ export function wallGroups(
       const label = copy.game(game.game_number ?? null);
       const waits = waitLines(game, now);
       const cost = costText(game);
-      const status = waits.length > 0 ? waits.join("; ") : STATUS_WORD[game.status];
+      const status = [...(waits.length > 0 ? waits : [STATUS_WORD[game.status]]), ...seatMarks(game)].join("; ");
       const found = weeks.get(game.game_id);
       return {
         id: game.game_id,
         label,
         figure: game.chain_cost == null ? undefined : formatNumber(game.chain_cost, { decimals: 0 }),
         detail: status,
-        shortDetail: waits.length > 0 ? copy.waitingShort(longestWait(game, now)) : status,
+        shortDetail: waits.length > 0 ? copy.waitingShort(longestWait(game, now)) : STATUS_WORD[game.status],
         rowName: wall.rowName([label, status.charAt(0).toLowerCase() + status.slice(1), ...(cost ? [wall.chainCost(cost)] : [])]),
         values: cellValues(found?.data, role, cells),
         loading: !found?.data && !found?.failed && game.status !== "not_started",

@@ -129,8 +129,10 @@ TAKEOVER_RACES = frozenset(
 async def _take_over(item: object, now: datetime) -> bool:
     """Story 8.2 (FR-36, AD-9): hand one due Seat to an AI player in its own transaction. A
     refusal under the lock is the race the command settles (the Student ordered first, another
-    sweep took it, the Week moved on): nothing to do and nothing to log as a failure. Any other
-    refusal (a snapshot the engine cannot run, say) is raised, so the sweep logs it."""
+    sweep took it, the Week moved on): nothing to do and nothing to log as a failure, but the due
+    time has passed, so the Game's events are emitted and open pages read it again (Story 8.3,
+    AD-8). Any other refusal (a snapshot the engine cannot run, say) is raised, so the sweep logs
+    it."""
     assert isinstance(item, tuple)
     game_id, seat_id = item
     try:
@@ -139,6 +141,7 @@ async def _take_over(item: object, now: datetime) -> bool:
         if refused.code not in TAKEOVER_RACES:
             raise
         log.info("takeover_skipped", game_id=game_id, seat_id=seat_id, code=refused.code)
+        await games.announce(game_id)
         return False
     return True
 

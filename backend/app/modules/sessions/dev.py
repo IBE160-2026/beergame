@@ -1,5 +1,7 @@
 """The local dev lock (Story 6.15): `POST /api/dev/class-sessions/{id}/lock` locks a Class
-session now, whatever its Start date, and opens its Class games (`service.lock`).
+session now, whatever its Start date, and opens its Class games (`service.lock`). The local dev
+Takeover (Story 8.3): `POST /api/dev/games/{id}/seats/{role}/takeover` runs the sweep's Takeover
+of one Seat at its stored due time, the injected clock, so no test waits the Inactivity limit.
 
 A real started Class game needs its Start date to pass and the sweep; the end-to-end tests of the
 play screen use this route instead, as the stand-in for the Lecturer's early lock of Epic 8.
@@ -13,6 +15,9 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from app.engine.settings import Role
+from app.modules.games import commands as games_commands
+from app.modules.games import service as games_service
 from app.modules.sessions import repo, service
 from app.platform import authz
 from app.platform.db import get_sessionmaker
@@ -48,3 +53,33 @@ async def lock_now(class_session_id: str) -> DevLockOut | JSONResponse:
     except service.ProviderKeyMissing:
         return error_response(409, "provider_key_missing", "The AI players cannot answer here.")
     return DevLockOut(locked=locked)
+
+
+class DevTakeoverOut(BaseModel):
+    occupancy_id: str
+    """The occupancy row the Takeover appended."""
+
+
+@router.post(
+    "/games/{game_id}/seats/{role}/takeover",
+    response_model=DevTakeoverOut,
+    responses=documented(404, 409),
+    operation_id="devTakeOverSeat",
+    dependencies=[Depends(authz.public)],  # local only: not mounted in production
+)
+async def take_over_now(game_id: str, role: Role) -> DevTakeoverOut | JSONResponse:
+    """Run `games.commands.takeover` for the Seat with `actor` `system` at the Seat's stored
+    `takeover_due_at` in the open Week, as the sweep would at that time. 404 `not_found` for no
+    such Game or no due time; 409 with the command's refusal code."""
+    try:
+        game_uuid = uuid.UUID(game_id)
+    except ValueError:
+        return error_response(404, "not_found", "No such Game.")
+    due = await games_service.open_takeover_due(game_uuid, str(role))
+    if due is None:
+        return error_response(404, "not_found", "No due Takeover for that Seat.")
+    try:
+        occupancy = await games_commands.takeover(game_id, role, actor="system", now=due)
+    except games_commands.CommandError as refused:
+        return error_response(refused.status, refused.code, "The Takeover was refused.")
+    return DevTakeoverOut(occupancy_id=occupancy)

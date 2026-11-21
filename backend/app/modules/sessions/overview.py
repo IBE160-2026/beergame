@@ -15,7 +15,7 @@ from app.analysis.wall import Cells, wall_aggregates
 from app.engine.settings import ROLES, Role
 from app.modules.classes import service as classes
 from app.modules.games import service as games_service
-from app.modules.games.service import ClassGameSummary, GameStatus
+from app.modules.games.service import ClassGameSummary, GameStatus, SeatMark
 from app.modules.progress import service as progress
 from app.modules.sessions import repo
 from app.modules.sessions.schemas import (
@@ -135,12 +135,14 @@ def _next_due(games: list[ClassGameSummary], now: datetime) -> datetime | None:
 
 
 def _alert(games: list[ClassGameSummary], names: dict[uuid.UUID, str]) -> OverviewAlertOut | None:
-    """The Varselbånd's game (Story 7.11, FR-39, AD-10): of the waiting Class games with a
-    waited-for Seat, the one whose wait started first (its `wait_started_at`, else its earliest
-    Seat), then the lowest game number; within it the Seat waited for longest, then in chain order.
-    The web app never picks it. Epic 8 (Story 8.3) replaces this rule with the earliest
-    `takeover_due_at`. `names` holds the Students still in the Class: anyone else is named by
-    Role, with no `user_id` to write to."""
+    """The Varselbånd's game (Stories 7.11 and 8.3, FR-39, AD-10, AD-25): of the waiting Class
+    games with a waited-for Seat, the one an AI player takes over first, by the stored
+    `takeover_due_at`; games without one come after, by Story 7.11's rule (the wait that started
+    first, its `wait_started_at` else its earliest Seat). Ties go to the lowest game number. Within
+    the game the Seat whose own due time comes first (Story 8.9's factor makes them differ), then
+    the one waited for longest, then chain order. A due time already passed still counts: the
+    sweep acts on it within the minute. The web app never picks it. `names` holds the Students
+    still in the Class: anyone else is named by Role, with no `user_id` to write to."""
     waiting = [g for g in games if g.status is GameStatus.WAITING and g.waiting_for]
     if not waiting:
         return None
@@ -150,10 +152,24 @@ def _alert(games: list[ClassGameSummary], names: dict[uuid.UUID, str]) -> Overvi
 
     game = min(
         waiting,
-        key=lambda g: (started(g), g.game_number is None, g.game_number or 0, str(g.game_id)),
+        key=lambda g: (
+            g.takeover_due_at is None,
+            g.takeover_due_at or started(g),
+            g.game_number is None,
+            g.game_number or 0,
+            str(g.game_id),
+        ),
     )
-    # `min` keeps the first of equal keys: `waiting_for` is in chain order.
-    wait = min(game.waiting_for, key=lambda w: w.since)
+    # `min` keeps the first of equal keys: `waiting_for` is in chain order. A row written before
+    # the Seats' own due times (Story 8.3) has none: the longest wait then names the Seat.
+    wait = min(
+        game.waiting_for,
+        key=lambda w: (
+            w.takeover_due_at is None,
+            w.takeover_due_at or w.since,
+            w.since,
+        ),
+    )
     name = names.get(wait.user_id) if wait.user_id else None
     return OverviewAlertOut(
         game_id=game.game_id,
@@ -162,7 +178,15 @@ def _alert(games: list[ClassGameSummary], names: dict[uuid.UUID, str]) -> Overvi
         name=name,
         user_id=wait.user_id if name is not None else None,
         since=wait.since,
+        takeover_due_at=wait.takeover_due_at or game.takeover_due_at,
     )
+
+
+def _mark(kind: str | None, reason: str | None) -> SeatMark | None:
+    """An AI-held Seat's mark from the one AD-15 mapping (Story 8.3, FR-34); None otherwise."""
+    if kind is None or kind == games_service.OccupantKind.STUDENT:
+        return None
+    return games_service.seat_mark(None, None, kind, reason)
 
 
 def _is_ai(seat: games_service.SummarySeat) -> bool:
@@ -222,7 +246,14 @@ def _game_out(
             holder, name = "student", names.get(seat.user_id) if seat.user_id else None
         else:
             holder, name = "ai", None
-        seats.append(OverviewSeatOut(role=seat.role, holder=holder, name=name))
+        seats.append(
+            OverviewSeatOut(
+                role=seat.role,
+                holder=holder,
+                name=name,
+                mark=_mark(seat.occupant_kind, seat.reason),
+            )
+        )
     return OverviewGameOut(
         game_id=game.game_id,
         game_number=game.game_number,
@@ -347,6 +378,7 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
                 name=names.get(seat.user_id) if seat.user_id else None,
                 user_id=seat.user_id if seat.user_id in names else None,
                 links=[InsightLinkOut(kind=link.kind, href=link.href) for link in seat.links],
+                mark=_mark(seat.occupant_kind, seat.reason),
             )
             for seat in insight.seats
         ],

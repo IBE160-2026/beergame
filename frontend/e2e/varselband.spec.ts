@@ -5,7 +5,8 @@ import { expectAccessible, lecturerPage, test, VIEWPORTS } from "./support/class
 import { liveClassGame, orderByApi } from "./support/live-game";
 
 /** The Varselbånd (Story 7.11, FR-39, FR-40, UX-DR41, UX-DR44, UX-DR45, NFR-6) on the local stack:
- * the api names the longest-waiting Class game; the band shows it with «Send Melding» preset to the
+ * the api names the Class game closest to Takeover (Story 8.3: its countdown and the Takeover are
+ * `takeover-overview.spec.ts`); the band shows it with «Send Melding» preset to the
  * Student waited for, its row is tinted in the wall and the table, every row has «Melding», and the
  * band comes and goes live, announced without moving focus. Which game the api picks is
  * `backend/tests/sessions/test_overview_alert.py`; «Venter ellers» with several games is
@@ -43,7 +44,7 @@ test("the band names the game that waits, «Send Melding» writes to the Student
   await expect(band).toBeVisible({ timeout: 5_000 });
   const role = "(Fabrikk|Distributør|Grossist|Detaljist)";
   await expect(band.locator("p")).toHaveText(
-    new RegExp(`^Spill 1 venter på ${second!.name} \\(${role}\\) i (under\\s1\\smin|\\d+\\smin)\\.$`),
+    new RegExp(`^Spill 1 venter på ${second!.name} \\(${role}\\) i (under\\s1\\smin|\\d+\\smin)\\. KI overtar om \\d+\\st\\.$`),
   );
   await expect(main.locator("[data-attention-announcement]")).toHaveText(
     new RegExp(`^Spill 1 venter på ${second!.name} \\(${role}\\)\\.$`),

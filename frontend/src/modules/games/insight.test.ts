@@ -16,6 +16,7 @@ import {
   orderRoles,
   orderTableRows,
   roleTables,
+  seatMarkText,
   seatsUpstreamFirst,
   stockRoles,
   stockTableRows,
@@ -75,6 +76,12 @@ describe("Spillinnsikt's words (Story 7.7)", () => {
     const seats = seatsUpstreamFirst(insight([]));
     expect(seats.map((s) => s.role)).toEqual(["factory", "distributor", "wholesaler", "retailer"]);
     expect(seats.map(holderText)).toEqual([copy.unknownStudent, copy.freeSeat, copy.aiPlayer, "Ida Berg"]);
+  });
+
+  it("says why an AI player holds a Seat now, in text, and nothing for others (Story 8.3)", () => {
+    expect(seatMarkText({ holder: "ai", mark: "takeover_inactivity" })).toBe(copy.marks.takeover_inactivity);
+    expect(seatMarkText({ holder: "ai", mark: null })).toBeNull();
+    expect(seatMarkText({ holder: "student", mark: "takeover_inactivity" })).toBeNull();
   });
 
   it("gives a Student Seat its links or the line that none exists yet, and others nothing", () => {

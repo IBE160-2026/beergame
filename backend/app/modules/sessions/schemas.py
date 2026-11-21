@@ -774,6 +774,10 @@ class OverviewSeatOut(BaseModel):
     name: str | None
     """The Student's name now; None for an AI player, a free Seat, or a Student no longer in the
     Class."""
+    mark: SeatMark | None = None
+    """Why an AI player holds the Seat, from the one AD-15 mapping (Story 8.3, FR-34): a Takeover
+    and its reason, a switch or the playout; None for a Student, a free Seat, or an AI player with
+    no mark (put in at the start)."""
 
 
 class OverviewWaitOut(BaseModel):
@@ -786,8 +790,9 @@ class OverviewWaitOut(BaseModel):
 
 
 class OverviewAlertOut(BaseModel):
-    """The Varselbånd (Story 7.11, FR-39, UX-DR45): the Class game chosen by the api, the Seat it
-    waits for longest and since when. Epic 8 changes the choice to the game closest to Takeover."""
+    """The Varselbånd (Story 7.11, FR-39, UX-DR45): the Class game chosen by the api, closest to
+    Takeover (Story 8.3), the Seat whose due time comes first, since when it waits and when the
+    AI player takes it over."""
 
     game_id: uuid.UUID
     game_number: int | None
@@ -797,6 +802,10 @@ class OverviewAlertOut(BaseModel):
     user_id: uuid.UUID | None
     """The Student, for «Send Melding»; None when `name` is None."""
     since: AwareDatetime
+    takeover_due_at: AwareDatetime | None = None
+    """When an AI player takes the Seat over (Story 8.3, FR-36): the Seat's stored due time, else
+    the game's nearest; None when the game has none. The web app counts down to it from
+    `server_now`; it may lie in the past until the sweep has acted."""
 
 
 class OverviewGameOut(BaseModel):
@@ -899,8 +908,9 @@ class ClassOverviewOut(BaseModel):
     funnel: list[FunnelStageOut]
     """The Trakt's stages in order, «Registrert» first; a stage nobody records yet is 0."""
     alert: OverviewAlertOut | None
-    """The Varselbånd's game (Story 7.11): the longest-waiting Class game; None before the Start
-    date and while no Class game waits for a Student."""
+    """The Varselbånd's game (Stories 7.11, 8.3): the waiting Class game with the earliest
+    `takeover_due_at`, else the longest-waiting one; None before the Start date and while no
+    Class game waits for a Student."""
     class_id: uuid.UUID
     class_name: str
     session_number: int
@@ -955,6 +965,8 @@ class InsightSeatOut(BaseModel):
     """The Student's id when `name` is set, for the Seat's «Melding» (Story 7.9); else None."""
     links: list[InsightLinkOut]
     """Only on a Student-held Seat; empty until Epic 9 registers a provider."""
+    mark: SeatMark | None = None
+    """Why an AI player holds the Seat now, as on the Oversikt (Story 8.3, AD-15); else None."""
 
 
 class InsightWeekOut(BaseModel):

@@ -27,7 +27,8 @@ async def recompute(
     """The `game_summaries` values of `game` (a `games` row) from the game tables as they stand
     in `session`: who holds each Seat, the status, whom the Game waits for and since when, the
     Week and the chain Total cost, and the nearest stored Takeover due time of the Seats it waits
-    for (Story 8.1). `version` is the Game's version, the row's own by default."""
+    for (Story 8.1); each waited-for Seat its own due time and each Seat its occupancy reason
+    (Story 8.3). `version` is the Game's version, the row's own by default."""
     game_id = game["id"]
     seats = await repo.seats_with_occupant(session, game_id)
     newest = await repo.newest_week(session, game_id)
@@ -63,6 +64,8 @@ async def recompute(
                     "role": seat["role"],
                     "user_id": _text(turn["user_id"]),
                     "since": turn["wait_started_at"].isoformat(),
+                    # The Seat's own due time (Story 8.3): Seats of one game may differ.
+                    "takeover_due_at": _iso(turn["takeover_due_at"]),
                 }
             )
     return {
@@ -80,6 +83,8 @@ async def recompute(
                 "role": seat["role"],
                 "occupant_kind": seat["occupant_kind"],
                 "user_id": _text(seat["user_id"]),
+                # The latest occupancy row's reason (Story 8.3): the AD-15 mark is read from it.
+                "reason": _text(seat["reason"]),
             }
             for seat in seats
         ],
@@ -96,3 +101,7 @@ async def refresh(session: AsyncSession, game: Mapping[str, Any], version: int) 
 
 def _text(value: uuid.UUID | str | None) -> str | None:
     return None if value is None else str(value)
+
+
+def _iso(value: datetime | None) -> str | None:
+    return None if value is None else value.isoformat()

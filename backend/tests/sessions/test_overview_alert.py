@@ -1,5 +1,6 @@
-"""The Varselbånd's game (Story 7.11, FR-39, AD-10): `overview._alert` picks the longest-waiting
-Class game from the summaries, and within it the Seat waited for longest. Pure: no database."""
+"""The Varselbånd's game (Stories 7.11 and 8.3, FR-39, AD-10): `overview._alert` picks from the
+summaries the Class game an AI player takes over first, else the longest-waiting one, and within
+it the Seat due first, else the one waited for longest. Pure: no database."""
 
 import dataclasses
 import uuid
@@ -118,3 +119,94 @@ def test_without_a_stored_wait_start_the_earliest_seat_counts_and_numbered_games
     assert _alert([started, no_start], NAMES).game_number == 5
     unnumbered = dataclasses.replace(no_start, game_id=uuid.uuid4(), game_number=None)
     assert _alert([unnumbered, no_start], NAMES).game_number == 5
+
+
+# Story 8.3: the game an AI player takes over first, by the stored `takeover_due_at`.
+
+
+def due_game(number: int, *waits: SummaryWait, started: datetime | None = None) -> ClassGameSummary:
+    """A waiting game whose `takeover_due_at` is its Seats' earliest, as `recompute` stores it."""
+    dues = [w.takeover_due_at for w in waits if w.takeover_due_at is not None]
+    return dataclasses.replace(
+        game(number, waits=waits, started=started), takeover_due_at=min(dues, default=None)
+    )
+
+
+def due_wait(role: str, user: uuid.UUID | None, since: datetime, due: datetime | None):
+    return SummaryWait(role=role, user_id=user, since=since, takeover_due_at=due)
+
+
+def test_the_game_closest_to_takeover_beats_the_longest_wait():
+    long_wait = due_game(
+        1, due_wait("retailer", IDA, T - timedelta(hours=2), T + timedelta(hours=22))
+    )
+    soon = due_game(2, due_wait("wholesaler", NOAH, T - timedelta(hours=1), T + timedelta(hours=1)))
+    found = _alert([long_wait, soon], NAMES)
+    assert (found.game_id, found.name, found.takeover_due_at) == (
+        soon.game_id,
+        "Noah",
+        T + timedelta(hours=1),
+    )
+
+
+def test_a_tie_on_the_due_time_goes_to_the_lower_game_number_whatever_the_wait():
+    due = T + timedelta(hours=1)
+    later = due_game(4, due_wait("retailer", IDA, T - timedelta(hours=3), due))
+    earlier = due_game(3, due_wait("wholesaler", NOAH, T, due))
+    assert _alert([later, earlier], NAMES).game_number == 3
+
+
+def test_within_the_game_the_seat_due_first_is_named_whatever_its_wait():
+    found = _alert(
+        [
+            due_game(
+                1,
+                due_wait("retailer", IDA, T - timedelta(hours=2), T + timedelta(hours=3)),
+                due_wait("wholesaler", NOAH, T - timedelta(hours=1), T + timedelta(hours=1)),
+            )
+        ],
+        NAMES,
+    )
+    assert (found.role, found.name, found.takeover_due_at) == (
+        "wholesaler",
+        "Noah",
+        T + timedelta(hours=1),
+    )
+
+
+def test_without_any_due_time_the_longest_wait_wins_with_no_countdown():
+    first = due_game(1, due_wait("retailer", IDA, T, None))
+    second = due_game(2, due_wait("wholesaler", NOAH, T - timedelta(hours=1), None))
+    found = _alert([first, second], NAMES)
+    assert (found.game_id, found.takeover_due_at) == (second.game_id, None)
+
+
+def test_a_game_with_a_due_time_beats_one_without():
+    without = due_game(1, due_wait("retailer", IDA, T - timedelta(days=2), None))
+    with_due = due_game(2, due_wait("wholesaler", NOAH, T, T + timedelta(hours=20)))
+    assert _alert([without, with_due], NAMES).game_id == with_due.game_id
+
+
+def test_an_older_row_without_seat_due_times_names_the_longest_wait_with_the_games_due():
+    older = dataclasses.replace(
+        game(
+            1,
+            waits=(
+                wait("retailer", IDA, T),
+                wait("wholesaler", NOAH, T - timedelta(minutes=5)),
+            ),
+            started=T - timedelta(minutes=5),
+        ),
+        takeover_due_at=T + timedelta(hours=2),
+    )
+    found = _alert([older], NAMES)
+    assert (found.role, found.takeover_due_at) == ("wholesaler", T + timedelta(hours=2))
+
+
+def test_a_due_time_already_passed_still_counts():
+    passed = due_game(
+        2, due_wait("retailer", IDA, T - timedelta(days=1), T - timedelta(seconds=20))
+    )
+    later = due_game(1, due_wait("wholesaler", NOAH, T - timedelta(days=2), T + timedelta(hours=1)))
+    found = _alert([later, passed], NAMES)
+    assert (found.game_id, found.takeover_due_at) == (passed.game_id, T - timedelta(seconds=20))

@@ -24,6 +24,7 @@ import {
   netValues,
   orderOf,
   readAgainAt,
+  seatMarks,
   seatTexts,
   statusCounts,
   TABLE_COLUMNS,
@@ -103,6 +104,17 @@ describe("seatTexts and costText", () => {
       "Grossist: Student",
       "Detaljist: Ledig",
     ]);
+    // Story 8.3: an AI player's mark says why it holds the Seat, in text (AD-15); none at the start.
+    const takenOver = game({
+      game_number: 1,
+      status: "running",
+      seats: [
+        { role: "factory", holder: "ai", name: null, mark: "takeover_inactivity" },
+        { role: "distributor", holder: "ai", name: null, mark: null },
+      ],
+    });
+    expect(seatTexts(takenOver)).toEqual(["Fabrikk: KI-spiller (KI tok over etter ventetiden)", "Distributør: KI-spiller"]);
+    expect(seatMarks(takenOver)).toEqual(["Fabrikk: KI tok over etter ventetiden"]);
     expect(costText(game({ game_number: 1, status: "running", chain_cost: "1058.4900" }))).toBe(`1${GROUP}058${KRONER}`);
     expect(costText(game({ game_number: 1, status: "not_started" }))).toBeNull();
   });
@@ -161,6 +173,18 @@ describe("wallGroups (Story 7.2)", () => {
     expect(running!.shortDetail).toBe("Pågår");
     expect(running!.rowName).toBe("Spill 7, pågår");
     expect(finished!.rowName).toBe(`Spill 4, ferdig, kjedekost 980${KRONER}`);
+  });
+
+  it("names a Seat taken over and its reason in the row's note, not in the short one (Story 8.3)", () => {
+    const takenOver = game({
+      game_number: 9,
+      status: "running",
+      seats: [{ role: "wholesaler", holder: "ai", name: null, mark: "takeover_inactivity" }],
+    });
+    const [row] = wallGroups(groupsOf([takenOver]), new Map(), "factory", now).map((g) => g.rows[0]!);
+    expect(row!.detail).toBe("Pågår; Grossist: KI tok over etter ventetiden");
+    expect(row!.shortDetail).toBe("Pågår");
+    expect(row!.rowName).toBe("Spill 9, pågår; Grossist: KI tok over etter ventetiden");
   });
 
   it("takes the chosen Role's Netto lager as the api sent it, and marks a game still loading", () => {

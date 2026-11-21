@@ -35,6 +35,8 @@ PUBLIC_ROUTES = {
     ("POST", "/api/dev/mailbox/bounce"),
     # The local dev lock (Story 6.15), mounted only outside production like the dev mailbox.
     ("POST", "/api/dev/class-sessions/{class_session_id}/lock"),
+    # The local dev Takeover at the stored due time (Story 8.3), likewise.
+    ("POST", "/api/dev/games/{game_id}/seats/{role}/takeover"),
     # The mail provider's events (Story 4.6): admitted by their Svix signature.
     ("POST", "/api/webhooks/resend"),
     # Later stories add theirs here, and only these kinds: webhooks (signature-checked), and dev

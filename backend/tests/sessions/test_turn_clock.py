@@ -219,4 +219,6 @@ def test_only_games_commands_writes_the_turn_times():
             "modules/games/commands.py",
             "modules/games/rules.py",
             "modules/games/service.py",
+            # The overview's band copies the stored value (Story 8.3).
+            "modules/sessions/overview.py",
         }, setters

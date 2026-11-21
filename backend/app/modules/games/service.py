@@ -68,6 +68,7 @@ from app.modules.games.views import (
     seat_state,
     table_status,
 )
+from app.platform import events
 from app.platform.db import get_sessionmaker
 
 __all__ = [
@@ -163,6 +164,8 @@ __all__ = [
     "rules_versions_without_package",
     "seat_mark",
     "seat_state",
+    "announce",
+    "open_takeover_due",
     "verify_finished",
 ]
 
@@ -201,6 +204,35 @@ async def due_takeovers(now: datetime) -> list[tuple[str, str]]:
                 if rules.can_take_over(game, turn, "system", now, guided=guided) is None:
                     found.append((str(game_id), str(row["seat_id"])))
     return found
+
+
+async def announce(game_id: str) -> None:
+    """Story 8.3 (AD-8): a due Takeover the sweep found but `takeover` refused changes nothing,
+    yet the due time has passed; emit `game:<id>` at its current version and, for a Game the
+    Lecturer overview lists, `session:<id>`, so open pages read the Game again. Writes nothing."""
+    async with get_sessionmaker().begin() as session:
+        game = await repo.get_game(session, uuid.UUID(game_id))
+        if game is None:
+            return
+        await events.emit(session, "game", str(game["id"]), game["version"])
+        if game["class_session_id"] is not None and policy(game["purpose"]).lecturer_overview:
+            await events.emit(session, "session", str(game["class_session_id"]))
+
+
+async def open_takeover_due(game_id: uuid.UUID, role: str) -> datetime | None:
+    """The stored `takeover_due_at` of the Seat with `role` in the Game's open Week; None without
+    one. Read for the local dev route that runs a Takeover at its due time (Story 8.3)."""
+    async with get_sessionmaker()() as session:
+        newest = await repo.newest_week(session, game_id)
+        if newest is None:
+            return None
+        seat_ids = {
+            s["id"] for s in await repo.seats_with_occupant(session, game_id) if s["role"] == role
+        }
+        for turn in await repo.week_turns_with_occupant(session, game_id, newest["week"]):
+            if turn["seat_id"] in seat_ids:
+                return turn["takeover_due_at"]
+    return None
 
 
 async def class_game_ids(session: AsyncSession, class_session_id: uuid.UUID) -> dict[int, str]:
@@ -613,6 +645,8 @@ class SummarySeat:
     role: str
     occupant_kind: str | None
     user_id: uuid.UUID | None
+    reason: str | None = None
+    """The latest occupancy row's reason (Story 8.3); None for a free Seat or an older row."""
 
 
 @dataclass(frozen=True)
@@ -620,6 +654,9 @@ class SummaryWait:
     role: str
     user_id: uuid.UUID | None
     since: datetime
+    takeover_due_at: datetime | None = None
+    """The Seat's own stored Takeover due time (Story 8.3); None without one or in an older row,
+    written before the Seat's due time was stored there."""
 
 
 @dataclass(frozen=True)
@@ -645,6 +682,10 @@ def _user(value: object) -> uuid.UUID | None:
     return None if value is None else uuid.UUID(str(value))
 
 
+def _moment(value: object) -> datetime | None:
+    return None if value is None else datetime.fromisoformat(str(value))
+
+
 async def class_overview(
     session: AsyncSession, class_session_id: uuid.UUID
 ) -> list[ClassGameSummary]:
@@ -666,6 +707,7 @@ async def class_overview(
                     role=wait["role"],
                     user_id=_user(wait["user_id"]),
                     since=datetime.fromisoformat(wait["since"]),
+                    takeover_due_at=_moment(wait.get("takeover_due_at")),
                 )
                 for wait in row["waiting_for"]
             ),
@@ -674,6 +716,7 @@ async def class_overview(
                     role=seat["role"],
                     occupant_kind=seat["occupant_kind"],
                     user_id=_user(seat["user_id"]),
+                    reason=seat.get("reason"),
                 )
                 for seat in row["occupants"]
             ),

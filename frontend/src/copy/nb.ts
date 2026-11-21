@@ -2086,6 +2086,11 @@ export const nb = {
     /** [ASSUMPTION] the wall row's note where the full one has no room (Story 7.6): «Venter, 23 t». */
     waitingShort: (duration: string) => `Venter, ${duration}`,
     seat: (role: string, holder: string) => `${role}: ${holder}`,
+    /** [ASSUMPTION] Story 8.3: an AI-held Seat with its AD-15 mark in the game list, «Fabrikk:
+     * KI-spiller (KI tok over etter ventetiden)», and in the wall row's note, «Fabrikk: KI tok over
+     * etter ventetiden». */
+    seatMarked: (role: string, holder: string, mark: string) => `${role}: ${holder} (${mark})`,
+    seatMark: (role: string, mark: string) => `${role}: ${mark}`,
     aiPlayer: "KI-spiller",
     /** [ASSUMPTION] a free Seat, before the lock gives it an AI player. */
     freeSeat: "Ledig",
@@ -2104,11 +2109,16 @@ export const nb = {
     empty: "Klasseøkten har ingen klassespill.",
     /** [ASSUMPTION] Story 7.2: the heading of the game list under the Matrisevegg. */
     listTitle: "Spill og seter",
-    /** The Varselbånd (Story 7.11, UX-DR45): «Spill 2 venter på Noah (Grossist) i 23 t.» is the
-     * spine's; the rest is [ASSUMPTION]. Epic 8 adds the countdown and its other actions. */
+    /** The Varselbånd (Stories 7.11 and 8.3, UX-DR45): «Spill 2 venter på Noah (Grossist) i 23 t.
+     * KI overtar om 1 t.» is the spine's; the rest is [ASSUMPTION]. Stories 8.5–8.7 add its other
+     * actions. */
     band: {
-      /** [ASSUMPTION] the band's accessible name. */
-      label: "Spillet som har ventet lengst",
+      /** [ASSUMPTION] the band's accessible name: the game an AI player takes over first. */
+      label: "Spillet nærmest at KI tar over",
+      /** The countdown after the wait, from the api's due time (Story 8.3): «KI overtar om 1 t.» */
+      takeover: (duration: string) => `KI overtar om ${duration}.`,
+      /** [ASSUMPTION] the due time has passed and the sweep acts within the minute. */
+      takeoverNow: "KI overtar nå.",
       text: (game: string, name: string | null, role: string, duration: string) =>
         name ? `${game} venter på ${name} (${role}) i ${duration}.` : `${game} venter på ${role} i ${duration}.`,
       /** [ASSUMPTION] read out when the band appears or changes game: the line without its duration. */

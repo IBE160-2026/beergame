@@ -132,7 +132,10 @@ async def test_staff_see_whom_a_running_game_waits_for_and_test_games_stay_out(k
     [wait] = item["waiting_for"]
     assert (wait["role"], wait["name"]) == (role_of[other], holders[role_of[other]])
     assert wait["since"] == item["wait_started_at"]
-    # The Varselbånd names the game and the Student, chosen by the api (Story 7.11, AD-10).
+    # The Varselbånd names the game and the Student, chosen by the api (Story 7.11, AD-10), with
+    # when an AI player takes the Seat over (Story 8.3): the time the page reads again too.
+    due = body["alert"]["takeover_due_at"]
+    assert due is not None and due == body["next_change_at"]
     assert body["alert"] == {
         "game_id": game_id,
         "game_number": item["game_number"],
@@ -140,6 +143,7 @@ async def test_staff_see_whom_a_running_game_waits_for_and_test_games_stay_out(k
         "name": holders[role_of[other]],
         "user_id": str(other),
         "since": wait["since"],
+        "takeover_due_at": due,
     }
     # A Lecturer's test Game of the same session is in no list and no count (AD-13).
     await commands.create("lecturer_test", GameSettings(), class_session_id=uuid.UUID(session_id))
@@ -153,6 +157,43 @@ async def test_staff_see_whom_a_running_game_waits_for_and_test_games_stay_out(k
     assert assistant.status_code == 200
     assert assistant.json()["items"] == again["items"]
     assert assistant.json()["alert"] == again["alert"] == body["alert"]
+
+
+async def test_a_takeover_marks_the_seat_and_the_game_leaves_the_band(klass):
+    """Story 8.3 (FR-34, FR-36, FR-39, AD-15): once an AI player has taken the absent Student's
+    Seat over, the Oversikt and Spillinnsikt mark it with the Takeover and its reason, and the game
+    no longer waits, so it leaves the Varselbånd. The Takeover runs at its stored due time."""
+    session_id, game_id, seated = await short_game(klass)
+    role_of = dict(
+        rows(
+            "SELECT o.user_id, s.role FROM seat_occupancy o JOIN seats s ON s.id = o.seat_id "
+            "WHERE s.game_id = %s AND o.user_id IS NOT NULL",
+            game_id,
+        )
+    )
+    viewer, absent = seated
+    await commands.view_week(game_id, role_of[viewer], 1, actor=viewer)
+    before = (await overview(LECTURER, session_id)).json()
+    assert before["alert"]["role"] == role_of[absent]
+    [(due,)] = rows(
+        "SELECT t.takeover_due_at FROM seat_turns t JOIN seats s ON s.id = t.seat_id "
+        "WHERE t.game_id = %s AND s.role = %s AND t.week = 1",
+        game_id,
+        role_of[absent],
+    )
+    await commands.takeover(game_id, role_of[absent], actor="system", now=due)
+    body = (await overview(LECTURER, session_id)).json()
+    assert body["alert"] is None
+    [item] = body["items"]
+    assert (item["status"], item["week"]) == ("running", 2)  # the Week completed and advanced
+    marks = {seat["role"]: (seat["holder"], seat["mark"]) for seat in item["seats"]}
+    assert marks[role_of[absent]] == ("ai", "takeover_inactivity")
+    assert marks[role_of[viewer]] == ("student", None)
+    # The AI players put in at the start carry no mark.
+    assert {mark for role, mark in marks.items() if role not in role_of.values()} == {("ai", None)}
+    insight = (await call(LECTURER, "GET", f"/api/games/{game_id}/insight")).json()
+    seats = {seat["role"]: (seat["holder"], seat["mark"]) for seat in insight["seats"]}
+    assert seats == marks
 
 
 async def test_a_finished_game_fills_the_cost_block_and_the_trakt_with_a_new_etag(klass):
@@ -328,3 +369,37 @@ async def test_the_overview_reads_a_fixed_number_of_queries_whatever_the_number_
     assert len(many.json()["items"]) == len(few.json()["items"]) + 99
     assert many.json()["cost"]["games"] == 50
     assert with_many == with_few
+
+
+async def test_the_dev_takeover_runs_the_takeover_at_the_stored_due_time(klass):
+    """The local dev route (Story 8.3) the end-to-end tests use instead of waiting the Inactivity
+    limit: the sweep's Takeover of one Seat at its stored due time; 404 without a due time, 409
+    with the command's refusal once the Seat is no Student's."""
+    from tests.identity.helpers import CSRF, client
+
+    session_id, game_id, seated = await short_game(klass)
+    role_of = dict(
+        rows(
+            "SELECT o.user_id, s.role FROM seat_occupancy o JOIN seats s ON s.id = o.seat_id "
+            "WHERE s.game_id = %s AND o.user_id IS NOT NULL",
+            game_id,
+        )
+    )
+    viewer, absent = seated
+    path = f"/api/dev/games/{game_id}/seats/{role_of[absent]}/takeover"
+    async with client() as c:
+        none_due = await c.post(path, headers=CSRF)  # nobody has opened the Week: no clock
+        await commands.view_week(game_id, role_of[viewer], 1, actor=viewer)
+        taken = await c.post(path, headers=CSRF)
+        again = await c.post(path, headers=CSRF)
+        unknown = await c.post("/api/dev/games/ikke-en-id/seats/factory/takeover", headers=CSRF)
+    assert (none_due.status_code, none_due.json()["error"]["code"]) == (404, "not_found")
+    assert taken.status_code == 200 and taken.json()["occupancy_id"]
+    marks = {
+        s["role"]: s["mark"]
+        for s in (await overview(LECTURER, session_id)).json()["items"][0]["seats"]
+    }
+    assert marks[role_of[absent]] == "takeover_inactivity"
+    # The Week has moved on: the Seat has no due time in the open Week any more.
+    assert again.status_code == 404
+    assert (unknown.status_code, unknown.json()["error"]["code"]) == (404, "not_found")

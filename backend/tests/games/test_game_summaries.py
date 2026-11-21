@@ -66,6 +66,7 @@ async def test_every_command_leaves_the_row_equal_to_a_recomputation(games_db):
         "role": "retailer",
         "occupant_kind": "student",
         "user_id": str(A),
+        "reason": "initial",
     }
 
     await commands.move_seat(first, "factory", second, "wholesaler")
@@ -152,9 +153,19 @@ async def test_a_takeover_leaves_the_row_equal_to_a_recomputation(games_db, mail
     assert {w["role"] for w in row["waiting_for"]} == {"wholesaler", "factory"}
     due = due_of(game_id, "factory")
     assert due is not None
+    # Story 8.3: each waited-for Seat carries its own due time, the row the nearest.
+    dues = {w["role"]: datetime.fromisoformat(w["takeover_due_at"]) for w in row["waiting_for"]}
+    assert dues["factory"] == due
+    assert row["takeover_due_at"] == min(
+        datetime.fromisoformat(w["takeover_due_at"]) for w in row["waiting_for"]
+    )
     await commands.takeover(game_id, "factory", actor="system", now=due)
     row = await check(game_id)  # takeover: still waiting for the wholesaler
     assert (row["status"], [w["role"] for w in row["waiting_for"]]) == ("waiting", ["wholesaler"])
+    # The Seat's reason, from which the Oversikt's mark is read (Story 8.3, AD-15).
+    assert [o["reason"] for o in row["occupants"] if o["role"] == "factory"] == [
+        "takeover_inactivity"
+    ]
 
 
 async def test_a_command_that_changes_nothing_writes_no_row(games_db):
@@ -183,6 +194,18 @@ def _comparable(row: dict) -> dict:
     """A row with its wait times as datetimes: Postgres and Python write them differently."""
     waiting = [{**w, "since": datetime.fromisoformat(w["since"])} for w in row["waiting_for"]]
     return {**row, "waiting_for": waiting}
+
+
+def _before_8_3(row: dict) -> dict:
+    """A row without the keys Story 8.3 added: each wait's due time and each Seat's reason, which
+    revision 0051 predates; the readers take a missing key as None."""
+    return {
+        **row,
+        "waiting_for": [
+            {k: v for k, v in w.items() if k != "takeover_due_at"} for w in row["waiting_for"]
+        ],
+        "occupants": [{k: v for k, v in o.items() if k != "reason"} for o in row["occupants"]],
+    }
 
 
 async def test_the_backfill_gives_the_rows_recompute_gives(games_db):
@@ -224,7 +247,10 @@ async def test_the_backfill_gives_the_rows_recompute_gives(games_db):
         stored, fresh = await stored_and_fresh(game_id)
         assert _comparable(fresh) == _comparable(before[game_id]), game_id
         # Revision 0051 predates the due times; 0053 added the column empty, as no turn had one.
-        assert _comparable(stored) == {**_comparable(fresh), "takeover_due_at": None}, game_id
+        assert _comparable(stored) == {
+            **_comparable(_before_8_3(fresh)),
+            "takeover_due_at": None,
+        }, game_id
         statuses[game_id] = stored["status"]
     assert statuses == {
         finished: "finished",

@@ -2739,6 +2739,16 @@
             "title": "Links",
             "type": "array"
           },
+          "mark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeatMark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "name": {
             "anyOf": [
               {
@@ -3986,7 +3996,7 @@
         "type": "object"
       },
       "OverviewAlertOut": {
-        "description": "The Varselbånd (Story 7.11, FR-39, UX-DR45): the Class game chosen by the api, the Seat it\nwaits for longest and since when. Epic 8 changes the choice to the game closest to Takeover.",
+        "description": "The Varselbånd (Story 7.11, FR-39, UX-DR45): the Class game chosen by the api, closest to\nTakeover (Story 8.3), the Seat whose due time comes first, since when it waits and when the\nAI player takes it over.",
         "properties": {
           "game_id": {
             "format": "uuid",
@@ -4022,6 +4032,18 @@
             "format": "date-time",
             "title": "Since",
             "type": "string"
+          },
+          "takeover_due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Takeover Due At"
           },
           "user_id": {
             "anyOf": [
@@ -4176,6 +4198,16 @@
             ],
             "title": "Holder",
             "type": "string"
+          },
+          "mark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeatMark"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "name": {
             "anyOf": [

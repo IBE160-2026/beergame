@@ -24,7 +24,7 @@ import { roleName } from "@/modules/sessions/sessions";
 
 import { type GameInsight, gameInsightKey, type InsightSeat, useGameInsight } from "./api";
 import { InsightCharts } from "./insight-charts";
-import { hasWeeks, holderText, linkTexts, roleTables, seatsUpstreamFirst, type WeekRow } from "./insight";
+import { hasWeeks, holderText, linkTexts, roleTables, seatMarkText, seatsUpstreamFirst, type WeekRow } from "./insight";
 
 const copy = nb.insight;
 
@@ -166,6 +166,7 @@ export function InsightBody({ data }: { data: GameInsight }) {
 
 function SeatItem({ seat, sessionId, gameId }: { seat: InsightSeat; sessionId: string; gameId: string }) {
   const links = linkTexts(seat);
+  const mark = seatMarkText(seat);
   return (
     <li className="min-w-0" data-role={seat.role}>
       <p className="text-label text-ink">{roleName(seat.role)}</p>
@@ -183,6 +184,12 @@ function SeatItem({ seat, sessionId, gameId }: { seat: InsightSeat; sessionId: s
           </Link>
         ) : null}
       </p>
+      {/* Why an AI player holds the Seat: the Takeover and its reason, in text (Story 8.3). */}
+      {mark ? (
+        <p className="mt-1 text-caption text-ink-secondary" data-seat-mark="">
+          {mark}
+        </p>
+      ) : null}
       {typeof links === "string" ? (
         <p className="mt-1 text-caption text-ink-secondary" data-links="">
           {links}

@@ -45,6 +45,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # `user`; an acceptance tells every seated Student, so all see who accepted.
         "games.propose_time": frozenset({"game", "session", "user"}),
         "games.accept_time": frozenset({"game", "session", "user"}),
+        # A due Takeover the sweep found but `takeover` refused (Story 8.3, AD-8): the time has
+        # passed with no command, so the Game and its Class session are announced again.
+        "ops.takeover_skipped": frozenset({"game", "session"}),
         # A notice to a User (Story 3.5, AD-9); a notice addressed by reference emits nothing.
         "notify.enqueue": frozenset({"user"}),
         # A role the Admin grants or revokes (Story 3.9): the User's open pages reload it.
