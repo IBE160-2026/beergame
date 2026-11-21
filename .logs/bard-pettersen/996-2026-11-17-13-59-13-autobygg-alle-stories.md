@@ -2430,3 +2430,23 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #158: beslutninger, simulerte kostnader med plassholderparametre, og lenkene i Spillinnsikt etter merge.
+
+## Story 7.9: Send en Melding til en student, et klassespill eller hele klasseøkta (spor 1)
+
+### Oppgave
+Bygge Story 7.9 på `epic-7` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-9-send-a-message-to-a-student-a-class-game-or-the-whole-class-session.md`.
+- Commit: f553c6b. Migrasjon 0052_messages.
+- Meldingsskjemaet på `/klasseokter/{id}/melding`, åpnet fra Oversikt, Spillinnsikt og hvert sete. Én transaksjon lagrer meldingen, mottakerne og varslene, og hver student får e-post. En nøkkel fra klienten hindrer dobbel sending.
+- Tester: backend 2842, Vitest 812, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 52 med `--workers=4`, ingen ustabile tester.
+- Gjennomgang: 29 funn, 2 middels (en importløkke som krasjet, rettet), 6 lave rettet.
+- Visuell kontroll (Sonnet): 33 skjermbilder i `screenshots/7.9/`, ingen avvik. Felles sidehode brytes over to linjer ved 390 px (ikke denne storyen); tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #159: beslutninger (mottakere, 403 for utenforstående, nøkkel mot dobbel sending).
