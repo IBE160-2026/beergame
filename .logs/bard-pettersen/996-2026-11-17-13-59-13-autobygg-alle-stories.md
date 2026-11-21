@@ -2142,3 +2142,23 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Ingen skj
 
 ### Åpne punkter
 - Issue #144: beslutninger (terskler for mønstrene, øyeblikk, lagring én gang) og leser for gamle faktasett ved ny analyseversjon.
+
+## Story 7.2: Les alle klassespill uke for uke på Matriseveggen (spor 1)
+
+### Oppgave
+Bygge Story 7.2 på `epic-7` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet som også skriver funnene til fil, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-2-read-all-class-games-week-by-week-on-the-matrisevegg.md`.
+- Commit: 2a12c33.
+- `GET /api/games/{id}/weeks` for stab, med ETag. Matriseveggen som SVG laget for hånd, med `role="grid"` og lesing celle for celle fra tastaturet, på Oversikt og på Landing med demodata.
+- Tester: backend 2797, Vitest 736, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 72 med axe på 1440 px, 320 px og 200 % tekst.
+- Gjennomgang: 23 funn, 8 rettet (blant dem at rader ble tomme hver gang spillets versjon endret seg), 12 avvist med begrunnelse.
+- Visuell kontroll (Sonnet): 11 skjermbilder i `screenshots/7.2/`, ingen avvik. Overskriften på Landing brytes ett ord per linje ved 200 % tekst; den er tatt med i lista til slutten av epicen (gammelt punkt fra Epic 6).
+- Status: done.
+
+### Åpne punkter
+- Issue #145: beslutninger og risiko (tom rad ved feilet henting til Story 7.5, skjermleser bare sjekket i Chromium).
