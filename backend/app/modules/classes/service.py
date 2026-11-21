@@ -50,7 +50,7 @@ from app.modules.classes.schemas import (
 from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
 from app.platform import audit, authz, events
-from app.platform.db import get_sessionmaker
+from app.platform.db import get_sessionmaker, reading
 
 log = structlog.get_logger(__name__)
 
@@ -626,12 +626,14 @@ async def registered_students_of(class_ids: list[uuid.UUID]) -> dict[uuid.UUID, 
     return await identity.registered_users_of(class_ids)
 
 
-async def student_names(class_id: uuid.UUID, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+async def student_names(
+    class_id: uuid.UUID, user_ids: list[uuid.UUID], *, session: AsyncSession | None = None
+) -> dict[uuid.UUID, str]:
     """The scope helper by which Epic 5 names the Students of an allocation at read time
     (Story 5.8, AD-12, AD-14): the names of those of `user_ids` who are Students in the Class now.
     An id that is no longer one (removed from the Roster) or never was is left out. The caller has
-    checked that the User may read the Class."""
-    return await identity.student_names(class_id, user_ids)
+    checked that the User may read the Class. In the caller's `session` when given."""
+    return await identity.student_names(class_id, user_ids, session=session)
 
 
 async def owners_of(session: AsyncSession, class_id: uuid.UUID) -> list[uuid.UUID]:
@@ -656,9 +658,12 @@ async def label_of_class(session: AsyncSession, class_id: uuid.UUID) -> identity
 # The Classes a Student is in (Story 4.5, FR-5, FR-7, AD-12): read through the Student scope only.
 
 
-async def enrolled_classes(user: authz.Principal) -> EnrolledClassListOut:
-    """The Classes `user` is a Student in, by name: what Hjem names."""
-    async with get_sessionmaker().begin() as s:
+async def enrolled_classes(
+    user: authz.Principal, *, session: AsyncSession | None = None
+) -> EnrolledClassListOut:
+    """The Classes `user` is a Student in, by name: what Hjem names. In the caller's `session`
+    when given."""
+    async with reading(session) as s:
         rows = await repo.enrolled_classes(s, user)
     return EnrolledClassListOut(items=[EnrolledClassOut(**row) for row in rows])
 

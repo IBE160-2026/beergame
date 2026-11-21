@@ -1201,11 +1201,14 @@ def stegene(has_game: bool, done: set[progress.Step]) -> list[StepOut]:
     return steps
 
 
-def _names_in(class_id: uuid.UUID) -> Callable[[list[uuid.UUID]], Awaitable[dict[uuid.UUID, str]]]:
-    """`classes.student_names` for one Class: the names `table_status` shows, read now."""
+def _names_in(
+    class_id: uuid.UUID, s: AsyncSession
+) -> Callable[[list[uuid.UUID]], Awaitable[dict[uuid.UUID, str]]]:
+    """`classes.student_names` for one Class: the names `table_status` shows, read now, in the
+    caller's session `s` (one connection per request, `db.reading`)."""
 
     async def resolve(user_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
-        return await classes.student_names(class_id, user_ids)
+        return await classes.student_names(class_id, user_ids, session=s)
 
     return resolve
 
@@ -1252,14 +1255,16 @@ async def _game_out(
     row: Mapping[str, Any],
     done: set[progress.Step],
 ) -> StudentGameOut:
-    table = await games_service.table_status(s, found.game_id, user_id, _names_in(row["class_id"]))
+    table = await games_service.table_status(
+        s, found.game_id, user_id, _names_in(row["class_id"], s)
+    )
     play = await games_service.play_status(s, found.game_id)
     state: games_service.SeatState | None = None
     turn: PlayTurnOut | None = None
     if play.status == "running":
         # Story 6.17 (AD-3): Hjem's Spillkort reads the numbers from the play envelope's sources,
         # in the same Week as `week`, so Hjem and the play screen never disagree.
-        state, turn = await _own_week(found, play.week)
+        state, turn = await _own_week(s, found, play.week)
     return StudentGameOut(
         id=found.game_id,
         number=found.number,
@@ -1288,7 +1293,7 @@ async def _time_proposal_out(
     proposal = await games_service.open_time_proposal(s, game_id)
     if proposal is None:
         return None
-    names = await _names_in(class_id)([proposal.proposed_by, *proposal.accepted_by])
+    names = await _names_in(class_id, s)([proposal.proposed_by, *proposal.accepted_by])
 
     def person(other: uuid.UUID) -> ProposalPersonOut:
         return ProposalPersonOut(name=names.get(other), mine=other == user_id)
@@ -1305,12 +1310,12 @@ async def _time_proposal_out(
 
 
 async def _own_week(
-    found: games_service.StudentGame, week: int | None
+    s: AsyncSession, found: games_service.StudentGame, week: int | None
 ) -> tuple[games_service.SeatState, PlayTurnOut]:
     """The own Seat's `seat_state` and turn in the open `week` (Stories 6.6 and 6.17), the
-    play envelope's numbers, read through `games.views` only."""
-    state = await games_service.seat_state(str(found.game_id), found.role, week)
-    turn = await games_service.open_turn(str(found.game_id), found.role, week)
+    play envelope's numbers, read through `games.views` only, in the caller's session `s`."""
+    state = await games_service.seat_state(str(found.game_id), found.role, week, session=s)
+    turn = await games_service.open_turn(str(found.game_id), found.role, week, session=s)
     return state, PlayTurnOut(
         guided=turn.guided, order=turn.order, viewed=turn.viewed_at is not None
     )
@@ -1347,7 +1352,7 @@ async def _own_locked_game(
     if found.test_game:
         return await _own_test_game(s, user, found)
     # The Classes Hjem lists: those the User is a Student in and that are not archived.
-    listed = {item.id for item in (await classes.enrolled_classes(user)).items}
+    listed = {item.id for item in (await classes.enrolled_classes(user, session=s)).items}
     # The Class session among the User's own (`authz.classes_enrolled_by`), locked.
     rows = {row["id"]: row for row in await repo.enrolled_sessions(s, user)}
     row = rows.get(found.class_session_id)
@@ -1364,6 +1369,9 @@ async def _own_test_game(
     it runs on its own snapshot. The session row it returns states the Game's own settings as the
     rules (`game_rules`), never the session's, which may have changed since."""
     row = await repo.session_row(s, found.class_session_id)
+    # The reads below open sessions of their own: give `s`'s connection back first, so the request
+    # never holds two (`db.reading`). `s` is a plain read session; its next read takes one again.
+    await s.commit()
     if row is None or await _class_for(user, row["class_id"], "class_sessions.read") is None:
         return None
     game = await games_service.get_game(str(found.game_id))
@@ -1406,9 +1414,9 @@ async def student_play_of(user: authz.Principal, game_id: str) -> PlayOut | None
         if play.status != "running":
             raise GameNotRunning
         table = await games_service.table_status(
-            s, found.game_id, user.id, _names_in(row["class_id"])
+            s, found.game_id, user.id, _names_in(row["class_id"], s)
         )
-        state, turn = await _own_week(found, play.week)
+        state, turn = await _own_week(s, found, play.week)
         now = await games_service.database_now(s)
     return PlayOut(
         seat_state=state,

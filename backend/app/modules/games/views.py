@@ -37,7 +37,7 @@ from app.modules.games.schemas import (
     TurnOverview,
 )
 from app.platform.config import get_settings
-from app.platform.db import get_sessionmaker
+from app.platform.db import get_sessionmaker, reading
 
 __all__ = [
     "ViewError",
@@ -143,13 +143,16 @@ def _week(opened: Sequence[WeekState], week: int | None) -> int:
     return week
 
 
-async def seat_state(game_id: str, seat: str, week: int | None = None) -> SeatState:
+async def seat_state(
+    game_id: str, seat: str, week: int | None = None, *, session: AsyncSession | None = None
+) -> SeatState:
     """What `seat` (a Role or a Seat id) sees in `week`, by default the newest opened Week.
 
-    Built from the Game's snapshot settings and its stored Week states only."""
-    async with get_sessionmaker()() as session:
-        game, row = await _game_and_seat(session, game_id, seat)
-        opened, orders = await stored_play(session, game["id"])
+    Built from the Game's snapshot settings and its stored Week states only. In the caller's
+    `session` when given."""
+    async with reading(session) as s:
+        game, row = await _game_and_seat(s, game_id, seat)
+        opened, orders = await stored_play(s, game["id"])
     week = _week(opened, week)
     settings = GameSettings.model_validate(game["settings"])
     return build_seat_state(settings, opened[:week], orders[: week - 1], row["role"])
@@ -203,13 +206,16 @@ async def chain_result(game_id: str) -> GameResult:
     return GameResult(roles=tuple(roles), chain=chain, weeks=weeks)
 
 
-async def open_turn(game_id: str, seat: str, week: int | None = None) -> TurnOverview:
-    """The turn of `seat` (a Role or a Seat id) in `week`, by default the newest opened Week."""
-    async with get_sessionmaker()() as session:
-        game, row = await _game_and_seat(session, game_id, seat)
-        week = _week(await _opened(session, game["id"]), week)
-        turn = await repo.turn(session, game["id"], row["id"], week)
-        order = await repo.seat_week_order(session, game["id"], week, row["id"])
+async def open_turn(
+    game_id: str, seat: str, week: int | None = None, *, session: AsyncSession | None = None
+) -> TurnOverview:
+    """The turn of `seat` (a Role or a Seat id) in `week`, by default the newest opened Week. In
+    the caller's `session` when given."""
+    async with reading(session) as s:
+        game, row = await _game_and_seat(s, game_id, seat)
+        week = _week(await _opened(s, game["id"]), week)
+        turn = await repo.turn(s, game["id"], row["id"], week)
+        order = await repo.seat_week_order(s, game["id"], week, row["id"])
     if turn is None:
         raise ViewError("week_not_open", f"the Seat has no turn in Week {week}", 409)
     settings = GameSettings.model_validate(game["settings"])
