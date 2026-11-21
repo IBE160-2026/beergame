@@ -2650,3 +2650,23 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Neste byg
 
 ### Åpne punkter
 - Issue #170: beslutninger (regel for båndet, merker for KI-spillere, ingen migrasjon).
+
+## Story 9.13: Vis gruppedebriefen på en delt skjerm (spor 2)
+
+### Oppgave
+Bygge Story 9.13 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Byggeagenten for 9.12 gjorde ferdig visuelle rettinger i samme worktree mens denne startet; orkestratoren fikk dem committet først (1b33fb5) og varslet om at stacken var stoppet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-13-show-the-group-debrief-on-a-shared-screen.md` (på `epic-9`).
+- Commit: e7499d0.
+- Lenken «Delt skjerm: hele kjeden» og siden `/delt-skjerm/<debrief id>`, som leser et svar uten tekstfelt (ingen navn kan komme med): kjeden i valgt uke med egen skrubber, netto lager per rolle på felles skala, og kostnad per rolle med totalen for kjeden. Låst til alle i gruppen har sendt Forklaringen.
+- Tester: backend 2949, Vitest 780, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 138 av 138, ingen ustabile tester.
+- Gjennomgang: 24 funn, 5 lave rettet.
+- Visuell kontroll (Sonnet, bare rapport, eget worktree): skjermbilder i `screenshots/9.13/`, også ved 1920 px. Én klar feil: ved 200 % tekst forsvinner de fire lagergrafene. I tillegg skalerer ikke siden opp for projektor (samme 13 px tekst ved 1920 px), og lagergrafene er flate striper. Alt går til avslutningen av Epic 9, siden ingen story igjen endrer siden.
+- Status: done.
+
+### Åpne punkter
+- Issue #171: beslutninger (lås bare på Forklaringene, egen side uten navn).
