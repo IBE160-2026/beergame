@@ -1,7 +1,7 @@
 import type { QueryKey } from "@tanstack/react-query";
 
 import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
-import { classOverviewKey } from "@/modules/games/api";
+import { classOverviewKey, gameInsightKey } from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
 import {
   allocationKey,
@@ -43,9 +43,10 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
         classOverviewKey(event.id),
       ];
     // A Game: the Student's own game and what hangs under it (briefing, Starting task, the play
-    // screen's envelope), and Hjem, whose Setestatus shows who has ordered (Story 6.14).
+    // screen's envelope), Hjem, whose Setestatus shows who has ordered (Story 6.14), and the
+    // staff's Spillinnsikt of it (Story 7.7).
     case "game":
-      return [["games", "mine", event.id], enrolledSessionsKey];
+      return [["games", "mine", event.id], enrolledSessionsKey, gameInsightKey(event.id)];
     default:
       return [];
   }

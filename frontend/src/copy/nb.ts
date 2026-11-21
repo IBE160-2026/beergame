@@ -2247,6 +2247,71 @@ export const nb = {
     },
   },
 
+  /** Spillinnsikt (Story 7.7, FR-62, FR-34, UX-DR55): one Class game week by week for the staff.
+   * «Spillet har ikke startet.» and «KI-spiller» are the spine's; the rest is [ASSUMPTION] draft
+   * copy for the founder's review. The page never shows a Week total. */
+  insight: {
+    crumb: (game: string) => game,
+    /** «Spill 2» as the page heading and tab title. */
+    title: (number: number | null) => gameName(number),
+    status: {
+      waiting: "Venter",
+      running: "Pågår",
+      not_started: "Ikke startet",
+      finished: "Ferdig",
+    },
+    /** Read before the status word. */
+    statusLabel: "Status",
+    seatsTitle: "Setene",
+    /** The Seats' list name. */
+    seatsLabel: "Setene i kjeden, Fabrikk først",
+    aiPlayer: "KI-spiller",
+    freeSeat: "Ledig",
+    unknownStudent: "Student",
+    /** The link slot of a Student Seat while no Explanation or Debrief summary exists (Epic 9
+     * fills it). [ASSUMPTION] */
+    noLinks: "Forklaring og Debrief-sammendrag kommer når studenten har kommet dit.",
+    /** The words of each link kind a later epic registers. [ASSUMPTION] */
+    links: {
+      explanation: "Forklaring",
+      debrief_summary: "Debrief-sammendrag",
+    } as Record<string, string>,
+    /** A link kind with no words of its own yet. [ASSUMPTION] */
+    otherLink: "Åpne",
+    notStarted: "Spillet har ikke startet.",
+    /** The heading over the per-Role tables. */
+    weeksTitle: "Uke for uke",
+    /** The region of one Role's table, «Detaljist uke for uke». */
+    region: (role: string) => `${role} uke for uke`,
+    columns: {
+      week: "Uke",
+      playedBy: "Spilt av",
+      incomingOrder: "Ordre inn",
+      incomingDelivery: "Levering inn",
+      inventory: "Lager",
+      backlog: "Restordre",
+      order: "Ordre",
+      cost: "Kost, kr",
+      marks: "Merknad",
+    },
+    /** An Order not placed yet in the open Week, as read. */
+    noOrder: "ikke lagt inn",
+    /** The marks of the one AD-15 mapping, always in text (FR-34). */
+    marks: {
+      guard_switch: "Byttet til regelbasert KI (spillvakt)",
+      cost_limit: "Byttet til regelbasert KI (kostnadsgrense)",
+      takeover_inactivity: "KI tok over etter ventetiden",
+      takeover_staff: "KI satt inn av faglærer",
+      takeover_peer: "KI satt inn av gruppa",
+      reclaim: "Studenten tok setet tilbake",
+      playout: "KI spilte spillet ferdig",
+      fallback_timeout: "Reserveordre: KI svarte ikke i tide",
+      fallback_invalid_output: "Reserveordre: KI ga ugyldig svar",
+      fallback_budget_exhausted: "Reserveordre: KI-budsjettet var brukt opp",
+      fallback_provider_error: "Reserveordre: feil hos KI-tjenesten",
+    },
+  },
+
   /** Links between pages (Story 3.3). Each names where it goes. */
   navigation: {
     // «Til Hjem» and «Til Lærerhjem» are EXPERIENCE.md's own (State Patterns → permission denied).

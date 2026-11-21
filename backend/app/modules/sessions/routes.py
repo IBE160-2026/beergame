@@ -41,6 +41,7 @@ from app.modules.sessions.schemas import (
     CopySourceListOut,
     DemandSeriesOut,
     EnrolledSessionListOut,
+    GameInsightOut,
     GameResultOut,
     GameWeeksOut,
     LabHourIn,
@@ -288,6 +289,34 @@ async def get_game_weeks(
         raise authz.Forbidden
     # The Week read is a second transaction: a change between the two answers with its version.
     headers["ETag"] = overview.game_weeks_etag(found.version)
+    return JSONResponse(found.model_dump(mode="json"), headers=headers)
+
+
+@router.get(
+    "/games/{game_id}/insight",
+    response_model=GameInsightOut,
+    responses={**documented(401, 403), 304: {"description": "Not modified since the ETag."}},
+    operation_id="getGameInsight",
+)
+async def get_game_insight(
+    game_id: str,
+    request: Request,
+    user: Annotated[authz.Principal, Depends(authz.require("games.insight"))],
+) -> Response:
+    """Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Class game week by week for the staff of
+    its Class — per Role and opened Week the incoming order and delivery, inventory, backlog,
+    Order and cost as stored, who held the Seat and its marks (AD-15), the Seats with their link
+    slots, the customer demand series and the number of Weeks. With an `ETag`; a request whose
+    `If-None-Match` names it is answered 304. 403 `forbidden`, one answer, for anyone who is not
+    staff of the Game's Class, a Student included, and for a Game that does not exist or that
+    the Oversikt does not list (FR-5, NFR-7)."""
+    found = await overview.game_insight(user, _id(game_id))
+    if found is None:
+        raise authz.Forbidden
+    etag = overview.insight_etag(found)
+    headers = {"ETag": etag, "Cache-Control": "private, no-cache"}
+    if _not_modified(request, etag):
+        return Response(status_code=304, headers=headers)
     return JSONResponse(found.model_dump(mode="json"), headers=headers)
 
 

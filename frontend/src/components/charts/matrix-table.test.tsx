@@ -116,3 +116,21 @@ describe("the MatrixTable HTML", () => {
     expect(shared).toContain('data-game="a" tabindex="-1"');
   });
 });
+
+describe("opening a game from the table (Story 7.7)", () => {
+  const render = (onActivate?: (id: string) => void) =>
+    renderToStaticMarkup(
+      <MatrixTable
+        rows={[row("7", { game: 7 }, [4])]}
+        columns={[]}
+        copy={{ region: "Alle spill", caption: "c", gameHeader: "Spill", week: "Uke" }}
+        format={(value) => formatNumber(value)}
+        onActivate={onActivate}
+      />,
+    );
+
+  it("makes each game row a click target only when the caller opens games", () => {
+    expect(render(() => {})).toContain('<tr data-row="7" class="cursor-pointer">');
+    expect(render()).not.toContain("cursor-pointer");
+  });
+});

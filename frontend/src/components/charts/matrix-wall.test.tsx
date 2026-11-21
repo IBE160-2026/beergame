@@ -258,3 +258,22 @@ describe("the class median graph's scale (Story 7.4)", () => {
     expect(graphScale([{ median: 2, low: 1, high: 3 }], 0, 100, 13).ticks).toEqual([5, 0]);
   });
 });
+
+describe("opening a game from the wall (Story 7.7)", () => {
+  const render = (onActivate?: (id: string) => void) =>
+    renderToStaticMarkup(
+      <MatrixWall
+        width={200}
+        fontSize={13}
+        copy={COPY}
+        format={(value) => formatNumber(value)}
+        onActivate={onActivate}
+        groups={[{ key: "running", title: "Pågår 1", rows: [{ id: "g3", label: "Spill 3", rowName: "Spill 3, pågår", values: [4] }] }]}
+      />,
+    );
+
+  it("makes each game row a click target only when the caller opens games", () => {
+    expect(render(() => {})).toMatch(/role="row"[^>]*data-row="g3"[^>]*class="cursor-pointer"/);
+    expect(render()).not.toContain("cursor-pointer");
+  });
+});

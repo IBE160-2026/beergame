@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { type FocusEvent, useId, useRef, useState } from "react";
 
 import { MatrixTable } from "@/components/charts/matrix-table";
@@ -10,6 +11,7 @@ import { colour } from "@/components/charts/palette";
 import { ViewToggle } from "@/components/view-toggle";
 import { nb } from "@/copy/nb";
 import { useBoxSize } from "@/lib/box-size";
+import { gameInsightPath, overviewReturnPath } from "@/modules/identity/homes";
 import { roleName } from "@/modules/sessions/sessions";
 
 import { useGameWeeks, useWallAggregates, type WallAggregates, type WallFilter } from "./api";
@@ -34,7 +36,18 @@ import { formatCell, formatCost, measureName, scaleOf, wallCopy } from "./wall-c
 /** Until the box is measured (a server render): a laptop column and the caption size. */
 const FALLBACK = { width: 960, fontSize: 13 };
 
-type View = "wall" | "table";
+export type View = "wall" | "table";
+
+/** Where Spillinnsikt's Back lands (Story 7.7): the game to focus and the view it was opened from. */
+export type ReturnTo = { id: string; view: View };
+
+/**
+ * Before Spillinnsikt opens, the Oversikt's own history entry is made to name the game (and the
+ * view), so the browser's Back and the Oversikt crumb both come back with focus on it.
+ */
+export function rememberReturn(sessionId: string, gameId: string, view: View = "wall") {
+  window.history.replaceState(null, "", overviewReturnPath(sessionId, gameId, view));
+}
 
 /**
  * The Oversikt's Matrisevegg (Story 7.2, FR-39, UX-DR41), its «Vis som tabell» (Story 7.3,
@@ -56,18 +69,34 @@ export function OverviewWall({
   groups,
   now,
   heldAt = null,
+  returnTo = null,
 }: {
   sessionId: string;
   groups: readonly OverviewGroup[];
   now: number;
   /** When the held answer arrived, while «Oppdater automatisk» is off; null while it is on. */
   heldAt?: number | null;
+  /** Back from Spillinnsikt: the game that gets focus, in the view it was opened from. */
+  returnTo?: ReturnTo | null;
 }) {
   const ids = useId();
   const box = useRef<HTMLDivElement>(null);
   const size = useBoxSize(box, FALLBACK);
-  const [view, setView] = useState<View>("wall");
-  const [position, setPosition] = useState<WallPosition | null>(null);
+  const router = useRouter();
+  const [view, setView] = useState<View>(returnTo?.view ?? "wall");
+  const [position, setPosition] = useState<WallPosition | null>(returnTo ? { id: returnTo.id, week: 1 } : null);
+  // Back from Spillinnsikt focuses its game once, in the view the Oversikt opens with; a later
+  // switch of view keeps focus on the Visningsbryter.
+  const [autoFocus, setAutoFocus] = useState(returnTo !== null);
+  const switchView = (next: View) => {
+    setAutoFocus(false);
+    setView(next);
+  };
+  // Activating a row opens its game's Spillinnsikt (Story 7.7, UX-DR55).
+  const open = (id: string) => {
+    rememberReturn(sessionId, id, view);
+    router.push(gameInsightPath(sessionId, id, view));
+  };
   const [sort, setSort] = useState<TableSort>(TABLE_SORT);
   const [filter, setFilter] = useState<WallFilter>(DEFAULT_WALL_FILTER);
   const all = groups.flatMap((group) => group.games);
@@ -140,7 +169,7 @@ export function OverviewWall({
             { value: "table", label: table.table },
           ]}
           value={view}
-          onChange={setView}
+          onChange={switchView}
           inline
         />
       </div>
@@ -158,6 +187,8 @@ export function OverviewWall({
             summary={summary}
             position={position}
             onPosition={setPosition}
+            onActivate={open}
+            autoFocus={autoFocus}
           />
         </div>
       ) : (
@@ -172,6 +203,8 @@ export function OverviewWall({
           footer={footer}
           focusId={position?.id ?? null}
           onFocusId={(id) => setPosition((was) => ({ id, week: was?.week ?? 1 }))}
+          onActivate={open}
+          autoFocus={autoFocus}
         />
       )}
     </div>

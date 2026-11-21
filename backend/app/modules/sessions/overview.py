@@ -7,6 +7,7 @@ import hashlib
 import uuid
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Literal
 
 from app.analysis.class_cost import FinishedGame, class_cost
 from app.analysis.wall import Cells, wall_aggregates
@@ -19,9 +20,15 @@ from app.modules.sessions import repo
 from app.modules.sessions.schemas import (
     ClassCostOut,
     ClassOverviewOut,
+    DemandWeekOut,
     FunnelStageOut,
+    GameInsightOut,
     GameWeekOut,
     GameWeeksOut,
+    InsightLinkOut,
+    InsightRoleOut,
+    InsightSeatOut,
+    InsightWeekOut,
     OverviewAiOut,
     OverviewCountsOut,
     OverviewGameOut,
@@ -44,6 +51,8 @@ __all__ = [
     "etag_of",
     "game_weeks",
     "game_weeks_etag",
+    "game_insight",
+    "insight_etag",
     "readable_game",
     "wall_aggregates_out",
     "wall_games",
@@ -236,6 +245,91 @@ async def game_weeks(game_id: uuid.UUID) -> GameWeeksOut | None:
             for week, seats in found.weeks
         ],
     )
+
+
+def _holder(kind: str | None) -> Literal["student", "ai", "free"]:
+    if kind is None:
+        return "free"
+    return "student" if kind == games_service.OccupantKind.STUDENT else "ai"
+
+
+async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsightOut | None:
+    """Spillinnsikt (Story 7.7, FR-62): one Game week by week for the staff of its Class, through
+    the `games.insight` policy and the Class staff scope; None, one answer, for a Game that does not
+    exist, one the Lecturer overview does not list (a test or simulation Game, AD-13) and one of
+    another Class (FR-5, NFR-7). Students' names are resolved now (AD-12, AD-14); a fixed number of
+    queries whatever the game's length."""
+    async with get_sessionmaker()() as s:
+        head = await games_service.class_game_head(s, game_id)
+        if head is None or head.class_session_id is None or not head.listed:
+            return None
+        row = await repo.session_row(s, head.class_session_id)
+    if row is None:
+        return None
+    found = await _class_for(user, row["class_id"], "games.insight")
+    if found is None:
+        return None
+    async with get_sessionmaker()() as s:
+        number = await repo.number_of(s, head.class_session_id, row["class_id"])
+        insight = await games_service.game_insight(s, game_id)
+        if insight is None:
+            return None
+        students = sorted(
+            {seat.user_id for seat in insight.seats if seat.user_id is not None}
+            | {w.user_id for r in insight.roles for w in r.weeks if w.user_id is not None},
+            key=str,
+        )
+        names = (
+            await classes.student_names(row["class_id"], students, session=s) if students else {}
+        )
+    return GameInsightOut(
+        game_id=insight.game_id,
+        class_session_id=head.class_session_id,
+        class_id=found.id,
+        class_name=found.name,
+        session_number=number,
+        game_number=insight.game_number,
+        status=insight.status,
+        version=insight.version,
+        weeks_total=insight.weeks_total,
+        demand=[DemandWeekOut(week=week, demand=demand) for week, demand in insight.demand],
+        seats=[
+            InsightSeatOut(
+                role=Role(seat.role),
+                holder=_holder(seat.occupant_kind),
+                name=names.get(seat.user_id) if seat.user_id else None,
+                links=[InsightLinkOut(kind=link.kind, href=link.href) for link in seat.links],
+            )
+            for seat in insight.seats
+        ],
+        roles=[
+            InsightRoleOut(
+                role=Role(each.role),
+                weeks=[
+                    InsightWeekOut(
+                        week=week.week,
+                        holder=_holder(week.occupant_kind),
+                        name=names.get(week.user_id) if week.user_id else None,
+                        incoming_order=week.incoming_order,
+                        incoming_delivery=week.incoming_delivery,
+                        inventory=week.inventory,
+                        backlog=week.backlog,
+                        order=week.order,
+                        cost=week.cost,
+                        marks=list(week.marks),
+                    )
+                    for week in each.weeks
+                ],
+            )
+            for each in insight.roles
+        ],
+    )
+
+
+def insight_etag(insight: GameInsightOut) -> str:
+    """A strong ETag of the whole answer: it changes with the Game's version and with a name."""
+    body = insight.model_dump_json()
+    return '"' + hashlib.sha256(body.encode()).hexdigest()[:32] + '"'
 
 
 def game_weeks_etag(version: int) -> str:

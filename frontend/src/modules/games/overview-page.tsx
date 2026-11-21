@@ -1,9 +1,11 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 
 import { Button } from "@/components/button";
+import { Link } from "@/components/link";
 import type { LiveLines } from "@/components/connection-notice";
 import { Switch } from "@/components/switch";
 import { nb } from "@/copy/nb";
@@ -13,13 +15,13 @@ import { formatClock } from "@/lib/connection";
 import { usePageState } from "@/lib/page-state";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
-import { classOverviewPath, classPath, classSessionPath, HOME_PATH } from "@/modules/identity/homes";
+import { classOverviewPath, classPath, classSessionPath, gameInsightPath, HOME_PATH } from "@/modules/identity/homes";
 import { PageShell } from "@/modules/identity/page-shell";
 import { osloDateText } from "@/modules/sessions/dates";
 
 import { type ClassOverview, classOverviewKey, type OverviewAnswer, type OverviewGame, useClassOverview } from "./api";
 import { OverviewRail } from "./overview-rail";
-import { OverviewWall } from "./overview-wall";
+import { OverviewWall, rememberReturn, type ReturnTo } from "./overview-wall";
 import {
   changedGames,
   clockWithSeconds,
@@ -214,6 +216,7 @@ function OverviewBody({
 }) {
   const data = answer.overview;
   const now = useServerNow(data.server_now, answer.receivedAt);
+  const returnTo = useReturnTo(sessionId);
   const counts = headline(data.counts);
   // The headline counts, read out politely at most once a minute (UX-DR44); nothing else here is.
   const said = useThrottledAnnouncement(data.before_start ? "" : counts);
@@ -221,7 +224,7 @@ function OverviewBody({
   if (data.before_start) {
     return (
       <RailLayout rail={<OverviewRail data={data} groups={groups} now={now} />}>
-        <Allocation data={data} />
+        <Allocation data={data} sessionId={sessionId} />
       </RailLayout>
     );
   }
@@ -248,7 +251,7 @@ function OverviewBody({
             <>
               <h2 className="mt-12 text-headline text-ink">{copy.listTitle}</h2>
               {groups.map((group) => (
-                <Group key={group.name} group={group} now={now} />
+                <Group key={group.name} group={group} now={now} sessionId={sessionId} />
               ))}
             </>
           ) : undefined
@@ -257,10 +260,49 @@ function OverviewBody({
         {groups.length === 0 ? (
           <p className="mt-8 text-body-phone text-ink lg:text-body">{copy.empty}</p>
         ) : (
-          <OverviewWall sessionId={sessionId} groups={groups} now={now} heldAt={controls.heldAt?.receivedAt ?? null} />
+          <OverviewWall
+            sessionId={sessionId}
+            groups={groups}
+            now={now}
+            heldAt={controls.heldAt?.receivedAt ?? null}
+            returnTo={returnTo}
+          />
         )}
       </RailLayout>
     </div>
+  );
+}
+
+/** Back from Spillinnsikt (Story 7.7): the game named in `?spill=` and the view in `?visning=`,
+ * read once, when the Oversikt opens; then the address drops them, so a reload or a later
+ * re-render does not move focus again. */
+function useReturnTo(sessionId: string): ReturnTo | null {
+  const params = useSearchParams();
+  const [found] = useState<ReturnTo | null>(() => {
+    const id = params.get("spill");
+    return id ? { id, view: params.get("visning") === "tabell" ? "table" : "wall" } : null;
+  });
+  useEffect(() => {
+    if (found) window.history.replaceState(null, "", classOverviewPath(sessionId));
+  }, [found, sessionId]);
+  return found;
+}
+
+/** A game's name as the link to its Spillinnsikt (Story 7.7). A click that opens it elsewhere (a
+ * new tab or window) leaves this page's address as it is. */
+function GameLink({ sessionId, gameId, name }: { sessionId: string; gameId: string; name: string }) {
+  return (
+    <Link
+      href={gameInsightPath(sessionId, gameId)}
+      onClick={(event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        rememberReturn(sessionId, gameId);
+      }}
+      standalone
+      className="min-w-tap-target-min"
+    >
+      {name}
+    </Link>
   );
 }
 
@@ -313,7 +355,7 @@ function AutoUpdate({ controls }: { controls: LiveControls }) {
   );
 }
 
-function Group({ group, now }: { group: OverviewGroup; now: number }) {
+function Group({ group, now, sessionId }: { group: OverviewGroup; now: number; sessionId: string }) {
   const id = useId();
   return (
     <section aria-labelledby={id} className="mt-6 max-w-5xl">
@@ -322,14 +364,14 @@ function Group({ group, now }: { group: OverviewGroup; now: number }) {
       </h3>
       <ul>
         {group.games.map((game) => (
-          <GameRow key={game.game_id} game={game} now={now} />
+          <GameRow key={game.game_id} game={game} now={now} sessionId={sessionId} />
         ))}
       </ul>
     </section>
   );
 }
 
-function GameRow({ game, now }: { game: OverviewGame; now: number }) {
+function GameRow({ game, now, sessionId }: { game: OverviewGame; now: number; sessionId: string }) {
   const name = copy.game(game.game_number ?? null);
   const cost = costText(game);
   const waits = waitLines(game, now);
@@ -338,7 +380,9 @@ function GameRow({ game, now }: { game: OverviewGame; now: number }) {
       data-game={game.game_id}
       className="grid grid-cols-1 gap-y-1 border-b border-hairline py-3 @2xl:grid-cols-[7rem_5rem_minmax(0,1fr)_10rem] @2xl:gap-x-6"
     >
-      <p className="text-label text-ink">{name}</p>
+      <p className="text-label text-ink">
+        <GameLink sessionId={sessionId} gameId={game.game_id} name={name} />
+      </p>
       <p className="text-body-phone text-ink-secondary tabular-nums lining-nums lg:text-body">
         {game.week != null ? copy.week(game.week) : null}
       </p>
@@ -375,7 +419,7 @@ function Seats({ game, label }: { game: OverviewGame; label: string }) {
 }
 
 /** Before the Start date: the allocation, game by game, with no Week and no cost (Story 7.1). */
-function Allocation({ data }: { data: ClassOverview }) {
+function Allocation({ data, sessionId }: { data: ClassOverview; sessionId: string }) {
   const id = useId();
   const games = [...data.items].sort((a, b) => (a.game_number ?? 0) - (b.game_number ?? 0));
   return (
@@ -398,7 +442,9 @@ function Allocation({ data }: { data: ClassOverview }) {
                 data-game={game.game_id}
                 className="grid grid-cols-1 gap-y-1 border-b border-hairline py-3 lg:grid-cols-[7rem_minmax(0,1fr)] lg:gap-x-6"
               >
-                <p className="text-label text-ink">{name}</p>
+                <p className="text-label text-ink">
+                  <GameLink sessionId={sessionId} gameId={game.game_id} name={name} />
+                </p>
                 <Seats game={game} label={copy.seatsLabel(name)} />
               </li>
             );

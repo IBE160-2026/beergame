@@ -19,6 +19,17 @@ from app.modules.games.checks import (
     rules_versions_without_package,
     verify_finished,
 )
+from app.modules.games.insight import (
+    GameInsight,
+    InsightLink,
+    InsightLinkProvider,
+    InsightRole,
+    InsightSeat,
+    InsightWeek,
+    game_insight,
+    register_insight_links,
+    unregister_insight_links,
+)
 from app.modules.games.marks import seat_mark
 from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, policy, purposes_with
 from app.modules.games.schemas import (
@@ -60,6 +71,15 @@ from app.modules.games.views import (
 from app.platform.db import get_sessionmaker
 
 __all__ = [
+    "GameInsight",
+    "InsightLink",
+    "InsightLinkProvider",
+    "InsightRole",
+    "InsightSeat",
+    "InsightWeek",
+    "game_insight",
+    "register_insight_links",
+    "unregister_insight_links",
     "ClassGameSummary",
     "ClassGameWeeks",
     "WeekSeatValues",

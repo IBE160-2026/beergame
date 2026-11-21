@@ -1886,6 +1886,24 @@
         "title": "DemandStepNoise",
         "type": "object"
       },
+      "DemandWeekOut": {
+        "properties": {
+          "demand": {
+            "title": "Demand",
+            "type": "integer"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "demand"
+        ],
+        "title": "DemandWeekOut",
+        "type": "object"
+      },
       "EnrolledClassListOut": {
         "description": "The Classes the User is a Student in, by name. No paging: a Student has a handful.",
         "properties": {
@@ -2197,6 +2215,100 @@
           "count"
         ],
         "title": "FunnelStageOut",
+        "type": "object"
+      },
+      "GameInsightOut": {
+        "description": "Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Game week by week, for the staff of its\nClass only. The only answer that gives the staff the full chain, the demand series and the\nnumber of Weeks. Seats and Roles in chain order, the Role serving the customer first.",
+        "properties": {
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "demand": {
+            "items": {
+              "$ref": "#/components/schemas/DemandWeekOut"
+            },
+            "title": "Demand",
+            "type": "array"
+          },
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/InsightRoleOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/InsightSeatOut"
+            },
+            "title": "Seats",
+            "type": "array"
+          },
+          "session_number": {
+            "title": "Session Number",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GameStatus"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "weeks_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weeks Total"
+          }
+        },
+        "required": [
+          "game_id",
+          "class_session_id",
+          "class_id",
+          "class_name",
+          "session_number",
+          "game_number",
+          "status",
+          "version",
+          "weeks_total",
+          "demand",
+          "seats",
+          "roles"
+        ],
+        "title": "GameInsightOut",
         "type": "object"
       },
       "GameResult": {
@@ -2544,6 +2656,169 @@
           }
         },
         "title": "InfoVisibility",
+        "type": "object"
+      },
+      "InsightLinkOut": {
+        "description": "A link for one Seat's Student on Spillinnsikt (FR-62), from a provider a later module\nregistered (`games.service.register_insight_links`, Epic 9): `kind` names it, the page words\nit; `href` is a path in the web app.",
+        "properties": {
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "href"
+        ],
+        "title": "InsightLinkOut",
+        "type": "object"
+      },
+      "InsightRoleOut": {
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/InsightWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "role",
+          "weeks"
+        ],
+        "title": "InsightRoleOut",
+        "type": "object"
+      },
+      "InsightSeatOut": {
+        "description": "A Seat of the Game on Spillinnsikt as held now, like the Oversikt's, with its links.",
+        "properties": {
+          "holder": {
+            "enum": [
+              "student",
+              "ai",
+              "free"
+            ],
+            "title": "Holder",
+            "type": "string"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/InsightLinkOut"
+            },
+            "title": "Links",
+            "type": "array"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role",
+          "holder",
+          "name",
+          "links"
+        ],
+        "title": "InsightSeatOut",
+        "type": "object"
+      },
+      "InsightWeekOut": {
+        "description": "One Seat in one opened Week (Story 7.7, FR-62, AD-1): the values the engine stored in the\nWeek state, the Order from the Decision log, who held the Seat and its marks (AD-15).",
+        "properties": {
+          "backlog": {
+            "title": "Backlog",
+            "type": "integer"
+          },
+          "cost": {
+            "title": "Cost",
+            "type": "string"
+          },
+          "holder": {
+            "enum": [
+              "student",
+              "ai",
+              "free"
+            ],
+            "title": "Holder",
+            "type": "string"
+          },
+          "incoming_delivery": {
+            "title": "Incoming Delivery",
+            "type": "integer"
+          },
+          "incoming_order": {
+            "title": "Incoming Order",
+            "type": "integer"
+          },
+          "inventory": {
+            "title": "Inventory",
+            "type": "integer"
+          },
+          "marks": {
+            "items": {
+              "$ref": "#/components/schemas/SeatMark"
+            },
+            "title": "Marks",
+            "type": "array"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "holder",
+          "name",
+          "incoming_order",
+          "incoming_delivery",
+          "inventory",
+          "backlog",
+          "order",
+          "cost",
+          "marks"
+        ],
+        "title": "InsightWeekOut",
         "type": "object"
       },
       "InstitutionChoice": {
@@ -4027,7 +4302,7 @@
         "type": "object"
       },
       "RoleCostOut": {
-        "description": "One Role's mean cost per finished Class game, split into lager and restordre (Story 7.6,\nUX-DR72), in øre as decimal strings; `total_cost` is their sum.",
+        "description": "One Role's mean cost per finished Class game, split into lager and restordre (Story 7.6,\nUX-DR72), in kroner rounded to the øre, as decimal strings; `total_cost` is their sum.",
         "properties": {
           "backorder_cost": {
             "title": "Backorder Cost",
@@ -4533,9 +4808,19 @@
         "type": "object"
       },
       "SeatMark": {
-        "description": "What a Seat's row says beyond its holder (AD-15, Story 6.14), from the one mapping\n`games.service.seat_mark`. Later stories add the marks they need.",
+        "description": "What a Seat's row says beyond its holder (AD-15, Story 6.14), from the one mapping\n`games.service.seat_mark`. Story 7.7 adds a mark for every other occupancy `reason` and every\n`fallback` (FR-34, FR-62).",
         "enum": [
-          "guard_switch"
+          "guard_switch",
+          "cost_limit",
+          "takeover_inactivity",
+          "takeover_staff",
+          "takeover_peer",
+          "reclaim",
+          "playout",
+          "fallback_timeout",
+          "fallback_invalid_output",
+          "fallback_budget_exhausted",
+          "fallback_provider_error"
         ],
         "title": "SeatMark",
         "type": "string"
@@ -10911,6 +11196,72 @@
           }
         },
         "summary": "Stream Events"
+      }
+    },
+    "/api/games/{game_id}/insight": {
+      "get": {
+        "description": "Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Class game week by week for the staff of\nits Class — per Role and opened Week the incoming order and delivery, inventory, backlog,\nOrder and cost as stored, who held the Seat and its marks (AD-15), the Seats with their link\nslots, the customer demand series and the number of Weeks. With an `ETag`; a request whose\n`If-None-Match` names it is answered 304. 403 `forbidden`, one answer, for anyone who is not\nstaff of the Game's Class, a Student included, and for a Game that does not exist or that\nthe Oversikt does not list (FR-5, NFR-7).",
+        "operationId": "getGameInsight",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameInsightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified since the ETag."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Game Insight",
+        "tags": [
+          "sessions"
+        ]
       }
     },
     "/api/games/{game_id}/weeks": {

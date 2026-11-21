@@ -81,6 +81,27 @@ export function useClassOverview(sessionId: string) {
   });
 }
 
+/** Spillinnsikt (Story 7.7): one Class game week by week, for the staff of its Class. */
+export type GameInsight = components["schemas"]["GameInsightOut"];
+export type InsightSeat = GameInsight["seats"][number];
+export type InsightRole = GameInsight["roles"][number];
+export type InsightWeek = InsightRole["weeks"][number];
+export type SeatMark = InsightWeek["marks"][number];
+export const gameInsightKey = (gameId: string) => ["games", "insight", gameId] as const;
+
+/** `/api/games/{id}/insight`: anyone but the staff of the game's Class, and a game that does not
+ * exist, answers 403 `forbidden`. Read again on the game's `game:<id>` event (`topics.ts`). */
+export function useGameInsight(gameId: string) {
+  return useQuery({
+    queryKey: gameInsightKey(gameId),
+    queryFn: () =>
+      request(() =>
+        api.GET("/api/games/{game_id}/insight", { params: { path: { game_id: gameId } }, cache: "no-store" }),
+      ),
+    retry: false,
+  });
+}
+
 /** A Class game's opened Weeks, per Role (Story 7.2): the Matrisevegg's cells. */
 export type GameWeeks = components["schemas"]["GameWeeksOut"];
 

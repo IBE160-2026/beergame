@@ -67,6 +67,10 @@ export type MatrixTableProps = {
   footer?: readonly TableFooterRow[];
   maxHeight?: string;
   className?: string;
+  /** Opens a game (Story 7.7, Spillinnsikt): a click on its row, or Enter on its row header. */
+  onActivate?: (id: string) => void;
+  /** Puts focus on the `focusId` game's row header once it is there (back from Spillinnsikt). */
+  autoFocus?: boolean;
 };
 
 const CELL = "border-b border-hairline px-[0.5em] align-middle";
@@ -103,6 +107,8 @@ export function MatrixTable({
   footer = [],
   maxHeight = "70vh",
   className,
+  onActivate,
+  autoFocus = false,
 }: MatrixTableProps) {
   const body = useRef<HTMLTableSectionElement>(null);
   const rowFocused = useRef(false);
@@ -146,8 +152,26 @@ export function MatrixTable({
     if (element && document.activeElement !== element) element.focus({ preventScroll: true });
   });
 
+  // Back from Spillinnsikt: focus the row header of the game the caller names, once it is there.
+  const autoFocused = useRef(false);
+  useEffect(() => {
+    if (!autoFocus || autoFocused.current || !wanted || target !== wanted) return;
+    const element = headerOf(target);
+    if (!element) return;
+    autoFocused.current = true;
+    element.focus();
+  });
+
   const onKeyDown = (event: KeyboardEvent<HTMLTableSectionElement>) => {
     if (!target || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (event.key === "Enter" && onActivate) {
+      const header = (event.target as Element).closest?.("th[data-game]");
+      if (header) {
+        event.preventDefault();
+        onActivate(header.getAttribute("data-game")!);
+      }
+      return;
+    }
     const next = nextRow(
       ordered.map((row) => row.id),
       target,
@@ -232,7 +256,12 @@ export function MatrixTable({
         </thead>
         <tbody ref={body} onKeyDown={onKeyDown}>
           {ordered.map((row) => (
-            <tr key={row.id} data-row={row.id}>
+            <tr
+              key={row.id}
+              data-row={row.id}
+              onClick={onActivate ? () => onActivate(row.id) : undefined}
+              className={onActivate ? "cursor-pointer" : undefined}
+            >
               <th
                 scope="row"
                 data-game={row.id}

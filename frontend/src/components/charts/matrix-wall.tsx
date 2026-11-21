@@ -1,6 +1,6 @@
 "use client";
 
-import { type KeyboardEvent, useCallback, useId, useLayoutEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
 import { fitsCell, graphHeight, MedianGraph, type WallSummary, type WallSummaryRow } from "./matrix-median";
 import {
@@ -81,6 +81,10 @@ export type MatrixWallProps = {
   scale?: WallScale;
   /** The class median graph over the wall and its rows under it, from the api (Story 7.4). */
   summary?: WallSummary;
+  /** Opens a game (Story 7.7, Spillinnsikt): a click on its row, or Enter on any of its cells. */
+  onActivate?: (id: string) => void;
+  /** Puts focus on the `position` cell once its game's cells are drawn (back from Spillinnsikt). */
+  autoFocus?: boolean;
 };
 
 const PAPER = colour("paper");
@@ -110,6 +114,8 @@ export function MatrixWall({
   onPosition,
   scale = "net",
   summary,
+  onActivate,
+  autoFocus = false,
 }: MatrixWallProps) {
   const id = useId();
   const region = useRef<HTMLDivElement>(null);
@@ -199,8 +205,24 @@ export function MatrixWall({
     if (element && document.activeElement !== element) element.focus({ preventScroll: true });
   });
 
+  // Back from Spillinnsikt: focus the cell of the game the caller names, once it is drawn.
+  const autoFocused = useRef(false);
+  useEffect(() => {
+    if (!autoFocus || autoFocused.current || !target || !active || target.id !== active.id) return;
+    const element = cellElement(target);
+    if (!element) return;
+    autoFocused.current = true;
+    element.focus();
+    reveal(element, target);
+  });
+
   const onKeyDown = (event: KeyboardEvent<SVGSVGElement>) => {
     if (!target || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (event.key === "Enter" && onActivate) {
+      event.preventDefault();
+      onActivate(target.id);
+      return;
+    }
     const next = moveFocus(reachable, target, event.key);
     if (!next) return;
     event.preventDefault();
@@ -370,6 +392,7 @@ export function MatrixWall({
                   clipLabels={clipLabels}
                   stuckX={stuckX}
                   textY={textY}
+                  onActivate={onActivate}
                 />
               ))}
             </g>
@@ -418,6 +441,7 @@ function Row({
   clipLabels,
   stuckX,
   textY,
+  onActivate,
 }: {
   row: WallRow;
   y: number;
@@ -432,11 +456,19 @@ function Row({
   clipLabels: string;
   stuckX: { transform: string };
   textY: (top: number, h: number) => number;
+  onActivate?: (id: string) => void;
 }) {
   const h = size.rowHeight;
   const cellsEnd = size.labelWidth + row.values.length * size.cellWidth;
   return (
-    <g role="row" aria-rowindex={rowIndex} data-row={row.id} data-y={y}>
+    <g
+      role="row"
+      aria-rowindex={rowIndex}
+      data-row={row.id}
+      data-y={y}
+      onClick={onActivate ? () => onActivate(row.id) : undefined}
+      className={onActivate ? "cursor-pointer" : undefined}
+    >
       <g clipPath={`url(#${clipLabels})`}>
         <g style={stuckX}>
           <g role="rowheader" aria-label={row.rowName} aria-colindex={1}>

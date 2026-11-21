@@ -1411,6 +1411,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/games/{game_id}/insight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Game Insight
+         * @description Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Class game week by week for the staff of
+         *     its Class — per Role and opened Week the incoming order and delivery, inventory, backlog,
+         *     Order and cost as stored, who held the Seat and its marks (AD-15), the Seats with their link
+         *     slots, the customer demand series and the number of Weeks. With an `ETag`; a request whose
+         *     `If-None-Match` names it is answered 304. 403 `forbidden`, one answer, for anyone who is not
+         *     staff of the Game's Class, a Student included, and for a Game that does not exist or that
+         *     the Oversikt does not list (FR-5, NFR-7).
+         */
+        get: operations["getGameInsight"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/games/{game_id}/weeks": {
         parameters: {
             query?: never;
@@ -2588,6 +2614,13 @@ export interface components {
             /** Start */
             start: number;
         };
+        /** DemandWeekOut */
+        DemandWeekOut: {
+            /** Demand */
+            demand: number;
+            /** Week */
+            week: number;
+        };
         /**
          * EnrolledClassListOut
          * @description The Classes the User is a Student in, by name. No paging: a Student has a handful.
@@ -2716,6 +2749,46 @@ export interface components {
              * @enum {string}
              */
             stage: "registered" | "class_game" | "debrief" | "quiz_passed" | "replay" | "test_submitted" | "assessment_ready";
+        };
+        /**
+         * GameInsightOut
+         * @description Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Game week by week, for the staff of its
+         *     Class only. The only answer that gives the staff the full chain, the demand series and the
+         *     number of Weeks. Seats and Roles in chain order, the Role serving the customer first.
+         */
+        GameInsightOut: {
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Demand */
+            demand: components["schemas"]["DemandWeekOut"][];
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+            /** Game Number */
+            game_number: number | null;
+            /** Roles */
+            roles: components["schemas"]["InsightRoleOut"][];
+            /** Seats */
+            seats: components["schemas"]["InsightSeatOut"][];
+            /** Session Number */
+            session_number: number;
+            status: components["schemas"]["GameStatus"];
+            /** Version */
+            version: number;
+            /** Weeks Total */
+            weeks_total: number | null;
         };
         /**
          * GameResult
@@ -2913,6 +2986,70 @@ export interface components {
              * @default false
              */
             upstream: boolean;
+        };
+        /**
+         * InsightLinkOut
+         * @description A link for one Seat's Student on Spillinnsikt (FR-62), from a provider a later module
+         *     registered (`games.service.register_insight_links`, Epic 9): `kind` names it, the page words
+         *     it; `href` is a path in the web app.
+         */
+        InsightLinkOut: {
+            /** Href */
+            href: string;
+            /** Kind */
+            kind: string;
+        };
+        /** InsightRoleOut */
+        InsightRoleOut: {
+            role: components["schemas"]["Role"];
+            /** Weeks */
+            weeks: components["schemas"]["InsightWeekOut"][];
+        };
+        /**
+         * InsightSeatOut
+         * @description A Seat of the Game on Spillinnsikt as held now, like the Oversikt's, with its links.
+         */
+        InsightSeatOut: {
+            /**
+             * Holder
+             * @enum {string}
+             */
+            holder: "student" | "ai" | "free";
+            /** Links */
+            links: components["schemas"]["InsightLinkOut"][];
+            /** Name */
+            name: string | null;
+            role: components["schemas"]["Role"];
+        };
+        /**
+         * InsightWeekOut
+         * @description One Seat in one opened Week (Story 7.7, FR-62, AD-1): the values the engine stored in the
+         *     Week state, the Order from the Decision log, who held the Seat and its marks (AD-15).
+         */
+        InsightWeekOut: {
+            /** Backlog */
+            backlog: number;
+            /** Cost */
+            cost: string;
+            /**
+             * Holder
+             * @enum {string}
+             */
+            holder: "student" | "ai" | "free";
+            /** Incoming Delivery */
+            incoming_delivery: number;
+            /** Incoming Order */
+            incoming_order: number;
+            /** Inventory */
+            inventory: number;
+            /** Marks */
+            marks: components["schemas"]["SeatMark"][];
+            /** Name */
+            name: string | null;
+            /** Order */
+            order: number | null;
+            /** Week */
+            week: number;
         };
         /** InstitutionChoice */
         InstitutionChoice: {
@@ -3603,7 +3740,7 @@ export interface components {
         /**
          * RoleCostOut
          * @description One Role's mean cost per finished Class game, split into lager and restordre (Story 7.6,
-         *     UX-DR72), in øre as decimal strings; `total_cost` is their sum.
+         *     UX-DR72), in kroner rounded to the øre, as decimal strings; `total_cost` is their sum.
          */
         RoleCostOut: {
             /** Backorder Cost */
@@ -3819,10 +3956,11 @@ export interface components {
         /**
          * SeatMark
          * @description What a Seat's row says beyond its holder (AD-15, Story 6.14), from the one mapping
-         *     `games.service.seat_mark`. Later stories add the marks they need.
+         *     `games.service.seat_mark`. Story 7.7 adds a mark for every other occupancy `reason` and every
+         *     `fallback` (FR-34, FR-62).
          * @enum {string}
          */
-        SeatMark: "guard_switch";
+        SeatMark: "guard_switch" | "cost_limit" | "takeover_inactivity" | "takeover_staff" | "takeover_peer" | "reclaim" | "playout" | "fallback_timeout" | "fallback_invalid_output" | "fallback_budget_exhausted" | "fallback_provider_error";
         /**
          * SeatRef
          * @description A Seat named by its Class game's number and its Role: «Grossist i Spill 17».
@@ -8163,6 +8301,62 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": unknown;
+                };
+            };
+        };
+    };
+    getGameInsight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameInsightOut"];
+                };
+            };
+            /** @description Not modified since the ETag. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

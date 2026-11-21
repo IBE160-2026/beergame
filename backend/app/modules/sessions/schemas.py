@@ -904,6 +904,81 @@ class GameWeeksOut(BaseModel):
     weeks: list[GameWeekOut]
 
 
+class InsightLinkOut(BaseModel):
+    """A link for one Seat's Student on Spillinnsikt (FR-62), from a provider a later module
+    registered (`games.service.register_insight_links`, Epic 9): `kind` names it, the page words
+    it; `href` is a path in the web app."""
+
+    kind: str
+    href: str
+
+
+class InsightSeatOut(BaseModel):
+    """A Seat of the Game on Spillinnsikt as held now, like the Oversikt's, with its links."""
+
+    role: Role
+    holder: TableHolder
+    name: str | None
+    """The Student's name now; None for an AI player, a free Seat, or a Student no longer in the
+    Class."""
+    links: list[InsightLinkOut]
+    """Only on a Student-held Seat; empty until Epic 9 registers a provider."""
+
+
+class InsightWeekOut(BaseModel):
+    """One Seat in one opened Week (Story 7.7, FR-62, AD-1): the values the engine stored in the
+    Week state, the Order from the Decision log, who held the Seat and its marks (AD-15)."""
+
+    week: int
+    holder: TableHolder
+    """Who held the Seat that Week: a Student, any AI player (`ai`), or nobody (`free`)."""
+    name: str | None
+    """The Student's name now; None for an AI player or a Student no longer in the Class."""
+    incoming_order: int
+    incoming_delivery: int
+    inventory: int
+    backlog: int
+    order: int | None
+    """None while the Order has not been placed."""
+    cost: Decimal
+    """That Week's cost, as a decimal string."""
+    marks: list[SeatMark]
+    """The seat mark in the Week its occupancy began (a Takeover, a switch), then the Order's
+    (a fallback); from `games.service.seat_mark` only."""
+
+
+class InsightRoleOut(BaseModel):
+    role: Role
+    weeks: list[InsightWeekOut]
+    """Every opened Week, Week 1 first; empty before the start."""
+
+
+class DemandWeekOut(BaseModel):
+    week: int
+    demand: int
+    """The customer demand the first Role received that Week, as stored."""
+
+
+class GameInsightOut(BaseModel):
+    """Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Game week by week, for the staff of its
+    Class only. The only answer that gives the staff the full chain, the demand series and the
+    number of Weeks. Seats and Roles in chain order, the Role serving the customer first."""
+
+    game_id: uuid.UUID
+    class_session_id: uuid.UUID
+    class_id: uuid.UUID
+    class_name: str
+    session_number: int
+    game_number: int | None
+    status: GameStatus
+    version: int
+    weeks_total: int | None
+    """The number of Weeks in the Game's snapshot; None before it has one."""
+    demand: list[DemandWeekOut]
+    seats: list[InsightSeatOut]
+    roles: list[InsightRoleOut]
+
+
 class WallCells(StrEnum):
     """What the Matrisevegg's cells show (Story 7.4, the Celler filter)."""
 

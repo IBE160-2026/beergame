@@ -44,6 +44,16 @@ export const classSessionPath = (id: string) => `/klasseokter/${encodeURICompone
 /** The Oversikt of a Class session's Class games, for its staff (Story 7.1). */
 export const classOverviewPath = (id: string) => `${classSessionPath(id)}/oversikt`;
 
+/** The Oversikt again, back from Spillinnsikt (Story 7.7): focus returns to the game `gameId`, in
+ * the wall or, with `view` «tabell», in «Vis som tabell». */
+export const overviewReturnPath = (id: string, gameId: string, view: "wall" | "table" = "wall") =>
+  `${classOverviewPath(id)}?spill=${encodeURIComponent(gameId)}${view === "table" ? "&visning=tabell" : ""}`;
+
+/** Spillinnsikt: one Class game week by week, for the staff (Story 7.7); opened from «Vis som
+ * tabell», it says so, so its Oversikt crumb returns to the table. */
+export const gameInsightPath = (sessionId: string, gameId: string, view: "wall" | "table" = "wall") =>
+  `${classOverviewPath(sessionId)}/spill/${encodeURIComponent(gameId)}${view === "table" ? "?visning=tabell" : ""}`;
+
 /** A Student's «Velg spill og sete» in a Class session with Student choice (Story 5.17). */
 export const seatChoicePath = (id: string) => `${classSessionPath(id)}/velg-sete`;
 
