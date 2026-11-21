@@ -63,7 +63,8 @@ export function AllRowsView({
     <div data-all-rows="" className="bg-paper">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 ref={title} tabIndex={-1} className="text-title-phone text-ink outline-none">
+          {/* 24 px, weight 700, as drawn (DESIGN.md → Alle rader og kostnad), not `title-phone`. */}
+          <h1 ref={title} tabIndex={-1} className="text-[1.5rem] leading-[1.2] font-bold text-ink outline-none">
             {copy.title(state.week)}
           </h1>
           <p className="mt-1 text-body-phone text-ink-secondary lg:text-body">{subtitle}</p>
