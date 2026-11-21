@@ -2347,3 +2347,24 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #154: beslutninger og den ustabile `week-advance`-testen.
+
+## Story 9.7: Se egne øyeblikk, laget fra faktasettet (spor 2)
+
+### Oppgave
+Bygge Story 9.7 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-7-see-my-own-moments-rendered-from-the-facts.md` (på `epic-9`).
+- Commit: 26d2e33. I tillegg 07e2db3 (grensen i `week-advance` fra spor 1, plukket inn).
+- Steg 4: tre egne øyeblikk, ett om gangen, med setninger fylt inn av kode fra faktasettet, grafen over tabellen i den uken, mønsteret, hva de andre så, og studentens egen Forklaring ved siden av. Ny innholdstype `moment_templates` (migrasjon 0106) og tabellen `debrief_fact_sets`.
+- Tester: backend 2908 på 81 s (kjørt av orkestratoren etter byggeagentens siste retting), Vitest 752, typecheck, bygg, Playwright 134.
+- Gjennomgang: 23 funn, ingen høye eller middels, 4 rettet.
+- Ti e2e-tester feilet i én kjøring mens gjennomgangsagentene kjørte, og passerte ved ny kjøring.
+- Visuell kontroll (Sonnet, spor 2): ti skjermbilder i `screenshots/9.7/` (a36cd06). Rettet at tabellen «Dette så de andre i Uke N» rullet hele siden sidelengs ved 200 % tekst (e2a559d). Tabell i stedet for linjer som i mockupen er beholdt.
+- Status: done.
+
+### Åpne punkter
+- Issue #155: beslutninger og ustabile e2e-tester under last.
