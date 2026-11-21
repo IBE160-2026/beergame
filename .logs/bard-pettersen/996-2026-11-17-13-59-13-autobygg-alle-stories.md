@@ -1833,3 +1833,29 @@ Bygge med `bmad-build-auto`, og kjøre bare e2e-filene for de berørte skjermene
 
 ### Åpne punkter
 - Issue 132: beslutninger i Story 6.14.
+
+## Story 6.15: Se den nye uka innen to sekunder, på alle enheter (2026-11-21)
+
+### Oppgave
+Bygge Story 6.15 etter kjøreboka.
+
+### Plan
+Måle først, så rette. Gjøre en visuell kontroll og avslutte. To gjennomgangsagenter i stedet for fire.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-15-see-new-week-within-two-seconds-on-any-device.md`.
+- **Commit a95c4cb:**
+  - rettingen i `live.ts`; ny uke vises nå etter 385–820 ms, mot 590–706 ms før;
+  - oppsummering av ukeovergangen og nå-linja som glir;
+  - ruten for lokal lås (`/api/dev/…/lock`).
+- **Tester:**
+  - backend: 2731 tester (96 s, over grensen);
+  - frontend: Vitest 658 og bygg;
+  - Playwright: 406 tester i full kjøring.
+- **Gjennomgang:** 31 funn, 1 middels. 8 ble rettet.
+- **Visuell kontroll:** 29 skjermbilder i `screenshots/6.15/`. Ett avvik er rettet (b1e1c18).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 133: beslutninger i Story 6.15.
+- Backend-pakken er gjort raskere: fra 78,7 s til 59,8 s (commit 17af926).
