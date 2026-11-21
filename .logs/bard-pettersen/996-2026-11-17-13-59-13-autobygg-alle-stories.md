@@ -2550,3 +2550,21 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (datamod
 
 ### Åpne punkter
 - Issue #164: beslutninger og utsatte punkter.
+
+## Avslutning av Epic 7
+
+### Oppgave
+Avslutte Epic 7 (7.1–7.11) med visuell kontroll av 7.11, oppfølgende rettinger, stabilisering, PR og CI, i et eget worktree mens spor 1 startet Epic 8 og spor 2 bygde Epic 9.
+
+### Plan
+Én agent i `.claude/worktrees/epic7` med egen stack (8090/5434), etter «Faster flow» i kjøreboka. Orkestratoren merget etter grønn CI.
+
+### Resultat
+- Visuell kontroll av 7.11 i `screenshots/7.11/`, og bilder etter rettingene i `screenshots/epic-7-avslutning/`.
+- Rettinger (6c31495, 06486a0): «Fordeling 0» og avstand i «Ikke startet», overskriften på Landing ved 200 % tekst, harde mellomrom i ventetider, verdietiketter i «Lager og restordre», `ScrollRegion` uten fading (1 px linje og synlig rullefelt), sidehodet på én linje ved 390 px, e2e for en student i to klasser, og `nextMail` som venter på bestemt tekst.
+- Hele Playwright-pakken passerte to ganger på rad, 464 av 464. Vitest 830, typecheck, `lint:colours`, `check:copy` og bygg passerte.
+- Backend-pakken ble ikke raskere: 121–162 s mens to andre agenter brukte maskinen. Summen av testtidene er 755 s, så 8 prosesser kan ikke komme mye under 94 s. Det trengs felles, ferdigspilte spill som fikstur.
+- PR #165 med grønn CI, merget til `main`. `epic-7` satt til done.
+
+### Åpne punkter
+- Issue #166: utsatte punkter fra Epic 7 (gjenoppbygging av `game_summaries`, hendelse ved endring i klasselista, gruppe for «pause» i Epic 8, fart på backend-pakken, mindre UX-punkter, én test i `test_place_order.py` som feilet én gang under last).
