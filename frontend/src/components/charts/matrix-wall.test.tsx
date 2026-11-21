@@ -1,0 +1,167 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+
+import { formatNumber } from "@/lib/number-format";
+
+import { MatrixWall, type MatrixWallCopy } from "./matrix-wall";
+import { cellText, headerWeeks, moveFocus, NET_STEPS, netStep, stepText, wallSizes } from "./matrix-wall-layout";
+import { colour } from "./palette";
+
+describe("the Matrisevegg's cell rule (Story 7.2, DESIGN.md → Components → Matrisevegg)", () => {
+  it("prints the signed number when it fits with 1 px to spare on each side", () => {
+    // At 9 px a digit and the true minus are each at most 0.54 em: «−13» needs 15 px, «8» 5 px.
+    expect(cellText(-13, "−13", 17, 9)).toEqual({ kind: "number", text: "−13" });
+    expect(cellText(8, "8", 7, 9)).toEqual({ kind: "number", text: "8" });
+    expect(cellText(0, "0", 15, 9)).toEqual({ kind: "number", text: "0" });
+  });
+
+  it("else prints only a centred true minus below zero, and leaves other cells blank", () => {
+    expect(cellText(-13, "−13", 16, 9)).toEqual({ kind: "minus", text: "−" });
+    expect(cellText(-13, "−13", 15, 9)).toEqual({ kind: "minus", text: "−" });
+    expect(cellText(-120, "−120", 15, 9)).toEqual({ kind: "minus", text: "−" });
+    expect(cellText(13, "13", 11, 9)).toEqual({ kind: "blank", text: "" });
+    expect(cellText(0, "0", 6, 9)).toEqual({ kind: "blank", text: "" });
+  });
+
+  it("writes ink on zero and steps 1–2 and paper on steps 3–4", () => {
+    expect(NET_STEPS.map((step) => [step, stepText(step)])).toEqual([
+      ["neg-4", "paper"],
+      ["neg-3", "paper"],
+      ["neg-2", "ink"],
+      ["neg-1", "ink"],
+      ["zero", "ink"],
+      ["pos-1", "ink"],
+      ["pos-2", "ink"],
+      ["pos-3", "paper"],
+      ["pos-4", "paper"],
+    ]);
+  });
+
+  it("bins the legend's edges as written: −35 og lavere … 35 og over", () => {
+    expect([-35, -34, -20, -19, -10, -9, -1, 0, 1, 9, 10, 19, 20, 34, 35].map(netStep)).toEqual([
+      "neg-4",
+      "neg-3",
+      "neg-3",
+      "neg-2",
+      "neg-2",
+      "neg-1",
+      "neg-1",
+      "zero",
+      "pos-1",
+      "pos-1",
+      "pos-2",
+      "pos-2",
+      "pos-3",
+      "pos-3",
+      "pos-4",
+    ]);
+  });
+});
+
+describe("the Matrisevegg's layout", () => {
+  const base = { fontSize: 13, labels: ["Spill 12"], figures: ["12 345"], details: [] };
+
+  it("shares the width among the Uker, at least near-square and at most two rows wide", () => {
+    const wide = wallSizes({ ...base, width: 1200, columns: 36 });
+    expect(wide.cellWidth).toBeGreaterThanOrEqual(Math.ceil(wide.rowHeight * 0.85));
+    expect(wide.width).toBeLessThanOrEqual(1200);
+    const narrow = wallSizes({ ...base, width: 288, columns: 36 });
+    expect(narrow.cellWidth).toBe(Math.ceil(narrow.rowHeight * 0.85));
+    expect(narrow.width).toBeGreaterThan(288); // its region scrolls, never the page
+    expect(wallSizes({ ...base, width: 2000, columns: 3 }).cellWidth).toBe(wide.rowHeight * 2);
+  });
+
+  it("has no Uke column before any game has a Uke, yet room for a loading row's Skjelett", () => {
+    const empty = wallSizes({ ...base, width: 900, columns: 0 });
+    expect(empty.columns).toBe(0);
+    expect(empty.width).toBe(empty.labelWidth + 8 * empty.cellWidth);
+  });
+
+  it("never draws cell text under 9 px, and grows it with the text", () => {
+    expect(wallSizes({ ...base, width: 900, columns: 20 }).cellFont).toBe(9);
+    expect(wallSizes({ ...base, fontSize: 26, width: 900, columns: 20 }).cellFont).toBe(18);
+    expect(wallSizes({ ...base, fontSize: 10, width: 900, columns: 20 }).cellFont).toBe(9);
+  });
+
+  it("numbers every Uke in the header when they fit, else Uke 1 and every fifth", () => {
+    expect(headerWeeks(4, 30, 13)).toEqual([1, 2, 3, 4]);
+    expect(headerWeeks(12, 14, 13)).toEqual([1, 5, 10]);
+  });
+
+  it("moves focus cell by cell, between game rows, and to a row's ends", () => {
+    const rows = [
+      { id: "a", cells: 10 },
+      { id: "empty", cells: 0 },
+      { id: "b", cells: 4 },
+    ];
+    expect(moveFocus(rows, { id: "a", week: 3 }, "ArrowRight")).toEqual({ id: "a", week: 4 });
+    expect(moveFocus(rows, { id: "a", week: 1 }, "ArrowLeft")).toEqual({ id: "a", week: 1 });
+    expect(moveFocus(rows, { id: "a", week: 10 }, "ArrowRight")).toEqual({ id: "a", week: 10 });
+    expect(moveFocus(rows, { id: "a", week: 9 }, "ArrowDown")).toEqual({ id: "b", week: 4 });
+    expect(moveFocus(rows, { id: "b", week: 2 }, "ArrowUp")).toEqual({ id: "a", week: 2 });
+    expect(moveFocus(rows, { id: "b", week: 2 }, "ArrowDown")).toEqual({ id: "b", week: 2 });
+    expect(moveFocus(rows, { id: "a", week: 5 }, "Home")).toEqual({ id: "a", week: 1 });
+    expect(moveFocus(rows, { id: "a", week: 5 }, "End")).toEqual({ id: "a", week: 10 });
+    expect(moveFocus(rows, { id: "a", week: 5 }, "Enter")).toBeNull();
+  });
+});
+
+const COPY: MatrixWallCopy = {
+  region: "Alle spill",
+  title: "Netto lager for Fabrikk per uke i alle spill",
+  gameHeader: "Spill",
+  figureHeader: "Kjedekost",
+  week: (week) => `Uke ${week}`,
+  cell: (row, week, value) => `${row.label}, Uke ${week}: Netto lager ${value}.`,
+  bins: ["a", "b", "c", "d", "e", "f", "g", "h", "i"],
+  minusNote: "− i en celle: restordre (under null).",
+  legend: "Fargeskala for netto lager",
+};
+
+describe("the Matrisevegg SVG", () => {
+  const html = renderToStaticMarkup(
+    <MatrixWall
+      width={200}
+      fontSize={13}
+      copy={COPY}
+      format={(value) => formatNumber(value)}
+      groups={[
+        {
+          key: "waiting",
+          title: "Venter 1",
+          rows: [{ id: "g2", label: "Spill 2", figure: "1 058", rowName: "Spill 2, venter, kjedekost 1 058 kr", values: [12, -13, 0, -400] }],
+        },
+        { key: "running", title: "Pågår 1", rows: [{ id: "g3", label: "Spill 3", rowName: "Spill 3, pågår", values: [], loading: true }] },
+      ]}
+    />,
+  );
+
+  it("is a named grid in one named scroll region, with Uke headers, row headers and named cells", () => {
+    expect(html).toContain('role="region" aria-label="Alle spill" tabindex="0"');
+    expect(html).toMatch(/<svg[^>]*role="grid"/);
+    expect(html).toContain("<title");
+    expect(html).not.toContain('role="grid" aria-hidden');
+    expect(html.match(/role="columnheader"/g)).toHaveLength(5); // Spill + Uke 1–4
+    expect(html).toContain('aria-label="Uke 4"');
+    expect(html).toContain('role="rowheader" aria-label="Spill 2, venter, kjedekost 1 058 kr"');
+    expect(html).toContain('aria-label="Spill 2, Uke 2: Netto lager −13."');
+    expect(html.match(/role="gridcell"/g)).toHaveLength(4);
+  });
+
+  it("puts one cell in the Tab order: the first", () => {
+    expect(html.match(/tabindex="0"/g)).toHaveLength(2); // the region and one cell
+    expect(html).toMatch(/aria-label="Spill 2, Uke 1: Netto lager 12\." tabindex="0"/);
+  });
+
+  it("draws square cells in the matrix steps, with paper text on the dark steps", () => {
+    expect(html).not.toMatch(/<rect[^>]*\brx=/);
+    expect(html).toContain(`fill="${colour("net-neg-4")}"`);
+    expect(html).toMatch(new RegExp(`font-size="9" fill="${colour("paper")}"[^>]*>−</text>`));
+  });
+
+  it("shows the legend with every step and the minus line, and a Skjelett bar for a loading row", () => {
+    expect(html.match(/<li[ >]/g)).toHaveLength(9);
+    expect(html).toContain("− i en celle: restordre (under null).");
+    expect(html).toContain("data-skeleton");
+  });
+});

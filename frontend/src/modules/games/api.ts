@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
+import { useRef } from "react";
 
 import { api } from "@/lib/api/client";
 import { request } from "@/lib/api/mutation";
@@ -42,6 +43,43 @@ export function useClassOverview(sessionId: string) {
       ),
     retry: false,
   });
+}
+
+/** A Class game's opened Weeks, per Role (Story 7.2): the Matrisevegg's cells. */
+export type GameWeeks = components["schemas"]["GameWeeksOut"];
+
+/** Keyed by the Game's `version` too: a version the Oversikt has not seen is a new query, and a
+ * Game whose version stands is never fetched again (AD-10, AD-25). */
+export const gameWeeksKey = (gameId: string, version: number) => ["games", "weeks", gameId, version] as const;
+
+/**
+ * `/api/games/{id}/weeks` for each game the Oversikt listed, fetched on demand and again only when
+ * the summary list brings that game a new `version`. While a new version loads, the last one's
+ * weeks stay on screen. Returns the weeks by game id; a game still loading has none yet.
+ */
+export function useGameWeeks(games: readonly { game_id: string; version: number }[]) {
+  // A new version is a new query with no data of its own (`useQueries` matches by key), so the
+  // last weeks each game had stand in until it arrives: the cells never empty and focus stays.
+  const last = useRef(new Map<string, GameWeeks>());
+  const results = useQueries({
+    queries: games.map((game) => ({
+      queryKey: gameWeeksKey(game.game_id, game.version),
+      queryFn: () =>
+        request(() =>
+          api.GET("/api/games/{game_id}/weeks", { params: { path: { game_id: game.game_id } }, cache: "no-store" }),
+        ),
+      staleTime: Number.POSITIVE_INFINITY,
+      retry: false,
+    })),
+  });
+  const byGame = new Map<string, { data?: GameWeeks; failed: boolean }>();
+  results.forEach((result, i) => {
+    const id = games[i]!.game_id;
+    if (result.data) last.current.set(id, result.data);
+    const data = result.data ?? last.current.get(id);
+    byGame.set(id, { data, failed: result.isError && !data });
+  });
+  return byGame;
 }
 
 /** The play screen's one envelope (Story 6.6): the Student's own Seat in the open Week

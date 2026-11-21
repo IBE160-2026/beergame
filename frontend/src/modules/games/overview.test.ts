@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { GROUP, KRONER } from "@/lib/number-format";
 
-import type { OverviewGame } from "./api";
-import { clockWithSeconds, costText, groupsOf, headline, seatTexts, waitLines } from "./overview";
+import type { GameWeeks, OverviewGame } from "./api";
+import { clockWithSeconds, costText, groupsOf, headline, netValues, seatTexts, waitLines, wallGroups } from "./overview";
 
 const HOUR = 3_600_000;
 
@@ -83,5 +83,64 @@ describe("seatTexts and costText", () => {
 describe("clockWithSeconds", () => {
   it("reads Europe/Oslo time with seconds", () => {
     expect(clockWithSeconds(Date.parse("2026-11-21T13:02:15Z"))).toBe("14:02:15");
+  });
+});
+
+function weeksOf(gameId: string, nets: number[]): GameWeeks {
+  return {
+    game_id: gameId,
+    version: 1,
+    weeks: nets.map((net, i) => ({
+      week: i + 1,
+      seats: [
+        { role: "retailer", net_inventory: 99, order: 4, cost: "1.0000" },
+        { role: "factory", net_inventory: net, order: null, cost: "2.0000" },
+      ],
+    })),
+  };
+}
+
+describe("wallGroups (Story 7.2)", () => {
+  const now = Date.parse("2026-11-21T12:00:00Z");
+  const groups = groupsOf([
+    game({
+      game_number: 2,
+      status: "waiting",
+      chain_cost: "1058.4000",
+      wait_started_at: "2026-11-20T13:00:00Z",
+      waiting_for: [{ role: "wholesaler", name: "Noah", since: "2026-11-20T13:00:00Z" }],
+    }),
+    game({ game_number: 4, status: "finished", chain_cost: "980.0000" }),
+    game({ game_number: 7, status: "running" }),
+  ]);
+
+  it("keeps the Oversikt's groups and order, with the count in each header", () => {
+    const wall = wallGroups(groups, new Map(), "factory", now);
+    expect(wall.map((g) => [g.title, g.rows.map((r) => r.label)])).toEqual([
+      ["Venter 1", ["Spill 2"]],
+      ["Pågår 1", ["Spill 7"]],
+      ["Ferdig, lavest kjedekost øverst 1", ["Spill 4"]],
+    ]);
+  });
+
+  it("labels a row with game, status or wait and kjedekost, and reads them in its header", () => {
+    const [waiting, running, finished] = wallGroups(groups, new Map(), "factory", now).map((g) => g.rows[0]!);
+    expect(waiting!.figure).toBe(`1${GROUP}058`);
+    expect(waiting!.detail).toBe("Venter på Noah (Grossist), 23 t");
+    expect(waiting!.rowName).toBe(`Spill 2, venter på Noah (Grossist), 23 t, kjedekost 1${GROUP}058${KRONER}`);
+    expect(running!.detail).toBe("Pågår");
+    expect(running!.rowName).toBe("Spill 7, pågår");
+    expect(finished!.rowName).toBe(`Spill 4, ferdig, kjedekost 980${KRONER}`);
+  });
+
+  it("takes the chosen Role's Netto lager as the api sent it, and marks a game still loading", () => {
+    const weeks = new Map([["g2", { data: weeksOf("g2", [12, -3, -13]), failed: false }]]);
+    const [waiting, running] = wallGroups(groups, weeks, "factory", now).map((g) => g.rows[0]!);
+    expect(waiting!.values).toEqual([12, -3, -13]);
+    expect(waiting!.loading).toBe(false);
+    expect(running!.values).toEqual([]);
+    expect(running!.loading).toBe(true);
+    expect(netValues(weeksOf("g", [5]), "retailer")).toEqual([99]);
+    expect(netValues(undefined, "factory")).toEqual([]);
   });
 });

@@ -41,6 +41,7 @@ from app.modules.sessions.schemas import (
     DemandSeriesOut,
     EnrolledSessionListOut,
     GameResultOut,
+    GameWeeksOut,
     LabHourIn,
     LabHourOut,
     LecturerOverviewOut,
@@ -207,13 +208,50 @@ async def get_class_overview(
         raise authz.Forbidden
     etag = overview.etag_of(found)
     headers = {"ETag": etag, "Cache-Control": "private, no-cache"}
-    # The weak comparison of RFC 9110 for `If-None-Match`: a proxy may have weakened the tag.
+    if _not_modified(request, etag):
+        return Response(status_code=304, headers=headers)
+    return JSONResponse(found.model_dump(mode="json"), headers=headers)
+
+
+def _not_modified(request: Request, etag: str) -> bool:
+    """`If-None-Match` names `etag`, by the weak comparison of RFC 9110 (a proxy may have weakened
+    the tag), or is `*`."""
     sent = {
         tag.strip().removeprefix("W/")
         for tag in request.headers.get("if-none-match", "").split(",")
     }
-    if etag in sent or "*" in sent:
+    return etag in sent or "*" in sent
+
+
+@router.get(
+    "/games/{game_id}/weeks",
+    response_model=GameWeeksOut,
+    responses={**documented(401, 403), 304: {"description": "Not modified since the ETag."}},
+    operation_id="getGameWeeks",
+)
+async def get_game_weeks(
+    game_id: str,
+    request: Request,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.overview"))],
+) -> Response:
+    """Every opened Week of a Class game (Story 7.2, FR-39, AD-1, AD-25): per Week and Role the
+    Netto lager, the Order and the Kost per uke as the engine stored them, for the Matrisevegg.
+    The `ETag` is tied to the Game's `version`; a request whose `If-None-Match` names it is
+    answered 304 before any Week is read. 403 `forbidden` for anyone who is not staff of the
+    Game's Class, and for a Game that does not exist or that the Oversikt does not list (FR-5)."""
+    found_id = _id(game_id)
+    version = await overview.readable_game(user, found_id)
+    if version is None:
+        raise authz.Forbidden
+    etag = overview.game_weeks_etag(version)
+    headers = {"ETag": etag, "Cache-Control": "private, no-cache"}
+    if _not_modified(request, etag):
         return Response(status_code=304, headers=headers)
+    found = await overview.game_weeks(found_id)
+    if found is None:
+        raise authz.Forbidden
+    # The Week read is a second transaction: a change between the two answers with its version.
+    headers["ETag"] = overview.game_weeks_etag(found.version)
     return JSONResponse(found.model_dump(mode="json"), headers=headers)
 
 

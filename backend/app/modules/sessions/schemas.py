@@ -816,3 +816,31 @@ class ClassOverviewOut(BaseModel):
     class_id: uuid.UUID
     class_name: str
     session_number: int
+
+
+class WeekSeatOut(BaseModel):
+    """One Seat in one opened Week as the engine stored it (Story 7.2, AD-1)."""
+
+    role: Role
+    net_inventory: int
+    """Netto lager: the stored inventory minus backlog, in units."""
+    order: int | None
+    """The Seat's Order in that Week; None while it has not been placed."""
+    cost: Decimal
+    """That Week's cost (Kost per uke), as a decimal string."""
+
+
+class GameWeekOut(BaseModel):
+    week: int
+    seats: list[WeekSeatOut]
+    """In chain order."""
+
+
+class GameWeeksOut(BaseModel):
+    """Every opened Week of a Class game (Story 7.2, AD-25): the Matrisevegg's cells, read
+    on demand per Game. The finished state after the last Week is not a Week and is left out."""
+
+    game_id: uuid.UUID
+    version: int
+    """The Game's version; the `ETag` is tied to it."""
+    weeks: list[GameWeekOut]

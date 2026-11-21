@@ -2337,6 +2337,55 @@
         "title": "GameStatus",
         "type": "string"
       },
+      "GameWeekOut": {
+        "properties": {
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/WeekSeatOut"
+            },
+            "title": "Seats",
+            "type": "array"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "seats"
+        ],
+        "title": "GameWeekOut",
+        "type": "object"
+      },
+      "GameWeeksOut": {
+        "description": "Every opened Week of a Class game (Story 7.2, AD-25): the Matrisevegg's cells, read\non demand per Game. The finished state after the last Week is not a Week and is left out.",
+        "properties": {
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/GameWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "game_id",
+          "version",
+          "weeks"
+        ],
+        "title": "GameWeeksOut",
+        "type": "object"
+      },
       "GivenRowOut": {
         "properties": {
           "label": {
@@ -5527,6 +5576,41 @@
           "sessions"
         ],
         "title": "WaitingClass",
+        "type": "object"
+      },
+      "WeekSeatOut": {
+        "description": "One Seat in one opened Week as the engine stored it (Story 7.2, AD-1).",
+        "properties": {
+          "cost": {
+            "title": "Cost",
+            "type": "string"
+          },
+          "net_inventory": {
+            "title": "Net Inventory",
+            "type": "integer"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role",
+          "net_inventory",
+          "order",
+          "cost"
+        ],
+        "title": "WeekSeatOut",
         "type": "object"
       },
       "WeekValues": {
@@ -10447,6 +10531,72 @@
           }
         },
         "summary": "Stream Events"
+      }
+    },
+    "/api/games/{game_id}/weeks": {
+      "get": {
+        "description": "Every opened Week of a Class game (Story 7.2, FR-39, AD-1, AD-25): per Week and Role the\nNetto lager, the Order and the Kost per uke as the engine stored them, for the Matrisevegg.\nThe `ETag` is tied to the Game's `version`; a request whose `If-None-Match` names it is\nanswered 304 before any Week is read. 403 `forbidden` for anyone who is not staff of the\nGame's Class, and for a Game that does not exist or that the Oversikt does not list (FR-5).",
+        "operationId": "getGameWeeks",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameWeeksOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified since the ETag."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Game Weeks",
+        "tags": [
+          "sessions"
+        ]
       }
     },
     "/api/health": {

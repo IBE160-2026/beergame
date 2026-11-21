@@ -44,6 +44,63 @@ test("the Class's Lecturer sees the game wait for the Student who has not ordere
   }
 });
 
+test("the Matrisevegg reads every game Uke by Uke from the keyboard and keeps focus as the game moves on", async ({
+  browser,
+  lecturerSession,
+}) => {
+  const wall = nb.wall;
+  const game = await liveClassGame(browser, lecturerSession, 2, { aiMode: "rule_based" });
+  const [first, second] = game.students;
+  for (const week of [1, 2, 3]) {
+    await orderByApi(first!, game.gameId, week, 4);
+    await orderByApi(second!, game.gameId, week, 4);
+  }
+  // Uke 4 is open and nobody has ordered: the game runs.
+  for (const viewport of [VIEWPORTS[2]!, VIEWPORTS[0]!]) {
+    const page = await lecturerPage(browser, lecturerSession, viewport);
+    await page.goto(`/klasseokter/${game.sessionId}/oversikt`);
+    const main = page.getByRole("main");
+    await expect(main.getByRole("list", { name: wall.legend }).getByRole("listitem")).toHaveText([...wall.bins]);
+    await expect(main.getByText(wall.minusNote)).toBeVisible();
+    // Which Role and measure the cells show, on screen (Fabrikk until another is chosen).
+    await expect(main.getByText(wall.shown(nb.terms.netInventory, nb.terms.factory), { exact: true })).toBeVisible();
+    const region = main.getByRole("region", { name: wall.region });
+    await expect(region).toHaveAttribute("tabindex", "0");
+    const grid = region.getByRole("grid");
+    await expect(grid.getByRole("rowheader", { name: `${copy.groups.running} 1`, exact: true })).toBeVisible();
+    await expect(grid.getByRole("rowheader", { name: /^Spill 1, pågår, kjedekost \d[\d\s]*\skr$/ })).toBeVisible();
+    await expect(grid.getByRole("columnheader")).toHaveCount(5); // Spill + Uke 1–4
+    const cells = grid.getByRole("gridcell");
+    await expect(cells).toHaveCount(4);
+    // Each cell is read where it stands, with the value also where it prints «−» or nothing.
+    for (let week = 1; week <= 4; week++) {
+      await expect(cells.nth(week - 1)).toHaveAccessibleName(new RegExp(`^Spill 1, Uke ${week}: Netto lager −?\\d+\\.$`));
+    }
+    // One Tab stop: from the region into the first cell, then out of the wall.
+    await region.focus();
+    await page.keyboard.press("Tab");
+    await expect(cells.nth(0)).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await expect(cells.nth(1)).toBeFocused();
+    await page.keyboard.press("End");
+    await expect(cells.nth(3)).toBeFocused();
+    await page.keyboard.press("Home");
+    await expect(cells.nth(0)).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.locator("[data-focus-ring]")).toHaveCount(1);
+    await expectAccessible(page, viewport.phone);
+    if (viewport === VIEWPORTS[0]) {
+      // The game moves on and changes group while a cell has focus: focus stays on Spill 1, Uke 2.
+      await orderByApi(first!, game.gameId, 4, 4);
+      await expect(grid.getByRole("rowheader", { name: `${copy.groups.waiting} 1`, exact: true })).toBeVisible();
+      await expect(page.locator(":focus")).toHaveAccessibleName(/^Spill 1, Uke 2: /);
+      await page.keyboard.press("Tab");
+      await expect(grid.locator(":focus")).toHaveCount(0);
+    }
+    await page.context().close();
+  }
+});
+
 test("before the Start date the page lists the allocation only, reached from the Klasseøkt", async ({
   browser,
   lecturerSession,

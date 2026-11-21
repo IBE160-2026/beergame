@@ -168,6 +168,12 @@ export const nb = {
       demoData: "Demodata",
       classCurves: "Lagerkurvene for hele klassen ser du først når du er logget inn.",
     },
+    /** The second figure (Story 7.2, UX-DR70): the Matrisevegg with bundled demo data. */
+    wall: {
+      title: "Alle spillene på én skjerm",
+      /** [ASSUMPTION] the line under the title. */
+      lead: "Hver rad er ett spill og hver rute én uke, farget etter netto lager.",
+    },
   },
 
   /** «Be om lærertilgang» (Story 3.13, UX-DR61): a short public form the Admin answers by e-mail.
@@ -2075,6 +2081,50 @@ export const nb = {
     },
     /** [ASSUMPTION] after the Start date with no Class game at all. */
     empty: "Klasseøkten har ingen klassespill.",
+    /** [ASSUMPTION] Story 7.2: the heading of the game list under the Matrisevegg. */
+    listTitle: "Spill og seter",
+  },
+
+  /** The Matrisevegg (Story 7.2, DESIGN.md → Components → Matrisevegg, EXPERIENCE.md →
+   * Matrisevegg). The legend's bins and its minus line are DESIGN.md's own. */
+  wall: {
+    region: "Alle spill",
+    /** [ASSUMPTION] the SVG title. */
+    title: (role: string) => `Netto lager for ${role} per uke i alle spill`,
+    /** [ASSUMPTION] the Landing's SVG title: no Role named beside the one-Seat figure. */
+    demoTitle: "Netto lager per uke i hvert spill, demodata",
+    gameHeader: "Spill",
+    /** [ASSUMPTION] the header over the kjedekost figures, in whole kroner. */
+    figureHeader: "Kjedekost, kr",
+    /** [ASSUMPTION] the line above the wall naming what its cells show: «Netto lager, Fabrikk». */
+    shown: (measure: string, role: string) => `${measure}, ${role}`,
+    week: (week: number) => `Uke ${week}`,
+    /** «Spill 2, Uke 14: Netto lager −13.» [ASSUMPTION: copy of the cell reading] */
+    cell: (game: string, week: number, measure: string, value: string) => `${game}, Uke ${week}: ${measure} ${value}.`,
+    legend: "Fargeskala for netto lager",
+    bins: [
+      "−35 og lavere",
+      "−34 til −20",
+      "−19 til −10",
+      "−9 til −1",
+      "0",
+      "1 til 9",
+      "10 til 19",
+      "20 til 34",
+      "35 og over",
+    ],
+    minusNote: "− i en celle: restordre (under null).",
+    /** Status words after the cells and in the row header. [ASSUMPTION] */
+    status: {
+      waiting: "Venter",
+      running: "Pågår",
+      notStarted: "Ikke startet",
+      finished: "Ferdig",
+    },
+    /** The row header as read: «Spill 2, venter på Noah (Grossist), 23 t, kjedekost 1 058 kr».
+     * [ASSUMPTION] */
+    rowName: (parts: readonly string[]) => parts.join(", "),
+    chainCost: (cost: string) => `kjedekost ${cost}`,
   },
 
   /** Links between pages (Story 3.3). Each names where it goes. */

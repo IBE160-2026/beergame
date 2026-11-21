@@ -57,7 +57,8 @@ export function alignment(page: Page) {
  * and labels that leave their SVG. */
 export function labelProblems(page: Page) {
   return page.evaluate(() => {
-    const texts = [...document.querySelectorAll<SVGTextElement>("svg[data-chart] text")].filter(
+    // The Matrisevegg has its own rules (9 px cells, the fit rule): `landing.spec.ts`, `overview.spec.ts`.
+    const texts = [...document.querySelectorAll<SVGTextElement>('svg[data-chart]:not([data-chart="matrix-wall"]) text')].filter(
       (t) => t.getClientRects().length > 0,
     );
     const boxes = texts.map((t) => ({ text: t.textContent, box: t.getBoundingClientRect(), svg: t.ownerSVGElement!.getBoundingClientRect() }));
@@ -76,12 +77,14 @@ export function labelProblems(page: Page) {
   });
 }
 
-/** No text in the page below 13 px (SVG text included) and no table cell whose text is cut off. */
+/** No text in the page below 13 px (SVG text included) and no table cell whose text is cut off.
+ * The Matrisevegg's cells are the one place allowed 9 px (DESIGN.md → Typography → Floors). */
 export async function textReadable(page: Page) {
   const found = await page.evaluate(() => {
     const small = [...document.querySelectorAll<Element>("main *")]
       .filter((el) => el.getClientRects().length > 0 && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent?.trim()))
       .filter((el) => parseFloat(getComputedStyle(el).fontSize) < 13)
+      .filter((el) => !el.closest('svg[data-chart="matrix-wall"]'))
       .map((el) => el.textContent?.trim());
     const clipped = [...document.querySelectorAll<HTMLElement>("main th, main td")]
       .filter((el) => el.getClientRects().length > 0 && (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1))

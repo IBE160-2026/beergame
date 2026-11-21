@@ -24,6 +24,7 @@ as hand-made SVG here.
 | Stacked bars (Kost per uke) | `<BarChart width={300} height={60}>` renders the same empty wrapper on the server | Hand-made SVG (`cost-bars.tsx`); passes both checks |
 | Axis labels in the sticky column | — (not a Recharts type) | Hand-made SVG (`axis-labels.tsx`) |
 | Kjedebånd (Story 6.9) | — (a flow diagram, not a Recharts type) | Hand-made SVG (`chain-band.tsx`), laid out by the pure `chain-band-layout.ts`; one-Seat variant only, the four-Role variant comes with Story 9.5 |
+| Matrisevegg (Story 7.2) | — (a matrix of cells, not a Recharts type) | Hand-made SVG (`matrix-wall.tsx`), sized by the pure `matrix-wall-layout.ts` |
 | Stacked area (Totalkostnad over tid, Story 6.16) | — (built after the spike; Recharts is not a dependency) | Hand-made SVG (`cost-area.tsx`), `aria-hidden` with a `<title>`; its x is its own (Uke 1 … nå), not table columns, and its table alternative is «Vis som tabell» or the «Sum, kr» row |
 
 ## Kjedebånd scale and labels
@@ -46,3 +47,34 @@ In the browser `GraphOverTable` measures the centre of each `th[scope=col][data-
 it to the chart as `x`, again whenever the table resizes (text zoom, a loaded font, the laptop
 breakpoint). With `fixed` (print) every width is given in px. Marks carry `data-mark` and
 `data-week` (a line's vertices `data-weeks` and `data-x`), which both checks read.
+
+## Matrisevegg: a grid on the SVG (Story 7.2)
+
+The founder decided on 2026-11-14 that the wall is never `aria-hidden` and is read cell by cell,
+either as table roles on the SVG or as an HTML table under it. **The choice: ARIA roles on the
+SVG.** The `<svg>` is `role="grid"` (a grid is a table to assistive technology, the interactive
+kind) named by its `<title>`; a `row` of `columnheader`s («Uke n», the game column first), a
+`row` per status group with one `rowheader` across the wall («Venter 4»), and per Class game a
+`row` with a `rowheader` (game number, status, wait and kjedekost in words) and one `gridcell` per
+Uke named «Spill 2, Uke 14: Netto lager −13.», also where the cell prints «−» or nothing.
+`aria-rowindex` and `aria-colindex` number them. Grid rather than `table`: the wall is one Tab
+stop that arrow keys move through, which is the grid pattern; in a `table` a screen reader in
+browse mode keeps the arrow keys for itself. An HTML table under the SVG would hold every number
+twice and leave the drawn cells unreachable; «Vis som tabell» (Story 7.3) is that second way.
+
+One cell is in the Tab order (roving `tabindex`); arrows move cell by cell, Up and Down to the
+nearest game row (its last Uke when it has fewer), Home and End to the row's ends
+(`moveFocus`). Focus is held by Game id and Uke and put back after a re-render that moved the
+row. The focused cell draws `focus-ring-inset` itself, as SVG children draw no outline.
+
+**Sticky game column and Uke header.** CSS `position: sticky` does not act inside an SVG, and
+splitting the wall into several SVGs would break the grid's rows. The wall's scroll region writes
+its offsets to `--wall-x` and `--wall-y` on the SVG; the row headers translate by `--wall-x`, the
+Uke header by `--wall-y` and the corner by both, and three clip paths (moved in the same scroll
+handler) keep the cells under the header and the game column. In print or a server render the
+offsets are 0.
+
+**Cells.** `cellText`: the signed number when `textWidth` plus 1 px on each side fits the cell,
+else «−» for below zero, else blank; text `ink` on zero and steps 1–2, `paper` on steps 3–4.
+Cell text is 9 px (`matrix-cell-min`) at a 13 px caption and grows with text zoom; labels and
+the header are the caption size. `netStep` lives here and the week table imports it.

@@ -2,10 +2,13 @@ import { nb } from "@/copy/nb";
 import { formatNumber, KRONER } from "@/lib/number-format";
 import { roleName } from "@/modules/sessions/sessions";
 
-import type { ClassOverview, OverviewGame } from "./api";
+import type { WallGroup, WallRow } from "@/components/charts/matrix-wall";
+
+import type { ClassOverview, GameWeeks, OverviewGame } from "./api";
 import { waitDuration } from "./seat-status";
 
 const copy = nb.overview;
+const wall = nb.wall;
 
 export type GroupName = "waiting" | "running" | "notStarted" | "finished";
 export type OverviewGroup = { name: GroupName; title: string; games: OverviewGame[] };
@@ -82,4 +85,58 @@ export function clockWithSeconds(ms: number): string {
   }).formatToParts(new Date(ms));
   const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
   return `${part("hour")}:${part("minute")}:${part("second")}`;
+}
+
+/** The Role a wall row shows until another is chosen (Story 7.2). [ASSUMPTION: Fabrikk is the
+ * default Role] */
+export const DEFAULT_WALL_ROLE = "factory" as const;
+
+const STATUS_WORD: Record<OverviewGame["status"], string> = {
+  waiting: wall.status.waiting,
+  running: wall.status.running,
+  not_started: wall.status.notStarted,
+  finished: wall.status.finished,
+};
+
+/** One Role's Netto lager per Uke from Uke 1, as the api sent it (AD-10): nothing is computed. */
+export function netValues(weeks: GameWeeks | undefined, role: string): number[] {
+  if (!weeks) return [];
+  return weeks.weeks.flatMap((week) => {
+    const seat = week.seats.find((s) => s.role === role);
+    return seat ? [seat.net_inventory] : [];
+  });
+}
+
+/**
+ * The Matrisevegg's rows (Story 7.2, UX-DR41): the Oversikt's groups in the same order, each game
+ * with «Spill n», its kjedekost in whole kroner, its status or wait after the cells, a row header
+ * that reads game number, status, wait and kjedekost, and the chosen Role's Netto lager per Uke.
+ * A game whose weeks have not arrived is `loading`.
+ */
+export function wallGroups(
+  groups: readonly OverviewGroup[],
+  weeks: ReadonlyMap<string, { data?: GameWeeks; failed: boolean }>,
+  role: string,
+  now: number,
+): WallGroup[] {
+  return groups.map((group) => ({
+    key: group.name,
+    title: `${group.title} ${group.games.length}`,
+    rows: group.games.map((game): WallRow => {
+      const label = copy.game(game.game_number ?? null);
+      const waits = waitLines(game, now);
+      const cost = costText(game);
+      const status = waits.length > 0 ? waits.join("; ") : STATUS_WORD[game.status];
+      const found = weeks.get(game.game_id);
+      return {
+        id: game.game_id,
+        label,
+        figure: game.chain_cost == null ? undefined : formatNumber(game.chain_cost, { decimals: 0 }),
+        detail: status,
+        rowName: wall.rowName([label, status.charAt(0).toLowerCase() + status.slice(1), ...(cost ? [wall.chainCost(cost)] : [])]),
+        values: netValues(found?.data, role),
+        loading: !found?.data && !found?.failed && game.status !== "not_started",
+      };
+    }),
+  }));
 }

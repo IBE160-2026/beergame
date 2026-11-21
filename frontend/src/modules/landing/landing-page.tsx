@@ -8,6 +8,7 @@ import { GoHome } from "@/modules/identity/go-home";
 
 import { DEMO_SEAT } from "./demo-seat";
 import { SeatFigure } from "./seat-figure";
+import { WallFigure } from "./wall-figure";
 
 const copy = nb.landing;
 
@@ -19,7 +20,8 @@ export const ACCESS_REQUEST_PATH = "/laerertilgang";
  * its «Kostnad så langt», labelled «Demodata» (Story 6.16, UX-DR70). It renders without waiting for
  * the session; a User who is logged in is sent on to their own home. On laptop the headline stands
  * left of the lead and buttons, and the cost panel right of the Seat figure where the row has room
- * (`01-landing.png`), else under it; on phone everything is one column in the order headline, lead,
+ * (`01-landing.png`), else under it; then «Alle spillene på én skjerm», the Matrisevegg with
+ * Demodata (Story 7.2). On phone everything is one column in the order headline, lead,
  * buttons, Seat figure, «Kostnad så langt» (EXPERIENCE.md → Responsive & Platform → Landing).
  */
 export function LandingPage() {
@@ -60,6 +62,7 @@ export function LandingPage() {
           </div>
           <p className="mt-8 text-body-phone text-ink-secondary lg:text-body">{copy.seat.classCurves}</p>
         </section>
+        <WallFigure />
       </main>
     </div>
   );

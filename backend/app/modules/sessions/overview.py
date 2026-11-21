@@ -12,16 +12,19 @@ from app.modules.games.service import ClassGameSummary, GameStatus
 from app.modules.sessions import repo
 from app.modules.sessions.schemas import (
     ClassOverviewOut,
+    GameWeekOut,
+    GameWeeksOut,
     OverviewCountsOut,
     OverviewGameOut,
     OverviewSeatOut,
     OverviewWaitOut,
+    WeekSeatOut,
 )
 from app.modules.sessions.service import _class_for, is_locked
 from app.platform import authz
 from app.platform.db import get_sessionmaker
 
-__all__ = ["class_overview", "etag_of"]
+__all__ = ["class_overview", "etag_of", "game_weeks", "game_weeks_etag", "readable_game"]
 
 
 async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassOverviewOut | None:
@@ -107,3 +110,51 @@ def etag_of(overview: ClassOverviewOut) -> str:
     summary, a name, the Start date or the counts, never with `server_now` alone (AD-25)."""
     body = overview.model_dump_json(exclude={"server_now"})
     return '"' + hashlib.sha256(body.encode()).hexdigest()[:32] + '"'
+
+
+async def readable_game(user: authz.Principal, game_id: uuid.UUID) -> int | None:
+    """The Game's `version` when `user` is staff of its Class session and the Lecturer overview
+    lists the Game (AD-13), else None: one answer for a Game that does not exist, a test or
+    simulation Game, and a Game of another Class (FR-5, NFR-7). Reads no Week."""
+    async with get_sessionmaker()() as s:
+        head = await games_service.class_game_head(s, game_id)
+        if head is None or head.class_session_id is None or not head.listed:
+            return None
+        row = await repo.session_row(s, head.class_session_id)
+    if row is None:
+        return None
+    if await _class_for(user, row["class_id"], "class_sessions.overview") is None:
+        return None
+    return head.version
+
+
+async def game_weeks(game_id: uuid.UUID) -> GameWeeksOut | None:
+    """The stored Week values of a Game the caller has checked with `readable_game`."""
+    async with get_sessionmaker()() as s:
+        found = await games_service.class_game_weeks(s, game_id)
+    if found is None:
+        return None
+    return GameWeeksOut(
+        game_id=found.game_id,
+        version=found.version,
+        weeks=[
+            GameWeekOut(
+                week=week,
+                seats=[
+                    WeekSeatOut(
+                        role=seat.role,
+                        net_inventory=seat.net_inventory,
+                        order=seat.order,
+                        cost=seat.cost,
+                    )
+                    for seat in seats
+                ],
+            )
+            for week, seats in found.weeks
+        ],
+    )
+
+
+def game_weeks_etag(version: int) -> str:
+    """A strong ETag tied to the Game's `version` (AD-25): every change to a Game raises it."""
+    return f'"v{version}"'

@@ -1385,6 +1385,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/games/{game_id}/weeks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Game Weeks
+         * @description Every opened Week of a Class game (Story 7.2, FR-39, AD-1, AD-25): per Week and Role the
+         *     Netto lager, the Order and the Kost per uke as the engine stored them, for the Matrisevegg.
+         *     The `ETag` is tied to the Game's `version`; a request whose `If-None-Match` names it is
+         *     answered 304 before any Week is read. 403 `forbidden` for anyone who is not staff of the
+         *     Game's Class, and for a Game that does not exist or that the Oversikt does not list (FR-5).
+         */
+        get: operations["getGameWeeks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -2770,6 +2794,29 @@ export interface components {
          * @enum {string}
          */
         GameStatus: "not_started" | "running" | "waiting" | "finished";
+        /** GameWeekOut */
+        GameWeekOut: {
+            /** Seats */
+            seats: components["schemas"]["WeekSeatOut"][];
+            /** Week */
+            week: number;
+        };
+        /**
+         * GameWeeksOut
+         * @description Every opened Week of a Class game (Story 7.2, AD-25): the Matrisevegg's cells, read
+         *     on demand per Game. The finished state after the last Week is not a Week and is left out.
+         */
+        GameWeeksOut: {
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+            /** Version */
+            version: number;
+            /** Weeks */
+            weeks: components["schemas"]["GameWeekOut"][];
+        };
         /** GivenRowOut */
         GivenRowOut: {
             /** Label */
@@ -4219,6 +4266,19 @@ export interface components {
             class_name: string;
             /** Sessions */
             sessions: components["schemas"]["SessionRef"][];
+        };
+        /**
+         * WeekSeatOut
+         * @description One Seat in one opened Week as the engine stored it (Story 7.2, AD-1).
+         */
+        WeekSeatOut: {
+            /** Cost */
+            cost: string;
+            /** Net Inventory */
+            net_inventory: number;
+            /** Order */
+            order: number | null;
+            role: components["schemas"]["Role"];
         };
         /**
          * WeekValues
@@ -7904,6 +7964,62 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": unknown;
+                };
+            };
+        };
+    };
+    getGameWeeks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameWeeksOut"];
+                };
+            };
+            /** @description Not modified since the ETag. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

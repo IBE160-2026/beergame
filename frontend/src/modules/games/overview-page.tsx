@@ -12,6 +12,7 @@ import { PageShell } from "@/modules/identity/page-shell";
 import { osloDateText } from "@/modules/sessions/dates";
 
 import { type ClassOverview, classOverviewKey, type OverviewGame, useClassOverview } from "./api";
+import { OverviewWall } from "./overview-wall";
 import { clockWithSeconds, costText, groupsOf, headline, type OverviewGroup, seatTexts, waitLines } from "./overview";
 
 const copy = nb.overview;
@@ -113,7 +114,13 @@ function OverviewBody({ data, receivedAt }: { data: ClassOverview; receivedAt: n
       {groups.length === 0 ? (
         <p className="mt-8 text-body-phone text-ink lg:text-body">{copy.empty}</p>
       ) : (
-        groups.map((group) => <Group key={group.name} group={group} now={now} />)
+        <>
+          <OverviewWall groups={groups} now={now} />
+          <h2 className="mt-12 text-headline text-ink">{copy.listTitle}</h2>
+          {groups.map((group) => (
+            <Group key={group.name} group={group} now={now} />
+          ))}
+        </>
       )}
     </div>
   );
@@ -122,10 +129,10 @@ function OverviewBody({ data, receivedAt }: { data: ClassOverview; receivedAt: n
 function Group({ group, now }: { group: OverviewGroup; now: number }) {
   const id = useId();
   return (
-    <section aria-labelledby={id} className="mt-8 max-w-5xl">
-      <h2 id={id} className="border-b border-axis pb-2 text-label text-ink tabular-nums lining-nums">
+    <section aria-labelledby={id} className="mt-6 max-w-5xl">
+      <h3 id={id} className="border-b border-axis pb-2 text-label text-ink tabular-nums lining-nums">
         {group.title} {group.games.length}
-      </h2>
+      </h3>
       <ul>
         {group.games.map((game) => (
           <GameRow key={game.game_id} game={game} now={now} />
