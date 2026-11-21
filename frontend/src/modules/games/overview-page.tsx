@@ -438,10 +438,11 @@ function GameRow({ game, now, sessionId, tint }: { game: OverviewGame; now: numb
           {message.text}
         </Link>
       </p>
-      <p className="text-body-phone text-ink-secondary tabular-nums lining-nums lg:text-body">
-        {game.week != null ? copy.week(game.week) : null}
-      </p>
-      <div className="min-w-0">
+      {/* A game with no Uke (not started) gives the Uke column to its Seats, so they leave no gap. */}
+      {game.status !== "not_started" ? (
+        <p className="text-body-phone text-ink-secondary tabular-nums lining-nums lg:text-body">{game.week != null ? copy.week(game.week) : null}</p>
+      ) : null}
+      <div className={cn("min-w-0", game.status === "not_started" && "@2xl:col-span-2")}>
         {waits.map((line) => (
           <p key={line} className="text-body-phone font-semibold text-ink lg:text-body">
             {line}
@@ -483,7 +484,8 @@ function Allocation({ data, sessionId }: { data: ClassOverview; sessionId: strin
         {data.start_at ? copy.beforeStart.startsAt(osloDateText(data.start_at)) : copy.beforeStart.noDate}
       </p>
       <h2 id={id} className="mt-8 border-b border-axis pb-2 text-label text-ink tabular-nums lining-nums">
-        {copy.beforeStart.title} {games.length}
+        {/* No count over the empty line: «Ingen spill er fordelt ennå.» already says it. */}
+        {games.length > 0 ? `${copy.beforeStart.title} ${games.length}` : copy.beforeStart.title}
       </h2>
       {games.length === 0 ? (
         <p className="mt-4 text-body-phone text-ink lg:text-body">{copy.beforeStart.empty}</p>

@@ -31,10 +31,13 @@ export function LandingPage() {
       <AppHeader />
       {/* The hairline sits directly under the header, as in 01-landing.png; the headline column is
           wide enough at 1280 px to break between the two sentences. */}
-      <main className="px-gutter-phone pt-5 pb-16 lg:px-margin-laptop lg:pt-6">
+      <main className="@container px-gutter-phone pt-5 pb-16 lg:px-margin-laptop lg:pt-6">
         {/* One `minmax(0, 1fr)` column on phone, and the lead breaks a word that is wider than it
-            («forsyningskjedeøvelsen» at 200 % text), so the page never scrolls sideways. */}
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-x-12 gap-y-6 border-t border-hairline pt-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:pt-12">
+            («forsyningskjedeøvelsen» at 200 % text), so the page never scrolls sideways. Two
+            columns from `lg`, and only while the container is 48 rem wide: a container query reads
+            the enlarged root size, so at 200 % text the headline keeps the full width instead of
+            one word per line. */}
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-x-12 gap-y-6 border-t border-hairline pt-8 lg:@3xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:pt-12">
           <h1 className="text-title-phone text-ink lg:text-display">{copy.headline}</h1>
           <div className="flex flex-col gap-6">
             <p className="max-w-prose break-words hyphens-auto text-body-lead [hyphenate-limit-chars:8_4_3] text-ink-secondary">{copy.lead}</p>

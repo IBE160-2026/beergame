@@ -37,19 +37,19 @@ const GAME: StatusSeat[] = [
 
 describe("Setestatus words (Story 6.14)", () => {
   it("counts the wait down to whole units", () => {
-    expect(waitDuration(59_999)).toBe("under 1 min");
-    expect(waitDuration(3 * 60_000 + 59_000)).toBe("3 min");
-    expect(waitDuration(59 * 60_000)).toBe("59 min");
-    expect(waitDuration(60 * 60_000)).toBe("1 t");
-    expect(waitDuration(47 * 3_600_000)).toBe("47 t");
-    expect(waitDuration(50 * 3_600_000)).toBe("2 d");
+    expect(waitDuration(59_999)).toBe("under 1 min");
+    expect(waitDuration(3 * 60_000 + 59_000)).toBe("3 min");
+    expect(waitDuration(59 * 60_000)).toBe("59 min");
+    expect(waitDuration(60 * 60_000)).toBe("1 t");
+    expect(waitDuration(47 * 3_600_000)).toBe("47 t");
+    expect(waitDuration(50 * 3_600_000)).toBe("2 d");
   });
 
   it("says each Seat's state in words: ordered, waited for with the wait, the AI and the viewer", () => {
     const rows = seatRows(GAME, NOW);
     expect(rows.map((row) => [row.role, row.holder, row.state, row.status])).toEqual([
       ["Fabrikk", "KI-spiller", "waiting", "venter"],
-      ["Distributør", "Jonas", "waiting", "venter, 3 min"],
+      ["Distributør", "Jonas", "waiting", "venter, 3 min"],
       ["Grossist", "Sara (deg)", "waiting", "venter"],
       ["Detaljist", "Noah", "ordered", "har bestilt"],
     ]);
@@ -71,12 +71,12 @@ describe("Setestatus words (Story 6.14)", () => {
   });
 
   it("names whom the game waits for, by name or Role, the viewer last as «deg»", () => {
-    expect(waitedFor(GAME, NOW)).toBe("Fabrikk, Jonas (3 min) og deg");
-    expect(copy.waitingOn(waitedFor(GAME, NOW)!)).toBe("Venter på: Fabrikk, Jonas (3 min) og deg.");
+    expect(waitedFor(GAME, NOW)).toBe("Fabrikk, Jonas (3 min) og deg");
+    expect(copy.waitingOn(waitedFor(GAME, NOW)!)).toBe("Venter på: Fabrikk, Jonas (3 min) og deg.");
     // The Confirmed message names only the others.
-    expect(waitedFor(GAME, NOW, true)).toBe("Fabrikk og Jonas (3 min)");
+    expect(waitedFor(GAME, NOW, true)).toBe("Fabrikk og Jonas (3 min)");
     // A Student whose name cannot be shown is named by Role.
-    expect(waitedFor([seat({ role: "retailer", name: null, wait_started_at: ago(5) })], NOW)).toBe("Detaljist (5 min)");
+    expect(waitedFor([seat({ role: "retailer", name: null, wait_started_at: ago(5) })], NOW)).toBe("Detaljist (5 min)");
     expect(waitedFor([seat({ ordered: true })], NOW)).toBeNull();
   });
 });
@@ -88,13 +88,13 @@ describe("SeatStatus", () => {
 
   it("states every row in text, with the dot decorative and the announcement for screen readers", () => {
     const html = renderToStaticMarkup(
-      <SeatStatus title="Setene" titleId="s" rows={seatRows(GAME, NOW)} announcement="Venter på: Jonas (3 min) og deg." />,
+      <SeatStatus title="Setene" titleId="s" rows={seatRows(GAME, NOW)} announcement="Venter på: Jonas (3 min) og deg." />,
     );
     expect(html).toContain('aria-labelledby="s"');
     expect(html).toContain('<h2 id="s"');
     expect(rowTexts(html)).toEqual([
       "FabrikkKI-spillerventer",
-      "DistributørJonasventer, 3 min",
+      "DistributørJonasventer, 3 min",
       "GrossistSara (deg)venter",
       "DetaljistNoahhar bestilt",
     ]);
@@ -105,7 +105,7 @@ describe("SeatStatus", () => {
       'data-state="waiting"',
       'data-state="ordered"',
     ]);
-    expect(html).toMatch(/aria-live="polite"[^>]*>Venter på: Jonas \(3 min\) og deg\.</);
+    expect(html).toMatch(/aria-live="polite"[^>]*>Venter på: Jonas \(3 min\) og deg\.</);
   });
 
   it("draws no dot or status for rows without a state, and a level-4 heading on Hjem", () => {

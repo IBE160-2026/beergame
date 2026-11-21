@@ -40,7 +40,7 @@ for (const width of [320, 360, 1440]) {
       const stub = await openPlay(page);
       await expect(rows(page)).toHaveText([
         /^Fabrikk\s*KI-spiller\s*har bestilt$/,
-        /^Distributør\s*Jonas Berg\s*venter, 3 min$/,
+        /^Distributør\s*Jonas Berg\s*venter, 3\smin$/,
         /^Grossist\s*Demo Student \(deg\)\s*venter$/,
         /^Detaljist\s*KI-spiller\s*har bestilt$/,
       ]);
@@ -95,7 +95,7 @@ for (const width of [320, 360, 1440]) {
       );
       await expect(rows(page)).toHaveText([
         /^Fabrikk\s*KI-spiller\s*venter$/,
-        /^Distributør\s*Jonas Berg\s*venter, 3 min$/,
+        /^Distributør\s*Jonas Berg\s*venter, 3\smin$/,
         /^Grossist\s*Demo Student \(deg\)\s*har bestilt$/,
         /^Detaljist\s*KI-spiller \(regelbasert\)\s*har bestilt$/,
       ]);
@@ -104,7 +104,7 @@ for (const width of [320, 360, 1440]) {
 
       // Two minutes on: the wait counts on from the stored start; the announcement stays put.
       await page.clock.fastForward("02:00");
-      await expect(rows(page).nth(1)).toHaveText(/venter, 5 min$/);
+      await expect(rows(page).nth(1)).toHaveText(/venter, 5\smin$/);
       await expect(announce(page)).toHaveText(copy.waitingOn("Fabrikk og Jonas Berg (3 min)"));
     });
   });
@@ -199,7 +199,7 @@ test.describe("1440 px", () => {
     await page.goto("/hjem");
     await expect(rows(page)).toHaveText([
       /^Fabrikk\s*KI-spiller\s*har bestilt$/,
-      /^Distributør\s*Jonas Berg\s*venter, 3 min$/,
+      /^Distributør\s*Jonas Berg\s*venter, 3\smin$/,
       /^Grossist\s*Demo Student \(deg\)\s*venter$/,
       /^Detaljist\s*KI-spiller\s*har bestilt$/,
     ]);

@@ -113,16 +113,23 @@ export async function latestMail(page: Mailbox, email: string): Promise<DevMail 
 }
 
 /** Wait for a mail to `email` newer than `before` (the newest mail before the action, or null)
- * and return it. Compares only the worker's own send times, never with this machine's clock. */
-export async function nextMail(page: Mailbox, email: string, before: DevMail | null): Promise<DevMail> {
+ * and return it. Compares only the worker's own send times, never with this machine's clock.
+ * With `containing`, waits for a mail with that text: a notice queued before the action (e.g. the
+ * allocation mail of a fresh Class game) may still reach the mailbox after `before` was read. */
+export async function nextMail(
+  page: Mailbox,
+  email: string,
+  before: DevMail | null,
+  containing?: string,
+): Promise<DevMail> {
   let mail: DevMail | null = null;
   await expect
     .poll(
       async () => {
         mail = await latestMail(page, email);
-        return mail !== null && mail.sent_at !== before?.sent_at;
+        return mail !== null && mail.sent_at !== before?.sent_at && (containing === undefined || mail.text.includes(containing));
       },
-      { timeout: 15_000, intervals: [200, 300, 500] },
+      { timeout: 30_000, intervals: [200, 300, 500] },
     )
     .toBe(true);
   return mail!;

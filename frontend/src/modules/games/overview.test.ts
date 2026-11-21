@@ -91,7 +91,7 @@ describe("waitLines", () => {
         { role: "retailer", name: null, since: new Date(now - 5 * 60_000).toISOString() },
       ],
     });
-    expect(waitLines(waiting, now)).toEqual(["Venter på Noah (Grossist), 23 t", "Venter på Detaljist, 5 min"]);
+    expect(waitLines(waiting, now)).toEqual(["Venter på Noah (Grossist), 23 t", "Venter på Detaljist, 5 min"]);
   });
 });
 
@@ -154,9 +154,9 @@ describe("wallGroups (Story 7.2)", () => {
   it("labels a row with game, status or wait and kjedekost, and reads them in its header", () => {
     const [waiting, running, finished] = wallGroups(groups, new Map(), "factory", now).map((g) => g.rows[0]!);
     expect(waiting!.figure).toBe(`1${GROUP}058`);
-    expect(waiting!.detail).toBe("Venter på Noah (Grossist), 23 t");
-    expect(waiting!.rowName).toBe(`Spill 2, venter på Noah (Grossist), 23 t, kjedekost 1${GROUP}058${KRONER}`);
-    expect(waiting!.shortDetail).toBe("Venter, 23 t");
+    expect(waiting!.detail).toBe("Venter på Noah (Grossist), 23 t");
+    expect(waiting!.rowName).toBe(`Spill 2, venter på Noah (Grossist), 23 t, kjedekost 1${GROUP}058${KRONER}`);
+    expect(waiting!.shortDetail).toBe("Venter, 23 t");
     expect(running!.detail).toBe("Pågår");
     expect(running!.shortDetail).toBe("Pågår");
     expect(running!.rowName).toBe("Spill 7, pågår");
@@ -211,7 +211,7 @@ describe("tableRows (Story 7.3)", () => {
     expect(rows.map((row) => row.label)).toEqual(["Spill 2", "Spill 3", "Spill 7", "Spill 9", "Spill 4"]);
     expect(rows[0]!.cells).toEqual({
       status: "Venter",
-      wait: "Noah (Grossist), 23 t; Detaljist, 1 t",
+      wait: "Noah (Grossist), 23 t; Detaljist, 1 t",
       cost: `1${GROUP}058`,
     });
     expect(rows[3]!.cells).toEqual({ status: "Ikke startet", wait: "", cost: "" });
@@ -377,8 +377,8 @@ describe("the right rail (Story 7.6, AD-10)", () => {
       game({ game_number: 3, status: "running" }),
     ]);
     expect(waitingElsewhere(groups, now)).toEqual([
-      { id: "g30", game: "Spill 30", who: ["Ida, Detaljist, 18 t", "Fabrikk, 2 t"] },
-      { id: "g10", game: "Spill 10", who: ["Oskar, Grossist, 12 t"] },
+      { id: "g30", game: "Spill 30", who: ["Ida, Detaljist, 18 t", "Fabrikk, 2 t"] },
+      { id: "g10", game: "Spill 10", who: ["Oskar, Grossist, 12 t"] },
     ]);
     expect(waitingElsewhere(groupsOf([game({ game_number: 1, status: "running" })]), now)).toEqual([]);
     expect(waitingElsewhere(groupsOf([game({ game_number: 4, status: "waiting" })]), now)).toEqual([
