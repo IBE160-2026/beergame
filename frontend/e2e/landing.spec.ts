@@ -94,9 +94,13 @@ for (const vp of VIEWPORTS) {
       expect(found.drawn).toEqual([1, 2, 3, 4]);
       expect(await labelProblems(page)).toEqual([]);
       await textReadable(page);
-      // The graph adds nothing for screen readers: the table is its alternative.
+      // The graph adds nothing for screen readers: the table is its alternative. The Matrisevegg is
+      // the exception: it is read cell by cell (Story 7.2).
       const unhidden = await page.evaluate(
-        () => [...document.querySelectorAll("svg[data-chart]")].filter((svg) => !svg.closest('[aria-hidden="true"]')).length,
+        () =>
+          [...document.querySelectorAll('svg[data-chart]:not([data-chart="matrix-wall"])')].filter(
+            (svg) => !svg.closest('[aria-hidden="true"]'),
+          ).length,
       );
       expect(unhidden).toBe(0);
       // Hidden information: no other Role's Seat, no customers and no week count anywhere on the
@@ -127,6 +131,34 @@ for (const vp of VIEWPORTS) {
         expect(column.width).toBeGreaterThanOrEqual(5 * column.em - 0.5);
       }
       await expectAccessible(page);
+    });
+
+    test("the Landing shows every game on one screen as the Matrisevegg with Demodata", async ({ page }) => {
+      const calls: string[] = [];
+      page.on("request", (r) => {
+        if (new URL(r.url()).pathname.startsWith("/api/games")) calls.push(r.url());
+      });
+      await page.goto("/");
+      const section = page.getByRole("region", { name: landing.wall.title });
+      await expect(section.getByRole("heading", { level: 2, name: landing.wall.title })).toBeVisible();
+      await expect(section.getByText(landing.seat.demoData, { exact: true })).toBeVisible();
+      const wall = section.getByRole("region", { name: nb.wall.region });
+      const grid = wall.getByRole("grid");
+      await expect(grid).toBeVisible();
+      // Venter before Pågår, game numbers only: no names, no Uke per row, no Uke total (UX-DR71).
+      await expect(grid.getByRole("rowheader", { name: /^(Venter|Pågår) \d+$/ })).toHaveText(["Venter 2", "Pågår 6"]);
+      await expect(grid.getByRole("rowheader", { name: /^Spill \d+, (venter|pågår)$/ })).toHaveCount(8);
+      await expect(grid.getByRole("gridcell").first()).toHaveAccessibleName(/^Spill 2, Uke 1: Netto lager −?\d+\.$/);
+      await expect(section.getByText(nb.wall.minusNote)).toBeVisible();
+      // The legend's swatches in step order with their bins.
+      await expect(section.getByRole("list", { name: nb.wall.legend }).getByRole("listitem")).toHaveText([...nb.wall.bins]);
+      expect(calls).toEqual([]);
+      await untilFontsLoaded(page);
+      // No cell text under 9 px.
+      const smallest = await grid.evaluate((svg) =>
+        Math.min(...[...svg.querySelectorAll("text")].map((t) => parseFloat(getComputedStyle(t).fontSize))),
+      );
+      expect(smallest).toBeGreaterThanOrEqual(9);
     });
 
     test("the request form shows its reasons and passes axe", async ({ page }) => {
@@ -180,4 +212,26 @@ test("a logged-in User who opens the root address goes to their own home", async
   await loginByApi(page, "admin");
   await page.goto("/");
   await expect(page).toHaveURL(new RegExp(`${DEMO_USERS.admin.home}$`));
+});
+
+test("at 200 % text the headline keeps the full width, the lead under it", async ({ browser }) => {
+  // A media query reads the browser's initial size; the Landing's columns follow the enlarged root
+  // size, so the headline never wraps one word per line (Epic 7 close-out).
+  const context = await browser.newContext({ baseURL: test.info().project.use.baseURL, viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    document.addEventListener("DOMContentLoaded", () => {
+      const style = document.createElement("style");
+      style.textContent = "html { font-size: 200% !important; }";
+      document.head.appendChild(style);
+    });
+  });
+  await page.goto("/");
+  const headline = page.getByRole("heading", { level: 1, name: landing.headline });
+  const lead = page.getByText(landing.lead);
+  await untilFontsLoaded(page);
+  const [h, l] = await Promise.all([headline.boundingBox(), lead.boundingBox()]);
+  expect(l!.y).toBeGreaterThanOrEqual(h!.y + h!.height);
+  expect(h!.width).toBeGreaterThan(900);
+  await context.close();
 });

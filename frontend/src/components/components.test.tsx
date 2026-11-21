@@ -196,6 +196,18 @@ describe("ConnectionNotice", () => {
     const html = renderToStaticMarkup(<ConnectionNotice message={nb.system.pageError} onRetry={() => {}} />);
     expect(html).toMatch(/<button type="button"[^>]*>Prøv igjen<\/button>/);
   });
+
+  it("puts the page's own action there instead, as «Last inn på nytt» (Story 7.5)", () => {
+    const html = renderToStaticMarkup(
+      <ConnectionNotice
+        message={nb.overview.live.stale("14:02")}
+        action={{ label: nb.overview.live.reload, onPress: () => {} }}
+      />,
+    );
+    expect(html).toContain("Ikke oppdatert siden 14:02. Prøver igjen.");
+    expect(html).toMatch(/<button type="button"[^>]*>Last inn på nytt<\/button>/);
+    expect(html).not.toContain(nb.system.retry);
+  });
 });
 
 describe("ActionError", () => {

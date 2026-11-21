@@ -6,7 +6,7 @@ patterns of FR-44 with placeholder thresholds, to be reviewed by two lecturers b
 once by `games.facts.get_or_create`; a trigger refuses every UPDATE.
 
 Revision ID: 0101
-Revises: 0050
+Revises: 0052
 Create Date: 2026-11-21
 """
 
@@ -18,7 +18,7 @@ from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB
 
 revision: str = "0101"
-down_revision: str | None = "0050"
+down_revision: str | None = "0052"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

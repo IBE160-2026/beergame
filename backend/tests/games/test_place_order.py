@@ -162,12 +162,17 @@ async def test_the_order_that_completes_the_week_advances_it_in_the_same_transac
     assert (placed.week, placed.open_week) == (1, 2)
     assert counts(games_db, game_id) == (6, 4, 2, 8, 4)
     lock = next(i for i, s in enumerate(statements) if s.endswith("FOR UPDATE"))
-    writes = [i for i, s in enumerate(statements) if s.startswith("INSERT INTO")]
+    summary = "INSERT INTO game_summaries"
+    writes = [
+        i for i, s in enumerate(statements) if s.startswith("INSERT INTO") and summary not in s
+    ]
     bump = next(i for i, s in enumerate(statements) if s.startswith("UPDATE games SET version"))
+    # Story 7.1: the Game's summary row is written after the bump, before the announcement.
+    upsert = next(i for i, s in enumerate(statements) if s.startswith(summary))
     notify = next(i for i, s in enumerate(statements) if "pg_notify" in s)
-    assert lock < min(writes) and max(writes) < bump < notify
+    assert lock < min(writes) and max(writes) < bump < upsert < notify
     inserted = {s.split()[2] for s in statements if s.startswith("INSERT INTO")}
-    assert inserted == {"seat_weeks", "game_weeks", "seat_turns"}
+    assert inserted == {"seat_weeks", "game_weeks", "seat_turns", "game_summaries"}
     stored = query(
         games_db, "SELECT state FROM game_weeks WHERE game_id = %s AND week = 2", (game_id,)
     )

@@ -681,8 +681,8 @@ async def readers(
         url = f"/api/class-sessions/{bad}/students/{user_id(me)}/debrief-summary"
         refused(await call(LECTURER, "GET", url), "forbidden")
 
-    # Spillinnsikt's links (Story 7.7's hook, on another branch): one Explanation and one summary
-    # link per Student-held Seat, registered once the hook exists.
+    # Spillinnsikt's links (Story 7.7's hook): one Explanation and one summary link per
+    # Student-held Seat.
     links = await insight.links(None, uuid.UUID(game_id))  # type: ignore[arg-type]
     held = [s for s in (await games.get_game(game_id)).seats if s.user_id is not None]
     assert len(links) == 2 * len(held) >= 4
@@ -694,10 +694,16 @@ async def readers(
         ("debrief_summary", page),
     ]
     registered = []
-    assert insight.register() is hasattr(games, "register_insight_links")
-    with patch.object(games, "register_insight_links", registered.append, create=True):
-        assert insight.register() is True
+    with patch.object(games, "register_insight_links", registered.append):
+        insight.register()
     assert registered == [insight.links]
+    # They reach the Lecturer in Spillinnsikt's answer, on the Student-held Seats only.
+    answer = (await call(LECTURER, "GET", f"/api/games/{game_id}/insight")).json()
+    for seat in answer["seats"]:
+        offered = [(link["kind"], link["href"]) for link in seat["links"]]
+        expected = [(link.kind, link.href) for link in links if link.role == seat["role"]]
+        assert offered == (expected if seat["holder"] == "student" else [])
+    assert sum(len(seat["links"]) for seat in answer["seats"]) >= 4
 
     # The Student of the other Class game and the staff reach none of the Debrief's routes.
     for who in (stranger, ASSISTANT):

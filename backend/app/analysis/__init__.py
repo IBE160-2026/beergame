@@ -16,6 +16,8 @@
 - `narration`: AI text that only connects computed facts (Story 9.14, FR-44, AD-7): the output
   schema of fact ids and template ids, `validate_ai_text` and the code narration `render`, both
   re-exported here as `analysis.validate_ai_text` and `analysis.render`.
+- `class_cost`: «Klassens kostnad», the finished games' cost median and split (Story 7.6).
+- `wall`: the Matrisevegg's class median and chain cost rows (`wall_aggregates`, Story 7.4).
 """
 
 from app.analysis.narration import render, validate_ai_text

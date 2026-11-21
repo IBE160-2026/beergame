@@ -201,7 +201,7 @@ test("two sessions made in the same minute have labels of their own (Issue #98)"
 test.describe("on a phone, 390 px", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("the chain diagram and the Datolinje show by a fading edge that they scroll (Issue #98)", async ({
+  test("the chain diagram and the Datolinje show by a cut edge that they scroll (Issue #98)", async ({
     page,
     browser,
   }) => {
@@ -214,11 +214,11 @@ test.describe("on a phone, 390 px", () => {
       const region = lecturer.getByRole("group", { name });
       await expect(region).toBeVisible();
       const frame = region.locator("..");
-      await expect(frame.locator('[data-fade="right"]')).toHaveAttribute("data-visible", "true");
-      await expect(frame.locator('[data-fade="left"]')).toHaveAttribute("data-visible", "false");
+      await expect(frame.locator('[data-more="right"]')).toHaveAttribute("data-visible", "true");
+      await expect(frame.locator('[data-more="left"]')).toHaveAttribute("data-visible", "false");
       await region.evaluate((el) => el.scrollTo({ left: el.scrollWidth }));
-      await expect(frame.locator('[data-fade="right"]')).toHaveAttribute("data-visible", "false");
-      await expect(frame.locator('[data-fade="left"]')).toHaveAttribute("data-visible", "true");
+      await expect(frame.locator('[data-more="right"]')).toHaveAttribute("data-visible", "false");
+      await expect(frame.locator('[data-more="left"]')).toHaveAttribute("data-visible", "true");
     }
   });
 });

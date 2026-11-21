@@ -16,8 +16,8 @@ import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { useClass } from "@/modules/classes/api";
 import { QuizExclusionsBlock } from "@/modules/debrief/quiz-exclusions";
-import { classPath, classSessionPath, HOME_PATH } from "@/modules/identity/homes";
-import { PageShell } from "@/modules/identity/page-shell";
+import { classOverviewPath, classPath, classSessionPath, HOME_PATH } from "@/modules/identity/homes";
+import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { LINK_BUTTON } from "@/modules/classes/roster-entry-forms";
 
 import {
@@ -340,6 +340,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       {readOnlyLine ? (
         <p className="mt-2 max-w-2xl text-body-phone text-ink-secondary lg:text-body">{readOnlyLine}</p>
       ) : null}
+      {/* Every Class game's status, whom it waits for and its cost (Story 7.1). */}
+      <PageLink href={classOverviewPath(item.id)}>{nb.overview.open}</PageLink>
       <div className="mt-8 grid grid-cols-1 gap-x-16 gap-y-10 lg:grid-cols-2">
         <section aria-labelledby="settings-title" className="min-w-0">
           <h2 id="settings-title" className="text-headline text-ink">

@@ -4,7 +4,7 @@ import { type ReactNode, useEffect } from "react";
 
 import { AppHeader } from "@/components/app-header";
 import { Breadcrumb, type Crumb } from "@/components/breadcrumb";
-import { ConnectionLine } from "@/components/connection-notice";
+import { ConnectionLine, type LiveLines } from "@/components/connection-notice";
 import { Link } from "@/components/link";
 import { LoadingNote, Skeleton } from "@/components/skeleton";
 import { nb } from "@/copy/nb";
@@ -27,6 +27,7 @@ export function PageShell({
   crumbs,
   header,
   skeleton,
+  liveLines,
   children,
 }: {
   user?: SessionUser;
@@ -40,6 +41,8 @@ export function PageShell({
   header?: ReactNode;
   /** The Skjelett's rows and columns, when the page's real table is known (UX-DR58). */
   skeleton?: { rows: number; columns: number };
+  /** The page's own Tilkoblingslinje wording for its live values (the Oversikt, Story 7.5). */
+  liveLines?: LiveLines;
   children?: ReactNode;
 }) {
   const ready = phase === "ready";
@@ -51,7 +54,7 @@ export function PageShell({
     <div className="min-h-dvh">
       {user ? <SessionHeader user={user} /> : <AppHeader />}
       <main className="px-gutter-phone pt-10 pb-16 lg:px-margin-laptop lg:pt-16">
-        <ConnectionLine pageError={phase === "failed"} onRetry={onRetry} updatedAt={updatedAt} />
+        <ConnectionLine pageError={phase === "failed"} onRetry={onRetry} updatedAt={updatedAt} lines={liveLines} />
         {phase === "loading" || phase === "slow" ? (
           <>
             <Skeleton rows={skeleton?.rows} columns={skeleton?.columns} />

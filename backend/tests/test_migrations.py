@@ -95,6 +95,10 @@ NARRATION_TABLES = {"debrief_ai_texts"}
 """The table of revision 0112 (Story 9.14)."""
 FOLLOW_UP_TABLES = {"debrief_follow_ups", "debrief_follow_up_closures"}
 """The tables of revision 0113 (Story 9.15)."""
+GAME_SUMMARY_TABLES = {"game_summaries"}
+"""The tables of revision 0051 (Story 7.1)."""
+MESSAGE_TABLES = {"messages", "message_recipients"}
+"""The tables of revision 0052 (Story 7.9)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -113,6 +117,8 @@ HEAD_TABLES = (
     | ALONE_TABLES
     | NARRATION_TABLES
     | FOLLOW_UP_TABLES
+    | GAME_SUMMARY_TABLES
+    | MESSAGE_TABLES
 )
 HEAD = "0113"  # 0113 stores the Debrief's follow-up questions and their hints (Story 9.15)
 
@@ -241,6 +247,13 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "UNIQUE (game_id)" in constraints(url, "time_proposals")["uq_time_proposals_game"]
     # 0050 (Story 6.20): a game number needs a Class session, a Class session no number.
     assert "class_session_id IS NOT NULL" in games["ck_games_class_session"]
+    # 0051 (Story 7.1): one summary row per Game with one of the four statuses. Its backfill is
+    # tested against `games.overview.recompute` (`tests/games/test_game_summaries.py`).
+    assert "'waiting'" in constraints(url, "game_summaries")["ck_game_summaries_status"]
+    # 0052 (Story 7.9): one Message per client-made key, of one of the four recipient kinds.
+    sent = constraints(url, "messages")
+    assert "UNIQUE (key)" in sent["messages_key_key"]
+    assert "'class_session'" in sent["ck_messages_recipient_kind"]
 
     # 0101 (Story 9.1): version 1 of the Detected patterns; a facts set is never changed.
     [(patterns,)] = rows(url, "SELECT body FROM content_records WHERE kind = 'detected_patterns'")
@@ -364,11 +377,15 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     command.downgrade(cfg, "0101")
     assert DEBRIEF_TABLES.isdisjoint(tables(url))
     assert "debrief_release" not in columns(url, "class_sessions")
-    command.downgrade(cfg, "0050")
+    command.downgrade(cfg, "0052")
     assert FACT_SET_TABLES.isdisjoint(tables(url))
     assert not function_names(url, "fact_sets_immutable")
     assert rows(url, "SELECT DISTINCT kind FROM content_records") == [("starting_task",)]
     assert "detected_patterns" not in definition(url, "ck_content_records_kind")
+    command.downgrade(cfg, "0051")
+    assert MESSAGE_TABLES.isdisjoint(tables(url))
+    command.downgrade(cfg, "0050")
+    assert GAME_SUMMARY_TABLES.isdisjoint(tables(url))
     command.downgrade(cfg, "0049")
     assert "= (game_number IS NULL)" in definition(url, "ck_games_class_session")
     command.downgrade(cfg, "0048")

@@ -161,7 +161,7 @@ def empty(url: str, tables: str) -> None:
 
 GAMES_TABLES = (
     "games, seats, seat_occupancy, game_weeks, seat_turns, seat_weeks, game_checks, "
-    "simulation_batches, procrastinate_jobs"
+    "game_summaries, simulation_batches, procrastinate_jobs"
 )
 """The games tables and the job queue, whose jobs name Games (Story 2.5)."""
 

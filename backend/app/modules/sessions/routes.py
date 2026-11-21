@@ -24,14 +24,16 @@ with its sources `…/copy-sources`. Story 6.1 adds the Student's game card and 
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, Response
 
-from app.modules.sessions import service
+from app.engine.settings import Role
+from app.modules.sessions import overview, service
 from app.modules.sessions.schemas import (
     AllocationConfirmIn,
     AllocationMoveIn,
     AllocationOut,
+    ClassOverviewOut,
     ClassSessionListOut,
     ClassSessionOut,
     ClassSessionSaveIn,
@@ -39,7 +41,9 @@ from app.modules.sessions.schemas import (
     CopySourceListOut,
     DemandSeriesOut,
     EnrolledSessionListOut,
+    GameInsightOut,
     GameResultOut,
+    GameWeeksOut,
     LabHourIn,
     LabHourOut,
     LecturerOverviewOut,
@@ -53,6 +57,9 @@ from app.modules.sessions.schemas import (
     StudentGameOut,
     TestGameIn,
     TimeProposalIn,
+    WallAggregatesOut,
+    WallCells,
+    WallStatus,
 )
 from app.platform import auth, authz
 from app.platform.errors import documented, error_response
@@ -183,6 +190,134 @@ async def get_class_session(
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/class-sessions/{session_id}/overview",
+    response_model=ClassOverviewOut,
+    responses={**documented(401, 403), 304: {"description": "Not modified since the ETag."}},
+    operation_id="getClassOverview",
+)
+async def get_class_overview(
+    session_id: str,
+    request: Request,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.overview"))],
+) -> Response:
+    """The Oversikt (Story 7.1, FR-39, AD-25): every Class game of the session with its status,
+    Week, whom it waits for, its Seats and chain cost, the headline counts and `server_now`, read
+    from the maintained summaries. With an `ETag`; a request whose `If-None-Match` names it is
+    answered 304 with no body. 403 `forbidden` for anyone who is not staff of the Class, and for
+    a Class session that does not exist (FR-5, NFR-7)."""
+    found = await overview.class_overview(user, _id(session_id))
+    if found is None:
+        raise authz.Forbidden
+    etag = overview.etag_of(found)
+    headers = {"ETag": etag, "Cache-Control": "private, no-cache"}
+    if _not_modified(request, etag):
+        return Response(status_code=304, headers=headers)
+    return JSONResponse(found.model_dump(mode="json"), headers=headers)
+
+
+@router.get(
+    "/class-sessions/{session_id}/overview/aggregates",
+    response_model=WallAggregatesOut,
+    responses={**documented(401, 403, 422), 304: {"description": "Not modified since the ETag."}},
+    operation_id="getWallAggregates",
+)
+async def get_wall_aggregates(
+    session_id: str,
+    request: Request,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.overview"))],
+    role: Annotated[Role, Query()] = Role.FACTORY,
+    cells: Annotated[WallCells, Query()] = WallCells.NET,
+    status: Annotated[WallStatus, Query()] = WallStatus.ALL,
+) -> Response:
+    """The Matrisevegg's class median rows for one Veggfiltre combination (Story 7.4, AD-10,
+    AD-25): per Uke the median of `role`'s `cells` value with the middle half of the Games, and
+    the mean chain cost, over the Class games `status` matches that reached the Uke. The overview
+    carries no aggregates. With an `ETag` over the filter and the matched Games' versions; a
+    request whose `If-None-Match` names it is answered 304 before any Week is read. 403
+    `forbidden` for anyone who is not staff of the Class and for a Class session that does not
+    exist (FR-5, NFR-7)."""
+    wanted = overview.WallFilter(role=role, cells=cells, status=status)
+    matched = await overview.wall_games(user, _id(session_id), wanted)
+    if matched is None:
+        raise authz.Forbidden
+    headers = {"ETag": matched.etag, "Cache-Control": "private, no-cache"}
+    if _not_modified(request, matched.etag):
+        return Response(status_code=304, headers=headers)
+    found = await overview.wall_aggregates_out(wanted, matched)
+    return JSONResponse(found.model_dump(mode="json"), headers=headers)
+
+
+def _not_modified(request: Request, etag: str) -> bool:
+    """`If-None-Match` names `etag`, by the weak comparison of RFC 9110 (a proxy may have weakened
+    the tag), or is `*`."""
+    sent = {
+        tag.strip().removeprefix("W/")
+        for tag in request.headers.get("if-none-match", "").split(",")
+    }
+    return etag in sent or "*" in sent
+
+
+@router.get(
+    "/games/{game_id}/weeks",
+    response_model=GameWeeksOut,
+    responses={**documented(401, 403), 304: {"description": "Not modified since the ETag."}},
+    operation_id="getGameWeeks",
+)
+async def get_game_weeks(
+    game_id: str,
+    request: Request,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.overview"))],
+) -> Response:
+    """Every opened Week of a Class game (Story 7.2, FR-39, AD-1, AD-25): per Week and Role the
+    Netto lager, the Order and the Kost per uke as the engine stored them, for the Matrisevegg.
+    The `ETag` is tied to the Game's `version`; a request whose `If-None-Match` names it is
+    answered 304 before any Week is read. 403 `forbidden` for anyone who is not staff of the
+    Game's Class, and for a Game that does not exist or that the Oversikt does not list (FR-5)."""
+    found_id = _id(game_id)
+    version = await overview.readable_game(user, found_id)
+    if version is None:
+        raise authz.Forbidden
+    etag = overview.game_weeks_etag(version)
+    headers = {"ETag": etag, "Cache-Control": "private, no-cache"}
+    if _not_modified(request, etag):
+        return Response(status_code=304, headers=headers)
+    found = await overview.game_weeks(found_id)
+    if found is None:
+        raise authz.Forbidden
+    # The Week read is a second transaction: a change between the two answers with its version.
+    headers["ETag"] = overview.game_weeks_etag(found.version)
+    return JSONResponse(found.model_dump(mode="json"), headers=headers)
+
+
+@router.get(
+    "/games/{game_id}/insight",
+    response_model=GameInsightOut,
+    responses={**documented(401, 403), 304: {"description": "Not modified since the ETag."}},
+    operation_id="getGameInsight",
+)
+async def get_game_insight(
+    game_id: str,
+    request: Request,
+    user: Annotated[authz.Principal, Depends(authz.require("games.insight"))],
+) -> Response:
+    """Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Class game week by week for the staff of
+    its Class — per Role and opened Week the incoming order and delivery, inventory, backlog,
+    Order and cost as stored, who held the Seat and its marks (AD-15), the Seats with their link
+    slots, the customer demand series and the number of Weeks. With an `ETag`; a request whose
+    `If-None-Match` names it is answered 304. 403 `forbidden`, one answer, for anyone who is not
+    staff of the Game's Class, a Student included, and for a Game that does not exist or that
+    the Oversikt does not list (FR-5, NFR-7)."""
+    found = await overview.game_insight(user, _id(game_id))
+    if found is None:
+        raise authz.Forbidden
+    etag = overview.insight_etag(found)
+    headers = {"ETag": etag, "Cache-Control": "private, no-cache"}
+    if _not_modified(request, etag):
+        return Response(status_code=304, headers=headers)
+    return JSONResponse(found.model_dump(mode="json"), headers=headers)
 
 
 TEST_GAME_REFUSED = {

@@ -13,6 +13,7 @@ import { formatNumber } from "@/lib/number-format";
 import { usePageState } from "@/lib/page-state";
 import { enrolledClassesKey, useEnrolledClasses } from "@/modules/classes/api";
 import { gamePath, rulesPath, seatChoicePath } from "@/modules/identity/homes";
+import { MyMessages } from "@/modules/messaging/my-messages";
 import { type EnrolledSession, enrolledSessionsKey, useEnrolledSessions } from "@/modules/sessions/api";
 import { homeLine } from "@/modules/sessions/seat-choice";
 
@@ -101,39 +102,44 @@ export function StudentHjem() {
   const primaryGame =
     listed.find((session) => (session.game ? wantsPrimary(session.game) : false))?.id ?? null;
   return (
-    <ul className="mt-8 flex max-w-md flex-col border-t border-hairline">
-      {items.map((item) => {
-        const own = all.filter((session) => session.class_id === item.id);
-        return (
-          <li key={item.id} className="border-b border-hairline py-5">
-            <h2 className="text-headline text-ink [overflow-wrap:anywhere]">
-              {nb.classes.home.label(item.name, item.course_code)}
-            </h2>
-            {own.length === 0 ? (
-              <p className="mt-1 text-body-phone text-ink-secondary lg:text-body">{nb.homes.startDate}</p>
-            ) : (
-              own.map((session) => (
-                <SessionBlock
-                  key={session.id}
-                  session={session}
-                  labelled={own.length > 1}
-                  primary={session.id === primaryGame && proposing.size === 0}
-                  onProposing={(open) =>
-                    setProposing((was) => {
-                      if (was.has(session.id) === open) return was;
-                      const next = new Set(was);
-                      if (open) next.add(session.id);
-                      else next.delete(session.id);
-                      return next;
-                    })
-                  }
-                />
-              ))
-            )}
-          </li>
-        );
-      })}
-    </ul>
+    <>
+      <ul className="mt-8 flex max-w-md flex-col border-t border-hairline">
+        {items.map((item) => {
+          const own = all.filter((session) => session.class_id === item.id);
+          return (
+            <li key={item.id} className="border-b border-hairline py-5">
+              <h2 className="text-headline text-ink [overflow-wrap:anywhere]">
+                {nb.classes.home.label(item.name, item.course_code)}
+              </h2>
+              {own.length === 0 ? (
+                <p className="mt-1 text-body-phone text-ink-secondary lg:text-body">{nb.homes.startDate}</p>
+              ) : (
+                own.map((session) => (
+                  <SessionBlock
+                    key={session.id}
+                    session={session}
+                    labelled={own.length > 1}
+                    primary={session.id === primaryGame && proposing.size === 0}
+                    onProposing={(open) =>
+                      setProposing((was) => {
+                        if (was.has(session.id) === open) return was;
+                        const next = new Set(was);
+                        if (open) next.add(session.id);
+                        else next.delete(session.id);
+                        return next;
+                      })
+                    }
+                  />
+                ))
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {/* Story 7.10: the Messages from the staff, after the Classes, so the game's one primary
+          action stays first (UX-DR8). */}
+      <MyMessages showClass={items.length > 1} />
+    </>
   );
 }
 

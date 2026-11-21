@@ -1,3 +1,4 @@
+import { type NetStep, netStep } from "@/components/charts/matrix-wall-layout";
 import { nb } from "@/copy/nb";
 import { formatNumber } from "@/lib/number-format";
 
@@ -93,15 +94,8 @@ export const ALL_ROWS: readonly Row[] = [
   { key: "totalCost", label: nb.games.play.table.sum, laptopOnly: false },
 ];
 
-/** A Netto lager matrix step (DESIGN.md → Colour → Matrix steps): |v| 1–9, 10–19, 20–34, 35+. */
-export type NetStep = "zero" | `pos-${1 | 2 | 3 | 4}` | `neg-${1 | 2 | 3 | 4}`;
-
-export function netStep(value: number): NetStep {
-  if (value === 0) return "zero";
-  const size = Math.abs(value);
-  const bin = size < 10 ? 1 : size < 20 ? 2 : size < 35 ? 3 : 4;
-  return value > 0 ? `pos-${bin}` : `neg-${bin}`;
-}
+/** A Netto lager matrix step: one definition, the chart module's, shared with the Matrisevegg. */
+export { type NetStep, netStep };
 
 export type Cell =
   | { kind: "empty" }

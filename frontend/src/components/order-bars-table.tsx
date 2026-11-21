@@ -15,7 +15,9 @@ export type OrderBarsRole = {
   /** «Fabrikk». */
   name: string;
   orders: readonly { week: number; order: number }[];
-  amplification: string | null;
+  /** Left out by a caller with no Forsterkning yet (Spillinnsikt before Story 9.5's wiring): with
+   * no Role giving it, the Forsterkning column is not drawn (Story 7.8). */
+  amplification?: string | null;
   firstLargeWeek: number | null;
 };
 
@@ -72,6 +74,7 @@ export function OrderBarsTable({
   const columns: GraphColumn[] = weeks.map((week) => ({ week, when: "past", phone: true }));
   const largest = Math.max(0, ...roles.flatMap((role) => role.orders.map((o) => o.order)));
   const byWeek = roles.map((role) => new Map(role.orders.map((o) => [o.week, o.order])));
+  const amplified = roles.some((role) => role.amplification !== undefined);
   const nameOf = (role: OrderBarsRole) => (role.key === ownRole ? `${role.name} ${texts.own}` : role.name);
   const field: GraphField = {
     key: "orders",
@@ -135,9 +138,11 @@ export function OrderBarsTable({
               {week}
             </th>
           ))}
-          <th scope="col" className="pl-3 text-right align-middle text-caption font-normal whitespace-nowrap text-ink-secondary">
-            {texts.amplification}
-          </th>
+          {amplified ? (
+            <th scope="col" className="pl-3 text-right align-middle text-caption font-normal whitespace-nowrap text-ink-secondary">
+              {texts.amplification}
+            </th>
+          ) : null}
         </tr>
       }
       body={roles.map((role, r) => (
@@ -158,9 +163,11 @@ export function OrderBarsTable({
               </td>
             );
           })}
-          <td data-amplification="" className="pl-3 text-right align-middle text-figure-amplification leading-none whitespace-nowrap text-ink">
-            {role.amplification === null ? texts.none : `${formatNumber(role.amplification, { decimals: 1 })}×`}
-          </td>
+          {amplified ? (
+            <td data-amplification="" className="pl-3 text-right align-middle text-figure-amplification leading-none whitespace-nowrap text-ink">
+              {role.amplification == null ? texts.none : `${formatNumber(role.amplification, { decimals: 1 })}×`}
+            </td>
+          ) : null}
         </tr>
       ))}
     />

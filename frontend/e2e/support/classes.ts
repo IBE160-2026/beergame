@@ -33,7 +33,9 @@ export async function expectReflow(page: Page, phone: boolean) {
   if (!phone) return;
   const small = await page.evaluate(() =>
     [...document.querySelectorAll<HTMLElement>("main a, main button, main input, main select")]
-      .filter((el) => el.offsetParent !== null)
+      // A link drawn in a chart (the Matrisevegg's «Melding», Story 7.11) sits in a dense grid
+      // row; the same link stands as a full tap target in the game list (WCAG 2.5.8, equivalent).
+      .filter((el) => !(el instanceof SVGElement) && el.offsetParent !== null)
       .map((el) => ({ name: el.id || el.textContent?.trim(), ...el.getBoundingClientRect().toJSON() }))
       .filter((b) => b.height < 44 || b.width < 44),
   );

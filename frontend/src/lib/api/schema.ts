@@ -808,6 +808,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/class-sessions/{session_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sent Messages
+         * @description «Meldinger» (Story 7.10): every Message of the Class session, newest first, with its
+         *     recipient, sender, time and the number of Students it went to. 403 `forbidden`, one answer,
+         *     for anyone who is not staff of the Class and for a Class session that does not exist.
+         */
+        get: operations["listSentMessages"];
+        put?: never;
+        /**
+         * Send Message
+         * @description «Send Melding» (Story 7.9, FR-40, AD-9): stores the Message with one recipient row per
+         *     Student and tells each of them in the product and by e-mail. A repeat with the same `key`
+         *     answers as the first and sends nothing. 422 `message_empty`, `message_too_long` (with
+         *     `fields.max_length`) or `no_recipients`; 409 `message_key_conflict` or `class_archived`; 403
+         *     `forbidden` as the form's read.
+         */
+        post: operations["sendMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/messages/form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Message Form
+         * @description The Meldingsskjema's recipient (Story 7.9): its title's parts, the Students it reaches now,
+         *     the earlier Messages to it and the length limit. 403 `forbidden`, one answer, for anyone who
+         *     is not staff of the Class and for a Class session, game or Student outside it (FR-5).
+         */
+        get: operations["getMessageForm"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Class Overview
+         * @description The Oversikt (Story 7.1, FR-39, AD-25): every Class game of the session with its status,
+         *     Week, whom it waits for, its Seats and chain cost, the headline counts and `server_now`, read
+         *     from the maintained summaries. With an `ETag`; a request whose `If-None-Match` names it is
+         *     answered 304 with no body. 403 `forbidden` for anyone who is not staff of the Class, and for
+         *     a Class session that does not exist (FR-5, NFR-7).
+         */
+        get: operations["getClassOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/overview/aggregates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Wall Aggregates
+         * @description The Matrisevegg's class median rows for one Veggfiltre combination (Story 7.4, AD-10,
+         *     AD-25): per Uke the median of `role`'s `cells` value with the middle half of the Games, and
+         *     the mean chain cost, over the Class games `status` matches that reached the Uke. The overview
+         *     carries no aggregates. With an `ETag` over the filter and the matched Games' versions; a
+         *     request whose `If-None-Match` names it is answered 304 before any Week is read. 403
+         *     `forbidden` for anyone who is not staff of the Class and for a Class session that does not
+         *     exist (FR-5, NFR-7).
+         */
+        get: operations["getWallAggregates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/class-sessions/{session_id}/settings-check": {
         parameters: {
             query?: never;
@@ -1850,6 +1952,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/games/{game_id}/insight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Game Insight
+         * @description Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Class game week by week for the staff of
+         *     its Class — per Role and opened Week the incoming order and delivery, inventory, backlog,
+         *     Order and cost as stored, who held the Seat and its marks (AD-15), the Seats with their link
+         *     slots, the customer demand series and the number of Weeks. With an `ETag`; a request whose
+         *     `If-None-Match` names it is answered 304. 403 `forbidden`, one answer, for anyone who is not
+         *     staff of the Game's Class, a Student included, and for a Game that does not exist or that
+         *     the Oversikt does not list (FR-5, NFR-7).
+         */
+        get: operations["getGameInsight"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/games/{game_id}/weeks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Game Weeks
+         * @description Every opened Week of a Class game (Story 7.2, FR-39, AD-1, AD-25): per Week and Role the
+         *     Netto lager, the Order and the Kost per uke as the engine stored them, for the Matrisevegg.
+         *     The `ETag` is tied to the Game's `version`; a request whose `If-None-Match` names it is
+         *     answered 304 before any Week is read. 403 `forbidden` for anyone who is not staff of the
+         *     Game's Class, and for a Game that does not exist or that the Oversikt does not list (FR-5).
+         */
+        get: operations["getGameWeeks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -2210,6 +2362,28 @@ export interface paths {
          *     game, or a Seat the Student no longer holds, answers 403 `forbidden` (FR-5).
          */
         post: operations["viewMyGameWeek"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Messages
+         * @description The Messages written to the User, newest first (Story 7.10, FR-40, FR-73): only those
+         *     addressed to them in a Class they are a Student in (AD-12). Read-only: there is no route by
+         *     which a Student writes, replies to or forwards a Message.
+         */
+        get: operations["listMyMessages"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2622,6 +2796,28 @@ export interface components {
          */
         Choice: "yes" | "no" | "unknown" | "skipped";
         /**
+         * ClassCostOut
+         * @description «Klassens kostnad» (Story 7.6, FR-39, AD-10): over the finished Class games, the median and
+         *     quartiles of their chain costs for the Kostnadsfordeling, the chain's mean lager and restordre
+         *     per game and each Role's mean, Detaljist first. Computed by `analysis.class_cost`.
+         */
+        ClassCostOut: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Games */
+            games: number;
+            /** Holding Cost */
+            holding_cost: string;
+            /** Lower Quartile */
+            lower_quartile: string;
+            /** Median */
+            median: string;
+            /** Roles */
+            roles: components["schemas"]["RoleCostOut"][];
+            /** Upper Quartile */
+            upper_quartile: string;
+        };
+        /**
          * ClassIn
          * @description A new Class (Story 4.1). The service checks the fields and answers every refused one in
          *     `fields`: `name`, `institution_id` (`institution_missing`, `institution_unknown`) and
@@ -2698,6 +2894,43 @@ export interface components {
             /** Roster Count */
             roster_count: number;
             staff_role: components["schemas"]["StaffRole"];
+        };
+        /**
+         * ClassOverviewOut
+         * @description The Oversikt of a Class session (Story 7.1, FR-39, AD-25): its Class games in the list
+         *     envelope, by game number, the headline counts and the database clock (`server_now`).
+         */
+        ClassOverviewOut: {
+            ai: components["schemas"]["OverviewAiOut"];
+            alert: components["schemas"]["OverviewAlertOut"] | null;
+            /** Before Start */
+            before_start: boolean;
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            cost: components["schemas"]["ClassCostOut"] | null;
+            counts: components["schemas"]["OverviewCountsOut"];
+            /** Funnel */
+            funnel: components["schemas"]["FunnelStageOut"][];
+            /** Items */
+            items: components["schemas"]["OverviewGameOut"][];
+            /** Next Change At */
+            next_change_at: string | null;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /**
+             * Server Now
+             * Format: date-time
+             */
+            server_now: string;
+            /** Session Number */
+            session_number: number;
+            /** Start At */
+            start_at: string | null;
         };
         /** ClassSessionListItem */
         ClassSessionListItem: {
@@ -3102,6 +3335,13 @@ export interface components {
             /** Start */
             start: number;
         };
+        /** DemandWeekOut */
+        DemandWeekOut: {
+            /** Demand */
+            demand: number;
+            /** Week */
+            week: number;
+        };
         /**
          * EnrolledClassListOut
          * @description The Classes the User is a Student in, by name. No paging: a Student has a handful.
@@ -3290,6 +3530,59 @@ export interface components {
             state: "off" | "open" | "closed";
         };
         /**
+         * FunnelStageOut
+         * @description One stage of the Trakt (Story 7.6, FR-39): how many registered Students reached it.
+         */
+        FunnelStageOut: {
+            /** Count */
+            count: number;
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "registered" | "class_game" | "debrief" | "quiz_passed" | "replay" | "test_submitted" | "assessment_ready";
+        };
+        /**
+         * GameInsightOut
+         * @description Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Game week by week, for the staff of its
+         *     Class only. The only answer that gives the staff the full chain, the demand series and the
+         *     number of Weeks. Seats and Roles in chain order, the Role serving the customer first.
+         */
+        GameInsightOut: {
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Demand */
+            demand: components["schemas"]["DemandWeekOut"][];
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+            /** Game Number */
+            game_number: number | null;
+            /** Roles */
+            roles: components["schemas"]["InsightRoleOut"][];
+            /** Seats */
+            seats: components["schemas"]["InsightSeatOut"][];
+            /** Session Number */
+            session_number: number;
+            status: components["schemas"]["GameStatus"];
+            /** Version */
+            version: number;
+            /** Weeks Total */
+            weeks_total: number | null;
+        };
+        /**
          * GameResult
          * @description A finished Game's cost (Story 6.18, FR-28): each Role's, the chain's, and the chain's
          *     running cost per Uke. Numbers and Roles only: no names, no demand, no settings.
@@ -3426,6 +3719,36 @@ export interface components {
              */
             weeks: number;
         };
+        /**
+         * GameStatus
+         * @description A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2); Epic 8
+         *     adds `paused`.
+         * @enum {string}
+         */
+        GameStatus: "not_started" | "running" | "waiting" | "finished";
+        /** GameWeekOut */
+        GameWeekOut: {
+            /** Seats */
+            seats: components["schemas"]["WeekSeatOut"][];
+            /** Week */
+            week: number;
+        };
+        /**
+         * GameWeeksOut
+         * @description Every opened Week of a Class game (Story 7.2, AD-25): the Matrisevegg's cells, read
+         *     on demand per Game. The finished state after the last Week is not a Week and is left out.
+         */
+        GameWeeksOut: {
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+            /** Version */
+            version: number;
+            /** Weeks */
+            weeks: components["schemas"]["GameWeekOut"][];
+        };
         /** GivenRowOut */
         GivenRowOut: {
             /** Label */
@@ -3500,6 +3823,74 @@ export interface components {
              * @default false
              */
             upstream: boolean;
+        };
+        /**
+         * InsightLinkOut
+         * @description A link for one Seat's Student on Spillinnsikt (FR-62), from a provider a later module
+         *     registered (`games.service.register_insight_links`, Epic 9): `kind` names it, the page words
+         *     it; `href` is a path in the web app.
+         */
+        InsightLinkOut: {
+            /** Href */
+            href: string;
+            /** Kind */
+            kind: string;
+        };
+        /** InsightRoleOut */
+        InsightRoleOut: {
+            /** First Large Order Week */
+            first_large_order_week: number | null;
+            role: components["schemas"]["Role"];
+            /** Weeks */
+            weeks: components["schemas"]["InsightWeekOut"][];
+        };
+        /**
+         * InsightSeatOut
+         * @description A Seat of the Game on Spillinnsikt as held now, like the Oversikt's, with its links.
+         */
+        InsightSeatOut: {
+            /**
+             * Holder
+             * @enum {string}
+             */
+            holder: "student" | "ai" | "free";
+            /** Links */
+            links: components["schemas"]["InsightLinkOut"][];
+            /** Name */
+            name: string | null;
+            role: components["schemas"]["Role"];
+            /** User Id */
+            user_id?: string | null;
+        };
+        /**
+         * InsightWeekOut
+         * @description One Seat in one opened Week (Story 7.7, FR-62, AD-1): the values the engine stored in the
+         *     Week state, the Order from the Decision log, who held the Seat and its marks (AD-15).
+         */
+        InsightWeekOut: {
+            /** Backlog */
+            backlog: number;
+            /** Cost */
+            cost: string;
+            /**
+             * Holder
+             * @enum {string}
+             */
+            holder: "student" | "ai" | "free";
+            /** Incoming Delivery */
+            incoming_delivery: number;
+            /** Incoming Order */
+            incoming_order: number;
+            /** Inventory */
+            inventory: number;
+            /** Marks */
+            marks: components["schemas"]["SeatMark"][];
+            /** Name */
+            name: string | null;
+            /** Order */
+            order: number | null;
+            /** Week */
+            week: number;
         };
         /** InstitutionChoice */
         InstitutionChoice: {
@@ -3804,6 +4195,69 @@ export interface components {
             upload_row?: components["schemas"]["UploadRow"] | null;
         };
         /**
+         * MessageFormOut
+         * @description What the Meldingsskjema shows before a send (UX-DR46).
+         */
+        MessageFormOut: {
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Game Id */
+            game_id: string | null;
+            /** Game Number */
+            game_number: number | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "student" | "class_game" | "class_session";
+            /** Max Length */
+            max_length: number;
+            /** Sent Before */
+            sent_before: number;
+            /** Session Number */
+            session_number: number;
+            /** Student Name */
+            student_name: string | null;
+            /** Students */
+            students: number;
+        };
+        /** MessageIn */
+        MessageIn: {
+            /** Game Id */
+            game_id?: string | null;
+            /**
+             * Key
+             * Format: uuid
+             */
+            key: string;
+            /** Student Id */
+            student_id?: string | null;
+            /** Text */
+            text: string;
+        };
+        /** MessageSentOut */
+        MessageSentOut: {
+            /**
+             * Message Id
+             * Format: uuid
+             */
+            message_id: string;
+            /** Sent Before */
+            sent_before: number;
+            /** Students */
+            students: number;
+        };
+        /**
          * MomentOut
          * @description One own moment (Story 9.7, FR-44): its texts rendered by code from the stored facts set,
          *     the other Roles' numbers that Uke, and `seen`, the Seat's Week as it saw it when it ordered
@@ -3853,6 +4307,38 @@ export interface components {
          */
         MyExplanationOut: {
             explanation: components["schemas"]["ExplanationOut"] | null;
+        };
+        /**
+         * MyMessageOut
+         * @description One Message on the Student's Hjem (Story 7.10): plain text, shown as written.
+         */
+        MyMessageOut: {
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Sender Name */
+            sender_name: string | null;
+            /**
+             * Sent At
+             * Format: date-time
+             */
+            sent_at: string;
+            /** Text */
+            text: string;
+        };
+        /** MyMessagesOut */
+        MyMessagesOut: {
+            /** Items */
+            items: components["schemas"]["MyMessageOut"][];
         };
         /**
          * MySummaryOut
@@ -4000,6 +4486,111 @@ export interface components {
             role: components["schemas"]["Role"];
             /** Supply Line */
             supply_line: number;
+        };
+        /**
+         * OverviewAiOut
+         * @description The AI players on the Oversikt (Story 7.6, UX-DR69): the Seats an AI player holds now and
+         *     the Class games with at least one («22 KI-spillere i 17 spill, alle merket.»).
+         */
+        OverviewAiOut: {
+            /** Games */
+            games: number;
+            /** Seats */
+            seats: number;
+        };
+        /**
+         * OverviewAlertOut
+         * @description The Varselbånd (Story 7.11, FR-39, UX-DR45): the Class game chosen by the api, the Seat it
+         *     waits for longest and since when. Epic 8 changes the choice to the game closest to Takeover.
+         */
+        OverviewAlertOut: {
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+            /** Game Number */
+            game_number: number | null;
+            /** Name */
+            name: string | null;
+            role: components["schemas"]["Role"];
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
+            /** User Id */
+            user_id: string | null;
+        };
+        /**
+         * OverviewCountsOut
+         * @description The headline counts by status (FR-39).
+         */
+        OverviewCountsOut: {
+            /** Finished */
+            finished: number;
+            /** Not Started */
+            not_started: number;
+            /** Running */
+            running: number;
+            /** Waiting */
+            waiting: number;
+        };
+        /**
+         * OverviewGameOut
+         * @description One Class game on the Oversikt, from its `game_summaries` row (Story 7.1, AD-25).
+         */
+        OverviewGameOut: {
+            /** Chain Cost */
+            chain_cost: string | null;
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+            /** Game Number */
+            game_number: number | null;
+            /** Seats */
+            seats: components["schemas"]["OverviewSeatOut"][];
+            status: components["schemas"]["GameStatus"];
+            /** Version */
+            version: number;
+            /** Wait Started At */
+            wait_started_at: string | null;
+            /** Waiting For */
+            waiting_for: components["schemas"]["OverviewWaitOut"][];
+            /** Week */
+            week: number | null;
+        };
+        /**
+         * OverviewSeatOut
+         * @description A Seat of a Class game on the Oversikt (Story 7.1): its Role and who holds it, a Student
+         *     by the name they have now, any AI player as «KI-spiller» (`ai`), or free.
+         */
+        OverviewSeatOut: {
+            /**
+             * Holder
+             * @enum {string}
+             */
+            holder: "student" | "ai" | "free";
+            /** Name */
+            name: string | null;
+            role: components["schemas"]["Role"];
+        };
+        /**
+         * OverviewWaitOut
+         * @description A Student Seat the Class game waits for (FR-25), and since when on the database clock; the
+         *     web app counts the wait from `server_now`.
+         */
+        OverviewWaitOut: {
+            /** Name */
+            name: string | null;
+            role: components["schemas"]["Role"];
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
         };
         /** PasswordResetIn */
         PasswordResetIn: {
@@ -4422,6 +5013,20 @@ export interface components {
             total_cost: string;
         };
         /**
+         * RoleCostOut
+         * @description One Role's mean cost per finished Class game, split into lager and restordre (Story 7.6,
+         *     UX-DR72), in kroner rounded to the øre, as decimal strings; `total_cost` is their sum.
+         */
+        RoleCostOut: {
+            /** Backorder Cost */
+            backorder_cost: string;
+            /** Holding Cost */
+            holding_cost: string;
+            role: components["schemas"]["Role"];
+            /** Total Cost */
+            total_cost: string;
+        };
+        /**
          * RoleIn
          * @description The account role an Admin grants (Story 3.9).
          */
@@ -4626,10 +5231,11 @@ export interface components {
         /**
          * SeatMark
          * @description What a Seat's row says beyond its holder (AD-15, Story 6.14), from the one mapping
-         *     `games.service.seat_mark`. Later stories add the marks they need.
+         *     `games.service.seat_mark`. Story 7.7 adds a mark for every other occupancy `reason` and every
+         *     `fallback` (FR-34, FR-62).
          * @enum {string}
          */
-        SeatMark: "guard_switch";
+        SeatMark: "guard_switch" | "cost_limit" | "takeover_inactivity" | "takeover_staff" | "takeover_peer" | "reclaim" | "playout" | "fallback_timeout" | "fallback_invalid_output" | "fallback_budget_exhausted" | "fallback_provider_error";
         /**
          * SeatRef
          * @description A Seat named by its Class game's number and its Role: «Grossist i Spill 17».
@@ -4715,6 +5321,60 @@ export interface components {
             week: number;
             /** Week Cost */
             week_cost: string;
+        };
+        /**
+         * SentMessageOut
+         * @description One Message in «Meldinger» (Story 7.10): its recipient, sender, time and reach.
+         */
+        SentMessageOut: {
+            /** Game Id */
+            game_id: string | null;
+            /** Game Number */
+            game_number: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "student" | "class_game" | "class_session" | "list";
+            /** Sender Name */
+            sender_name: string | null;
+            /**
+             * Sent At
+             * Format: date-time
+             */
+            sent_at: string;
+            /** Student Id */
+            student_id: string | null;
+            /** Student Name */
+            student_name: string | null;
+            /** Students */
+            students: number;
+            /** Text */
+            text: string;
+        };
+        /** SentMessagesOut */
+        SentMessagesOut: {
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /** Class Name */
+            class_name: string;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Items */
+            items: components["schemas"]["SentMessageOut"][];
+            /** Session Number */
+            session_number: number;
         };
         /** SessionOut */
         SessionOut: {
@@ -5439,6 +6099,66 @@ export interface components {
             class_name: string;
             /** Sessions */
             sessions: components["schemas"]["SessionRef"][];
+        };
+        /**
+         * WallAggregatesOut
+         * @description The class median and mean chain cost rows for one filter combination (Story 7.4, AD-10):
+         *     the web app draws them and computes none of them.
+         */
+        WallAggregatesOut: {
+            cells: components["schemas"]["WallCells"];
+            /** Games */
+            games: number;
+            role: components["schemas"]["Role"];
+            status: components["schemas"]["WallStatus"];
+            /** Weeks */
+            weeks: components["schemas"]["WallWeekOut"][];
+        };
+        /**
+         * WallCells
+         * @description What the Matrisevegg's cells show (Story 7.4, the Celler filter).
+         * @enum {string}
+         */
+        WallCells: "net" | "order" | "cost";
+        /**
+         * WallStatus
+         * @description Which Class games the wall shows (Story 7.4, the Status filter): all, one status, or
+         *     those with a Seat held by an AI player.
+         * @enum {string}
+         */
+        WallStatus: "all" | "waiting" | "running" | "not_started" | "finished" | "with_ai";
+        /**
+         * WallWeekOut
+         * @description One Uke of the wall's bottom rows and its class median graph (Story 7.4, UX-DR40).
+         */
+        WallWeekOut: {
+            /** Chain Cost Mean */
+            chain_cost_mean: string | null;
+            /** Chain Games */
+            chain_games: number;
+            /** Games */
+            games: number;
+            /** Lower Quartile */
+            lower_quartile: string | null;
+            /** Median */
+            median: string | null;
+            /** Upper Quartile */
+            upper_quartile: string | null;
+            /** Week */
+            week: number;
+        };
+        /**
+         * WeekSeatOut
+         * @description One Seat in one opened Week as the engine stored it (Story 7.2, AD-1).
+         */
+        WeekSeatOut: {
+            /** Cost */
+            cost: string;
+            /** Net Inventory */
+            net_inventory: number;
+            /** Order */
+            order: number | null;
+            role: components["schemas"]["Role"];
         };
         /**
          * WeekValues
@@ -7584,6 +8304,285 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listSentMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SentMessagesOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sendMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageSentOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getMessageForm: {
+        parameters: {
+            query?: {
+                game_id?: string | null;
+                student_id?: string | null;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageFormOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getClassOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassOverviewOut"];
+                };
+            };
+            /** @description Not modified since the ETag. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getWallAggregates: {
+        parameters: {
+            query?: {
+                role?: components["schemas"]["Role"];
+                cells?: components["schemas"]["WallCells"];
+                status?: components["schemas"]["WallStatus"];
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WallAggregatesOut"];
+                };
+            };
+            /** @description Not modified since the ETag. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };
@@ -10292,6 +11291,118 @@ export interface operations {
             };
         };
     };
+    getGameInsight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameInsightOut"];
+                };
+            };
+            /** @description Not modified since the ETag. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getGameWeeks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameWeeksOut"];
+                };
+            };
+            /** @description Not modified since the ETag. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_api_health_get: {
         parameters: {
             query?: never;
@@ -11161,6 +12272,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listMyMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyMessagesOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

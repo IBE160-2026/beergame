@@ -1,0 +1,12 @@
+{
+  "role": "factory",
+  "cells": "net",
+  "status": "all",
+  "games": 3,
+  "weeks": [
+    { "week": 1, "games": 3, "median": "12", "lower_quartile": "12", "upper_quartile": "12", "chain_games": 3, "chain_cost_mean": "24.00" },
+    { "week": 2, "games": 3, "median": "8.5", "lower_quartile": "4.25", "upper_quartile": "10", "chain_games": 3, "chain_cost_mean": "26.50" },
+    { "week": 3, "games": 2, "median": "-16", "lower_quartile": "-27", "upper_quartile": "-4", "chain_games": 2, "chain_cost_mean": "66.33" },
+    { "week": 4, "games": 0, "median": null, "lower_quartile": null, "upper_quartile": null, "chain_games": 1, "chain_cost_mean": "102.00" }
+  ]
+}
