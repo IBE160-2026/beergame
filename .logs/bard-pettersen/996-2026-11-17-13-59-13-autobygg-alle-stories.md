@@ -1978,3 +1978,25 @@ Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en visuell kontrol
 
 ### Åpne punkter
 - Issue 138: beslutninger i Story 6.20.
+
+## Story 6.21: Se nabotallene som faglæreren har slått på (kuttliste, `FEATURE_INFO_VISIBILITY`) (2026-11-21)
+
+### Oppgave
+Bygge Story 6.21 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en kort visuell kontroll og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-21-see-the-neighbour-numbers-the-lecturer-switched-on.md`.
+- **Commit 5596450:** nabotall i `seat_state`, filtrert på serveren, promptversjonen `player_order/v2`, og blokker med nabotall i Kjedebåndet.
+- **Tester:**
+  - backend: 2770 tester (66 s);
+  - frontend: Vitest 699 og bygg;
+  - Playwright: 119 målrettede tester.
+- **Gjennomgang:** 22 lave funn. 6 ble rettet.
+- **Visuell kontroll:** 21 skjermbilder i `screenshots/6.21/`. Ett avvik er rettet (887a1e4).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 139: beslutninger i Story 6.21. LLM-spillere ser ikke nabotallene før konfigurasjonen flyttes til v2 (sammen med Issue #60).
