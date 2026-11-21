@@ -2450,3 +2450,23 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #159: beslutninger (mottakere, 403 for utenforstående, nøkkel mot dobbel sending).
+
+## Story 9.9: Bestå Debrief-quizen (spor 2)
+
+### Oppgave
+Bygge Story 9.9 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-9-pass-the-debrief-quiz.md` (på `epic-9`).
+- Commit: 93444ab.
+- Steg 5 «Debrief-quiz» med ny innholdstype `debrief_quiz` (midlertidige spørsmål), poeng regnet bare på serveren, forsøk som ikke kan endres (`quiz_attempts`, migrasjon 0108), og `quiz_passed` i samme transaksjon. Komponenten Quizvalg i `components/quiz-choice.tsx`.
+- Tester: backend 2932, Vitest 763, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 149 med `--workers=4`, ingen ustabile tester.
+- Gjennomgang: 23 funn, ingen høye eller middels, 5 rettet.
+- Visuell kontroll (Sonnet, spor 2): 24 skjermbilder i `screenshots/9.9/` (9dfae1f). Rettet at «Ditt svar, ikke riktig» ble kuttet og at «−13» ble delt ved 200 % tekst (1230385).
+- Status: done.
+
+### Åpne punkter
+- Issue #160: beslutninger (midlertidige spørsmål til Issue #16, stokking ved nye forsøk, ingen nye forsøk etter bestått).
