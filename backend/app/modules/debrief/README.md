@@ -79,3 +79,20 @@ The Debrief (Epic 9, FR-41 to FR-47, AD-21). Never imports `modules/players`
   questions' version; never changed (trigger). Only the first unanswered question may be answered
   (409 `reflection_out_of_order`); an answered one answers its stored answer unchanged and emits
   nothing. 404 `not_found` for an unknown id, 422 for blank or over 2000 characters.
+
+## The own moments (Story 9.7, FR-44, FR-43, AD-7, AD-12, AD-21, AD-23)
+
+- `GET /api/debriefs/{id}/steps/4` answers `moments` behind `require_explanation`: the facts set
+  of the Student's own Seat from `games.service.fact_set` (`games.facts.get_or_create`, never
+  rebuilt), its id recorded for the Student at the first view by `commands.record_facts` in
+  `debrief_fact_sets` (key `user_id`, Class session; stored once, trigger; Debrief row locked,
+  `debrief:<id>` emitted on insert only; registry `debrief.record_facts` → `debrief`).
+- The texts are rendered by the pure `analysis.moments.render(fact_set, templates, patterns)`
+  from the `moment_templates` the Class session pinned (migration 0106, version 1) and the
+  Detected pattern version the facts were built with; each travels as `{text, ai_generated:
+  false, llm_call_id: null}`. Each moment also carries the other Roles' numbers that Uke
+  (`others_seen`) and the Seat's `state_seen` of that Uke for «Dette så du».
+- With fewer than 10 own Orders (`seat.sm_excluded`): `mostly_ai`, no heading, no moments; the
+  facts set carries the flag that leaves the Student out of SM-1 and SM-2.
+- Only the caller's own Seat: the route takes no Student or Seat, so no Group member or shared
+  screen reads another Student's moments (FR-43).

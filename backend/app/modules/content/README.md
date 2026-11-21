@@ -3,7 +3,8 @@
 One table, `content_records(kind, version, body)`. A record never changes (a trigger refuses
 UPDATE): an edit is a new version, `service.publish(kind, body)`, validated against the kind's
 schema (`schemas.py`). Kinds: `starting_task` (Story 6.3), `detected_patterns` (Story 9.1),
-`sentence_templates` (Story 9.4); later epics add theirs.
+`sentence_templates` (Story 9.4), `reflection_questions` (Story 9.6), `moment_templates`
+(Story 9.7); later epics add theirs.
 
 - Version 1 of the Starting task is stored by migration 0046: placeholder items, among them
   «Regn posisjonen for én Uke». The final items (issue #16) arrive as a new version, with no
@@ -26,3 +27,10 @@ schema (`schemas.py`). Kinds: `starting_task` (Story 6.3), `detected_patterns` (
   present, each using only the values its id is given, no exclamation mark. Code fills every
   number (AD-7). The lock pins the version under `SessionRuntime.pins["sentence_templates"]`
   (`sentence_templates_pin`); `pinned_version(pins, Kind.SENTENCE_TEMPLATES)` reads it.
+- Version 1 of the own moments' templates is stored by migration 0106 (draft copy, Issue #31):
+  step 4's heading, each moment's heading, «Dette regnet du» (the Posisjon sum), «Dette kostet
+  det senere», a Detected pattern by name and definition, its mechanism, and the gap sentences of
+  a moment with no pattern. Their shape is `analysis.sentences.MomentTemplates`: exactly the ids
+  of `MOMENT_TEMPLATES`, each using only its values, no exclamation mark and no cause word;
+  `analysis.moments.render` fills them (AD-7). The lock pins the version under
+  `SessionRuntime.pins["moment_templates"]` (`moment_templates_pin`).

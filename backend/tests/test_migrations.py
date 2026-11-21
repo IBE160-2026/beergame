@@ -79,6 +79,8 @@ EXPLANATION_TABLES = {"debrief_explanations"}
 """The table of revision 0103 (Story 9.3)."""
 REFLECTION_TABLES = {"debrief_reflection_answers"}
 """The table of revision 0105 (Story 9.6)."""
+MOMENT_TABLES = {"debrief_fact_sets"}
+"""The table of revision 0106 (Story 9.7)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -89,8 +91,9 @@ HEAD_TABLES = (
     | DEBRIEF_TABLES
     | EXPLANATION_TABLES
     | REFLECTION_TABLES
+    | MOMENT_TABLES
 )
-HEAD = "0105"  # 0105 stores the reflection questions and their answers (Story 9.6)
+HEAD = "0106"  # 0106 stores the moment templates and each Student's moments' facts set (9.7)
 
 
 def reset_schema(url: str) -> None:
@@ -248,6 +251,17 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "char_length(text)" in answers["ck_debrief_reflection_answers_length"]
     assert function_names(url, "debrief_reflection_answers_immutable")
 
+    # 0106 (Story 9.7): version 1 of the moment templates; the cited facts set never changes.
+    [(moments,)] = rows(url, "SELECT body FROM content_records WHERE kind = 'moment_templates'")
+    assert "moments-heading" in [t["id"] for t in moments["templates"]]
+    assert function_names(url, "debrief_fact_sets_immutable")
+
+    command.downgrade(cfg, "0105")
+    assert MOMENT_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "debrief_fact_sets_immutable")
+    assert "moment_templates" not in definition(url, "ck_content_records_kind")
+    gone = "SELECT count(*) FROM content_records WHERE kind = 'moment_templates'"
+    assert rows(url, gone) == [(0,)]
     command.downgrade(cfg, "0104")
     assert REFLECTION_TABLES.isdisjoint(tables(url))
     assert not function_names(url, "debrief_reflection_answers_immutable")

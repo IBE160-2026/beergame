@@ -1,4 +1,4 @@
-"""What other modules and the routes use of `debrief` (Stories 9.2 to 9.6).
+"""What other modules and the routes use of `debrief` (Stories 9.2 to 9.7).
 
 - `open_mine(user, class_session_id)`: the Student's Debrief, opened on first use; raises
   `NotAvailable` with the code the route answers (`debrief_not_open`, `debrief_held`), and None
@@ -10,7 +10,8 @@
 - `require_explanation(user_id, class_session_id)`: the one gate every Debrief read after step 1
   goes through (raises `ExplanationRequired`, 403 `explanation_required`, FR-41, FR-43);
   `step(user, debrief_id, n)` is the step endpoint behind it; step 2 carries the reveal of
-  customer demand (Story 9.4, `reveal`), step 3 the whole chain (Story 9.5, `chain`).
+  customer demand (Story 9.4, `reveal`), step 3 the whole chain (Story 9.5, `chain`), step 4
+  the Student's own moments (Story 9.7, `moments`).
 - Between steps 3 and 4 (Story 9.6): `own_reflection` (the pinned reflection questions with the
   Student's own answers) and `answer_mine` (raises `InvalidAnswer`, `UnknownQuestion`,
   `commands.AnswerOutOfOrder`), both behind the gate.
@@ -24,6 +25,7 @@ from datetime import datetime
 
 from sqlalchemy import select
 
+from app.analysis import moments as moment_text
 from app.analysis import sentences
 from app.analysis.facts import LARGE_ORDER
 from app.engine.settings import Role
@@ -45,12 +47,16 @@ from app.modules.debrief.schemas import (
     DebriefStepOut,
     ExplanationOut,
     LargestOrderOut,
+    MomentOut,
+    MomentsOut,
     MyExplanationOut,
     NetInventoryOut,
     NetWeekOut,
+    OtherSeenOut,
     ReflectionAnswerOut,
     ReflectionOut,
     ReflectionQuestionOut,
+    RenderedTextOut,
     RevealOut,
     RevealWeekOut,
 )
@@ -265,7 +271,74 @@ async def step(user: authz.Principal, debrief_id: uuid.UUID, number: int) -> Deb
     await require_explanation(user.id, row.class_session_id)
     shown = await _reveal(row.game_id, game.role) if number == 2 else None
     chain = await _chain(row.game_id, game.role) if number == 3 else None
-    return DebriefStepOut(debrief_id=row.id, step=number, reveal=shown, chain=chain)
+    own = await _moments(user.id, row, game.role) if number == 4 else None
+    return DebriefStepOut(debrief_id=row.id, step=number, reveal=shown, chain=chain, moments=own)
+
+
+async def _moments(user_id: uuid.UUID, row: commands.DebriefRow, role: str) -> MomentsOut:
+    """Step 4 (Story 9.7, FR-44, AD-7): the Student's own moments, rendered by code from the facts
+    set of their Seat. The set comes from `games.facts.get_or_create` (stored once, never rebuilt
+    here) and its id is recorded for the Student at the first view, so every view cites the same
+    set. The templates are the ones the Class session pinned at the lock (the latest for a session
+    locked before the pin); the pattern names are those of the version the facts were built with.
+    Call only behind `require_explanation`."""
+    stored = await games.fact_set(str(row.game_id), role)
+    cited = await commands.record_facts(
+        row.game_id, row.class_session_id, user_id, uuid.UUID(stored.id)
+    )
+    if str(cited) != stored.id:
+        raise RuntimeError(f"the moments of Debrief {row.id} cite another facts set")
+    seat = stored.facts.seat
+    found = await games.get_game(str(row.game_id))
+    pins = found.session_runtime.pins if found and found.session_runtime else None
+    _, templates = await content.moment_templates(
+        content.pinned_version(pins, content.Kind.MOMENT_TEMPLATES)
+    )
+    _, patterns = await content.detected_patterns(stored.patterns_version)
+    rendered = moment_text.render(stored.facts, templates, patterns)
+    logged = {
+        e.week: e.state_seen
+        for e in await games.decision_log(str(row.game_id))
+        if str(e.role) == str(role)
+    }
+    by_id = {moment.id: moment for moment in seat.moments}
+
+    def text(rendered_text: sentences.RenderedText) -> RenderedTextOut:
+        return RenderedTextOut(text=rendered_text.text)
+
+    shown = []
+    for each in rendered.moments:
+        moment = by_id[each.id]
+        shown.append(
+            MomentOut(
+                id=moment.id,
+                week=moment.week,
+                order=moment.order,
+                chosen_by=moment.chosen_by,
+                heading=text(each.heading),
+                reckoning=text(each.reckoning),
+                later=text(each.later),
+                patterns=[text(p) for p in each.patterns],
+                others=[
+                    OtherSeenOut(
+                        role=other.role,
+                        incoming_order=other.incoming_order,
+                        inventory=other.inventory,
+                        backlog=other.backlog,
+                        supply_line=other.supply_line,
+                    )
+                    for other in moment.others_seen
+                ],
+                seen=logged[moment.week],
+            )
+        )
+    return MomentsOut(
+        role=Role(role),
+        student_orders=seat.student_orders,
+        mostly_ai=seat.sm_excluded,
+        heading=text(rendered.heading) if rendered.heading else None,
+        moments=shown,
+    )
 
 
 async def _chain(game_id: uuid.UUID, role: str) -> ChainOut:

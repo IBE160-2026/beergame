@@ -3,25 +3,31 @@
 The templates are one immutable versioned record of kind `sentence_templates` in
 `modules/content`, which validates every version against `SentenceTemplates`. Code fills every
 number into them: an LLM never writes a number or a cause (AD-7). Story 9.4 renders the step-2
-heading from the Game's customer demand series (`demand_heading`); later stories add the
-templates of the moments.
+heading from the Game's customer demand series (`demand_heading`). The own moments' templates
+(Story 9.7) are a kind of their own, `moment_templates`, validated against `MomentTemplates` and
+filled by `analysis.moments.render`.
 
 Pure (AD-1): stdlib, pydantic and `app.engine` only."""
 
 import string
 from collections.abc import Mapping, Sequence
+from decimal import ROUND_HALF_EVEN, Decimal
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.analysis.patterns import CAUSE_WORDS
 from app.engine.demand import DemandPattern, DemandRandom, DemandStepNoise
 
 __all__ = [
     "DEMAND_TEMPLATES",
+    "MOMENT_TEMPLATES",
+    "MomentTemplates",
     "RenderedText",
     "SentenceTemplate",
     "SentenceTemplates",
     "demand_heading",
+    "format_money",
     "format_number",
     "render",
 ]
@@ -36,6 +42,30 @@ DEMAND_TEMPLATES: Mapping[str, frozenset[str]] = {
     "demand-varied": frozenset({"first", "low", "high"}),
 }
 """The step-2 heading's variants and the values each may use (Story 9.4)."""
+
+MOMENT_TEMPLATES: Mapping[str, frozenset[str]] = {
+    # Step 4's heading, from the first moment (UX-DR31), and each moment's own heading.
+    "moments-heading": frozenset({"week", "order", "supply_line"}),
+    "moment-heading": frozenset({"week", "order", "supply_line"}),
+    # «Dette regnet du»: the Posisjon sum before and after the Order.
+    "moment-position": frozenset(
+        {"inventory", "backlog", "supply_line", "position", "order", "position_after"}
+    ),
+    # «Dette kostet det senere»: the Seat's cost over the following Weeks (none in the last Week).
+    "moment-later": frozenset({"first_week", "last_week", "later_cost"}),
+    "moment-later-one": frozenset({"first_week", "later_cost"}),
+    "moment-later-none": frozenset(),
+    # A Detected pattern by its name and definition (content), then its mechanism.
+    "moment-pattern": frozenset({"name", "definition"}),
+    "mechanism-delay": frozenset(),
+    "mechanism-supply-line": frozenset(),
+    "mechanism-demand-information-lost": frozenset(),
+    # A moment chosen by the gap between the Order and the incoming order (no pattern).
+    "moment-gap-above": frozenset({"gap", "incoming_order"}),
+    "moment-gap-below": frozenset({"gap", "incoming_order"}),
+    "moment-gap-equal": frozenset({"incoming_order"}),
+}
+"""The own moments' templates and the values each may use (Story 9.7)."""
 
 
 def _fields(text: str) -> set[str]:
@@ -99,6 +129,36 @@ class SentenceTemplates(BaseModel):
         return next(t.text for t in self.templates if t.id == template_id)
 
 
+class MomentTemplates(BaseModel):
+    """The own moments' templates (Story 9.7): exactly the ids of `MOMENT_TEMPLATES`, each using
+    exactly the values its id is given, and none stating a cause: a moment names a pattern and its
+    mechanism, never why (FR-44)."""
+
+    model_config = _FROZEN
+
+    templates: Annotated[tuple[SentenceTemplate, ...], Field(min_length=1, max_length=200)]
+
+    @model_validator(mode="after")
+    def _complete(self) -> MomentTemplates:
+        ids = [template.id for template in self.templates]
+        if len(set(ids)) != len(ids):
+            raise ValueError("template ids repeat")
+        if set(ids) != set(MOMENT_TEMPLATES):
+            raise ValueError(
+                f"templates missing or unknown: {sorted(set(ids) ^ set(MOMENT_TEMPLATES))}"
+            )
+        for template in self.templates:
+            # Every value, no more and no less: a template that drops a number would hide it.
+            if _fields(template.text) != MOMENT_TEMPLATES[template.id]:
+                raise ValueError(f"template {template.id!r} does not use exactly its values")
+            if CAUSE_WORDS.search(template.text):
+                raise ValueError(f"template {template.id!r} states a cause")
+        return self
+
+    def text_of(self, template_id: str) -> str:
+        return next(t.text for t in self.templates if t.id == template_id)
+
+
 class RenderedText(BaseModel):
     """Text rendered by code from a template: never AI text (AD-7)."""
 
@@ -113,6 +173,18 @@ def format_number(value: int) -> str:
     a true minus sign («−1 234»)."""
     grouped = f"{abs(value):,}".replace(",", " ")
     return f"−{grouped}" if value < 0 else grouped
+
+
+_CENTS = Decimal("0.01")
+
+
+def format_money(value: Decimal) -> str:
+    """An amount in kroner as the web app writes it (UX-DR5): two decimals after a comma, a
+    no-break space between thousands and a true minus sign («1 234,50», «−0,50»)."""
+    cents = value.quantize(_CENTS, rounding=ROUND_HALF_EVEN)
+    whole, fraction = f"{abs(cents):.2f}".split(".")
+    text = f"{format_number(int(whole))},{fraction}"
+    return f"−{text}" if cents < 0 else text
 
 
 def render(templates: SentenceTemplates, template_id: str, **values: int) -> RenderedText:

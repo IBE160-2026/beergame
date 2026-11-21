@@ -25,6 +25,7 @@ class Kind(StrEnum):
     DETECTED_PATTERNS = "detected_patterns"
     SENTENCE_TEMPLATES = "sentence_templates"
     REFLECTION_QUESTIONS = "reflection_questions"
+    MOMENT_TEMPLATES = "moment_templates"
 
 
 content_records = Table(

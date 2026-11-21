@@ -1,4 +1,4 @@
-"""What the Debrief routes answer (Stories 9.2 to 9.6, AD-3)."""
+"""What the Debrief routes answer (Stories 9.2 to 9.7, AD-3)."""
 
 import uuid
 from datetime import datetime
@@ -8,6 +8,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.engine.settings import Role
+from app.modules.games import service as games
 
 
 class DebriefOut(BaseModel):
@@ -139,10 +140,67 @@ class ChainOut(BaseModel):
     roles: list[ChainRoleOut]
 
 
+class RenderedTextOut(BaseModel):
+    """Text the Debrief shows as written (AD-7): code-rendered text says `ai_generated` false and
+    has no `llm_call_id`, and the web app shows it without the «KI-generert, kan ta feil:» prefix,
+    which only `ai_generated` turns on."""
+
+    text: str
+    ai_generated: bool = False
+    llm_call_id: uuid.UUID | None = None
+
+
+class OtherSeenOut(BaseModel):
+    """What another Role saw in the moment's Uke (the facts set's `others_seen`)."""
+
+    role: Role
+    incoming_order: int
+    inventory: int
+    backlog: int
+    supply_line: int
+
+
+class MomentOut(BaseModel):
+    """One own moment (Story 9.7, FR-44): its texts rendered by code from the stored facts set,
+    the other Roles' numbers that Uke, and `seen`, the Seat's Week as it saw it when it ordered
+    (the Decision log's `state_seen`, for «Dette så du»)."""
+
+    id: str
+    """`moment:<role>:<week>`, from the facts set."""
+    week: int
+    order: int
+    chosen_by: Literal["pattern", "order_gap"]
+    heading: RenderedTextOut
+    reckoning: RenderedTextOut
+    """«Dette regnet du»: the Posisjon sum."""
+    later: RenderedTextOut
+    """«Dette kostet det senere»."""
+    patterns: list[RenderedTextOut]
+    """Each Detected pattern of the Uke and its mechanism, or the gap sentence when none."""
+    others: list[OtherSeenOut]
+    """«Dette så de andre i Uke N», in chain order."""
+    seen: games.SeatState
+
+
+class MomentsOut(BaseModel):
+    """Step 4, the Student's own moments (Story 9.7, FR-44, UX-DR31), from the facts set stored
+    for them (AD-7). With fewer than 10 own Orders the game was played mostly by AI players:
+    `mostly_ai`, no heading and no moments; the rest of the Debrief stays open."""
+
+    role: Role
+    student_orders: int
+    mostly_ai: bool
+    heading: RenderedTextOut | None
+    """Rendered from the first moment («Ditt øyeblikk: Uke 11. …»)."""
+    moments: list[MomentOut]
+    """By Uke; three when not `mostly_ai`."""
+
+
 class DebriefStepOut(BaseModel):
     """A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2
-    carries the reveal (Story 9.4), step 3 the whole chain (Story 9.5); steps 4 and 5 get their
-    content with Stories 9.7 to 9.9 and until then answer the step number only."""
+    carries the reveal (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the own moments
+    (Story 9.7); step 5 gets its content with Story 9.9 and until then answers the step number
+    only."""
 
     debrief_id: uuid.UUID
     step: int
@@ -150,6 +208,8 @@ class DebriefStepOut(BaseModel):
     """Step 2 only."""
     chain: ChainOut | None = None
     """Step 3 only."""
+    moments: MomentsOut | None = None
+    """Step 4 only."""
 
 
 class ReflectionAnswerIn(BaseModel):

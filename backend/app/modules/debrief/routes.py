@@ -1,4 +1,4 @@
-"""The Debrief routes (Stories 9.2 to 9.6, FR-41, FR-42, FR-45, AD-3, AD-12).
+"""The Debrief routes (Stories 9.2 to 9.7, FR-41, FR-42, FR-44, FR-45, AD-3, AD-12).
 
 - `POST /api/me/class-sessions/{id}/debrief`: «Gå til Debrief» and Stegene's Debrief step open
   the Student's Debrief session (created at step 1 the first time) and answer it.
@@ -8,8 +8,8 @@
   `explanation_exists`).
 - `GET /api/debriefs/{id}/steps/{step}` (2 to 5): every step after step 1, behind the
   Explanation gate (403 `explanation_required`). Step 2 is the reveal of customer demand
-  (Story 9.4), step 3 the whole chain (Story 9.5); later stories add each other step's content
-  here.
+  (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the Student's own moments (Story
+  9.7); later stories add step 5's content here.
 - Between steps 3 and 4 (Story 9.6): `GET /api/debriefs/{id}/reflection` (the reflection
   questions with the Student's own answers) and `POST /api/debriefs/{id}/reflection/{question_id}`
   (one answer, stored once, in order; 409 `reflection_out_of_order`), behind the same gate.
@@ -195,7 +195,10 @@ async def get_debrief_step(
     heading rendered from the demand series and Kundene, Ordre inn and Din ordre per Uke of the
     Student's own Seat (Story 9.4, FR-44). Step 3 carries `chain`: every Role's Orders and Week
     states, Fabrikk first, with Forsterkning and the first large Order from the stored facts set
-    (Story 9.5, FR-44, AD-7)."""
+    (Story 9.5, FR-44, AD-7). Step 4 carries `moments`: the Student's own moments rendered by
+    code from their Seat's stored facts set, whose id is recorded at the first view (Story 9.7,
+    FR-44, AD-7); none and `mostly_ai` with fewer than 10 own Orders. Only the caller's own Seat:
+    no route serves another Student's moments (FR-43)."""
     return await _answer(service.step(user, _id(debrief_id), step))
 
 

@@ -12,6 +12,7 @@ import {
   explanationDraftField,
   hasText,
   type Reflection,
+  reflectionDone,
   reflectionDraftField,
   withAnswer,
 } from "./api";
@@ -180,6 +181,39 @@ describe("the reflection questions (Story 9.6)", () => {
     expect(copy.counter(2, 3)).toBe("Spørsmål 2 av 3");
     expect(copy.failed).toBe("Det ble ikke lagret. Prøv igjen.");
     for (const line of [copy.heading, copy.privacy, copy.next, copy.empty, copy.outOfOrder, copy.done, copy.loadFailed]) {
+      expect(line).not.toMatch(/!|flink|bra jobbet|feil av/i);
+    }
+  });
+});
+
+describe("the own moments (Story 9.7)", () => {
+  const answer = { text: "Svar.", length: 5, saved_at: "2026-11-21T12:00:00Z" };
+  const question = (id: "feelings" | "evidence" | "structure", answered: boolean) => ({
+    id,
+    kind: id,
+    prompt: "Hvorfor?",
+    hint: null,
+    answer: answered ? answer : null,
+  });
+
+  it("follow the reflection questions only once every one is answered", () => {
+    expect(reflectionDone(undefined)).toBe(false);
+    expect(reflectionDone({ version: 1, questions: [] })).toBe(false);
+    expect(reflectionDone({ version: 1, questions: [question("feelings", true), question("evidence", false)] })).toBe(false);
+    expect(reflectionDone({ version: 1, questions: [question("feelings", true), question("evidence", true)] })).toBe(true);
+  });
+
+  it("use the spine's labels and word the rest without praise, blame or exclamation marks", () => {
+    const copy = nb.debrief.moments;
+    expect([copy.saw, copy.reckoned, copy.later, copy.others(11)]).toEqual([
+      "Dette så du",
+      "Dette regnet du",
+      "Dette kostet det senere",
+      "Dette så de andre i Uke 11",
+    ]);
+    expect(copy.counter(1, 3)).toBe("Øyeblikk 1 av 3");
+    expect(nb.debrief.aiPrefix).toBe("KI-generert, kan ta feil:");
+    for (const line of [copy.heading, copy.mostlyAi, copy.mostlyAiChain, copy.previous, copy.next, copy.explanationNote, copy.loadFailed]) {
       expect(line).not.toMatch(/!|flink|bra jobbet|feil av/i);
     }
   });

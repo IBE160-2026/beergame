@@ -2096,6 +2096,9 @@ export const nb = {
    * with a saved Explanation (the api gates it), so this is one of the copy check's
    * POST_DEBRIEF_SECTIONS and may name the exercise; `debriefEntry` above may not. */
   debrief: {
+    /** The spine's prefix of every AI text in the Debrief (driven only by `ai_generated`, Story
+     * 9.14); code-rendered text never carries it. */
+    aiPrefix: "KI-generert, kan ta feil:",
     /** Step 2, the reveal of customer demand (`07-debrief.png`). Its heading comes from the api,
      * rendered from the demand series. «Ordre inn: det eneste du så», «Din ordre, 24 i Uke 11», the
      * table rows and «Øvelsen heter Beer Game.» are the spine's; the rest is [ASSUMPTION] draft. */
@@ -2206,6 +2209,42 @@ export const nb = {
       done: "Du har svart på alle spørsmålene. Svarene er lagret slik du skrev dem.",
       /** [ASSUMPTION] the questions could not be read; «Prøv igjen» beside it. */
       loadFailed: "Spørsmålene kunne ikke hentes.",
+    },
+    /** Step 4, the own moments (Story 9.7, `07-debrief.png`). The heading and each moment's
+     * sentences come from the api, rendered by code from the facts. «Dette så du», «Dette regnet
+     * du», «Dette kostet det senere» and «Dette så de andre i Uke N» are the spine's; the rest is
+     * [ASSUMPTION] draft. */
+    moments: {
+      /** [ASSUMPTION] the step's heading with no moments (mostly AI players). */
+      heading: "Dine øyeblikk",
+      /** [ASSUMPTION] fewer than 10 own Orders (FR-44). */
+      mostlyAi:
+        "Klassespillet ditt ble spilt mest av KI-spillere, så her er ingen øyeblikk fra din egen plass. Dine egne øyeblikk finner du i Replay.",
+      /** [ASSUMPTION] under it: steps 2 and 3 hold for this Student too. */
+      mostlyAiChain: "Kundene og hele kjeden over gjelder spillet ditt som for alle andre.",
+      /** [ASSUMPTION] «Øyeblikk 1 av 3», the heading focus moves to. */
+      counter: (at: number, of: number) => `Øyeblikk ${at} av ${of}`,
+      /** [ASSUMPTION] the paging buttons. */
+      previous: "Forrige øyeblikk",
+      next: "Neste øyeblikk",
+      /** [ASSUMPTION] the paging group's name. */
+      paging: "Bla mellom øyeblikkene",
+      saw: "Dette så du",
+      reckoned: "Dette regnet du",
+      later: "Dette kostet det senere",
+      others: (week: number) => `Dette så de andre i Uke ${week}`,
+      /** [ASSUMPTION] the others table's role column. */
+      role: "Rolle",
+      /** [ASSUMPTION] the pattern block's label. */
+      pattern: "Mønster i uka",
+      /** [ASSUMPTION] the Graf over tabell region's name for the moment's Uke. */
+      region: (week: number) => `Graf og tabell fram til Uke ${week}`,
+      /** [ASSUMPTION] the own Explanation beside the data (FR-44, FR-41). */
+      explanation: "Din Forklaring",
+      /** [ASSUMPTION] */
+      explanationNote: "Det du skrev før avsløringen, slik du sendte den.",
+      /** [ASSUMPTION] the moments could not be read; «Prøv igjen» beside it. */
+      loadFailed: "Øyeblikkene kunne ikke hentes.",
     },
   },
 

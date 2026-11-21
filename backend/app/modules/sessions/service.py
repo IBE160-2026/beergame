@@ -2682,6 +2682,7 @@ register_pin_provider(content.Kind.DETECTED_PATTERNS.value, content.detected_pat
 register_pin_provider(content.Kind.SENTENCE_TEMPLATES.value, content.sentence_templates_pin)
 # Story 9.6: the reflection questions.
 register_pin_provider(content.Kind.REFLECTION_QUESTIONS.value, content.reflection_questions_pin)
+register_pin_provider(content.Kind.MOMENT_TEMPLATES.value, content.moment_templates_pin)
 
 
 class ProviderKeyMissing(Exception):

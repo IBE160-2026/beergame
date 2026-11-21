@@ -70,14 +70,16 @@ async def test_the_lock_pins_the_latest_starting_task_version():
     snapshot = await sessions.build_snapshot(_session_row())
     pins = snapshot["session_runtime"]["pins"]
     # Story 9.1 pins the Detected pattern definitions the same way, Story 9.4 the sentence
-    # templates, Story 9.6 the reflection questions.
+    # templates, Story 9.6 the reflection questions, Story 9.7 the moment templates.
     assert pins == {
         "starting_task": {"version": 2},
         "detected_patterns": {"version": 1},
         "sentence_templates": {"version": 1},
         "reflection_questions": {"version": 1},
+        "moment_templates": {"version": 1},
     }
     assert sessions._pin_providers["reflection_questions"] is content.reflection_questions_pin
+    assert sessions._pin_providers["moment_templates"] is content.moment_templates_pin
     assert content.pinned_version(pins) == 2
     assert content.pinned_version(pins, "detected_patterns") == 1
     assert content.pinned_version(pins, "sentence_templates") == 1
@@ -118,6 +120,18 @@ async def test_reflection_questions_out_of_order_or_shouting_are_not_stored():
     more = json.loads(json.dumps(body))
     more["questions"].insert(1, {**more["questions"][0], "id": "feelings-2"})
     assert await content.publish("reflection_questions", more) == 2
+
+
+async def test_version_1_holds_the_moment_templates_and_a_cause_is_not_stored():
+    """Story 9.7 (FR-44, AD-7): every moment template, read back as stored; one stating a cause
+    is refused like any invalid record."""
+    version, body = await content.moment_templates(None)
+    assert version == 1
+    assert body.text_of("moments-heading").startswith("Ditt øyeblikk: Uke {week}.")
+    bad = json.loads(json.dumps(body.model_dump(mode="json")))
+    bad["templates"][0]["text"] = "Uke {week}: du bestilte {order} fordi det var mye på vei."
+    with pytest.raises(ValidationError):
+        await content.publish("moment_templates", bad)
 
 
 def _session_row() -> dict:

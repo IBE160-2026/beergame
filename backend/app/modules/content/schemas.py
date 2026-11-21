@@ -2,7 +2,8 @@
 
 The Detected pattern definitions (Story 9.1) are `analysis.patterns.PatternSet`: the pure layer
 that applies the thresholds owns their shape; so are the sentence templates (Story 9.4,
-`analysis.sentences.SentenceTemplates`). The reflection questions (Story 9.6) are shaped here."""
+`analysis.sentences.SentenceTemplates`) and the own moments' templates (Story 9.7,
+`analysis.sentences.MomentTemplates`). The reflection questions (Story 9.6) are shaped here."""
 
 import re
 from typing import Annotated, Literal
@@ -10,10 +11,11 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.analysis.patterns import PatternSet
-from app.analysis.sentences import SentenceTemplates
+from app.analysis.sentences import MomentTemplates, SentenceTemplates
 
 __all__ = [
     "ColumnRow",
+    "MomentTemplates",
     "REFLECTION_KINDS",
     "PatternSet",
     "ReflectionQuestion",

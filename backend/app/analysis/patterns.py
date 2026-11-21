@@ -15,6 +15,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 __all__ = [
+    "CAUSE_WORDS",
     "MECHANISMS",
     "REVIEW",
     "LargeOrderFullSupplyLine",
@@ -40,6 +41,8 @@ _CAUSE = re.compile(
     re.IGNORECASE,
 )
 """Words that state a cause; a pattern describes what the Decision log shows, never why."""
+CAUSE_WORDS = _CAUSE
+"""The same words, for the moment templates that name a pattern (`sentences.MomentTemplates`)."""
 
 _Text = Annotated[str, Field(min_length=1, max_length=500)]
 _Ratio = Annotated[Decimal, Field(ge=0, le=100, max_digits=6, decimal_places=3)]

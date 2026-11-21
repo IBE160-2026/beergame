@@ -103,6 +103,12 @@ export type RevealWeek = components["schemas"]["RevealWeekOut"];
 export type Chain = components["schemas"]["ChainOut"];
 export type ChainRole = components["schemas"]["ChainRoleOut"];
 export type ChainWeek = components["schemas"]["ChainWeekOut"];
+/** Step 4, the Student's own moments (Story 9.7): every sentence rendered by code from the
+ * stored facts, the other Roles' numbers and the Seat's Week as it saw it, per moment. */
+export type Moments = components["schemas"]["MomentsOut"];
+export type Moment = components["schemas"]["MomentOut"];
+/** Text the Debrief shows as written: `ai_generated` alone decides the «KI-generert» prefix. */
+export type RenderedText = components["schemas"]["RenderedTextOut"];
 
 export const debriefStepKey = (debriefId: string, step: number) => [...debriefsKey, debriefId, "steps", step] as const;
 
@@ -169,4 +175,9 @@ export function currentQuestion(reflection: Reflection): ReflectionQuestion | nu
 /** The reflection with one question's stored answer put in, as the api answered it. */
 export function withAnswer(reflection: Reflection, answered: ReflectionQuestion): Reflection {
   return { ...reflection, questions: reflection.questions.map((q) => (q.id === answered.id ? answered : q)) };
+}
+
+/** Whether the reflection questions are all answered, so step 4 follows (Story 9.7). */
+export function reflectionDone(reflection: Reflection | undefined): boolean {
+  return Boolean(reflection && reflection.questions.length > 0 && currentQuestion(reflection) === null);
 }

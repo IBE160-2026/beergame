@@ -3,6 +3,7 @@
     uv run python -m app.modules.content starting_task path/to/starting-task.json
     uv run python -m app.modules.content detected_patterns path/to/patterns.json
     uv run python -m app.modules.content sentence_templates path/to/templates.json
+    uv run python -m app.modules.content moment_templates path/to/moment-templates.json
 
 The file is validated like every record; the new version is printed. Class sessions locked from
 then on pin it; sessions locked before keep theirs. No code change is needed for new items."""

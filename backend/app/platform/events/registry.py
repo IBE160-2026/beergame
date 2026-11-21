@@ -107,6 +107,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A reflection answer stored (Story 9.6, FR-45): the Debrief row locked; an answer stored
         # already emits nothing.
         "debrief.complete_step": frozenset({"debrief"}),
+        # The facts set of a Student's own moments recorded at their first view of step 4
+        # (Story 9.7, AD-7): the Debrief row locked; one recorded already emits nothing.
+        "debrief.record_facts": frozenset({"debrief"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

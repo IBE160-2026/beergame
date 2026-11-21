@@ -1,7 +1,8 @@
-"""The only writer of the Debrief tables (Stories 9.2, 9.3, 9.6, AD-21, AD-8).
+"""The only writer of the Debrief tables (Stories 9.2, 9.3, 9.6, 9.7, AD-21, AD-8).
 
 Each command on a Debrief session locks its row and emits `debrief:<id>` (`platform/events`
-registry: `debrief.open`, `debrief.save_explanation`, `debrief.complete_step`). `release` writes
+registry: `debrief.open`, `debrief.save_explanation`, `debrief.complete_step`,
+`debrief.record_facts`). `release` writes
 the Class session's release once and tells each Student who holds a Seat through
 `platform/notify` (`debrief.release`). Arguments are ids and the Student's text only."""
 
@@ -17,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.debrief.models import (
     debrief_explanations,
+    debrief_fact_sets,
     debrief_reflection_answers,
     debrief_releases,
     debrief_sessions,
@@ -238,3 +240,40 @@ async def complete_step(
         await events.emit(session, "debrief", str(debrief.id))
     log.info("reflection_answered", debrief_id=str(debrief.id), question_id=question_id)
     return AnswerRow(question_id, text, len(text), saved_at)
+
+
+async def record_facts(
+    game_id: uuid.UUID, class_session_id: uuid.UUID, user_id: uuid.UUID, fact_set_id: uuid.UUID
+) -> uuid.UUID:
+    """The Student's first view of step 4 (Story 9.7, AD-7): store the id of the facts set their
+    own moments are rendered from, once. The Debrief row of the Game is locked; a new row emits
+    `debrief:<id>`. Returns the stored id, which a later call (a reload, a second device) keeps
+    whatever it is given, and which emits nothing."""
+    async with get_sessionmaker().begin() as session:
+        debrief = await _locked(session, game_id)
+        created = await session.scalar(
+            insert(debrief_fact_sets)
+            .values(
+                user_id=user_id,
+                class_session_id=class_session_id,
+                game_id=game_id,
+                fact_set_id=fact_set_id,
+                recorded_at=func.now(),
+            )
+            .on_conflict_do_nothing(
+                index_elements=[debrief_fact_sets.c.user_id, debrief_fact_sets.c.class_session_id]
+            )
+            .returning(debrief_fact_sets.c.fact_set_id)
+        )
+        if created is not None:
+            await events.emit(session, "debrief", str(debrief.id))
+            log.info("moments_facts_recorded", debrief_id=str(debrief.id))
+            return created
+        stored = await session.scalar(
+            select(debrief_fact_sets.c.fact_set_id).where(
+                debrief_fact_sets.c.user_id == user_id,
+                debrief_fact_sets.c.class_session_id == class_session_id,
+            )
+        )
+    assert stored is not None
+    return stored

@@ -1786,7 +1786,7 @@
         "type": "string"
       },
       "DebriefStepOut": {
-        "description": "A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2\ncarries the reveal (Story 9.4), step 3 the whole chain (Story 9.5); steps 4 and 5 get their\ncontent with Stories 9.7 to 9.9 and until then answer the step number only.",
+        "description": "A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2\ncarries the reveal (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the own moments\n(Story 9.7); step 5 gets its content with Story 9.9 and until then answers the step number\nonly.",
         "properties": {
           "chain": {
             "anyOf": [
@@ -1802,6 +1802,16 @@
             "format": "uuid",
             "title": "Debrief Id",
             "type": "string"
+          },
+          "moments": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MomentsOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "reveal": {
             "anyOf": [
@@ -3219,6 +3229,113 @@
         "title": "ManualRegistrationIn",
         "type": "object"
       },
+      "MomentOut": {
+        "description": "One own moment (Story 9.7, FR-44): its texts rendered by code from the stored facts set,\nthe other Roles' numbers that Uke, and `seen`, the Seat's Week as it saw it when it ordered\n(the Decision log's `state_seen`, for «Dette så du»).",
+        "properties": {
+          "chosen_by": {
+            "enum": [
+              "pattern",
+              "order_gap"
+            ],
+            "title": "Chosen By",
+            "type": "string"
+          },
+          "heading": {
+            "$ref": "#/components/schemas/RenderedTextOut"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "later": {
+            "$ref": "#/components/schemas/RenderedTextOut"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "others": {
+            "items": {
+              "$ref": "#/components/schemas/OtherSeenOut"
+            },
+            "title": "Others",
+            "type": "array"
+          },
+          "patterns": {
+            "items": {
+              "$ref": "#/components/schemas/RenderedTextOut"
+            },
+            "title": "Patterns",
+            "type": "array"
+          },
+          "reckoning": {
+            "$ref": "#/components/schemas/RenderedTextOut"
+          },
+          "seen": {
+            "$ref": "#/components/schemas/SeatState"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "week",
+          "order",
+          "chosen_by",
+          "heading",
+          "reckoning",
+          "later",
+          "patterns",
+          "others",
+          "seen"
+        ],
+        "title": "MomentOut",
+        "type": "object"
+      },
+      "MomentsOut": {
+        "description": "Step 4, the Student's own moments (Story 9.7, FR-44, UX-DR31), from the facts set stored\nfor them (AD-7). With fewer than 10 own Orders the game was played mostly by AI players:\n`mostly_ai`, no heading and no moments; the rest of the Debrief stays open.",
+        "properties": {
+          "heading": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenderedTextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "moments": {
+            "items": {
+              "$ref": "#/components/schemas/MomentOut"
+            },
+            "title": "Moments",
+            "type": "array"
+          },
+          "mostly_ai": {
+            "title": "Mostly Ai",
+            "type": "boolean"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "student_orders": {
+            "title": "Student Orders",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "role",
+          "student_orders",
+          "mostly_ai",
+          "heading",
+          "moments"
+        ],
+        "title": "MomentsOut",
+        "type": "object"
+      },
       "MyExplanationOut": {
         "description": "The Student's own Explanation in this Debrief, or None before it is sent.",
         "properties": {
@@ -3510,6 +3627,39 @@
           "position_base"
         ],
         "title": "OrderPreview",
+        "type": "object"
+      },
+      "OtherSeenOut": {
+        "description": "What another Role saw in the moment's Uke (the facts set's `others_seen`).",
+        "properties": {
+          "backlog": {
+            "title": "Backlog",
+            "type": "integer"
+          },
+          "incoming_order": {
+            "title": "Incoming Order",
+            "type": "integer"
+          },
+          "inventory": {
+            "title": "Inventory",
+            "type": "integer"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "supply_line": {
+            "title": "Supply Line",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "role",
+          "incoming_order",
+          "inventory",
+          "backlog",
+          "supply_line"
+        ],
+        "title": "OtherSeenOut",
         "type": "object"
       },
       "PasswordResetIn": {
@@ -3912,6 +4062,37 @@
           "left_out"
         ],
         "title": "ReminderOut",
+        "type": "object"
+      },
+      "RenderedTextOut": {
+        "description": "Text the Debrief shows as written (AD-7): code-rendered text says `ai_generated` false and\nhas no `llm_call_id`, and the web app shows it without the «KI-generert, kan ta feil:» prefix,\nwhich only `ai_generated` turns on.",
+        "properties": {
+          "ai_generated": {
+            "default": false,
+            "title": "Ai Generated",
+            "type": "boolean"
+          },
+          "llm_call_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Call Id"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "RenderedTextOut",
         "type": "object"
       },
       "ReplacedLevelOut": {
@@ -11157,7 +11338,7 @@
     },
     "/api/debriefs/{debrief_id}/steps/{step}": {
       "get": {
-        "description": "A Debrief step after step 1 (FR-41, FR-43): 403 `explanation_required` until the Student's\nExplanation is saved, checked here and not only in the web app. Step 2 carries `reveal`: the\nheading rendered from the demand series and Kundene, Ordre inn and Din ordre per Uke of the\nStudent's own Seat (Story 9.4, FR-44). Step 3 carries `chain`: every Role's Orders and Week\nstates, Fabrikk first, with Forsterkning and the first large Order from the stored facts set\n(Story 9.5, FR-44, AD-7).",
+        "description": "A Debrief step after step 1 (FR-41, FR-43): 403 `explanation_required` until the Student's\nExplanation is saved, checked here and not only in the web app. Step 2 carries `reveal`: the\nheading rendered from the demand series and Kundene, Ordre inn and Din ordre per Uke of the\nStudent's own Seat (Story 9.4, FR-44). Step 3 carries `chain`: every Role's Orders and Week\nstates, Fabrikk first, with Forsterkning and the first large Order from the stored facts set\n(Story 9.5, FR-44, AD-7). Step 4 carries `moments`: the Student's own moments rendered by\ncode from their Seat's stored facts set, whose id is recorded at the first view (Story 9.7,\nFR-44, AD-7); none and `mostly_ai` with fewer than 10 own Orders. Only the caller's own Seat:\nno route serves another Student's moments (FR-43).",
         "operationId": "getDebriefStep",
         "parameters": [
           {

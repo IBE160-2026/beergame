@@ -7,4 +7,5 @@
   pattern definitions and their rules in `patterns`; the rules are documented in `facts.md`.
 - `sentences`: the sentence templates' shape and the code-rendered Debrief text
   (`demand_heading`, Story 9.4, AD-7).
+- `moments`: the own moments rendered from a stored facts set (`render`, Story 9.7, FR-44, AD-7).
 """

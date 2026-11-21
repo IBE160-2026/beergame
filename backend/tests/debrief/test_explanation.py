@@ -4,7 +4,8 @@ Step 1 reads the Student's own Netto lager from the Decision log; «Send Forklar
 Explanation once, as typed, and records the `explanation` step in the same transaction; every
 step after step 1 answers 403 `explanation_required` until then. The Class's owners and
 Assistant lecturers read a Student's Explanation; another Student and an Admin without a staff
-role do not. One Class game played a few Uker, then marked finished, serves each test."""
+role do not. One Class game played 14 Uker (the first Student ordering after the Guided Uker,
+the others Rule-based), then marked finished, serves each test."""
 
 import json
 import uuid
@@ -14,6 +15,10 @@ from unittest.mock import patch
 import psycopg
 import pytest
 
+from app.analysis import moments as moment_text
+from app.engine import ROLES
+from app.modules.content import service as content
+from app.modules.games import commands as game_commands
 from app.modules.games import service as games
 from app.modules.identity.schemas import AccountRole
 from app.modules.ops import sweep
@@ -59,9 +64,26 @@ def answers() -> list[tuple]:
     )
 
 
+OWN_ORDERS = (4, 12, 0, 8, 16, 4, 8, 2, 8, 20, 8, 6)
+"""The first Student's Orders after the Guided Uker (14 Uker in all): at least 10 of them, so
+they get moments."""
+
+
+async def play_own_week(game_id: str, user: uuid.UUID, order: int) -> None:
+    """The open Uke with the Student's own Order (`decided_by = student`), the rest Rule-based."""
+    game = await games.get_game(game_id)
+    seat = next(s for s in game.seats if s.user_id == str(user))
+    week = (await games.seat_state(game_id, seat.id)).week
+    turn = await games.open_turn(game_id, seat.id, week)
+    if not turn.guided:
+        await game_commands.place_order(game_id, seat.role, week, order, "student", actor=user)
+    await play_week(game_id)
+
+
 async def played(klass: str) -> tuple[str, str, dict, dict[str, str], str]:
     """A Class session with two Class games (five Students); the game of a Student who shares it
-    with another (the allocation is random) played a few Uker and finished, its Debrief opened.
+    with another (the allocation is random) played 14 Uker and finished, its Debrief opened.
+    That Student ordered after the Guided Uker (`OWN_ORDERS`); every other Seat was Rule-based.
     Returns the session id, game id, Debrief, each Student's game and that Student."""
     session_id, seated = await confirmed(klass, 5)
     await sweep.run(LOCKED)
@@ -71,8 +93,8 @@ async def played(klass: str) -> tuple[str, str, dict, dict[str, str], str]:
     me, game_id = email(first), games_[first]
     await task_done(seated[first], session_id)
     assert (await start(me, game_id)).status_code == 200
-    for _ in range(2):
-        await play_week(game_id)
+    for order in (4, 4, *OWN_ORDERS):
+        await play_own_week(game_id, user_id(me), order)
     finish(game_id)
     opened = await open_(me, session_id)
     assert opened.status_code == 200
@@ -158,18 +180,19 @@ async def test_step_one_the_one_send_the_gate_and_the_readers(klass, emitted):
 
     # With it, the steps after step 1 answer; step 2 is the reveal (Story 9.4), step 3 the whole
     # chain (Story 9.5).
-    for step in range(4, 6):
-        response = await call(me, "GET", f"{path}/steps/{step}")
-        assert response.status_code == 200
-        assert response.json() == {
-            "debrief_id": debrief["id"],
-            "step": step,
-            "reveal": None,
-            "chain": None,
-        }
+    response = await call(me, "GET", f"{path}/steps/5")
+    assert response.status_code == 200
+    assert response.json() == {
+        "debrief_id": debrief["id"],
+        "step": 5,
+        "reveal": None,
+        "chain": None,
+        "moments": None,
+    }
     await revealed(me, path, debrief, game_id)
     await chained(me, path, debrief, game_id)
     await reflected(me, mate, path, debrief, emitted)
+    await momented(me, mate, path, debrief, game_id, emitted)
 
     # Another Student of the same game reads only their own (none) and is still gated.
     other = mate
@@ -210,6 +233,7 @@ async def revealed(me: str, path: str, debrief: dict, game_id: str) -> None:
     # The Classic demand steps once (4, then 8 from Uke 5); the lock pinned the templates.
     assert series[:5] == [4, 4, 4, 4, 8]
     assert pins["sentence_templates"] == {"version": 1}
+    assert pins["moment_templates"] == {"version": 1}
     assert (shown["template_id"], shown["heading"]) == (
         "demand-step",
         "Kundene bestilte 4, så 8. Etter det endret de seg aldri.",
@@ -359,6 +383,102 @@ async def reflected(me: str, mate: str, path: str, debrief: dict, emitted) -> No
     execute("DELETE FROM progress_steps WHERE user_id = %s AND step = 'explanation'", user_id(mate))
 
 
+def cited() -> list[tuple]:
+    return rows(
+        "SELECT user_id, game_id::text, fact_set_id::text FROM debrief_fact_sets ORDER BY user_id"
+    )
+
+
+async def momented(me: str, mate: str, path: str, debrief: dict, game_id: str, emitted) -> None:
+    """Step 4, the own moments (Story 9.7, FR-43, FR-44, AD-7, NFR-9): rendered by code from the
+    stored facts set of the caller's own Seat, whose id is recorded once for them; with fewer than
+    10 own Orders the game was played mostly by AI players. Part of the test above."""
+    role = debrief["role"]
+    assert cited() == []
+    emitted.clear()
+    response = await call(me, "GET", f"{path}/steps/4")
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["step"], body["reveal"], body["chain"]) == (4, None, None)
+    shown = body["moments"]
+    stored = await games.fact_set(game_id, role)
+    seat = stored.facts.seat
+    assert (shown["role"], shown["mostly_ai"]) == (role, False)
+    # Every Order after the Guided Uker was the Student's: at least 10.
+    assert shown["student_orders"] == seat.student_orders >= 10 and not seat.sm_excluded
+
+    # The facts set's id is recorded once for the Student, through the locked Debrief row.
+    assert cited() == [(user_id(me), game_id, stored.id)]
+    assert {topic for topic, _ in emitted} == COMMAND_TOPICS["debrief.record_facts"]
+    assert ("debrief", debrief["id"]) in emitted
+    emitted.clear()
+    assert (await call(me, "GET", f"{path}/steps/4")).json() == body
+    assert emitted == [] and len(cited()) == 1
+    with pytest.raises(psycopg.errors.RestrictViolation):
+        execute("UPDATE debrief_fact_sets SET recorded_at = now()")
+
+    # Every text is the code's, from the stored facts with the pinned templates: never AI text.
+    _, templates = await content.moment_templates(1)
+    _, patterns = await content.detected_patterns(stored.patterns_version)
+    rendered = moment_text.render(stored.facts, templates, patterns)
+    code = {"ai_generated": False, "llm_call_id": None}
+    assert rendered.heading is not None
+    assert shown["heading"] == {"text": rendered.heading.text, **code}
+    assert shown["heading"]["text"].startswith("Ditt øyeblikk: Uke ")
+    student_weeks = {
+        week
+        for (week,) in rows(
+            "SELECT w.week FROM seat_weeks w JOIN seats s ON s.id = w.seat_id "
+            "WHERE w.game_id = %s AND s.role = %s AND w.decided_by = 'student'",
+            game_id,
+            role,
+        )
+    }
+    logged = {(e.week, e.role): e for e in await games.decision_log(game_id)}
+    assert len(shown["moments"]) == 3 == len(rendered.moments)
+    for out, text, fact in zip(shown["moments"], rendered.moments, seat.moments, strict=True):
+        own = logged[(fact.week, role)]
+        assert (out["id"], out["week"], out["order"]) == (fact.id, fact.week, fact.order)
+        assert out["week"] in student_weeks and out["order"] == own.order
+        assert out["chosen_by"] == fact.chosen_by
+        assert out["heading"] == {"text": text.heading.text, **code}
+        assert out["reckoning"] == {"text": text.reckoning.text, **code}
+        assert out["later"] == {"text": text.later.text, **code}
+        assert out["patterns"] == [{"text": p.text, **code} for p in text.patterns]
+        assert out["seen"] == own.state_seen.model_dump(mode="json")
+        assert [o["role"] for o in out["others"]] == [r.value for r in ROLES if r.value != role]
+        for other in out["others"]:
+            seen = logged[(fact.week, other["role"])].state_seen
+            assert other == {
+                "role": other["role"],
+                "incoming_order": seen.incoming_order,
+                "inventory": seen.inventory,
+                "backlog": seen.backlog,
+                "supply_line": seen.supply_line,
+            }
+
+    # Another Student of the same game: only their own Seat, played Rule-based, so no moments;
+    # the rest of the Debrief stays theirs to finish.
+    sent = await call(mate, "POST", f"{path}/explanation", json={"text": "Min egen."})
+    assert sent.status_code == 201
+    theirs = (await call(mate, "GET", f"{path}/steps/4")).json()["moments"]
+    seats = (await games.get_game(game_id)).seats
+    mate_role = next(str(x.role) for x in seats if x.user_id == str(user_id(mate)))
+    assert mate_role != role
+    assert theirs == {
+        "role": mate_role,
+        "student_orders": 0,
+        "mostly_ai": True,
+        "heading": None,
+        "moments": [],
+    }
+    assert (await games.fact_set(game_id, mate_role)).facts.seat.sm_excluded
+    assert len(cited()) == 2
+    execute("DELETE FROM debrief_explanations WHERE user_id = %s", user_id(mate))
+    execute("DELETE FROM progress_steps WHERE user_id = %s AND step = 'explanation'", user_id(mate))
+    refused(await call(mate, "GET", f"{path}/steps/4"), "explanation_required")
+
+
 async def readers(
     session_id: str,
     game_id: str,
@@ -400,6 +520,7 @@ async def readers(
             ("POST", f"{path}/explanation"),
             ("GET", f"{path}/steps/2"),
             ("GET", f"{path}/steps/3"),
+            ("GET", f"{path}/steps/4"),
             ("GET", f"{path}/reflection"),
             ("POST", f"{path}/reflection/feelings"),
         ):
@@ -413,6 +534,7 @@ async def readers(
         f"{path}/explanation",
         f"{path}/steps/2",
         f"{path}/steps/3",
+        f"{path}/steps/4",
         f"{path}/reflection",
     ):
         refused(await call(me, "GET", url), "debrief_not_open")

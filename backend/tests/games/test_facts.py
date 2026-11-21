@@ -21,10 +21,15 @@ from unittest import mock
 import pytest
 
 from app import sim
+from app.analysis.moments import position
+from app.analysis.moments import render as render_moments
+from app.analysis.patterns import PatternSet
 from app.engine import ROLES, RULES_VERSION, DemandFixed, GameSettings, demand_series
 from app.modules.content import service as content
 from app.modules.games import commands, facts
 from app.modules.games.views import ViewError
+from tests.analysis.test_moments import TEMPLATES as MOMENT_TEMPLATES
+from tests.analysis.test_moments import assert_every_number_from_the_facts
 from tests.analysis.test_patterns import V1
 from tests.conftest import TEST_DATABASE_URL
 from tests.games.helpers import (
@@ -290,6 +295,43 @@ async def test_the_fully_rule_based_golden_facts(games_db):
         seat = stored.facts.seat
         assert (seat.student_orders, seat.sm_excluded, seat.moments) == (0, True, ())
     assert sets["factory"].facts.chain.ai_held_share == 1
+
+
+def assert_rendered_from_the_rows(game_id: str, sets: dict[str, facts.StoredFactSet]) -> int:
+    """Story 9.7 (NFR-9): every number in every rendered moment of every Seat is one of its facts
+    set's numbers (or their documented sums), and each of those equals the raw `seat_weeks` row:
+    the Order, what the Seat saw, Posisjon (`state_seen.position`) and the later cost (the
+    following Weeks' `week_cost`). Returns how many moments were rendered."""
+    raw = raw_rows(game_id)
+    count = 0
+    for role, stored in sets.items():
+        shown = render_moments(stored.facts, MOMENT_TEMPLATES, PatternSet.model_validate(V1))
+        assert_every_number_from_the_facts(stored.facts, shown)
+        assert (shown.heading is None) == (stored.facts.seat.moments == ())
+        for moment in stored.facts.seat.moments:
+            row = raw[(moment.week, role)]
+            seen = row["seen"]
+            assert row["decided_by"] == "student" and moment.order == row["order"]
+            for key in ("incoming_order", "inventory", "backlog", "supply_line"):
+                assert getattr(moment.state_seen, key) == seen[key], key
+            assert position(moment) == seen["position"]
+            following = range(moment.week + 1, moment.week + 1 + moment.later_weeks)
+            later = sum(
+                (_money(raw[(w, role)]["seen"]["week_cost"]) for w in following), Decimal(0)
+            )
+            assert moment.later_cost == later
+            assert moment.week + moment.later_weeks <= stored.facts.chain.weeks
+            count += 1
+    return count
+
+
+async def test_every_number_of_every_rendered_moment_of_the_golden_games_is_a_row_value(games_db):
+    takeover = await takeover_game()
+    assert assert_rendered_from_the_rows(takeover, await stored_sets(takeover)) == 3
+    # Scripted Seats only: no moments, no heading. (The fully Rule-based Game has none either,
+    # as `test_the_fully_rule_based_golden_facts` asserts.)
+    trace = await reference_trace()
+    assert assert_rendered_from_the_rows(trace, await stored_sets(trace)) == 0
 
 
 async def test_a_set_is_stored_once_and_returned_as_stored(games_db):

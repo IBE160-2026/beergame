@@ -1492,7 +1492,10 @@ export interface paths {
          *     heading rendered from the demand series and Kundene, Ordre inn and Din ordre per Uke of the
          *     Student's own Seat (Story 9.4, FR-44). Step 3 carries `chain`: every Role's Orders and Week
          *     states, Fabrikk first, with Forsterkning and the first large Order from the stored facts set
-         *     (Story 9.5, FR-44, AD-7).
+         *     (Story 9.5, FR-44, AD-7). Step 4 carries `moments`: the Student's own moments rendered by
+         *     code from their Seat's stored facts set, whose id is recorded at the first view (Story 9.7,
+         *     FR-44, AD-7); none and `mostly_ai` with fewer than 10 own Orders. Only the caller's own Seat:
+         *     no route serves another Student's moments (FR-43).
          */
         get: operations["getDebriefStep"];
         put?: never;
@@ -2658,8 +2661,9 @@ export interface components {
         /**
          * DebriefStepOut
          * @description A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2
-         *     carries the reveal (Story 9.4), step 3 the whole chain (Story 9.5); steps 4 and 5 get their
-         *     content with Stories 9.7 to 9.9 and until then answer the step number only.
+         *     carries the reveal (Story 9.4), step 3 the whole chain (Story 9.5), step 4 the own moments
+         *     (Story 9.7); step 5 gets its content with Story 9.9 and until then answers the step number
+         *     only.
          */
         DebriefStepOut: {
             chain?: components["schemas"]["ChainOut"] | null;
@@ -2668,6 +2672,7 @@ export interface components {
              * Format: uuid
              */
             debrief_id: string;
+            moments?: components["schemas"]["MomentsOut"] | null;
             reveal?: components["schemas"]["RevealOut"] | null;
             /** Step */
             step: number;
@@ -3357,6 +3362,49 @@ export interface components {
             upload_row?: components["schemas"]["UploadRow"] | null;
         };
         /**
+         * MomentOut
+         * @description One own moment (Story 9.7, FR-44): its texts rendered by code from the stored facts set,
+         *     the other Roles' numbers that Uke, and `seen`, the Seat's Week as it saw it when it ordered
+         *     (the Decision log's `state_seen`, for «Dette så du»).
+         */
+        MomentOut: {
+            /**
+             * Chosen By
+             * @enum {string}
+             */
+            chosen_by: "pattern" | "order_gap";
+            heading: components["schemas"]["RenderedTextOut"];
+            /** Id */
+            id: string;
+            later: components["schemas"]["RenderedTextOut"];
+            /** Order */
+            order: number;
+            /** Others */
+            others: components["schemas"]["OtherSeenOut"][];
+            /** Patterns */
+            patterns: components["schemas"]["RenderedTextOut"][];
+            reckoning: components["schemas"]["RenderedTextOut"];
+            seen: components["schemas"]["SeatState"];
+            /** Week */
+            week: number;
+        };
+        /**
+         * MomentsOut
+         * @description Step 4, the Student's own moments (Story 9.7, FR-44, UX-DR31), from the facts set stored
+         *     for them (AD-7). With fewer than 10 own Orders the game was played mostly by AI players:
+         *     `mostly_ai`, no heading and no moments; the rest of the Debrief stays open.
+         */
+        MomentsOut: {
+            heading: components["schemas"]["RenderedTextOut"] | null;
+            /** Moments */
+            moments: components["schemas"]["MomentOut"][];
+            /** Mostly Ai */
+            mostly_ai: boolean;
+            role: components["schemas"]["Role"];
+            /** Student Orders */
+            student_orders: number;
+        };
+        /**
          * MyExplanationOut
          * @description The Student's own Explanation in this Debrief, or None before it is sent.
          */
@@ -3487,6 +3535,21 @@ export interface components {
             position_base: number;
             /** Supply Line Base */
             supply_line_base: number;
+        };
+        /**
+         * OtherSeenOut
+         * @description What another Role saw in the moment's Uke (the facts set's `others_seen`).
+         */
+        OtherSeenOut: {
+            /** Backlog */
+            backlog: number;
+            /** Incoming Order */
+            incoming_order: number;
+            /** Inventory */
+            inventory: number;
+            role: components["schemas"]["Role"];
+            /** Supply Line */
+            supply_line: number;
         };
         /** PasswordResetIn */
         PasswordResetIn: {
@@ -3685,6 +3748,23 @@ export interface components {
             sent: number;
             /** Valid Days */
             valid_days: number;
+        };
+        /**
+         * RenderedTextOut
+         * @description Text the Debrief shows as written (AD-7): code-rendered text says `ai_generated` false and
+         *     has no `llm_call_id`, and the web app shows it without the «KI-generert, kan ta feil:» prefix,
+         *     which only `ai_generated` turns on.
+         */
+        RenderedTextOut: {
+            /**
+             * Ai Generated
+             * @default false
+             */
+            ai_generated: boolean;
+            /** Llm Call Id */
+            llm_call_id?: string | null;
+            /** Text */
+            text: string;
         };
         /**
          * ReplacedLevelOut

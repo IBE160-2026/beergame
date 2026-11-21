@@ -45,6 +45,10 @@ async function reflecting(page: Page, { save = "saved" as Save } = {}) {
   await page.route(`**/api/debriefs/${DEBRIEF}/steps/3`, (route) =>
     route.fulfill({ json: { debrief_id: DEBRIEF, step: 3, reveal: null, chain: null } }),
   );
+  // Step 4 follows the last answer (Story 9.7, `debrief-moments.spec.ts`): nothing to show here.
+  await page.route(`**/api/debriefs/${DEBRIEF}/steps/4`, (route) =>
+    route.fulfill({ json: { debrief_id: DEBRIEF, step: 4, reveal: null, chain: null, moments: null } }),
+  );
   await page.route(`**/api/debriefs/${DEBRIEF}/reflection`, (route) => route.fulfill({ json: read() }));
   await page.route(`**/api/debriefs/${DEBRIEF}/reflection/*`, (route) => {
     const id = route.request().url().split("/").pop()!;

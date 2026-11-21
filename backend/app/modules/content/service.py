@@ -2,7 +2,8 @@
 
 A record is never changed: `publish` stores a new version (the next number of its kind) and a
 trigger refuses every UPDATE. The lock pins the version a Class session uses (`starting_task_pin`,
-`detected_patterns_pin`, `sentence_templates_pin` and `reflection_questions_pin`, registered by
+`detected_patterns_pin`, `sentence_templates_pin`, `reflection_questions_pin` and
+`moment_templates_pin`, registered by
 `sessions`); readers ask for
 that version, or the latest for a session locked before the pin existed. This module imports no
 feature module."""
@@ -16,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.content.models import Kind, content_records
 from app.modules.content.schemas import (
+    MomentTemplates,
     PatternSet,
     ReflectionQuestion,
     ReflectionQuestions,
@@ -27,6 +29,7 @@ from app.platform.db import get_sessionmaker
 __all__ = [
     "ContentNotFound",
     "Kind",
+    "MomentTemplates",
     "PatternSet",
     "ReflectionQuestion",
     "ReflectionQuestions",
@@ -36,6 +39,8 @@ __all__ = [
     "detected_patterns_pin",
     "get",
     "latest_version",
+    "moment_templates",
+    "moment_templates_pin",
     "pinned_version",
     "publish",
     "reflection_questions",
@@ -46,16 +51,21 @@ __all__ = [
     "starting_task_pin",
 ]
 
-type Body = StartingTask | PatternSet | SentenceTemplates | ReflectionQuestions
+type Body = StartingTask | PatternSet | SentenceTemplates | ReflectionQuestions | MomentTemplates
 
 _SCHEMAS: dict[
     Kind,
-    type[StartingTask] | type[PatternSet] | type[SentenceTemplates] | type[ReflectionQuestions],
+    type[StartingTask]
+    | type[PatternSet]
+    | type[SentenceTemplates]
+    | type[ReflectionQuestions]
+    | type[MomentTemplates],
 ] = {
     Kind.STARTING_TASK: StartingTask,
     Kind.DETECTED_PATTERNS: PatternSet,
     Kind.SENTENCE_TEMPLATES: SentenceTemplates,
     Kind.REFLECTION_QUESTIONS: ReflectionQuestions,
+    Kind.MOMENT_TEMPLATES: MomentTemplates,
 }
 
 
@@ -152,6 +162,15 @@ async def reflection_questions(version: int | None) -> tuple[int, ReflectionQues
     return version, questions
 
 
+async def moment_templates(version: int | None) -> tuple[int, MomentTemplates]:
+    """The own moments' templates at the pinned `version`, or the latest when None: (version,
+    body) (Story 9.7)."""
+    if version is None:
+        version = await latest_version(Kind.MOMENT_TEMPLATES)
+    templates: MomentTemplates = await get(Kind.MOMENT_TEMPLATES, version)
+    return version, templates
+
+
 async def starting_task_pin(session: AsyncSession, _class_session: Any) -> dict[str, int]:
     """The lock's pin provider (Story 6.3, AD-23): the Starting task version a Class session
     uses from its lock on, under `SessionRuntime.pins["starting_task"]`."""
@@ -174,6 +193,12 @@ async def reflection_questions_pin(session: AsyncSession, _class_session: Any) -
     """The lock's pin provider (Story 9.6, AD-23): the reflection-question version a Class
     session uses from its lock on, under `SessionRuntime.pins["reflection_questions"]`."""
     return {"version": await latest_version(Kind.REFLECTION_QUESTIONS, session)}
+
+
+async def moment_templates_pin(session: AsyncSession, _class_session: Any) -> dict[str, int]:
+    """The lock's pin provider (Story 9.7, AD-23): the moment-template version a Class session
+    uses from its lock on, under `SessionRuntime.pins["moment_templates"]`."""
+    return {"version": await latest_version(Kind.MOMENT_TEMPLATES, session)}
 
 
 def pinned_version(pins: Any, kind: Kind | str = Kind.STARTING_TASK) -> int | None:

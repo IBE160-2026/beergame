@@ -9,9 +9,19 @@ import { HOME_LINK, HOME_PATH } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { roleName } from "@/modules/sessions/sessions";
 
-import { DEBRIEF_STEPS, type Debrief, debriefView, myDebriefKey, useMyDebrief, useMyExplanation } from "./api";
+import {
+  DEBRIEF_STEPS,
+  type Debrief,
+  debriefView,
+  myDebriefKey,
+  reflectionDone,
+  useMyDebrief,
+  useMyExplanation,
+  useMyReflection,
+} from "./api";
 import { ExplanationStep } from "./explanation-step";
 import { ChainStep } from "./chain-step";
+import { MomentsStep } from "./moments-step";
 import { ReflectionStep } from "./reflection-step";
 import { RevealStep } from "./reveal-step";
 
@@ -77,11 +87,13 @@ function DebriefView({
 
 /** The Student's Role under the title, then the steps as `07-debrief.png` numbers them («1 Skriv
  * Forklaringen først»): step 1, and once the Explanation is saved, steps 2 and 3 under it, so the
- * Explanation stays beside the data, then the reflection questions (Story 9.6). The step pointer stays where the session stands (moving on
- * together comes with the Group debrief, Story 9.11). */
+ * Explanation stays beside the data, then the reflection questions (Story 9.6) and, once they are
+ * all answered, the own moments (Story 9.7). The step pointer stays where the session stands
+ * (moving on together comes with the Group debrief, Story 9.11). */
 function Steps({ debrief, userId }: { debrief: Debrief; userId: string }) {
   const heading = debrief.step === 1 ? copy.firstStep : null;
   const sent = Boolean(useMyExplanation(debrief.id).data?.explanation);
+  const reflected = reflectionDone(useMyReflection(debrief.id, sent).data);
   return (
     <>
       <p className={`${LINE} mt-1 text-ink-secondary`}>{copy.roleGame(roleName(debrief.role), debrief.game_number)}</p>
@@ -106,6 +118,7 @@ function Steps({ debrief, userId }: { debrief: Debrief; userId: string }) {
       {sent ? <RevealStep debrief={debrief} /> : null}
       {sent ? <ChainStep debrief={debrief} /> : null}
       {sent ? <ReflectionStep debrief={debrief} userId={userId} /> : null}
+      {sent && reflected ? <MomentsStep debrief={debrief} /> : null}
     </>
   );
 }

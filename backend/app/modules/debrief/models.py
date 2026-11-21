@@ -1,4 +1,4 @@
-"""The tables owned by `modules/debrief` (Stories 9.2, 9.3, 9.6, AD-21). Written by
+"""The tables owned by `modules/debrief` (Stories 9.2, 9.3, 9.6, 9.7, AD-21). Written by
 `debrief.commands` only."""
 
 from sqlalchemy import (
@@ -105,4 +105,22 @@ debrief_reflection_answers = Table(
         f"length = char_length(text) AND length BETWEEN 1 AND {ANSWER_MAX}",
         name="ck_debrief_reflection_answers_length",
     ),
+)
+
+debrief_fact_sets = Table(
+    "debrief_fact_sets",
+    metadata,
+    # The facts set a Student's own moments are rendered from, in a Class session (Story 9.7,
+    # AD-7): stored at their first view of step 4 and never changed (a trigger refuses updates),
+    # so every later read cites the same set.
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("game_id", Uuid, ForeignKey("games.id", ondelete="CASCADE"), nullable=False),
+    Column("fact_set_id", Uuid, ForeignKey("fact_sets.id", ondelete="CASCADE"), nullable=False),
+    Column("recorded_at", DateTime(timezone=True), nullable=False),
 )
