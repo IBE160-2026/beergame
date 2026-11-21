@@ -2530,3 +2530,23 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visue
 
 ### Åpne punkter
 - Issue #163: beslutninger (hvem båndet nevner, likhet mellom spill, plassering av «Melding»).
+
+## Story 8.1: Registrer når hver uke åpnet og når hvert sete bestilte (spor 1)
+
+### Oppgave
+Bygge Story 8.1 på `epic-8` i spor 1. `epic-8` er laget fra den ferdige `epic-7`, mens avslutningen av Epic 7 kjører i et eget worktree.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (datamodell). Neste byggeagent ble startet med en gang storyen var committet, etter den nye flyten.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-1-record-when-week-opened-and-seat-ordered.md`.
+- Commit: 8b940a2. Migrasjon 0053 med utfylling for spill som allerede venter.
+- Spillet har sin egen klokke for FR-36: frister for overtakelse og innsetting per tur, nærmeste frist i `game_summaries`, `next_change_at` fra lesemodellen, og tre nye kolonner i Spillinnsikt.
+- Tester: backend 2880, Vitest 830, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 73 med `--workers=4`, ingen ustabile tester.
+- Gjennomgang: 42 funn, 3 middels (utfyllingen for spill i gang, rettet), 5 lave rettet, 1 utsatt til 8.9.
+- Visuell kontroll: tas sammen med neste visuelle kontroll av Spillinnsikt, for å unngå fire stacker samtidig.
+- Status: done.
+
+### Åpne punkter
+- Issue #164: beslutninger og utsatte punkter.
