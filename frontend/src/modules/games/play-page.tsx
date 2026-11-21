@@ -546,8 +546,8 @@ function useSendOrder(gameId: string, week: number, userId: string, field: strin
             confirmed();
             return;
           }
-          // `week_not_open` too: the api answers it before `order_exists`, so a retry of an Order
-          // that arrived and completed the Uke gets it. The history then shows the Order.
+          // The api answers `order_exists` before `week_not_open`, but the history is still read:
+          // a `week_not_open` may hide an Order a second device placed with this value.
           const there = await stored(ordered, value);
           if (there === "stored") confirmed();
           else if (there === "other" || code === "week_not_open") setOutcome({ week: ordered, value, kind: "weekGone" });

@@ -61,8 +61,10 @@ async def test_the_student_orders_once_and_the_week_moves_on(klass):
     assert envelope["seat_state"]["week"] == week + 1
     assert envelope["seat_state"]["history"][-1]["order"] == 24
     assert envelope["turn"]["order"] is None
-    # An Order for a Week the game has left is refused.
-    assert code(await order(who, game_id, week, {"order": 5})) == (409, "week_not_open")
+    # A retry of the Order that completed the Week is told the Order stands (Story 6.13); an
+    # Order for a Week the Seat never ordered in is refused as not open.
+    assert code(await order(who, game_id, week, {"order": 5})) == (409, "order_exists")
+    assert code(await order(who, game_id, week + 2, {"order": 5})) == (409, "week_not_open")
 
 
 async def test_an_order_already_placed_is_not_placed_again(klass):
@@ -95,9 +97,9 @@ async def test_two_sends_racing_for_one_seat_and_week_place_one_order(klass):
         )
         assert sorted(a.status_code for a in answers) == [204, 409]
         [refused] = [a for a in answers if a.status_code == 409]
-        # The loser of the race that completed the Week finds it closed: `week_not_open` is
-        # checked before `order_exists`, which the web app answers by reading the history.
-        assert code(refused) == (409, "order_exists" if n == 0 else "week_not_open")
+        # The loser is told the Seat's Order stands, also when the winner completed the Week:
+        # `order_exists` is checked before `week_not_open`.
+        assert code(refused) == (409, "order_exists")
         [placed] = [v for v, a in zip((9, 24), answers, strict=True) if a.status_code == 204]
         rows = query(
             TEST_DATABASE_URL,
@@ -141,4 +143,6 @@ async def test_another_game_is_refused_alike_and_a_finished_one_by_code(klass):
     assert {r.status_code for r in refusals} == {403}
     assert len({r.content for r in refusals}) == 1
     execute("UPDATE games SET lifecycle = 'finished' WHERE id = %s", game_id)
-    assert code(await order(who, game_id, week, {"order": 4})) == (409, "game_finished")
+    assert code(await order(who, game_id, week + 1, {"order": 4})) == (409, "game_finished")
+    # The Seat's stored Order still answers first, and only to its Student.
+    assert code(await order(who, game_id, week, {"order": 4})) == (409, "order_exists")

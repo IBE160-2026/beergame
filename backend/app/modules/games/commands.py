@@ -1158,30 +1158,31 @@ async def _place(
     row = _seat_row(seat_rows, seat)
     if game["lifecycle"] == Lifecycle.NOT_STARTED:
         raise CommandError("game_not_started", "the Game has not started", 409)
-    if game["lifecycle"] == Lifecycle.FINISHED:
-        raise CommandError("game_finished", "the Game has finished", 409)
     decider = _decided_by(decided_by)
     marked = _fallback(fallback)
     call_ids = _call_ids(llm_call_ids)
     settings, params = _snapshot(game)
     value = _check_order(settings, order)
+    # The Seat's stored Order for `week` answers `order_exists` before the Week or the Game is
+    # found closed: a retry of an Order that completed the Week, or the last Week, is told its
+    # Order stands (Story 6.13).
+    stored = (
+        type(week) is int
+        and week >= 1
+        and await repo.has_seat_week(session, game_uuid, week, row["id"])
+    )
+    if stored:
+        await _check_actor(session, row, week, actor)
+        raise CommandError("order_exists", "the Seat has already ordered this Week", 409)
+    if game["lifecycle"] == Lifecycle.FINISHED:
+        raise CommandError("game_finished", "the Game has finished", 409)
     if open_game is not None:
         states, orders = await play_of(open_game)
     else:
         states, orders = await stored_play(session, game_uuid)
     if type(week) is not int or week != states[-1].week:
         raise CommandError("week_not_open", f"Week {week!r} is not the open Week", 409)
-    if actor is not None:
-        # Before anything about the Seat's Order is told: only its Student may know (FR-5).
-        holder = await repo.occupancy_in_force(session, row["id"], week)
-        if (
-            holder is None
-            or holder["occupant_kind"] != OccupantKind.STUDENT
-            or holder["user_id"] != actor
-        ):
-            raise CommandError("seat_not_yours", "the Seat is not the actor's", 409)
-    if await repo.has_seat_week(session, game_uuid, week, row["id"]):
-        raise CommandError("order_exists", "the Seat has already ordered this Week", 409)
+    await _check_actor(session, row, week, actor)
     guided = rules.guided_week(_policy(game["purpose"]), settings, week)
     if guided and (decider is not DecidedBy.GUIDED or value != guided_order(settings)):
         raise CommandError(
@@ -1242,6 +1243,22 @@ async def _place(
     return OrderPlaced(
         seat_week_id=str(seat_week_id), week=week, open_week=open_week, lifecycle=lifecycle
     )
+
+
+async def _check_actor(
+    session: AsyncSession, row: Mapping[str, object], week: int, actor: uuid.UUID | None
+) -> None:
+    """With an `actor`, the Seat's occupant in Week `week` must be that Student, before anything
+    about the Seat's Order is told: only its Student may know (FR-5)."""
+    if actor is None:
+        return
+    holder = await repo.occupancy_in_force(session, row["id"], week)
+    if (
+        holder is None
+        or holder["occupant_kind"] != OccupantKind.STUDENT
+        or holder["user_id"] != actor
+    ):
+        raise CommandError("seat_not_yours", "the Seat is not the actor's", 409)
 
 
 async def _run_play_guard(

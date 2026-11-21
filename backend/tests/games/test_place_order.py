@@ -276,14 +276,15 @@ async def test_an_order_outside_the_open_week_is_refused(games_db, week):
     )
 
 
-async def test_an_earlier_week_is_no_longer_open(games_db):
+async def test_a_retry_after_the_week_moved_on_meets_order_exists(games_db):
+    """Story 6.13: the Seat's stored Order is told before the Week is found closed."""
     game_id = await started()
     await play_week(game_id)
     await assert_refused(
         games_db,
         game_id,
         commands.place_order(game_id, "retailer", 1, 4, "guided"),
-        "week_not_open",
+        "order_exists",
         409,
     )
 
@@ -374,11 +375,12 @@ async def test_the_last_week_finishes_the_game(games_db):
     assert final.finished and final.week == last
     # No turn for the Week after the last.
     assert counts(games_db, game_id)[1:] == (4 * last, last + 1, 4 * last, 4 * last)
+    # A retry of the Order that finished the Game is told the Order stands (Story 6.13).
     await assert_refused(
         games_db,
         game_id,
         commands.place_order(game_id, "retailer", last, 4, "rule_based"),
-        "game_finished",
+        "order_exists",
         409,
     )
     await assert_refused(

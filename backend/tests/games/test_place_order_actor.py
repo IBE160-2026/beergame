@@ -52,6 +52,22 @@ async def test_an_actor_who_does_not_hold_the_seat_is_refused_and_nothing_is_wri
     assert state(game_id) == before
 
 
+async def test_a_stored_order_is_told_only_to_its_student_also_after_the_week(games_db):
+    """Story 6.13: `order_exists` comes before `week_not_open`, but never before the actor
+    check: another Student learns nothing about the Seat's Order (FR-5)."""
+    game_id, students = await class_game("retailer")
+    placed = await commands.place_order(
+        game_id, "retailer", 1, 24, "student", actor=students["retailer"]
+    )
+    assert placed.open_week == 2  # the only Student completed Week 1
+    with pytest.raises(commands.CommandError) as refused:
+        await commands.place_order(game_id, "retailer", 1, 9, "student", actor=uuid.uuid7())
+    assert refused.value.code == "seat_not_yours"
+    with pytest.raises(commands.CommandError) as retried:
+        await commands.place_order(game_id, "retailer", 1, 9, "student", actor=students["retailer"])
+    assert retried.value.code == "order_exists"
+
+
 async def test_the_actor_who_holds_the_seat_orders_and_no_actor_skips_the_check(games_db):
     game_id, students = await class_game("retailer", "wholesaler")
     placed = await commands.place_order(
