@@ -2568,3 +2568,23 @@ Avslutte Epic 7 (7.1–7.11) med visuell kontroll av 7.11, oppfølgende rettinge
 
 ### Åpne punkter
 - Issue #166: utsatte punkter fra Epic 7 (gjenoppbygging av `game_summaries`, hendelse ved endring i klasselista, gruppe for «pause» i Epic 8, fart på backend-pakken, mindre UX-punkter, én test i `test_place_order.py` som feilet én gang under last).
+
+## Story 9.11: Gå gjennom Debrief sammen som gruppe (spor 2)
+
+### Oppgave
+Bygge Story 9.11 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Etter den nye flyten startet byggeagenten for 9.12 med en gang, og den visuelle kontrollen gikk samtidig i et eget worktree med egen stack, bare med rapport.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-11-go-through-the-debrief-together-as-a-group.md` (på `epic-9`).
+- Commit: d23993b. Migrasjon 0110.
+- Felles Debrief når minst to studenter er aktive: felles steg 1–3, «Ferdig med steget», åpneren kan flytte alle videre etter en ventetid, låste steg i api-et (403 `step_locked`), og `debrief:<id>` videresendt til nettleseren.
+- Tester: backend 2939, Vitest 773, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 118 med `--workers=4`, ingen ustabile tester. Én backend-kjøring hang mens Docker bygde ved siden av; ny kjøring alene passerte.
+- Gjennomgang: 28 funn, 5 lave rettet, 1 middels sendt videre til 9.12 (gruppe uten åpner kan ikke gå videre).
+- Visuell kontroll (Sonnet, bare rapport, eget worktree og egen stack): 42 skjermbilder i `screenshots/9.11/`, ingen klare feil i 9.11. Tre punkter sendt til 9.12 på samme side: ingen fylt primærknapp i gruppelinja, samme klokkeslett vist to ganger, og en kuttet etikett i grafen på steg 2 i korte spill.
+- Status: done.
+
+### Åpne punkter
+- Issue #167: beslutninger (felles steg 1–3, ventetid på 5 min som plassholder, varsling).
