@@ -2770,3 +2770,24 @@ Byggeagent med `bmad-build-auto` mot KI-mocken og fire gjennomgangsagenter på S
 
 ### Åpne punkter
 - Issue #176: kommandoen for ekte kall, beslutninger og to utsatte punkter.
+
+## Story 8.7: Sett et klassespill på pause med avtalt tid som faglærer (spor 1)
+
+### Oppgave
+Bygge Story 8.7 på `epic-8` i spor 1, og rette typografien i tittelen «Spillstyring».
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-7-pause-a-class-game-with-an-agreed-time-as-lecturer.md`.
+- Commit: a658811. Migrasjon 0057.
+- Faglæreren kan sette pause fra Spillstyring og Varselbåndet, med eller uten avtalt tid, endre tiden og avslutte pausen. Den avtalte tiden blir tidspunktet studentene kan sette inn en KI-spiller fra; tidspunktet for automatisk overtakelse flyttes aldri.
+- Tester: backend 2975, Vitest 869, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 182 av 183 (`spillstyring` måtte telle bare knappene per sete etter at «Pause spillet» kom til).
+- Gjennomgang: 42 funn, 1 middels (pause uten tid nullstilte innsettingstidene) og 9 lave rettet.
+- Filteret «Pause n» på Oversikt ble holdt utenfor storyen; det går til avslutningen av Epic 8.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): skjermbilder i `screenshots/8.7/`, ingen klare feil. Til avslutningen av Epic 8: «Pause n» i statusfilteret, primærknappen «Ta pause» som ikke navngir tiden, og feilmeldingen for tidsrom som bare står under klokkeslettet mens knappen er aktiv.
+- Status: done.
+
+### Åpne punkter
+- Issue #177: beslutninger (avtalt tid som innsettingstid, kunngjøring én gang, tekst for elevene).
