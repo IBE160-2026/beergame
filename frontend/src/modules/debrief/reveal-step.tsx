@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { type CSSProperties, useId } from "react";
 
 import { ActionError } from "@/components/action-error";
 import { Button } from "@/components/button";
@@ -22,6 +22,15 @@ const ROW_LABEL =
   "sticky left-0 z-10 min-w-row-label-phone bg-paper pr-2 text-left align-middle font-normal text-ink lg:min-w-row-label-laptop";
 /** The band's height in em of the caption size (about 200 px at 13 px, `07-debrief.png`). */
 const BAND_HEIGHT_EM = 15;
+/** The band's least width in em of the table text: a short game's few columns widen to it, so the
+ * band and its «Kundenes etterspørsel» label are never squeezed into a sliver. */
+const BAND_MIN_EM = 20;
+
+/** An inline width for each week column when the game is too short to fill `BAND_MIN_EM`. */
+function weekStyle(weeks: number): CSSProperties | undefined {
+  const em = BAND_MIN_EM / Math.max(1, weeks);
+  return em > 1.8 ? { width: `${em}em`, minWidth: `${em}em` } : undefined;
+}
 
 const ROWS: readonly { key: "demand" | "incoming_order" | "order"; label: string }[] = [
   { key: "demand", label: copy.rows.demand },
@@ -145,6 +154,7 @@ function BandKey() {
  * column each, `th` scopes on both axes (NFR-6). */
 function RevealTable({ reveal, labelledBy }: { reveal: Reveal; labelledBy: string }) {
   const columns: GraphColumn[] = reveal.weeks.map((week) => ({ week: week.week, when: "past", phone: true }));
+  const style = weekStyle(reveal.weeks.length);
   return (
     <GraphOverTable
       label={copy.region}
@@ -158,7 +168,7 @@ function RevealTable({ reveal, labelledBy }: { reveal: Reveal; labelledBy: strin
             {nb.terms.week}
           </th>
           {reveal.weeks.map((week) => (
-            <th key={week.week} scope="col" data-col={week.week} className={cn(WEEK_COL, "h-row-phone font-normal text-ink-muted lg:h-row-laptop")}>
+            <th key={week.week} scope="col" data-col={week.week} style={style} className={cn(WEEK_COL, "h-row-phone font-normal text-ink-muted lg:h-row-laptop")}>
               <span className="sr-only">{nb.terms.week} </span>
               {week.week}
             </th>
@@ -173,6 +183,7 @@ function RevealTable({ reveal, labelledBy }: { reveal: Reveal; labelledBy: strin
           {reveal.weeks.map((week: RevealWeek) => (
             <td
               key={week.week}
+              style={style}
               className={cn(
                 WEEK_COL,
                 "h-row-phone lg:h-row-laptop",

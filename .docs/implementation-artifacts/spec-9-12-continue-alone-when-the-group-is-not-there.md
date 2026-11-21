@@ -279,3 +279,10 @@ The sweep has `debrief.dropouts` and `debrief.fallback`. `fallback_due_at` is co
 - Every SSE stream runs one small UPDATE per heartbeat.
 - The move-on double-step window is still there (deferred).
 - The copy is a draft.
+
+**Visual fixes carried from the visual check of 9.11 (same Debrief page, after the review).**
+- The group bar has one filled primary: «Ferdig med steget» when it shows, else the opener's «Gå videre for alle» once the Explanation form (with its own primary) is gone; «Forlat gruppen» stays secondary (`group.tsx`).
+- Too early: the hint «Du kan flytte gruppen videre fra kl. …» gives way to the refusal «Gruppen kan gå videre fra kl. …», so the time shows once.
+- Step 2 in a short game: the week columns widen so the Etterspørselsbånd is at least 20 em of table text wide, so the band is not squeezed and «Kundenes etterspørsel: N» is no longer clipped (`reveal-step.tsx`, inline width only when the game has 11 Uker or fewer).
+- Left as they are (judgement): the locked line's left rule rather than mockup 07's open circle, and step 1's chart width at 1280 px.
+- Verified after the fixes: typecheck, Vitest (debrief), `lint:colours`, the lane stack rebuilt, Playwright (the same 21 specs, `--workers=4`): 137 of 137.

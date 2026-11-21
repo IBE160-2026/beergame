@@ -199,6 +199,11 @@ export function GroupStepBar({ debrief, group, sent }: { debrief: Debrief; group
   const canFinish = sent && group.step > 1 && group.step < INDIVIDUAL_STEP && !me?.done;
   const canMove = group.opener && group.step < INDIVIDUAL_STEP && (sent || group.step === 1);
   const canLeave = group.step < INDIVIDUAL_STEP;
+  // One filled primary on the screen (DESIGN.md): «Ferdig med steget» when it is there, else the
+  // opener's move-on once the Explanation form (with its own primary) is gone.
+  const moveIsPrimary = !canFinish && sent;
+  // The refusal already says when (409 `too_early`): the hint above the button gives way to it.
+  const tooEarly = move.error instanceof ApiRequestError && move.error.code === "too_early";
   if (!line && !canFinish && !canMove && !canLeave) return null;
   return (
     <div data-group-bar={group.step} className="mt-6 flex max-w-md flex-col items-start gap-3 border-l-2 border-axis pl-3">
@@ -209,7 +214,7 @@ export function GroupStepBar({ debrief, group, sent }: { debrief: Debrief; group
       ) : null}
       {canFinish ? (
         <>
-          <Button unavailable={finish.isPending} onClick={() => finish.mutate()}>
+          <Button variant="primary" unavailable={finish.isPending} onClick={() => finish.mutate()}>
             {copy.done}
           </Button>
           <ActionError message={finish.errorMessage} />
@@ -217,8 +222,10 @@ export function GroupStepBar({ debrief, group, sent }: { debrief: Debrief; group
       ) : null}
       {canMove ? (
         <>
-          {group.move_on_at ? <p className="text-caption text-ink-secondary">{copy.moveOnAt(osloDayAndTime(group.move_on_at).time)}</p> : null}
-          <Button unavailable={move.isPending} onClick={() => move.mutate()}>
+          {group.move_on_at && !tooEarly ? (
+            <p className="text-caption text-ink-secondary">{copy.moveOnAt(osloDayAndTime(group.move_on_at).time)}</p>
+          ) : null}
+          <Button variant={moveIsPrimary ? "primary" : "secondary"} unavailable={move.isPending} onClick={() => move.mutate()}>
             {copy.moveOn}
           </Button>
           <ActionError message={early} />
