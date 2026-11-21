@@ -1510,6 +1510,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/debriefs/{debrief_id}/follow-up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Follow Up
+         * @description The follow-up field under the reflection questions (Story 9.15, FR-45, FR-15): `off` (not
+         *     shown: the Class session's Debrief AI text is off or no model may answer), `open` or `closed`,
+         *     with the Student's own questions and answers, never another Student's. 403
+         *     `reflection_required` until every reflection question is answered, `explanation_required`
+         *     before the Explanation.
+         */
+        get: operations["getMyFollowUp"];
+        put?: never;
+        /**
+         * Ask Follow Up
+         * @description A follow-up question about the Student's own Game (Story 9.15, FR-45, AD-6, AD-7): one
+         *     model call with the question scrubbed against the Roster, answered with hints that point to
+         *     the Student's own numbers (`answered`, marked by `ai_generated`), a decline for a question
+         *     outside the Game (`declined`), or `unanswered` when no answer could be given (nothing
+         *     stored; ask again). 409 `follow_up_off`, `follow_up_closed` (closed, or the Test deadline has
+         *     passed), 422 `validation_error` (empty, over 500 characters), 429 `rate_limited` with
+         *     `retry_after` seconds, 403 `reflection_required` before the reflection questions are
+         *     answered.
+         */
+        post: operations["askFollowUp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/debriefs/{debrief_id}/join": {
         parameters: {
             query?: never;
@@ -3207,6 +3242,52 @@ export interface components {
         /** FinalIn */
         FinalIn: {
             choice: components["schemas"]["Choice"];
+        };
+        /**
+         * FollowUpAnswerOut
+         * @description A follow-up question with its answer (Story 9.15, FR-45, AD-7): `answered` carries the hint
+         *     text code rendered from the model's choice of templates and facts, marked by `ai_generated`;
+         *     `declined` (outside the Game) and `unanswered` (no answer could be given: the call failed or
+         *     its output was rejected) carry none, and the web app shows a fixed line. Only `answered` and
+         *     `declined` are stored; `asked_at` is null for `unanswered`.
+         */
+        FollowUpAnswerOut: {
+            answer?: components["schemas"]["RenderedTextOut"] | null;
+            /** Asked At */
+            asked_at?: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "answered" | "declined" | "unanswered";
+            /** Question */
+            question: string;
+        };
+        /**
+         * FollowUpIn
+         * @description A follow-up question about the Student's own Game (Story 9.15): as typed. It must hold more
+         *     than white space and at most 500 characters (422 `validation_error`).
+         */
+        FollowUpIn: {
+            /** Question */
+            question: string;
+        };
+        /**
+         * FollowUpOut
+         * @description The follow-up field under the reflection questions (Story 9.15, FR-45, FR-15): `off` when
+         *     the Class session's Debrief AI text is off, no provider may answer, the pinned templates hold
+         *     no hints or the Seat has no fact to point to (the field is not shown); `closed` after the
+         *     Student's Test deadline or once their Individual test has opened; else `open`. `asked` holds
+         *     the Student's own stored questions, oldest first.
+         */
+        FollowUpOut: {
+            /** Asked */
+            asked: components["schemas"]["FollowUpAnswerOut"][];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "off" | "open" | "closed";
         };
         /**
          * GameResult
@@ -9405,6 +9486,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyFollowUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowUpOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    askFollowUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FollowUpIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowUpAnswerOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

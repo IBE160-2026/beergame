@@ -125,6 +125,14 @@ class Settings(BaseSettings):
     # The Group debrief (Story 9.11, FR-43). PLACEHOLDER: how long a shared step must have been
     # open before its opener may move every joined Student on, in minutes.
     debrief_move_on_wait_minutes: int = Field(5, ge=0)
+    # Follow-up questions in the Debrief (Story 9.15, FR-45, AD-11). PLACEHOLDERS: questions per
+    # account and per client address in a window, and how long one question's model call may
+    # take before the Student is told no answer could be given.
+    follow_up_rate_limit_per_account: int = Field(10, ge=1)
+    # Per address high enough for a lecture hall behind one network address.
+    follow_up_rate_limit_per_ip: int = Field(300, ge=1)
+    follow_up_rate_limit_window_minutes: int = Field(10, ge=1)
+    follow_up_deadline_seconds: int = Field(20, ge=1, le=120)
 
     # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
     # to the `[email:mock]` sender; the compose file never passes a key.

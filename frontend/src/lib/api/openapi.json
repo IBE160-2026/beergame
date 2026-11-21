@@ -2406,6 +2406,93 @@
         "title": "FinalIn",
         "type": "object"
       },
+      "FollowUpAnswerOut": {
+        "description": "A follow-up question with its answer (Story 9.15, FR-45, AD-7): `answered` carries the hint\ntext code rendered from the model's choice of templates and facts, marked by `ai_generated`;\n`declined` (outside the Game) and `unanswered` (no answer could be given: the call failed or\nits output was rejected) carry none, and the web app shows a fixed line. Only `answered` and\n`declined` are stored; `asked_at` is null for `unanswered`.",
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenderedTextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asked At"
+          },
+          "outcome": {
+            "enum": [
+              "answered",
+              "declined",
+              "unanswered"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "question"
+        ],
+        "title": "FollowUpAnswerOut",
+        "type": "object"
+      },
+      "FollowUpIn": {
+        "description": "A follow-up question about the Student's own Game (Story 9.15): as typed. It must hold more\nthan white space and at most 500 characters (422 `validation_error`).",
+        "properties": {
+          "question": {
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "FollowUpIn",
+        "type": "object"
+      },
+      "FollowUpOut": {
+        "description": "The follow-up field under the reflection questions (Story 9.15, FR-45, FR-15): `off` when\nthe Class session's Debrief AI text is off, no provider may answer, the pinned templates hold\nno hints or the Seat has no fact to point to (the field is not shown); `closed` after the\nStudent's Test deadline or once their Individual test has opened; else `open`. `asked` holds\nthe Student's own stored questions, oldest first.",
+        "properties": {
+          "asked": {
+            "items": {
+              "$ref": "#/components/schemas/FollowUpAnswerOut"
+            },
+            "title": "Asked",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "off",
+              "open",
+              "closed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "asked"
+        ],
+        "title": "FollowUpOut",
+        "type": "object"
+      },
       "GameResult": {
         "additionalProperties": false,
         "description": "A finished Game's cost (Story 6.18, FR-28): each Role's, the chain's, and the chain's\nrunning cost per Uke. Numbers and Roles only: no names, no demand, no settings.",
@@ -12516,6 +12603,160 @@
           }
         },
         "summary": "Finish My Debrief",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/follow-up": {
+      "get": {
+        "description": "The follow-up field under the reflection questions (Story 9.15, FR-45, FR-15): `off` (not\nshown: the Class session's Debrief AI text is off or no model may answer), `open` or `closed`,\nwith the Student's own questions and answers, never another Student's. 403\n`reflection_required` until every reflection question is answered, `explanation_required`\nbefore the Explanation.",
+        "operationId": "getMyFollowUp",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowUpOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Follow Up",
+        "tags": [
+          "debrief"
+        ]
+      },
+      "post": {
+        "description": "A follow-up question about the Student's own Game (Story 9.15, FR-45, AD-6, AD-7): one\nmodel call with the question scrubbed against the Roster, answered with hints that point to\nthe Student's own numbers (`answered`, marked by `ai_generated`), a decline for a question\noutside the Game (`declined`), or `unanswered` when no answer could be given (nothing\nstored; ask again). 409 `follow_up_off`, `follow_up_closed` (closed, or the Test deadline has\npassed), 422 `validation_error` (empty, over 500 characters), 429 `rate_limited` with\n`retry_after` seconds, 403 `reflection_required` before the reflection questions are\nanswered.",
+        "operationId": "askFollowUp",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowUpIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowUpAnswerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Ask Follow Up",
         "tags": [
           "debrief"
         ]

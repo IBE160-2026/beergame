@@ -230,3 +230,33 @@ def test_classes_reaches_identity_only_through_its_service_and_identity_never_im
         assert not name.startswith("app.modules.classes"), f"{path.name}:{line} imports {name}"
     for path, line, name in imports(APP / "platform"):
         assert not name.startswith("app.modules"), f"{path.name}:{line} imports {name}"
+
+
+def test_only_the_gateway_calls_the_pii_terms():
+    """Story 9.15 (AD-6, C-1): `platform/pii.terms` reads the whole Roster's names, emails and
+    student numbers; only the AI gateway may call it, to scrub free text before it leaves."""
+    callers = set()
+    for path in sorted(APP.rglob("*.py")):
+        if path == APP / "platform" / "pii.py":
+            continue
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module == "app.platform.pii":
+                callers.add(path)
+            if isinstance(node, ast.Attribute) and node.attr == "terms":
+                if isinstance(node.value, ast.Name) and node.value.id == "pii":
+                    callers.add(path)
+        if any(name == "app.platform.pii" for _, _, name in imports_of(tree, path)):
+            callers.add(path)
+    assert callers == {APP / "ai" / "gateway.py"}, sorted(str(p) for p in callers)
+
+
+def imports_of(tree: ast.AST, path: Path) -> list[tuple[Path, int, str]]:
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found += [(path, node.lineno, alias.name) for alias in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            found += [(path, node.lineno, f"{node.module}.{a.name}") for a in node.names]
+    return found

@@ -128,6 +128,12 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A facts set's narration or quiz line stored by the `llm-batch` job (Story 9.14): no
         # event, since the text a Student reads is fixed at their first view.
         "debrief.store_ai_text": frozenset(),
+        # A Student's answered or declined follow-up question stored (Story 9.15, FR-45): no event,
+        # the asking page has the answer and no other reader sees it.
+        "debrief.store_follow_up": frozenset(),
+        # A Student's follow-up closed when their Individual test opens (Story 9.15, Epic 11's
+        # call): `user`, so an open Debrief page replaces the field. Closed already emits nothing.
+        "debrief.close_follow_up": frozenset({"user"}),
         # A Debrief finished (Story 9.8, FR-47, AD-16): the Debrief row locked; the `debrief`
         # step recorded in the same transaction emits `user` and `session`. A summary stored
         # already emits nothing.

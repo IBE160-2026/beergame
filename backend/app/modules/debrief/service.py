@@ -38,6 +38,11 @@
 - Story 9.14: step 4 carries `narration` and a wrong quiz answer `ai_explanation`, each the AI
   text stored by `debrief.narration`'s `llm-batch` job before the Student first saw it, else the
   code text; `due_narrations`/`narrate_due` are the sweep's re-enqueue of a lost job.
+- Story 9.15: `own_follow_up` and `ask_follow_up_mine`, the bounded follow-up questions under
+  the reflection questions (`follow_up`; raise `ReflectionRequired`, `follow_up.Off`,
+  `follow_up.Closed`, `follow_up.InvalidQuestion`, `follow_up.RateLimited`), and
+  `close_follow_up(user_id, class_session_id)`, the one entry point another slice uses to close
+  a Student's follow-up (Epic 11, when their Individual test opens).
 - Story 9.10: `staff_quiz(user, class_session_id)` (the Class session's Debrief quiz with its
   answer keys and exclusions, `debrief_quiz.read`) and `set_quiz_exclusions` (raises
   `InvalidExclusions`, `commands.LastQuestion`, `commands.TestDeadlinePassed`); every attempt
@@ -61,7 +66,7 @@ from app.analysis import sentences
 from app.analysis.facts import LARGE_ORDER
 from app.engine.settings import Role
 from app.modules.content import service as content
-from app.modules.debrief import commands, insight, narration, rules
+from app.modules.debrief import commands, follow_up, insight, narration, rules
 from app.modules.debrief.models import (
     ANSWER_MAX,
     DROPOUT_AFTER,
@@ -87,6 +92,8 @@ from app.modules.debrief.schemas import (
     DebriefOut,
     DebriefStepOut,
     ExplanationOut,
+    FollowUpAnswerOut,
+    FollowUpOut,
     GroupMemberOut,
     GroupOut,
     LargestOrderOut,
@@ -139,9 +146,13 @@ __all__ = [
     "InvalidExplanation",
     "NoExplanation",
     "NotAvailable",
+    "ReflectionRequired",
     "StepLocked",
     "UnknownQuestion",
     "answer_mine",
+    "ask_follow_up_mine",
+    "close_follow_up",
+    "own_follow_up",
     "complete_step_mine",
     "join_mine",
     "leave_mine",
@@ -247,6 +258,11 @@ class StepLocked(Exception):
 
 class NoExplanation(Exception):
     """The Student has not sent an Explanation in the Class session (404 `not_found`)."""
+
+
+class ReflectionRequired(Exception):
+    """A follow-up question before every reflection question is answered (403
+    `reflection_required`, Story 9.15): the field stands after them (UX-DR31)."""
 
 
 def _open_or_raise(found: rules.Availability) -> None:
@@ -1023,6 +1039,71 @@ async def answer_mine(
     assert isinstance(saved, commands.AnswerRow)
     answer = ReflectionAnswerOut(text=saved.text, length=saved.length, saved_at=saved.saved_at)
     return _question(asked, answer)
+
+
+async def _past_reflection(
+    user: authz.Principal, debrief_id: uuid.UUID
+) -> tuple[commands.DebriefRow, games.StudentGame] | None:
+    """The Student's own Debrief past the reflection questions (Story 9.15): behind the
+    Explanation gate and the Group pointer; raises `ReflectionRequired` while a reflection
+    question is unanswered."""
+    found = await _own(user, debrief_id)
+    if found is None:
+        return None
+    row, game = found
+    await require_explanation(user.id, row.class_session_id)
+    require_step(row, INDIVIDUAL_STEP)
+    _, questions = await _questions(row.game_id)
+    answers = await _answers(user.id, row.class_session_id)
+    if any(q.id not in answers for q in questions.questions):
+        raise ReflectionRequired
+    return row, game
+
+
+async def own_follow_up(user: authz.Principal, debrief_id: uuid.UUID) -> FollowUpOut | None:
+    """The follow-up field under the reflection questions (Story 9.15, FR-45, FR-15): `off`,
+    `open` or `closed`, with the Student's own stored questions (AD-14). Behind the Explanation
+    gate and the reflection questions."""
+    found = await _past_reflection(user, debrief_id)
+    if found is None:
+        return None
+    row, game = found
+    prepared = await follow_up.prepare(row.game_id, game.role)
+    if prepared is None:
+        state = "off"
+    elif await follow_up.closed(user.id, row.class_session_id):
+        state = "closed"
+    else:
+        state = "open"
+    return FollowUpOut(state=state, asked=await follow_up.asked(user.id, row.class_session_id))
+
+
+async def ask_follow_up_mine(
+    user: authz.Principal, debrief_id: uuid.UUID, question: str, *, ip: str, now: datetime
+) -> FollowUpAnswerOut | None:
+    """A follow-up question about the Student's own Game (Story 9.15, FR-45): one model call,
+    on this request, never retried; the answer, or `unanswered` when none could be given. Raises
+    `NotAvailable`, `ExplanationRequired`, `StepLocked`, `ReflectionRequired`, `follow_up.Off`,
+    `follow_up.Closed`, `follow_up.InvalidQuestion` or `follow_up.RateLimited`."""
+    found = await _past_reflection(user, debrief_id)
+    if found is None:
+        return None
+    row, game = found
+    prepared = await follow_up.prepare(row.game_id, game.role)
+    if prepared is None:
+        raise follow_up.Off
+    if await follow_up.closed(user.id, row.class_session_id):
+        raise follow_up.Closed
+    return await follow_up.ask(
+        user.id, row.class_session_id, row.game_id, prepared, question, ip=ip, now=now
+    )
+
+
+async def close_follow_up(user_id: uuid.UUID, class_session_id: uuid.UUID) -> bool:
+    """Close the Student's follow-up questions in the Class session (Story 9.15, FR-45): the one
+    entry point another slice uses (Epic 11, when the Student's Individual test opens). Returns
+    whether this call closed it; closed already is no error."""
+    return await commands.close_follow_up(user_id, class_session_id)
 
 
 async def staff_explanation(

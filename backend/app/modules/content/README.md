@@ -40,4 +40,9 @@ schema (`schemas.py`). Kinds: `starting_task` (Story 6.3), `detected_patterns` (
   `analysis.narration.NarrationTemplates`: exactly those ids, slots `<value>_<n>` for the `n`-th
   cited fact, every cited fact used, no cause word. The lock pins the version under
   `SessionRuntime.pins["narration_templates"]` (`narration_templates_pin`).
+- Version 2 of the narration templates (Story 9.15) is stored by migration 0113: version 1's four
+  sentences and the follow-up's hint templates (`hint-row`, `hint-supply-line`, `hint-later`,
+  `hint-compare`, draft copy), which point to where to look. A version holds every narration id
+  and may hold the hint ids (`analysis.narration.HINT_TEMPLATES`); a Class session locked on
+  version 1 has no follow-up questions.
 

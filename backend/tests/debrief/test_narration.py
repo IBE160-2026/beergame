@@ -83,7 +83,7 @@ async def test_the_finish_defers_narration_the_job_words_it_and_the_first_view_f
     path = f"/api/debriefs/{debrief['id']}"
     pin = pins(game_id)["debrief_ai_text"]
     assert pin["enabled"] is True and pin["model_config_id"]
-    assert pins(game_id)["narration_templates"] == {"version": 1}
+    assert pins(game_id)["narration_templates"] == {"version": 2}  # with the hints (9.15)
 
     # The finish hook defers one job per Seat a Student held, ids only, on `llm-batch`. (This
     # 14-Uke game is marked finished by SQL, so the hook is run here as `finish` runs it; the
@@ -103,7 +103,7 @@ async def test_the_finish_defers_narration_the_job_words_it_and_the_first_view_f
     await reflect(me, path)
     first = await step_four(me, path)
     stored = await games.fact_set(game_id, role)
-    _, templates = await content.narration_templates(1)
+    _, templates = await content.narration_templates(2)
     code = narration_rules.render(stored.facts, templates)
     assert code is not None
     assert first["narration"] == {"text": code.text, **CODE}
@@ -134,6 +134,10 @@ async def test_the_finish_defers_narration_the_job_words_it_and_the_first_view_f
         session_id,
         pin["model_config_id"],
     )
+    # Version 2 also holds the follow-up's hints (Story 9.15); the narration is offered its own
+    # four templates only.
+    [(prompt,)] = rows("SELECT request->>'prompt' FROM llm_call WHERE id = %s", call_id)
+    assert all(t in prompt for t in narration_rules.NARRATION_TEMPLATES) and "hint-" not in prompt
     # One quiz line per pinned question with an own-game sentence, marked too.
     _, quiz = await content.debrief_quiz(1)
     asked = {narration.quiz_subject(q.id) for q in quiz.questions if q.in_your_game}

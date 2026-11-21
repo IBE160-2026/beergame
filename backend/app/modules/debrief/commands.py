@@ -15,8 +15,12 @@ the Class session's release once and tells each Student who holds a Seat through
 session row instead, records the change through `platform/audit`, emits `session:<id>` and tells
 each Student whose last attempt it covers (`debrief.set_quiz_exclusions`). `store_ai_text`
 (Story 9.14) stores a facts set's narration or quiz line once, from the `llm-batch` job: no lock
-and no event, since no reader's text changes (it is fixed at the first view). Arguments are ids
-and the Student's text only."""
+and no event, since no reader's text changes (it is fixed at the first view). Story 9.15:
+`store_follow_up` stores a Student's answered or declined follow-up question once (no lock, no
+event: the asking page has the answer), and `close_follow_up` closes the Student's follow-up in a
+Class session once (the entry point Epic 11 calls when their Individual test opens), emitting
+`user:<id>` so an open Debrief page shows it closed. Arguments are ids and the Student's text
+only."""
 
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
@@ -37,6 +41,8 @@ from app.modules.debrief.models import (
     debrief_alone,
     debrief_explanations,
     debrief_fact_sets,
+    debrief_follow_up_closures,
+    debrief_follow_ups,
     debrief_members,
     debrief_reflection_answers,
     debrief_releases,
@@ -1196,3 +1202,88 @@ async def clear_ai_texts(fact_set_id: uuid.UUID) -> None:
         await session.execute(
             debrief_ai_texts.delete().where(debrief_ai_texts.c.fact_set_id == fact_set_id)
         )
+
+
+@dataclass(frozen=True)
+class FollowUpRow:
+    id: uuid.UUID
+    question: str
+    outcome: str
+    answer: str | None
+    llm_call_id: uuid.UUID
+    asked_at: datetime
+
+
+def follow_up_of(row) -> FollowUpRow:
+    return FollowUpRow(
+        id=row["id"],
+        question=row["question"],
+        outcome=row["outcome"],
+        answer=row["answer"],
+        llm_call_id=row["llm_call_id"],
+        asked_at=row["asked_at"],
+    )
+
+
+async def store_follow_up(
+    user_id: uuid.UUID,
+    class_session_id: uuid.UUID,
+    fact_set_id: uuid.UUID,
+    question: str,
+    *,
+    outcome: str,
+    answer: str | None,
+    llm_call_id: uuid.UUID,
+) -> FollowUpRow:
+    """Store a Student's follow-up question with its answer once (Story 9.15, FR-45, AD-7, AD-14):
+    `answered` with the hint text code rendered, or `declined`, keyed by the Student and the
+    Class session with the facts set and the call it cites, at the database time. No lock and no
+    event: the asking page has the answer, and no other reader sees it."""
+    async with get_sessionmaker().begin() as session:
+        saved = (
+            (
+                await session.execute(
+                    insert(debrief_follow_ups)
+                    .values(
+                        id=uuid.uuid7(),
+                        user_id=user_id,
+                        class_session_id=class_session_id,
+                        fact_set_id=fact_set_id,
+                        question=question,
+                        outcome=outcome,
+                        answer=answer,
+                        llm_call_id=llm_call_id,
+                        asked_at=func.clock_timestamp(),
+                    )
+                    .returning(*debrief_follow_ups.c)
+                )
+            )
+            .mappings()
+            .one()
+        )
+    log.info("debrief_follow_up_stored", outcome=outcome)
+    return follow_up_of(saved)
+
+
+async def close_follow_up(user_id: uuid.UUID, class_session_id: uuid.UUID) -> bool:
+    """Close the Student's follow-up questions in the Class session for good (Story 9.15, FR-45):
+    Epic 11 calls it, through `debrief.service.close_follow_up`, when their Individual test opens.
+    Idempotent: returns whether this call closed it. Emits `user:<id>`, so an open Debrief page
+    replaces the field with the line that says it is closed."""
+    async with get_sessionmaker().begin() as session:
+        closed = await session.scalar(
+            insert(debrief_follow_up_closures)
+            .values(user_id=user_id, class_session_id=class_session_id, closed_at=func.now())
+            .on_conflict_do_nothing(
+                index_elements=[
+                    debrief_follow_up_closures.c.user_id,
+                    debrief_follow_up_closures.c.class_session_id,
+                ]
+            )
+            .returning(debrief_follow_up_closures.c.user_id)
+        )
+        if closed is not None:
+            await events.emit(session, "user", str(user_id))
+    if closed is not None:
+        log.info("debrief_follow_up_closed", class_session_id=str(class_session_id))
+    return closed is not None

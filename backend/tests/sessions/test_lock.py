@@ -96,7 +96,7 @@ async def test_two_sweeps_over_a_due_session_lock_it_once(klass, emitted):
             "reflection_questions": {"version": 1},
             "moment_templates": {"version": 1},
             "debrief_quiz": {"version": 1},
-            "narration_templates": {"version": 1},
+            "narration_templates": {"version": 2},
             "debrief_ai_text": {"enabled": False, "model_config_id": None, "effort_level": None},
         },
     )

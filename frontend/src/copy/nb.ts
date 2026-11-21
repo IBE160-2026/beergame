@@ -2328,6 +2328,42 @@ export const nb = {
       /** [ASSUMPTION] the questions could not be read; «Prøv igjen» beside it. */
       loadFailed: "Spørsmålene kunne ikke hentes.",
     },
+    /** Follow-up questions about the Student's own Game, under the reflection questions (Story
+     * 9.15, FR-45, UX-DR31). Spine-only surface: all [ASSUMPTION] draft. */
+    followUp: {
+      /** [ASSUMPTION] */
+      heading: "Spør om spillet ditt",
+      /** [ASSUMPTION] what an answer is, before the field. */
+      intro: "Lurer du på noe om spillet ditt? Du får hint om hvor du kan se, ikke svar.",
+      /** [ASSUMPTION] the field's label. */
+      label: "Spørsmålet ditt",
+      /** [ASSUMPTION] under the field: who reads it, and the KI. */
+      privacy: "Spørsmålet sendes til en KI, med navn og e-postadresser fjernet. Det lagres sammen med svaret.",
+      /** [ASSUMPTION] */
+      send: "Spør",
+      /** [ASSUMPTION] while the answer is on its way. */
+      sending: "Venter på svar …",
+      /** [ASSUMPTION] beside the button while the field is empty. */
+      empty: "Skriv et spørsmål først.",
+      /** [ASSUMPTION] over each earlier question. */
+      asked: "Du spurte",
+      /** [ASSUMPTION] a question outside the Game: the fixed line, never the KI's words. */
+      declined: "Det spørsmålet handler ikke om spillet ditt. Spør om ukene, bestillingene eller kostnadene dine.",
+      /** [ASSUMPTION] no answer could be given; the question stays in the field. */
+      unanswered: "Det kom ikke noe svar denne gangen. Spørsmålet står igjen i feltet, så du kan prøve igjen eller gå videre.",
+      /** [ASSUMPTION] too many questions (from this account or this network): the wait, in whole
+       * minutes. */
+      rateLimited: (minutes: number) =>
+        minutes <= 1
+          ? "Det er sendt mange spørsmål på kort tid. Vent ett minutt før du spør igjen."
+          : `Det er sendt mange spørsmål på kort tid. Vent ${minutes} minutter før du spør igjen.`,
+      /** [ASSUMPTION] the field is gone: the Individual test has opened or the Testfrist passed. */
+      closed: "Spørsmål om spillet er stengt nå.",
+      /** [ASSUMPTION] */
+      failed: "Spørsmålet ble ikke sendt. Prøv igjen.",
+      /** [ASSUMPTION] the list could not be read; «Prøv igjen» beside it. */
+      loadFailed: "Spørsmålene dine kunne ikke hentes.",
+    },
     /** Step 4, the own moments (Story 9.7, `07-debrief.png`). The heading and each moment's
      * sentences come from the api, rendered by code from the facts. «Dette så du», «Dette regnet
      * du», «Dette kostet det senere» and «Dette så de andre i Uke N» are the spine's; the rest is

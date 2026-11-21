@@ -130,3 +130,51 @@ async def test_a_default_mock_config_without_the_debriefs_prompts_gets_a_derived
     assert found.spec.prompts == seed.MOCK_SPEC["prompts"]
     assert (await config.get(old.id)).spec.prompts == {"player_order": 1, "recognition_probe": 1}
     assert await seed.ensure_zero_config() is None
+
+
+async def test_can_word_needs_the_config_its_prompt_and_a_provider_that_may_answer(
+    ai_db, monkeypatch
+):
+    """Story 9.15 (FR-15): the follow-up field shows only when an answer is possible at all."""
+    from app.ai.text import can_word
+    from app.platform.config import Settings, get_settings
+
+    row = await config.add(config.parse(mock_config(prompts={"debrief_follow_up": 1})))
+    assert await can_word("debrief_follow_up", row.id) is True
+    assert await can_word("debrief_follow_up", str(row.id)) is True
+    assert await can_word("debrief_narration", row.id) is False  # no prompt for it
+    assert await can_word("debrief_follow_up", None) is False
+    assert await can_word("debrief_follow_up", "not-an-id") is False
+    assert await can_word("debrief_follow_up", uuid.uuid4()) is False
+    # In production the mock never answers: no provider, no field.
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setattr(Settings, "production_problems", lambda self: [])
+    get_settings.cache_clear()
+    try:
+        assert await can_word("debrief_follow_up", row.id) is False
+    finally:
+        monkeypatch.undo()
+        get_settings.cache_clear()
+
+
+async def test_the_dev_outage_fails_only_the_calling_tasks_attempts(ai_db):
+    """Story 9.15: the local dev narration's outage (`provider_failing`) never fails a call that
+    another request makes in the same process meanwhile."""
+    import asyncio
+
+    from app.ai.text import provider_failing
+
+    scope = await scope_for(limit="5")
+    go = asyncio.Event()
+
+    async def elsewhere() -> AiText:
+        await go.wait()
+        return await run(scope, {"template_id": "narration-orders"})
+
+    other = asyncio.create_task(elsewhere())
+    with provider_failing():
+        failed = await run(scope, {"template_id": "narration-orders"})
+        go.set()
+        answered = await other
+    assert failed == AiText(FALLBACK, False, None)
+    assert answered.ai_generated is True

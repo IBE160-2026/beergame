@@ -12,12 +12,21 @@ from app.modules.content import service as content
 from app.modules.sessions import service as sessions
 from tests.classes.test_invitation_counts import execute
 
+SHIPPED = "01a1f9a0-0000-7000-8000-"
+"""The id prefix of the versions the migrations store (Story 9.15 ships version 2 of the narration
+templates): only the versions a test published are taken out again."""
+UNSHIPPED = (
+    f"DELETE FROM content_records WHERE version > 1 AND left(id::text, {len(SHIPPED)}) <> "
+    f"'{SHIPPED}'"
+)
+"""Every version a test published, and none a migration stored."""
+
 
 @pytest.fixture(autouse=True)
 def only_version_1(test_database):
-    execute("DELETE FROM content_records WHERE version > 1")
+    execute(UNSHIPPED)
     yield
-    execute("DELETE FROM content_records WHERE version > 1")
+    execute(UNSHIPPED)
 
 
 async def test_version_1_holds_the_placeholder_items_with_the_position_sum():
@@ -79,7 +88,7 @@ async def test_the_lock_pins_the_latest_starting_task_version():
         "reflection_questions": {"version": 1},
         "moment_templates": {"version": 1},
         "debrief_quiz": {"version": 1},
-        "narration_templates": {"version": 1},
+        "narration_templates": {"version": 2},
         "debrief_ai_text": {"enabled": False, "model_config_id": None, "effort_level": None},
     }
     assert sessions._pin_providers["reflection_questions"] is content.reflection_questions_pin

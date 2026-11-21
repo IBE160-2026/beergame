@@ -7,8 +7,12 @@ of the Seat's own moments (`moment:<role>:<week>`) or Detected pattern occurrenc
 cited facts' numbers (`render_output`). `validate_ai_text` accepts only output that cites facts
 of the set and templates of the version, with the count each template takes, and whose rendered
 text holds no number other than the cited facts' own. A sentence may not cite one fact twice or
-repeat another sentence, and the later-cost sentence needs a fact with at least two following
-Weeks. `render` is the code narration every caller falls back to.
+repeat another sentence, and a sentence naming a fact's following Weeks needs a fact with at least
+two of them. `render` is the code narration every caller falls back to.
+
+Story 9.15: from version 2 the same content kind also holds the follow-up's hint templates
+(`HINT_TEMPLATES`); a caller names the ids its output may use (`allowed`), so the narration never
+cites a hint and a follow-up answer only hints.
 
 A template's slots are `<value>_<n>`: the `n`-th cited fact's `week`, `order`, `supply_line`,
 `incoming_order`, `later_cost` (kroner) and the first and last of the following Weeks that cost
@@ -18,7 +22,7 @@ id cites; a template uses every one of them and states no cause.
 Pure (AD-1): stdlib, pydantic and `app.engine` only."""
 
 import re
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from decimal import Decimal
 from typing import Annotated, Literal
 
@@ -35,8 +39,10 @@ from app.analysis.sentences import (
 )
 
 __all__ = [
+    "HINT_TEMPLATES",
     "MAX_SENTENCES",
     "NARRATION_TEMPLATES",
+    "TEMPLATE_FACTS",
     "NARRATION_VALUES",
     "AiSentence",
     "AiTextOutput",
@@ -63,6 +69,23 @@ NARRATION_TEMPLATES: Mapping[str, int] = {
 }
 """The narration templates and how many facts each cites."""
 
+HINT_TEMPLATES: Mapping[str, int] = {
+    # Story 9.15: hints that point to where to look, never a worked answer (FR-45).
+    # One fact: its row in the table, what was ordered and what came in.
+    "hint-row": 1,
+    # One fact: what was on the way when the Seat ordered.
+    "hint-supply-line": 1,
+    # One fact: the following Weeks' cost to follow.
+    "hint-later": 1,
+    # Two facts: two Weeks to compare.
+    "hint-compare": 2,
+}
+"""The follow-up's hint templates (version 2 of the `narration_templates` content kind on) and
+how many facts each cites."""
+
+TEMPLATE_FACTS: Mapping[str, int] = {**NARRATION_TEMPLATES, **HINT_TEMPLATES}
+"""Every template id a version may hold, with how many facts it cites."""
+
 NARRATION_VALUES = (
     "week",
     "order",
@@ -77,8 +100,9 @@ NARRATION_VALUES = (
 MAX_SENTENCES = 3
 """The most sentences one narration has."""
 
-LATER_COST_TEMPLATE = "narration-later-cost"
-"""The sentence about the following Weeks' cost: only for a fact with `MIN_LATER_WEEKS` of them."""
+LATER_SPAN = ("later_first_week", "later_last_week")
+"""The slots that name the following Weeks: a template using one of them for a fact applies only
+to a fact with `MIN_LATER_WEEKS` of them (the later-cost sentence and its hint)."""
 MIN_LATER_WEEKS = 2
 
 _SLOT = re.compile(r"^([a-z_]+)_([1-9])$")
@@ -86,8 +110,9 @@ _NUMBER = re.compile(r"\d+")
 
 
 class NarrationTemplates(BaseModel):
-    """The narration templates (content kind `narration_templates`): exactly the ids of
-    `NARRATION_TEMPLATES`, each slot `<value>_<n>` with `n` from 1 to the template's count, every
+    """The narration templates (content kind `narration_templates`): every id of
+    `NARRATION_TEMPLATES` and, from version 2 on, the hint templates of `HINT_TEMPLATES` (Story
+    9.15), nothing else; each slot `<value>_<n>` with `n` from 1 to the template's count, every
     cited fact used, no cause stated."""
 
     model_config = _FROZEN
@@ -99,12 +124,12 @@ class NarrationTemplates(BaseModel):
         ids = [template.id for template in self.templates]
         if len(set(ids)) != len(ids):
             raise ValueError("template ids repeat")
-        if set(ids) != set(NARRATION_TEMPLATES):
-            raise ValueError(
-                f"templates missing or unknown: {sorted(set(ids) ^ set(NARRATION_TEMPLATES))}"
-            )
+        missing = set(NARRATION_TEMPLATES) - set(ids)
+        unknown = set(ids) - set(TEMPLATE_FACTS)
+        if missing or unknown:
+            raise ValueError(f"templates missing or unknown: {sorted(missing | unknown)}")
         for template in self.templates:
-            count = NARRATION_TEMPLATES[template.id]
+            count = TEMPLATE_FACTS[template.id]
             used: set[int] = set()
             for name in _fields(template.text):
                 found = _SLOT.match(name)
@@ -119,6 +144,17 @@ class NarrationTemplates(BaseModel):
 
     def text_of(self, template_id: str) -> str | None:
         return next((t.text for t in self.templates if t.id == template_id), None)
+
+    def has_hints(self) -> bool:
+        """Whether this version holds every hint template (version 2 on): the follow-up's
+        condition (Story 9.15)."""
+        return set(HINT_TEMPLATES) <= {t.id for t in self.templates}
+
+    def lines(self, allowed: Collection[str]) -> list[str]:
+        """The templates of `allowed` ids, one per line for a prompt: `id (n): text`."""
+        return [
+            f"{t.id} ({TEMPLATE_FACTS[t.id]}): {t.text}" for t in self.templates if t.id in allowed
+        ]
 
 
 _FactId = Annotated[str, Field(min_length=1, max_length=80)]
@@ -210,36 +246,48 @@ def render_output(
     return RenderedText(template_id=f"narration:{ids}", text=" ".join(parts))
 
 
+def _spans_later(text: str) -> set[int]:
+    """The cited facts (by number) whose following Weeks a template names."""
+    found = (_SLOT.match(name) for name in _fields(text))
+    return {int(m.group(2)) for m in found if m is not None and m.group(1) in LATER_SPAN}
+
+
 def validate_ai_text(
-    output: AiTextOutput, fact_set: FactSet, templates: NarrationTemplates
+    output: AiTextOutput,
+    fact_set: FactSet,
+    templates: NarrationTemplates,
+    allowed: Collection[str] = NARRATION_TEMPLATES,
 ) -> Verdict:
     """Accept the output only when every cited fact id is one of the set's own, every template id
-    is in the pinned version with as many facts as it takes, no fact or sentence repeats, the
-    later-cost sentence cites a fact with following Weeks to name, and every number in the rendered
-    text is one of the cited facts' rendered values (FR-44, AD-7, NFR-9)."""
+    is one of `allowed` (the narration's own by default; the hints for a follow-up) and in the
+    pinned version, with as many facts as it takes, no fact or sentence repeats, a sentence that
+    names a fact's following Weeks cites a fact with enough of them, and every number in the
+    rendered text is one of the cited facts' rendered values (FR-44, FR-45, AD-7, NFR-9)."""
     facts = citable(fact_set)
-    allowed: set[str] = set()
+    numbers: set[str] = set()
     seen: set[tuple[str, tuple[str, ...]]] = set()
     for sentence in output.sentences:
         if any(fact_id not in facts for fact_id in sentence.fact_ids):
             return Verdict(accepted=False, reason="unknown_fact")
-        if templates.text_of(sentence.template_id) is None:
+        text = templates.text_of(sentence.template_id)
+        if sentence.template_id not in allowed or text is None:
             return Verdict(accepted=False, reason="unknown_template")
-        if NARRATION_TEMPLATES.get(sentence.template_id) != len(sentence.fact_ids):
+        if TEMPLATE_FACTS.get(sentence.template_id) != len(sentence.fact_ids):
             return Verdict(accepted=False, reason="wrong_arity")
         key = (sentence.template_id, sentence.fact_ids)
         if len(set(sentence.fact_ids)) != len(sentence.fact_ids) or key in seen:
             return Verdict(accepted=False, reason="repeated")
         seen.add(key)
-        if sentence.template_id == LATER_COST_TEMPLATE and any(
-            facts[fact_id].later_weeks < MIN_LATER_WEEKS for fact_id in sentence.fact_ids
+        if any(
+            facts[sentence.fact_ids[n - 1]].later_weeks < MIN_LATER_WEEKS
+            for n in _spans_later(text)
         ):
             return Verdict(accepted=False, reason="not_applicable")
         for fact_id in sentence.fact_ids:
             for value in _values(facts[fact_id]).values():
-                allowed.update(_NUMBER.findall(value))
+                numbers.update(_NUMBER.findall(value))
     rendered = render_output(output, fact_set, templates)
-    if any(number not in allowed for number in _NUMBER.findall(rendered.text)):
+    if any(number not in numbers for number in _NUMBER.findall(rendered.text)):
         return Verdict(accepted=False, reason="number_outside_facts")
     return Verdict(accepted=True, text=rendered.text)
 

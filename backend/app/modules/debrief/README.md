@@ -232,3 +232,31 @@ The Debrief (Epic 9, FR-41 to FR-47, AD-21). Never imports `modules/players`
   debrief_narration=1 --prompt quiz_explanation=1`, then measure and pin the new row; in
   `local`/`test`/`ci` the zero-config seed does the same for the mock config.
 
+
+## Bounded follow-up questions (Story 9.15, FR-45, FR-15, FR-34, AD-6, AD-7, AD-11, AD-14)
+
+- `GET`/`POST /api/debriefs/{id}/follow-up` (`follow_up.py`, through `service.own_follow_up` and
+  `service.ask_follow_up_mine`): the field under the reflection questions, before step 4. Gates in
+  order: own Debrief, the Explanation, the Group pointer, every reflection question answered (403
+  `reflection_required`), then `follow_up_off` (AI text off, no provider for the pinned config
+  (`app.ai.text.can_word`), templates pinned before version 2, or a Seat with no moments),
+  `follow_up_closed`, 422 (blank, over 500 characters), 429 `rate_limited` (per account and per
+  address, `follow_up_rate_limit_*` placeholder settings; `fields.retry_after` and `Retry-After`).
+- One question is one call on the request: `app.ai.text.worded("debrief_follow_up", <Class
+  session scope on the pin's config>, …)`, deadline `follow_up_deadline_seconds`, never retried.
+  Inputs: the Role, the facts (`narration.fact_lines`), the pinned version's hint templates, the
+  Student's Explanation and question (both free text: the gateway scrubs them against
+  `platform/pii.terms`, the Class's Roster and staff). Output `analysis.follow_up.FollowUpOutput`:
+  a decline flag, or 1–3 hints checked by `validate_follow_up` (Story 9.14's `validate_ai_text`
+  with the hint ids only) and rendered by code. Mock answer (AD-17): a decline for a question with
+  no game word, else the row hint on the earliest fact.
+- `answered` (the hint text, marked by `ai_generated`) and `declined` (a fixed line in the web
+  app) are stored once in `debrief_follow_ups` keyed by `user_id` and Class session with the facts
+  set and the call (`commands.store_follow_up`, no event); `unanswered` (a failure, a rejected
+  output, a spent budget) stores nothing.
+- Closing: `service.close_follow_up(user_id, class_session_id)` → `commands.close_follow_up`
+  (a `debrief_follow_up_closures` row, emits `user`), the entry point Epic 11 calls when the
+  Student's Individual test opens; the database time past `sessions.student_deadlines`' Test
+  deadline closes it too.
+- Production setup of a model config: `python -m app.ai.cli config edit <id> --prompt
+  debrief_follow_up=1`, then measure and pin the new row.

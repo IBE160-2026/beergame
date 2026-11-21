@@ -28,6 +28,7 @@ import {
 import { BillStep } from "./bill-step";
 import { ChainStep } from "./chain-step";
 import { ExplanationStep } from "./explanation-step";
+import { FollowUp } from "./follow-up";
 import { ALONE_LINE_ID, AloneLine, GroupAnnouncer, GroupJoin, GroupStepBar, STEP_HEADING_ID } from "./group";
 import { MomentsStep } from "./moments-step";
 import { QuizStep } from "./quiz-step";
@@ -97,7 +98,7 @@ function DebriefView({
 /** The Student's Role under the title, then the steps as `07-debrief.png` numbers them («1 Skriv
  * Forklaringen først»): step 1, and once the Explanation is saved, steps 2 and 3 under it, so the
  * Explanation stays beside the data, then the reflection questions (Story 9.6) and, once they are
- * all answered, the own moments (Story 9.7), then Kjedens regning and «Fullfør Debriefen» (Story
+ * all answered, the follow-up questions (Story 9.15) and the own moments (Story 9.7), then Kjedens regning and «Fullfør Debriefen» (Story
  * 9.8), and once finished, step 5, the Debrief quiz (Story 9.9). A finished Debrief reads the same,
  * with nothing left to send.
  *
@@ -165,6 +166,8 @@ function Steps({ debrief, userId }: { debrief: Debrief; userId: string }) {
           {sent && far >= 3 ? <ChainStep debrief={debrief} /> : null}
           {bar(3)}
           {sent && far >= INDIVIDUAL_STEP ? <ReflectionStep debrief={debrief} userId={userId} /> : null}
+          {/* Story 9.15: follow-up questions after the reflection questions, before step 4. */}
+          {sent && far >= INDIVIDUAL_STEP && reflected ? <FollowUp debrief={debrief} userId={userId} /> : null}
           {sent && far >= INDIVIDUAL_STEP && reflected ? <MomentsStep debrief={debrief} /> : null}
           {sent && far >= INDIVIDUAL_STEP && reflected ? <BillStep debrief={debrief} /> : null}
           {sent && far >= INDIVIDUAL_STEP && reflected ? <QuizStep debrief={debrief} /> : null}

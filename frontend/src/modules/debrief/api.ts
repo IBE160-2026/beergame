@@ -265,6 +265,50 @@ export function answerReflection(debriefId: string, questionId: string, text: st
   );
 }
 
+/** The follow-up field under the reflection questions (Story 9.15): `off` (not shown), `open` or
+ * `closed`, with the Student's own earlier questions. */
+export type FollowUp = components["schemas"]["FollowUpOut"];
+/** One question and its answer: `answered` (AI hint text, marked by `ai_generated`), `declined`
+ * or `unanswered` (both shown as fixed lines). */
+export type FollowUpAnswer = components["schemas"]["FollowUpAnswerOut"];
+
+export const followUpKey = (debriefId: string) => [...debriefsKey, debriefId, "follow-up"] as const;
+
+/** The follow-up field, read once every reflection question is answered (`enabled`). */
+export function useMyFollowUp(debriefId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: followUpKey(debriefId),
+    queryFn: () =>
+      request(() => api.GET("/api/debriefs/{debrief_id}/follow-up", { params: { path: { debrief_id: debriefId } } })),
+    enabled,
+    retry: false,
+  });
+}
+
+export function askFollowUp(debriefId: string, question: string): Promise<FollowUpAnswer> {
+  return request(() =>
+    api.POST("/api/debriefs/{debrief_id}/follow-up", {
+      params: { path: { debrief_id: debriefId } },
+      body: { question },
+    }),
+  );
+}
+
+/** A stored answer joins the list; `unanswered` is never stored, so the list stays. */
+export function withFollowUp(was: FollowUp, answer: FollowUpAnswer): FollowUp {
+  if (answer.outcome === "unanswered") return was;
+  return { ...was, asked: [...was.asked, answer] };
+}
+
+/** The whole minutes to wait after a 429 `rate_limited` (`fields.retry_after`, seconds), at least 1. */
+export function waitMinutes(retryAfter: unknown): number {
+  const seconds = typeof retryAfter === "number" && Number.isFinite(retryAfter) ? retryAfter : 60;
+  return Math.max(1, Math.ceil(seconds / 60));
+}
+
+/** The draft field of the follow-up question in a Class session (`lib/drafts.ts`). */
+export const followUpDraftField = (classSessionId: string) => `debrief-follow-up:${classSessionId}`;
+
 /** The draft field of one reflection answer in a Class session (`lib/drafts.ts`). */
 export const reflectionDraftField = (classSessionId: string, questionId: string) =>
   `debrief-reflection:${classSessionId}:${questionId}`;

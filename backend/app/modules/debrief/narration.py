@@ -46,6 +46,7 @@ __all__ = [
     "SWEEP_AFTER",
     "due_narrations",
     "enabled_pin",
+    "fact_lines",
     "narrate",
     "narrate_due",
     "narration_is_ai",
@@ -112,8 +113,9 @@ async def _defer_on_finish(session: AsyncSession, finished: games.FinishedGame) 
 games.on_game_finished("debrief.narration", _defer_on_finish)
 
 
-def _fact_lines(facts: FactSet) -> str:
-    """The facts a narration may cite, one per line: the id, then its numbers (no names)."""
+def fact_lines(facts: FactSet) -> str:
+    """The facts a narration or a follow-up answer may cite, one per line: the id, then its
+    numbers (no names)."""
     lines = []
     for fact_id, fact in narration_rules.citable(facts).items():
         seen = fact.state_seen
@@ -128,10 +130,9 @@ def _fact_lines(facts: FactSet) -> str:
 
 
 def _template_lines(templates: narration_rules.NarrationTemplates) -> str:
-    return "\n".join(
-        f"{t.id} ({narration_rules.NARRATION_TEMPLATES[t.id]}): {t.text}"
-        for t in templates.templates
-    )
+    """The narration's own templates (version 2 also holds the follow-up's hints, which a
+    narration never cites)."""
+    return "\n".join(templates.lines(narration_rules.NARRATION_TEMPLATES))
 
 
 def _validator(facts: FactSet, templates: narration_rules.NarrationTemplates, most: int):
@@ -200,7 +201,7 @@ async def narrate(game_id: str, seat_id: str) -> bool:
     }
     shared = {
         "role": str(facts.seat.role),
-        "facts": _fact_lines(facts),
+        "facts": fact_lines(facts),
         "templates": _template_lines(templates),
     }
     own = narration_rules.code_output(facts)

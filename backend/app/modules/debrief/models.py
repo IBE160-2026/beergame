@@ -1,5 +1,5 @@
-"""The tables owned by `modules/debrief` (Stories 9.2, 9.3, 9.6 to 9.10, 9.14, AD-21). Written by
-`debrief.commands` only."""
+"""The tables owned by `modules/debrief` (Stories 9.2, 9.3, 9.6 to 9.10, 9.14, 9.15, AD-21).
+Written by `debrief.commands` only."""
 
 from datetime import timedelta
 
@@ -9,6 +9,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     SmallInteger,
     Table,
@@ -229,6 +230,54 @@ debrief_ai_texts = Table(
         "subject = 'narration' OR subject LIKE 'quiz:%'", name="ck_debrief_ai_texts_subject"
     ),
     CheckConstraint("ai_generated = (llm_call_id IS NOT NULL)", name="ck_debrief_ai_texts_marking"),
+)
+
+FOLLOW_UP_ANSWERED = "answered"
+FOLLOW_UP_DECLINED = "declined"
+
+debrief_follow_ups = Table(
+    "debrief_follow_ups",
+    metadata,
+    # A Student's follow-up question about their Game and its answer (Story 9.15, FR-45, AD-7,
+    # AD-14): keyed by the Student and the Class session, with the facts set and the call it
+    # cites. `answered` holds the hint text code rendered; `declined` no answer (the web app shows
+    # a fixed line). A question with no answer (a failure) is not stored. Written once by
+    # `commands.store_follow_up`, never changed (a trigger refuses updates).
+    Column("id", Uuid, primary_key=True),
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("fact_set_id", Uuid, ForeignKey("fact_sets.id", ondelete="CASCADE"), nullable=False),
+    # As the Student typed it; the scrubbed text is what the model call's stored row holds.
+    Column("question", Text, nullable=False),
+    Column("outcome", Text, nullable=False),
+    Column("answer", Text, nullable=True),
+    Column("llm_call_id", Uuid, nullable=False),
+    Column("asked_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("outcome IN ('answered', 'declined')", name="ck_debrief_follow_ups_outcome"),
+    CheckConstraint(
+        "(outcome = 'answered') = (answer IS NOT NULL)", name="ck_debrief_follow_ups_answer"
+    ),
+    Index("ix_debrief_follow_ups_user_session", "user_id", "class_session_id", "asked_at"),
+)
+
+debrief_follow_up_closures = Table(
+    "debrief_follow_up_closures",
+    metadata,
+    # A Student whose follow-up is closed in the Class session (Story 9.15, FR-45):
+    # `commands.close_follow_up`, which Epic 11 calls when their Individual test opens.
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "class_session_id",
+        Uuid,
+        ForeignKey("class_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("closed_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 
 debrief_summaries = Table(

@@ -93,6 +93,8 @@ ALONE_TABLES = {"debrief_alone"}
 """The table of revision 0111 (Story 9.12)."""
 NARRATION_TABLES = {"debrief_ai_texts"}
 """The table of revision 0112 (Story 9.14)."""
+FOLLOW_UP_TABLES = {"debrief_follow_ups", "debrief_follow_up_closures"}
+"""The tables of revision 0113 (Story 9.15)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -110,8 +112,9 @@ HEAD_TABLES = (
     | GROUP_TABLES
     | ALONE_TABLES
     | NARRATION_TABLES
+    | FOLLOW_UP_TABLES
 )
-HEAD = "0112"  # 0112 stores the Debrief's AI text and its switch (Story 9.14)
+HEAD = "0113"  # 0113 stores the Debrief's follow-up questions and their hints (Story 9.15)
 
 
 def reset_schema(url: str) -> None:
@@ -293,6 +296,20 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0113 (Story 9.15): version 2 of the narration templates with the hints, the follow-up
+    # questions (stored once) and their closures.
+    versions = "SELECT version, body FROM content_records WHERE kind = 'narration_templates'"
+    found_versions = dict(rows(url, versions + " ORDER BY version"))
+    assert sorted(found_versions) == [1, 2]
+    assert "hint-row" in [t["id"] for t in found_versions[2]["templates"]]
+    assert {"question", "outcome", "answer", "llm_call_id", "fact_set_id"} <= columns(
+        url, "debrief_follow_ups"
+    )
+    assert function_names(url, "debrief_follow_ups_immutable")
+    command.downgrade(cfg, "0112")
+    assert FOLLOW_UP_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "debrief_follow_ups_immutable")
 
     # 0112 (Story 9.14): the narration templates, the AI-text switch and the stored AI texts.
     assert "debrief_ai_text" in columns(url, "class_sessions")

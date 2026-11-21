@@ -558,3 +558,34 @@ class QuizExclusionsIn(BaseModel):
     """«Lagre quizvalg»: the ids of every question to take out; the others are asked."""
 
     excluded: list[str]
+
+
+class FollowUpIn(BaseModel):
+    """A follow-up question about the Student's own Game (Story 9.15): as typed. It must hold more
+    than white space and at most 500 characters (422 `validation_error`)."""
+
+    question: str
+
+
+class FollowUpAnswerOut(BaseModel):
+    """A follow-up question with its answer (Story 9.15, FR-45, AD-7): `answered` carries the hint
+    text code rendered from the model's choice of templates and facts, marked by `ai_generated`;
+    `declined` (outside the Game) and `unanswered` (no answer could be given: the call failed or
+    its output was rejected) carry none, and the web app shows a fixed line. Only `answered` and
+    `declined` are stored; `asked_at` is null for `unanswered`."""
+
+    outcome: Literal["answered", "declined", "unanswered"]
+    question: str
+    answer: RenderedTextOut | None = None
+    asked_at: datetime | None = None
+
+
+class FollowUpOut(BaseModel):
+    """The follow-up field under the reflection questions (Story 9.15, FR-45, FR-15): `off` when
+    the Class session's Debrief AI text is off, no provider may answer, the pinned templates hold
+    no hints or the Seat has no fact to point to (the field is not shown); `closed` after the
+    Student's Test deadline or once their Individual test has opened; else `open`. `asked` holds
+    the Student's own stored questions, oldest first."""
+
+    state: Literal["off", "open", "closed"]
+    asked: list[FollowUpAnswerOut]

@@ -26,6 +26,9 @@ PURPOSES: dict[str, Purpose] = {
     # the caller never retries and shows the code text instead (`app.ai.text.worded`).
     "debrief_narration": Purpose("debrief_narration", attempt_limit=1, player=False),
     "quiz_explanation": Purpose("quiz_explanation", attempt_limit=1, player=False),
+    # Story 9.15 (FR-45, AD-7): a Student's follow-up question about their Game, answered with
+    # hints or declined. One attempt, on the api's request with a deadline; never retried.
+    "debrief_follow_up": Purpose("debrief_follow_up", attempt_limit=1, player=False),
 }
 
 

@@ -35,6 +35,7 @@ from tests.analysis.test_moments import TEMPLATES as MOMENT_TEMPLATES
 from tests.analysis.test_moments import assert_every_number_from_the_facts
 from tests.analysis.test_patterns import V1
 from tests.conftest import TEST_DATABASE_URL
+from tests.content.test_content import UNSHIPPED
 from tests.games.helpers import (
     classic_game,
     execute,
@@ -53,9 +54,9 @@ TAKEOVER_ORDERS = (4, 6, 12, 16, 16, 12, 8, 2, 0, 4, 8, 8)
 
 @pytest.fixture(autouse=True)
 def only_version_1(test_database):
-    execute(TEST_DATABASE_URL, "DELETE FROM content_records WHERE version > 1")
+    execute(TEST_DATABASE_URL, UNSHIPPED)
     yield
-    execute(TEST_DATABASE_URL, "DELETE FROM content_records WHERE version > 1")
+    execute(TEST_DATABASE_URL, UNSHIPPED)
 
 
 def _snapshot(settings: GameSettings, pins: dict | None) -> dict:

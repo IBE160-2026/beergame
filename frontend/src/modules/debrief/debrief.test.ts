@@ -16,6 +16,9 @@ import {
   downstreamRole,
   excludedIds,
   explanationDraftField,
+  type FollowUp,
+  type FollowUpAnswer,
+  followUpDraftField,
   type GroupMember,
   hasText,
   lockedLine,
@@ -28,6 +31,8 @@ import {
   reach,
   reflectionDraftField,
   type SessionQuiz,
+  waitMinutes,
+  withFollowUp,
   type SharedChain,
   sharedCostRows,
   sharedNetRows,
@@ -488,5 +493,39 @@ describe("the shared screen (Story 9.13)", () => {
     expect(input.nodes.map((n) => n.own)).toEqual([false, false]);
     expect(chainReading(chain, 1)).toMatch(/^Uke 1\. Fabrikk: lager 12, ordre 4\./);
     expect(sharedPath("a/b")).toBe("/delt-skjerm/a%2Fb");
+  });
+});
+
+describe("follow-up questions (Story 9.15)", () => {
+  const open: FollowUp = { state: "open", asked: [] };
+  const answered: FollowUpAnswer = {
+    outcome: "answered",
+    question: "Hva skjedde i uke 3?",
+    answer: { text: "Se på raden for Uke 3.", ai_generated: true, llm_call_id: "c" },
+    asked_at: "2026-11-21T10:00:00Z",
+  };
+
+  it("adds a stored answer to the list and keeps it for no answer", () => {
+    expect(withFollowUp(open, answered).asked).toEqual([answered]);
+    const declined: FollowUpAnswer = { ...answered, outcome: "declined", answer: null };
+    expect(withFollowUp(withFollowUp(open, answered), declined).asked.map((a) => a.outcome)).toEqual([
+      "answered",
+      "declined",
+    ]);
+    const none: FollowUpAnswer = { outcome: "unanswered", question: "x", answer: null, asked_at: null };
+    expect(withFollowUp(open, none)).toBe(open);
+  });
+
+  it("words the wait in whole minutes, at least one", () => {
+    expect(waitMinutes(30)).toBe(1);
+    expect(waitMinutes(61)).toBe(2);
+    expect(waitMinutes(600)).toBe(10);
+    expect(waitMinutes(undefined)).toBe(1);
+    expect(nb.debrief.followUp.rateLimited(1)).toMatch(/ett minutt/);
+    expect(nb.debrief.followUp.rateLimited(4)).toMatch(/4 minutter/);
+  });
+
+  it("keeps the draft per Class session", () => {
+    expect(followUpDraftField("s1")).toBe("debrief-follow-up:s1");
   });
 });

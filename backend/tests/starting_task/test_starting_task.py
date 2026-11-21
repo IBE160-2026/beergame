@@ -12,6 +12,7 @@ from app.modules.ops import sweep
 from app.modules.progress import service as progress
 from tests.classes.test_invitation_counts import execute
 from tests.classes.test_staff import call
+from tests.content.test_content import UNSHIPPED
 from tests.sessions.test_dates import START
 from tests.sessions.test_lock import MINUTE
 from tests.sessions.test_open_games import confirmed, games_of
@@ -25,10 +26,11 @@ V1_ITEMS = ["to-ship", "backlog", "position"]
 
 @pytest.fixture(autouse=True)
 def only_version_1():
-    """Version 1 is the migration's; a test that publishes more removes them again."""
-    execute("DELETE FROM content_records WHERE version > 1")
+    """Version 1 is the migration's; a test that publishes more removes them again (never a
+    version a migration stored, such as the narration templates' version 2)."""
+    execute(UNSHIPPED)
     yield
-    execute("DELETE FROM content_records WHERE version > 1")
+    execute(UNSHIPPED)
 
 
 def path(game_id: str, tail: str = "") -> str:

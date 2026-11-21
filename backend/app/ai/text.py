@@ -9,7 +9,8 @@ without the purpose's prompt, no budget row), a typed `Failure` (`timeout`, `inv
 `fallback` text with `ai_generated` false and no `llm_call_id`. The call is never retried here.
 
 The caller passes its own validator and fallback renderer, so this module imports only `platform`
-and `app.ai` (AD-6).
+and `app.ai` (AD-6). `can_word` (Story 9.15) says whether a purpose could be answered at all on a
+model config, for a caller that shows a field only then (the follow-up questions).
 """
 
 import uuid
@@ -20,16 +21,18 @@ from datetime import datetime
 import structlog
 from pydantic import BaseModel
 
-from app.ai import budget, gateway, mock
+from app.ai import adapters, budget, config, gateway, mock
+from app.platform.config import get_settings
 
-__all__ = ["AiText", "provider_failing", "worded"]
+__all__ = ["AiText", "can_word", "provider_failing", "worded"]
 
 log = structlog.get_logger(__name__)
 
-provider_failing = mock.outage
-"""Local dev and tests only: while the block runs, the mock provider fails every attempt (a
-`provider_error`), so a caller's fallback text is what `worded` gives. A real provider is never
-affected (AD-17)."""
+provider_failing = mock.outage_here
+"""Local dev and tests only: while the block runs, the mock provider fails every attempt made in
+the calling task (a `provider_error`), so a caller's fallback text is what `worded` gives; calls
+other requests make meanwhile are not affected (Story 9.15). A real provider is never affected
+(AD-17)."""
 
 
 @dataclass(frozen=True)
@@ -40,6 +43,22 @@ class AiText:
     text: str
     ai_generated: bool
     llm_call_id: uuid.UUID | None
+
+
+async def can_word(purpose: str, model_config_id: uuid.UUID | str | None) -> bool:
+    """Whether a call of `purpose` on that model config could be made at all (Story 9.15, FR-15):
+    the config exists, names a prompt for the purpose, and a provider may answer here (the mock in
+    local, test and ci; a real provider only with its key set). A caller that shows a field only
+    when an answer is possible asks this first; it says nothing about the budget."""
+    if model_config_id is None:
+        return False
+    try:
+        found = await config.get(uuid.UUID(str(model_config_id)))
+    except ValueError:
+        return False
+    if found is None or purpose not in found.spec.prompts:
+        return False
+    return adapters.availability(found.spec, get_settings().app_env).kind != "refused"
 
 
 async def worded[T: BaseModel](

@@ -32,6 +32,9 @@
   a Personal debrief.
 - Story 9.13: `GET /api/debriefs/{id}/shared`, «Delt skjerm: hele kjeden», the anonymised shared
   charts for a joined Student; everyone else gets 403 `forbidden`.
+- Story 9.15: `GET`/`POST /api/debriefs/{id}/follow-up`, the bounded follow-up questions under
+  the reflection questions (403 `reflection_required`, 409 `follow_up_off`, `follow_up_closed`,
+  429 `rate_limited`).
 
 Every Debrief route answers 403 `debrief_not_open` while the Student's Class game has not
 finished and 403 `debrief_held` while the Lecturer holds the Debriefs and a Class game has not
@@ -42,16 +45,19 @@ an id that is not one all answer the same 403 `forbidden` (FR-5)."""
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, Path, Request
 from fastapi.responses import JSONResponse, Response
 
-from app.modules.debrief import commands, service
+from app.modules.debrief import commands, follow_up, service
 from app.modules.debrief.models import STEPS
 from app.modules.debrief.schemas import (
     DebriefOut,
     DebriefStepOut,
     ExplanationIn,
     ExplanationOut,
+    FollowUpAnswerOut,
+    FollowUpIn,
+    FollowUpOut,
     MyExplanationOut,
     MySummaryOut,
     NetInventoryOut,
@@ -66,7 +72,7 @@ from app.modules.debrief.schemas import (
     StaffQuizOut,
     StaffSummaryOut,
 )
-from app.platform import authz
+from app.platform import auth, authz, ratelimit
 from app.platform.errors import documented, error_response
 
 router = APIRouter(prefix="/api", tags=["debrief"])
@@ -197,6 +203,29 @@ async def _answer(read, status: int = 200) -> Response:
             "too_early",
             "The group can move on later.",
             {"available_at": early.available_at.isoformat()},
+        )
+    except service.ReflectionRequired:
+        return error_response(
+            403, "reflection_required", "Answer the reflection questions before you ask."
+        )
+    except follow_up.Off:
+        return error_response(409, "follow_up_off", "This Debrief has no follow-up questions.")
+    except follow_up.Closed:
+        return error_response(409, "follow_up_closed", "Follow-up questions are closed.")
+    except follow_up.InvalidQuestion as invalid:
+        return error_response(
+            422,
+            "validation_error",
+            "The question is empty or too long.",
+            {"question": invalid.reason},
+        )
+    except follow_up.RateLimited as limited:
+        return error_response(
+            429,
+            "rate_limited",
+            "Too many questions; wait until the window ends.",
+            {"retry_after": limited.retry_after},
+            headers={"Retry-After": str(limited.retry_after)},
         )
     if found is None:
         raise authz.Forbidden
@@ -370,6 +399,47 @@ async def answer_reflection_question(
     white space only or more than 2000 characters, 403 `explanation_required` before the
     Explanation."""
     return await _answer(service.answer_mine(user, _id(debrief_id), question_id, body.text))
+
+
+@router.get(
+    "/debriefs/{debrief_id}/follow-up",
+    response_model=FollowUpOut,
+    responses=documented(401, 403),
+    operation_id="getMyFollowUp",
+)
+async def get_my_follow_up(debrief_id: str, user: OWN) -> Response:
+    """The follow-up field under the reflection questions (Story 9.15, FR-45, FR-15): `off` (not
+    shown: the Class session's Debrief AI text is off or no model may answer), `open` or `closed`,
+    with the Student's own questions and answers, never another Student's. 403
+    `reflection_required` until every reflection question is answered, `explanation_required`
+    before the Explanation."""
+    return await _answer(service.own_follow_up(user, _id(debrief_id)))
+
+
+@router.post(
+    "/debriefs/{debrief_id}/follow-up",
+    response_model=FollowUpAnswerOut,
+    responses=documented(401, 403, 409, 422, 429),
+    operation_id="askFollowUp",
+)
+async def ask_follow_up(debrief_id: str, body: FollowUpIn, request: Request, user: OWN) -> Response:
+    """A follow-up question about the Student's own Game (Story 9.15, FR-45, AD-6, AD-7): one
+    model call with the question scrubbed against the Roster, answered with hints that point to
+    the Student's own numbers (`answered`, marked by `ai_generated`), a decline for a question
+    outside the Game (`declined`), or `unanswered` when no answer could be given (nothing
+    stored; ask again). 409 `follow_up_off`, `follow_up_closed` (closed, or the Test deadline has
+    passed), 422 `validation_error` (empty, over 500 characters), 429 `rate_limited` with
+    `retry_after` seconds, 403 `reflection_required` before the reflection questions are
+    answered."""
+    return await _answer(
+        service.ask_follow_up_mine(
+            user,
+            _id(debrief_id),
+            body.question,
+            ip=ratelimit.client_ip(request),
+            now=auth.utcnow(),
+        )
+    )
 
 
 @router.get(

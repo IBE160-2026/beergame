@@ -279,7 +279,7 @@ async def _prepare(
         raise GatewayError("budget_not_found", f"no budget for {scope.kind} {scope.id}")
     if _players_stopped(state, purpose):
         return Failure("budget_exhausted", (), f"budget {scope.kind} {scope.id} is spent")
-    terms = pii.terms(scope)
+    terms = await pii.terms(scope)
     prompt, offset_maps = _render(purpose, version, template, inputs, terms)
     settings = adapters.model_settings(model_config.spec, level)
     return _Call(
@@ -326,7 +326,7 @@ async def preview(
         settings: dict[str, Any] = {}
     else:
         model_config, level, version = await _resolve(budget_scope, checked)
-        terms = pii.terms(budget_scope)
+        terms = await pii.terms(budget_scope)
         settings = adapters.model_settings(model_config.spec, level)
     prompt, _ = _render(checked, version, _template(checked, version), inputs, terms)
     return Preview(version, _request(prompt, output_schema, settings))
