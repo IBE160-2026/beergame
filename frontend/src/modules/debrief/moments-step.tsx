@@ -22,7 +22,7 @@ const CELL = "py-1 pr-3 text-right tabular-nums lining-nums";
  * Debrief step 4, the Student's own moments (Story 9.7, FR-44, FR-41, UX-DR31, `07-debrief.png`):
  * shown once every reflection question is answered; the api checks the gate. The heading and every
  * sentence are the api's, rendered by code from the stored facts (`ai_generated` false, so no
- * «KI-generert» prefix). Under the heading, the line that ties the moments together (Story 9.14):
+ * «KI-generert» prefix). Under «Dette så de andre», the line that ties the moments together (Story 9.14):
  * the AI's, marked «KI-generert, kan ta feil: «…»» with the note that it can be wrong, or the code's
  * own; whichever the api fixed at this Student's first view. The moments are paged one at a time; «Forrige» and «Neste» move focus to
  * the new moment's heading. Each shows «Dette så du» (the play screen's Graf over tabell at that
@@ -62,23 +62,22 @@ export function MomentsStep({ debrief }: { debrief: Debrief }) {
           <p>{copy.mostlyAiChain}</p>
         </div>
       ) : (
-        <>
-          {moments.narration ? <Narration text={moments.narration} /> : null}
-          <Paged debrief={debrief} moments={moments} />
-        </>
+        <Paged debrief={debrief} moments={moments} />
       )}
     </section>
   );
 }
 
-/** The line that ties the moments together (Story 9.14, FR-44): AI text only when `ai_generated`. */
+/** The line that ties the moments together (Story 9.14, FR-44): AI text only when `ai_generated`.
+ * As `07-debrief.png` draws it: a quiet, smaller line in the moment's column under «Dette så de
+ * andre», the same for every moment. */
 function Narration({ text }: { text: RenderedText }) {
   const id = useId();
   return (
-    <div role="group" aria-labelledby={`${id}-label`} data-moments-narration="" className={`${LINE} mt-4 max-w-3xl text-ink`}>
-      <h3 id={`${id}-label`} className={LABEL}>
+    <div role="group" aria-labelledby={`${id}-label`} data-moments-narration="" className="text-caption text-ink-secondary">
+      <h4 id={`${id}-label`} className={LABEL}>
         {copy.narration}
-      </h3>
+      </h4>
       <p className="mt-1">
         <Text text={text} />
       </p>
@@ -149,6 +148,7 @@ function Paged({ debrief, moments }: { debrief: Debrief; moments: Moments }) {
             ))}
           </div>
           <Others moment={moment} />
+          {moments.narration ? <Narration text={moments.narration} /> : null}
           <Explanation debrief={debrief} />
         </div>
       </div>
