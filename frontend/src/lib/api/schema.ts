@@ -525,7 +525,8 @@ export interface paths {
          *     the earlier one when only it changed, `required` once locked), 409 `deadline_passed`
          *     (`passed`). Dates count to the whole minute.
          *
-         *     `effort_level` and `debrief_mode` (FR-16, FR-78), left out, keep their values. With LLM
+         *     `effort_level`, `debrief_mode` and `debrief_release` (FR-16, FR-42, FR-78), left out, keep
+         *     their values; a changed `debrief_release` once locked answers 409 `session_locked` too. With LLM
          *     players a changed Effort level the model config does not offer answers 422
          *     `invalid_effort_level` (`{"effort_level": "not_offered"}`); with Rule-based players no level
          *     is in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,
@@ -1340,6 +1341,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/debriefs/{debrief_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Debrief
+         * @description The Student's own Debrief session by id. 403 `debrief_not_open`, `debrief_held` or
+         *     `forbidden`, as above.
+         */
+        get: operations["getMyDebrief"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events": {
         parameters: {
             query?: never;
@@ -1414,6 +1436,28 @@ export interface paths {
         get: operations["listMyClassSessions"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/class-sessions/{session_id}/debrief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open My Debrief
+         * @description Opens the Student's Debrief in the Class session (FR-42): the Debrief session of their
+         *     game, created with its step pointer at step 1 if none exists, and answered as it stands.
+         *     403 `debrief_not_open`, `debrief_held` or `forbidden`.
+         */
+        post: operations["openMyDebrief"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2180,6 +2224,7 @@ export interface components {
             /** Debrief Deadline */
             debrief_deadline: string | null;
             debrief_mode: components["schemas"]["DebriefMode"];
+            debrief_release: components["schemas"]["DebriefRelease"];
             /** Effort Level */
             effort_level: string | null;
             effort_level_replaced?: components["schemas"]["ReplacedLevelOut"] | null;
@@ -2259,6 +2304,7 @@ export interface components {
             allocation_method?: ("random" | "student_choice") | null;
             dates?: components["schemas"]["DatesIn"] | null;
             debrief_mode?: components["schemas"]["DebriefMode"] | null;
+            debrief_release?: components["schemas"]["DebriefRelease"] | null;
             /** Effort Level */
             effort_level?: string | null;
             /** Game Settings */
@@ -2382,6 +2428,42 @@ export interface components {
          * @enum {string}
          */
         DebriefMode: "group" | "personal";
+        /**
+         * DebriefOut
+         * @description The Student's Debrief session: its id (the `debrief:<id>` topic, AD-8), the game it
+         *     reviews and the step pointer. Never the demand series, the number of Weeks or another
+         *     Seat's numbers (FR-14): those come with the steps that reveal them, after the Explanation.
+         */
+        DebriefOut: {
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+            /** Game Number */
+            game_number: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            role: components["schemas"]["Role"];
+            /** Step */
+            step: number;
+        };
+        /**
+         * DebriefRelease
+         * @description When the Debriefs open (Story 9.2, FR-42): `open`, each Student's once their own Class
+         *     game has finished (the default; it can reveal the Demand pattern to Students still playing),
+         *     or `hold`, every Debrief once all Class games have finished.
+         * @enum {string}
+         */
+        DebriefRelease: "open" | "hold";
         /**
          * DemandFixed
          * @description A fixed series: `values[w - 1]` is the demand in Week w.
@@ -3831,6 +3913,11 @@ export interface components {
          */
         StepOut: {
             /**
+             * Held
+             * @default false
+             */
+            held: boolean;
+            /**
              * State
              * @enum {string}
              */
@@ -3854,6 +3941,8 @@ export interface components {
              * Format: uuid
              */
             class_session_id: string;
+            /** Debrief */
+            debrief?: ("open" | "not_open" | "held") | null;
             /**
              * Id
              * Format: uuid
@@ -7701,6 +7790,55 @@ export interface operations {
             };
         };
     };
+    getMyDebrief: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebriefOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     streamEvents: {
         parameters: {
             query?: never;
@@ -7804,6 +7942,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    openMyDebrief: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebriefOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

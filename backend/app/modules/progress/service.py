@@ -18,7 +18,7 @@ from app.modules.progress.models import Step, progress_steps
 from app.platform import events
 from app.platform.db import get_sessionmaker
 
-__all__ = ["Step", "has_step", "record_step", "steps_of"]
+__all__ = ["Step", "has_step", "record_step", "steps_of", "users_with_step"]
 
 
 @asynccontextmanager
@@ -67,6 +67,22 @@ async def has_step(user_id: uuid.UUID, class_session_id: uuid.UUID, step: Step |
     async with get_sessionmaker()() as session:
         found = await steps_of(session, user_id, [class_session_id])
     return Step(step) in found.get(class_session_id, set())
+
+
+async def users_with_step(
+    session: AsyncSession, class_session_id: uuid.UUID, step: Step | str
+) -> list[uuid.UUID]:
+    """The Users who have done `step` in the Class session, by id, read in the caller's session
+    (Story 9.2: every Student whose Class game finished, for the Debrief release)."""
+    result = await session.scalars(
+        select(progress_steps.c.user_id)
+        .where(
+            progress_steps.c.class_session_id == class_session_id,
+            progress_steps.c.step == Step(step).value,
+        )
+        .order_by(progress_steps.c.user_id)
+    )
+    return list(result)
 
 
 async def steps_of(

@@ -74,6 +74,9 @@ class_sessions = Table(
     ),
     # The source's Effort level when the new model config did not offer it (Story 5.18, FR-78).
     Column("effort_level_replaced", Text, nullable=True),
+    # When the Debriefs open (Story 9.2, FR-42): `open`, each Student's once their own Class game
+    # has finished, or `hold`, all of them once every Class game has. Frozen at the Start date.
+    Column("debrief_release", Text, nullable=False, server_default="open"),
     CheckConstraint("(locked_at IS NULL) = (snapshot IS NULL)", name="ck_class_sessions_lock"),
     CheckConstraint(
         "allocation_method IN ('random', 'student_choice')",
@@ -81,6 +84,9 @@ class_sessions = Table(
     ),
     CheckConstraint("ai_mode IN ('llm', 'rule_based')", name="ck_class_sessions_ai_mode"),
     CheckConstraint("debrief_mode IN ('group', 'personal')", name="ck_class_sessions_debrief_mode"),
+    CheckConstraint(
+        "debrief_release IN ('open', 'hold')", name="ck_class_sessions_debrief_release"
+    ),
     CheckConstraint(
         f"inactivity_limit_hours >= {MIN_INACTIVITY_LIMIT_HOURS}",
         name="ck_class_sessions_inactivity_limit",

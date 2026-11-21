@@ -95,6 +95,12 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A step a Student has done (Story 6.1, AD-16): their Hjem and Stegene read it again, and
         # so does the Class session's overview. A step already recorded emits nothing.
         "progress.record_step": frozenset({"session", "user"}),
+        # A Debrief session opened (Story 9.2, AD-21): created at step 1, its row locked;
+        # opening one that exists emits nothing.
+        "debrief.open": frozenset({"debrief"}),
+        # A held Class session's Debriefs released by the sweep (Story 9.2, AD-9): each seated
+        # Student's `debrief_released` notice emits `user`, so Hjem updates without reload.
+        "debrief.release": frozenset({"user"}),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

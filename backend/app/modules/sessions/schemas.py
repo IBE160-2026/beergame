@@ -27,6 +27,19 @@ class DebriefMode(StrEnum):
     personal = "personal"
 
 
+class DebriefRelease(StrEnum):
+    """When the Debriefs open (Story 9.2, FR-42): `open`, each Student's once their own Class
+    game has finished (the default; it can reveal the Demand pattern to Students still playing),
+    or `hold`, every Debrief once all Class games have finished."""
+
+    open = "open"
+    hold = "hold"
+
+
+DebriefState = Literal["open", "not_open", "held"]
+"""Where the Student's Debrief stands (Story 9.2): `debrief.rules.state`'s answer."""
+
+
 LlmUnavailable = Literal["no_default_model"]
 """Why LLM players cannot be chosen now: no model config is pinned as the default (FR-15)."""
 
@@ -186,6 +199,8 @@ class ClassSessionOut(BaseModel):
     med standardene.» shows only then. The server decides; the web app compares nothing."""
     ai_mode: AiMode
     debrief_mode: DebriefMode
+    debrief_release: DebriefRelease
+    """Story 9.2: whether the Debriefs open per finished game or are held until all have ended."""
     inactivity_limit_hours: int
     """«Ventetid før KI tar over» in whole hours, never under 20 (Story 5.7, FR-36)."""
     obligatory: bool
@@ -349,6 +364,8 @@ class ClassSessionSaveIn(BaseModel):
     ai_mode: AiMode
     effort_level: str | None = Field(None, min_length=1, max_length=64)
     debrief_mode: DebriefMode | None = None
+    debrief_release: DebriefRelease | None = None
+    """Story 9.2: left out, the stored choice is kept; frozen at the Start date like the others."""
     dates: DatesIn | None = None
     game_settings: dict[str, Any] | None = None
     obligatory: bool | None = None
@@ -501,6 +518,10 @@ class StudentGameOut(BaseModel):
     time_proposal: TimeProposalOut | None = None
     """Story 6.19: the open proposal of a time to play; None when there is none, its time has
     passed or the game has finished."""
+    debrief: DebriefState | None = None
+    """Story 9.2: whether the Student's Debrief is `open`, `not_open` (the game has not finished)
+    or `held` until every Class game has finished, from `debrief.rules`; None on a Lecturer's
+    test Game, which has no Debrief."""
 
 
 class TableStatusOut(BaseModel):
@@ -546,6 +567,9 @@ class StepOut(BaseModel):
 
     step: StegeneStep
     state: StepState
+    held: bool = False
+    """Story 9.2: the Debrief step is locked because the Lecturer holds every Debrief until all
+    Class games have finished; Stegene says so, without how many remain."""
 
 
 class EnrolledSessionOut(BaseModel):

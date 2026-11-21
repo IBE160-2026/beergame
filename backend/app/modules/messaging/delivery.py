@@ -151,6 +151,16 @@ async def _time_proposed_context(
     return await sessions.time_proposal_mail_context(session, user_id, ref, now)
 
 
+DEBRIEF_RELEASED_KIND = "debrief_released"
+"""`debrief.commands.RELEASED_NOTICE` (Story 9.2), named here for the same reason."""
+
+
+async def _debrief_released_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.debrief_released_mail_context(session, user_id, ref, now)
+
+
 KINDS: Mapping[str, Delivery] = MappingProxyType(
     {
         **{
@@ -163,6 +173,9 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
             DIGEST, DEADLINE_REMINDER_KIND, context=_deadline_reminder_context
         ),
         TIME_PROPOSED_KIND: Delivery(DIGEST, TIME_PROPOSED_KIND, context=_time_proposed_context),
+        DEBRIEF_RELEASED_KIND: Delivery(
+            DIGEST, DEBRIEF_RELEASED_KIND, context=_debrief_released_context
+        ),
         # Immediate: the Start date has passed and the Class games wait for the lock.
         LOCK_REFUSED_KIND: Delivery(IMMEDIATE, LOCK_REFUSED_KIND, context=_lock_refused_context),
         identity.PASSWORD_RESET: Delivery(
@@ -182,8 +195,8 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
 `manual_registration` (Story 4.8), the Lab hour notices (Story 5.6, digest), the obligatory
 notice (Story 5.7, digest), the allocation notice (Story 5.9, digest), the Student choice notice
 (Story 5.17, digest), the refused lock
-(Story 5.11, immediate), the deadline reminder (Story 5.14, digest) and the proposed time to play
-(Story 6.19, digest)."""
+(Story 5.11, immediate), the deadline reminder (Story 5.14, digest), the proposed time to play
+(Story 6.19, digest) and the release of held Debriefs (Story 9.2, digest)."""
 
 TEST_KINDS: Mapping[str, Delivery] = MappingProxyType(
     {

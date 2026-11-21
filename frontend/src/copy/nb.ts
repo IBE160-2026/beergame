@@ -415,6 +415,11 @@ export const nb = {
         test: "Individuell test, åpnes når du har fullført Replay.",
         report: "Rapport, åpnes når den individuelle testen er vurdert.",
       },
+      /** Story 9.2: the Debrief step while the Faglærer holds every Debrief until all Class games
+       * have finished; never how many remain. [ASSUMPTION] */
+      held: {
+        debrief: "Debrief, åpnes når alle Klassespillene er ferdige.",
+      },
       nextDeadline: "Neste frist",
       /** «Spillfrist ti. 8. des.» */
       deadline: (kind: string, day: string) => `${kind} ${day}`,
@@ -1038,6 +1043,13 @@ export const nb = {
       debriefMode: "Debrief-modus",
       group: "Gruppedebrief",
       personal: "Personlig debrief",
+      /** Story 9.2 (FR-42, UX-DR12): when the Debriefs open. [ASSUMPTION] draft copy. */
+      debriefRelease: "Når Debriefen åpner",
+      releaseOpen: "Når eget spill er ferdig",
+      releaseHold: "Når alle spill er ferdige",
+      releaseOpenHelp:
+        "Studentene kan starte Debriefen så snart deres eget spill er ferdig. Da kan de fortelle om etterspørselen til Studenter som fortsatt spiller.",
+      releaseHoldHelp: "Alle Debriefer åpner når det siste Klassespillet er ferdig.",
       obligatory: "Obligatorisk",
       obligatoryYes: "Ja, står i emneplanen",
       // [ASSUMPTION]
@@ -1614,6 +1626,9 @@ export const nb = {
         totalNote: "Fire Roller, to kostnadsarter, hele spillet.",
         why: "Hvorfor ble den slik? Det finner dere ut i Debriefen, med alle fire Rollene.",
         toDebrief: "Gå til Debrief",
+        /** Story 9.2: the Faglærer holds the Debriefs until all Class games have finished; never
+         * how many remain. [ASSUMPTION] */
+        held: "Debriefen åpner når alle Klassespillene er ferdige.",
       },
       /** Ordrefelt (Story 6.10, DESIGN.md → Ordrefelt, UX-DR20). The label is the spine's; the
        * Veiledet uke line is [ASSUMPTION] draft copy. It never says how many Veiledede uker are
@@ -2024,6 +2039,26 @@ export const nb = {
         months: ["jan.", "feb.", "mar.", "apr.", "mai", "jun.", "jul.", "aug.", "sep.", "okt.", "nov.", "des."],
       },
     },
+  },
+
+  /** The way into the Debrief (Story 9.2, FR-42, `07-debrief.png`): its page, step 1's heading and
+   * the locked and held states. Shown before the Explanation is saved, so held to the pre-Debrief
+   * copy rules (it is not one of POST_DEBRIEF_SECTIONS). «Skriv Forklaringen først» is the spine's;
+   * the rest is [ASSUMPTION] draft copy. */
+  debriefEntry: {
+    /** «Debrief, Spill 17». */
+    title: (number: number | null) => `Debrief, ${gameName(number)}`,
+    /** «Grossist, Spill 17» under the title. */
+    roleGame: (role: string, number: number | null) => `${role}, ${gameName(number)}`,
+    /** «Steg 1 av 5». */
+    stepOf: (step: number, steps: number) => `Steg ${step} av ${steps}`,
+    /** Step 1's heading (EXPERIENCE.md → Debrief sequence); steps 2 to 5 come with their
+     * stories. */
+    firstStep: "Skriv Forklaringen først",
+    /** The page title before the Debrief is open. */
+    locked: "Debrief",
+    notOpen: "Debriefen åpner når Klassespillet ditt er ferdig.",
+    held: "Debriefen åpner når alle Klassespillene er ferdige.",
   },
 
   /** Links between pages (Story 3.3). Each names where it goes. */

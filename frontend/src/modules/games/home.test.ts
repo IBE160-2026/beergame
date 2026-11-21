@@ -76,10 +76,10 @@ describe("Hjem's game card (Story 6.1)", () => {
 describe("Stegene's items (Story 6.1, AD-10)", () => {
   it("puts the api's states in words: «pågår», «ferdig» and what opens a later step", () => {
     const items = stepItems([
-      { step: "class_game", state: "done" },
-      { step: "debrief", state: "current" },
-      { step: "replay", state: "locked" },
-      { step: "test", state: "locked" },
+      { step: "class_game", state: "done", held: false },
+      { step: "debrief", state: "current", held: false },
+      { step: "replay", state: "locked", held: false },
+      { step: "test", state: "locked", held: false },
     ]);
     expect(items.map((item) => item.note)).toEqual([
       "ferdig",
@@ -88,6 +88,16 @@ describe("Stegene's items (Story 6.1, AD-10)", () => {
       "Individuell test, åpnes når du har fullført Replay.",
     ]);
     expect(items.map((item) => item.name)).toEqual(["Klassespill", "Debrief", "Replay", "Individuell test"]);
+  });
+
+  it("leads the current Debrief step to the Debrief, and says when it is held (Story 9.2)", () => {
+    const open = stepItems([{ step: "debrief", state: "current", held: false }], "s 1");
+    expect(open[0].href).toBe("/debrief/s%201");
+    const held = stepItems([{ step: "debrief", state: "locked", held: true }], "s1");
+    expect(held[0]).toMatchObject({ state: "locked", note: copy.held.debrief, href: undefined });
+    expect(copy.held.debrief).not.toMatch(/\d/);
+    // Without a session nothing links.
+    expect(stepItems([{ step: "debrief", state: "current", held: false }])[0].href).toBeUndefined();
   });
 
   it("has a lock line for every step and no exclamation mark", () => {

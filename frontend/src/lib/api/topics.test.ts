@@ -2,6 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 
 import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
+import { debriefsKey } from "@/modules/debrief/api";
 import { myGameKey, playKey, startingTaskKey } from "@/modules/games/api";
 import { meKey } from "@/modules/identity/api";
 import {
@@ -76,8 +77,13 @@ describe("topicKeys", () => {
     ]);
   });
 
+  it("maps a Debrief to the Debrief queries (Story 9.2)", () => {
+    expect(topicKeys({ topic: "debrief", id: "d1", version: null })).toEqual([debriefsKey]);
+    expect(topicKeys({ topic: "user", id: "u1", version: null })).toContainEqual(debriefsKey);
+  });
+
   it("maps an unknown topic to nothing", () => {
-    expect(topicKeys({ topic: "debrief", id: "d1", version: null })).toEqual([]);
+    expect(topicKeys({ topic: "replay", id: "r1", version: null })).toEqual([]);
   });
 });
 

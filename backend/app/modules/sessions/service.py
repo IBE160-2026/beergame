@@ -138,6 +138,8 @@ from app.modules.sessions.schemas import (
     DatesIn,
     DeadlineName,
     DebriefMode,
+    DebriefRelease,
+    DebriefState,
     DemandSeriesOut,
     EnrolledLabHourOut,
     EnrolledSessionListOut,
@@ -772,6 +774,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         is_classic=is_classic(settings),
         ai_mode=AiMode(row["ai_mode"]),
         debrief_mode=DebriefMode(row["debrief_mode"]),
+        debrief_release=DebriefRelease(row["debrief_release"]),
         inactivity_limit_hours=row["inactivity_limit_hours"],
         obligatory=row["obligatory"],
         required_share_percent=row["required_share_percent"],
@@ -844,6 +847,7 @@ async def save_session(
     now: datetime,
     effort_level: str | None = None,
     debrief_mode: DebriefMode | None = None,
+    debrief_release: DebriefRelease | None = None,
     dates: DatesIn | None = None,
     game_settings: Mapping[str, Any] | None = None,
     obligatory: bool | None = None,
@@ -856,14 +860,15 @@ async def save_session(
     in the same transaction, or raise `LlmUnavailableError` and change nothing. With LLM players
     the Effort level is `effort_level`, else the one in force, else the config's default; a
     changed level the config does not offer raises `InvalidEffortLevel`. With Rule-based players
-    no level is in force. `debrief_mode` None keeps the stored one. With `game_settings` the
+    no level is in force. `debrief_mode` and `debrief_release` (Story 9.2), None, keep the stored
+    ones. With `game_settings` the
     draft is judged by `judge_settings` and stored, or `InvalidSettings` is raised. With `dates`
     the four dates are replaced under the rules of `judge_dates`; a change emits `user:<id>`
     once per registered Student of the Class. `obligatory`, `required_share_percent` and
     `inactivity_limit_hours` (Story 5.7), None, keep their values; a changed share outside 1 to
     100 or limit under 20 raises `InvalidSessionValues`, and switching the mark on enqueues one
     `OBLIGATORY_NOTICE` per registered Student. Once locked, a changed AI mode, Effort level,
-    Debrief mode, Game settings, obligatory mark, share or Inactivity limit raise
+    Debrief mode, Debrief release, Game settings, obligatory mark, share or Inactivity limit raise
     `SessionLocked`. `allocation_method` (Story 5.17), None, keeps the method; a change to
     `student_choice` is judged by `_judge_method` and opens the choice (`_open_student_choice`).
     None when the User may not manage the Class; raises `ClassArchived`."""
@@ -884,6 +889,7 @@ async def save_session(
         changed: dict[str, datetime | None] = {}
         new_settings: GameSettings | None = None
         debrief = debrief_mode.value if debrief_mode is not None else row["debrief_mode"]
+        release = debrief_release.value if debrief_release is not None else row["debrief_release"]
         config_id = row["model_config_id"]
         offered = (
             await config.offered_effort_levels(config_id, session=s)
@@ -920,6 +926,7 @@ async def save_session(
                             and effort_level != in_force,
                         ),
                         ("debrief_mode", debrief != row["debrief_mode"]),
+                        ("debrief_release", release != row["debrief_release"]),
                         ("obligatory", marked != row["obligatory"]),
                         ("required_share_percent", share != row["required_share_percent"]),
                         ("inactivity_limit_hours", limit != row["inactivity_limit_hours"]),
@@ -979,6 +986,7 @@ async def save_session(
             model_config_id=config_id,
             effort_level=level,
             debrief_mode=debrief,
+            debrief_release=release,
             dates=changed,
             game_settings=new_settings.model_dump(mode="json") if new_settings else None,
             obligatory=marked,
@@ -1165,7 +1173,11 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                 and not is_locked(row, now=now),
                 drawn_seat=_drawn_seat(drafts.get(row["id"]), user.id),
                 game=cards.get(row["id"]),
-                steps=stegene(cards.get(row["id"]) is not None, done.get(row["id"], set())),
+                steps=stegene(
+                    cards.get(row["id"]) is not None,
+                    done.get(row["id"], set()),
+                    held=_held(cards.get(row["id"])),
+                ),
             )
             for row in rows
             if row["class_id"] in names
@@ -1184,10 +1196,12 @@ STEGENE: tuple[tuple[str, progress.Step], ...] = (
 """Stegene's six steps in order (UX-DR29) and the `progress` step that marks each done."""
 
 
-def stegene(has_game: bool, done: set[progress.Step]) -> list[StepOut]:
+def stegene(has_game: bool, done: set[progress.Step], *, held: bool = False) -> list[StepOut]:
     """The state of each of Stegene's steps (Story 6.1, AD-10): a done step is `done`; with a
     game the first step not done is `current` and the later ones `locked`; with no game (before
-    the Start date, or no Seat yet) every step not done is `locked`."""
+    the Start date, or no Seat yet) every step not done is `locked`. `held` (Story 9.2): the
+    Lecturer holds the Debriefs until every Class game has finished, so a Debrief step that would
+    be current is `locked` and says so, and no step is current until the release."""
     steps: list[StepOut] = []
     current_given = not has_game
     for name, step in STEGENE:
@@ -1195,10 +1209,81 @@ def stegene(has_game: bool, done: set[progress.Step]) -> list[StepOut]:
             state = "done"
         elif not current_given:
             state, current_given = "current", True
+            if name == "debrief" and held:
+                steps.append(StepOut(step=name, state="locked", held=True))
+                continue
         else:
             state = "locked"
         steps.append(StepOut(step=name, state=state))
     return steps
+
+
+# Story 9.2: where the Student's Debrief stands, as `debrief.rules.state` judges it. `debrief`
+# imports `sessions`, so it registers its rule here instead of `sessions` importing it (AD-25).
+
+DebriefStateProvider = Callable[
+    [AsyncSession, uuid.UUID, uuid.UUID, bool], Awaitable[DebriefState | None]
+]
+"""`(session, user_id, class_session_id, hold)` → `open`, `not_open` or `held`; None when the User
+has no Class game in the session."""
+
+_debrief_state: list[DebriefStateProvider] = []
+
+
+def register_debrief_state(provider: DebriefStateProvider) -> None:
+    """`debrief.rules` registers its one availability rule at import. The same one again changes
+    nothing; another is refused, so Hjem and the Debrief can never judge differently."""
+    if _debrief_state and _debrief_state[0] is not provider:
+        raise ValueError("a Debrief state provider is registered already")
+    _debrief_state[:] = [provider]
+
+
+async def _debrief_of(
+    s: AsyncSession, user_id: uuid.UUID, row: Mapping[str, Any]
+) -> DebriefState | None:
+    """The Student's Debrief state in the Class session `row`, read in `s`; None before
+    `debrief` has registered its rule (a process that never loads it shows no Debrief state)."""
+    if not _debrief_state:
+        return None
+    hold = row.get("debrief_release") == DebriefRelease.hold.value
+    return await _debrief_state[0](s, user_id, row["id"], hold)
+
+
+def _held(card: StudentGameOut | None) -> bool:
+    return card is not None and card.debrief == "held"
+
+
+@dataclass(frozen=True)
+class DebriefSession:
+    """A locked Class session as the Debrief reads it (Story 9.2): its id, Class and whether the
+    Lecturer holds the Debriefs until all Class games have finished."""
+
+    id: uuid.UUID
+    class_id: uuid.UUID
+    hold: bool
+
+
+async def debrief_session_of(
+    s: AsyncSession, user: authz.Principal, class_session_id: uuid.UUID
+) -> DebriefSession | None:
+    """The Class session for the User's Debrief, read in `s`: one of their own
+    (`authz.classes_enrolled_by`), in a Class Hjem lists, and locked; None for every other case
+    alike (FR-5), as `_own_locked_game` judges a game."""
+    listed = {item.id for item in (await classes.enrolled_classes(user, session=s)).items}
+    rows = {row["id"]: row for row in await repo.enrolled_sessions(s, user)}
+    row = rows.get(class_session_id)
+    if row is None or row["class_id"] not in listed or not is_locked(row):
+        return None
+    return DebriefSession(
+        id=row["id"],
+        class_id=row["class_id"],
+        hold=row["debrief_release"] == DebriefRelease.hold.value,
+    )
+
+
+async def held_debrief_sessions(s: AsyncSession) -> list[uuid.UUID]:
+    """The locked Class sessions that hold their Debriefs (Story 9.2), for the sweep's release."""
+    return await repo.held_debrief_sessions(s)
 
 
 def _names_in(
@@ -1282,6 +1367,8 @@ async def _game_out(
         seat_state=state,
         turn=turn,
         time_proposal=await _time_proposal_out(s, user_id, found.game_id, row["class_id"]),
+        # Story 9.2: a Lecturer's test Game has no Debrief (Story 6.20).
+        debrief=None if found.test_game else await _debrief_of(s, user_id, row),
     )
 
 
@@ -2005,6 +2092,25 @@ async def obligatory_mail_context(
         return None
     row = await repo.session_row(session, ref)
     if row is None or not row["obligatory"]:
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None or label.archived:
+        return None
+    if user_id not in await classes.registered_students(row["class_id"]):
+        return None
+    return {"class_name": label.name}
+
+
+async def debrief_released_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `debrief_released` notice (Story 9.2, AD-9), for `messaging`
+    at send time: the Class's name. None, so the notice is left out, when the Class session is
+    gone, the Class is archived, or the User is no longer a registered Student of it."""
+    if ref is None:
+        return None
+    row = await repo.session_row(session, ref)
+    if row is None:
         return None
     label = await classes.label_of_class(session, row["class_id"])
     if label is None or label.archived:

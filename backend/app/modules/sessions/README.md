@@ -105,6 +105,15 @@ Owns `class_sessions` (Story 5.1). Other modules import only `sessions.service`.
   series `engine.demand_series` materialises from the stored settings. No Student-facing answer
   carries the series, the seed or the Weeks.
 
+## When the Debriefs open (Story 9.2)
+
+- `class_sessions.debrief_release` (migration 0102): `open` (default) or `hold`. «Lagre
+  Klasseøkt» takes `debrief_release`; left out it is kept; once locked a change is 409
+  `session_locked` (`{"debrief_release": "locked"}`). Not copied by «Lag fra tidligere».
+- `register_debrief_state` holds `debrief.rules.state`; Hjem's `game.debrief` and Stegene's
+  `held` come from it. `debrief_session_of`, `held_debrief_sessions` and
+  `debrief_released_mail_context` serve `modules/debrief` and `messaging`.
+
 ## AI mode, Effort level and Debrief mode (Story 5.5)
 
 - `class_sessions.effort_level` (migration 0034) holds a level name of the session's model

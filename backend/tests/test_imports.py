@@ -91,6 +91,17 @@ def test_analysis_is_pure():
         ), f"{path.name}:{line} imports {name}"
 
 
+def test_debrief_never_imports_players_or_an_llm_library():
+    """Story 9.2 (AD-21, AD-7): the Debrief works under any AI mode and with no LLM player, so
+    `modules/debrief` imports nothing of `modules/players`, and Game status only through
+    `games.service`."""
+    for path, line, name in imports(APP / "modules" / "debrief"):
+        assert not name.startswith("app.modules.players"), f"{path.name}:{line} imports {name}"
+        assert not name.startswith(LLM_IMPORTS), f"{path.name}:{line} imports {name}"
+        if name.startswith("app.modules.games"):
+            assert name == "app.modules.games.service", f"{path.name}:{line} imports {name}"
+
+
 def test_the_platform_imports_no_module_and_no_llm_library():
     """`app/platform` (jobs included) names task modules by string only (Story 2.5)."""
     for path, line, name in imports(APP / "platform"):

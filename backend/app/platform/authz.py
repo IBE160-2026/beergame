@@ -111,6 +111,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # The Starting task in the Student's own Class game (Story 6.3): any User, held to
     # `own_seat` like the game itself.
     "starting_task.answer_own": frozenset({ANY_USER}),
+    # The Student's own Debrief (Story 9.2): any User, held to `own_seat` through
+    # `games.service.student_game`; the service refuses every other Debrief alike.
+    "debriefs.own": frozenset({ANY_USER}),
     # The own session.
     "session.read": frozenset({ANY_USER}),
     # The live event stream (Story 6.4, AD-8): any User; the scope decides which topics it sends.

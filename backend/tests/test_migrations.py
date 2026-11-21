@@ -73,6 +73,8 @@ TIME_PROPOSAL_TABLES = {"time_proposals", "time_acceptances"}
 """The tables of revision 0049 (Story 6.19)."""
 FACT_SET_TABLES = {"fact_sets"}
 """The table of revision 0101 (Story 9.1)."""
+DEBRIEF_TABLES = {"debrief_sessions", "debrief_releases"}
+"""The tables of revision 0102 (Story 9.2)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -80,8 +82,9 @@ HEAD_TABLES = (
     | STARTING_TASK_TABLES
     | TIME_PROPOSAL_TABLES
     | FACT_SET_TABLES
+    | DEBRIEF_TABLES
 )
-HEAD = "0101"  # 0101 stores the facts sets and the Detected pattern definitions (Story 9.1)
+HEAD = "0102"  # 0102 opens the Debrief: its sessions, releases and the hold choice (Story 9.2)
 
 
 def reset_schema(url: str) -> None:
@@ -215,6 +218,15 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "UNIQUE (game_id, seat_id)" in constraints(url, "fact_sets")["uq_fact_sets_game_seat"]
     assert function_names(url, "fact_sets_immutable")
 
+    # 0102 (Story 9.2): one Debrief session per Game, its step 1 to 5; the hold choice.
+    debriefs = constraints(url, "debrief_sessions")
+    assert "UNIQUE (game_id)" in debriefs["uq_debrief_sessions_game"]
+    assert "step >= 1" in debriefs["ck_debrief_sessions_step"]
+    assert "'hold'" in definition(url, "ck_class_sessions_debrief_release")
+
+    command.downgrade(cfg, "0101")
+    assert DEBRIEF_TABLES.isdisjoint(tables(url))
+    assert "debrief_release" not in columns(url, "class_sessions")
     command.downgrade(cfg, "0050")
     assert FACT_SET_TABLES.isdisjoint(tables(url))
     assert not function_names(url, "fact_sets_immutable")

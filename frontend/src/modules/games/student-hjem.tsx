@@ -166,7 +166,7 @@ function SessionBlock({
       ) : (
         <BeforeStart session={session} />
       )}
-      <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps)} />
+      <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps, session.id)} />
       {deadline || labs.length > 0 ? (
         <dl className="mt-6 flex flex-col gap-2 border-t border-hairline pt-4 text-body-phone lg:text-body">
           {deadline ? (

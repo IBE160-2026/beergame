@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 
 import structlog
 
+from app.modules.debrief import service as debrief
 from app.modules.games import service as games
 from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
@@ -141,6 +142,9 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # Story 6.18: the finished-game check (FR-29, NFR-9, AD-4): replay each finished Game that
     # has no `game_checks` row yet, one Game per transaction, so the end screen never waits.
     DueAction("games.verify_finished", _unchecked_finished_games, _verify_finished),
+    # Story 9.2: release the Debriefs of a held Class session once its last Class game has
+    # finished (by the last Week or the playout), and tell each seated Student (AD-9).
+    DueAction("debrief.release", debrief.due_releases, debrief.release_due),
     # Story 5.14: remind every Student of a Play, Debrief or Test deadline 24 hours ahead, once
     # per deadline time (FR-18). The reminders join the next minute's digest claim.
     DueAction(

@@ -423,7 +423,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
 const CONTENT_SIZED = "lg:[&_label]:flex-none";
 
 /**
- * KI-modus, Debrief-modus and Obligatorisk (Story 5.5, FR-15, FR-16, FR-78, UX-DR48, UX-DR49). The
+ * KI-modus, Debrief-modus with «Når Debriefen åpner» (Story 9.2, FR-42) and Obligatorisk (Story
+ * 5.5, FR-15, FR-16, FR-78, UX-DR48, UX-DR49). The
  * first two are Valgknapper while the session is unlocked and the User may change it; «Innsatsnivå»
  * shows only with LLM players, with the levels the api offers. Locked, or for an Assistant, the
  * values stand as text. Obligatorisk is a Bryter with «Andel uker som kreves» under it while on
@@ -450,6 +451,7 @@ function Choices({
   const scopeId = `${ids}-scope`;
   const reasonId = `${ids}-reason`;
   const debriefHelpId = `${ids}-debrief`;
+  const releaseHelpId = `${ids}-release`;
   const shown = editable ? draft : choicesOf(item);
   const llm = shown.aiMode === "llm";
   const levels = item.effort_levels;
@@ -541,6 +543,35 @@ function Choices({
         <p id={debriefHelpId} className="mt-2 text-body-phone text-ink-secondary">
           {shown.debriefMode === "group" ? c.groupHelp : c.personalHelp}
         </p>
+        {/* Story 9.2 (FR-42, UX-DR12): when the Debriefs open, frozen at the Start date. */}
+        <div className="mt-6">
+          {editable ? (
+            <SegmentedChoice
+              name="debrief-release"
+              className={CONTENT_SIZED}
+              legend={c.debriefRelease}
+              options={[
+                { value: "open", label: c.releaseOpen },
+                { value: "hold", label: c.releaseHold },
+              ]}
+              value={draft.debriefRelease}
+              onChange={(debriefRelease) => onChange({ ...draft, debriefRelease })}
+              describedBy={releaseHelpId}
+            />
+          ) : (
+            <div role="group" aria-labelledby={`${ids}-release-title`}>
+              <h3 id={`${ids}-release-title`} className="text-label text-ink">
+                {c.debriefRelease}
+              </h3>
+              <p className="mt-2 text-body-phone text-ink lg:text-body">
+                {shown.debriefRelease === "hold" ? c.releaseHold : c.releaseOpen}
+              </p>
+            </div>
+          )}
+          <p id={releaseHelpId} className="mt-2 text-body-phone text-ink-secondary">
+            {shown.debriefRelease === "hold" ? c.releaseHoldHelp : c.releaseOpenHelp}
+          </p>
+        </div>
       </section>
       <section aria-labelledby={`${ids}-obligatory`} className="min-w-0">
         <h2 id={`${ids}-obligatory`} className="text-label text-ink">

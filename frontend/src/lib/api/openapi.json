@@ -1000,6 +1000,9 @@
           "debrief_mode": {
             "$ref": "#/components/schemas/DebriefMode"
           },
+          "debrief_release": {
+            "$ref": "#/components/schemas/DebriefRelease"
+          },
           "effort_level": {
             "anyOf": [
               {
@@ -1206,6 +1209,7 @@
           "is_classic",
           "ai_mode",
           "debrief_mode",
+          "debrief_release",
           "inactivity_limit_hours",
           "obligatory",
           "required_share_percent",
@@ -1269,6 +1273,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/DebriefMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "debrief_release": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DebriefRelease"
               },
               {
                 "type": "null"
@@ -1585,6 +1599,63 @@
           "personal"
         ],
         "title": "DebriefMode",
+        "type": "string"
+      },
+      "DebriefOut": {
+        "description": "The Student's Debrief session: its id (the `debrief:<id>` topic, AD-8), the game it\nreviews and the step pointer. Never the demand series, the number of Weeks or another\nSeat's numbers (FR-14): those come with the steps that reveal them, after the Explanation.",
+        "properties": {
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "class_session_id",
+          "game_id",
+          "game_number",
+          "role",
+          "step"
+        ],
+        "title": "DebriefOut",
+        "type": "object"
+      },
+      "DebriefRelease": {
+        "description": "When the Debriefs open (Story 9.2, FR-42): `open`, each Student's once their own Class\ngame has finished (the default; it can reveal the Demand pattern to Students still playing),\nor `hold`, every Debrief once all Class games have finished.",
+        "enum": [
+          "open",
+          "hold"
+        ],
+        "title": "DebriefRelease",
         "type": "string"
       },
       "DemandFixed": {
@@ -4682,6 +4753,11 @@
       "StepOut": {
         "description": "A step of Stegene (Story 6.1, UX-DR29, AD-10, AD-16), its state computed here: the web app\nholds no rule for which step is open.",
         "properties": {
+          "held": {
+            "default": false,
+            "title": "Held",
+            "type": "boolean"
+          },
           "state": {
             "enum": [
               "done",
@@ -4722,6 +4798,22 @@
             "format": "uuid",
             "title": "Class Session Id",
             "type": "string"
+          },
+          "debrief": {
+            "anyOf": [
+              {
+                "enum": [
+                  "open",
+                  "not_open",
+                  "held"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debrief"
           },
           "id": {
             "format": "uuid",
@@ -7261,7 +7353,7 @@
         ]
       },
       "put": {
-        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level` and `debrief_mode` (FR-16, FR-78), left out, keep their values. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).\n\n`game_settings.capacity` (Story 5.15) is `{role: units}` or null: one Role or every Role\ncapped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a\nnon-empty capacity answers 422 `feature_disabled` (`{\"capacity\": \"feature_disabled\"}`).\n\n`game_settings.info_visibility` (Story 5.16) is `{upstream, downstream}`, two booleans that\nlet each Seat see its neighbour's inventory and backlog; anything else is `info_visibility`\n`invalid`. While `FEATURE_INFO_VISIBILITY` is off a view switched on answers 422\n`feature_disabled` (`{\"info_visibility\": \"feature_disabled\"}`).\n\n`obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,\nFR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit\nunder 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once\nlocked a changed one answers 409 `session_locked`. Switching the mark on tells each\nregistered Student through the day's digest mail.\n\n`allocation_method` (Story 5.17, FR-21), left out, keeps the method. `student_choice` creates\nempty Class games for the registered Students and tells each of them through the day's digest\nmail that they may choose a Class game and a Seat. A changed method answers 422\n`feature_disabled` (`{\"allocation_method\": \"feature_disabled\"}`) for Student choice while\n`FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409\n`allocation_confirmed` (`{\"allocation_method\": \"confirmed\"}`) once an allocation is confirmed:\nStudent choice is final once saved.",
+        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level`, `debrief_mode` and `debrief_release` (FR-16, FR-42, FR-78), left out, keep\ntheir values; a changed `debrief_release` once locked answers 409 `session_locked` too. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).\n\n`game_settings.capacity` (Story 5.15) is `{role: units}` or null: one Role or every Role\ncapped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a\nnon-empty capacity answers 422 `feature_disabled` (`{\"capacity\": \"feature_disabled\"}`).\n\n`game_settings.info_visibility` (Story 5.16) is `{upstream, downstream}`, two booleans that\nlet each Seat see its neighbour's inventory and backlog; anything else is `info_visibility`\n`invalid`. While `FEATURE_INFO_VISIBILITY` is off a view switched on answers 422\n`feature_disabled` (`{\"info_visibility\": \"feature_disabled\"}`).\n\n`obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,\nFR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit\nunder 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once\nlocked a changed one answers 409 `session_locked`. Switching the mark on tells each\nregistered Student through the day's digest mail.\n\n`allocation_method` (Story 5.17, FR-21), left out, keeps the method. `student_choice` creates\nempty Class games for the registered Students and tells each of them through the day's digest\nmail that they may choose a Class game and a Seat. A changed method answers 422\n`feature_disabled` (`{\"allocation_method\": \"feature_disabled\"}`) for Student choice while\n`FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409\n`allocation_confirmed` (`{\"allocation_method\": \"confirmed\"}`) once an allocation is confirmed:\nStudent choice is final once saved.",
         "operationId": "saveClassSession",
         "parameters": [
           {
@@ -10081,6 +10173,69 @@
         ]
       }
     },
+    "/api/debriefs/{debrief_id}": {
+      "get": {
+        "description": "The Student's own Debrief session by id. 403 `debrief_not_open`, `debrief_held` or\n`forbidden`, as above.",
+        "operationId": "getMyDebrief",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebriefOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Debrief",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
     "/api/events": {
       "get": {
         "description": "The live event stream (AD-8): `ready`, then `{topic, id, version}` for each change the\nUser may see, and `heartbeat` every 15 s. 401 without a valid session.",
@@ -10202,6 +10357,69 @@
         "summary": "List My Class Sessions",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/debrief": {
+      "post": {
+        "description": "Opens the Student's Debrief in the Class session (FR-42): the Debrief session of their\ngame, created with its step pointer at step 1 if none exists, and answered as it stands.\n403 `debrief_not_open`, `debrief_held` or `forbidden`.",
+        "operationId": "openMyDebrief",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebriefOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open My Debrief",
+        "tags": [
+          "debrief"
         ]
       }
     },

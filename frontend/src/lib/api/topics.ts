@@ -1,6 +1,7 @@
 import type { QueryKey } from "@tanstack/react-query";
 
 import { classesKey, enrolledClassesKey } from "@/modules/classes/api";
+import { debriefsKey } from "@/modules/debrief/api";
 import { meKey } from "@/modules/identity/api";
 import {
   allocationKey,
@@ -30,6 +31,8 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
         lecturerHomeKey,
         ["class-sessions", "seat-choice"],
         ["games", "mine"],
+        // Story 9.2: a held Debrief released by the sweep opens on the Debrief page too.
+        debriefsKey,
       ];
     // A Class session, for its staff: the Klasseøkt, its allocation block, the Lærerhjem parts of
     // Stories 5.2 and 5.9, and the Class page's list of its sessions.
@@ -39,6 +42,10 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
     // screen's envelope), and Hjem, whose Setestatus shows who has ordered (Story 6.14).
     case "game":
       return [["games", "mine", event.id], enrolledSessionsKey];
+    // A Debrief session (Story 9.2, AD-21): the Student's Debrief page reads it again. Its id is
+    // the one the Debrief endpoint gave; the web app never builds it from a game id.
+    case "debrief":
+      return [debriefsKey];
     default:
       return [];
   }
