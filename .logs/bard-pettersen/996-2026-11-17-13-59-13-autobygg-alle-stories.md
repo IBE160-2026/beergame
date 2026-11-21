@@ -2490,3 +2490,23 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #161: beslutninger (ingen lest-status, tak på 100 og 200 meldinger uten sider, tilgang for fjernede studenter).
+
+## Story 9.10: Utelat et quizspørsmål og se quizforsøk (spor 2)
+
+### Oppgave
+Bygge Story 9.10 på `epic-9` i spor 2, og avgjøre om stabssiden for Debrief fra 9.8 skal vise navnet på studenten.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2. Byggeagenten ble stoppet én gang av en feil med abonnementet og startet igjen.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-10-exclude-a-quiz-question-and-see-quiz-attempts.md` (på `epic-9`).
+- Commit: 2001f84.
+- Eiere kan utelate quizspørsmål på Klasseøkt med «Lagre quizvalg» (`quiz_exclusions`, migrasjon 0109, revisjonslogg). Studentene får bare de gjenværende spørsmålene, og de som berøres får e-post og en linje på Hjem. Stabssiden viser nå navnet på studenten og alle quizforsøk.
+- Tester: backend 2940, Vitest 767, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 259 etter ny bygging av stacken, ingen ustabile tester.
+- Gjennomgang: 32 funn, ingen høye eller middels, 7 rettet.
+- Visuell kontroll (Sonnet, spor 2): 27 skjermbilder i `screenshots/9.10/` (463a8ac), ingen avvik. Kolonnene for spørsmålene på Klasseøkt flukter ikke helt ved 1280 px; tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #162: beslutninger (navn på stabssiden etter FR-47, egen lagreknapp, hvem som varsles).
