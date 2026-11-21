@@ -2690,3 +2690,23 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (alle fi
 
 ### Åpne punkter
 - Issue #172: beslutninger (egen tabell, ønske i siste uke godtas og bortfaller for ikke å avsløre spillets lengde).
+
+## Story 9.14: Les KI-fortelling som bare binder sammen beregnede fakta (spor 2)
+
+### Oppgave
+Bygge Story 9.14 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto` mot KI-mocken og fire gjennomgangsagenter på Sonnet. Visuell kontroll som bare rapporterer, i eget worktree.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-14-read-ai-narration-that-only-connects-computed-facts.md` (på `epic-9`).
+- Commit: 98ab88c. Migrasjon 0112.
+- KI-fortelling på steg 4: én jobb per sete, maler med fire setninger der modellen bare velger setninger og fakta og koden skriver alle ord, teksten låses ved første visning, og en ekstra KI-linje under forklaringen ved feil quizsvar. Bruker modelloppsettet til klasseøkta.
+- Tester: backend 2981 (117 s), Vitest 782, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 240 av 240 (`homes` feilet én gang under last).
+- Gjennomgang: 44 funn, 2 middels og 12 lave rettet.
+- Visuell kontroll (Sonnet, bare rapport, eget worktree): 15 skjermbilder i `screenshots/9.14/`, ingen klare feil; KI-tekst er merket og kodetekst ikke. To punkter sendt til 9.15: plasseringen og størrelsen på fortellingen sammenlignet med mockupen, og bryteren «KI-tekst i Debriefen» som ser fylt ut når den er av.
+- Status: review. Fortellingen er aldri kjørt mot en ekte modell fordi nøkkelen er sperret for agenter (Issue #9).
+
+### Åpne punkter
+- Issue #173: kommandoene grunnleggeren må kjøre med ekte nøkkel, og beslutningene.
