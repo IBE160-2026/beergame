@@ -37,8 +37,9 @@ export function GameCard({
   action?: ReactNode;
   className?: string;
 }) {
+  // 8 px sides on phone, so the twelve-column mini table fits the card at 390 px.
   return (
-    <section aria-labelledby={titleId} data-game-card="" className={cn("rounded-sm border border-axis bg-paper px-3 py-3", className)}>
+    <section aria-labelledby={titleId} data-game-card="" className={cn("rounded-sm border border-axis bg-paper px-2 py-3 lg:px-3", className)}>
       <h4 id={titleId} className="flex flex-wrap items-baseline justify-between gap-x-3 text-label font-semibold text-ink">
         <span>{title}</span>
         <span>

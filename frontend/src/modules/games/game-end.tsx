@@ -75,7 +75,7 @@ export function GameEnd({ game, result, note }: { game: MyGame; result: GameResu
             {copy.toClassSession}
           </NextLink>
         ) : (
-          <NextLink href={DEBRIEF_PATH(game.id)} className={buttonClassName("primary")}>
+          <NextLink href={DEBRIEF_PATH(game.id)} className={buttonClassName("primary", "w-full lg:w-auto")}>
             {copy.end.toDebrief}
           </NextLink>
         )}

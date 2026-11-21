@@ -206,6 +206,9 @@ function GameBlock({
   const now = useServerNow(game.server_now);
   const drawn = homeLine(session);
   const card = cardState(game);
+  // A finished game waits for no one: its Seats show no status, and the rules are behind it.
+  const finished = game.status === "finished";
+  const seats = finished ? game.seats.map((seat) => ({ ...seat, ordered: null })) : game.seats;
   return (
     <div className="mt-2">
       <h3 className="text-step-title font-semibold text-ink">{gameTitle(game)}</h3>
@@ -217,7 +220,7 @@ function GameBlock({
         <PlayCard game={game} state={game.seat_state} card={card} primary={primary} titleId={`card-${session.id}`} />
       ) : null}
       {/* Story 6.14: the Setestatus, as on the play screen. */}
-      <GameSeatStatus seats={game.seats} now={now} titleId={seatsId} level={4} className="mt-4" />
+      <GameSeatStatus seats={seats} now={now} titleId={seatsId} level={4} className="mt-4" />
       {/* Story 6.19: the proposed time to play, and «Foreslå tidspunkt» while the game is not over. */}
       <TimeProposalBlock
         game={game}
@@ -228,7 +231,7 @@ function GameBlock({
       />
       {card ? null : <GameAction game={game} primary={primary} />}
       {/* Story 6.2: once the briefing no longer comes first, it stays a Lenke. */}
-      {game.briefing_first ? null : (
+      {game.briefing_first || finished ? null : (
         <p className="mt-3">
           <Link href={rulesPath(game.id)} standalone>
             {copy.rulesLink}
