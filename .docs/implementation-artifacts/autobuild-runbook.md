@@ -98,6 +98,21 @@ The founder asked for more speed (2026-11-21). From Epic 7 on, two epics are bui
 - Visual check: rebuild only `frontend` (`--build frontend`, the rest from the last build), and skip it for stories with no change under `frontend/`. Review sub-agents and the visual check run on Sonnet; builders stay on Opus. One review sub-agent for low-risk stories, two by default, four for risky ones.
 - Lane 1's visual check of story N may run while lane 1 builds story N+1 only in its own worktree. Default: run it after, as before.
 
+## Run plan from 2026-11-22 (founder)
+
+| Lane | Now | Next | Then |
+|---|---|---|---|
+| 1 (main folder) | Epic 8 (8.8–8.14), then the Epic 8 close-out | **stop for `/compact`** | Epic 11 |
+| 2 (`.claude/worktrees/lane-2`) | Epic 10 (10.1–10.9), then the Epic 10 close-out | **stop for `/compact`** | Epic 12 |
+| close-out agent | Epic 9 close-out (merge with main, fixes, PR #?) | merge Epic 9, then Epic 8 and 10 when their PRs are green | |
+
+- **Stop rule (founder, 2026-11-22):** do not start Epic 11 or Epic 12 until the founder has run `/compact`. When a lane finishes its epic and close-out, let it wait; tell the founder, and start Epic 11 (lane 1) and Epic 12 (lane 2) only after the compact.
+- Epic 12 builds on the Individual test (Epic 11). Start lane 2 with the 12.x stories that stand alone (12.1, 12.7–12.10 Control test setup) and take 12.2–12.6 once the Epic 11 pieces they need are on its branch or `main`; skip a story that needs missing work and come back to it.
+- After 11 and 12: Epic 13 and 14 (they need 9–12), and Epic 15 in whichever lane is free. Skip 3.15, 15.10 and 15.14.
+- Merge order: Epic 9, then 8, then 10 (each merges `main` first and relinks Alembic: lane 1 numbers 005x, lane 2 01xx; the epic that merges second sets its first migration's `down_revision` to `main`'s head).
+- Open items for close-outs are in the scratchpad lists `epic8-todo.md`, `epic9-todo.md` (recreate from the story issues if lost). The «Pause n» filter WIP backend is `pause-filter-wip.patch` in the scratchpad.
+- Stories in `review` so far (real-model check for the founder): 2.7 (#56), 2.11 (#60), 9.14 (#173), 9.15 (#176).
+
 ## Done
 
 The goal is reached when every story outside the skip list is `done`, `review` or (after three attempts) `blocked`, every epic is merged to `main` with CI green, and a final log section lists the `review` and `blocked` stories with their issues.
