@@ -153,13 +153,19 @@ test("a Seat taken by another first moves focus to the conflict line above the n
   const student = await studentPage(browser, "student5@example.com", 360, 740);
   await student.goto(`/klasseokter/${id}/velg-sete`);
   await seatButton(student, 1, "Detaljist, ledig").click();
-  // Another Student takes it first.
+  // Another Student takes it first, between the press and the request. Taken before the press,
+  // the live update (Story 6.4) would refresh the list and withdraw the button under the click.
   const other = await studentPage(browser, "student6@example.com", 360, 740);
-  const taken = await other.request.put(`/api/me/class-sessions/${id}/seat-choice`, {
-    data: { game_number: 1, role: "retailer" },
-    headers: CSRF,
+  await student.route(`**/api/me/class-sessions/${id}/seat-choice`, async (route) => {
+    if (route.request().method() === "PUT") {
+      const taken = await other.request.put(`/api/me/class-sessions/${id}/seat-choice`, {
+        data: { game_number: 1, role: "retailer" },
+        headers: CSRF,
+      });
+      expect(taken.status()).toBe(200);
+    }
+    await route.continue();
   });
-  expect(taken.status()).toBe(200);
   await student.getByRole("button", { name: sc.take("Detaljist", 1) }).click();
   const conflict = student.getByText(sc.conflict);
   await expect(conflict).toBeFocused();

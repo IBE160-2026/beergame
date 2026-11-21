@@ -112,9 +112,9 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       # worker-batch sends the mails (Story 3.6: the reset test reads its link from the
-      # local dev mailbox).
+      # local dev mailbox); worker-ai places the mock AI players' orders (week-advance spec).
       - name: Start the stack
-        run: docker compose up -d --build --wait proxy worker-batch
+        run: docker compose up -d --build --wait proxy worker-batch worker-ai
       # The proxy rules through the whole stack (AD-11, Story 3.14); the same script watches a
       # production deploy.
       - name: Smoke test
