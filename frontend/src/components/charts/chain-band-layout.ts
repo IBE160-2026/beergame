@@ -83,7 +83,9 @@ export type LabelKey =
   | "supplyLine"
   | "overdue"
   | "upstreamNumbers"
-  | "downstreamNumbers";
+  | "downstreamNumbers"
+  | "role"
+  | "roleNumbers";
 
 export type PlacedLabel = {
   key: LabelKey;
@@ -170,6 +172,8 @@ const BAND_ORDER: Record<LabelKey, number> = {
   supplyLine: 8,
   upstreamNumbers: 9,
   downstreamNumbers: 10,
+  role: 11,
+  roleNumbers: 12,
 };
 
 export function bandLayout(input: BandInput): BandLayout {
@@ -397,4 +401,194 @@ export function bandLayout(input: BandInput): BandLayout {
 
 function label(item: Wanted, x: number, y: number, width: number, wrapped: boolean): PlacedLabel {
   return { key: item.key, text: item.text, x, y, width, weight: item.weight, muted: item.muted ?? false, wrapped };
+}
+
+/** One Role in the four-Role band, upstream first. */
+export type ChainNodeInput = {
+  /** «Fabrikk». */
+  label: string;
+  /** «Restordre 3», «Lager 12», or both for a capped Seat that holds both (Story 6.22). */
+  numbers: readonly string[];
+  inventory: number;
+  backlog: number;
+  /** The viewer's own Role: a 1.4 px `ink` border (DESIGN.md → Kjedebånd). */
+  own: boolean;
+};
+
+export type ChainBandInput = {
+  width: number;
+  fontSize: number;
+  /** The Roles, upstream first (Fabrikk … Detaljist). */
+  nodes: readonly ChainNodeInput[];
+  /** The Order on the order line in each gap, upstream first: each Role's own Order in the gap
+   * left of it, then the customers' order in the gap at the right end (`nodes.length + 1`). */
+  orders: readonly string[];
+  /** På vei into each Role, on the goods line in the gap left of it (`nodes.length`); a Role
+   * with nothing on the way gives null and gets no box. */
+  supplyLines: readonly (string | null)[];
+  /** The largest stock or backlog in any Role and Uke of the game, so the bars keep one scale
+   * and the band one height while the Uke changes. */
+  maxUnits: number;
+  /** «Produksjon» and «Kundene». */
+  upstream: string;
+  downstream: string;
+};
+
+export type ChainNodeLayout = { box: Box; stockBar: Box | null; backlogBar: Box | null; own: boolean };
+
+export type ChainBandLayout = {
+  width: number;
+  height: number;
+  fontSize: number;
+  /** px per unit of stock or backlog. */
+  stockUnit: number;
+  orderY: number;
+  goodsY: number;
+  nodes: ChainNodeLayout[];
+  /** Each gap's left and right edge, upstream first (`nodes.length + 1`). */
+  gaps: { x0: number; x1: number }[];
+  /** The box on the goods line of each gap with goods on the way. */
+  pipeBoxes: Box[];
+  labels: PlacedLabel[];
+  /** The node label blocks were set on two rows, every other one lower, for want of room. */
+  staggered: boolean;
+};
+
+/** «Restordre 34» as «Restordre» and «34», for a narrow band; text with no space stays whole. */
+function splitNumber(text: string): string[] {
+  const at = text.lastIndexOf(" ");
+  return at > 0 ? [text.slice(0, at), text.slice(at + 1)] : [text];
+}
+
+/** The tallest stock or backlog bar of the four-Role band, in px. */
+const CHAIN_BAR_MAX = 44;
+const PIPE_BOX_W = 14;
+
+/**
+ * The four-Role Kjedebånd (Story 9.5, UX-DR15, UX-DR31, DESIGN.md → Kjedebånd: «The full four-Role
+ * chain (Debrief, Faglærer) adds Produksjon at the left and Kundene at the right»). Upstream at the
+ * left. From the top: the end labels; each gap's Order over the order line (right to left); the
+ * nodes on the goods line with stock above it and backlog below; each gap's På vei over a box on
+ * the goods line; under each node its Role and numbers. The nodes stand evenly, with equal gaps
+ * between them and at both ends. A node label block that would meet its neighbour's sets every
+ * other block one block lower, so no two node label blocks overlap. The Orders and På vei in the
+ * gaps are centred in their gap and kept inside the band; they fit a gap at up to two digits at
+ * 320 px with 200 % text (wider numbers at that size may reach a node). A pure function of its
+ * input.
+ */
+export function chainLayout(input: ChainBandInput): ChainBandLayout {
+  const { width, fontSize: f, nodes, orders, supplyLines, maxUnits } = input;
+  const n = nodes.length;
+  const nodeW = width < 480 ? 32 : NODE_W;
+  const gapW = Math.max(0, (width - n * nodeW) / (n + 1));
+  const ascent = ASCENT * f;
+  const descent = DESCENT * f;
+  const rowStep = ascent + descent + 2;
+  const unit = maxUnits > 0 ? Math.min(STOCK_UNIT, CHAIN_BAR_MAX / maxUnits) : STOCK_UNIT;
+  const barMax = maxUnits * unit;
+
+  const endsBaseline = Math.ceil(ascent) + 1;
+  const ordersBaseline = endsBaseline + rowStep;
+  const orderY = Math.round(ordersBaseline + descent + 2);
+  const goodsY = Math.round(orderY + Math.max(ascent + descent + BOX_H / 2 + 3, barMax + 4));
+  const supplyBaseline = goodsY - BOX_H / 2 - 1 - descent;
+  const nodeBottom = Math.round(goodsY + barMax + 4);
+
+  const gaps = Array.from({ length: n + 1 }, (_, i) => {
+    const x0 = i * (gapW + nodeW);
+    return { x0, x1: x0 + gapW };
+  });
+  const placed: PlacedLabel[] = [];
+  const put = (key: LabelKey, text: string, x: number, y: number, weight: 400 | 600 | 700, muted = false) => {
+    const w = textWidth(text, f, weight);
+    placed.push({ key, text, x, y, width: w, weight, muted, wrapped: false });
+  };
+  const centred = (text: string, at: number, weight: 400 | 600 | 700) =>
+    Math.max(0, Math.min(at - textWidth(text, f, weight) / 2, width - textWidth(text, f, weight)));
+
+  put("upstream", input.upstream, 0, endsBaseline, 400, true);
+  put("downstream", input.downstream, width - textWidth(input.downstream, f, 400), endsBaseline, 400, true);
+  orders.forEach((text, i) => {
+    const gap = gaps[i];
+    if (gap) put("order", text, centred(text, (gap.x0 + gap.x1) / 2, 600), ordersBaseline, 600);
+  });
+  const pipeBoxes: Box[] = [];
+  supplyLines.forEach((text, i) => {
+    const gap = gaps[i];
+    if (!gap || text === null) return;
+    const mid = (gap.x0 + gap.x1) / 2;
+    const w = Math.min(PIPE_BOX_W, Math.max(4, gapW - 10));
+    pipeBoxes.push({ x: mid - w / 2, y: goodsY - BOX_H / 2, width: w, height: BOX_H });
+    put("supplyLine", text, centred(text, mid, 400), supplyBaseline, 400);
+  });
+
+  const layoutNodes = nodes.map((node, i): ChainNodeLayout => {
+    const x = gaps[i]!.x1;
+    // A held unit always shows, however large the game's largest stock or backlog.
+    const stockH = Math.max(1, node.inventory * unit);
+    const backlogH = Math.max(1, node.backlog * unit);
+    return {
+      box: { x, y: orderY, width: nodeW, height: nodeBottom - orderY },
+      stockBar: node.inventory > 0 ? { x: x + 3, y: goodsY - stockH, width: nodeW - 6, height: stockH } : null,
+      backlogBar: node.backlog > 0 ? { x: x + 3, y: goodsY, width: nodeW - 6, height: backlogH } : null,
+      own: node.own,
+    };
+  });
+
+  // Each node's label block (its Role, then its numbers), centred on it and kept inside the band.
+  // The first arrangement with no two blocks meeting wins: all on one row; every other block one
+  // block lower; the same with each number split from its word («Restordre» over «34»); at last
+  // each block on a row of its own, which always fits.
+  const gap = LABEL_GAP * f;
+  const blocksOf = (split: boolean) =>
+    nodes.map((node, i) => {
+      const numbers = split ? node.numbers.flatMap((text) => splitNumber(text)) : node.numbers;
+      const lines = [
+        { key: "role" as const, text: node.label, weight: 600 as const },
+        ...numbers.map((text) => ({ key: "roleNumbers" as const, text, weight: 400 as const })),
+      ];
+      const widest = Math.max(...lines.map((line) => textWidth(line.text, f, line.weight)));
+      const centre = gaps[i]!.x1 + nodeW / 2;
+      const left = Math.max(0, Math.min(centre - widest / 2, width - widest));
+      return { lines, left, right: left + widest, centre };
+    });
+  type Block = ReturnType<typeof blocksOf>[number];
+  const clear = (blocks: Block[], level: (i: number) => number) =>
+    blocks.every((a, i) => blocks.every((b, j) => j <= i || level(i) !== level(j) || a.right + gap <= b.left));
+  const arrangements: { split: boolean; level: (i: number) => number }[] = [
+    { split: false, level: () => 0 },
+    { split: false, level: (i) => i % 2 },
+    { split: true, level: (i) => i % 2 },
+    { split: true, level: (i) => i },
+  ];
+  const chosen =
+    arrangements.find((arrangement) => clear(blocksOf(arrangement.split), arrangement.level)) ?? arrangements[arrangements.length - 1]!;
+  const blocks = blocksOf(chosen.split);
+  const staggered = blocks.some((_, i) => chosen.level(i) > 0);
+  const blockRows = Math.max(1, ...blocks.map((block) => block.lines.length));
+  let bottom = nodeBottom;
+  blocks.forEach((block, i) => {
+    const lower = chosen.level(i) * (blockRows * rowStep + 0.2 * f);
+    block.lines.forEach((line, row) => {
+      const w = textWidth(line.text, f, line.weight);
+      const x = Math.max(0, Math.min(block.centre - w / 2, width - w));
+      const y = nodeBottom + 2 + ascent + lower + row * rowStep;
+      put(line.key, line.text, x, y, line.weight);
+      bottom = Math.max(bottom, y + descent);
+    });
+  });
+
+  return {
+    width,
+    height: Math.ceil(bottom + 1),
+    fontSize: f,
+    stockUnit: unit,
+    orderY,
+    goodsY,
+    nodes: layoutNodes,
+    gaps,
+    pipeBoxes,
+    labels: placed,
+    staggered,
+  };
 }

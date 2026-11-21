@@ -55,7 +55,11 @@ async function stepOne(page: Page, send: "saved" | "failed" | "exists" = "saved"
   });
   // Once the Explanation is stored, step 2 follows under step 1 (Story 9.4).
   await page.route(`**/api/debriefs/${DEBRIEF}/steps/2`, (route) =>
-    route.fulfill(stored || posts.length ? { json: { debrief_id: DEBRIEF, step: 2, reveal: REVEAL } } : error(403, "explanation_required")),
+    route.fulfill(stored || posts.length ? { json: { debrief_id: DEBRIEF, step: 2, reveal: REVEAL, chain: null } } : error(403, "explanation_required")),
+  );
+  // Step 3 (Story 9.5) is `debrief-chain.spec.ts`; here it has nothing to show.
+  await page.route(`**/api/debriefs/${DEBRIEF}/steps/3`, (route) =>
+    route.fulfill(stored || posts.length ? { json: { debrief_id: DEBRIEF, step: 3, reveal: null, chain: null } } : error(403, "explanation_required")),
   );
   return { posts, unroute: () => page.unrouteAll({ behavior: "ignoreErrors" }) };
 }

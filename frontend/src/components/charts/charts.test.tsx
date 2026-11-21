@@ -4,7 +4,10 @@ import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { ChainBand } from "./chain-band";
+import { ChainBand, type SeatBandProps } from "./chain-band";
+import { type ChainBandInput, chainLayout } from "./chain-band-layout";
+import { flowStep, OrderBars } from "./order-bars";
+import { colour } from "./palette";
 import { CostArea, endPlaces } from "./cost-area";
 import { CostBars } from "./cost-bars";
 import { DemandBand, demandAxis } from "./demand-band";
@@ -154,7 +157,7 @@ describe("CostBars", () => {
 });
 
 describe("ChainBand", () => {
-  const band = (extra: Partial<Parameters<typeof ChainBand>[0]> = {}) =>
+  const band = (extra: Partial<SeatBandProps> = {}) =>
     renderToStaticMarkup(
       <ChainBand
         width={358}
@@ -380,5 +383,113 @@ describe("Etterspørselsbånd (Story 9.4)", () => {
     const html = renderToStaticMarkup(<DemandBand {...props} points={[{ ...points[0]!, order: 0 }]} largest={null} />);
     expect(html).not.toContain('data-mark="order"');
     expect(renderToStaticMarkup(<DemandBand {...props} points={[]} largest={null} />)).not.toContain("Kundenes");
+  });
+});
+
+describe("the four-Role Kjedebånd (Story 9.5)", () => {
+  const chain = (width: number, fontSize: number, extra: Partial<ChainBandInput> = {}): ChainBandInput => ({
+    width,
+    fontSize,
+    upstream: "Produksjon",
+    downstream: "Kundene",
+    maxUnits: 40,
+    nodes: [
+      { label: "Fabrikk", numbers: ["Restordre 3"], inventory: 0, backlog: 3, own: false },
+      { label: "Distributør", numbers: ["Restordre 34"], inventory: 0, backlog: 34, own: false },
+      { label: "Grossist", numbers: ["Restordre 19"], inventory: 0, backlog: 19, own: true },
+      { label: "Detaljist", numbers: ["Lager 12"], inventory: 12, backlog: 0, own: false },
+    ],
+    orders: ["22", "12", "12", "8", "8"],
+    supplyLines: ["50", "52", null, "13"],
+    ...extra,
+  });
+  const overlap = (a: { x: number; y: number; width: number }, b: { x: number; y: number; width: number }) =>
+    Math.abs(a.y - b.y) < 1 && a.x < b.x + b.width && b.x < a.x + a.width;
+
+  it("draws the chain from Produksjon to Kundene with the own node in a 1.4 px ink border", () => {
+    const html = renderToStaticMarkup(<ChainBand variant="chain" title="Hele kjeden" {...chain(1000, 13)} />);
+    expect(html).toMatch(/^<svg [^>]*data-chart="band" data-variant="chain"/);
+    expect(html).toContain("<title>Hele kjeden</title>");
+    expect(html.match(/data-mark="node"/g)).toHaveLength(4);
+    expect(html).toMatch(/data-mark="node" data-own=""><rect [^>]*stroke="#[0-9A-F]+" stroke-width="1.4"/);
+    expect(html.match(/data-mark="backlog"/g)).toHaveLength(3);
+    expect(html.match(/data-mark="stock"/g)).toHaveLength(1);
+    // A box on the goods line for each Role with goods on the way, none where there are none.
+    expect(html.match(/data-mark="arrival"/g)).toHaveLength(3);
+    const layout = chainLayout(chain(1000, 13));
+    const texts = layout.labels.map((label) => label.text);
+    expect(texts[0]).toBe("Produksjon");
+    expect(texts).toContain("Kundene");
+    expect(layout.labels.find((l) => l.text === "Produksjon")!.x).toBe(0);
+    // Upstream at the left: Fabrikk's node left of Detaljist's.
+    expect(layout.nodes[0]!.box.x).toBeLessThan(layout.nodes[3]!.box.x);
+  });
+
+  it.each([
+    [320, 13],
+    [360, 13],
+    [320, 26],
+    [1000, 13],
+  ])("keeps every label inside %i px at %i px text, with no two overlapping", (width, fontSize) => {
+    const layout = chainLayout(chain(width, fontSize));
+    for (const label of layout.labels) {
+      expect(label.x).toBeGreaterThanOrEqual(0);
+      expect(label.x + label.width).toBeLessThanOrEqual(width + 0.01);
+    }
+    for (const [i, a] of layout.labels.entries()) {
+      for (const b of layout.labels.slice(i + 1)) expect(overlap(a, b), `${a.text} / ${b.text}`).toBe(false);
+    }
+  });
+
+  it("sets the node labels on two rows when they would meet, and keeps one bar scale and height", () => {
+    expect(chainLayout(chain(1000, 13)).staggered).toBe(false);
+    expect(chainLayout(chain(320, 26)).staggered).toBe(true);
+    const small = chainLayout(chain(360, 13, { nodes: chain(360, 13).nodes.map((n) => ({ ...n, inventory: 0, backlog: 1 })) }));
+    const large = chainLayout(chain(360, 13));
+    expect(small.height).toBe(large.height);
+    expect(small.stockUnit).toBe(large.stockUnit);
+    // The tallest bar of the game is at most 44 px.
+    expect(large.stockUnit * 40).toBeLessThanOrEqual(44);
+  });
+});
+
+describe("Ordrestolper (Story 9.5)", () => {
+  const rows = [
+    { orders: [4, 23, 31], own: false, firstLarge: { index: 1, text: "Uke 15" } },
+    { orders: [4, 12, 8], own: true, firstLarge: { index: 1, text: "Uke 11" } },
+    { orders: [4, 4, null], own: false, firstLarge: null },
+  ];
+  const html = renderToStaticMarkup(
+    <OrderBars width={90} height={150} fontSize={13} xs={[15, 45, 75]} columnWidth={30} rows={rows} chosen={2} title="Ordrestolper" />,
+  );
+
+  it("draws a bar per Order, the own Role in ink, the others in order-history", () => {
+    expect(html).toContain("<title>Ordrestolper</title>");
+    expect(html.match(/data-mark="order"/g)).toHaveLength(8);
+    const own = html.split('data-own=""')[1]!.split("</g>")[0]!;
+    expect(own).toContain(`fill="${colour("ink")}"`);
+    expect(own).not.toContain(`fill="${colour("order-history")}"`);
+    expect(html).toContain(`fill="${colour("order-history")}"`);
+  });
+
+  it("marks each first large Order with a red dot and its Uke, joined by one diagonal, and the chosen Uke dashed", () => {
+    expect(html.match(/data-mark="first-large"/g)).toHaveLength(2);
+    expect(html).toContain(">Uke 15</text>");
+    expect(html).toMatch(/data-mark="diagonal" points="[\d.]+,[\d.]+ [\d.]+,[\d.]+"/);
+    expect(html).toMatch(/data-mark="chosen" x1="75" x2="75"[^>]*stroke-dasharray="3 2"/);
+  });
+
+  it("keeps two first large Orders in the same Uke apart", () => {
+    const same = rows.map((row) => ({ ...row, firstLarge: { index: 1, text: "Uke 11" } }));
+    const twice = renderToStaticMarkup(
+      <OrderBars width={90} height={150} fontSize={13} xs={[15, 45, 75]} columnWidth={30} rows={same} chosen={null} title="Ordrestolper" />,
+    );
+    expect(twice.match(/data-mark="first-large"/g)).toHaveLength(3);
+    expect(twice).not.toContain('data-mark="chosen"');
+  });
+
+  it("puts every cell on a flow step by its share of the largest Order", () => {
+    expect([0, 1, 6, 7, 13, 19, 25, 31].map((order) => flowStep(order, 31))).toEqual([0, 0, 0, 1, 2, 3, 4, 4]);
+    expect(flowStep(4, 0)).toBe(0);
   });
 });

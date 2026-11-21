@@ -98,6 +98,11 @@ export type DebriefStep = components["schemas"]["DebriefStepOut"];
  * ordre per Uke of the Student's own Seat. */
 export type Reveal = components["schemas"]["RevealOut"];
 export type RevealWeek = components["schemas"]["RevealWeekOut"];
+/** Step 3, the whole chain (Story 9.5): every Role, Fabrikk first, with its Orders and Week states
+ * per Uke, Forsterkning and the first large Order from the stored facts. */
+export type Chain = components["schemas"]["ChainOut"];
+export type ChainRole = components["schemas"]["ChainRoleOut"];
+export type ChainWeek = components["schemas"]["ChainWeekOut"];
 
 export const debriefStepKey = (debriefId: string, step: number) => [...debriefsKey, debriefId, "steps", step] as const;
 

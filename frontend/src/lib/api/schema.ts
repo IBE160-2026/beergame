@@ -1442,7 +1442,9 @@ export interface paths {
          * @description A Debrief step after step 1 (FR-41, FR-43): 403 `explanation_required` until the Student's
          *     Explanation is saved, checked here and not only in the web app. Step 2 carries `reveal`: the
          *     heading rendered from the demand series and Kundene, Ordre inn and Din ordre per Uke of the
-         *     Student's own Seat (Story 9.4, FR-44).
+         *     Student's own Seat (Story 9.4, FR-44). Step 3 carries `chain`: every Role's Orders and Week
+         *     states, Fabrikk first, with Forsterkning and the first large Order from the stored facts set
+         *     (Story 9.5, FR-44, AD-7).
          */
         get: operations["getDebriefStep"];
         put?: never;
@@ -2154,6 +2156,37 @@ export interface components {
          */
         BouncedRegistration: "bounced";
         /**
+         * ChainOut
+         * @description Step 3, the whole chain (Story 9.5, FR-44, UX-DR33, UX-DR34): all four Roles, Fabrikk
+         *     first (upstream first, the order the Ordrestolper rows and the scrubber's reading take), each
+         *     with every logged Uke, oldest first. Every number is the api's (AD-10).
+         */
+        ChainOut: {
+            /** Large Order */
+            large_order: number;
+            /** Last Week */
+            last_week: number;
+            own_role: components["schemas"]["Role"];
+            /** Roles */
+            roles: components["schemas"]["ChainRoleOut"][];
+        };
+        /**
+         * ChainRoleOut
+         * @description One Role of the whole chain: every Uke, and from the stored facts set (Story 9.1, AD-7) its
+         *     Forsterkning and the first Uke with an Order of `large_order` or more.
+         */
+        ChainRoleOut: {
+            /** Amplification */
+            amplification: string | null;
+            /** Capacity */
+            capacity: number | null;
+            /** First Large Order Week */
+            first_large_order_week: number | null;
+            role: components["schemas"]["Role"];
+            /** Weeks */
+            weeks: components["schemas"]["ChainWeekOut"][];
+        };
+        /**
          * ChainWeekCost
          * @description The chain's cost from Uke 1 through `week`, summed over its Roles.
          */
@@ -2164,6 +2197,25 @@ export interface components {
             holding_cost: string;
             /** Total Cost */
             total_cost: string;
+            /** Week */
+            week: number;
+        };
+        /**
+         * ChainWeekOut
+         * @description One Uke of one Role in the whole chain (Story 9.5): its Order and the Week state it saw
+         *     when it ordered (the Decision log's `state_seen`, as the play screen showed it).
+         */
+        ChainWeekOut: {
+            /** Backlog */
+            backlog: number;
+            /** Incoming Order */
+            incoming_order: number;
+            /** Inventory */
+            inventory: number;
+            /** Order */
+            order: number;
+            /** Supply Line */
+            supply_line: number;
             /** Week */
             week: number;
         };
@@ -2558,10 +2610,11 @@ export interface components {
         /**
          * DebriefStepOut
          * @description A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2
-         *     carries the reveal (Story 9.4); steps 3 to 5 get their content with Stories 9.5 to 9.9 and
-         *     until then answer the step number only.
+         *     carries the reveal (Story 9.4), step 3 the whole chain (Story 9.5); steps 4 and 5 get their
+         *     content with Stories 9.7 to 9.9 and until then answer the step number only.
          */
         DebriefStepOut: {
+            chain?: components["schemas"]["ChainOut"] | null;
             /**
              * Debrief Id
              * Format: uuid

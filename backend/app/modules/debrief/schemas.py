@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel
 
@@ -95,12 +96,56 @@ class RevealOut(BaseModel):
     largest_order: LargestOrderOut | None
 
 
+class ChainWeekOut(BaseModel):
+    """One Uke of one Role in the whole chain (Story 9.5): its Order and the Week state it saw
+    when it ordered (the Decision log's `state_seen`, as the play screen showed it)."""
+
+    week: int
+    order: int
+    incoming_order: int
+    """The Order that reached the Role; for the Detaljist, the customers' order."""
+    inventory: int
+    backlog: int
+    supply_line: int
+    """På vei: ordered and not yet received."""
+
+
+class ChainRoleOut(BaseModel):
+    """One Role of the whole chain: every Uke, and from the stored facts set (Story 9.1, AD-7) its
+    Forsterkning and the first Uke with an Order of `large_order` or more."""
+
+    role: Role
+    amplification: Decimal | None
+    """Forsterkning: the spread of the Role's Orders over the spread of customer demand (`7.600`);
+    None when customer demand never varied."""
+    first_large_order_week: int | None
+    capacity: int | None
+    """The most the Role could ship per Uke when the Game capped it and `FEATURE_CAPACITY` is on;
+    None otherwise."""
+    weeks: list[ChainWeekOut]
+
+
+class ChainOut(BaseModel):
+    """Step 3, the whole chain (Story 9.5, FR-44, UX-DR33, UX-DR34): all four Roles, Fabrikk
+    first (upstream first, the order the Ordrestolper rows and the scrubber's reading take), each
+    with every logged Uke, oldest first. Every number is the api's (AD-10)."""
+
+    own_role: Role
+    last_week: int
+    """The scrubber's range is Uke 1 to this Uke (the game is finished, so it is no secret)."""
+    large_order: int
+    """The Order size that marks a Role's first large Order (10, FR-44)."""
+    roles: list[ChainRoleOut]
+
+
 class DebriefStepOut(BaseModel):
     """A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2
-    carries the reveal (Story 9.4); steps 3 to 5 get their content with Stories 9.5 to 9.9 and
-    until then answer the step number only."""
+    carries the reveal (Story 9.4), step 3 the whole chain (Story 9.5); steps 4 and 5 get their
+    content with Stories 9.7 to 9.9 and until then answer the step number only."""
 
     debrief_id: uuid.UUID
     step: int
     reveal: RevealOut | None = None
     """Step 2 only."""
+    chain: ChainOut | None = None
+    """Step 3 only."""

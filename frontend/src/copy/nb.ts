@@ -2129,6 +2129,58 @@ export const nb = {
       /** [ASSUMPTION] the step could not be read; «Prøv igjen» beside it. */
       loadFailed: "Avsløringen kunne ikke hentes.",
     },
+    /** Step 3, the whole chain (Story 9.5, `07-debrief.png`, EXPERIENCE.md → Ukeskrubber). The
+     * heading, «Kjeden i Uke 15. Dra i skrubberen for å spole.», «Velg uke», the step buttons,
+     * the reading's form, «Produksjon», «Kundene» and Forsterkning are the spine's; the rest is
+     * [ASSUMPTION] draft copy. */
+    chain: {
+      heading: "Hele kjeden: svingningene vokser oppstrøms og kommer senere",
+      /** By the scrubber, with the chosen Uke. */
+      at: (week: number) => `Kjeden i Uke ${week}. Dra i skrubberen for å spole.`,
+      scrubber: "Velg uke",
+      week: (week: number) => `Uke ${week}`,
+      back: "Én uke tilbake",
+      forward: "Én uke fram",
+      /** The live reading, Fabrikk first: «Uke 15. Fabrikk: restordre 3, ordre 22. …». */
+      reading: (week: number, roles: readonly string[]) => `Uke ${week}. ${roles.join(" ")}`,
+      readingRole: (role: string, held: readonly string[], order: string) =>
+        `${role}: ${[...held, `ordre ${order}`].join(", ")}.`,
+      readingStock: (units: string) => `lager ${units}`,
+      readingBacklog: (units: string) => `restordre ${units}`,
+      /** [ASSUMPTION] the customers' order at the end of the reading. */
+      readingCustomers: (order: string) => `Kundene: ordre ${order}.`,
+      /** Band ends and node numbers. */
+      production: "Produksjon",
+      customers: "Kundene",
+      stock: (units: string) => `Lager ${units}`,
+      backlog: (units: string) => `Restordre ${units}`,
+      /** [ASSUMPTION] the band's key: what the numbers in the gaps are. */
+      bandKey: "Øverst: ordre, som går mot venstre. Over røret: på vei, som går mot høyre.",
+      /** [ASSUMPTION] */
+      bandSvg: "Hele kjeden i den valgte uka: lager og restordre for hver rolle, ordre og varer på vei mellom dem.",
+      /** [ASSUMPTION] a capped Role (FEATURE_CAPACITY, Story 6.22). */
+      capacity: (role: string, units: string) => `${role} kan sende høyst ${units} enheter per uke.`,
+      /** [ASSUMPTION] the Ordrestolper region's name and key. */
+      region: "Ordre per rolle og uke",
+      /** With the api's `large_order` (10). */
+      barsKey: (large: string) =>
+        `Ordre per rolle og uke, som stolpe og som tall i samme kolonne. Rødt punkt: første uke med ordre på ${large} eller mer. Til høyre: Forsterkning.`,
+      amplification: "Forsterkning",
+      /** «(deg)» after the own Role, as in Kjedens regning. */
+      own: "(deg)",
+      /** [ASSUMPTION] no Forsterkning when the customers' demand never varied. */
+      none: "–",
+      /** [ASSUMPTION] Forsterkning as one line of text, Detaljist first. */
+      amplificationLine: (parts: readonly string[]) => `Forsterkning fra kundene og oppover: ${parts.join(", ")}.`,
+      amplificationPart: (role: string, value: string) => `${role} ${value}`,
+      /** [ASSUMPTION] */
+      barsSvg: "Ordrestolper: ordrene til hver rolle uke for uke, Fabrikk øverst, med første store ordre markert.",
+      /** [ASSUMPTION] */
+      barsAxisSvg: "Rollene, Fabrikk øverst",
+      swipe: "Sveip for flere uker",
+      /** [ASSUMPTION] the step could not be read; «Prøv igjen» beside it. */
+      loadFailed: "Kjeden kunne ikke hentes.",
+    },
   },
 
   /** Links between pages (Story 3.3). Each names where it goes. */

@@ -8,6 +8,8 @@ role do not. One Class game played a few Uker, then marked finished, serves each
 
 import json
 import uuid
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import psycopg
 import pytest
@@ -143,12 +145,19 @@ async def test_step_one_the_one_send_the_gate_and_the_readers(klass, emitted):
     assert explanations() == [(user_id(me), TEXT, len(TEXT))]
     assert (await call(me, "GET", f"{path}/explanation")).json() == {"explanation": body}
 
-    # With it, the steps after step 1 answer; step 2 is the reveal (Story 9.4).
-    for step in range(3, 6):
+    # With it, the steps after step 1 answer; step 2 is the reveal (Story 9.4), step 3 the whole
+    # chain (Story 9.5).
+    for step in range(4, 6):
         response = await call(me, "GET", f"{path}/steps/{step}")
         assert response.status_code == 200
-        assert response.json() == {"debrief_id": debrief["id"], "step": step, "reveal": None}
+        assert response.json() == {
+            "debrief_id": debrief["id"],
+            "step": step,
+            "reveal": None,
+            "chain": None,
+        }
     await revealed(me, path, debrief, game_id)
+    await chained(me, path, debrief, game_id)
 
     # Another Student of the same game reads only their own (none) and is still gated.
     other = mate
@@ -194,6 +203,73 @@ async def revealed(me: str, path: str, debrief: dict, game_id: str) -> None:
     )
     # Every Uke of the own Seat only: no other Role's number.
     assert {"week", "demand", "incoming_order", "order"} == set(shown["weeks"][0])
+    assert body["chain"] is None
+
+
+async def chained(me: str, path: str, debrief: dict, game_id: str) -> None:
+    """Step 3, the whole chain (Story 9.5, FR-44, NFR-9, AD-7): every Role, Fabrikk first, with
+    each Uke's Order and Week state equal to its `seat_weeks` row (read here by SQL), and
+    Forsterkning and the first large Uke equal to the stored facts set. Part of the test above."""
+    response = await call(me, "GET", f"{path}/steps/3")
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["debrief_id"], body["step"], body["reveal"]) == (debrief["id"], 3, None)
+    chain = body["chain"]
+    assert [r["role"] for r in chain["roles"]] == [
+        "factory",
+        "distributor",
+        "wholesaler",
+        "retailer",
+    ]
+    assert (chain["own_role"], chain["large_order"]) == (debrief["role"], 10)
+    stored = await games.fact_set(game_id, debrief["role"])
+    facts = {str(r.role): r for r in stored.facts.chain.by_role}
+    [(count,)] = rows("SELECT count(*) FROM fact_sets WHERE game_id = %s", game_id)
+    for role in chain["roles"]:
+        logged = rows(
+            "SELECT w.week, w.\"order\", (w.state_seen->>'incoming_order')::int, "
+            "(w.state_seen->>'inventory')::int, (w.state_seen->>'backlog')::int, "
+            "(w.state_seen->>'supply_line')::int FROM seat_weeks w JOIN seats s "
+            "ON s.id = w.seat_id WHERE w.game_id = %s AND s.role = %s ORDER BY w.week",
+            game_id,
+            role["role"],
+        )
+        assert role["weeks"] == [
+            {
+                "week": week,
+                "order": order,
+                "incoming_order": incoming,
+                "inventory": inventory,
+                "backlog": backlog,
+                "supply_line": supply,
+            }
+            for week, order, incoming, inventory, backlog, supply in logged
+        ]
+        fact = facts[role["role"]]
+        amplification = None if fact.amplification is None else str(fact.amplification)
+        assert role["amplification"] == amplification
+        assert role["first_large_order_week"] == fact.first_large_order_week
+        # The Classic settings cap no Role.
+        assert role["capacity"] is None
+    assert chain["last_week"] == stored.facts.chain.weeks == len(chain["roles"][0]["weeks"])
+    # The facts were stored once per Seat read, never rebuilt by a second read.
+    assert count == 1
+
+    # A capped Role states its capacity while `FEATURE_CAPACITY` is on, and none with it off.
+    execute(
+        "UPDATE games SET settings = jsonb_set(settings, '{capacity}', '{\"factory\": 12}') "
+        "WHERE id = %s",
+        game_id,
+    )
+    try:
+        on = (await call(me, "GET", f"{path}/steps/3")).json()["chain"]["roles"]
+        assert [r["capacity"] for r in on] == [12, None, None, None]
+        off = SimpleNamespace(feature_capacity=False)
+        with patch("app.modules.debrief.service.get_settings", return_value=off):
+            gone = (await call(me, "GET", f"{path}/steps/3")).json()["chain"]["roles"]
+        assert [r["capacity"] for r in gone] == [None] * 4
+    finally:
+        execute("UPDATE games SET settings = settings - 'capacity' WHERE id = %s", game_id)
 
 
 async def readers(
@@ -236,11 +312,17 @@ async def readers(
             ("GET", f"{path}/explanation"),
             ("POST", f"{path}/explanation"),
             ("GET", f"{path}/steps/2"),
+            ("GET", f"{path}/steps/3"),
         ):
             kw = {"json": {"text": "x"}} if method == "POST" else {}
             refused(await call(who, method, url, **kw), "forbidden")
 
     # A game that is not finished refuses them alike, with the envelope only.
     execute("UPDATE games SET lifecycle = 'playing_out' WHERE id = %s", game_id)
-    for url in (f"{path}/net-inventory", f"{path}/explanation", f"{path}/steps/2"):
+    for url in (
+        f"{path}/net-inventory",
+        f"{path}/explanation",
+        f"{path}/steps/2",
+        f"{path}/steps/3",
+    ):
         refused(await call(me, "GET", url), "debrief_not_open")

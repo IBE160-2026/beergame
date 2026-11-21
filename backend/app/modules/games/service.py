@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget as ai_budget
 from app.engine import GameSettings
+from app.modules.games import facts as _facts
 from app.modules.games import repo
 from app.modules.games.batches import create_batch, get_batch
 from app.modules.games.checks import (
@@ -106,6 +107,8 @@ __all__ = [
     "create_batch",
     "database_now",
     "demand_series",
+    "fact_set",
+    "StoredFactSet",
     "games_charged_to",
     "scope_of",
     "own_game",
@@ -452,6 +455,16 @@ async def demand_series(game_id: str) -> tuple[int, ...] | None:
     if game is None or game["demand_series"] is None:
         return None
     return tuple(int(value) for value in game["demand_series"])
+
+
+StoredFactSet = _facts.StoredFactSet
+
+
+async def fact_set(game_id: str, seat: str) -> StoredFactSet:
+    """The stored facts set of the Seat (its Role or id) of the finished Game (Story 9.1, AD-7):
+    built and stored by the first call, as stored after that. For readers outside `games` (the
+    Debrief, Story 9.5). Raises `ViewError` as `games.facts.get_or_create` does."""
+    return await _facts.get_or_create(game_id, seat)
 
 
 def _or_none[T: (GameSettings, SessionRuntime)](model: type[T], value: object) -> T | None:

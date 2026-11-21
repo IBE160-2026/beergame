@@ -11,6 +11,7 @@ import { roleName } from "@/modules/sessions/sessions";
 
 import { DEBRIEF_STEPS, type Debrief, debriefView, myDebriefKey, useMyDebrief, useMyExplanation } from "./api";
 import { ExplanationStep } from "./explanation-step";
+import { ChainStep } from "./chain-step";
 import { RevealStep } from "./reveal-step";
 
 const copy = nb.debriefEntry;
@@ -74,7 +75,7 @@ function DebriefView({
 }
 
 /** The Student's Role under the title, then the steps as `07-debrief.png` numbers them («1 Skriv
- * Forklaringen først»): step 1, and once the Explanation is saved, step 2 under it, so the
+ * Forklaringen først»): step 1, and once the Explanation is saved, steps 2 and 3 under it, so the
  * Explanation stays beside the data. The step pointer stays where the session stands (moving on
  * together comes with the Group debrief, Story 9.11). */
 function Steps({ debrief, userId }: { debrief: Debrief; userId: string }) {
@@ -102,6 +103,7 @@ function Steps({ debrief, userId }: { debrief: Debrief; userId: string }) {
         {debrief.step === 1 ? <ExplanationStep debrief={debrief} userId={userId} /> : null}
       </section>
       {sent ? <RevealStep debrief={debrief} /> : null}
+      {sent ? <ChainStep debrief={debrief} /> : null}
     </>
   );
 }

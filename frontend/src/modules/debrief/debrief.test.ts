@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { nb } from "@/copy/nb";
 import { DEBRIEF_PATH } from "@/modules/identity/homes";
 
-import { type Debrief, debriefView, downstreamRole, explanationDraftField, hasText } from "./api";
+import { type Chain, type Debrief, debriefView, downstreamRole, explanationDraftField, hasText } from "./api";
+import { amplificationLine, chainBandInput, chainReading } from "./chain-step";
 
 const copy = nb.debriefEntry;
 
@@ -84,5 +85,55 @@ describe("the reveal (Story 9.4)", () => {
     expect(Object.values(reveal.rows)).toEqual(["Kundene", "Ordre inn", "Din ordre"]);
     expect(reveal.named).toBe("Øvelsen heter Beer Game.");
     expect(JSON.stringify(nb.debriefEntry)).not.toMatch(/beer|bullwhip/i);
+  });
+});
+
+const week = (w: number, order: number, inventory: number, backlog: number, supply = 0, incoming = 4) => ({
+  week: w,
+  order,
+  incoming_order: incoming,
+  inventory,
+  backlog,
+  supply_line: supply,
+});
+
+const CHAIN: Chain = {
+  own_role: "wholesaler",
+  last_week: 2,
+  large_order: 10,
+  roles: [
+    { role: "factory", amplification: "7.600", first_large_order_week: 2, capacity: null, weeks: [week(1, 4, 12, 0), week(2, 22, 0, 3, 50)] },
+    { role: "distributor", amplification: "6.000", first_large_order_week: 2, capacity: null, weeks: [week(1, 4, 12, 0), week(2, 12, 0, 34, 52)] },
+    { role: "wholesaler", amplification: "4.100", first_large_order_week: 2, capacity: 12, weeks: [week(1, 4, 12, 0), week(2, 12, 2, 19)] },
+    { role: "retailer", amplification: null, first_large_order_week: null, capacity: null, weeks: [week(1, 4, 0, 0), week(2, 8, 12, 0, 13, 8)] },
+  ],
+};
+
+describe("the whole chain at a Uke (Story 9.5)", () => {
+  it("reads the chain Fabrikk first, both held numbers of a capped Seat, then the customers", () => {
+    expect(chainReading(CHAIN, 2)).toBe(
+      "Uke 2. Fabrikk: restordre 3, ordre 22. Distributør: restordre 34, ordre 12. Grossist: lager 2, restordre 19, ordre 12. Detaljist: lager 12, ordre 8. Kundene: ordre 8.",
+    );
+    expect(chainReading(CHAIN, 1)).toContain("Detaljist: lager 0, ordre 4.");
+  });
+
+  it("gives the band the api's numbers at the Uke, one bar scale for the game", () => {
+    const input = chainBandInput(CHAIN, 2, 360, 13);
+    expect(input.nodes.map((n) => [n.label, n.numbers, n.own])).toEqual([
+      ["Fabrikk", ["Restordre 3"], false],
+      ["Distributør", ["Restordre 34"], false],
+      ["Grossist", ["Lager 2", "Restordre 19"], true],
+      ["Detaljist", ["Lager 12"], false],
+    ]);
+    expect(input.orders).toEqual(["22", "12", "12", "8", "8"]);
+    expect(input.supplyLines).toEqual(["50", "52", null, "13"]);
+    expect(input.maxUnits).toBe(34);
+    expect([input.upstream, input.downstream]).toEqual(["Produksjon", "Kundene"]);
+  });
+
+  it("states Forsterkning from the customers' end up, with a dash where demand never varied", () => {
+    expect(amplificationLine(CHAIN)).toBe("Forsterkning fra kundene og oppover: Detaljist –, Grossist 4,1×, Distributør 6,0×, Fabrikk 7,6×.");
+    expect(nb.debrief.chain.heading).toBe("Hele kjeden: svingningene vokser oppstrøms og kommer senere");
+    expect(nb.debrief.chain.at(15)).toBe("Kjeden i Uke 15. Dra i skrubberen for å spole.");
   });
 });

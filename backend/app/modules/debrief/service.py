@@ -10,7 +10,7 @@
 - `require_explanation(user_id, class_session_id)`: the one gate every Debrief read after step 1
   goes through (raises `ExplanationRequired`, 403 `explanation_required`, FR-41, FR-43);
   `step(user, debrief_id, n)` is the step endpoint behind it; step 2 carries the reveal of
-  customer demand (Story 9.4, `reveal`).
+  customer demand (Story 9.4, `reveal`), step 3 the whole chain (Story 9.5, `chain`).
 - `staff_explanation(user, class_session_id, student_id)`: the Explanation for the Class's staff
   (`explanations.read`, AD-12); None for everyone else.
 """
@@ -22,6 +22,7 @@ from datetime import datetime
 from sqlalchemy import select
 
 from app.analysis import sentences
+from app.analysis.facts import LARGE_ORDER
 from app.engine.settings import Role
 from app.modules.content import service as content
 from app.modules.debrief import commands, rules
@@ -32,6 +33,9 @@ from app.modules.debrief.models import (
     debrief_sessions,
 )
 from app.modules.debrief.schemas import (
+    ChainOut,
+    ChainRoleOut,
+    ChainWeekOut,
     DebriefOut,
     DebriefStepOut,
     ExplanationOut,
@@ -46,6 +50,7 @@ from app.modules.games import service as games
 from app.modules.progress import service as progress
 from app.modules.sessions import service as sessions
 from app.platform import authz
+from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
 __all__ = [
@@ -234,7 +239,52 @@ async def step(user: authz.Principal, debrief_id: uuid.UUID, number: int) -> Deb
     row, game = found
     await require_explanation(user.id, row.class_session_id)
     shown = await _reveal(row.game_id, game.role) if number == 2 else None
-    return DebriefStepOut(debrief_id=row.id, step=number, reveal=shown)
+    chain = await _chain(row.game_id, game.role) if number == 3 else None
+    return DebriefStepOut(debrief_id=row.id, step=number, reveal=shown, chain=chain)
+
+
+async def _chain(game_id: uuid.UUID, role: str) -> ChainOut:
+    """Step 3 (Story 9.5, FR-44): every Role's Orders and the Week states it saw, from the
+    Decision log, with Forsterkning and the first large Order from the stored facts set (AD-7:
+    read, never rebuilt here). The Game's capacity per Role only while `FEATURE_CAPACITY` is on.
+    Call only behind `require_explanation`."""
+    found = await games.get_game(str(game_id))
+    if found is None or found.settings is None:
+        raise RuntimeError(f"a finished Game {game_id} has no settings")
+    stored = await games.fact_set(str(game_id), role)
+    by_role = {str(each.role): each for each in stored.facts.chain.by_role}
+    logged = await games.decision_log(str(game_id))
+    capped = get_settings().feature_capacity
+    roles = []
+    # Fabrikk first: the chain is stored the customer's end first.
+    for each in reversed(found.settings.roles):
+        own = sorted((e for e in logged if str(e.role) == str(each)), key=lambda e: e.week)
+        fact = by_role[str(each)]
+        roles.append(
+            ChainRoleOut(
+                role=each,
+                amplification=fact.amplification,
+                first_large_order_week=fact.first_large_order_week,
+                capacity=found.settings.capacity_of(each) if capped else None,
+                weeks=[
+                    ChainWeekOut(
+                        week=e.week,
+                        order=e.order,
+                        incoming_order=e.state_seen.incoming_order,
+                        inventory=e.state_seen.inventory,
+                        backlog=e.state_seen.backlog,
+                        supply_line=e.state_seen.supply_line,
+                    )
+                    for e in own
+                ],
+            )
+        )
+    return ChainOut(
+        own_role=Role(role),
+        last_week=stored.facts.chain.weeks,
+        large_order=LARGE_ORDER,
+        roles=roles,
+    )
 
 
 async def _reveal(game_id: uuid.UUID, role: str) -> RevealOut:

@@ -18,6 +18,7 @@ import { Switch } from "./switch";
 import { ViewToggle } from "./view-toggle";
 import { LoadingNote, Skeleton } from "./skeleton";
 import { TextField } from "./text-field";
+import { scrubKey, WeekScrubber } from "./week-scrubber";
 
 describe("Switch", () => {
   const render = (checked: boolean) =>
@@ -408,5 +409,38 @@ describe("ChainBill (Kjedens regning, Story 6.18)", () => {
     const html = renderToStaticMarkup(<ChainBill rows={[row("retailer", "Detaljist")]} chain={chain} titleId="b" extraRows={extra} />);
     expect(html.indexOf("data-extra")).toBeLessThan(html.indexOf("<tfoot>"));
     expect(renderToStaticMarkup(<ChainBill rows={[]} chain={chain} titleId="b" />)).not.toContain("data-extra");
+  });
+});
+
+describe("Ukeskrubber (Story 9.5, UX-DR34)", () => {
+  const scrubber = (value: number) =>
+    renderToStaticMarkup(
+      <WeekScrubber value={value} last={36} onChange={() => {}} label="Velg uke" weekText={(w) => `Uke ${w}`} back="Én uke tilbake" forward="Én uke fram" />,
+    );
+
+  it("is a slider named «Velg uke» from Uke 1 to the last Uke, with step buttons at the ends", () => {
+    const html = scrubber(15);
+    expect(html).toMatch(/role="slider"[^>]*aria-label="Velg uke"[^>]*aria-valuemin="1"[^>]*aria-valuemax="36"[^>]*aria-valuenow="15"[^>]*aria-valuetext="Uke 15"/);
+    expect(html).toContain('aria-label="Én uke tilbake"');
+    expect(html).toContain('aria-label="Én uke fram"');
+    expect(html).toContain("min-h-tap-target-min");
+    expect(html).toContain(">Uke 1<");
+    expect(html).toContain(">Uke 36<");
+    // At an end, that step button cannot act but keeps its focus.
+    expect(scrubber(1)).toMatch(/aria-disabled="true"[^>]*aria-label="Én uke tilbake"/);
+    expect(scrubber(36)).toMatch(/aria-disabled="true"[^>]*aria-label="Én uke fram"/);
+  });
+
+  it("moves by the keys, clamped to the game", () => {
+    expect(scrubKey("ArrowLeft", 15, 36)).toBe(14);
+    expect(scrubKey("ArrowDown", 15, 36)).toBe(14);
+    expect(scrubKey("ArrowRight", 15, 36)).toBe(16);
+    expect(scrubKey("ArrowUp", 36, 36)).toBe(36);
+    expect(scrubKey("PageDown", 3, 36)).toBe(1);
+    expect(scrubKey("PageUp", 34, 36)).toBe(36);
+    expect(scrubKey("PageUp", 15, 36)).toBe(19);
+    expect(scrubKey("Home", 15, 36)).toBe(1);
+    expect(scrubKey("End", 15, 36)).toBe(36);
+    expect(scrubKey("a", 15, 36)).toBeNull();
   });
 });

@@ -660,6 +660,94 @@
         "title": "BouncedRegistration",
         "type": "string"
       },
+      "ChainOut": {
+        "description": "Step 3, the whole chain (Story 9.5, FR-44, UX-DR33, UX-DR34): all four Roles, Fabrikk\nfirst (upstream first, the order the Ordrestolper rows and the scrubber's reading take), each\nwith every logged Uke, oldest first. Every number is the api's (AD-10).",
+        "properties": {
+          "large_order": {
+            "title": "Large Order",
+            "type": "integer"
+          },
+          "last_week": {
+            "title": "Last Week",
+            "type": "integer"
+          },
+          "own_role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/ChainRoleOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "own_role",
+          "last_week",
+          "large_order",
+          "roles"
+        ],
+        "title": "ChainOut",
+        "type": "object"
+      },
+      "ChainRoleOut": {
+        "description": "One Role of the whole chain: every Uke, and from the stored facts set (Story 9.1, AD-7) its\nForsterkning and the first Uke with an Order of `large_order` or more.",
+        "properties": {
+          "amplification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amplification"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "first_large_order_week": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Large Order Week"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/ChainWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "role",
+          "amplification",
+          "first_large_order_week",
+          "capacity",
+          "weeks"
+        ],
+        "title": "ChainRoleOut",
+        "type": "object"
+      },
       "ChainWeekCost": {
         "additionalProperties": false,
         "description": "The chain's cost from Uke 1 through `week`, summed over its Roles.",
@@ -688,6 +776,45 @@
           "week"
         ],
         "title": "ChainWeekCost",
+        "type": "object"
+      },
+      "ChainWeekOut": {
+        "description": "One Uke of one Role in the whole chain (Story 9.5): its Order and the Week state it saw\nwhen it ordered (the Decision log's `state_seen`, as the play screen showed it).",
+        "properties": {
+          "backlog": {
+            "title": "Backlog",
+            "type": "integer"
+          },
+          "incoming_order": {
+            "title": "Incoming Order",
+            "type": "integer"
+          },
+          "inventory": {
+            "title": "Inventory",
+            "type": "integer"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "supply_line": {
+            "title": "Supply Line",
+            "type": "integer"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "order",
+          "incoming_order",
+          "inventory",
+          "backlog",
+          "supply_line"
+        ],
+        "title": "ChainWeekOut",
         "type": "object"
       },
       "Choice": {
@@ -1659,8 +1786,18 @@
         "type": "string"
       },
       "DebriefStepOut": {
-        "description": "A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2\ncarries the reveal (Story 9.4); steps 3 to 5 get their content with Stories 9.5 to 9.9 and\nuntil then answer the step number only.",
+        "description": "A Debrief step after step 1, reached only with a saved Explanation (FR-41, FR-43). Step 2\ncarries the reveal (Story 9.4), step 3 the whole chain (Story 9.5); steps 4 and 5 get their\ncontent with Stories 9.7 to 9.9 and until then answer the step number only.",
         "properties": {
+          "chain": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChainOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "debrief_id": {
             "format": "uuid",
             "title": "Debrief Id",
@@ -10742,7 +10879,7 @@
     },
     "/api/debriefs/{debrief_id}/steps/{step}": {
       "get": {
-        "description": "A Debrief step after step 1 (FR-41, FR-43): 403 `explanation_required` until the Student's\nExplanation is saved, checked here and not only in the web app. Step 2 carries `reveal`: the\nheading rendered from the demand series and Kundene, Ordre inn and Din ordre per Uke of the\nStudent's own Seat (Story 9.4, FR-44).",
+        "description": "A Debrief step after step 1 (FR-41, FR-43): 403 `explanation_required` until the Student's\nExplanation is saved, checked here and not only in the web app. Step 2 carries `reveal`: the\nheading rendered from the demand series and Kundene, Ordre inn and Din ordre per Uke of the\nStudent's own Seat (Story 9.4, FR-44). Step 3 carries `chain`: every Role's Orders and Week\nstates, Fabrikk first, with Forsterkning and the first large Order from the stored facts set\n(Story 9.5, FR-44, AD-7).",
         "operationId": "getDebriefStep",
         "parameters": [
           {

@@ -38,8 +38,12 @@ async function revealed(page: Page, { failures = 0, sent = true } = {}) {
   await page.route(`**/api/debriefs/${DEBRIEF}/steps/2`, (route) => {
     asked.push(route.request().url());
     if (left-- > 0) return route.fulfill({ status: 500, json: { error: { code: "internal_error", message: "x", fields: {} } } });
-    return route.fulfill({ json: { debrief_id: DEBRIEF, step: 2, reveal: REVEAL } });
+    return route.fulfill({ json: { debrief_id: DEBRIEF, step: 2, reveal: REVEAL, chain: null } });
   });
+  // Step 3 is `debrief-chain.spec.ts`; here it has nothing to show.
+  await page.route(`**/api/debriefs/${DEBRIEF}/steps/3`, (route) =>
+    route.fulfill({ json: { debrief_id: DEBRIEF, step: 3, reveal: null, chain: null } }),
+  );
   return { asked, unroute: () => page.unrouteAll({ behavior: "ignoreErrors" }) };
 }
 

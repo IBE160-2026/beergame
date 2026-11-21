@@ -53,4 +53,15 @@ The Debrief (Epic 9, FR-41 to FR-47, AD-21). Never imports `modules/players`
   lock (`content.sentence_templates`, the latest for a session locked before the pin), and per
   logged Uke of the Student's own Seat: Kundene (`demand_series[week - 1]`), Ordre inn
   (`state_seen.incoming_order`) and Din ordre (`order`), with the largest own Order and its
-  first Uke. No other Seat's numbers. Steps 3 to 5 answer `reveal: null` until their stories.
+  first Uke. No other Seat's numbers. Steps 3 to 5 answer `reveal: null`.
+
+## The whole chain (Story 9.5, FR-44, AD-7, UX-DR33, UX-DR34)
+
+- `GET /api/debriefs/{id}/steps/3` answers `chain` behind `require_explanation`: every Role,
+  Fabrikk first, with per logged Uke its Order and the Week state it saw when ordering
+  (`state_seen`: Ordre inn, Lager, Restordre, På vei), and Forsterkning and the first Uke with an
+  Order of 10 or more read from the stored facts set (`games.service.fact_set`: the first read of
+  a Seat builds and stores it through `games.facts.get_or_create`, whose unique insert lets a
+  racing second read return the stored row; the Debrief never computes facts itself). `capacity` is the Game's cap per Role while
+  `FEATURE_CAPACITY` is on, null otherwise. `last_week` is the scrubber's range. Steps 4 and 5
+  answer `chain: null` until their stories.
