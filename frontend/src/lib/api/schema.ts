@@ -3370,6 +3370,13 @@ export interface components {
             role: components["schemas"]["Role"];
         };
         /**
+         * SeatMark
+         * @description What a Seat's row says beyond its holder (AD-15, Story 6.14), from the one mapping
+         *     `games.service.seat_mark`. Later stories add the marks they need.
+         * @enum {string}
+         */
+        SeatMark: "guard_switch";
+        /**
          * SeatRef
          * @description A Seat named by its Class game's number and its Role: «Grossist i Spill 17».
          */
@@ -3658,6 +3665,11 @@ export interface components {
             /** Seats */
             seats: components["schemas"]["TableSeatOut"][];
             /**
+             * Server Now
+             * Format: date-time
+             */
+            server_now: string;
+            /**
              * Status
              * @enum {string}
              */
@@ -3708,11 +3720,16 @@ export interface components {
              * @enum {string}
              */
             holder: "student" | "ai" | "free";
+            mark: components["schemas"]["SeatMark"] | null;
             /** Mine */
             mine: boolean;
             /** Name */
             name: string | null;
+            /** Ordered */
+            ordered: boolean | null;
             role: components["schemas"]["Role"];
+            /** Wait Started At */
+            wait_started_at: string | null;
         };
         /**
          * TableStatusOut

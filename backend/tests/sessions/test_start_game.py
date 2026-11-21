@@ -43,7 +43,15 @@ async def test_a_student_starts_the_game_and_everyone_in_it_hears_of_it(klass, e
     assert response.status_code == 200
     started = response.json()
     assert (started["status"], started["week"]) == ("running", 1)
-    assert started["id"] == game["id"] and started["seats"] == game["seats"]
+
+    # The same Seats; now that it runs, each also tells whether it has ordered (Story 6.14).
+    def people(seats: list[dict]) -> list[tuple]:
+        return [(s["role"], s["holder"], s["name"], s["mine"]) for s in seats]
+
+    assert started["id"] == game["id"]
+    assert people(started["seats"]) == people(game["seats"])
+    assert {s["ordered"] for s in game["seats"]} == {None}
+    assert {s["ordered"] for s in started["seats"]} == {True, False}
     [stored] = games_of(session_id)
     assert stored[2] == "running"
     # The command's events: the game, its Class session and both seated Students (AD-8).

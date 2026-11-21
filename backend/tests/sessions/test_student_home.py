@@ -71,7 +71,9 @@ async def test_from_the_start_date_the_student_sees_game_role_and_seats(klass):
     assert [s["state"] for s in item["steps"]] == ["current", *["locked"] * 5]
     # The game route gives the same card; another User's view differs only in `mine`.
     own = await game_of(email(0), stored[0])
-    assert own.status_code == 200 and own.json() == game
+    # The same game, read a moment later on the server's clock (Story 6.14).
+    assert own.status_code == 200
+    assert own.json() | {"server_now": None} == game | {"server_now": None}
     other = (await game_of(email(1), stored[0])).json()
     [theirs] = [seat for seat in other["seats"] if seat["mine"]]
     assert theirs["role"] == other["role"] != game["role"] and theirs["holder"] == "student"
@@ -174,7 +176,8 @@ async def test_the_briefing_comes_first_until_the_starting_task_is_done(klass):
     await sweep.run(START + MINUTE)
     game = (await home(email(0)))["game"]
     assert game["briefing_first"] is True and game["rules"] == CLASSIC_RULES
-    assert (await game_of(email(0), game["id"])).json() == game
+    later = (await game_of(email(0), game["id"])).json()
+    assert later | {"server_now": None} == game | {"server_now": None}
     # The rules hold only what the briefing states: no Weeks, demand, seed or largest Order.
     assert set(game["rules"]) == set(CLASSIC_RULES)
     await progress.record_step(seated[0], uuid.UUID(session_id), "starting_task", NOW)

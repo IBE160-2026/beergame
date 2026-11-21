@@ -106,25 +106,37 @@
         "role": "factory",
         "holder": "ai",
         "name": null,
-        "mine": false
+        "mine": false,
+        "ordered": true,
+        "wait_started_at": null,
+        "mark": null
       },
       {
         "role": "distributor",
         "holder": "student",
         "name": "Jonas Berg",
-        "mine": false
+        "mine": false,
+        "ordered": false,
+        "wait_started_at": null,
+        "mark": null
       },
       {
         "role": "wholesaler",
         "holder": "student",
         "name": "Demo Student",
-        "mine": true
+        "mine": true,
+        "ordered": false,
+        "wait_started_at": null,
+        "mark": null
       },
       {
         "role": "retailer",
         "holder": "ai",
         "name": null,
-        "mine": false
+        "mine": false,
+        "ordered": true,
+        "wait_started_at": null,
+        "mark": null
       }
     ]
   },

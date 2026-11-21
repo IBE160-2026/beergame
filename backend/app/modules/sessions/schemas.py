@@ -10,7 +10,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
 
 from app.engine import GameSettings
 from app.engine.settings import Role
-from app.modules.games.service import Lifecycle, SeatState
+from app.modules.games.service import Lifecycle, SeatMark, SeatState
 
 
 class AiMode(StrEnum):
@@ -362,6 +362,14 @@ class TableSeatOut(BaseModel):
     """The Student's name now; None for an AI player, a free Seat, or a Student no longer in the
     Class."""
     mine: bool
+    ordered: bool | None
+    """Story 6.14 (FR-25): whether the Seat has ordered in the open Week (in a Guided Week the
+    Student's view counts); None when the game is not running."""
+    wait_started_at: AwareDatetime | None
+    """When the game began to wait for the Seat (the stored time; the web app counts the wait
+    from `server_now`); None once ordered, before any Student ordered, or not running."""
+    mark: SeatMark | None
+    """`guard_switch`: an AI Seat the Play guard gave a rule-based KI-spiller; else None."""
 
 
 class GameRulesOut(BaseModel):
@@ -397,6 +405,8 @@ class StudentGameOut(BaseModel):
     `running` (also while it plays out), or `finished`."""
     week: int | None
     """The open Week while `running`, else None. Never the number of Weeks (FR-14)."""
+    server_now: AwareDatetime
+    """The database clock when the game was read (Story 6.14): the Seats' waits count from it."""
 
 
 class TableStatusOut(BaseModel):
@@ -437,8 +447,9 @@ class PlayOut(BaseModel):
     """The database clock when the envelope was read, the clock every stored time is on (AD-20):
     durations are counted from it, never from the browser's clock."""
     next_change_at: AwareDatetime | None
-    """The nearest time at which the envelope changes by time alone; None while nothing is due
-    (Story 6.14 adds the due times)."""
+    """The nearest time at which the envelope changes by time alone (Story 6.14): the earliest
+    stored AI deadline of a Seat that has not ordered, while it lies after `server_now`; None
+    while nothing is due. The web app reads the envelope again then."""
 
 
 StegeneStep = Literal["class_game", "debrief", "quiz", "replay", "test", "report"]

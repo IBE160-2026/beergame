@@ -17,6 +17,7 @@ from app.modules.games.checks import (
     rules_versions_without_package,
     verify_finished,
 )
+from app.modules.games.marks import seat_mark
 from app.modules.games.policy import GamePolicy, PurposeNotSupportedError, policy
 from app.modules.games.schemas import (
     DecidedBy,
@@ -32,6 +33,7 @@ from app.modules.games.schemas import (
     OrderPlaced,
     PendingTurn,
     Purpose,
+    SeatMark,
     SeatOverview,
     SeatState,
     SessionRuntime,
@@ -70,6 +72,7 @@ __all__ = [
     "PendingTurn",
     "Purpose",
     "PurposeNotSupportedError",
+    "SeatMark",
     "SeatOverview",
     "SeatState",
     "SessionRuntime",
@@ -110,6 +113,7 @@ __all__ = [
     "pending_turn",
     "policy",
     "rules_versions_without_package",
+    "seat_mark",
     "seat_state",
     "verify_finished",
 ]

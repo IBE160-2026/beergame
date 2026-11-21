@@ -1191,6 +1191,8 @@ async def _place(
     )
     if decider is DecidedBy.LLM:
         await _run_play_guard(session, game, settings, row, week)
+    if decider is DecidedBy.STUDENT:
+        await _start_waits(session, game, week)
     lifecycle, open_week = Lifecycle(game["lifecycle"]), week
     if advance_week and await _week_complete(session, game, week):
         lifecycle, open_week = await _step(session, game, settings, params, states)
@@ -1384,6 +1386,7 @@ async def view_week(game_id: str, seat: Role | str, week: int, *, actor: uuid.UU
             # started before Story 6.10): place it now, so the view can complete the Week.
             await _ensure_order(OpenGame(session=session, game_id=game_uuid), row["id"])
         await repo.set_viewed_at(session, turn["id"])
+        await _start_waits(session, game, week)
         advanced = await _week_complete(session, game, week)
         if advanced:
             await _step(session, game, settings, params, states)
@@ -1401,6 +1404,30 @@ async def view_week(game_id: str, seat: Role | str, week: int, *, actor: uuid.UU
     log.info("week_viewed", game_id=game_id, seat_id=str(row["id"]), week=week, advanced=advanced)
     await _settle(game_id)
     return True
+
+
+async def _start_waits(session: AsyncSession, game: Mapping[str, Any], week: int) -> None:
+    """A Student has ordered in `week`, or viewed it as a Guided Week: from now the game waits
+    for every Seat that has not ordered (`rules.has_ordered`). Each such turn without a wait
+    start gets one, from `rules.turn_times` with this transaction's clock as the clock start
+    (Story 6.14, FR-25, AD-20); one already set stays, so the first Student's moment counts."""
+    guided = rules.guided_week(
+        _policy(game["purpose"]), GameSettings.model_validate(game["settings"]), week
+    )
+    turns = await repo.week_turns_with_occupant(session, game["id"], week)
+    waiting = [
+        turn
+        for turn in turns
+        if turn["wait_started_at"] is None and not rules.has_ordered(turn, guided=guided)
+    ]
+    if not waiting:
+        return
+    inputs = rules.TurnInputs(clock_start=await repo.now(session))
+    for turn in waiting:
+        kind = OccupantKind(turn["occupant_kind"] or OccupantKind.RULE_BASED)
+        seat = rules.TurnSeat(occupant_kind=kind, opened_at=turn["opened_at"])
+        times = rules.turn_times(rules.TurnGame(guided_week=guided), seat, inputs)
+        await repo.set_wait_started_at(session, turn["id"], times.wait_started_at)
 
 
 async def _unviewed_guided_student(

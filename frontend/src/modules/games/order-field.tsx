@@ -40,6 +40,9 @@ type Props = {
   failure?: string | null;
   /** The last send failed: the button offers to send the same value again. */
   retry?: boolean;
+  /** Whom else the game waits for, in words, once the Order is sent: «Jonas (3 min)» (Story
+   * 6.14); null when it waits for no one else. */
+  waitingFor?: string | null;
 };
 
 /**
@@ -55,7 +58,7 @@ type Props = {
 export function OrderField(props: Props) {
   const { week, turn } = props;
   if (turn.order != null && turn.guided) return <ReadOnly week={week} order={turn.order} />;
-  if (turn.order != null) return <Confirmed order={turn.order} />;
+  if (turn.order != null) return <Confirmed order={turn.order} waitingFor={props.waitingFor ?? null} />;
   if (turn.guided) return null;
   // A new Uke starts the field afresh: no reason or announcement carries over.
   return <Editable key={week} {...props} />;
@@ -89,13 +92,15 @@ function ReadOnly({ week, order }: { week: number; order: number }) {
 /** Confirmed (Story 6.12, EXPERIENCE.md → State Patterns → Spill, `06-spilldynamikk.png` C): the
  * Order is sent and cannot change. «Ordren på 24 er sendt.» is where the play screen puts focus
  * right after the send (`tabindex="-1"`, `data-order-sent`, read on focus), with what happens
- * next under it. The table and the Kjedebånd keep showing the Order. «Venter på …» comes with
- * Setestatus (Story 6.14). */
-function Confirmed({ order }: { order: number }) {
+ * next under it. The table and the Kjedebånd keep showing the Order. While the game waits for
+ * others it names them with the wait: «Ordren på 24 er sendt. Venter på Jonas (3 min).» (Story
+ * 6.14, never «Venter på andre spillere …»). */
+function Confirmed({ order, waitingFor }: { order: number; waitingFor: string | null }) {
+  const value = formatNumber(order);
   return (
     <div className="mt-8 mb-8 max-w-md lg:mt-0" data-order-field="confirmed">
       <p data-order-sent="" tabIndex={-1} className="text-body-phone font-bold text-ink outline-none lg:text-body">
-        {copy.sent(formatNumber(order))}
+        {waitingFor ? copy.sentWaiting(value, waitingFor) : copy.sent(value)}
       </p>
       <p className="mt-2 text-caption text-ink-secondary">{copy.next}</p>
     </div>

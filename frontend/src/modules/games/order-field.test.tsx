@@ -114,6 +114,12 @@ describe("Ordrefelt, sending and confirmed (Story 6.12)", () => {
     expect(html).not.toContain("<button");
     expect(html).not.toContain(copy.guided);
   });
+
+  it("confirmed while the game waits for others names them with the wait (Story 6.14)", () => {
+    const html = render("", { turn: { guided: false, order: 24, viewed: false }, waitingFor: "Jonas (3 min)" });
+    expect(html).toMatch(/data-order-sent=""[^>]*>Ordren på 24 er sendt\. Venter på Jonas \(3 min\)\.<\/p>/);
+    expect(html).not.toContain("andre spillere");
+  });
 });
 
 describe("Ordrefelt, a send that did not place the Order (Story 6.13)", () => {

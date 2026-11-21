@@ -3876,6 +3876,14 @@
         "title": "SeatChoiceSeatOut",
         "type": "object"
       },
+      "SeatMark": {
+        "description": "What a Seat's row says beyond its holder (AD-15, Story 6.14), from the one mapping\n`games.service.seat_mark`. Later stories add the marks they need.",
+        "enum": [
+          "guard_switch"
+        ],
+        "title": "SeatMark",
+        "type": "string"
+      },
       "SeatRef": {
         "description": "A Seat named by its Class game's number and its Role: «Grossist i Spill 17».",
         "properties": {
@@ -4526,6 +4534,11 @@
             "title": "Seats",
             "type": "array"
           },
+          "server_now": {
+            "format": "date-time",
+            "title": "Server Now",
+            "type": "string"
+          },
           "status": {
             "enum": [
               "not_ready",
@@ -4556,7 +4569,8 @@
           "briefing_first",
           "rules",
           "status",
-          "week"
+          "week",
+          "server_now"
         ],
         "title": "StudentGameOut",
         "type": "object"
@@ -4628,6 +4642,16 @@
             "title": "Holder",
             "type": "string"
           },
+          "mark": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeatMark"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "mine": {
             "title": "Mine",
             "type": "boolean"
@@ -4643,15 +4667,41 @@
             ],
             "title": "Name"
           },
+          "ordered": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordered"
+          },
           "role": {
             "$ref": "#/components/schemas/Role"
+          },
+          "wait_started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait Started At"
           }
         },
         "required": [
           "role",
           "holder",
           "name",
-          "mine"
+          "mine",
+          "ordered",
+          "wait_started_at",
+          "mark"
         ],
         "title": "TableSeatOut",
         "type": "object"

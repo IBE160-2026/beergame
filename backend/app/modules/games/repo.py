@@ -97,6 +97,7 @@ async def seats_with_occupant(session: AsyncSession, game_id: uuid.UUID) -> list
             latest.c.occupant_kind,
             latest.c.policy_id,
             latest.c.user_id,
+            latest.c.reason,
         )
         .select_from(seats.outerjoin(latest, latest.c.seat_id == seats.c.id))
         .where(seats.c.game_id == game_id)
@@ -114,6 +115,7 @@ def _latest_occupancy(*where: Any) -> Any:
             seat_occupancy.c.occupant_kind,
             seat_occupancy.c.policy_id,
             seat_occupancy.c.user_id,
+            seat_occupancy.c.reason,
         )
         .where(*where)
         .ext(distinct_on(seat_occupancy.c.seat_id))
@@ -419,6 +421,15 @@ async def set_viewed_at(session: AsyncSession, turn_id: uuid.UUID) -> Any:
         .returning(seat_turns.c.viewed_at)
     )
     return result.scalar_one()
+
+
+async def set_wait_started_at(session: AsyncSession, turn_id: uuid.UUID, at: Any) -> None:
+    """Store when the game began to wait for the turn's Seat (Story 6.14), only while unset."""
+    await session.execute(
+        update(seat_turns)
+        .where(seat_turns.c.id == turn_id, seat_turns.c.wait_started_at.is_(None))
+        .values(wait_started_at=at)
+    )
 
 
 async def set_ordered_at(session: AsyncSession, turn_id: uuid.UUID) -> Any:

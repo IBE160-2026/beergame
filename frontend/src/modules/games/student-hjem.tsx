@@ -13,7 +13,9 @@ import { homeLine } from "@/modules/sessions/seat-choice";
 import { roleName } from "@/modules/sessions/sessions";
 
 import { GameAction } from "./game-action";
-import { deadlineText, gameTitle, holderText, labHourText, type NextAction, nextAction, stepItems } from "./home";
+import { deadlineText, gameTitle, labHourText, type NextAction, nextAction, stepItems } from "./home";
+import { useServerNow } from "./seat-status";
+import { GameSeatStatus } from "./seat-status-view";
 
 /** The next actions that are a control; «not ready» is a line only. */
 const PRIMARY_ACTIONS: ReadonlySet<NextAction> = new Set(["rules", "start", "play"]);
@@ -143,7 +145,8 @@ function SessionBlock({
   );
 }
 
-/** «Spill 17 · Du er Grossist» and «Setene»: each Seat's Role and who holds it, in words. */
+/** «Spill 17 · Du er Grossist» and «Setene»: each Seat's Role, who holds it and, while the game
+ * runs, whether it has ordered this Uke and how long the game has waited for it (Story 6.14). */
 function GameCard({
   game,
   session,
@@ -154,6 +157,7 @@ function GameCard({
   primary: boolean;
 }) {
   const seatsId = `seats-${session.id}`;
+  const now = useServerNow(game.server_now);
   const drawn = homeLine(session);
   return (
     <div className="mt-2">
@@ -162,21 +166,8 @@ function GameCard({
       {drawn?.kind === "drawn" ? (
         <p className="mt-1 text-body-phone text-ink-secondary lg:text-body">{drawn.text}</p>
       ) : null}
-      <section aria-labelledby={seatsId} className="mt-4">
-        <h4 id={seatsId} className="text-label font-semibold text-ink">
-          {copy.seats}
-        </h4>
-        <ul className="mt-2 flex flex-col gap-1">
-          {game.seats.map((seat) => (
-            <li key={seat.role} className="flex flex-wrap gap-x-4 text-body-phone lg:text-body">
-              <span className="min-w-[6.5rem] text-ink">{roleName(seat.role)}</span>
-              <span className={seat.holder === "student" && seat.name ? "break-words text-ink" : "text-ink-secondary"}>
-                {holderText(seat)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {/* Story 6.14: the Setestatus, as on the play screen. */}
+      <GameSeatStatus seats={game.seats} now={now} titleId={seatsId} level={4} className="mt-4" />
       <GameAction game={game} primary={primary} />
       {/* Story 6.2: once the briefing no longer comes first, it stays a Lenke. */}
       {game.briefing_first ? null : (

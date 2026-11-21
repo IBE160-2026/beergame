@@ -359,6 +359,27 @@ export const nb = {
       removed: "Ikke lenger i Klassen",
       /** After the Student's own name on their Seat: «Sara (deg)». [ASSUMPTION] */
       you: (name: string) => `${name} (deg)`,
+      /** Setestatus (Story 6.14, FR-25, UX-DR25, EXPERIENCE.md → Setestatus): the status words and
+       * «Venter på: Jonas (3 min) og deg.» are the spine's; `guardSwitched` and the duration units
+       * are [ASSUMPTION] draft copy. */
+      status: {
+        ordered: "har bestilt",
+        waiting: "venter",
+        waitingFor: (duration: string) => `venter, ${duration}`,
+        waitingYou: "venter (deg)",
+      },
+      /** A Seat whose LLM player the Play guard switched (FR-79). [ASSUMPTION] */
+      guardSwitched: "KI-spiller (regelbasert)",
+      duration: {
+        underMinute: "under 1 min",
+        minutes: (n: number) => `${n} min`,
+        hours: (n: number) => `${n} t`,
+        days: (n: number) => `${n} d`,
+      },
+      /** One waited-for Seat in «Venter på»: «Jonas (3 min)», «Fabrikk», «deg». */
+      waitedFor: (who: string, duration: string | null) => (duration ? `${who} (${duration})` : who),
+      waitingYou: "deg",
+      waitingOn: (who: string) => `Venter på: ${who}.`,
       steps: "Stegene",
       stepNames: {
         class_game: "Klassespill",
@@ -1499,11 +1520,13 @@ export const nb = {
         confirm: "Bekreft ordre",
         confirmOn: (value: string) => `Bekreft ordre på ${value}`,
         arrives: (week: number) => `Kommer fram om lag Uke ${week}. Kan ikke endres etter at du har bekreftet.`,
-        /** Submitting and Confirmed (Story 6.12, EXPERIENCE.md → State Patterns → Spill). The
-         * «Venter på …» part comes with Setestatus (Story 6.14). `next` is [ASSUMPTION] draft copy
-         * of 2026-11-14 (open-assumptions.md). */
+        /** Submitting and Confirmed (Story 6.12, EXPERIENCE.md → State Patterns → Spill). `next`
+         * is [ASSUMPTION] draft copy of 2026-11-14 (open-assumptions.md). */
         sending: (value: string) => `Sender ordre på ${value} …`,
         sent: (value: string) => `Ordren på ${value} er sendt.`,
+        /** Confirmed while the game waits for others (Story 6.14): «Ordren på 24 er sendt. Venter
+         * på Jonas (3 min).» */
+        sentWaiting: (value: string, who: string) => `Ordren på ${value} er sendt. Venter på ${who}.`,
         next: "Skjermen går videre når alle har bestilt. Du får e-post hvis spillet venter på deg.",
         /** A send that failed, timed out or found the device offline (Story 6.13, EXPERIENCE.md →
          * State Patterns → Spill, UX-DR60). The spine's strings, except `weekGone` and `seatGone`,

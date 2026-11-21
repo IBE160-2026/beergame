@@ -9,7 +9,16 @@ const copy = nb.homes.student;
 type Game = NonNullable<EnrolledSession["game"]>;
 type Seat = Game["seats"][number];
 
-const seat = (over: Partial<Seat>): Seat => ({ role: "wholesaler", holder: "student", name: "Sara", mine: false, ...over });
+const seat = (over: Partial<Seat>): Seat => ({
+  role: "wholesaler",
+  holder: "student",
+  name: "Sara",
+  mine: false,
+  ordered: null,
+  wait_started_at: null,
+  mark: null,
+  ...over,
+});
 
 describe("Hjem's game card (Story 6.1)", () => {
   it("names the game and the Student's Role", () => {
@@ -29,6 +38,7 @@ describe("Hjem's game card (Story 6.1)", () => {
       },
       status: "ready",
       week: null,
+      server_now: "2026-11-21T10:00:00Z",
     };
     expect(gameTitle(game)).toBe("Spill 17 · Du er Grossist");
   });

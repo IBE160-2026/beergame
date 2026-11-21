@@ -58,6 +58,14 @@ class OccupancyReason(StrEnum):
     row has no occupant kind; it is the only reason such a row has."""
 
 
+class SeatMark(StrEnum):
+    """What a Seat's row says beyond its holder (AD-15, Story 6.14), from the one mapping
+    `games.service.seat_mark`. Later stories add the marks they need."""
+
+    GUARD_SWITCH = "guard_switch"
+    """The Play guard switched the Seat's LLM player to a Rule-based player (FR-79)."""
+
+
 class DecidedBy(StrEnum):
     """Who decided an Order in the Decision log (AD-15)."""
 
@@ -439,6 +447,15 @@ class TableSeat(BaseModel):
     who is no longer in the Class."""
     mine: bool
     """Whether this is the viewer's own Seat (held now, or last held)."""
+    ordered: bool | None = None
+    """Whether the Seat has ordered in the open Week (`rules.has_ordered`: in a Guided Week a
+    Student's view counts); None when the Game is not running (Story 6.14)."""
+    wait_started_at: datetime | None = None
+    """When the game began to wait for the Seat in the open Week, the stored
+    `seat_turns.wait_started_at`; None once it has ordered, before any Student has ordered, or
+    when the Game is not running."""
+    mark: SeatMark | None = None
+    """The Seat's mark (`games.service.seat_mark`), e.g. a Play guard switch; None for most."""
 
 
 class TableStatus(BaseModel):
@@ -448,3 +465,6 @@ class TableStatus(BaseModel):
     model_config = _FROZEN
 
     seats: tuple[TableSeat, ...]
+    due_times: tuple[datetime, ...] = ()
+    """The stored AI deadlines of the Seats that have not ordered in the open Week, earliest
+    first: when an AI player's Order is due (the only due times before Epic 8)."""

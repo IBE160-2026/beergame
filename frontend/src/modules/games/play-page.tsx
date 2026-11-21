@@ -21,7 +21,9 @@ import { ChainBandView } from "./chain-band-view";
 import { GameAction } from "./game-action";
 import { OrderField } from "./order-field";
 import { lastOrder, parseOrder } from "./order-input";
-import { gameTitle, holderText } from "./home";
+import { gameTitle } from "./home";
+import { useServerNow, waitedFor } from "./seat-status";
+import { GameSeatStatus } from "./seat-status-view";
 import { ROWS } from "./week-table";
 import { WeekTable } from "./week-table-view";
 
@@ -38,8 +40,9 @@ const LINE = "text-body-phone lg:text-body";
  * Veiledet uke the Ordrefelt shows the fixed Order read-only, and the page tells the api once that
  * the Student has the Week on screen, which counts as their Order there (Story 6.10). After them
  * the Student types the Order, previewed in the table and the Kjedebånd (Story 6.11), kept as a
- * draft in this browser until it is sent, and sends it with «Bekreft ordre på 24» (Story 6.12);
- * later stories add Setestatus. A game that has not started, or that this Student may
+ * draft in this browser until it is sent, and sends it with «Bekreft ordre på 24» (Story 6.12).
+ * Under the Ordrefelt the Setestatus shows who has ordered this Uke and whom the game waits for, for
+ * how long (Story 6.14); the envelope is read again at its `next_change_at`. A game that has not started, or that this Student may
  * not play before the briefing and Starting task, shows its next action (briefing, «Start spillet» or the not-ready line); a finished one says so. The
  * page follows the game's `game:` events (`topics.ts`). Another Student's game shows the
  * permission-denied page.
@@ -131,6 +134,9 @@ const orderDraftField = (gameId: string, week: number) => `${orderDraftPrefix(ga
 
 function Running({ game, envelope, userId }: { game: MyGame; envelope: PlayEnvelope; userId: string }) {
   useGuidedView(game.id, envelope);
+  useRefetchAt(game.id, envelope);
+  const now = useServerNow(envelope.server_now);
+  const seats = envelope.table_status.seats;
   const state = envelope.seat_state;
   const turn = envelope.turn;
   const field = orderDraftField(game.id, state.week);
@@ -179,11 +185,13 @@ function Running({ game, envelope, userId }: { game: MyGame; envelope: PlayEnvel
           preview={editable ? preview : null}
           sending={send.sending === state.week}
           onConfirm={send.confirm}
+          waitingFor={waitedFor(seats, now, true)}
           {...outcomeProps(send.outcome, state.week)}
         />
+        {/* Through the whole Uke, before and after the own Order, right under the Ordrefelt. */}
+        <GameSeatStatus seats={seats} now={now} titleId={`seats-${game.id}`} className="max-w-md" />
         <PageLink href={rulesPath(game.id)}>{nb.games.briefing.title}</PageLink>
         <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
-        <Seats game={game} />
       </div>
     </div>
   );
@@ -369,6 +377,22 @@ function useGuidedView(gameId: string, envelope: PlayEnvelope) {
 /** How long a failed view waits before it is sent again. */
 const VIEW_RETRY_MS = 5000;
 
+/** Reads the envelope again when it says it changes by time alone (`next_change_at`, AD-8, AD-20):
+ * when an AI player's Order falls due. The wait is counted on the server's clock. */
+function useRefetchAt(gameId: string, envelope: PlayEnvelope) {
+  const queryClient = useQueryClient();
+  const due = envelope.next_change_at;
+  const from = envelope.server_now;
+  useEffect(() => {
+    if (!due) return;
+    const timer = setTimeout(
+      () => void queryClient.invalidateQueries({ queryKey: playKey(gameId), exact: true }),
+      Math.max(0, Date.parse(due) - Date.parse(from)),
+    );
+    return () => clearTimeout(timer);
+  }, [queryClient, gameId, due, from]);
+}
+
 function NotRunning({ game }: { game: MyGame }) {
   return (
     <>
@@ -378,29 +402,13 @@ function NotRunning({ game }: { game: MyGame }) {
       ) : (
         <GameAction game={game} primary />
       )}
-      <Seats game={game} />
+      <NotRunningSeats game={game} />
     </>
   );
 }
 
-/** «Setene»: the four Seats, Fabrikk first, each holder in words (FR-34, UX-DR69). */
-function Seats({ game }: { game: MyGame }) {
-  const id = `seats-${game.id}`;
-  return (
-    <section aria-labelledby={id} className="mt-8 max-w-md">
-      <h2 id={id} className="text-headline text-ink">
-        {nb.homes.student.seats}
-      </h2>
-      <ul className="mt-2 flex flex-col border-t border-hairline">
-        {game.seats.map((seat) => (
-          <li key={seat.role} className={`${LINE} flex flex-wrap gap-x-4 border-b border-hairline py-2`}>
-            <span className="min-w-[6.5rem] text-ink">{roleName(seat.role)}</span>
-            <span className={seat.holder === "student" && seat.name ? "break-words text-ink" : "text-ink-secondary"}>
-              {holderText(seat)}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
+/** «Setene» while the game does not run: who holds each Seat, with no order state. */
+function NotRunningSeats({ game }: { game: MyGame }) {
+  const now = useServerNow(game.server_now);
+  return <GameSeatStatus seats={game.seats} now={now} titleId={`seats-${game.id}`} className="mt-8 max-w-md" />;
 }

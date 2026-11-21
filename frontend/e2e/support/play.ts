@@ -10,7 +10,14 @@ import { loginByApi } from "./auth";
  * answered here and recorded; the api side of the send is `backend/tests/sessions/test_orders.py`. */
 export const GAME_ID = "01a1f8ee-34f2-70af-8800-f79281ed7a67";
 export const ORDER_PATH = `/api/me/games/${GAME_ID}/weeks/11/order`;
-export const confirmedWeek11 = { ...week11, turn: { ...week11.turn, order: 24 } };
+/** Uke 11 once the Grossist's 24 is stored: its Setestatus row has ordered (Story 6.14). */
+export const confirmedWeek11 = {
+  ...week11,
+  turn: { ...week11.turn, order: 24 },
+  table_status: {
+    seats: week11.table_status.seats.map((seat) => (seat.mine ? { ...seat, ordered: true } : seat)),
+  },
+};
 
 export type PlayStub = {
   /** What the next read of the play envelope gets. */
@@ -43,6 +50,7 @@ export async function openPlay(page: Page, login = true): Promise<PlayStub> {
         rules: { order_delay: 2, shipping_delay: 2, production_delay: 2, guided_weeks: 4, holding_cost: "0.50", backorder_cost: "1.00" },
         status: "running",
         week: 11,
+        server_now: week11.server_now,
       },
     }),
   );

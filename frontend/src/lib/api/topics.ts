@@ -36,9 +36,9 @@ export function topicKeys(event: ChangeEvent): QueryKey[] {
     case "session":
       return [classSessionKey(event.id), allocationKey(event.id), lecturerHomeKey, ["class-sessions", "of-class"]];
     // A Game: the Student's own game and what hangs under it (briefing, Starting task, the play
-    // screen's envelope).
+    // screen's envelope), and Hjem, whose Setestatus shows who has ordered (Story 6.14).
     case "game":
-      return [["games", "mine", event.id]];
+      return [["games", "mine", event.id], enrolledSessionsKey];
     default:
       return [];
   }

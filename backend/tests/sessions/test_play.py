@@ -122,7 +122,10 @@ async def test_the_envelope_is_the_own_seat_in_the_open_week_for_every_role(klas
             "wholesaler",
             "retailer",
         ]
-        assert all(set(seat) == {"role", "holder", "name", "mine"} for seat in seats)
+        assert all(
+            set(seat) == {"role", "holder", "name", "mine", "ordered", "wait_started_at", "mark"}
+            for seat in seats
+        )
         assert [seat["role"] for seat in seats if seat["mine"]] == [role]
         assert datetime.fromisoformat(body["server_now"]).tzinfo is not None
         assert body["next_change_at"] is None

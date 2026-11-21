@@ -1232,16 +1232,29 @@ async def _game_out(
         id=found.game_id,
         number=found.number,
         role=found.role,
-        seats=[
-            TableSeatOut(role=seat.role, holder=seat.holder, name=seat.name, mine=seat.mine)
-            for seat in table.seats
-        ],
+        seats=_seats_out(table),
         # Story 6.2: the briefing comes first until the Starting task is done (AD-16).
         briefing_first=progress.Step.STARTING_TASK not in done,
         rules=game_rules(row),
         status=play.status,
         week=play.week,
+        server_now=await games_service.database_now(s),
     )
+
+
+def _seats_out(table: games_service.TableStatus) -> list[TableSeatOut]:
+    return [
+        TableSeatOut(
+            role=seat.role,
+            holder=seat.holder,
+            name=seat.name,
+            mine=seat.mine,
+            ordered=seat.ordered,
+            wait_started_at=seat.wait_started_at,
+            mark=seat.mark,
+        )
+        for seat in table.seats
+    ]
 
 
 async def _own_locked_game(
@@ -1309,14 +1322,11 @@ async def student_play_of(user: authz.Principal, game_id: str) -> PlayOut | None
     return PlayOut(
         seat_state=state,
         turn=PlayTurnOut(guided=turn.guided, order=turn.order, viewed=turn.viewed_at is not None),
-        table_status=TableStatusOut(
-            seats=[
-                TableSeatOut(role=seat.role, holder=seat.holder, name=seat.name, mine=seat.mine)
-                for seat in table.seats
-            ]
-        ),
+        table_status=TableStatusOut(seats=_seats_out(table)),
         server_now=now,
-        next_change_at=None,
+        # Read again when an AI player's Order falls due (AD-8, AD-20); one already past is the
+        # rescue loop's to place, and its event says so.
+        next_change_at=next((due for due in table.due_times if due > now), None),
     )
 
 

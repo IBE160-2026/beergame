@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.engine import GameSettings, Role, WeekState, seat_detail, seat_view
 from app.modules.games import repo, rules
+from app.modules.games.marks import seat_mark
 from app.modules.games.policy import policy
 from app.modules.games.schemas import (
     DecisionLogRow,
@@ -219,11 +220,17 @@ async def table_status(
     """Who sits in each Seat of the Game, as `viewer_id` sees it (Story 6.1, AD-3): Fabrikk first
     (UX-DR73), a Student by the name `names` gives now, every AI player as an AI player with no
     kind, a Seat with no occupant as free. The viewer's own Seat is the one they hold now, else
-    the one they held last. Built at read time; never stored and never sent to an LLM."""
+    the one they held last. Built at read time; never stored and never sent to an LLM.
+
+    While the Game runs, each Seat also says whether it has ordered in the open Week
+    (`rules.has_ordered`), the stored wait start of a Seat that has not, and its mark
+    (`marks.seat_mark`); and the stored AI deadlines still open (Story 6.14, AD-20).
+    Nothing here computes a wait."""
     rows = await repo.seats_with_occupant(session, game_id)
     held = {row["role"]: row["user_id"] for row in rows}
     own = await repo.last_seat_of(session, game_id, viewer_id)
     found = await names(sorted({u for u in held.values() if u is not None}))
+    turns, guided = await _open_turns(session, game_id)
     seats = []
     for row in reversed(rows):  # chain order serves the customer first; Fabrikk leads here
         kind = row["occupant_kind"]
@@ -235,5 +242,39 @@ async def table_status(
             holder, name = "ai", None
         # A Seat another Student holds now is never the viewer's, even if the viewer held it once.
         mine = row["role"] == own and (holder != "student" or row["user_id"] == viewer_id)
-        seats.append(TableSeat(role=row["role"], holder=holder, name=name, mine=mine))
-    return TableStatus(seats=tuple(seats))
+        turn = turns.get(row["id"])
+        ordered = None if turn is None else rules.has_ordered(turn, guided=guided)
+        seats.append(
+            TableSeat(
+                role=row["role"],
+                holder=holder,
+                name=name,
+                mine=mine,
+                ordered=ordered,
+                wait_started_at=turn["wait_started_at"] if ordered is False else None,
+                mark=seat_mark(None, None, kind, row["reason"]),
+            )
+        )
+    due = sorted(
+        turn["ai_deadline_at"]
+        for turn in turns.values()
+        if turn["ai_deadline_at"] is not None and not rules.has_ordered(turn, guided=guided)
+    )
+    return TableStatus(seats=tuple(seats), due_times=tuple(due))
+
+
+async def _open_turns(
+    session: AsyncSession, game_id: uuid.UUID
+) -> tuple[dict[uuid.UUID, RowMapping], bool]:
+    """The open Week's turns by Seat id, each with its occupant in force, and whether it is a
+    Guided Week; none when the Game is not running."""
+    game = await repo.get_game(session, game_id)
+    if game is None or game["lifecycle"] not in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT):
+        return {}, False
+    week = await repo.open_week(session, game_id)
+    if week is None:
+        return {}, False
+    settings = GameSettings.model_validate(game["settings"])
+    guided = rules.guided_week(policy(game["purpose"]), settings, week)
+    turns = await repo.week_turns_with_occupant(session, game_id, week)
+    return {turn["seat_id"]: turn for turn in turns}, guided

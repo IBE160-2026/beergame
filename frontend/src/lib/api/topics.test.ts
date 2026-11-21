@@ -67,8 +67,9 @@ describe("topicKeys", () => {
     ]);
   });
 
-  it("maps game:<id> to that game and what hangs under it, the play envelope too", () => {
+  it("maps game:<id> to that game and what hangs under it, the play envelope too, and Hjem", () => {
     expect(invalidated({ topic: "game", id: "g1", version: 4 }, ALL)).toEqual([
+      enrolledSessionsKey,
       myGameKey("g1"),
       startingTaskKey("g1"),
       playKey("g1"),

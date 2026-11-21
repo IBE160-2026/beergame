@@ -70,7 +70,7 @@ PRE_SESSION_TABLES = (
     | ROSTER_TABLES
 )
 HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES | {"progress_steps"} | STARTING_TASK_TABLES
-HEAD = "0047"  # 0047 adds `seat_turns.viewed_at` (Story 6.10)
+HEAD = "0048"  # 0048 adds `seat_turns.wait_started_at` (Story 6.14)
 
 
 def reset_schema(url: str) -> None:
@@ -187,7 +187,15 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "UNIQUE (user_id, class_session_id, item_id)" in answers["uq_starting_task_answers_item"]
     # 0047 (Story 6.10): when a Student opened a Guided Week; the trigger keeps it once set.
     assert "viewed_at" in columns(url, "seat_turns")
+    # 0048 (Story 6.14): when the game began to wait for a Seat; the trigger keeps it once set.
+    assert "wait_started_at" in columns(url, "seat_turns")
+    [(trigger,)] = rows(url, "SELECT prosrc FROM pg_proc WHERE proname = 'seat_turns_keep_opening'")
+    assert "wait_started_at" in trigger and "viewed_at" in trigger
 
+    command.downgrade(cfg, "0047")
+    assert "wait_started_at" not in columns(url, "seat_turns")
+    [(trigger,)] = rows(url, "SELECT prosrc FROM pg_proc WHERE proname = 'seat_turns_keep_opening'")
+    assert "wait_started_at" not in trigger and "viewed_at" in trigger  # 0047's body again
     command.downgrade(cfg, "0046")
     assert "viewed_at" not in columns(url, "seat_turns")
     [(trigger,)] = rows(url, "SELECT prosrc FROM pg_proc WHERE proname = 'seat_turns_keep_opening'")
