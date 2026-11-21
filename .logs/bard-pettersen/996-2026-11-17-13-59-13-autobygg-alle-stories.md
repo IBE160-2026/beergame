@@ -1908,3 +1908,29 @@ Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en visuell kontrol
 
 ### Åpne punkter
 - Issue 135: beslutninger i Story 6.17.
+
+## Story 6.18: Se kjedens totalkostnad når spillet er ferdig (2026-11-21)
+
+### Oppgave
+Bygge Story 6.18 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en visuell kontroll og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-18-see-the-chains-total-cost-when-the-game-ends.md`.
+- **Commit 36d86e2:**
+  - slutten av spillet og steget «klassespill»;
+  - resultatruten;
+  - sluttskjermen med Kjedens regning og kostnad over tid;
+  - linja på Hjem.
+- **Tester:**
+  - backend: 2746 tester (65 s);
+  - frontend: Vitest 687 og bygg;
+  - Playwright: de berørte filene.
+- **Gjennomgang:** 25 funn, 2 middels. Begge er rettet.
+- **Visuell kontroll:** 21 skjermbilder i `screenshots/6.18/`. Ett avvik er rettet (696697e).
+- **Status:** done.
+
+### Åpne punkter
+- Issue 136: beslutninger i Story 6.18.
