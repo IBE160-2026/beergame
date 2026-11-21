@@ -10,7 +10,11 @@ Push invalidates, pull reads. The stream sends:
   sees SSE comments, so FastAPI's own pings do not do it).
 
 The scope is resolved on connect and again on each `user:<id>` event for the User; if the User is
-then deactivated (or the session is older than the User's session version) the stream ends.
+then deactivated (or the session is older than the User's session version) the stream ends. A
+staff member's stream also resolves it again on the first event of a `game:` or `session:` id
+outside it, once per id until the next resolve, so a Class session or Class game created after
+the stream connected (by a co-owner, say) is followed: one database read per new id per stream,
+never one per event.
 `session:<id>` is sent at most once per `COALESCE_S` per id. The stream holds no database session
 between those reads, and ends after a random 600 to 780 s so the browser reconnects before the
 host's 15-minute request limit.
@@ -20,7 +24,7 @@ import asyncio
 import random
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
@@ -36,6 +40,8 @@ COALESCE_S = 2.0
 LIFETIME_S = (600.0, 780.0)
 RETRY_MS = 2000
 """How long the browser waits before it reconnects, sent with `ready`."""
+UNKNOWN_MAX = 10_000
+"""How many ids outside a staff scope a stream remembers before it forgets them all."""
 
 
 @dataclass(frozen=True)
@@ -44,6 +50,8 @@ class Scope:
 
     games: frozenset[str]
     sessions: frozenset[str]
+    staff: bool = field(default=False, compare=False)
+    """Whether the User is staff of a Class: only then can a new id come into the scope."""
 
 
 async def resolve_scope(user_id: uuid.UUID) -> Scope:
@@ -53,8 +61,11 @@ async def resolve_scope(user_id: uuid.UUID) -> Scope:
             union(authz.seat_held_by(user_id), authz.class_games_staffed_by(user_id))
         )
         sessions = await s.scalars(authz.class_sessions_staffed_by(user_id))
+        staff = (await s.scalar(authz.classes_visible_to(user_id).limit(1))) is not None
         return Scope(
-            frozenset(str(g) for g in games.all()), frozenset(str(x) for x in sessions.all())
+            frozenset(str(g) for g in games.all()),
+            frozenset(str(x) for x in sessions.all()),
+            staff,
         )
 
 
@@ -96,6 +107,7 @@ async def events(
         next_beat = start + heartbeat
         last_session: dict[str, float] = {}  # session id -> when it was last sent
         pending: dict[str, Event] = {}  # session id -> the event waiting for its window
+        unknown: set[tuple[str, str]] = set()  # ids outside the scope since it was resolved
         yield ServerSentEvent(event="ready", raw_data="", retry=RETRY_MS)
         while True:
             now = loop.time()
@@ -121,9 +133,23 @@ async def events(
                 if not await still_active():
                     return
                 scope = await resolve()
+                unknown.clear()
                 # A Class session the User no longer staffs sends nothing more, not even a
                 # coalesced event already waiting for its window.
                 pending = {sid: e for sid, e in pending.items() if sid in scope.sessions}
+            if (
+                not allows(user_id, scope, event)
+                and scope.staff
+                and event.topic in ("game", "session")
+            ):
+                key = (event.topic, event.id)
+                if key not in unknown:
+                    # Maybe created after the scope was read: read it again, once per id.
+                    scope = await resolve()
+                    pending = {sid: e for sid, e in pending.items() if sid in scope.sessions}
+                    if len(unknown) >= UNKNOWN_MAX:
+                        unknown.clear()
+                    unknown.add(key)
             if not allows(user_id, scope, event):
                 continue
             if event.topic == "session":

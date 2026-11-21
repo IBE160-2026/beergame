@@ -176,6 +176,48 @@ async def test_the_scope_is_resolved_again_on_the_users_own_event():
     await gen.aclose()
 
 
+async def test_a_staff_scope_follows_a_session_created_after_it_connected():
+    """Follow-up review of Story 6.4 (deferred there): a co-owner's stream reads its scope again
+    on the first event of an id outside it, once per id; a Student's stream never does."""
+    source = FakeHub()
+    new_session = str(uuid.uuid7())
+    before = stream.Scope(frozenset({GAME}), frozenset({SESSION}), staff=True)
+    after = stream.Scope(frozenset({GAME}), frozenset({SESSION, new_session}), staff=True)
+    calls = []
+
+    async def resolve():
+        calls.append(1)
+        return before if len(calls) == 1 else after
+
+    gen = stream.events(ME, source, resolve, active, heartbeat=30, coalesce=30, lifetime=60)
+    await next_of(gen)
+    source.put("session", new_session)  # created by the other owner after connect
+    assert data(await next_of(gen)) == {"topic": "session", "id": new_session, "version": None}
+    for _ in range(3):
+        source.put("game", OTHER_GAME, 1)  # another Class's game: read once, then dropped
+    source.put("game", GAME, 5)
+    assert data(await next_of(gen))["id"] == GAME
+    assert len(calls) == 3
+    await gen.aclose()
+
+    calls.clear()
+    gen = stream.events(ME, source, _const(STUDENT_SCOPE, calls), active, heartbeat=30, lifetime=60)
+    await next_of(gen)
+    source.put("game", OTHER_GAME, 1)
+    source.put("user", ME)
+    assert data(await next_of(gen))["topic"] == "user"
+    assert len(calls) == 2  # on connect and on their own event only
+    await gen.aclose()
+
+
+def _const(scope, calls):
+    async def resolve():
+        calls.append(1)
+        return scope
+
+    return resolve
+
+
 @pytest.mark.parametrize(
     "payload",
     [
@@ -231,6 +273,7 @@ async def test_the_scope_names_own_games_and_the_staffs_sessions_and_games(klass
     assert student == stream.Scope(frozenset({game[0]}), frozenset())
     lecturer = await stream.resolve_scope(user_id(LECTURER))
     assert lecturer == stream.Scope(frozenset({game[0]}), frozenset({session_id}))
+    assert lecturer.staff and not student.staff
     assert await stream.resolve_scope(uuid.uuid7()) == stream.Scope(frozenset(), frozenset())
 
 
