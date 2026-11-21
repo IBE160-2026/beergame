@@ -42,7 +42,7 @@ import {
   messageLink,
   type OverviewGroup,
   seatTexts,
-  waitLines,
+  statusLines,
 } from "./overview";
 
 const copy = nb.overview;
@@ -419,7 +419,7 @@ function Group({
 function GameRow({ game, now, sessionId, tint }: { game: OverviewGame; now: number; sessionId: string; tint: boolean }) {
   const name = copy.game(game.game_number ?? null);
   const cost = costText(game);
-  const waits = waitLines(game, now);
+  const waits = statusLines(game, now);
   const message = messageLink(sessionId, game);
   return (
     <li

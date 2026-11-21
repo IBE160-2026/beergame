@@ -107,7 +107,19 @@ games = Table(
         nullable=True,
         index=True,
     ),
+    # The Pause in force (Story 8.6, FR-89): written by `games.commands.pause` and cleared by a
+    # Student's Order; `resume_at` is the Lecturer's agreed time (Story 8.7). Who ended the last
+    # Pause by ordering, and when, for «Pausen er over.» until the next Week opens. Ids only.
+    Column("paused_at", DateTime(timezone=True), nullable=True),
+    Column("paused_by", Uuid, nullable=True),
+    Column("resume_at", DateTime(timezone=True), nullable=True),
+    Column("pause_ended_at", DateTime(timezone=True), nullable=True),
+    Column("pause_ended_by", Uuid, nullable=True),
     CheckConstraint(_in("purpose", Purpose), name="ck_games_purpose"),
+    CheckConstraint(
+        "(paused_by IS NULL AND resume_at IS NULL) OR paused_at IS NOT NULL",
+        name="ck_games_pause",
+    ),
     CheckConstraint(_in("lifecycle", Lifecycle), name="ck_games_lifecycle"),
     CheckConstraint("version >= 0", name="ck_games_version"),
     CheckConstraint(SNAPSHOT_TOGETHER, name="ck_games_snapshot"),
@@ -346,7 +358,7 @@ game_summaries = Table(
     Column("class_session_id", Uuid, nullable=True, index=True),
     Column("game_number", Integer, nullable=True),
     Column("purpose", Text, nullable=False),
-    # `games.rules.game_status` (AD-2); Epic 8 adds `paused`.
+    # `games.rules.game_status` (AD-2), `paused` from Story 8.6.
     Column("status", Text, nullable=False),
     # The open Week while the Game runs, the finished state's Week once it has finished.
     Column("week", Integer, nullable=True),
@@ -363,6 +375,9 @@ game_summaries = Table(
     Column("chain_cost", Numeric(14, 4), nullable=True),
     Column("version", Integer, nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    # The Pause in force (Story 8.6): since when and by whom (an id; names are read at read time).
+    Column("paused_at", DateTime(timezone=True), nullable=True),
+    Column("paused_by", Uuid, nullable=True),
     CheckConstraint(_in("status", GameStatus), name="ck_game_summaries_status"),
 )
 """The Lecturer overview's read model (AD-25, Story 7.1): one row per Game, rewritten by

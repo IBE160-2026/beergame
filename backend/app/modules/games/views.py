@@ -8,6 +8,7 @@ import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +34,7 @@ from app.modules.games.schemas import (
     OccupantKind,
     RoleCost,
     SeatState,
+    TablePause,
     TableSeat,
     TableStatus,
     TurnOverview,
@@ -310,11 +312,15 @@ async def table_status(
     held = {row["role"]: row["user_id"] for row in rows}
     own = await repo.last_seat_of(session, game_id, viewer_id)
     histories = await repo.seat_histories(session, game_id)
-    named = {u for u in held.values() if u is not None} | {
-        h["last_student"] for h in histories.values() if h["last_student"] is not None
-    }
+    game = await repo.get_game(session, game_id)
+    turns, guided = await _open_turns(session, game)
+    pause_by = _pause_by(game, turns)
+    named = (
+        {u for u in held.values() if u is not None}
+        | {h["last_student"] for h in histories.values() if h["last_student"] is not None}
+        | ({pause_by[1]} if pause_by is not None else set())
+    )
     found = await names(sorted(named))
-    turns, guided = await _open_turns(session, game_id)
     queued = await repo.queued_reclaims(session, game_id)
     seats = []
     for row in reversed(rows):  # chain order serves the customer first; Fabrikk leads here
@@ -358,7 +364,42 @@ async def table_status(
         for at in _due_times_of(turn)
         if at is not None
     )
-    return TableStatus(seats=tuple(seats), due_times=tuple(due))
+    seated = any(
+        row["occupant_kind"] == OccupantKind.STUDENT and row["user_id"] == viewer_id for row in rows
+    )
+    return TableStatus(
+        seats=tuple(seats),
+        due_times=tuple(due),
+        can_pause=game is not None
+        and game["lifecycle"] == Lifecycle.RUNNING
+        and policy(game["purpose"]).pause
+        and not rules.is_paused(game)
+        and seated,
+        pause=None
+        if pause_by is None
+        else TablePause(
+            state=pause_by[0], name=found.get(pause_by[1]), mine=pause_by[1] == viewer_id
+        ),
+    )
+
+
+def _pause_by(
+    game: RowMapping | None, turns: Mapping[uuid.UUID, RowMapping]
+) -> tuple[Literal["paused", "ended"], uuid.UUID] | None:
+    """The Pause line's state and whom it names (Story 8.6, FR-89): the Pause in force and who set
+    it; else the Order that ended the last one and who placed it, while the Week it ended in is
+    still open (its turns opened before the end; an Order that ended the Pause and completed its
+    Week opened the next one in the same transaction, so the new Week shows none); else None.
+    Reads stored times only."""
+    if game is None or game["lifecycle"] not in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT):
+        return None
+    if rules.is_paused(game) and game["paused_by"] is not None:
+        return "paused", game["paused_by"]
+    ended, by = game["pause_ended_at"], game["pause_ended_by"]
+    opened = [turn["opened_at"] for turn in turns.values() if turn["opened_at"] is not None]
+    if ended is None or by is None or not opened or min(opened) >= ended:
+        return None
+    return "ended", by
 
 
 def _due_times_of(turn: RowMapping) -> tuple[datetime | None, ...]:
@@ -370,13 +411,13 @@ def _due_times_of(turn: RowMapping) -> tuple[datetime | None, ...]:
 
 
 async def _open_turns(
-    session: AsyncSession, game_id: uuid.UUID
+    session: AsyncSession, game: RowMapping | None
 ) -> tuple[dict[uuid.UUID, RowMapping], bool]:
     """The open Week's turns by Seat id, each with its occupant in force, and whether it is a
     Guided Week; none when the Game is not running."""
-    game = await repo.get_game(session, game_id)
     if game is None or game["lifecycle"] not in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT):
         return {}, False
+    game_id = game["id"]
     week = await repo.open_week(session, game_id)
     if week is None:
         return {}, False

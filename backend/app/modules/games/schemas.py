@@ -37,12 +37,13 @@ class Lifecycle(StrEnum):
 
 
 class GameStatus(StrEnum):
-    """A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2); Epic 8
-    adds `paused`."""
+    """A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2);
+    `paused` from Story 8.6 (FR-89)."""
 
     NOT_STARTED = "not_started"
     RUNNING = "running"
     WAITING = "waiting"
+    PAUSED = "paused"
     FINISHED = "finished"
 
 
@@ -437,6 +438,8 @@ class OrderPlaced(BaseModel):
     """The Week open after the command: `week`, or the next one if it advanced; None once the
     Game has finished."""
     lifecycle: Lifecycle
+    pause_ended: bool = False
+    """Whether this Student's Order ended the Game's Pause (Story 8.6, FR-89)."""
 
 
 class DecisionLogRow(BaseModel):
@@ -611,6 +614,20 @@ class TableSeat(BaseModel):
     again when the next Week opens (Story 8.4, FR-37). False on every other Seat."""
 
 
+class TablePause(BaseModel):
+    """The game's Pause line as a Student sees it (Story 8.6, FR-89, UX-DR62): `paused` while a
+    Pause is in force, named by who set it; `ended` from the Order that ended it until the next
+    Week opens, named by who ordered. Never a Week count (FR-14)."""
+
+    model_config = _FROZEN
+
+    state: Literal["paused", "ended"]
+    name: str | None
+    """The Student's name, read now; None for someone no longer in the Class."""
+    mine: bool
+    """Whether the viewer set (or ended) it: «satt av deg», «Du har bestilt»."""
+
+
 class TableStatus(BaseModel):
     """The people side of a Game for one viewer (AD-3), Fabrikk first (UX-DR73). Built at read
     time by `views.table_status`; never stored and never passed to an LLM."""
@@ -621,3 +638,8 @@ class TableStatus(BaseModel):
     due_times: tuple[datetime, ...] = ()
     """The stored AI deadlines of the Seats that have not ordered in the open Week, earliest
     first: when an AI player's Order is due (the only due times before Epic 8)."""
+    can_pause: bool = False
+    """Whether the viewer may press «Ta pause» (Story 8.6, FR-89): a Game whose policy has Pause,
+    running and not paused, and a Seat the viewer holds now as a Student."""
+    pause: TablePause | None = None
+    """The Pause line (Story 8.6); None when there is none to show."""

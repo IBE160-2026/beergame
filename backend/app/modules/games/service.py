@@ -679,6 +679,10 @@ class ClassGameSummary:
     """Every Seat in chain order with its latest occupant; `occupant_kind` None is free."""
     takeover_due_at: datetime | None = None
     """The nearest stored `takeover_due_at` of `waiting_for` (Story 8.1); None without one."""
+    paused_at: datetime | None = None
+    """Since when the Pause in force runs (Story 8.6); None when the game is not paused."""
+    paused_by: uuid.UUID | None = None
+    """Who set it, by id (Story 8.6)."""
 
 
 def _user(value: object) -> uuid.UUID | None:
@@ -705,6 +709,8 @@ async def class_overview(
             chain_cost=row["chain_cost"],
             wait_started_at=row["wait_started_at"],
             takeover_due_at=row["takeover_due_at"],
+            paused_at=row["paused_at"],
+            paused_by=row["paused_by"],
             waiting_for=tuple(
                 SummaryWait(
                     role=wait["role"],

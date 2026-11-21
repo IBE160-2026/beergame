@@ -34,6 +34,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # Class session hears of it, and the Student's pages read the queued request. The Week
         # opening that hands the Seat back emits under its own command (place_order, advance).
         "games.request_reclaim": frozenset({"game", "session", "user"}),
+        # A Student paused the Class game (Story 8.6): its Class session hears of it, and every
+        # Student of the Game reads the pause line. The Order that ends it emits as place_order.
+        "games.pause": frozenset({"game", "session", "user"}),
         # A Student opened a Guided Week (Story 6.10): only Class games take Students, so their
         # Class session hears of it; the viewer's waiting status changes, and when the view
         # completes the Week every Student of the Game sees the next one.

@@ -1,6 +1,7 @@
 import { nb } from "@/copy/nb";
 import { formatNumber, KRONER } from "@/lib/number-format";
 import { messagePath } from "@/modules/identity/homes";
+import { osloWeekdayTime } from "@/modules/sessions/dates";
 import { roleName } from "@/modules/sessions/sessions";
 
 import type { WallSummary } from "@/components/charts/matrix-median";
@@ -16,13 +17,16 @@ import type { WallCells, WallRole } from "./wall-copy";
 const copy = nb.overview;
 const wall = nb.wall;
 
-export type GroupName = "waiting" | "running" | "notStarted" | "finished";
+export type GroupName = "waiting" | "paused" | "running" | "notStarted" | "finished";
 export type OverviewGroup = { name: GroupName; title: string; games: OverviewGame[] };
 
-/** «41 ferdig · 15 pågår · 4 venter», with «· 3 ikke startet» only when some have not started
- * (FR-39). The counts are the api's; nothing here counts Weeks or hints at a game's length. */
+/** «41 ferdig · 15 pågår (herav 2 pauset) · 4 venter», with «· 3 ikke startet» only when some have
+ * not started (FR-39) and «(herav n pauset)» only when some are paused (Story 8.6). The counts are
+ * the api's; nothing here counts Weeks or hints at a game's length. */
 export function headline(counts: ClassOverview["counts"]): string {
-  const parts = [copy.counts.finished(counts.finished), copy.counts.running(counts.running), copy.counts.waiting(counts.waiting)];
+  const running =
+    counts.paused > 0 ? copy.counts.runningPaused(counts.running, counts.paused) : copy.counts.running(counts.running);
+  const parts = [copy.counts.finished(counts.finished), running, copy.counts.waiting(counts.waiting)];
   if (counts.not_started > 0) parts.push(copy.counts.notStarted(counts.not_started));
   return parts.join(" · ");
 }
@@ -31,8 +35,9 @@ const time = (iso: string | null | undefined) => (iso ? Date.parse(iso) : Number
 const cost = (game: OverviewGame) => (game.chain_cost == null ? Number.POSITIVE_INFINITY : Number(game.chain_cost));
 const number = (game: OverviewGame) => game.game_number ?? Number.POSITIVE_INFINITY;
 
-/** The rows the api sent, grouped by status in the order Venter, Pågår, Ikke startet, Ferdig, each
- * header with its count (UX-DR40). Venter puts the longest wait first, Ferdig the lowest chain
+/** The rows the api sent, grouped by status in the order Venter, Pause, Pågår, Ikke startet,
+ * Ferdig, each header with its count (UX-DR40; Pause from Story 8.6, so a paused game never drops
+ * out). Venter puts the longest wait first, Pause the one paused longest, Ferdig the lowest chain
  * cost; the others keep the game number. Empty groups are left out. Only groups and sorts what it
  * received (AD-10). */
 export function groupsOf(games: readonly OverviewGame[]): OverviewGroup[] {
@@ -43,6 +48,11 @@ export function groupsOf(games: readonly OverviewGame[]): OverviewGroup[] {
       name: "waiting",
       title: copy.groups.waiting,
       games: pick("waiting").sort((a, b) => time(a.wait_started_at) - time(b.wait_started_at) || byNumber(a, b)),
+    },
+    {
+      name: "paused",
+      title: copy.groups.paused,
+      games: pick("paused").sort((a, b) => time(a.paused_at) - time(b.paused_at) || byNumber(a, b)),
     },
     { name: "running", title: copy.groups.running, games: pick("running").sort(byNumber) },
     { name: "notStarted", title: copy.groups.notStarted, games: pick("not_started").sort(byNumber) },
@@ -136,6 +146,16 @@ export function waitLines(game: OverviewGame, now: number): string[] {
   });
 }
 
+/** What a game's row says beside its numbers: «Venter på …» per Seat it waits for (`waitLines`),
+ * or, while it is paused, «Pause siden ma. 14:10, satt av Sara.» (Story 8.6): since when and by
+ * whom, in Europe/Oslo, from the api's `paused_at` and name. */
+export function statusLines(game: OverviewGame, now: number): string[] {
+  if (game.status === "paused" && game.paused_at) {
+    return [copy.pausedSince(osloWeekdayTime(game.paused_at), game.paused_by ?? null)];
+  }
+  return waitLines(game, now);
+}
+
 /** «23 t»: how long the game's longest wait has lasted at `now` (its earliest `since`). */
 function longestWait(game: OverviewGame, now: number): string {
   const since = Math.min(...game.waiting_for.map((wait) => Date.parse(wait.since)).filter((ms) => !Number.isNaN(ms)));
@@ -188,6 +208,7 @@ export const DEFAULT_WALL_FILTER: WallFilter = { role: DEFAULT_WALL_ROLE, cells:
 
 const STATUS_WORD: Record<OverviewGame["status"], string> = {
   waiting: wall.status.waiting,
+  paused: wall.status.paused,
   running: wall.status.running,
   not_started: wall.status.notStarted,
   finished: wall.status.finished,
@@ -221,8 +242,11 @@ export type StatusFilter = WallFilter["status"];
 
 const hasAi = (game: OverviewGame) => game.seats.some((seat) => seat.holder === "ai");
 
-const GROUP_STATUS: Record<GroupName, OverviewGame["status"]> = {
+/** The Status filter a group answers to: a paused game is one that runs, so «Pågår» takes it
+ * (Story 8.6, «15 pågår (herav 2 pauset)»). */
+const GROUP_STATUS: Record<GroupName, StatusFilter> = {
   waiting: "waiting",
+  paused: "running",
   running: "running",
   notStarted: "not_started",
   finished: "finished",
@@ -246,7 +270,7 @@ export function statusCounts(games: readonly OverviewGame[]): Record<StatusFilte
   return {
     all: games.length,
     waiting: count("waiting"),
-    running: count("running"),
+    running: count("running") + count("paused"),
     not_started: count("not_started"),
     finished: count("finished"),
     with_ai: games.filter(hasAi).length,
@@ -318,7 +342,7 @@ export function wallGroups(
     title: `${group.title} ${group.games.length}`,
     rows: group.games.map((game): WallRow => {
       const label = copy.game(game.game_number ?? null);
-      const waits = waitLines(game, now);
+      const waits = statusLines(game, now);
       const cost = costText(game);
       const status = [...(waits.length > 0 ? waits : [STATUS_WORD[game.status]]), ...seatMarks(game)].join("; ");
       const found = weeks.get(game.game_id);
@@ -327,7 +351,7 @@ export function wallGroups(
         label,
         figure: game.chain_cost == null ? undefined : formatNumber(game.chain_cost, { decimals: 0 }),
         detail: status,
-        shortDetail: waits.length > 0 ? copy.waitingShort(longestWait(game, now)) : STATUS_WORD[game.status],
+        shortDetail: game.waiting_for.length > 0 ? copy.waitingShort(longestWait(game, now)) : STATUS_WORD[game.status],
         rowName: wall.rowName([label, status.charAt(0).toLowerCase() + status.slice(1), ...(cost ? [wall.chainCost(cost)] : [])]),
         values: cellValues(found?.data, role, cells),
         loading: !found?.data && !found?.failed && game.status !== "not_started",

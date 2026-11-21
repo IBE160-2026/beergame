@@ -94,6 +94,34 @@ test("Spillstyring puts an AI player in one Seat, and a stale page is told who c
   await narrow.context().close();
 });
 
+test("a press the api refuses is forgotten: the row follows the api again", async ({ browser, lecturerSession }) => {
+  // Follow-up of Story 8.5's review: a failed press no longer keeps its Seat marked as pressed.
+  const game = await liveClassGame(browser, lecturerSession, 2, { aiMode: "rule_based" });
+  const [, second] = game.students;
+  const page = await lecturerPage(browser, lecturerSession, VIEWPORTS[2]!);
+  let refused = false;
+  await page.route("**/api/games/*/seats/*/takeover", async (route) => {
+    refused = true;
+    await route.fulfill({ status: 409, json: { error: { code: "order_exists", message: "x" } } });
+  });
+  // Once refused, the api no longer offers the Seat (its Student ordered meanwhile, say).
+  await page.route(`**/api/games/${game.gameId}/insight`, async (route) => {
+    if (!refused || route.request().method() !== "GET") return route.fallback();
+    const body = await (await route.fetch()).json();
+    for (const seat of body.seats as { name: string | null; takeover: string | null }[]) {
+      if (seat.name === second!.name) seat.takeover = null;
+    }
+    await route.fulfill({ json: body });
+  });
+  await page.goto(`/klasseokter/${game.sessionId}/oversikt/spill/${game.gameId}`);
+  const row = page.locator("[data-spillstyring] li").filter({ hasText: second!.name });
+  await row.getByRole("button", { name: copy.takeover(second!.name) }).click();
+  await expect(row).toHaveCount(0);
+  await expect(page.locator("[data-spillstyring] li")).toHaveCount(1);
+  await page.unrouteAll({ behavior: "wait" });
+  await page.context().close();
+});
+
 test("the Varselbånd puts an AI player in for the Student the game waits for", async ({ browser, lecturerSession }) => {
   const game = await liveClassGame(browser, lecturerSession, 2, { aiMode: "rule_based" });
   const [first, second] = game.students;

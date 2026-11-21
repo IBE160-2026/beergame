@@ -87,7 +87,7 @@ HEAD_TABLES = (
     | MESSAGE_TABLES
     | RECLAIM_TABLES
 )
-HEAD = "0055"  # 0055 adds the queued Reclaims (Story 8.4)
+HEAD = "0056"  # 0056 adds the Pause columns (Story 8.6)
 
 
 def reset_schema(url: str) -> None:

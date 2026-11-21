@@ -1,7 +1,7 @@
 "use client";
 
 import NextLink from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button, buttonClassName } from "@/components/button";
 import { GameCard } from "@/components/game-card";
@@ -30,6 +30,7 @@ import {
   toWeekText,
 } from "./home";
 import { ownSeatTakenOver, useServerNow } from "./seat-status";
+import { PauseControl, PauseLine } from "./pause-view";
 import { GameSeatStatus, TakenOverNote } from "./seat-status-view";
 import { TimeProposalBlock } from "./time-proposal-view";
 import { MiniWeekTable } from "./week-table-view";
@@ -215,6 +216,18 @@ function GameBlock({
   // A finished game waits for no one: its Seats show no status, and the rules are behind it.
   const finished = game.status === "finished";
   const seats = finished ? game.seats.map((seat) => ({ ...seat, ordered: null })) : game.seats;
+  // An open «Foreslå tidspunkt» form or Pausevalg (Story 8.6) has its own primary: Hjem's steps back.
+  const [forms, setForms] = useState({ proposal: false, pause: false });
+  const formOpen = forms.proposal || forms.pause;
+  const told = useRef(onProposing);
+  useEffect(() => {
+    told.current = onProposing;
+  });
+  // Told on every change, and `false` when the block goes, so Hjem's primary never stays stepped back.
+  useEffect(() => {
+    told.current(formOpen);
+    return () => told.current(false);
+  }, [formOpen]);
   return (
     <div className="mt-2">
       <h3 className="text-step-title font-semibold text-ink">{gameTitle(game)}</h3>
@@ -229,14 +242,23 @@ function GameBlock({
       {game.status === "running" && ownSeatTakenOver(game.seats) ? (
         <TakenOverNote obligatory={game.obligatory} gameId={game.id} seats={game.seats} className="mt-4" />
       ) : null}
+      {/* Story 8.6: the pause line above Setestatus, as on the play screen. */}
+      {finished ? null : <PauseLine gameId={game.id} pause={game.pause} className="mt-4" />}
       {/* Story 6.14: the Setestatus, as on the play screen. */}
       <GameSeatStatus seats={seats} now={now} titleId={seatsId} level={4} className="mt-4" />
+      {/* Story 8.6: «Ta pause» under Setestatus, and the Pausevalg in place. */}
+      <PauseControl
+        gameId={game.id}
+        canPause={game.can_pause ?? false}
+        onFormOpen={(open) => setForms((was) => (was.pause === open ? was : { ...was, pause: open }))}
+        className="mt-4"
+      />
       {/* Story 6.19: the proposed time to play, and «Foreslå tidspunkt» while the game is not over. */}
       <TimeProposalBlock
         game={game}
         now={now}
         playDeadline={session.play_deadline ?? null}
-        onFormOpen={onProposing}
+        onFormOpen={(open) => setForms((was) => (was.proposal === open ? was : { ...was, proposal: open }))}
         className="mt-4"
       />
       {card ? null : <GameAction game={game} primary={primary} />}

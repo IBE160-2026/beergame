@@ -479,6 +479,19 @@ class TimeProposalIn(BaseModel):
     at: AwareDatetime
 
 
+class PauseOut(BaseModel):
+    """The game's pause line (Story 8.6, FR-89, UX-DR62): `paused` while a Pause is in force,
+    named by who set it («Pause, satt av Sara.»); `ended` from the Order that ended it until the
+    next Uke opens, named by who ordered («Pausen er over. Sara har bestilt.»). Never a Week
+    count (FR-14)."""
+
+    state: Literal["paused", "ended"]
+    name: str | None
+    """The Student's name now; None when they are no longer in the Class."""
+    mine: bool
+    """The reader set (or ended) it: «satt av deg», «Du har bestilt»."""
+
+
 class StudentGameOut(BaseModel):
     """The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four
     Seats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`)."""
@@ -515,12 +528,20 @@ class StudentGameOut(BaseModel):
     obligatory: bool = False
     """Story 8.2 (FR-17): the Class session is Obligatorisk, so a Takeover of the Student's Seat
     tells them it may affect the requirement (never how many Uker)."""
+    can_pause: bool = False
+    """Story 8.6 (FR-89): the reader may press «Ta pause»: a running Class game that is not
+    paused, in which they hold a Seat now."""
+    pause: PauseOut | None = None
+    """Story 8.6: the pause line above Setestatus; None when there is none to show."""
 
 
 class TableStatusOut(BaseModel):
-    """Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers."""
+    """Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers;
+    and the pause line and whether the reader may pause (Story 8.6)."""
 
     seats: list[TableSeatOut]
+    can_pause: bool = False
+    pause: PauseOut | None = None
 
 
 class OrderIn(BaseModel):
@@ -832,15 +853,22 @@ class OverviewGameOut(BaseModel):
     waiting_for: list[OverviewWaitOut]
     seats: list[OverviewSeatOut]
     """Fabrikk first (UX-DR73)."""
+    paused_at: AwareDatetime | None = None
+    """Story 8.6 (FR-89): since when the game is paused; None when it is not."""
+    paused_by: str | None = None
+    """Story 8.6: the name now of who paused it; None when it is not paused, or they are no longer
+    in the Class."""
 
 
 class OverviewCountsOut(BaseModel):
-    """The headline counts by status (FR-39)."""
+    """The headline counts by status (FR-39): «41 ferdig · 15 pågår (herav 2 pauset) · 4 venter».
+    `running` counts the paused games too, and `paused` says how many of them are (Story 8.6)."""
 
     waiting: int
     running: int
     not_started: int
     finished: int
+    paused: int
 
 
 class OverviewAiOut(BaseModel):

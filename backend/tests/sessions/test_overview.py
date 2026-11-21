@@ -61,7 +61,13 @@ async def test_before_the_start_date_the_overview_lists_the_allocation_without_n
         1,
         None,
     )
-    assert body["counts"] == {"waiting": 0, "running": 0, "not_started": 2, "finished": 0}
+    assert body["counts"] == {
+        "waiting": 0,
+        "running": 0,
+        "not_started": 2,
+        "finished": 0,
+        "paused": 0,
+    }
     assert [item["game_number"] for item in body["items"]] == [1, 2]
     for item in body["items"]:
         assert (item["status"], item["week"], item["chain_cost"], item["waiting_for"]) == (
@@ -97,7 +103,13 @@ async def test_staff_see_whom_a_running_game_waits_for_and_test_games_stay_out(k
     assert body["next_change_at"] is None
     [item] = body["items"]
     assert (item["status"], item["week"], item["chain_cost"]) == ("running", 1, "0.0000")
-    assert body["counts"] == {"waiting": 0, "running": 1, "not_started": 0, "finished": 0}
+    assert body["counts"] == {
+        "waiting": 0,
+        "running": 1,
+        "not_started": 0,
+        "finished": 0,
+        "paused": 0,
+    }
     assert {seat["holder"] for seat in item["seats"]} == {"student", "ai"}
     # The rail (Story 7.6): the AI players counted from the Seats, no cost while none finished.
     assert body["ai"] == {"seats": 2, "games": 1}

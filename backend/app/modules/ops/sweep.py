@@ -123,6 +123,8 @@ TAKEOVER_RACES = frozenset(
         "takeover_not_allowed",
         # A staff member put an AI player in first (Story 8.5).
         "takeover_exists",
+        # A Student paused the game after the finder's read (Story 8.6).
+        "game_paused",
     }
 )
 """`rules.can_take_over`'s refusals: what changed between the finder's read and the lock."""

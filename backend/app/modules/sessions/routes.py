@@ -952,6 +952,33 @@ async def reclaim_my_seat(
 
 
 @router.post(
+    "/me/games/{game_id}/pause",
+    response_model=StudentGameOut,
+    responses=documented(401, 403, 409),
+    operation_id="pauseMyGame",
+)
+async def pause_my_game(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.play_own"))],
+) -> Response:
+    """«Ta pause uten avtalt tid» (Story 8.6, FR-89, AD-2): a Student who holds a Seat pauses
+    their Class game; no AI player takes a Seat over while it is paused, and any Student's Order
+    ends it. No time is taken: only a Lecturer sets an agreed time. Answers the game as it now
+    stands. 409 `already_paused` with `fields.acted_by` (`kind`, `user_id`) and
+    `fields.acted_at`, `seat_not_yours`, `game_finished`, `game_not_running` or
+    `pause_not_allowed`; any other game answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.pause_own_game(user, game_id)
+    except service.PauseRefused as refused:
+        return error_response(
+            refused.status, refused.code, "The game was not paused.", refused.fields
+        )
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
     "/me/games/{game_id}/time-proposal",
     response_model=StudentGameOut,
     responses=documented(401, 403, 409, 422),

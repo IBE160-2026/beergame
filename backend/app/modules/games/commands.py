@@ -89,6 +89,7 @@ __all__ = [
     "default_runtime",
     "finish",
     "move_seat",
+    "pause",
     "place_order",
     "propose_time",
     "request_reclaim",
@@ -1286,14 +1287,25 @@ async def _place(
     )
     if decider is DecidedBy.LLM:
         await _run_play_guard(session, game, settings, row, week)
+    pause_ended = False
     if decider is DecidedBy.STUDENT:
         await _start_waits(session, game, week)
+        # Story 8.6 (FR-89): any Student's Order ends the Pause, whoever set it. The due times
+        # kept running, so a Seat already past its due time is taken at the next sweep.
+        student = occupancy["user_id"]
+        if rules.is_paused(game) and student is not None:
+            await repo.end_pause(session, game_uuid, student)
+            pause_ended = True
     lifecycle, open_week = Lifecycle(game["lifecycle"]), week
     if advance_week and await _week_complete(session, game, week):
         lifecycle, open_week = await _step(session, game, settings, params, states)
     log.info("order_placed", game_id=str(game_uuid), seat_id=str(row["id"]), week=week)
     return OrderPlaced(
-        seat_week_id=str(seat_week_id), week=week, open_week=open_week, lifecycle=lifecycle
+        seat_week_id=str(seat_week_id),
+        week=week,
+        open_week=open_week,
+        lifecycle=lifecycle,
+        pause_ended=pause_ended,
     )
 
 
@@ -1390,8 +1402,12 @@ async def place_order(
     force must be that Student, or the command refuses `seat_not_yours` and writes nothing. Calls
     without a person (guided Orders, `players` jobs, the rescue loop) pass none and skip the
     check. Emits `game:<id>`, `session:<id>` where the Lecturer overview lists the Game, and
-    `user:<id>` for the actor and, when the Order completed the Week, for every Student holding a
-    Seat (AD-8)."""
+    `user:<id>` for the actor and, when the Order completed the Week or ended the Pause, for every
+    Student holding a Seat (AD-8).
+
+    A Student's Order (`decided_by = student`) on a paused Game ends the Pause in the same
+    transaction, whoever set it (Story 8.6, FR-89): the Pause columns are cleared and who ended it,
+    and when, is kept for «Pausen er over.»."""
     actor_id: uuid.UUID | None = None
     if actor is not None:
         actor_id = _actor(actor)
@@ -1429,8 +1445,13 @@ async def place_order(
         )
         await _commit_change(session, game_uuid)
         told: set[uuid.UUID] = {actor_id} if actor_id is not None else set()
-        if placed.open_week != placed.week or placed.lifecycle == Lifecycle.FINISHED:
-            # The Week is done: every Student of the Game waits on a new one, or on nothing.
+        if (
+            placed.open_week != placed.week
+            or placed.lifecycle == Lifecycle.FINISHED
+            or placed.pause_ended
+        ):
+            # The Week is done: every Student of the Game waits on a new one, or on nothing; or
+            # the Order ended the Pause, which every Student of the Game reads (Story 8.6).
             told |= {
                 row["user_id"]
                 for row in await repo.seats_with_occupant(session, game_uuid)
@@ -1727,8 +1748,9 @@ async def takeover(
     and the Student whose Seat it was get `user:<id>`, and each of them one `takeover_notice`
     (dedupe key per occupancy row) (AD-8, AD-9). A staff Takeover of a Seat that has ordered the
     Game's last Week is refused `order_exists`: no Week is left for it. Refuses `game_not_found`,
-    `seat_not_found`, and 409 `game_not_running`, `takeover_not_allowed`, `seat_not_student_held`,
-    `order_exists`, `takeover_not_due`, and `takeover_exists` with `fields.acted_by` (`kind`
+    `seat_not_found`, and 409 `game_not_running`, `takeover_not_allowed`, `game_paused` (a `system`
+    Takeover of a paused Game, Story 8.6), `seat_not_student_held`, `order_exists`,
+    `takeover_not_due`, and `takeover_exists` with `fields.acted_by` (`kind`
     `staff`, `student` or `system`, and `user_id`) and `fields.acted_at`: who acted first, by id
     only (Story 8.5). Returns the occupancy row id."""
     game_uuid = _game_uuid(game_id)
@@ -1889,6 +1911,72 @@ async def request_reclaim(game_id: str, seat: Role | str, *, actor: uuid.UUID | 
         await events.emit(session, "user", str(actor_id))
     log.info("reclaim_requested", game_id=game_id, seat_id=str(row["id"]))
     return True
+
+
+GAME_PAUSED = "game.paused"
+"""The audit action of a Pause a person set (Story 8.6, FR-89, AD-15)."""
+
+
+async def pause(game_id: str, *, actor: uuid.UUID | str) -> str:
+    """«Ta pause uten avtalt tid» (Story 8.6, FR-89, AD-2): the Student `actor` pauses the Class
+    game their group plays. While it is paused no automatic Takeover runs (`rules.can_take_over`),
+    and the stored due times keep running unmoved; any Student's Order ends it (`place_order`).
+
+    One transaction under the Game row lock: `paused_at` (the transaction's clock) and `paused_by`
+    are written, `resume_at` stays empty (a Lecturer's agreed time is Story 8.7), and `lifecycle`
+    is unchanged; an audit row `game.paused`. The version rises once with `game:<id>` and
+    `session:<id>`, and every Student holding a Seat gets `user:<id>` (AD-8). Refuses
+    `game_not_found` (404) and 409 `pause_not_allowed` (the Game's policy has no Pause),
+    `game_not_running` (not started), `game_finished`, `seat_not_yours` (the actor holds no Seat
+    of the Game now as a Student) and `already_paused` with `fields.acted_by` (`kind` `student` or
+    `staff`, and `user_id`) and `fields.acted_at`: who paused first, by id only (Story 8.5's
+    shape). Returns `paused_at` in ISO form."""
+    game_uuid = _game_uuid(game_id)
+    actor_id = _actor(actor)
+    async with get_sessionmaker().begin() as session:
+        game = await repo.lock_game(session, game_uuid)
+        if game is None:
+            raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
+        if not _policy(game["purpose"]).pause:
+            raise CommandError("pause_not_allowed", "Games of this purpose have no Pause", 409)
+        if game["lifecycle"] == Lifecycle.FINISHED:
+            raise CommandError("game_finished", "the Game has finished", 409)
+        if game["lifecycle"] != Lifecycle.RUNNING:
+            raise CommandError("game_not_running", "the Game is not running", 409)
+        seated = seated_students(await repo.seats_with_occupant(session, game_uuid))
+        if actor_id is None or actor_id not in seated:
+            raise CommandError("seat_not_yours", "the actor holds no Seat of the Game", 409)
+        if rules.is_paused(game):
+            raise CommandError(
+                "already_paused", "the Game is paused already", 409, _paused_by(game, seated)
+            )
+        paused_at = await repo.set_pause(session, game_uuid, actor_id)
+        await audit.record(
+            session,
+            actor_id,
+            GAME_PAUSED,
+            {"game_id": game_uuid},
+            {"paused_at": paused_at.isoformat(), "resume_at": None},
+            paused_at,
+        )
+        await _commit_change(session, game_uuid)
+        for student in sorted(seated, key=str):
+            await events.emit(session, "user", str(student))
+    log.info("game_paused", game_id=game_id)
+    return str(paused_at.isoformat())
+
+
+def _paused_by(game: Mapping[str, Any], seated: Collection[uuid.UUID]) -> dict[str, Any]:
+    """`fields` of an `already_paused` refusal (Story 8.6, Story 8.5's shape): who set the Pause
+    in force, a Student of the Game or (from Story 8.7) a staff member, by id, and when."""
+    by = game["paused_by"]
+    return {
+        "acted_by": {
+            "kind": "student" if by in seated else "staff",
+            "user_id": None if by is None else str(by),
+        },
+        "acted_at": game["paused_at"].isoformat(),
+    }
 
 
 async def _takeover_occupant(

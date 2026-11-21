@@ -56,8 +56,8 @@ function game(over: Partial<OverviewGame> & Pick<OverviewGame, "game_number" | "
 
 describe("headline", () => {
   it("reads «41 ferdig · 15 pågår · 4 venter» and adds the games not started only when there are any", () => {
-    expect(headline({ finished: 41, running: 15, waiting: 4, not_started: 0 })).toBe("41 ferdig · 15 pågår · 4 venter");
-    expect(headline({ finished: 0, running: 1, waiting: 0, not_started: 3 })).toBe(
+    expect(headline({ finished: 41, running: 15, waiting: 4, not_started: 0, paused: 0 })).toBe("41 ferdig · 15 pågår · 4 venter");
+    expect(headline({ finished: 0, running: 1, waiting: 0, not_started: 3, paused: 0 })).toBe(
       "0 ferdig · 1 pågår · 0 venter · 3 ikke startet",
     );
   });

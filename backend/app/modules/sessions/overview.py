@@ -106,7 +106,9 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
         next_cursor=None,
         counts=OverviewCountsOut(
             waiting=counts[GameStatus.WAITING],
-            running=counts[GameStatus.RUNNING],
+            # «15 pågår (herav 2 pauset)» (Story 8.6, EXPERIENCE.md → Oversikt Live).
+            running=counts[GameStatus.RUNNING] + counts[GameStatus.PAUSED],
+            paused=counts[GameStatus.PAUSED],
             not_started=counts[GameStatus.NOT_STARTED],
             finished=counts[GameStatus.FINISHED],
         ),
@@ -187,14 +189,16 @@ def _alert(games: list[ClassGameSummary], names: dict[uuid.UUID, str]) -> Overvi
 
 
 def _actors(games: list[ClassGameSummary]) -> list[uuid.UUID]:
-    """The people who put an AI player in a Seat now held by one (Story 8.5)."""
+    """The people who put an AI player in a Seat now held by one (Story 8.5), and who set each
+    Pause in force (Story 8.6)."""
     return sorted(
         {
             seat.actor_user_id
             for game in games
             for seat in game.seats
             if seat.actor_user_id is not None and _is_ai(seat)
-        },
+        }
+        | {game.paused_by for game in games if game.paused_by is not None},
         key=str,
     )
 
@@ -301,6 +305,9 @@ def _game_out(
             for wait in game.waiting_for
         ],
         seats=seats,
+        # The Pause in force (Story 8.6): since when and by whom, by name now.
+        paused_at=game.paused_at,
+        paused_by=(by or {}).get(game.paused_by) if game.paused_by is not None else None,
     )
 
 
@@ -520,6 +527,8 @@ def _matches(game: ClassGameSummary, status: WallStatus) -> bool:
         return True
     if status is WallStatus.WITH_AI:
         return any(_is_ai(seat) for seat in game.seats)
+    if status is WallStatus.RUNNING and game.status is GameStatus.PAUSED:
+        return True  # «pågår (herav n pauset)»: a paused game is one that runs (Story 8.6)
     return game.status.value == status.value
 
 

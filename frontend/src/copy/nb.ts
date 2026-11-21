@@ -416,6 +416,33 @@ export const nb = {
         } as Record<string, string>,
         reclaimFailed: "Setet ble ikke tatt tilbake. Prøv igjen.",
       },
+      /** Pausevalg and the pause lines (Story 8.6, FR-89, UX-DR26, UX-DR62, EXPERIENCE.md →
+       * Pausevalg and State Patterns → Student game): «Ta pause», the two consequence lines, «Ta
+       * pause uten avtalt tid», «Avbryt», «Pause, satt av Sara.» and «Pausen er over. Sara har
+       * bestilt.» are the spine's; the reader's own lines («deg», «Du»), the line for a Student no
+       * longer in the Class, the refusals and the failure are [ASSUMPTION] draft copy. Never how
+       * many Uker remain (FR-14). */
+      pause: {
+        open: "Ta pause",
+        noTakeover: "Mens spillet har pause, tar ingen KI-spiller over setene. Spillfristen flyttes ikke.",
+        onlyLecturer:
+          "Bare faglæreren kan avtale et tidspunkt. Uten det har hver av dere sin vanlige ventetid før en KI-spiller kan settes inn.",
+        confirm: "Ta pause uten avtalt tid",
+        cancel: "Avbryt",
+        pausedBy: (name: string) => `Pause, satt av ${name}.`,
+        pausedByYou: "Pause, satt av deg.",
+        pausedByUnknown: "Pause, satt av en annen student.",
+        endedBy: (name: string) => `Pausen er over. ${name} har bestilt.`,
+        endedByYou: "Pausen er over. Du har bestilt.",
+        endedByUnknown: "Pausen er over. En annen student har bestilt.",
+        refusals: {
+          seat_not_yours: "Du har ikke et sete i dette spillet nå.",
+          game_finished: "Spillet er ferdig.",
+          game_not_running: "Spillet er ikke i gang.",
+          pause_not_allowed: "Dette spillet kan ikke settes på pause.",
+        } as Record<string, string>,
+        failed: "Spillet ble ikke satt på pause. Prøv igjen.",
+      },
       /** With non-breaking spaces, so «min» never wraps away from its number (Epic 7 close-out). */
       duration: {
         underMinute: "under 1 min",
@@ -2078,6 +2105,8 @@ export const nb = {
     counts: {
       finished: (n: number) => `${n} ferdig`,
       running: (n: number) => `${n} pågår`,
+      /** Story 8.6: «15 pågår (herav 2 pauset)», EXPERIENCE.md → Oversikt Live. */
+      runningPaused: (n: number, paused: number) => `${n} pågår (herav ${paused} pauset)`,
       waiting: (n: number) => `${n} venter`,
       /** [ASSUMPTION] Class games that have not started after the Start date. */
       notStarted: (n: number) => `${n} ikke startet`,
@@ -2085,11 +2114,17 @@ export const nb = {
     updated: (clock: string) => `Oppdatert ${clock}`,
     groups: {
       waiting: "Venter",
+      /** Story 8.6: between Venter and Pågår (EXPERIENCE.md → Oversikt → Grouping). */
+      paused: "Pause",
       running: "Pågår",
       /** [ASSUMPTION] */
       notStarted: "Ikke startet",
       finished: "Ferdig, lavest kjedekost øverst",
     },
+    /** «Pause siden ma. 14:10, satt av Sara.» (Story 8.6, EXPERIENCE.md → Spillinnsikt Paused, the
+     * Oversikt's «since when and by whom»): [ASSUMPTION] copy. Never a Week count. */
+    pausedSince: (since: string, name: string | null) =>
+      name ? `Pause siden ${since}, satt av ${name}.` : `Pause siden ${since}.`,
     game: (number: number | null) => gameName(number),
     week: (week: number) => `Uke ${week}`,
     /** «Venter på Noah (Grossist), 23 t». [ASSUMPTION] */
@@ -2280,6 +2315,8 @@ export const nb = {
     status: {
       waiting: "Venter",
       running: "Pågår",
+      /** Story 8.6: a paused Class game. */
+      paused: "Pause",
       notStarted: "Ikke startet",
       finished: "Ferdig",
     },
@@ -2314,6 +2351,8 @@ export const nb = {
     status: {
       waiting: "Venter",
       running: "Pågår",
+      /** Story 8.6: a paused Class game. */
+      paused: "Pause",
       not_started: "Ikke startet",
       finished: "Ferdig",
     },

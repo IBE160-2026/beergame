@@ -28,7 +28,8 @@ async def recompute(
     in `session`: who holds each Seat, the status, whom the Game waits for and since when, the
     Week and the chain Total cost, and the nearest stored Takeover due time of the Seats it waits
     for (Story 8.1); each waited-for Seat its own due time and each Seat its occupancy reason
-    (Story 8.3). `version` is the Game's version, the row's own by default."""
+    (Story 8.3); the Pause in force (Story 8.6), when the Game waits for no one. `version` is the
+    Game's version, the row's own by default."""
     game_id = game["id"]
     seats = await repo.seats_with_occupant(session, game_id)
     newest = await repo.newest_week(session, game_id)
@@ -92,6 +93,11 @@ async def recompute(
         ],
         "chain_cost": newest["chain_cost"] if started else None,
         "version": game["version"] if version is None else version,
+        # The Pause in force (Story 8.6): the Oversikt shows since when and by whom. Only while the
+        # status is `paused`: a Game that finished under a Pause (its Students' Seats all AI-held)
+        # carries none.
+        "paused_at": game.get("paused_at") if status is GameStatus.PAUSED else None,
+        "paused_by": game.get("paused_by") if status is GameStatus.PAUSED else None,
     }
 
 

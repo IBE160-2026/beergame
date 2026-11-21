@@ -225,6 +225,16 @@ async def _run_request_reclaim() -> str:
     return game_id
 
 
+async def _run_pause() -> str:
+    """A Student pauses a started Class game (Story 8.6): its Class session and both Students
+    hear of it."""
+    from tests.games.test_takeover import class_game
+
+    game_id, students = await class_game()
+    await commands.pause(game_id, actor=students["retailer"])
+    return game_id
+
+
 RUNNERS = {
     "create": _run_create,
     "assign_seat": _run_assign_seat,
@@ -240,6 +250,7 @@ RUNNERS = {
     "accept_time": _run_accept_time,
     "takeover": _run_takeover,
     "request_reclaim": _run_request_reclaim,
+    "pause": _run_pause,
 }
 """How to run each command once; a command added without a runner fails the test below."""
 
@@ -263,6 +274,8 @@ CLASS_SETUP_EVENTS = {
     "accept_time": 10,
     "takeover": TAKEOVER_SETUP,
     "request_reclaim": RECLAIM_SETUP,
+    # Counted from the end: `pause` emits `game`, `session` and both Students' `user`.
+    "pause": -4,
 }
 """Runners on a Class game, and how many events their setup emits before the command's own."""
 
@@ -286,6 +299,7 @@ def test_every_command_is_exported_and_registered():
             "accept_time",
             "takeover",
             "request_reclaim",
+            "pause",
         }
         == set(RUNNERS)
     )

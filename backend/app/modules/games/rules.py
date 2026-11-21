@@ -33,6 +33,12 @@ def week_complete(turns: Sequence[Mapping[str, object]], *, guided: bool) -> boo
     return bool(turns) and all(has_ordered(turn, guided=guided) for turn in turns)
 
 
+def is_paused(game: Mapping[str, object]) -> bool:
+    """Whether a Pause is in force on the Game (Story 8.6, FR-89): its `paused_at` is set. A row
+    read without the column (a caller's own mapping) is not paused."""
+    return game.get("paused_at") is not None
+
+
 TakeoverActor = Literal["system", "staff"]
 """Who asks for a Takeover: `system`, the sweep's automatic Takeover after the Inactivity limit
 (Story 8.2); `staff`, a Lecturer or Assistant lecturer from Spillstyring (Story 8.5). Peer
@@ -58,6 +64,8 @@ def can_take_over(
     open Week with the `occupant_kind` in force (`repo.week_turns_with_occupant`), None when the
     Seat has none; `seat` the Seat's latest occupancy row (`occupant_kind`, `reason`), which may
     apply from the next Week. The Game must be running and its policy have inactivity Takeover.
+    While the Game is paused (`is_paused`) the `system` actor gets `game_paused` (FR-89, Story
+    8.6): no automatic Takeover, and the stored due time is not moved; staff are not limited.
     A Seat whose latest row is an AI player's is `takeover_exists` when a Takeover put it there,
     else `seat_not_student_held`; so is a Seat not Student-held in the open Week. For the `system`
     actor the Seat must not have ordered (`has_ordered`: in a Guided Week the view counts), and
@@ -71,6 +79,8 @@ def can_take_over(
         return "game_not_running"
     if not policy(str(game["purpose"])).inactivity_takeover:
         return "takeover_not_allowed"
+    if actor == "system" and is_paused(game):
+        return "game_paused"
     if seat is not None and seat["occupant_kind"] != OccupantKind.STUDENT:
         return "takeover_exists" if seat["reason"] in TAKEOVER_REASONS else "seat_not_student_held"
     if turn is None or turn["occupant_kind"] != OccupantKind.STUDENT:
@@ -92,12 +102,15 @@ def game_status(game: Mapping[str, object], turns: Sequence[Mapping[str, object]
     `seat_turns` rows, each with the `occupant_kind` in force that Week
     (`repo.week_turns_with_occupant`). A Game that runs is `waiting` when at least one Student has
     ordered in the open Week and at least one Student-held Seat has not (FR-25); in a Guided Week
-    viewing counts as ordering (FR-24). Otherwise it is `running`. Pure: no I/O, no clock."""
+    viewing counts as ordering (FR-24). A Game that runs with a Pause in force is `paused` (FR-89,
+    Story 8.6), whoever it waits for. Otherwise it is `running`. Pure: no I/O, no clock."""
     lifecycle = game["lifecycle"]
     if lifecycle == Lifecycle.NOT_STARTED:
         return GameStatus.NOT_STARTED
     if lifecycle == Lifecycle.FINISHED:
         return GameStatus.FINISHED
+    if is_paused(game):
+        return GameStatus.PAUSED
     students = [turn for turn in turns if turn["occupant_kind"] == OccupantKind.STUDENT]
     if not students:
         return GameStatus.RUNNING

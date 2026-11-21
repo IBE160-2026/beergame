@@ -67,6 +67,7 @@ export function TakeoverAction({
   consequence,
   actedBy,
   onPress,
+  onRefused,
   onResult,
 }: {
   gameId: string;
@@ -76,6 +77,8 @@ export function TakeoverAction({
   consequence?: string | null;
   actedBy?: string | null;
   onPress?: () => void;
+  /** The press put no AI player in and no one came first (another refusal, or no answer). */
+  onRefused?: () => void;
   /** When given, the caller shows the result line (the Varselbånd moves on to another game). */
   onResult?: (result: TakeoverResult) => void;
 }) {
@@ -138,6 +141,9 @@ export function TakeoverAction({
           taking.mutate(undefined, {
             onError: (error) => {
               const by = actedKind(error);
+              // Refused for another reason, or not answered: nothing was put in, so the press is
+              // forgotten and the row follows the api again (follow-up of Story 8.5's review).
+              if (by === null) onRefused?.();
               // Who came first is named from the view read again: the line waits for that read.
               void reread().then(() => {
                 if (by === null) return;
@@ -159,15 +165,17 @@ export function TakeoverAction({
  * Spillstyring on Spillinnsikt (Story 8.5, FR-37, UX-DR52, EXPERIENCE.md → Spillstyring): under the
  * four Seats while the game runs, one row per Student-held Seat (Fabrikk first) with its
  * consequence and «Sett inn KI-spiller for …». The api decides which Seats and from when
- * (`takeover`, AD-10). A row stays after its press, so its result line can be read; a game not
- * started or finished shows no block. The same for Lecturers and Assistant lecturers: the per-Seat
+ * (`takeover`, AD-10). A row stays after its press, so its result line can be read; a press that
+ * put no AI player in is forgotten, and its row then stays only while the api offers it. A game
+ * not started or finished shows no block; a paused one keeps it (Story 8.6). The same for Lecturers and Assistant lecturers: the per-Seat
  * Takeover is the only Spillstyring action so far.
  */
 export function Spillstyring({ data }: { data: GameInsight }) {
   const id = useId();
   // The Seats pressed here, with the name the row had then: the row and its result line stay.
   const [pressed, setPressed] = useState<ReadonlyMap<Role, string>>(new Map());
-  if (data.status !== "running" && data.status !== "waiting") return null;
+  // A paused game still runs: the staff's per-Seat action stays (Story 8.6).
+  if (data.status !== "running" && data.status !== "waiting" && data.status !== "paused") return null;
   const rows = seatsUpstreamFirst(data).filter((seat) => seat.takeover != null || pressed.has(seat.role));
   if (rows.length === 0) return null;
   return (
@@ -189,6 +197,13 @@ export function Spillstyring({ data }: { data: GameInsight }) {
                 consequence={seat.takeover ? consequenceText(seat.takeover, name) : null}
                 actedBy={seat.mark_by}
                 onPress={() => setPressed((before) => new Map(before).set(seat.role, name))}
+                onRefused={() =>
+                  setPressed((before) => {
+                    const after = new Map(before);
+                    after.delete(seat.role);
+                    return after;
+                  })
+                }
               />
             </li>
           );

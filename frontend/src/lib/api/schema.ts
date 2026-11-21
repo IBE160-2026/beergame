@@ -1653,6 +1653,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/games/{game_id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause My Game
+         * @description «Ta pause uten avtalt tid» (Story 8.6, FR-89, AD-2): a Student who holds a Seat pauses
+         *     their Class game; no AI player takes a Seat over while it is paused, and any Student's Order
+         *     ends it. No time is taken: only a Lecturer sets an agreed time. Answers the game as it now
+         *     stands. 409 `already_paused` with `fields.acted_by` (`kind`, `user_id`) and
+         *     `fields.acted_at`, `seat_not_yours`, `game_finished`, `game_not_running` or
+         *     `pause_not_allowed`; any other game answers 403 `forbidden` (FR-5).
+         */
+        post: operations["pauseMyGame"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/games/{game_id}/play": {
         parameters: {
             query?: never;
@@ -3055,11 +3080,11 @@ export interface components {
         };
         /**
          * GameStatus
-         * @description A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2); Epic 8
-         *     adds `paused`.
+         * @description A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2);
+         *     `paused` from Story 8.6 (FR-89).
          * @enum {string}
          */
-        GameStatus: "not_started" | "running" | "waiting" | "finished";
+        GameStatus: "not_started" | "running" | "waiting" | "paused" | "finished";
         /** GameWeekOut */
         GameWeekOut: {
             /** Seats */
@@ -3722,13 +3747,16 @@ export interface components {
         };
         /**
          * OverviewCountsOut
-         * @description The headline counts by status (FR-39).
+         * @description The headline counts by status (FR-39): «41 ferdig · 15 pågår (herav 2 pauset) · 4 venter».
+         *     `running` counts the paused games too, and `paused` says how many of them are (Story 8.6).
          */
         OverviewCountsOut: {
             /** Finished */
             finished: number;
             /** Not Started */
             not_started: number;
+            /** Paused */
+            paused: number;
             /** Running */
             running: number;
             /** Waiting */
@@ -3748,6 +3776,10 @@ export interface components {
             game_id: string;
             /** Game Number */
             game_number: number | null;
+            /** Paused At */
+            paused_at?: string | null;
+            /** Paused By */
+            paused_by?: string | null;
             /** Seats */
             seats: components["schemas"]["OverviewSeatOut"][];
             status: components["schemas"]["GameStatus"];
@@ -3797,6 +3829,24 @@ export interface components {
         PasswordResetIn: {
             /** Email */
             email: string;
+        };
+        /**
+         * PauseOut
+         * @description The game's pause line (Story 8.6, FR-89, UX-DR62): `paused` while a Pause is in force,
+         *     named by who set it («Pause, satt av Sara.»); `ended` from the Order that ended it until the
+         *     next Uke opens, named by who ordered («Pausen er over. Sara har bestilt.»). Never a Week
+         *     count (FR-14).
+         */
+        PauseOut: {
+            /** Mine */
+            mine: boolean;
+            /** Name */
+            name: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "paused" | "ended";
         };
         /**
          * PlayOut
@@ -4576,6 +4626,11 @@ export interface components {
             /** Briefing First */
             briefing_first: boolean;
             /**
+             * Can Pause
+             * @default false
+             */
+            can_pause: boolean;
+            /**
              * Class Session Id
              * Format: uuid
              */
@@ -4592,6 +4647,7 @@ export interface components {
              * @default false
              */
             obligatory: boolean;
+            pause?: components["schemas"]["PauseOut"] | null;
             role: components["schemas"]["Role"];
             rules: components["schemas"]["GameRulesOut"];
             seat_state: components["schemas"]["SeatState"] | null;
@@ -4690,9 +4746,16 @@ export interface components {
         };
         /**
          * TableStatusOut
-         * @description Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers.
+         * @description Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers;
+         *     and the pause line and whether the reader may pause (Story 8.6).
          */
         TableStatusOut: {
+            /**
+             * Can Pause
+             * @default false
+             */
+            can_pause: boolean;
+            pause?: components["schemas"]["PauseOut"] | null;
             /** Seats */
             seats: components["schemas"]["TableSeatOut"][];
         };
@@ -9208,6 +9271,64 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pauseMyGame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentGameOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

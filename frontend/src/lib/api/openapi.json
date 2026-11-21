@@ -2561,11 +2561,12 @@
         "type": "object"
       },
       "GameStatus": {
-        "description": "A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2); Epic 8\nadds `paused`.",
+        "description": "A Game's status as staff see it (FR-39), from `games.rules.game_status` only (AD-2);\n`paused` from Story 8.6 (FR-89).",
         "enum": [
           "not_started",
           "running",
           "waiting",
+          "paused",
           "finished"
         ],
         "title": "GameStatus",
@@ -4096,7 +4097,7 @@
         "type": "object"
       },
       "OverviewCountsOut": {
-        "description": "The headline counts by status (FR-39).",
+        "description": "The headline counts by status (FR-39): «41 ferdig · 15 pågår (herav 2 pauset) · 4 venter».\n`running` counts the paused games too, and `paused` says how many of them are (Story 8.6).",
         "properties": {
           "finished": {
             "title": "Finished",
@@ -4104,6 +4105,10 @@
           },
           "not_started": {
             "title": "Not Started",
+            "type": "integer"
+          },
+          "paused": {
+            "title": "Paused",
             "type": "integer"
           },
           "running": {
@@ -4119,7 +4124,8 @@
           "waiting",
           "running",
           "not_started",
-          "finished"
+          "finished",
+          "paused"
         ],
         "title": "OverviewCountsOut",
         "type": "object"
@@ -4153,6 +4159,29 @@
               }
             ],
             "title": "Game Number"
+          },
+          "paused_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused At"
+          },
+          "paused_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused By"
           },
           "seats": {
             "items": {
@@ -4312,6 +4341,41 @@
           "email"
         ],
         "title": "PasswordResetIn",
+        "type": "object"
+      },
+      "PauseOut": {
+        "description": "The game's pause line (Story 8.6, FR-89, UX-DR62): `paused` while a Pause is in force,\nnamed by who set it («Pause, satt av Sara.»); `ended` from the Order that ended it until the\nnext Uke opens, named by who ordered («Pausen er over. Sara har bestilt.»). Never a Week\ncount (FR-14).",
+        "properties": {
+          "mine": {
+            "title": "Mine",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "state": {
+            "enum": [
+              "paused",
+              "ended"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "name",
+          "mine"
+        ],
+        "title": "PauseOut",
         "type": "object"
       },
       "PlayOut": {
@@ -6038,6 +6102,11 @@
             "title": "Briefing First",
             "type": "boolean"
           },
+          "can_pause": {
+            "default": false,
+            "title": "Can Pause",
+            "type": "boolean"
+          },
           "class_session_id": {
             "format": "uuid",
             "title": "Class Session Id",
@@ -6063,6 +6132,16 @@
             "default": false,
             "title": "Obligatory",
             "type": "boolean"
+          },
+          "pause": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PauseOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "role": {
             "$ref": "#/components/schemas/Role"
@@ -6314,8 +6393,23 @@
         "type": "object"
       },
       "TableStatusOut": {
-        "description": "Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers.",
+        "description": "Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers;\nand the pause line and whether the reader may pause (Story 8.6).",
         "properties": {
+          "can_pause": {
+            "default": false,
+            "title": "Can Pause",
+            "type": "boolean"
+          },
+          "pause": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PauseOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "seats": {
             "items": {
               "$ref": "#/components/schemas/TableSeatOut"
@@ -12535,6 +12629,79 @@
           }
         },
         "summary": "Get My Game",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/pause": {
+      "post": {
+        "description": "«Ta pause uten avtalt tid» (Story 8.6, FR-89, AD-2): a Student who holds a Seat pauses\ntheir Class game; no AI player takes a Seat over while it is paused, and any Student's Order\nends it. No time is taken: only a Lecturer sets an agreed time. Answers the game as it now\nstands. 409 `already_paused` with `fields.acted_by` (`kind`, `user_id`) and\n`fields.acted_at`, `seat_not_yours`, `game_finished`, `game_not_running` or\n`pause_not_allowed`; any other game answers 403 `forbidden` (FR-5).",
+        "operationId": "pauseMyGame",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentGameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pause My Game",
         "tags": [
           "sessions"
         ]

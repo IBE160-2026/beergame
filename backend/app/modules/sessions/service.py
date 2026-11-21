@@ -151,6 +151,7 @@ from app.modules.sessions.schemas import (
     NextDate,
     NextDeadline,
     OfferedEffortLevelOut,
+    PauseOut,
     PlayOut,
     PlayTurnOut,
     ProposalPersonOut,
@@ -1334,6 +1335,8 @@ async def _game_out(
         time_proposal=await _time_proposal_out(s, user_id, found.game_id, row["class_id"]),
         # Story 8.2 (FR-17): a test Game counts toward no requirement.
         obligatory=bool(row.get("obligatory")) and not found.test_game,
+        can_pause=table.can_pause,
+        pause=_pause_out(table),
     )
 
 
@@ -1371,6 +1374,14 @@ async def _own_week(
     return state, PlayTurnOut(
         guided=turn.guided, order=turn.order, viewed=turn.viewed_at is not None
     )
+
+
+def _pause_out(table: games_service.TableStatus) -> PauseOut | None:
+    """The pause line (Story 8.6) as the reader sees it."""
+    pause = table.pause
+    if pause is None:
+        return None
+    return PauseOut(state=pause.state, name=pause.name, mine=pause.mine)
 
 
 def _seats_out(table: games_service.TableStatus) -> list[TableSeatOut]:
@@ -1477,7 +1488,9 @@ async def student_play_of(user: authz.Principal, game_id: str) -> PlayOut | None
     return PlayOut(
         seat_state=state,
         turn=turn,
-        table_status=TableStatusOut(seats=_seats_out(table)),
+        table_status=TableStatusOut(
+            seats=_seats_out(table), can_pause=table.can_pause, pause=_pause_out(table)
+        ),
         server_now=now,
         # Read again when an AI player's Order falls due (AD-8, AD-20); one already past is the
         # rescue loop's to place, and its event says so.
@@ -1604,6 +1617,39 @@ async def reclaim_own_seat(user: authz.Principal, game_id: str, role: str) -> St
         if refused.status == 404:
             return None
         raise ReclaimRefused(refused.code, refused.status) from None
+    return await student_game_of(user, game_id)
+
+
+class PauseRefused(Exception):
+    """A «Ta pause» the api refuses (Story 8.6), with the command's code, status and fields: 409
+    `already_paused` (with `acted_by` and `acted_at`), `seat_not_yours`, `game_finished`,
+    `game_not_running` or `pause_not_allowed`."""
+
+    def __init__(self, code: str, status: int, fields: dict[str, Any]) -> None:
+        super().__init__(code)
+        self.code = code
+        self.status = status
+        self.fields = fields
+
+
+async def pause_own_game(user: authz.Principal, game_id: str) -> StudentGameOut | None:
+    """«Ta pause uten avtalt tid» (Story 8.6, FR-89, AD-2): the Student pauses their own Class
+    game, under `student_game_of`'s checks (None for every other game alike, FR-5). Only
+    `games.commands.pause` writes it, with the Student as actor, so a Student who holds no Seat of
+    the game now is refused there (`seat_not_yours`), and a second Pause answers `already_paused`
+    with who paused first, by id. A Student never sets a time. Returns the game as it now
+    stands."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+    if own is None:
+        return None
+    found, _ = own
+    try:
+        await games_commands.pause(str(found.game_id), actor=user.id)
+    except games_commands.CommandError as refused:
+        if refused.status == 404:
+            return None
+        raise PauseRefused(refused.code, refused.status, dict(refused.fields)) from None
     return await student_game_of(user, game_id)
 
 

@@ -41,6 +41,7 @@ import { OrderField } from "./order-field";
 import { lastOrder, parseOrder } from "./order-input";
 import { gameTitle } from "./home";
 import { ownSeatTakenOver, useServerNow, waitedFor } from "./seat-status";
+import { PauseControl, PauseLine } from "./pause-view";
 import { GameSeatStatus, TakenOverNote } from "./seat-status-view";
 import { TimeProposalBlock } from "./time-proposal-view";
 import { weekSummary } from "./week-summary";
@@ -299,6 +300,8 @@ function Running({
   const summary = weekSummary(state, turn);
   const dropped = useDroppedDraft(state, text, editable, send.outcome);
   const nowOrder = turn.guided ? (turn.order ?? undefined) : undefined;
+  // Story 8.6: while the Pausevalg is open its confirm is the primary, so «Bekreft ordre» steps back.
+  const [pausing, setPausing] = useState(false);
   return (
     <>
       {allRows.open ? (
@@ -390,6 +393,7 @@ function Running({
                   send.confirm(value);
                 }}
                 waitingFor={waitedFor(seats, now, true)}
+                stepBack={pausing}
                 aside={
                   <button
                     type="button"
@@ -406,8 +410,17 @@ function Running({
             {/* «Kostnad så langt» pinned under the Ordrefelt from 1024 px (Story 6.16); on phone it
                 is one tap away in Alle rader. */}
             <CostPanel state={state} table="toggle" className="mb-8 hidden lg:block" />
+            {/* Story 8.6: the pause line above Setestatus, for every Student of the game. */}
+            <PauseLine gameId={game.id} pause={envelope.table_status.pause} className="mb-4" />
             {/* Through the whole Uke, before and after the own Order, right under the Ordrefelt. */}
             <GameSeatStatus seats={seats} now={now} titleId={`seats-${game.id}`} className="max-w-md" />
+            {/* Story 8.6: «Ta pause» under Setestatus, and the Pausevalg in place. */}
+            <PauseControl
+              gameId={game.id}
+              canPause={envelope.table_status.can_pause ?? false}
+              onFormOpen={setPausing}
+              className="mt-4"
+            />
             {/* Story 6.19: the proposed time to play and «Godta tidspunktet»; proposing is on Hjem. */}
             <TimeProposalBlock game={game} now={now} className="mt-4 max-w-md" />
             <BackLinks game={game} />

@@ -288,6 +288,15 @@ export function reclaimSeat(gameId: string, role: components["schemas"]["Role"])
   );
 }
 
+/** «Ta pause uten avtalt tid» (Story 8.6, FR-89): a Student of the game pauses it; no time is sent.
+ * Answers the game as it now stands; 409 `already_paused` when someone paused first. */
+export function pauseGame(gameId: string) {
+  return request(() => api.POST("/api/me/games/{game_id}/pause", { params: { path: { game_id: gameId } } }));
+}
+
+/** The pause line the api sent (Story 8.6). */
+export type GamePause = NonNullable<MyGame["pause"]>;
+
 /** «Sett inn KI-spiller for …» (Story 8.5, FR-37): a Lecturer or Assistant lecturer puts an AI
  * player in the Seat `role`; answers Spillinnsikt as it now stands. 409 `takeover_exists` carries
  * `acted_by` and `acted_at`, by id only. */

@@ -388,6 +388,39 @@ async def set_lifecycle(session: AsyncSession, game_id: uuid.UUID, lifecycle: st
     await session.execute(update(games).where(games.c.id == game_id).values(lifecycle=lifecycle))
 
 
+async def set_pause(session: AsyncSession, game_id: uuid.UUID, user_id: uuid.UUID) -> Any:
+    """Story 8.6: the Pause in force from the transaction's `now()`, by `user_id`, with no agreed
+    time; the last Pause's end is forgotten. Returns `paused_at`."""
+    result = await session.execute(
+        update(games)
+        .where(games.c.id == game_id)
+        .values(
+            paused_at=func.now(),
+            paused_by=user_id,
+            resume_at=None,
+            pause_ended_at=None,
+            pause_ended_by=None,
+        )
+        .returning(games.c.paused_at)
+    )
+    return result.scalar_one()
+
+
+async def end_pause(session: AsyncSession, game_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """Story 8.6: a Student's Order ends the Pause in force at the transaction's `now()`."""
+    await session.execute(
+        update(games)
+        .where(games.c.id == game_id)
+        .values(
+            paused_at=None,
+            paused_by=None,
+            resume_at=None,
+            pause_ended_at=func.now(),
+            pause_ended_by=user_id,
+        )
+    )
+
+
 async def insert_week(
     session: AsyncSession,
     game_id: uuid.UUID,
@@ -641,8 +674,9 @@ async def takeover_row(session: AsyncSession, occupancy_id: uuid.UUID) -> RowMap
 
 async def due_takeover_turns(session: AsyncSession, now: Any) -> list[RowMapping]:
     """The turns the sweep's Takeover may act on (Story 8.2, AD-9): in the open Week of a running
-    Game whose policy has inactivity Takeover, with no Order yet or (a Guided Week) no view, and a
-    stored `takeover_due_at` at or before `now`, oldest due first. `game_id`, `seat_id`, `week`;
+    Game whose policy has inactivity Takeover and that is not paused (Story 8.6), with no Order
+    yet or (a Guided Week) no view, and a stored `takeover_due_at` at or before `now`, oldest due
+    first. `game_id`, `seat_id`, `week`;
     `games.commands.takeover` decides under the lock (`rules.can_take_over`)."""
     open_weeks = _open_weeks()
     result = await session.execute(
@@ -656,6 +690,8 @@ async def due_takeover_turns(session: AsyncSession, now: Any) -> list[RowMapping
         )
         .where(
             games.c.purpose.in_(purposes_with("inactivity_takeover")),
+            # A paused Game takes no Seat over (Story 8.6); `can_take_over` says so too.
+            games.c.paused_at.is_(None),
             seat_turns.c.takeover_due_at.is_not(None),
             seat_turns.c.takeover_due_at <= now,
             (seat_turns.c.ordered_at.is_(None)) | (seat_turns.c.viewed_at.is_(None)),
