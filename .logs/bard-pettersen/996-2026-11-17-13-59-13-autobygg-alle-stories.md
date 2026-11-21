@@ -2022,3 +2022,39 @@ Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en kort visuell ko
 
 ### Åpne punkter
 - Issue 140: beslutninger i Story 6.22.
+
+## Avslutning av Epic 6 (2026-11-21)
+
+### Oppgave
+Avslutte Epic 6 etter kjøreboka: oppfølgende gjennomgang, de samlede UX-punktene, testfart og stabil e2e, og deretter PR og merge.
+
+### Plan
+1. Gjennomgå logikken i 6.1, 6.4, 6.5 og 6.13 og fem logikkpunkter, og rette de 17 UX-punktene. Disse to delene gikk i parallell.
+2. Gjøre e2e raskere og stabil.
+3. Lage en PR mot `main`.
+
+### Resultat
+- **Oppfølgende gjennomgang:** commits 59824a4–8ab777b.
+  - SSE dekket ikke lenger spill studenten har forlatt.
+  - API-et viste ikke lenger en plass en annen student hadde overtatt.
+  - `order_exists` svarer før `week_not_open`.
+  - En medeier ser nye økter uten å koble til på nytt.
+  - Sjekken av ferdige spill venter lenger og lenger mellom forsøk når den feiler.
+  - Fristen leses under lås.
+  - `test_rescue` avhenger ikke lenger av klokka.
+- **UX-rettinger:** commits fbd4728, 2950cee, 1c458af og 4603cb7.
+  - 16 av 17 punkter er rettet, blant dem norsk datoformat (`--lang=nb-NO`) og feilen der et ferdig spill viste plassene som «venter».
+  - Grafstripa i reglene og totalaksen med steget 2,5 er på plass.
+  - Skjermbildene ligger i `screenshots/epic-6-avslutning/`.
+- **Stabilisering:** commits efc9cb3, 7d86933 og 2ace2cb.
+  - En ekte feil i backend: rutene for studenter holdt to tilkoblinger til databasen samtidig, og poolen låste seg når mange sider leste på nytt. Rettet, med en test.
+  - Nettleserkontekster som ble liggende åpne etter testene, lukkes nå.
+  - En ustabil test for opplasting av klasseliste er rettet.
+  - Hele Playwright-pakken gikk fra 7,6 til 4,3 minutter (444 tester), og passerte to ganger på rad rett etter bygget. Backend-pakken tar 66,7 s.
+- **Issues:** #119–#140 er lukket.
+
+### Åpne punkter
+- Issue #141: tre punkter som er avgjort til senere. Det viktigste er en mulig fastlåsing av LLM-turer, og den hører til Epic 8.
+- Issue #139: LLM-spillere bruker `player_order/v2` først etter målingen mot OpenRouter (Issue #60).
+- Issue #56 og #60: Story 2.7 og 2.11 står i `review`.
+- Issue #31: tekstgjennomgang av alle [ASSUMPTION]-tekster.
