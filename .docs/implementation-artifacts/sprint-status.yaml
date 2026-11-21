@@ -192,8 +192,8 @@ development_status:
   9-15-ask-bounded-follow-up-questions-about-my-game: review
   epic-9-retrospective: optional
 
-  epic-10: backlog
-  10-1-get-a-default-replay-scenario-that-differs-per-student: backlog
+  epic-10: in-progress
+  10-1-get-a-default-replay-scenario-that-differs-per-student: in-progress
   10-2-set-the-replay-scenario-freely: backlog
   10-3-start-the-replay-after-passing-the-debrief-quiz: backlog
   10-4-play-the-replay-with-the-projection-line: backlog
