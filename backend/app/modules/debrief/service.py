@@ -390,7 +390,9 @@ async def open_mine(user: authz.Principal, class_session_id: uuid.UUID) -> Debri
             students = await games.game_students(s, found.game.game_id)
         shared = sum(1 for each in students if each.student_orders > 0) >= 2
         tell = [each.user_id for each in students if each.user_id != user.id]
-    row = await commands.open(found.game.game_id, class_session_id, user.id, shared, tell)
+    row = await commands.open(
+        found.game.game_id, class_session_id, user.id, shared, tell, held=found.hold
+    )
     return await _out(row, found.game, user.id)
 
 

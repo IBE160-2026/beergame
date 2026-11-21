@@ -229,6 +229,21 @@ async def test_a_group_that_never_met_falls_back_after_48_hours(klass, emitted):
     assert (await call(a, "GET", f"{path}/reflection")).status_code == 200
 
 
+async def test_a_held_debrief_counts_its_48_hours_from_the_first_open(klass):
+    # Held until every Class game has finished (Story 9.2): a late release must not fall back at
+    # once, so the due time is the first open plus 48 hours, not the Game's finish.
+    session_id, game_id = await played(klass, 3, ordering=3, debrief_release="hold")
+    assert (await open_(email(0), session_id)).json()["group"]["joined"] is True
+    [(from_open, after_finish)] = rows(
+        "SELECT s.fallback_due_at - s.opened_at - interval '48 hours' BETWEEN interval '0'"
+        " AND interval '1 minute', s.fallback_due_at > ("
+        " SELECT w.created_at FROM game_weeks w WHERE w.game_id = s.game_id AND w.finished)"
+        " + interval '48 hours' FROM debrief_sessions s WHERE s.game_id = %s",
+        game_id,
+    )
+    assert from_open and after_finish
+
+
 async def test_a_student_who_missed_the_group_opens_a_personal_debrief_at_once(klass, emitted):
     session_id, _ = await played(klass, 3, ordering=3)
     a, b, c = email(0), email(1), email(2)

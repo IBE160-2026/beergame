@@ -130,7 +130,8 @@ function LeaveGroup({ debrief }: { debrief: Debrief }) {
     <div data-group-leave-confirm="" className="flex flex-col items-start gap-2">
       <p className={`${LINE} text-ink`}>{copy.leaveConfirm}</p>
       <div className="flex flex-wrap gap-2">
-        <Button unavailable={leave.isPending} onClick={() => leave.mutate()}>
+        {/* The confirming action is the primary one, «Avbryt» the outline beside it. */}
+        <Button variant="primary" unavailable={leave.isPending} onClick={() => leave.mutate()}>
           {copy.leave}
         </Button>
         <Button ref={cancel} unavailable={leave.isPending} onClick={() => setConfirming(false)}>

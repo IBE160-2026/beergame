@@ -145,6 +145,7 @@ async def open(
     opener_id: uuid.UUID | None = None,
     shared: bool = False,
     tell: Sequence[uuid.UUID] = (),
+    held: bool = False,
 ) -> DebriefRow:
     """The Debrief session of the Game, created with its step pointer at step 1 if none exists
     (FR-42). The caller has judged availability (`debrief.rules`) and, for a Group debrief
@@ -153,7 +154,9 @@ async def open(
     (which emits `user:<id>`, so their Hjem offers to join). Whether a session is shared is fixed
     at its creation. The row is locked; a new row emits `debrief:<id>`, an existing one is
     returned as it stands and emits nothing. Story 9.12: a shared row stores when it falls back
-    to a Personal debrief, `FALLBACK_AFTER` after the Game's finish time (database time); and a
+    to a Personal debrief, `FALLBACK_AFTER` after the Game's finish time (database time), or, in a
+    `held` Class session (Story 9.2), after this first open, which follows the release, so a
+    Debrief released late does not fall back at once (Epic 9 close-out); and a
     Student who opens an existing one whose group has finished the shared steps without them goes
     on alone at once (`missed`), which emits `debrief:<id>`."""
     shared = shared and opener_id is not None
@@ -161,9 +164,9 @@ async def open(
         fallback_due_at = None
         if shared:
             finished = await games.finished_at(session, game_id)
-            if finished is None:
-                finished = await games.database_now(session)
-            fallback_due_at = finished + FALLBACK_AFTER
+            now = await games.database_now(session)
+            start = now if held or finished is None else min(finished, now)
+            fallback_due_at = start + FALLBACK_AFTER
         created = await session.scalar(
             insert(debrief_sessions)
             .values(
