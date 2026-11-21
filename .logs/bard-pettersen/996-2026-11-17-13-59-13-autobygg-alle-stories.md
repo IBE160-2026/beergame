@@ -1885,3 +1885,26 @@ Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en visuell kontrol
 
 ### Åpne punkter
 - Issue 134: beslutninger i Story 6.16.
+
+## Story 6.17: Se på Hjem om spillet venter på meg (2026-11-21)
+
+### Oppgave
+Bygge Story 6.17 etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en visuell kontroll og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-17-see-on-hjem-whether-the-game-waits-for-me.md`.
+- **Commit 6885186:** felles spillkort med liten graf og tre rader, tallene for egen plass i Hjem-dataene, og «Spillet venter på deg».
+- **Tester:**
+  - backend: hele pakken (68 s);
+  - frontend: Vitest og bygg;
+  - Playwright: de berørte filene.
+- **Gjennomgang:** 17 lave funn. 6 ble rettet.
+- **Visuell kontroll:** 21 skjermbilder i `screenshots/6.17/`. Ingen klare avvik.
+- **CI:** grønn igjen etter rettingen i 07345fa.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 135: beslutninger i Story 6.17.
