@@ -7,7 +7,6 @@ import { nb } from "@/copy/nb";
 
 import type { OverviewGame } from "./api";
 import { filterGroups, groupsOf, headline, statusCounts, statusLines, wallGroups } from "./overview";
-import { afterBandMove } from "./overview-band";
 import { PauseControl, PauseLine, pauseText } from "./pause-view";
 import { Spillstyring } from "./spillstyring";
 
@@ -137,15 +136,5 @@ describe("the Oversikt with a paused game", () => {
     const running = filterGroups(groupsOf(games), "running");
     expect(running.map((g) => g.name)).toEqual(["paused", "running"]);
     expect(filterGroups(groupsOf(games), "waiting").map((g) => g.name)).toEqual(["waiting"]);
-  });
-});
-
-describe("the Varselbånd's result line (follow-up of Story 8.5)", () => {
-  it("stays over the move its press caused and goes at the next one", () => {
-    const line = { game: "g2", moves: 0 };
-    const kept = afterBandMove(line);
-    expect(kept).toEqual({ game: "g2", moves: 1 });
-    expect(afterBandMove(kept)).toBeNull();
-    expect(afterBandMove(null)).toBeNull();
   });
 });

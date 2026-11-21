@@ -88,6 +88,12 @@ deferred: []
 
 ## Spec Change Log
 
+### 2026-11-21 — The orchestrator dropped the two Story 8.5 checks
+- Trigger: after the commit, the orchestrator removed the Varselbånd result line and the pressed Spillstyring Seat from this story's intent. The 8.5 builder kept both on purpose: the line names its own game and the next press replaces it, and the row stays so the refusal can say why.
+- Amended: the code of both is back to Story 8.5's (overview-band.tsx, spillstyring.tsx except the paused status, e2e/spillstyring.spec.ts), and the fterBandMove test is gone. The intent contract's line on them no longer applies. The review rows edge-9, edge-10, intent-1, intent-2 and verification-4 describe code that no longer exists.
+- KEEP: the «Pause» Oversikt group and the whole Pause story; Spillstyring stays on a paused game.
+- «Ta pause» is not in the Spillstyring block (a Student control; the Lecturer's pause is Story 8.7), so its title is unchanged here.
+
 ## Review Triage Log
 
 ### 2026-11-21 — Review pass
@@ -144,7 +150,7 @@ Status: done
 
 The Oversikt groups paused games under «Pause» between Venter and Pågår, the longest paused first, with «Pause siden ma. 14:10, satt av Sara.». The headline reads «… pågår (herav n pauset)», and the «Pågår» filter takes paused games. The Varselbånd and `next_change_at` read only waiting games. Spillinnsikt reads «Pause» and keeps Spillstyring.
 
-The 8.5 follow-ups: the band's result line now goes at the band's next move after the press's own move. Spillstyring forgets a press that put no AI player in and named no one, so its row then follows the api.
+The two Story 8.5 checks were dropped from the intent after the first commit (Spec Change Log); that code is back to Story 8.5's.
 
 **Files changed**
 - `backend/migrations/versions/0056_game_pause.py` (new), `backend/app/modules/games/models.py`: columns and checks.
@@ -176,7 +182,6 @@ The 8.5 follow-ups: the band's result line now goes at the band's next move afte
 - A paused game counts in «pågår (herav n pauset)», and the «Pågår» filter takes it. It waits for no one on the Oversikt, and the band skips it.
 - The audit row `game.paused` is written for a Student's Pause (spine: Pause by a person).
 - Draft copy `[ASSUMPTION]`: «Pause, satt av deg.», «Pausen er over. Du har bestilt.», the unknown-name lines, the refusals, «Pause siden ma. 14:10, satt av Sara.» and «Pause» as the status word.
-- The band's line goes at the band's second move after a press; Spillstyring keeps the row only for `takeover_exists`.
 - Implemented in the builder's own context, as the orchestrator instructed.
 
 **Residual risks.**
