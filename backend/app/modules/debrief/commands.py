@@ -1,8 +1,11 @@
-"""The only writer of the Debrief tables (Stories 9.2, 9.3, 9.6 to 9.10, AD-21, AD-8).
+"""The only writer of the Debrief tables (Stories 9.2, 9.3, 9.6 to 9.11, AD-21, AD-8).
 
 Each command on a Debrief session locks its row and emits `debrief:<id>` (`platform/events`
-registry: `debrief.open`, `debrief.save_explanation`, `debrief.complete_step`,
-`debrief.record_facts`, `debrief.finish`, `debrief.submit_quiz`). `release` writes
+registry: `debrief.open`, `debrief.join`, `debrief.save_explanation`, `debrief.complete_step`,
+`debrief.move_on`, `debrief.record_facts`, `debrief.finish`, `debrief.submit_quiz`). Story 9.11:
+a Group debrief's session is shared; its joined Students share the step pointer over steps 1 to 3
+(`save_explanation` and `complete_step` move it once all have finished, `move_on` lets the opener
+move it after the minimum wait). `release` writes
 the Class session's release once and tells each Student who holds a Seat through
 `platform/notify` (`debrief.release`). `set_quiz_exclusions` (Story 9.10) locks the Class
 session row instead, records the change through `platform/audit`, emits `session:<id>` and tells
@@ -12,20 +15,23 @@ the Student's text only."""
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.debrief.models import (
+    INDIVIDUAL_STEP,
     debrief_explanations,
     debrief_fact_sets,
+    debrief_members,
     debrief_reflection_answers,
     debrief_releases,
     debrief_sessions,
+    debrief_step_marks,
     debrief_summaries,
     quiz_attempts,
     quiz_exclusions,
@@ -44,6 +50,10 @@ RELEASED_NOTICE = "debrief_released"
 QUIZ_CHANGED_NOTICE = "quiz_changed"
 """The notice a Student gets when the Lecturer takes out every question their last Debrief quiz
 attempt got wrong (Story 9.10, digest)."""
+
+GROUP_OPENED_NOTICE = "group_debrief_opened"
+"""The notice each other Student of the Class game gets when a Group debrief of it opens (Story
+9.11, immediate)."""
 
 EXCLUSIONS_CHANGED = "debrief_quiz.exclusions_changed"
 """The audit action of a change to a Class session's Debrief quiz exclusions (Story 9.10)."""
@@ -72,6 +82,10 @@ class DebriefRow:
     game_id: uuid.UUID
     class_session_id: uuid.UUID
     step: int
+    shared: bool = False
+    """Story 9.11: a Group debrief's session, whose joined Students share the step pointer."""
+    opener_id: uuid.UUID | None = None
+    step_opened_at: datetime | None = None
 
 
 def row_of(row) -> DebriefRow:
@@ -80,6 +94,9 @@ def row_of(row) -> DebriefRow:
         game_id=row["game_id"],
         class_session_id=row["class_session_id"],
         step=row["step"],
+        shared=row["shared"],
+        opener_id=row["opener_id"],
+        step_opened_at=row["step_opened_at"],
     )
 
 
@@ -90,10 +107,21 @@ async def _locked(session: AsyncSession, game_id: uuid.UUID) -> DebriefRow:
     return row_of(found.mappings().one())
 
 
-async def open(game_id: uuid.UUID, class_session_id: uuid.UUID) -> DebriefRow:
+async def open(
+    game_id: uuid.UUID,
+    class_session_id: uuid.UUID,
+    opener_id: uuid.UUID | None = None,
+    shared: bool = False,
+    tell: Sequence[uuid.UUID] = (),
+) -> DebriefRow:
     """The Debrief session of the Game, created with its step pointer at step 1 if none exists
-    (FR-42). The caller has judged availability (`debrief.rules`). The row is locked; a new row
-    emits `debrief:<id>`, an existing one is returned as it stands and emits nothing."""
+    (FR-42). The caller has judged availability (`debrief.rules`) and, for a Group debrief
+    (Story 9.11, FR-43), that it is `shared`: then the row names `opener_id` as its opener, who
+    is joined at once, and each other Student in `tell` gets a `group_debrief_opened` notice
+    (which emits `user:<id>`, so their Hjem offers to join). Whether a session is shared is fixed
+    at its creation. The row is locked; a new row emits `debrief:<id>`, an existing one is
+    returned as it stands and emits nothing."""
+    shared = shared and opener_id is not None
     async with get_sessionmaker().begin() as session:
         created = await session.scalar(
             insert(debrief_sessions)
@@ -103,15 +131,167 @@ async def open(game_id: uuid.UUID, class_session_id: uuid.UUID) -> DebriefRow:
                 class_session_id=class_session_id,
                 step=1,
                 opened_at=func.now(),
+                shared=shared,
+                opener_id=opener_id if shared else None,
+                step_opened_at=func.now(),
             )
             .on_conflict_do_nothing(constraint="uq_debrief_sessions_game")
             .returning(debrief_sessions.c.id)
         )
         found = await _locked(session, game_id)
         if created is not None:
+            if found.shared and opener_id is not None:
+                await session.execute(
+                    insert(debrief_members).values(
+                        debrief_id=found.id, user_id=opener_id, joined_at=func.now()
+                    )
+                )
+                for user_id in tell:
+                    if user_id != opener_id:
+                        await notify.enqueue(
+                            session,
+                            user_id,
+                            GROUP_OPENED_NOTICE,
+                            f"{GROUP_OPENED_NOTICE}:{found.id}:{user_id}",
+                            ref=class_session_id,
+                        )
             await events.emit(session, "debrief", str(found.id))
-            log.info("debrief_opened", debrief_id=str(found.id), game_id=str(game_id))
+            log.info(
+                "debrief_opened", debrief_id=str(found.id), game_id=str(game_id), shared=shared
+            )
     return found
+
+
+class NotGroup(Exception):
+    """A Group debrief action on a Personal debrief (409 `not_group`)."""
+
+
+class NotJoined(Exception):
+    """A shared step's «finished» by a Student who has not joined, or the move-on by anyone but
+    the opener (403 `forbidden`)."""
+
+
+class StepNotOpen(Exception):
+    """«Ferdig med steget» on a shared step that is not the pointer's (409 `step_not_open`)."""
+
+
+class TooEarly(Exception):
+    """The opener's move-on before the step has been open the minimum wait (409 `too_early`)."""
+
+    def __init__(self, available_at: datetime) -> None:
+        super().__init__(available_at.isoformat())
+        self.available_at = available_at
+
+
+async def _members(session: AsyncSession, debrief_id: uuid.UUID) -> list[uuid.UUID]:
+    return list(
+        (
+            await session.scalars(
+                select(debrief_members.c.user_id).where(debrief_members.c.debrief_id == debrief_id)
+            )
+        ).all()
+    )
+
+
+async def _finished(
+    session: AsyncSession, debrief: DebriefRow, step: int, user_ids: Sequence[uuid.UUID]
+) -> set[uuid.UUID]:
+    """Those of `user_ids` who have finished shared step `step`: step 1 by their stored
+    Explanation, steps 2 and 3 by their mark."""
+    if not user_ids:
+        return set()
+    if step == 1:
+        query = select(debrief_explanations.c.user_id).where(
+            debrief_explanations.c.class_session_id == debrief.class_session_id,
+            debrief_explanations.c.user_id.in_(list(user_ids)),
+        )
+    else:
+        query = select(debrief_step_marks.c.user_id).where(
+            debrief_step_marks.c.debrief_id == debrief.id,
+            debrief_step_marks.c.step == step,
+            debrief_step_marks.c.user_id.in_(list(user_ids)),
+        )
+    return set((await session.scalars(query)).all())
+
+
+async def _move(session: AsyncSession, debrief: DebriefRow, step: int) -> DebriefRow:
+    await session.execute(
+        update(debrief_sessions)
+        .where(debrief_sessions.c.id == debrief.id)
+        .values(step=step, step_opened_at=func.now())
+    )
+    log.info("debrief_step_moved", debrief_id=str(debrief.id), step=step)
+    return await _locked(session, debrief.game_id)
+
+
+async def _advance(session: AsyncSession, debrief: DebriefRow) -> DebriefRow:
+    """In the caller's transaction, holding the row's lock: move a shared pointer on while every
+    joined Student has finished its step, at most to `INDIVIDUAL_STEP` (FR-43)."""
+    if not debrief.shared:
+        return debrief
+    members = await _members(session, debrief.id)
+    while members and debrief.step < INDIVIDUAL_STEP:
+        if len(await _finished(session, debrief, debrief.step, members)) < len(members):
+            break
+        debrief = await _move(session, debrief, debrief.step + 1)
+    return debrief
+
+
+async def join(game_id: uuid.UUID, user_id: uuid.UUID) -> DebriefRow:
+    """«Bli med» (Story 9.11, FR-43): add the Student to the joined set of the Game's shared
+    Debrief session. The caller has judged that it is their game. The row is locked; a new member
+    emits `debrief:<id>`, a second join changes nothing and emits nothing. Raises `NotGroup` on a
+    Personal debrief."""
+    async with get_sessionmaker().begin() as session:
+        debrief = await _locked(session, game_id)
+        if not debrief.shared:
+            raise NotGroup
+        added = await session.scalar(
+            insert(debrief_members)
+            .values(debrief_id=debrief.id, user_id=user_id, joined_at=func.now())
+            .on_conflict_do_nothing(
+                index_elements=[debrief_members.c.debrief_id, debrief_members.c.user_id]
+            )
+            .returning(debrief_members.c.user_id)
+        )
+        if added is not None:
+            await events.emit(session, "debrief", str(debrief.id))
+            log.info("debrief_joined", debrief_id=str(debrief.id))
+    return debrief
+
+
+async def move_on(game_id: uuid.UUID, user_id: uuid.UUID, wait: timedelta) -> DebriefRow:
+    """«Gå videre for alle» (Story 9.11, FR-43): the opener moves the shared pointer to the next
+    step although not every joined Student has finished it, once the step has been open `wait`
+    (database time). The row is locked; a move emits `debrief:<id>`; at `INDIVIDUAL_STEP` nothing
+    moves. Raises `NotGroup` on a Personal debrief, `NotJoined` for anyone but the opener and
+    `TooEarly` with the time it becomes possible."""
+    async with get_sessionmaker().begin() as session:
+        debrief = await _locked(session, game_id)
+        if not debrief.shared:
+            raise NotGroup
+        if debrief.opener_id != user_id:
+            raise NotJoined
+        if debrief.step >= INDIVIDUAL_STEP:
+            return debrief
+        opened = debrief.step_opened_at
+        assert opened is not None
+        if await session.scalar(select(func.now() < opened + wait)):
+            raise TooEarly(opened + wait)
+        debrief = await _move(session, debrief, debrief.step + 1)
+        await events.emit(session, "debrief", str(debrief.id))
+    return debrief
+
+
+async def backdate_step(debrief_id: uuid.UUID, by: timedelta) -> None:
+    """Local dev only (`debrief.dev`, never mounted in production): move the shared step's opening
+    time back by `by`, so an end-to-end test need not wait for the move-on. Emits nothing."""
+    async with get_sessionmaker().begin() as session:
+        await session.execute(
+            update(debrief_sessions)
+            .where(debrief_sessions.c.id == debrief_id)
+            .values(step_opened_at=debrief_sessions.c.step_opened_at - by)
+        )
 
 
 async def release(class_session_id: uuid.UUID, now: datetime) -> bool:
@@ -189,6 +369,8 @@ async def save_explanation(
         await progress.record_step(
             user_id, class_session_id, progress.Step.EXPLANATION, stored["saved_at"], within=session
         )
+        # Story 9.11: in a Group debrief the last joined Student's Explanation moves the pointer.
+        await _advance(session, debrief)
         await events.emit(session, "debrief", str(debrief.id))
     log.info("explanation_saved", debrief_id=str(debrief.id), length=stored["length"])
     return ExplanationRow(stored["text"], stored["length"], stored["saved_at"])
@@ -202,22 +384,75 @@ class AnswerRow:
     saved_at: datetime
 
 
+@dataclass(frozen=True)
+class Reflection:
+    """A reflection answer to store (Story 9.6): the pinned version, its questions in the order
+    asked, the question answered and the text."""
+
+    questions_version: int
+    question_ids: Sequence[str]
+    question_id: str
+    text: str
+
+
 async def complete_step(
     game_id: uuid.UUID,
     class_session_id: uuid.UUID,
     user_id: uuid.UUID,
-    questions_version: int,
-    question_ids: Sequence[str],
-    question_id: str,
-    text: str,
+    step: int,
+    reflection: Reflection | None = None,
+) -> AnswerRow | DebriefRow:
+    """A Student finishes part of the Debrief (AD-21). The Debrief row of the Game is locked.
+
+    - With `reflection`, «Fortsett» on a reflection question (Story 9.6, FR-45, AD-14), which
+      answers `_answer`'s `AnswerRow`.
+    - Without, «Ferdig med steget» on shared step `step`, 2 or 3, of a Group debrief (Story 9.11,
+      FR-43): the joined Student's mark is stored once, and when every joined Student has
+      finished the step the pointer moves on; a new mark emits `debrief:<id>`, a second one
+      nothing. Raises `NotGroup` on a Personal debrief, `NotJoined` for a Student who has not
+      joined and `StepNotOpen` for any step but the pointer's. Answers the Debrief row as it
+      stands."""
+    if reflection is not None:
+        return await _answer(game_id, class_session_id, user_id, reflection)
+    async with get_sessionmaker().begin() as session:
+        debrief = await _locked(session, game_id)
+        if not debrief.shared:
+            raise NotGroup
+        if user_id not in await _members(session, debrief.id):
+            raise NotJoined
+        if step != debrief.step or not 2 <= step < INDIVIDUAL_STEP:
+            raise StepNotOpen
+        marked = await session.scalar(
+            insert(debrief_step_marks)
+            .values(debrief_id=debrief.id, user_id=user_id, step=step, done_at=func.now())
+            .on_conflict_do_nothing(
+                index_elements=[
+                    debrief_step_marks.c.debrief_id,
+                    debrief_step_marks.c.user_id,
+                    debrief_step_marks.c.step,
+                ]
+            )
+            .returning(debrief_step_marks.c.step)
+        )
+        if marked is not None:
+            debrief = await _advance(session, debrief)
+            await events.emit(session, "debrief", str(debrief.id))
+    return debrief
+
+
+async def _answer(
+    game_id: uuid.UUID, class_session_id: uuid.UUID, user_id: uuid.UUID, reflection: Reflection
 ) -> AnswerRow:
-    """«Fortsett» on a reflection question (Story 9.6, FR-45, AD-14, AD-21): store the Student's
-    answer to `question_id`, as typed, with its length and the database time. The Debrief row of
-    the Game is locked, so the order is judged against what is stored; a new answer emits
-    `debrief:<id>`. `question_ids` are the pinned version's questions in the order asked, and the
-    caller has judged that `question_id` is one of them and the text. An answered question
-    returns the stored answer unchanged and emits nothing (a retry, a second device); any other
-    question than the first unanswered one raises `AnswerOutOfOrder`."""
+    """Store the Student's answer to `question_id`, as typed, with its length and the database
+    time. The Debrief row of the Game is locked, so the order is judged against what is stored; a
+    new answer emits `debrief:<id>`. `question_ids` are the pinned version's questions in the
+    order asked, and the caller has judged that `question_id` is one of them and the text. An
+    answered question returns the stored answer unchanged and emits nothing (a retry, a second
+    device); any other question than the first unanswered one raises `AnswerOutOfOrder`."""
+    questions_version = reflection.questions_version
+    question_ids = reflection.question_ids
+    question_id = reflection.question_id
+    text = reflection.text
     async with get_sessionmaker().begin() as session:
         debrief = await _locked(session, game_id)
         stored = {

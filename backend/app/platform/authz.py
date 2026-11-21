@@ -258,6 +258,17 @@ def class_games_staffed_by(user: Principal | uuid.UUID) -> Select:
     return select(_games.c.id).where(_games.c.class_session_id.in_(class_sessions_staffed_by(user)))
 
 
+_debrief_sessions = table("debrief_sessions", column("id"), column("game_id"))
+"""`debrief.debrief_sessions` by name only, for the Debrief event scope."""
+
+
+def debriefs_of(user: Principal | uuid.UUID) -> Select:
+    """The ids of the Debrief sessions of the Games in which `user` holds or has held a Seat
+    (Story 9.11, AD-8, AD-21): the `debrief:<id>` topics their event stream forwards. An event
+    names only the id; every read behind it is the Debrief's own, held to the Student's game."""
+    return select(_debrief_sessions.c.id).where(_debrief_sessions.c.game_id.in_(own_seat(user)))
+
+
 PrincipalLoader = Callable[[uuid.UUID, int], Awaitable[Principal | None]]
 """`(user_id, session_version)` → the active User, or None when the User is gone, deactivated, or
 the session is older than the User's session version."""

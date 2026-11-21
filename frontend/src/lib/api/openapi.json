@@ -1820,6 +1820,16 @@
             ],
             "title": "Game Number"
           },
+          "group": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GroupOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -2634,6 +2644,100 @@
           "value"
         ],
         "title": "GivenRowOut",
+        "type": "object"
+      },
+      "GroupMemberOut": {
+        "description": "A joined Student of a Group debrief as the other joined Students see them (Story 9.11,\nFR-43): the Roster name now (None once no longer a Student of the Class), whether it is the\ncaller, whether their Explanation is sent and whether they have finished the shared step. Never\nthe text of their Explanation or answers.",
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "sent": {
+            "title": "Sent",
+            "type": "boolean"
+          },
+          "you": {
+            "title": "You",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "you",
+          "sent",
+          "done"
+        ],
+        "title": "GroupMemberOut",
+        "type": "object"
+      },
+      "GroupOut": {
+        "description": "A Group debrief's shared step pointer (Story 9.11, FR-43): `step` 1 to 3 is shared, 4 means\neach Student works alone from the reflection questions on. `move_on_at` is when the opener may\nmove every joined Student on (database time). `members` only for a joined caller, else\nempty.",
+        "properties": {
+          "joined": {
+            "title": "Joined",
+            "type": "boolean"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/GroupMemberOut"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "move_on_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Move On At"
+          },
+          "opener": {
+            "title": "Opener",
+            "type": "boolean"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          },
+          "step_opened_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Opened At"
+          }
+        },
+        "required": [
+          "step",
+          "joined",
+          "opener",
+          "step_opened_at",
+          "move_on_at",
+          "members"
+        ],
+        "title": "GroupOut",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -6037,6 +6141,11 @@
       "StepOut": {
         "description": "A step of Stegene (Story 6.1, UX-DR29, AD-10, AD-16), its state computed here: the web app\nholds no rule for which step is open.",
         "properties": {
+          "group_open": {
+            "default": false,
+            "title": "Group Open",
+            "type": "boolean"
+          },
           "held": {
             "default": false,
             "title": "Held",
@@ -12165,6 +12274,152 @@
         ]
       }
     },
+    "/api/debriefs/{debrief_id}/join": {
+      "post": {
+        "description": "«Bli med» (Story 9.11, FR-43): the Student joins the Group debrief of their own game; a\nsecond join changes nothing. 409 `not_group` on a Personal debrief; 403 `forbidden` for anyone\nwhose game it is not.",
+        "operationId": "joinDebrief",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebriefOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Join Debrief",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/move-on": {
+      "post": {
+        "description": "«Gå videre for alle» (Story 9.11, FR-43): the opener moves every joined Student to the next\nstep once the current one has been open the minimum wait (configuration). 409 `too_early`\nwith `fields.available_at` before then, `not_group` on a Personal debrief; 403 `forbidden`\nfor anyone but the opener.",
+        "operationId": "moveDebriefOn",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebriefOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Move Debrief On",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
     "/api/debriefs/{debrief_id}/net-inventory": {
       "get": {
         "description": "«Ditt netto lager, hele spillet» (Story 9.3, step 1): the Netto lager of the Student's own\nSeat in every Uke, oldest first. Never demand or another Seat (FR-14).",
@@ -12608,6 +12863,90 @@
           }
         },
         "summary": "Get Debrief Step",
+        "tags": [
+          "debrief"
+        ]
+      }
+    },
+    "/api/debriefs/{debrief_id}/steps/{step}/done": {
+      "post": {
+        "description": "«Ferdig med steget» (Story 9.11, FR-43): a joined Student has finished shared step 2 or 3;\nonce every joined Student has, the step pointer moves on for all. 403\n`explanation_required` before the Explanation, `forbidden` for a Student who has not joined;\n409 `not_group` on a Personal debrief, `step_not_open` for a step after the pointer's.",
+        "operationId": "completeDebriefStep",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "debrief_id",
+            "required": true,
+            "schema": {
+              "title": "Debrief Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "step",
+            "required": true,
+            "schema": {
+              "maximum": 3,
+              "minimum": 2,
+              "title": "Step",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DebriefOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete Debrief Step",
         "tags": [
           "debrief"
         ]

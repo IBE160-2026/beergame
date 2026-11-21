@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 import { usePageState } from "@/lib/page-state";
@@ -13,15 +15,18 @@ import {
   DEBRIEF_STEPS,
   type Debrief,
   debriefView,
+  INDIVIDUAL_STEP,
   myDebriefKey,
+  reach,
   reflectionDone,
   useMyDebrief,
   useMyExplanation,
   useMyReflection,
 } from "./api";
 import { BillStep } from "./bill-step";
-import { ExplanationStep } from "./explanation-step";
 import { ChainStep } from "./chain-step";
+import { ExplanationStep } from "./explanation-step";
+import { GroupAnnouncer, GroupJoin, GroupStepBar, STEP_HEADING_ID } from "./group";
 import { MomentsStep } from "./moments-step";
 import { QuizStep } from "./quiz-step";
 import { ReflectionStep } from "./reflection-step";
@@ -91,39 +96,60 @@ function DebriefView({
  * Forklaringen først»): step 1, and once the Explanation is saved, steps 2 and 3 under it, so the
  * Explanation stays beside the data, then the reflection questions (Story 9.6) and, once they are
  * all answered, the own moments (Story 9.7), then Kjedens regning and «Fullfør Debriefen» (Story
- * 9.8), and once finished, step 5, the Debrief quiz (Story 9.9). A finished Debrief reads the same, with nothing left to send. The step pointer stays where the session stands
- * (moving on together comes with the Group debrief, Story 9.11). */
+ * 9.8), and once finished, step 5, the Debrief quiz (Story 9.9). A finished Debrief reads the same,
+ * with nothing left to send.
+ *
+ * Story 9.11, the Group debrief: a Student of the game who has not joined sees only «Bli med i
+ * Gruppedebriefen». A joined Student sees the steps up to the shared pointer (`reach`), with the
+ * group's line under the step it is on, and from the reflection questions on works alone; the
+ * pointer moves with the `debrief:<id>` event, without reload, and the move is announced. */
 function Steps({ debrief, userId }: { debrief: Debrief; userId: string }) {
-  const heading = debrief.step === 1 ? copy.firstStep : null;
-  const sent = Boolean(useMyExplanation(debrief.id).data?.explanation);
-  const reflected = reflectionDone(useMyReflection(debrief.id, sent).data);
+  const group = debrief.group ?? null;
+  const explanation = useMyExplanation(debrief.id);
+  const sent = Boolean(explanation.data?.explanation);
+  const far = reach(debrief, sent);
+  const reflected = reflectionDone(useMyReflection(debrief.id, sent && far >= INDIVIDUAL_STEP).data);
+  // Joined just now (Story 9.11): the join panel gave way to the steps, so focus moves to step 1.
+  const wasJoined = useRef(group?.joined ?? true);
+  useEffect(() => {
+    const joined = group?.joined ?? true;
+    if (joined && !wasJoined.current) document.getElementById(STEP_HEADING_ID)?.focus();
+    wasJoined.current = joined;
+  }, [group?.joined]);
+  const bar = (step: number) =>
+    group && group.joined && explanation.isSuccess && Math.min(group.step, sent ? group.step : 1) === step ? (
+      <GroupStepBar debrief={debrief} group={group} sent={sent} />
+    ) : null;
   return (
     <>
       <p className={`${LINE} mt-1 text-ink-secondary`}>{copy.roleGame(roleName(debrief.role), debrief.game_number)}</p>
       <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
-      <section aria-labelledby="debrief-step" data-debrief-step={debrief.step} className="mt-8 max-w-md border-t border-axis pt-4">
-        {heading ? (
-          <h2 id="debrief-step" className="text-headline text-ink">
-            <span className="sr-only">{copy.stepOf(debrief.step, DEBRIEF_STEPS)}: </span>
-            <span aria-hidden="true" className="mr-3 tabular-nums">
-              {debrief.step}
-            </span>
-            {heading}
-          </h2>
-        ) : (
-          // Steps 2 to 5 get their headings with their stories; until then the step in words.
-          <h2 id="debrief-step" className="text-headline text-ink">
-            {copy.stepOf(debrief.step, DEBRIEF_STEPS)}
-          </h2>
-        )}
-        {debrief.step === 1 ? <ExplanationStep debrief={debrief} userId={userId} /> : null}
-      </section>
-      {sent ? <RevealStep debrief={debrief} /> : null}
-      {sent ? <ChainStep debrief={debrief} /> : null}
-      {sent ? <ReflectionStep debrief={debrief} userId={userId} /> : null}
-      {sent && reflected ? <MomentsStep debrief={debrief} /> : null}
-      {sent && reflected ? <BillStep debrief={debrief} /> : null}
-      {sent && reflected ? <QuizStep debrief={debrief} /> : null}
+      {group ? <GroupAnnouncer group={group} /> : null}
+      {far === 0 ? (
+        <GroupJoin debrief={debrief} />
+      ) : (
+        <>
+          <section aria-labelledby={STEP_HEADING_ID} data-debrief-step={1} className="mt-8 max-w-md border-t border-axis pt-4">
+            <h2 id={STEP_HEADING_ID} tabIndex={-1} className="text-headline text-ink focus:outline-none">
+              <span className="sr-only">{copy.stepOf(1, DEBRIEF_STEPS)}: </span>
+              <span aria-hidden="true" className="mr-3 tabular-nums">
+                1
+              </span>
+              {copy.firstStep}
+            </h2>
+            <ExplanationStep debrief={debrief} userId={userId} />
+          </section>
+          {bar(1)}
+          {sent && far >= 2 ? <RevealStep debrief={debrief} /> : null}
+          {bar(2)}
+          {sent && far >= 3 ? <ChainStep debrief={debrief} /> : null}
+          {bar(3)}
+          {sent && far >= INDIVIDUAL_STEP ? <ReflectionStep debrief={debrief} userId={userId} /> : null}
+          {sent && far >= INDIVIDUAL_STEP && reflected ? <MomentsStep debrief={debrief} /> : null}
+          {sent && far >= INDIVIDUAL_STEP && reflected ? <BillStep debrief={debrief} /> : null}
+          {sent && far >= INDIVIDUAL_STEP && reflected ? <QuizStep debrief={debrief} /> : null}
+        </>
+      )}
     </>
   );
 }

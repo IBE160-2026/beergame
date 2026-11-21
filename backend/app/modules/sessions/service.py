@@ -1151,6 +1151,11 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
             row["id"]: await _quiz_changed_of(s, user.id, row["id"], done.get(row["id"], set()))
             for row in locked
         }
+        grouped = {
+            row["id"]: await _group_open_of(s, user.id, row["id"], done.get(row["id"], set()))
+            for row in locked
+            if cards.get(row["id"]) is not None and cards[row["id"]].debrief == "open"
+        }
     upcoming: dict[uuid.UUID, list[EnrolledLabHourOut]] = {}
     for lab in labs:
         upcoming.setdefault(lab["class_session_id"], []).append(
@@ -1182,6 +1187,7 @@ async def enrolled_sessions(user: authz.Principal) -> EnrolledSessionListOut:
                     done.get(row["id"], set()),
                     held=_held(cards.get(row["id"])),
                     quiz_changed=changed.get(row["id"], False),
+                    group_open=grouped.get(row["id"], False),
                 ),
             )
             for row in rows
@@ -1207,13 +1213,16 @@ def stegene(
     *,
     held: bool = False,
     quiz_changed: bool = False,
+    group_open: bool = False,
 ) -> list[StepOut]:
     """The state of each of Stegene's steps (Story 6.1, AD-10): a done step is `done`; with a
     game the first step not done is `current` and the later ones `locked`; with no game (before
     the Start date, or no Seat yet) every step not done is `locked`. `held` (Story 9.2): the
     Lecturer holds the Debriefs until every Class game has finished, so a Debrief step that would
     be current is `locked` and says so, and no step is current until the release.
-    `quiz_changed` (Story 9.10): a current Quiz step says the Lecturer has changed the quiz."""
+    `quiz_changed` (Story 9.10): a current Quiz step says the Lecturer has changed the quiz.
+    `group_open` (Story 9.11): a current Debrief step says a Group debrief the Student can join is
+    under way."""
     steps: list[StepOut] = []
     current_given = not has_game
     for name, step in STEGENE:
@@ -1226,6 +1235,9 @@ def stegene(
                 continue
             if name == "quiz" and quiz_changed:
                 steps.append(StepOut(step=name, state=state, quiz_changed=True))
+                continue
+            if name == "debrief" and group_open:
+                steps.append(StepOut(step=name, state=state, group_open=True))
                 continue
         else:
             state = "locked"
@@ -1292,6 +1304,56 @@ async def _quiz_changed_of(
     return await _quiz_changed[0](s, user_id, class_session_id)
 
 
+# Story 9.11: whether a Group debrief of the Student's game is under way that they have not joined,
+# as `debrief.rules` judges it; registered by `debrief`, as the Debrief state above.
+
+GroupOpenProvider = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[bool]]
+"""`(session, user_id, class_session_id)` → whether Hjem offers the Student to join."""
+
+_group_open: list[GroupOpenProvider] = []
+
+
+def register_group_open(provider: GroupOpenProvider) -> None:
+    """`debrief.rules` registers its one rule at import; another is refused."""
+    if _group_open and _group_open[0] is not provider:
+        raise ValueError("a group-open provider is registered already")
+    _group_open[:] = [provider]
+
+
+async def _group_open_of(
+    s: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID, done: set[progress.Step]
+) -> bool:
+    """Whether Stegene's current Debrief step offers to join a Group debrief: never once the
+    Debrief is done, nor before `debrief` has registered its rule."""
+    if not _group_open or progress.Step.DEBRIEF in done:
+        return False
+    return await _group_open[0](s, user_id, class_session_id)
+
+
+async def group_debrief_opened_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `group_debrief_opened` notice (Story 9.11): the Class's name,
+    under the same rules as `debrief_released_mail_context`. None, so the mail is left out, once
+    the Student has joined (or the Group debrief is no longer one they can join)."""
+    if ref is None or not _group_open or not await _group_open[0](session, user_id, ref):
+        return None
+    return await debrief_released_mail_context(session, user_id, ref, now)
+
+
+async def student_names(
+    class_session_id: uuid.UUID, user_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, str]:
+    """The Roster names now of those of `user_ids` who are Students of the Class session's Class
+    (Story 9.11), read at request time and never stored (AD-14). The caller has judged that the
+    asking User may see them (the joined Students of one Group debrief)."""
+    async with get_sessionmaker()() as s:
+        row = await repo.session_row(s, class_session_id)
+        if row is None:
+            return {}
+        return await classes.student_names(row["class_id"], user_ids, session=s)
+
+
 def _held(card: StudentGameOut | None) -> bool:
     return card is not None and card.debrief == "held"
 
@@ -1304,6 +1366,8 @@ class DebriefSession:
     id: uuid.UUID
     class_id: uuid.UUID
     hold: bool
+    group: bool = False
+    """Story 9.11: the Class session's Debrief mode is Group debrief."""
 
 
 async def debrief_session_of(
@@ -1321,6 +1385,7 @@ async def debrief_session_of(
         id=row["id"],
         class_id=row["class_id"],
         hold=row["debrief_release"] == DebriefRelease.hold.value,
+        group=row["debrief_mode"] == DebriefMode.group.value,
     )
 
 

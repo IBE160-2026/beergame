@@ -15,14 +15,19 @@ import {
   downstreamRole,
   excludedIds,
   explanationDraftField,
+  type GroupMember,
   hasText,
+  lockedLine,
+  namesText,
   type Quiz,
   type QuizAttempt,
   quizAnswers,
   type Reflection,
   reflectionDone,
+  reach,
   reflectionDraftField,
   type SessionQuiz,
+  waitingFor,
   withAnswer,
   withAttempt,
 } from "./api";
@@ -342,6 +347,48 @@ describe("the Klasseøkt's Debrief quiz block (Story 9.10)", () => {
     expect(copy.attempt(2, "lø. 21. nov. kl. 14:30", true)).toBe("Forsøk 2, lø. 21. nov. kl. 14:30: bestått");
     for (const line of Object.values(nb.debrief.quizExclusions)) {
       if (typeof line === "string") expect(line).not.toMatch(/!/);
+    }
+  });
+});
+
+describe("the Group debrief (Story 9.11)", () => {
+  const words = nb.debriefEntry.group;
+  const member = (name: string | null, you: boolean, sent: boolean, done = false): GroupMember => ({ name, you, sent, done });
+  const group = (step: number, joined = true) => ({
+    group: { step, joined, opener: false, step_opened_at: null, move_on_at: null, members: [] },
+  });
+
+  it("reaches every step in a Personal debrief, none before joining, then the shared pointer once sent", () => {
+    expect(reach({ group: null }, false)).toBe(5);
+    expect(reach(group(3, false), true)).toBe(0);
+    expect(reach(group(3), false)).toBe(1);
+    expect(reach(group(3), true)).toBe(3);
+  });
+
+  it("joins names with «og»", () => {
+    expect(namesText([], "og")).toBe("");
+    expect(namesText(["Ida"], "og")).toBe("Ida");
+    expect(namesText(["Ida", "Mikkel", "Jonas"], "og")).toBe("Ida, Mikkel og Jonas");
+  });
+
+  it("names who has sent and who writes, the viewer first, never with a count in digits for four", () => {
+    const members = [member("Jonas", false, false), member("Sara", true, true), member("Ida", false, true), member(null, false, false)];
+    expect(lockedLine(members, words)).toBe(
+      "Avsløringen er låst til alle fire har sendt. Du og Ida har sendt, Jonas og en som ikke lenger er i Klassen skriver.",
+    );
+    expect(lockedLine([member("Sara", true, true), member("Ida", false, true)], words)).toBeNull();
+    expect(lockedLine([member("Sara", true, true), member("Ida", false, false)], words)).toBe(
+      "Avsløringen er låst til begge har sendt. Du har sendt, Ida skriver.",
+    );
+  });
+
+  it("waits for the others who have not finished", () => {
+    expect(waitingFor([member("Sara", true, true, true), member("Ida", false, true, false), member("Jonas", false, true, true)], words)).toBe("Ida");
+  });
+
+  it("has no exclamation mark and never names customers before the reveal", () => {
+    for (const line of [words.joinLead, words.timeGuide, words.behind(2), words.unlocked, words.alone, words.moveOnAt("14:05")]) {
+      expect(line).not.toMatch(/!|kunde/i);
     }
   });
 });

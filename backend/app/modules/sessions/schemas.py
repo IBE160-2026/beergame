@@ -574,6 +574,9 @@ class StepOut(BaseModel):
     """Story 9.10: the current Quiz step, after the Lecturer took out every question the
     Student's last attempt got wrong; Stegene says the quiz has changed. The Student is not
     passed: the next attempt applies the change."""
+    group_open: bool = False
+    """Story 9.11: the current Debrief step, while a Group debrief of the Student's game is under
+    way that they have not joined; Stegene says so and its link leads there to join."""
 
 
 class EnrolledSessionOut(BaseModel):

@@ -14,7 +14,8 @@ then deactivated (or the session is older than the User's session version) the s
 staff member's stream also resolves it again on the first event of a `game:` or `session:` id
 outside it, once per id until the next resolve, so a Class session or Class game created after
 the stream connected (by a co-owner, say) is followed: one database read per new id per stream,
-never one per event.
+never one per event. Every stream does the same for a `debrief:` id outside it (Story 9.11): a
+Debrief session is created after the stream connected, when the first Student of the game opens it.
 `session:<id>` is sent at most once per `COALESCE_S` per id. The stream holds no database session
 between those reads, and ends after a random 600 to 780 s so the browser reconnects before the
 host's 15-minute request limit.
@@ -51,7 +52,10 @@ class Scope:
     games: frozenset[str]
     sessions: frozenset[str]
     staff: bool = field(default=False, compare=False)
-    """Whether the User is staff of a Class: only then can a new id come into the scope."""
+    """Whether the User is staff of a Class: only then can a new `game:` or `session:` id come
+    into the scope."""
+    debriefs: frozenset[str] = frozenset()
+    """Story 9.11: the Debrief sessions of the User's own Class games (`authz.debriefs_of`)."""
 
 
 async def resolve_scope(user_id: uuid.UUID) -> Scope:
@@ -62,10 +66,12 @@ async def resolve_scope(user_id: uuid.UUID) -> Scope:
         )
         sessions = await s.scalars(authz.class_sessions_staffed_by(user_id))
         staff = (await s.scalar(authz.classes_visible_to(user_id).limit(1))) is not None
+        debriefs = await s.scalars(authz.debriefs_of(user_id))
         return Scope(
             frozenset(str(g) for g in games.all()),
             frozenset(str(x) for x in sessions.all()),
             staff,
+            frozenset(str(d) for d in debriefs.all()),
         )
 
 
@@ -81,7 +87,9 @@ def allows(user_id: str, scope: Scope, event: Event) -> bool:
         return event.id in scope.games
     if event.topic == "session":
         return event.id in scope.sessions
-    return False  # `debrief:` gets its scope with the Debrief (Epic 9)
+    if event.topic == "debrief":
+        return event.id in scope.debriefs
+    return False
 
 
 async def events(
@@ -137,10 +145,8 @@ async def events(
                 # A Class session the User no longer staffs sends nothing more, not even a
                 # coalesced event already waiting for its window.
                 pending = {sid: e for sid, e in pending.items() if sid in scope.sessions}
-            if (
-                not allows(user_id, scope, event)
-                and scope.staff
-                and event.topic in ("game", "session")
+            if not allows(user_id, scope, event) and (
+                (scope.staff and event.topic in ("game", "session")) or event.topic == "debrief"
             ):
                 key = (event.topic, event.id)
                 if key not in unknown:

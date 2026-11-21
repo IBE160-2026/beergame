@@ -262,6 +262,32 @@ async def student_game(
     )
 
 
+@dataclass(frozen=True)
+class GameStudent:
+    """A Student whose game (`student_game`) a Class game is (Story 9.11): their Seat's Role and
+    how many of its Orders a Student decided (`decided_by = student`)."""
+
+    user_id: uuid.UUID
+    role: str
+    student_orders: int
+
+
+async def game_students(session: AsyncSession, game_id: uuid.UUID) -> list[GameStudent]:
+    """The Students whose game the Class game `game_id` is, through `student_game` (so a Student
+    moved to another game since is left out), with their own-Order counts, in the caller's
+    transaction; empty for a Game with no Class session."""
+    game = await repo.get_game(session, game_id)
+    if game is None or game["class_session_id"] is None:
+        return []
+    orders = await repo.student_orders_by_role(session, game_id)
+    found = []
+    for user_id in await repo.named_students(session, game_id):
+        theirs = await student_game(session, user_id, game["class_session_id"])
+        if theirs is not None and theirs.game_id == game_id:
+            found.append(GameStudent(user_id, theirs.role, orders.get(theirs.role, 0)))
+    return sorted(found, key=lambda each: str(each.user_id))
+
+
 PlayStatusName = Literal["not_ready", "ready", "running", "finished"]
 
 

@@ -26,6 +26,10 @@
   latest result) and `submit_quiz_mine` (raises `InvalidQuizAnswers`, `commands.QuizPassed`,
   `commands.TestDeadlinePassed`), both behind `require_debrief` (403 `debrief_required`). The
   summary carries the number of quiz attempts and when the quiz was passed.
+- Story 9.11: a Group debrief. `open_mine` makes the first open shared (two or more active
+  Students in a Group-debrief session); `DebriefOut.group` carries the shared pointer;
+  `join_mine`, `complete_step_mine` and `move_on_mine` are «Bli med», «Ferdig med steget» and
+  «Gå videre for alle»; `require_step` refuses a step after the pointer (403 `step_locked`).
 - Story 9.10: `staff_quiz(user, class_session_id)` (the Class session's Debrief quiz with its
   answer keys and exclusions, `debrief_quiz.read`) and `set_quiz_exclusions` (raises
   `InvalidExclusions`, `commands.LastQuestion`, `commands.TestDeadlinePassed`); every attempt
@@ -36,7 +40,7 @@
 import random
 import uuid
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import func, select
@@ -51,10 +55,13 @@ from app.modules.debrief import commands, insight, rules
 from app.modules.debrief.models import (
     ANSWER_MAX,
     EXPLANATION_MAX,
+    INDIVIDUAL_STEP,
     debrief_explanations,
+    debrief_members,
     debrief_reflection_answers,
     debrief_releases,
     debrief_sessions,
+    debrief_step_marks,
     debrief_summaries,
     quiz_attempts,
 )
@@ -66,6 +73,8 @@ from app.modules.debrief.schemas import (
     DebriefOut,
     DebriefStepOut,
     ExplanationOut,
+    GroupMemberOut,
+    GroupOut,
     LargestOrderOut,
     MomentOut,
     MomentsOut,
@@ -112,8 +121,14 @@ __all__ = [
     "InvalidExplanation",
     "NoExplanation",
     "NotAvailable",
+    "StepLocked",
     "UnknownQuestion",
     "answer_mine",
+    "complete_step_mine",
+    "join_mine",
+    "move_on_mine",
+    "move_on_wait",
+    "require_step",
     "due_releases",
     "finish_mine",
     "judge_explanation",
@@ -194,6 +209,11 @@ class InvalidExclusions(Exception):
     `validation_error`, `unknown_question`)."""
 
 
+class StepLocked(Exception):
+    """A step after a Group debrief's shared pointer (403 `step_locked`, Story 9.11, FR-43):
+    checked in the api, never only in the web app."""
+
+
 class NoExplanation(Exception):
     """The Student has not sent an Explanation in the Class session (404 `not_found`)."""
 
@@ -205,7 +225,7 @@ def _open_or_raise(found: rules.Availability) -> None:
         raise NotAvailable("debrief_held")
 
 
-def _out(row: commands.DebriefRow, game: games.StudentGame) -> DebriefOut:
+async def _out(row: commands.DebriefRow, game: games.StudentGame, user_id: uuid.UUID) -> DebriefOut:
     return DebriefOut(
         id=row.id,
         class_session_id=row.class_session_id,
@@ -213,18 +233,101 @@ def _out(row: commands.DebriefRow, game: games.StudentGame) -> DebriefOut:
         game_number=game.number,
         role=game.role,
         step=row.step,
+        group=await _group(row, user_id) if row.shared else None,
     )
+
+
+def move_on_wait() -> timedelta:
+    """How long a shared step must have been open before its opener may move on (Story 9.11):
+    configuration, a placeholder."""
+    return timedelta(minutes=get_settings().debrief_move_on_wait_minutes)
+
+
+async def _group(row: commands.DebriefRow, user_id: uuid.UUID) -> GroupOut:
+    """A shared Debrief session's pointer as `user_id` reads it (Story 9.11, FR-43): the joined
+    Students with their names read now, and whether each has sent and finished the shared step,
+    only for a joined caller (never the text)."""
+    async with get_sessionmaker()() as s:
+        joined = list(
+            (
+                await s.scalars(
+                    select(debrief_members.c.user_id)
+                    .where(debrief_members.c.debrief_id == row.id)
+                    .order_by(debrief_members.c.joined_at, debrief_members.c.user_id)
+                )
+            ).all()
+        )
+        sent: set[uuid.UUID] = set()
+        marked: set[uuid.UUID] = set()
+        if user_id in joined:
+            sent = set(
+                (
+                    await s.scalars(
+                        select(debrief_explanations.c.user_id).where(
+                            debrief_explanations.c.class_session_id == row.class_session_id,
+                            debrief_explanations.c.user_id.in_(joined),
+                        )
+                    )
+                ).all()
+            )
+            marked = set(
+                (
+                    await s.scalars(
+                        select(debrief_step_marks.c.user_id).where(
+                            debrief_step_marks.c.debrief_id == row.id,
+                            debrief_step_marks.c.step == row.step,
+                        )
+                    )
+                ).all()
+            )
+    members: list[GroupMemberOut] = []
+    if user_id in joined:
+        names = await sessions.student_names(row.class_session_id, joined)
+        done = sent if row.step == 1 else marked
+        members = [
+            GroupMemberOut(
+                name=names.get(each), you=each == user_id, sent=each in sent, done=each in done
+            )
+            for each in joined
+        ]
+    opened = row.step_opened_at
+    return GroupOut(
+        step=row.step,
+        joined=user_id in joined,
+        opener=row.opener_id == user_id,
+        step_opened_at=opened,
+        move_on_at=opened + move_on_wait() if opened is not None else None,
+        members=members,
+    )
+
+
+async def _exists(game_id: uuid.UUID) -> bool:
+    async with get_sessionmaker()() as s:
+        found = await s.scalar(
+            select(debrief_sessions.c.id).where(debrief_sessions.c.game_id == game_id)
+        )
+    return found is not None
 
 
 async def open_mine(user: authz.Principal, class_session_id: uuid.UUID) -> DebriefOut | None:
     """«Gå til Debrief» and Stegene's Debrief step (FR-42): `debrief.commands.open` for the
-    Student's game, through `games.service.student_game` only."""
+    Student's game, through `games.service.student_game` only. Story 9.11: in a Class session
+    with Group debrief whose game at least two active Students played (each a Student of the game
+    with at least one Order of their own), the first open makes it a shared Group debrief with
+    the opener joined, and tells the game's other Students."""
     found = await rules.available(user, class_session_id)
     if found is None:
         return None
     _open_or_raise(found)
-    row = await commands.open(found.game.game_id, class_session_id)
-    return _out(row, found.game)
+    shared, tell = False, []
+    if found.group_mode and not await _exists(found.game.game_id):
+        # Only for the open that creates it: whether it is shared is fixed then.
+        async with get_sessionmaker()() as s:
+            students = await games.game_students(s, found.game.game_id)
+        shared = sum(1 for each in students if each.student_orders > 0) >= 2
+        tell = [each.user_id for each in students if each.user_id != user.id]
+    row = await commands.open(found.game.game_id, class_session_id, user.id, shared, tell)
+    return await _out(row, found.game, user.id)
 
 
 async def _own(
@@ -253,7 +356,54 @@ async def mine(user: authz.Principal, debrief_id: uuid.UUID) -> DebriefOut | Non
     """The Debrief session `debrief_id` when it is the one of the Student's own game, under the
     same availability rule; None for any other id alike."""
     found = await _own(user, debrief_id)
-    return _out(*found) if found else None
+    return await _out(*found, user.id) if found else None
+
+
+def require_step(row: commands.DebriefRow, number: int) -> None:
+    """The Group debrief's gate (Story 9.11, FR-43, AD-21): in a shared Debrief session a step
+    after the pointer is refused (`StepLocked`, 403 `step_locked`), in the api: steps 2 and 3 by
+    their number, the reflection questions and everything after them from `INDIVIDUAL_STEP`. A
+    Personal debrief has no such gate. Call after `require_explanation`."""
+    if row.shared and min(number, INDIVIDUAL_STEP) > row.step:
+        raise StepLocked
+
+
+async def join_mine(user: authz.Principal, debrief_id: uuid.UUID) -> DebriefOut | None:
+    """«Bli med» (Story 9.11): `debrief.commands.join` for the Student's own game's Debrief. Raises
+    `NotAvailable` or `commands.NotGroup`."""
+    found = await _own(user, debrief_id)
+    if found is None:
+        return None
+    row, game = found
+    joined = await commands.join(row.game_id, user.id)
+    return await _out(joined, game, user.id)
+
+
+async def complete_step_mine(
+    user: authz.Principal, debrief_id: uuid.UUID, number: int
+) -> DebriefOut | None:
+    """«Ferdig med steget» on shared step 2 or 3 (Story 9.11): `debrief.commands.complete_step`,
+    behind the Explanation gate. Raises `NotAvailable`, `ExplanationRequired`,
+    `commands.NotGroup`, `commands.NotJoined` or `commands.StepNotOpen`."""
+    found = await _own(user, debrief_id)
+    if found is None:
+        return None
+    row, game = found
+    await require_explanation(user.id, row.class_session_id)
+    done = await commands.complete_step(row.game_id, row.class_session_id, user.id, number)
+    assert isinstance(done, commands.DebriefRow)
+    return await _out(done, game, user.id)
+
+
+async def move_on_mine(user: authz.Principal, debrief_id: uuid.UUID) -> DebriefOut | None:
+    """«Gå videre for alle» (Story 9.11): `debrief.commands.move_on` for the opener. Raises
+    `NotAvailable`, `commands.NotGroup`, `commands.NotJoined` or `commands.TooEarly`."""
+    found = await _own(user, debrief_id)
+    if found is None:
+        return None
+    row, game = found
+    moved = await commands.move_on(row.game_id, user.id, move_on_wait())
+    return await _out(moved, game, user.id)
 
 
 async def own_net_inventory(user: authz.Principal, debrief_id: uuid.UUID) -> NetInventoryOut | None:
@@ -338,6 +488,7 @@ async def step(user: authz.Principal, debrief_id: uuid.UUID, number: int) -> Deb
         return None
     row, game = found
     await require_explanation(user.id, row.class_session_id)
+    require_step(row, number)
     shown = await _reveal(row.game_id, game.role) if number == 2 else None
     chain = await _chain(row.game_id, game.role) if number == 3 else None
     own = bill = None
@@ -603,6 +754,7 @@ async def own_reflection(user: authz.Principal, debrief_id: uuid.UUID) -> Reflec
         return None
     row, _ = found
     await require_explanation(user.id, row.class_session_id)
+    require_step(row, INDIVIDUAL_STEP)
     version, questions = await _questions(row.game_id)
     answers = await _answers(user.id, row.class_session_id)
     return ReflectionOut(
@@ -630,6 +782,7 @@ async def answer_mine(
         return None
     row, _ = found
     await require_explanation(user.id, row.class_session_id)
+    require_step(row, INDIVIDUAL_STEP)
     version, questions = await _questions(row.game_id)
     ids = [q.id for q in questions.questions]
     if question_id not in ids:
@@ -642,8 +795,13 @@ async def answer_mine(
         return _question(asked, stored)
     judge_answer(text)
     saved = await commands.complete_step(
-        row.game_id, row.class_session_id, user.id, version, ids, question_id, text
+        row.game_id,
+        row.class_session_id,
+        user.id,
+        INDIVIDUAL_STEP,
+        commands.Reflection(version, ids, question_id, text),
     )
+    assert isinstance(saved, commands.AnswerRow)
     answer = ReflectionAnswerOut(text=saved.text, length=saved.length, saved_at=saved.saved_at)
     return _question(asked, answer)
 
@@ -733,6 +891,7 @@ async def own_summary(user: authz.Principal, debrief_id: uuid.UUID) -> MySummary
         return None
     row, game = found
     await require_explanation(user.id, row.class_session_id)
+    require_step(row, INDIVIDUAL_STEP)
     stored = await _summary_row(user.id, row.class_session_id)
     if stored is None:
         return MySummaryOut(summary=None)
@@ -748,6 +907,7 @@ async def finish_mine(user: authz.Principal, debrief_id: uuid.UUID) -> MySummary
         return None
     row, game = found
     await require_explanation(user.id, row.class_session_id)
+    require_step(row, INDIVIDUAL_STEP)
     _, questions = await _questions(row.game_id)
     _, test_deadline = await sessions.student_deadlines(user.id, row.class_session_id)
 
@@ -915,6 +1075,7 @@ async def own_quiz(user: authz.Principal, debrief_id: uuid.UUID) -> QuizOut | No
         return None
     row, game = found
     await require_debrief(user.id, row.class_session_id)
+    require_step(row, INDIVIDUAL_STEP)
     version, quiz = await _quiz(row.game_id)
     attempts = await _attempts(user.id, row.class_session_id)
     excluded = await _excluded(row.class_session_id)
@@ -951,6 +1112,7 @@ async def submit_quiz_mine(
         return None
     row, game = found
     await require_debrief(user.id, row.class_session_id)
+    require_step(row, INDIVIDUAL_STEP)
     version, quiz = await _quiz(row.game_id)
     excluded = await _excluded(row.class_session_id)
     # A form opened before the Lecturer took a question out still sends its answer: it is left

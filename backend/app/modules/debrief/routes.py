@@ -25,6 +25,9 @@
 - Story 9.10: `GET /api/class-sessions/{id}/debrief-quiz` (the Class session's Debrief quiz with
   its answer keys and exclusions, for its owners and Assistant lecturers) and
   `PUT /api/class-sessions/{id}/debrief-quiz/exclusions` («Lagre quizvalg», owners only).
+- Story 9.11, the Group debrief: `POST /api/debriefs/{id}/join`, `POST
+  /api/debriefs/{id}/steps/{step}/done` and `POST /api/debriefs/{id}/move-on`. In a shared
+  Debrief every read after the pointer answers 403 `step_locked`, after the Explanation gate.
 
 Every Debrief route answers 403 `debrief_not_open` while the Student's Class game has not
 finished and 403 `debrief_held` while the Lecturer holds the Debriefs and a Class game has not
@@ -173,6 +176,21 @@ async def _answer(read, status: int = 200) -> Response:
         )
     except commands.QuizPassed:
         return error_response(409, "quiz_passed", "You have passed the quiz already.")
+    except service.StepLocked:
+        return error_response(403, "step_locked", "Your group has not reached this step yet.")
+    except commands.NotGroup:
+        return error_response(409, "not_group", "This is a Personal debrief.")
+    except commands.NotJoined:
+        raise authz.Forbidden from None
+    except commands.StepNotOpen:
+        return error_response(409, "step_not_open", "Your group is not on this step.")
+    except commands.TooEarly as early:
+        return error_response(
+            409,
+            "too_early",
+            "The group can move on later.",
+            {"available_at": early.available_at.isoformat()},
+        )
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"), status_code=status)
@@ -236,6 +254,51 @@ async def get_debrief_step(
     FR-44, AD-7); none and `mostly_ai` with fewer than 10 own Orders. Only the caller's own Seat:
     no route serves another Student's moments (FR-43)."""
     return await _answer(service.step(user, _id(debrief_id), step))
+
+
+@router.post(
+    "/debriefs/{debrief_id}/join",
+    response_model=DebriefOut,
+    responses=documented(401, 403, 409),
+    operation_id="joinDebrief",
+)
+async def join_debrief(debrief_id: str, user: OWN) -> Response:
+    """«Bli med» (Story 9.11, FR-43): the Student joins the Group debrief of their own game; a
+    second join changes nothing. 409 `not_group` on a Personal debrief; 403 `forbidden` for anyone
+    whose game it is not."""
+    return await _answer(service.join_mine(user, _id(debrief_id)))
+
+
+@router.post(
+    "/debriefs/{debrief_id}/steps/{step}/done",
+    response_model=DebriefOut,
+    responses=documented(401, 403, 409),
+    operation_id="completeDebriefStep",
+)
+async def complete_debrief_step(
+    debrief_id: str,
+    step: Annotated[int, Path(ge=2, le=3)],
+    user: OWN,
+) -> Response:
+    """«Ferdig med steget» (Story 9.11, FR-43): a joined Student has finished shared step 2 or 3;
+    once every joined Student has, the step pointer moves on for all. 403
+    `explanation_required` before the Explanation, `forbidden` for a Student who has not joined;
+    409 `not_group` on a Personal debrief, `step_not_open` for a step after the pointer's."""
+    return await _answer(service.complete_step_mine(user, _id(debrief_id), step))
+
+
+@router.post(
+    "/debriefs/{debrief_id}/move-on",
+    response_model=DebriefOut,
+    responses=documented(401, 403, 409),
+    operation_id="moveDebriefOn",
+)
+async def move_debrief_on(debrief_id: str, user: OWN) -> Response:
+    """«Gå videre for alle» (Story 9.11, FR-43): the opener moves every joined Student to the next
+    step once the current one has been open the minimum wait (configuration). 409 `too_early`
+    with `fields.available_at` before then, `not_group` on a Personal debrief; 403 `forbidden`
+    for anyone but the opener."""
+    return await _answer(service.move_on_mine(user, _id(debrief_id)))
 
 
 @router.get(

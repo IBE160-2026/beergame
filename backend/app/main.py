@@ -11,6 +11,7 @@ from app.modules.admin import routes as admin_routes
 from app.modules.classes import routes as classes_routes
 from app.modules.classes import seed as classes_seed
 from app.modules.classes import service as classes_service
+from app.modules.debrief import dev as debrief_dev
 from app.modules.debrief import routes as debrief_routes
 from app.modules.identity import routes as identity_routes
 from app.modules.identity import seed as identity_seed
@@ -110,6 +111,7 @@ def create_app() -> FastAPI:
     if get_settings().app_env != "production":
         app.include_router(messaging_routes.router)  # the dev mailbox (Story 3.6), local only
         app.include_router(sessions_dev.router)  # the dev lock (Story 6.15), local only
+        app.include_router(debrief_dev.router)  # Group debrief back-dating (9.11), local only
     authz.register_principal_loader(identity_service.load_user)
     # The audit page shows names, read at request time from the module that owns them (AD-14).
     audit.register_labels("user_id", identity_service.user_labels)

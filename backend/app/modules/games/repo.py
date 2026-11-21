@@ -599,6 +599,33 @@ async def occupancy_history(session: AsyncSession, game_id: uuid.UUID) -> list[R
     return list(result.mappings())
 
 
+async def named_students(session: AsyncSession, game_id: uuid.UUID) -> list[uuid.UUID]:
+    """Every User an occupancy row of the Game's Seats names as a Student (Story 9.11)."""
+    result = await session.scalars(
+        select(seat_occupancy.c.user_id)
+        .select_from(seat_occupancy.join(seats, seats.c.id == seat_occupancy.c.seat_id))
+        .where(
+            seats.c.game_id == game_id,
+            seat_occupancy.c.occupant_kind == "student",
+            seat_occupancy.c.user_id.is_not(None),
+        )
+        .distinct()
+    )
+    return list(result)
+
+
+async def student_orders_by_role(session: AsyncSession, game_id: uuid.UUID) -> dict[str, int]:
+    """The number of Decision log rows a Student decided (`decided_by = student`) per Seat Role
+    of the Game (Story 9.11)."""
+    result = await session.execute(
+        select(seats.c.role, func.count())
+        .select_from(seat_weeks.join(seats, seats.c.id == seat_weeks.c.seat_id))
+        .where(seat_weeks.c.game_id == game_id, seat_weeks.c.decided_by == "student")
+        .group_by(seats.c.role)
+    )
+    return {role: count for role, count in result}
+
+
 async def orders_by_decided_by(session: AsyncSession, game_id: uuid.UUID) -> dict[str, int]:
     """The number of Decision log rows of the Game per `decided_by`."""
     result = await session.execute(

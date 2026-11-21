@@ -1509,6 +1509,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/debriefs/{debrief_id}/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Join Debrief
+         * @description «Bli med» (Story 9.11, FR-43): the Student joins the Group debrief of their own game; a
+         *     second join changes nothing. 409 `not_group` on a Personal debrief; 403 `forbidden` for anyone
+         *     whose game it is not.
+         */
+        post: operations["joinDebrief"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/move-on": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move Debrief On
+         * @description «Gå videre for alle» (Story 9.11, FR-43): the opener moves every joined Student to the next
+         *     step once the current one has been open the minimum wait (configuration). 409 `too_early`
+         *     with `fields.available_at` before then, `not_group` on a Personal debrief; 403 `forbidden`
+         *     for anyone but the opener.
+         */
+        post: operations["moveDebriefOn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/debriefs/{debrief_id}/net-inventory": {
         parameters: {
             query?: never;
@@ -1648,6 +1693,29 @@ export interface paths {
         get: operations["getDebriefStep"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/debriefs/{debrief_id}/steps/{step}/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Debrief Step
+         * @description «Ferdig med steget» (Story 9.11, FR-43): a joined Student has finished shared step 2 or 3;
+         *     once every joined Student has, the step pointer moves on for all. 403
+         *     `explanation_required` before the Explanation, `forbidden` for a Student who has not joined;
+         *     409 `not_group` on a Personal debrief, `step_not_open` for a step after the pointer's.
+         */
+        post: operations["completeDebriefStep"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2832,6 +2900,7 @@ export interface components {
             game_id: string;
             /** Game Number */
             game_number: number | null;
+            group?: components["schemas"]["GroupOut"] | null;
             /**
              * Id
              * Format: uuid
@@ -3227,6 +3296,44 @@ export interface components {
             label: string;
             /** Value */
             value: number;
+        };
+        /**
+         * GroupMemberOut
+         * @description A joined Student of a Group debrief as the other joined Students see them (Story 9.11,
+         *     FR-43): the Roster name now (None once no longer a Student of the Class), whether it is the
+         *     caller, whether their Explanation is sent and whether they have finished the shared step. Never
+         *     the text of their Explanation or answers.
+         */
+        GroupMemberOut: {
+            /** Done */
+            done: boolean;
+            /** Name */
+            name: string | null;
+            /** Sent */
+            sent: boolean;
+            /** You */
+            you: boolean;
+        };
+        /**
+         * GroupOut
+         * @description A Group debrief's shared step pointer (Story 9.11, FR-43): `step` 1 to 3 is shared, 4 means
+         *     each Student works alone from the reflection questions on. `move_on_at` is when the opener may
+         *     move every joined Student on (database time). `members` only for a joined caller, else
+         *     empty.
+         */
+        GroupOut: {
+            /** Joined */
+            joined: boolean;
+            /** Members */
+            members: components["schemas"]["GroupMemberOut"][];
+            /** Move On At */
+            move_on_at: string | null;
+            /** Opener */
+            opener: boolean;
+            /** Step */
+            step: number;
+            /** Step Opened At */
+            step_opened_at: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -4774,6 +4881,11 @@ export interface components {
          *     holds no rule for which step is open.
          */
         StepOut: {
+            /**
+             * Group Open
+             * @default false
+             */
+            group_open: boolean;
             /**
              * Held
              * @default false
@@ -9150,6 +9262,122 @@ export interface operations {
             };
         };
     };
+    joinDebrief: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebriefOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    moveDebriefOn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebriefOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getMyNetInventory: {
         parameters: {
             query?: never;
@@ -9463,6 +9691,65 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    completeDebriefStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                debrief_id: string;
+                step: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebriefOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -96,12 +96,20 @@ async def test_a_finished_game_opens_one_debrief_at_step_one(klass, emitted):
     first = await open_(email(0), session_id)
     assert first.status_code == 200
     body = first.json()
-    assert set(body) == {"id", "class_session_id", "game_id", "game_number", "role", "step"}
+    assert set(body) == {
+        "id",
+        "class_session_id",
+        "game_id",
+        "game_number",
+        "role",
+        "step",
+        "group",
+    }
     assert (body["class_session_id"], body["game_id"], body["step"]) == (session_id, game_id, 1)
     assert body["game_number"] == 1
     assert body["role"] == (await home(email(0)))["game"]["role"]
     assert emitted == [("debrief", body["id"])]
-    assert {topic for topic, _ in emitted} == COMMAND_TOPICS["debrief.open"]
+    assert {topic for topic, _ in emitted} == {"debrief"} < COMMAND_TOPICS["debrief.open"]
     # Opened again, and by another Student of the same Game: the same session, no event.
     emitted.clear()
     again = await open_(email(0), session_id)
@@ -155,7 +163,15 @@ async def test_held_debriefs_wait_for_every_class_game_and_are_released_once(kla
     item = await home(who)
     assert item["game"]["debrief"] == "held"
     debrief = [step for step in item["steps"] if step["step"] == "debrief"]
-    assert debrief == [{"step": "debrief", "state": "locked", "held": True, "quiz_changed": False}]
+    assert debrief == [
+        {
+            "step": "debrief",
+            "state": "locked",
+            "held": True,
+            "quiz_changed": False,
+            "group_open": False,
+        }
+    ]
     # The other game still running: its Students are told it has not finished.
     refused(await open_(by_game[second][0], session_id), "debrief_not_open")
     assert (await sweep.run(LOCKED + MINUTE))["debrief.release"] == 0

@@ -17,6 +17,7 @@ import {
   explanationDraftField,
   explanationKey,
   hasText,
+  myDebriefKey,
   sendExplanation,
   useMyExplanation,
   useNetInventory,
@@ -99,6 +100,8 @@ function Write({
       clearDraft(userId, field);
       onSent();
       queryClient.setQueryData(explanationKey(debriefId), { explanation: saved });
+      // Story 9.11: in a Group debrief this Explanation may move the shared step on.
+      void queryClient.invalidateQueries({ queryKey: myDebriefKey(classSessionId) });
     },
   });
   // Sent from another device already: the stored one is shown and this draft has no use.

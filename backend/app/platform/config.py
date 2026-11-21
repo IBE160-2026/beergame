@@ -122,6 +122,9 @@ class Settings(BaseSettings):
     # The required share of Weeks a new Class session starts with (Story 5.7, FR-17), a whole
     # percent. PLACEHOLDER from FR-17's assumption; Completion itself is Epic 13's.
     completion_default_share_percent: int = Field(80, ge=1, le=100)
+    # The Group debrief (Story 9.11, FR-43). PLACEHOLDER: how long a shared step must have been
+    # open before its opener may move every joined Student on, in minutes.
+    debrief_move_on_wait_minutes: int = Field(5, ge=0)
 
     # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
     # to the `[email:mock]` sender; the compose file never passes a key.

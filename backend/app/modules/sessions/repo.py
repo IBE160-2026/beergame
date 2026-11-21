@@ -95,6 +95,7 @@ async def enrolled_sessions(session: AsyncSession, user: authz.Principal) -> lis
             _numbered.c.locked_at,
             _numbered.c.allocation_method,
             _numbered.c.debrief_release,
+            _numbered.c.debrief_mode,
             _numbered.c.game_settings,
             _numbered.c.snapshot["settings"].label("snapshot_settings"),
         )

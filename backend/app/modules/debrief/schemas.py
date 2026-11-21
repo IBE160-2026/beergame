@@ -24,6 +24,37 @@ class DebriefOut(BaseModel):
     """The Student's own Role in the game."""
     step: int
     """The step pointer, 1 «Skriv Forklaringen først» to 5 «Debrief-quiz»."""
+    group: GroupOut | None = None
+    """Story 9.11: the Group debrief, None for a Personal debrief."""
+
+
+class GroupMemberOut(BaseModel):
+    """A joined Student of a Group debrief as the other joined Students see them (Story 9.11,
+    FR-43): the Roster name now (None once no longer a Student of the Class), whether it is the
+    caller, whether their Explanation is sent and whether they have finished the shared step. Never
+    the text of their Explanation or answers."""
+
+    name: str | None
+    you: bool
+    sent: bool
+    done: bool
+
+
+class GroupOut(BaseModel):
+    """A Group debrief's shared step pointer (Story 9.11, FR-43): `step` 1 to 3 is shared, 4 means
+    each Student works alone from the reflection questions on. `move_on_at` is when the opener may
+    move every joined Student on (database time). `members` only for a joined caller, else
+    empty."""
+
+    step: int
+    joined: bool
+    opener: bool
+    step_opened_at: datetime | None
+    move_on_at: datetime | None
+    members: list[GroupMemberOut]
+
+
+DebriefOut.model_rebuild()
 
 
 class NetWeekOut(BaseModel):

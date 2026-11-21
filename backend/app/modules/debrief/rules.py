@@ -13,7 +13,10 @@ provider registered below, so it never imports `debrief`.
 
 Story 9.10: `quiz_changed` is the one rule for «the quiz has changed» on Hjem's Stegene: the
 Student has not passed, and every question their last attempt got wrong is now taken out of the
-Class session's quiz. Registered with `sessions` the same way."""
+Class session's quiz. Registered with `sessions` the same way.
+
+Story 9.11: `group_open` is the one rule for «a Group debrief you can join» on Hjem and in its
+mail, registered the same way."""
 
 import uuid
 from collections.abc import Mapping
@@ -24,7 +27,12 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.debrief.models import quiz_attempts, quiz_exclusions
+from app.modules.debrief.models import (
+    debrief_members,
+    debrief_sessions,
+    quiz_attempts,
+    quiz_exclusions,
+)
 from app.modules.games import service as games
 from app.modules.sessions import service as sessions
 from app.platform import authz
@@ -60,6 +68,8 @@ class Availability:
 
     state: State
     game: games.StudentGame
+    group_mode: bool = False
+    """Story 9.11: the Class session's Debrief mode is Group debrief."""
 
 
 async def available(user: authz.Principal, class_session_id: uuid.UUID) -> Availability | None:
@@ -75,7 +85,7 @@ async def available(user: authz.Principal, class_session_id: uuid.UUID) -> Avail
         judged = await state(s, user.id, class_session_id, found.hold)
     if judged is None:
         return None
-    return Availability(judged, game)
+    return Availability(judged, game, found.group)
 
 
 async def excluded_questions(session: AsyncSession, class_session_id: uuid.UUID) -> set[str]:
@@ -119,5 +129,30 @@ async def quiz_changed(
     return bool(wrong) and wrong <= await excluded_questions(session, class_session_id)
 
 
+async def group_open(
+    session: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID
+) -> bool:
+    """Story 9.11: whether a Group debrief of the Student's game is under way that they have not
+    joined, so Hjem offers to join and the `group_debrief_opened` mail still goes out."""
+    found = await games.student_game(session, user_id, class_session_id)
+    if found is None:
+        return False
+    joined = (
+        select(debrief_members.c.user_id)
+        .where(
+            debrief_members.c.debrief_id == debrief_sessions.c.id,
+            debrief_members.c.user_id == user_id,
+        )
+        .exists()
+    )
+    waiting = await session.scalar(
+        select(debrief_sessions.c.id).where(
+            debrief_sessions.c.game_id == found.game_id, debrief_sessions.c.shared, ~joined
+        )
+    )
+    return waiting is not None
+
+
 sessions.register_debrief_state(state)
 sessions.register_quiz_changed(quiz_changed)
+sessions.register_group_open(group_open)

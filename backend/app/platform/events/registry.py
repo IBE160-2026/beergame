@@ -96,16 +96,23 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # so does the Class session's overview. A step already recorded emits nothing.
         "progress.record_step": frozenset({"session", "user"}),
         # A Debrief session opened (Story 9.2, AD-21): created at step 1, its row locked;
-        # opening one that exists emits nothing.
-        "debrief.open": frozenset({"debrief"}),
+        # opening one that exists emits nothing. A Group debrief's first open (Story 9.11) tells
+        # the game's other Students, each `group_debrief_opened` notice emitting `user`.
+        "debrief.open": frozenset({"debrief", "user"}),
+        # A Student joined a Group debrief (Story 9.11, FR-43): the row locked; a second join
+        # emits nothing.
+        "debrief.join": frozenset({"debrief"}),
+        # The opener moved a Group debrief's shared step pointer on (Story 9.11, FR-43).
+        "debrief.move_on": frozenset({"debrief"}),
         # A held Class session's Debriefs released by the sweep (Story 9.2, AD-9): each seated
         # Student's `debrief_released` notice emits `user`, so Hjem updates without reload.
         "debrief.release": frozenset({"user"}),
         # An Explanation sent (Story 9.3, FR-41, AD-16): the Debrief row locked; the
         # `explanation` step recorded in the same transaction emits `user` and `session`.
         "debrief.save_explanation": frozenset({"debrief", "session", "user"}),
-        # A reflection answer stored (Story 9.6, FR-45): the Debrief row locked; an answer stored
-        # already emits nothing.
+        # A reflection answer stored (Story 9.6, FR-45), or a joined Student's «finished» on a
+        # Group debrief's shared step, which may move the pointer (Story 9.11): the Debrief row
+        # locked; an answer or mark stored already emits nothing.
         "debrief.complete_step": frozenset({"debrief"}),
         # The facts set of a Student's own moments recorded at their first view of step 4
         # (Story 9.7, AD-7): the Debrief row locked; one recorded already emits nothing.

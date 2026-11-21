@@ -34,6 +34,87 @@ export function useMyDebrief(classSessionId: string) {
   });
 }
 
+/** A Group debrief's shared step pointer (Story 9.11): null on a Personal debrief. */
+export type Group = components["schemas"]["GroupOut"];
+export type GroupMember = components["schemas"]["GroupMemberOut"];
+
+/** The step from which each Student works alone: the pointer stops there (FR-43). */
+export const INDIVIDUAL_STEP = 4;
+
+/**
+ * How far the Student's page reaches (Story 9.11), from the api's answer alone: a Personal debrief
+ * every step the Student's own progress opens (5); a Group debrief the Student has not joined
+ * none (only the way to join, 0); a joined Student step 1 until their Explanation is sent, then
+ * the shared pointer (the api refuses the steps after it, 403 `step_locked`).
+ */
+export function reach(debrief: Pick<Debrief, "group">, sent: boolean): number {
+  const group = debrief.group;
+  if (!group) return DEBRIEF_STEPS;
+  if (!group.joined) return 0;
+  return sent ? group.step : 1;
+}
+
+/** «Ida», «Ida og Mikkel», «Ida, Mikkel og Jonas». */
+export function namesText(names: readonly string[], and: string): string {
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")} ${and} ${names[names.length - 1]}`;
+}
+
+/** A joined Student as the lines name them: «du» for the viewer, the Roster name, or a stand-in
+ * for one no longer in the Class. */
+function memberName(member: GroupMember, words: { you: string; someone: string }): string {
+  if (member.you) return words.you;
+  return member.name ?? words.someone;
+}
+
+function capitalised(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** «Avsløringen er låst til begge har sendt. Du har sendt, Jonas skriver.»: shown to a joined
+ * Student who has sent while another writes; null when nobody is left writing. The viewer first. */
+export function lockedLine(
+  members: readonly GroupMember[],
+  words: {
+    you: string;
+    someone: string;
+    and: string;
+    everyone: (count: number) => string;
+    locked: (everyone: string, sent: string, writing: string) => string;
+  },
+): string | null {
+  const ordered = [...members].sort((a, b) => Number(b.you) - Number(a.you));
+  const sent = ordered.filter((m) => m.sent).map((m) => memberName(m, words));
+  const writing = ordered.filter((m) => !m.sent).map((m) => memberName(m, words));
+  if (sent.length === 0 || writing.length === 0) return null;
+  return words.locked(words.everyone(members.length), capitalised(namesText(sent, words.and)), namesText(writing, words.and));
+}
+
+/** The joined Students who have not finished the shared step, by name, for «Venter på …». */
+export function waitingFor(members: readonly GroupMember[], words: { you: string; someone: string; and: string }): string {
+  return namesText(
+    members.filter((m) => !m.done && !m.you).map((m) => memberName(m, words)),
+    words.and,
+  );
+}
+
+/** «Bli med»: joins the Group debrief of the Student's game (409 `not_group` on a Personal one). */
+export function joinDebrief(debriefId: string): Promise<Debrief> {
+  return request(() => api.POST("/api/debriefs/{debrief_id}/join", { params: { path: { debrief_id: debriefId } } }));
+}
+
+/** «Ferdig med steget» on shared step 2 or 3. */
+export function completeStep(debriefId: string, step: number): Promise<Debrief> {
+  return request(() =>
+    api.POST("/api/debriefs/{debrief_id}/steps/{step}/done", { params: { path: { debrief_id: debriefId, step } } }),
+  );
+}
+
+/** «Gå videre for alle», the opener's: 409 `too_early` with `fields.available_at` before the wait. */
+export function moveOn(debriefId: string): Promise<Debrief> {
+  return request(() => api.POST("/api/debriefs/{debrief_id}/move-on", { params: { path: { debrief_id: debriefId } } }));
+}
+
 /** Where the Debrief page stands, from the api's answer or refusal: the web app decides nothing. */
 export type DebriefView = "open" | "notOpen" | "held" | "denied" | "other";
 

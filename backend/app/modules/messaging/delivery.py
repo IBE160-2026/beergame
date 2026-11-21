@@ -171,6 +171,16 @@ async def _quiz_changed_context(
     return await sessions.quiz_changed_mail_context(session, user_id, ref, now)
 
 
+GROUP_DEBRIEF_OPENED_KIND = "group_debrief_opened"
+"""`debrief.commands.GROUP_OPENED_NOTICE` (Story 9.11), named here for the same reason."""
+
+
+async def _group_debrief_opened_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    return await sessions.group_debrief_opened_mail_context(session, user_id, ref, now)
+
+
 KINDS: Mapping[str, Delivery] = MappingProxyType(
     {
         **{
@@ -187,6 +197,10 @@ KINDS: Mapping[str, Delivery] = MappingProxyType(
             DIGEST, DEBRIEF_RELEASED_KIND, context=_debrief_released_context
         ),
         QUIZ_CHANGED_KIND: Delivery(DIGEST, QUIZ_CHANGED_KIND, context=_quiz_changed_context),
+        # Immediate: the group is meeting now (Story 9.11); left out once the Student joined.
+        GROUP_DEBRIEF_OPENED_KIND: Delivery(
+            IMMEDIATE, GROUP_DEBRIEF_OPENED_KIND, context=_group_debrief_opened_context
+        ),
         # Immediate: the Start date has passed and the Class games wait for the lock.
         LOCK_REFUSED_KIND: Delivery(IMMEDIATE, LOCK_REFUSED_KIND, context=_lock_refused_context),
         identity.PASSWORD_RESET: Delivery(

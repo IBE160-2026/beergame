@@ -87,6 +87,8 @@ QUIZ_TABLES = {"quiz_attempts"}
 """The table of revision 0108 (Story 9.9)."""
 EXCLUSION_TABLES = {"quiz_exclusions"}
 """The table of revision 0109 (Story 9.10)."""
+GROUP_TABLES = {"debrief_members", "debrief_step_marks"}
+"""The tables of revision 0110 (Story 9.11)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -101,8 +103,9 @@ HEAD_TABLES = (
     | SUMMARY_TABLES
     | QUIZ_TABLES
     | EXCLUSION_TABLES
+    | GROUP_TABLES
 )
-HEAD = "0109"  # 0109 stores the Debrief quiz exclusions (Story 9.10)
+HEAD = "0110"  # 0110 adds the Group debrief (Story 9.11)
 
 
 def reset_schema(url: str) -> None:
@@ -278,6 +281,12 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0109 (Story 9.10): a Class session's quiz exclusions, as rows of their own.
     assert {"question_id", "quiz_version", "excluded_at"} <= columns(url, "quiz_exclusions")
 
+    # 0110 (Story 9.11): a shared Debrief session, its joined Students and their step marks.
+    assert {"shared", "opener_id", "step_opened_at"} <= columns(url, "debrief_sessions")
+
+    command.downgrade(cfg, "0109")
+    assert GROUP_TABLES.isdisjoint(tables(url))
+    assert "shared" not in columns(url, "debrief_sessions")
     command.downgrade(cfg, "0108")
     assert EXCLUSION_TABLES.isdisjoint(tables(url))
     command.downgrade(cfg, "0107")

@@ -13,6 +13,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     Uuid,
+    false,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -35,11 +36,52 @@ debrief_sessions = Table(
         nullable=False,
         index=True,
     ),
-    # The step pointer, 1 when opened.
+    # The step pointer, 1 when opened. Shared steps are 1 to 3; from `INDIVIDUAL_STEP` on each
+    # Student works alone (Story 9.11).
     Column("step", SmallInteger, nullable=False, server_default="1"),
     Column("opened_at", DateTime(timezone=True), nullable=False),
+    # Story 9.11: a Group debrief's session is shared, fixed at creation; its opener may move on
+    # once the current step has been open the minimum wait (from `step_opened_at`).
+    Column("shared", Boolean, nullable=False, server_default=false()),
+    Column("opener_id", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+    Column("step_opened_at", DateTime(timezone=True), nullable=True),
     UniqueConstraint("game_id", name="uq_debrief_sessions_game"),
     CheckConstraint(f"step BETWEEN 1 AND {STEPS}", name="ck_debrief_sessions_step"),
+)
+
+INDIVIDUAL_STEP = 4
+"""Where a shared step pointer stops (Story 9.11, FR-43): from the reflection questions on, each
+Student works on their own device."""
+
+debrief_members = Table(
+    "debrief_members",
+    metadata,
+    # A Student who joined a shared Debrief session (Story 9.11, FR-43).
+    Column(
+        "debrief_id",
+        Uuid,
+        ForeignKey("debrief_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("joined_at", DateTime(timezone=True), nullable=False),
+)
+
+debrief_step_marks = Table(
+    "debrief_step_marks",
+    metadata,
+    # A joined Student's «finished» on shared step 2 or 3 (Story 9.11); step 1 is finished by the
+    # stored Explanation.
+    Column(
+        "debrief_id",
+        Uuid,
+        ForeignKey("debrief_sessions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("step", SmallInteger, primary_key=True),
+    Column("done_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("step BETWEEN 2 AND 3", name="ck_debrief_step_marks_step"),
 )
 
 debrief_releases = Table(

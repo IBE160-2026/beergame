@@ -423,6 +423,9 @@ export const nb = {
       /** Story 9.10: the current Quiz step after the Faglærer took out every question the
        * Student's last attempt got wrong. [ASSUMPTION] */
       quizChanged: "pågår, quizen er endret",
+      /** Story 9.11: the current Debrief step while a Group debrief of the Student's game is under
+       * way that they have not joined; its link leads there. [ASSUMPTION] */
+      groupOpen: "pågår, Gruppedebriefen er i gang",
       nextDeadline: "Neste frist",
       /** «Spillfrist ti. 8. des.» */
       deadline: (kind: string, day: string) => `${kind} ${day}`,
@@ -2092,6 +2095,47 @@ export const nb = {
       exists: "Forklaringen var allerede sendt. Her er den som er lagret.",
       /** [ASSUMPTION] a step-1 read failed; «Prøv igjen» beside it. */
       loadFailed: "Dette steget kunne ikke hentes.",
+    },
+    /** The Group debrief (Story 9.11, FR-43, UX-DR31). The locked line is the spine's pattern
+     * (EXPERIENCE.md → States: «Avsløringen er låst til alle fire har sendt. Ida og Mikkel har sendt,
+     * Jonas skriver.»); the rest is [ASSUMPTION] draft copy. Before the reveal: no customers, no
+     * demand. */
+    group: {
+      title: "Gruppedebrief",
+      /** [ASSUMPTION] for a Student of the game who has not joined. */
+      joinLead: "Gruppedebriefen for spillet ditt er i gang. Dere går gjennom de tre første stegene sammen, hver på sin egen enhet.",
+      join: "Bli med i Gruppedebriefen",
+      /** [ASSUMPTION] a failed join. */
+      joinFailed: "Du ble ikke med. Prøv igjen.",
+      notGroup: "Dette er en personlig debrief.",
+      /** [ASSUMPTION] the time guide while writing, in a Group debrief. */
+      timeGuide: "Sett av omtrent fem minutter til Forklaringen. Gruppen går videre når alle har sendt.",
+      /** «begge», «alle tre», «alle fire»: how many joined Students must send. */
+      everyone: (count: number) => (count === 2 ? "begge" : count === 3 ? "alle tre" : count === 4 ? "alle fire" : `alle ${count}`),
+      /** «Avsløringen er låst til begge har sendt. Du har sendt, Jonas skriver.» */
+      locked: (everyone: string, sent: string, writing: string) =>
+        `Avsløringen er låst til ${everyone} har sendt. ${sent} har sendt, ${writing} skriver.`,
+      /** The viewer in the locked and waiting lines. */
+      you: "du",
+      /** A joined Student no longer on the Roster. */
+      someone: "en som ikke lenger er i Klassen",
+      /** «Ida og Mikkel»: names joined with «og». */
+      and: "og",
+      /** [ASSUMPTION] a Student who has not sent while the group is further on. */
+      behind: (step: number) => `Gruppen er på steg ${step}. Send Forklaringen, så kommer du rett dit.`,
+      /** [ASSUMPTION] finishing a shared step. */
+      done: "Ferdig med steget",
+      /** «Du er ferdig. Venter på Jonas.» */
+      waiting: (names: string) => `Du er ferdig. Venter på ${names}.`,
+      /** [ASSUMPTION] the opener's control and when it is possible. */
+      moveOn: "Gå videre for alle",
+      moveOnAt: (time: string) => `Du kan flytte gruppen videre fra kl. ${time}, også om ikke alle er ferdige.`,
+      tooEarly: (time: string) => `Gruppen kan gå videre fra kl. ${time}.`,
+      failed: "Det ble ikke lagret. Prøv igjen.",
+      /** Polite announcements when the shared step moves. */
+      unlocked: "Alle har sendt. Avsløringen er åpen.",
+      moved: (step: number) => `Gruppen er nå på steg ${step}.`,
+      alone: "Gruppen har gått videre. Herfra svarer hver av dere på egen enhet.",
     },
   },
 
