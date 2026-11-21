@@ -2730,3 +2730,23 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Den bli
 
 ### Åpne punkter
 - Issue #174: beslutninger (overtakelse fra neste uke når studenten har bestilt, avvisning i siste uke).
+
+## Story 8.6: Sett klassespillet på pause med «Ta pause» (spor 1)
+
+### Oppgave
+Bygge Story 8.6 på `epic-8` i spor 1, med gruppen «Pause» på Oversikt som Story 7.1 lot stå til Epic 8.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Neste byggeagent startet med en gang, og den visuelle kontrollen gikk samtidig med eget compose-prosjekt.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-8-6-pause-the-class-game-with-ta-pause.md`.
+- Commits: 3c18bd5 og 7eaa5e1 (to punkter fra 8.5 satt tilbake til slik 8.5 ville ha dem). Migrasjon 0056.
+- Studenter kan ta pause fra Spill og Hjem; ingen overtakelse mens spillet står; pauselinja og «Pausen er over»; gruppen «Pause» på Oversikt og pausede spill holdt utenfor Varselbåndet.
+- Tester: backend 2953, Vitest 861, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 182 uten ustabile tester.
+- Gjennomgang: 39 funn, 1 middels og 10 lave rettet.
+- Visuell kontroll (Sonnet, bare rapport, eget compose-prosjekt): 30 skjermbilder i `screenshots/8.6/`. Én klar feil: statusfilteret på Oversikt mangler «Pause n»; sendt til 8.7 sammen med spørsmålet om pauser i «Venter ellers».
+- Status: done.
+
+### Åpne punkter
+- Issue #175: beslutninger (hvem kan ta pause, frister løper under pause, gruppe på Oversikt).
