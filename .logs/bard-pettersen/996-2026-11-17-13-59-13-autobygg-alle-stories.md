@@ -2470,3 +2470,23 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #160: beslutninger (midlertidige spørsmål til Issue #16, stokking ved nye forsøk, ingen nye forsøk etter bestått).
+
+## Story 7.10: Les Meldinger i appen (spor 1)
+
+### Oppgave
+Bygge Story 7.10 på `epic-7` i spor 1, og legge til en test for importrekkefølgen i `messaging.messages` (fra 7.9).
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-10-read-messages-in-the-product.md`.
+- Commit: 2a4652b. Ingen migrasjon.
+- Studenter: «Meldinger» på Hjem etter klassene, nyeste først, oppdatert live. Stab: siden `/klasseokter/{id}/meldinger`. Nytt hjelpemiddel for tilgang, `authz.messages_addressed_to`.
+- Tester: backend 2849, Vitest 817, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 66 etter ny bygging av stacken, ingen ustabile tester. Ny importtest i en fersk tolk (2,8 s).
+- Gjennomgang: 23 funn, ingen høye eller middels, 7 rettet (blant dem at arkiverte klasser holdes utenfor for studenter).
+- Visuell kontroll (Sonnet): 15 skjermbilder i `screenshots/7.10/`, ingen avvik. Klassenavnet for en student med to klasser er verken fotografert eller dekket av en test; tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #161: beslutninger (ingen lest-status, tak på 100 og 200 meldinger uten sider, tilgang for fjernede studenter).
