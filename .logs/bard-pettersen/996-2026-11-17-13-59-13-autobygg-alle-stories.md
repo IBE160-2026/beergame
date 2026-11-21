@@ -2608,3 +2608,24 @@ Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet (samtidi
 
 ### Åpne punkter
 - Issue #168: beslutninger, og oppfølgende gjennomgang anbefalt til slutten av Epic 8.
+
+## Story 9.12: Fortsett alene når gruppen ikke er der (spor 2)
+
+### Oppgave
+Bygge Story 9.12 på `epic-9` i spor 2, med det utsatte punktet fra 9.11 (gruppe uten åpner) og tre visuelle rettinger fra kontrollen av 9.11.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter i to runder. Den blinde gjennomgangen klarte ikke å levere tilbake; orkestratoren pekte byggeagenten til filen. Visuell kontroll som bare rapporterer, i eget worktree.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-12-continue-alone-when-the-group-is-not-there.md` (på `epic-9`).
+- Commit: f93c388. Migrasjon 0111.
+- En student i gruppedebrief går videre alene ved å forlate gruppen, ved frafall etter 2 min uten hjerteslag, ved tilbakefall etter 48 timer, eller når gruppen allerede har passert steg 3. Den som ble med først kan flytte gruppen videre når åpneren er borte.
+- Tester: backend 2946, Vitest 776, typecheck, `check:copy`, `lint:colours`, bygg, Playwright 136 av 137 (`order-confirm` feilet én gang og passerte ved ny kjøring).
+- Gjennomgang: 18 rettet (2 middels), 1 lavt utsatt.
+- Visuelle rettinger fra kontrollen av 9.11 (1b33fb5): én fylt primærknapp i gruppelinja, klokkeslettet vises én gang, og grafen på steg 2 klemmes ikke i korte spill. Playwright 137 av 137 etterpå.
+- Visuell kontroll (Sonnet, bare rapport, eget worktree): skjermbilder i `screenshots/9.12/`, tatt av f93c388, altså før 1b33fb5; de tre funnene den rapporterte er rettet der. Nytt punkt: i bekreftelsen av «Forlat gruppen» har de to knappene samme stil; tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #169: beslutninger, og at 48 timer regnes fra spillets slutt (en tilbakeholdt Debrief kan falle tilbake med én gang).
