@@ -2243,3 +2243,24 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter vi
 
 ### Åpne punkter
 - Issue #149: beslutninger (setningsmaler, valg av overskrift, plassering av steg 2).
+
+## Story 7.4: Filtrer veggen og sammenlign med medianen for klassen (spor 1)
+
+### Oppgave
+Bygge Story 7.4 på `epic-7` i spor 1, og rette tre layoutfeil fra den visuelle kontrollen av 7.3 på samme side.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-4-filter-the-wall-and-compare-with-the-class-median.md`.
+- Commit: 9cfb9d6.
+- Filtre for Rolle, Celler og Status, fargeskala for flyt, `GET /api/class-sessions/{id}/overview/aggregates` med median, midterste halvdel og snitt, og mediangraf over ukekolonnene. De tre layoutfeilene fra 7.3 er rettet.
+- Tester: backend 2809 (74 s og 94 s, trolig mens spor 2 kjørte samtidig), Vitest 762, typecheck, bygg, Playwright for oversikt, landing og ordre med axe.
+- Gjennomgang: 20 funn, 6 rettet, resten avvist.
+- Én uforklart feil i en backend-kjøring og én ustabil `homes`-test ved 360 px; begge passerte ved ny kjøring.
+- Visuell kontroll (Sonnet): 18 skjermbilder i `screenshots/7.4/` med tre spill, ingen klare avvik. De tre layoutfeilene fra 7.3 er bekreftet rettet. «Venter på …» kuttes ved høyre kant av veggen ved 390 px; det står på lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #150: beslutninger, tid på backend-pakken med to spor, og to ustabile tester til stabiliseringen.
