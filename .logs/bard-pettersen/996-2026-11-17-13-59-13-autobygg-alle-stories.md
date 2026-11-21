@@ -2058,3 +2058,47 @@ Avslutte Epic 6 etter kjøreboka: oppfølgende gjennomgang, de samlede UX-punkte
 - Issue #139: LLM-spillere bruker `player_order/v2` først etter målingen mot OpenRouter (Issue #60).
 - Issue #56 og #60: Story 2.7 og 2.11 står i `review`.
 - Issue #31: tekstgjennomgang av alle [ASSUMPTION]-tekster.
+
+## Stopp etter Epic 6: status for kjøringen (2026-11-21)
+
+### Oppgave
+Brukeren ba om stopp etter Epic 6 for å kjøre compact før Epic 7.
+
+### Plan
+Merge Epic 6 når CI er grønn, lage `epic-7` fra den nye `main`, og stoppe før Story 7.1.
+
+### Resultat
+- Epic 1–6 er merget til `main` med grønn CI: PR #49, #65, #83, #96, #118 og #142. `epic-1` til `epic-6` står som `done`.
+- Den første CI-kjøringen for PR #142 feilet på én e2e-test (`Response has been disposed`). Årsaken var en route-handler som fortsatt kjørte da testens sider ble lukket. Feilen er rettet i 1e12ffa, og hele pakken passerte 444 av 444.
+- `epic-7` er laget fra `main`. Story 7.1 («See the status of every Class game on the Oversikt») står fortsatt i `backlog`.
+- 107 stories gjenstår i Epic 7–15. Det er ikke medregnet 3.15, 15.10 og 15.14.
+
+**Stories i `review`:**
+- Story 2.7, Issue #56.
+- Story 2.11, Issue #60.
+
+**Stories i `blocked`:** ingen.
+
+**Slik fortsetter neste økt:**
+- Les kjøreboka med «Lessons from Epics 5–6». Hjelpeskriptene og malene ligger i scratchpad og kan forsvinne. Da må de lages på nytt: `setstatus.ps1`, `finish.ps1`, malene for byggeagenten og den visuelle kontrollen, og lista med punkter til avslutningen av en epic.
+- **Byggeagenten** får standardprompten, med disse tilleggene:
+  - to gjennomgangsagenter (blind og edge case), eller fire når endringen er risikabel;
+  - bare målrettede Playwright-filer; hele pakken kjører i CI;
+  - compose startes med `proxy worker-batch worker-ai`;
+  - delte fikstrer i `backend/tests/games/helpers.py`;
+  - aldri la en live-oppdatering kappløpe med et klikk;
+  - ikke levere mens gjennomgangsagentene kjører.
+- **Visuell kontroll** gjøres for hver skjermstory, med `--lang=nb-NO`.
+- **Underveis** samles punkter til avslutningen av epicen.
+- **Avslutning av en epic:**
+  1. oppfølgende gjennomgang og UX-punkter, i parallell;
+  2. stabilisering med to rene kjøringer av hele pakken;
+  3. PR og merge.
+- **Hele spillet i Playwright** (GOAL punkt 4): bruk ruten `POST /api/dev/class-sessions/{id}/lock`, som bare finnes lokalt. Den kom i Story 6.15.
+
+### Åpne punkter
+- Issue #56 og #60: Story 2.7 og 2.11 står i `review`.
+- Issue #141: punkter som står igjen fra Epic 6 og hører til Epic 8.
+- Issue #139: LLM-spillere bruker `player_order/v2` først etter målingen i Issue #60.
+- Issue #117: punkter som står igjen fra Epic 5.
+- Issue #31: tekstgjennomgang av alle [ASSUMPTION]-tekster.
