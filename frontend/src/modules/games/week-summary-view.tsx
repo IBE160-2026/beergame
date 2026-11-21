@@ -8,7 +8,7 @@ const copy = nb.games.play.summary;
 
 /** A Lenke as a button: it skips the move and commits nothing (EXPERIENCE.md → Lenke). */
 const LINK =
-  "inline-flex min-h-tap-target-min min-w-tap-target-min cursor-pointer items-center justify-end text-label text-lager underline underline-offset-2 hover:decoration-2 active:text-ink";
+  "inline-flex min-h-tap-target-min min-w-tap-target-min cursor-pointer shrink-0 items-center justify-end whitespace-nowrap text-label text-lager underline underline-offset-2 hover:decoration-2 active:text-ink";
 
 /**
  * The Uke-overgang (`week-summary`, Story 6.15, UX-DR23, `06-spilldynamikk.png` D): «Uke 11 er
