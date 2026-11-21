@@ -2123,3 +2123,22 @@ Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet (blind og ed
 
 ### Åpne punkter
 - Issue #143: beslutninger og utsatte funn (oppfrisking på hver kommando uten budsjett, ingen gjenoppbygging av `game_summaries`, sletting i Epic 15, «pause» i Epic 8).
+
+## Story 9.1: Regn ut fakta om et ferdig spill (spor 2)
+
+### Oppgave
+Bygge Story 9.1 på `epic-9` i spor 2 (`.claude/worktrees/lane-2`, egen stack på 8081/5433), samtidig med Epic 7 i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Ingen skjerm endret, så ingen visuell kontroll.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-1-compute-the-facts-of-a-finished-game.md`, pluss `epic-9-context.md` (på `epic-9`).
+- Commit: b494185 på `epic-9`.
+- Faktasett per spill og sete, tre oppdagede mønstre som én innholdspost med versjon, tre øyeblikk, migrasjon 0101, og `python -m app.sim facts` for simulerte spill.
+- Tester: backend 2856, ruff, migrasjon fram og tilbake, Vitest 713, bygg, Playwright 42.
+- Gjennomgang: 22 funn, 12 rettet, 8 avvist og 2 utsatt.
+- Status: done.
+
+### Åpne punkter
+- Issue #144: beslutninger (terskler for mønstrene, øyeblikk, lagring én gang) og leser for gamle faktasett ved ny analyseversjon.
