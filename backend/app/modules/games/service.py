@@ -1,7 +1,7 @@
 """What other modules may use from `games`. Writes go through `games.commands` only."""
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
@@ -131,10 +131,12 @@ __all__ = [
 ]
 
 
-async def unchecked_finished_game_ids(session: AsyncSession, limit: int) -> list[uuid.UUID]:
+async def unchecked_finished_game_ids(
+    session: AsyncSession, limit: int, exclude: Collection[uuid.UUID] = ()
+) -> list[uuid.UUID]:
     """At most `limit` finished Games with no finished-game check yet, oldest first (Story
-    6.18), read in the caller's session."""
-    return await repo.unchecked_finished_game_ids(session, limit)
+    6.18), but those in `exclude`, read in the caller's session."""
+    return await repo.unchecked_finished_game_ids(session, limit, exclude)
 
 
 async def class_game_ids(session: AsyncSession, class_session_id: uuid.UUID) -> dict[int, str]:

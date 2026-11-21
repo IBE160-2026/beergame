@@ -7,6 +7,7 @@ Later epics append their due actions to `DUE_ACTIONS` (locks, Takeover, playout,
 retention, …); there is no other cron.
 """
 
+import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -21,7 +22,7 @@ from app.platform import ratelimit
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
-__all__ = ["DUE_ACTIONS", "DueAction", "run"]
+__all__ = ["DUE_ACTIONS", "Backoff", "DueAction", "run"]
 
 log = structlog.get_logger(__name__)
 
@@ -31,6 +32,11 @@ class DueAction:
     name: str
     find: Callable[[datetime], Awaitable[Sequence[object]]]
     act: Callable[[object, datetime], Awaitable[object]]
+
+
+class Backoff(Exception):
+    """An item that failed, was logged by its action and waits before it is tried again: the
+    sweep neither counts nor logs it again."""
 
 
 RATE_LIMIT_KEEP = timedelta(days=1)
@@ -59,17 +65,48 @@ async def _purge_roster_uploads(at: object, now: datetime) -> int:
 
 FINISHED_CHECKS_PER_SWEEP = 20
 """The most finished Games one sweep verifies; the next minute's sweep takes the rest."""
+FINISHED_CHECK_BACKOFF_MAX = timedelta(hours=1)
+"""The longest wait before a failing finished-game check is tried again (2, 4, 8, … minutes)."""
+
+
+@dataclass(frozen=True)
+class _Failing:
+    failures: int
+    retry_at: datetime
+
+
+_failing_checks: dict[str, _Failing] = {}
+"""Finished Games whose check raised, in this process: they wait before the next try, so one
+failing Game neither floods the log every minute nor takes a place from the others."""
 
 
 async def _unchecked_finished_games(now: datetime) -> Sequence[str]:
+    waiting = [uuid.UUID(g) for g, failing in _failing_checks.items() if failing.retry_at > now]
     async with get_sessionmaker()() as session:
-        found = await games.unchecked_finished_game_ids(session, FINISHED_CHECKS_PER_SWEEP)
+        found = await games.unchecked_finished_game_ids(
+            session, FINISHED_CHECKS_PER_SWEEP, exclude=waiting
+        )
     return [str(game_id) for game_id in found]
 
 
 async def _verify_finished(game_id: object, now: datetime) -> object:
+    """Verify one finished Game. A check that raises is logged once, at warning level, the first
+    time; it is then tried again after 2, 4, 8, … minutes, at most `FINISHED_CHECK_BACKOFF_MAX`
+    (follow-up review of Story 6.18)."""
     assert isinstance(game_id, str)
-    return await games.verify_finished(game_id)
+    try:
+        checked = await games.verify_finished(game_id)
+    except Exception as exc:
+        failing = _failing_checks.get(game_id)
+        failures = 1 if failing is None else failing.failures + 1
+        wait = min(FINISHED_CHECK_BACKOFF_MAX, timedelta(minutes=2 ** min(failures, 6)))
+        _failing_checks[game_id] = _Failing(failures, now + wait)
+        if failing is None:
+            log.warning("finished_check_failing", game_id=game_id, exc_type=type(exc).__name__)
+        raise Backoff from exc
+    if _failing_checks.pop(game_id, None) is not None:
+        log.info("finished_check_recovered", game_id=game_id)
+    return checked
 
 
 DUE_ACTIONS: tuple[DueAction, ...] = (
@@ -128,6 +165,8 @@ async def run(now: datetime) -> dict[str, int]:
             try:
                 await action.act(item, now)
                 done[action.name] += 1
+            except Backoff:
+                continue
             except Exception as exc:
                 log.error("sweep_item_failed", action=action.name, exc_type=type(exc).__name__)
     return done

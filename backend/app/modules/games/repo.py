@@ -1,7 +1,7 @@
 """SQL for the games tables. Writers here are called only from `games.commands`."""
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from typing import Any
 
 from sqlalchemy import RowMapping, func, select, update
@@ -649,16 +649,19 @@ async def finished_game_ids(session: AsyncSession) -> list[uuid.UUID]:
     return list(result.scalars())
 
 
-async def unchecked_finished_game_ids(session: AsyncSession, limit: int) -> list[uuid.UUID]:
+async def unchecked_finished_game_ids(
+    session: AsyncSession, limit: int, exclude: Collection[uuid.UUID] = ()
+) -> list[uuid.UUID]:
     """At most `limit` finished Games that have no `game_checks` row yet, oldest first (Story
-    6.18): what the sweep's finished-game check still has to verify."""
-    result = await session.execute(
+    6.18): what the sweep's finished-game check still has to verify, but those in `exclude`."""
+    query = (
         select(games.c.id)
         .select_from(games.outerjoin(game_checks, game_checks.c.game_id == games.c.id))
         .where(games.c.lifecycle == "finished", game_checks.c.id.is_(None))
-        .order_by(games.c.id)
-        .limit(limit)
     )
+    if exclude:
+        query = query.where(games.c.id.not_in(list(exclude)))
+    result = await session.execute(query.order_by(games.c.id).limit(limit))
     return list(result.scalars())
 
 
