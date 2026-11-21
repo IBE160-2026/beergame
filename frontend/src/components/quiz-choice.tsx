@@ -86,9 +86,9 @@ export function QuizChoice({
               >
                 <span className="size-2.5 scale-0 rounded-full bg-ink text-paper group-has-checked:scale-100" />
               </span>
-              <span className="min-w-0 flex-1 break-words">{option.text}</span>
-              {right ? <span className="shrink-0 text-label text-ink">{nb.quizChoice.right}</span> : null}
-              {wrong ? <span className="shrink-0 text-label text-restordre">{nb.quizChoice.wrong}</span> : null}
+              <span className="min-w-[5ch] flex-1 break-words">{option.text}</span>
+              {right ? <span className="max-w-[55%] text-right text-label text-ink">{nb.quizChoice.right}</span> : null}
+              {wrong ? <span className="max-w-[55%] text-right text-label text-restordre">{nb.quizChoice.wrong}</span> : null}
             </label>
           );
         })}
