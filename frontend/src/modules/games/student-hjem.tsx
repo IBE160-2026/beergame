@@ -1,6 +1,7 @@
 "use client";
 
 import NextLink from "next/link";
+import { useState } from "react";
 
 import { Button, buttonClassName } from "@/components/button";
 import { GameCard } from "@/components/game-card";
@@ -29,6 +30,7 @@ import {
 } from "./home";
 import { useServerNow } from "./seat-status";
 import { GameSeatStatus } from "./seat-status-view";
+import { TimeProposalBlock } from "./time-proposal-view";
 import { MiniWeekTable } from "./week-table-view";
 
 /** The next actions that are a control; «not ready» is a line only. */
@@ -59,6 +61,9 @@ export function StudentHjem() {
   const sessions = useEnrolledSessions();
   const classState = usePageState(classes, enrolledClassesKey);
   const sessionState = usePageState(sessions, enrolledSessionsKey);
+  // Story 6.19: while a «Foreslå tidspunkt» form is open its send is the primary, so the game's
+  // own primary action steps back and Hjem keeps one primary button.
+  const [proposing, setProposing] = useState<ReadonlySet<string>>(new Set());
   const phases = [classState.phase, sessionState.phase];
 
   if (phases.includes("failed")) {
@@ -112,7 +117,16 @@ export function StudentHjem() {
                   key={session.id}
                   session={session}
                   labelled={own.length > 1}
-                  primary={session.id === primaryGame}
+                  primary={session.id === primaryGame && proposing.size === 0}
+                  onProposing={(open) =>
+                    setProposing((was) => {
+                      if (was.has(session.id) === open) return was;
+                      const next = new Set(was);
+                      if (open) next.add(session.id);
+                      else next.delete(session.id);
+                      return next;
+                    })
+                  }
                 />
               ))
             )}
@@ -128,10 +142,12 @@ function SessionBlock({
   session,
   labelled,
   primary,
+  onProposing,
 }: {
   session: EnrolledSession;
   labelled: boolean;
   primary: boolean;
+  onProposing: (open: boolean) => void;
 }) {
   const game = session.game ?? null;
   const deadline = deadlineText(session);
@@ -145,7 +161,11 @@ function SessionBlock({
             .join(" · ")}
         </p>
       ) : null}
-      {game ? <GameBlock game={game} session={session} primary={primary} /> : <BeforeStart session={session} />}
+      {game ? (
+        <GameBlock game={game} session={session} primary={primary} onProposing={onProposing} />
+      ) : (
+        <BeforeStart session={session} />
+      )}
       <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps)} />
       {deadline || labs.length > 0 ? (
         <dl className="mt-6 flex flex-col gap-2 border-t border-hairline pt-4 text-body-phone lg:text-body">
@@ -169,9 +189,19 @@ function SessionBlock({
 
 /** «Spill 17 · Du er Grossist», while the game runs its Spillkort (Story 6.17), and «Setene»: each
  * Seat's Role, who holds it and, while the game runs, whether it has ordered this Uke and how long
- * the game has waited for it (Story 6.14). The Spillkort holds the game's action and stands above
+ * the game has waited for it (Story 6.14), then the proposed time to play (Story 6.19). The Spillkort holds the game's action and stands above
  * Setene, as in `04-student-hjem.png`; without it the action stays under Setene. */
-function GameBlock({ game, session, primary }: { game: StudentGame; session: EnrolledSession; primary: boolean }) {
+function GameBlock({
+  game,
+  session,
+  primary,
+  onProposing,
+}: {
+  game: StudentGame;
+  session: EnrolledSession;
+  primary: boolean;
+  onProposing: (open: boolean) => void;
+}) {
   const seatsId = `seats-${session.id}`;
   const now = useServerNow(game.server_now);
   const drawn = homeLine(session);
@@ -188,6 +218,14 @@ function GameBlock({ game, session, primary }: { game: StudentGame; session: Enr
       ) : null}
       {/* Story 6.14: the Setestatus, as on the play screen. */}
       <GameSeatStatus seats={game.seats} now={now} titleId={seatsId} level={4} className="mt-4" />
+      {/* Story 6.19: the proposed time to play, and «Foreslå tidspunkt» while the game is not over. */}
+      <TimeProposalBlock
+        game={game}
+        now={now}
+        playDeadline={session.play_deadline ?? null}
+        onFormOpen={onProposing}
+        className="mt-4"
+      />
       {card ? null : <GameAction game={game} primary={primary} />}
       {/* Story 6.2: once the briefing no longer comes first, it stays a Lenke. */}
       {game.briefing_first ? null : (

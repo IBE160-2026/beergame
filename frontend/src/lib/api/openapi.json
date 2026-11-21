@@ -3222,6 +3222,32 @@
         "title": "PlayTurnOut",
         "type": "object"
       },
+      "ProposalPersonOut": {
+        "description": "A Student named by the scheduling aid (Story 6.19): the name now, and whether it is the\nreader. None as name for a Student no longer in the Class.",
+        "properties": {
+          "mine": {
+            "title": "Mine",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "name",
+          "mine"
+        ],
+        "title": "ProposalPersonOut",
+        "type": "object"
+      },
       "RegistrationOut": {
         "description": "One address on the Roster with its status. `id` names the Roster entry for a reminder to\nit alone; `remindable` is whether a reminder would go to it (not registered, not a hard\nbounce).",
         "properties": {
@@ -4683,6 +4709,16 @@
             "title": "Status",
             "type": "string"
           },
+          "time_proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimeProposalOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "turn": {
             "anyOf": [
               {
@@ -4867,6 +4903,60 @@
           "seats"
         ],
         "title": "TableStatusOut",
+        "type": "object"
+      },
+      "TimeProposalIn": {
+        "additionalProperties": false,
+        "description": "«Send forslaget til gruppen» (Story 6.19): a date and a time as one instant, nothing else.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at"
+        ],
+        "title": "TimeProposalIn",
+        "type": "object"
+      },
+      "TimeProposalOut": {
+        "description": "The game's open proposal of a time to play (Story 6.19, FR-22): who proposed which time\nand who accepted, in the order they did. Never free text.",
+        "properties": {
+          "accepted_by": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalPersonOut"
+            },
+            "title": "Accepted By",
+            "type": "array"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "can_accept": {
+            "title": "Can Accept",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "proposed_by": {
+            "$ref": "#/components/schemas/ProposalPersonOut"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "proposed_by",
+          "accepted_by",
+          "can_accept"
+        ],
+        "title": "TimeProposalOut",
         "type": "object"
       },
       "UploadRow": {
@@ -10550,6 +10640,171 @@
         "summary": "Finish Starting Task",
         "tags": [
           "tests"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/time-proposal": {
+      "post": {
+        "description": "«Send forslaget til gruppen» (Story 6.19, FR-22): the Student proposes a time to play, a\ndate and a time and nothing else. It replaces the game's open proposal and its acceptances,\nand each other Student of the game is told. Answers the game as it now stands. 422\n`time_out_of_range` unless the time lies after now and not after the Play deadline; 409\n`game_finished`; any other game, or a Seat the Student no longer holds, answers 403\n`forbidden` (FR-5).",
+        "operationId": "proposeMyGameTime",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimeProposalIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentGameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Propose My Game Time",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/time-proposal/{proposal_id}/accept": {
+      "post": {
+        "description": "«Godta tidspunktet» (Story 6.19, FR-22): the Student accepts the game's open proposal with\none press; an acceptance already stored counts as done. Answers the game as it now stands.\n409 `proposal_gone` (replaced, or its time has passed), `own_proposal` or `game_finished`;\nany other game, or a Seat the Student no longer holds, answers 403 `forbidden` (FR-5).",
+        "operationId": "acceptMyGameTime",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentGameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept My Game Time",
+        "tags": [
+          "sessions"
         ]
       }
     },

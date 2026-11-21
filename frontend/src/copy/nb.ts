@@ -1514,6 +1514,43 @@ export const nb = {
         game_not_ready: NOT_READY,
       },
     },
+    /** The scheduling aid (Story 6.19, FR-22): a date and a time to play, never text. «Foreslå
+     * tidspunkt» and the range error are the epic's; the rest is [ASSUMPTION] draft copy for the
+     * founder's review (EXPERIENCE.md leaves the surface undrawn). */
+    timeProposal: {
+      open: "Foreslå tidspunkt",
+      title: "Foreslå tidspunkt",
+      date: "Dato",
+      time: "Klokkeslett",
+      consequence: "De andre i spillet får beskjed og kan godta tidspunktet.",
+      replaces: "Forslaget erstatter det som står nå.",
+      send: "Send forslaget til gruppen",
+      sending: "Sender …",
+      cancel: "Avbryt",
+      sent: "Forslaget er sendt.",
+      /** «Kari Nordmann foreslår å spille to. 26. nov. kl. 14:15.» */
+      proposed: (name: string, when: string) => `${name} foreslår å spille ${when}.`,
+      proposedMine: (when: string) => `Du foreslår å spille ${when}.`,
+      someone: "En Student",
+      /** «Godtatt av Per Hansen og deg.» */
+      acceptedBy: (names: string) => `Godtatt av ${names}.`,
+      you: "deg",
+      noneAccepted: "Ingen har godtatt ennå.",
+      accept: "Godta tidspunktet",
+      accepting: "Godtar …",
+      failed: "Det gikk ikke. Prøv igjen.",
+      errors: {
+        dateMissing: "Velg en dato.",
+        timeMissing: "Velg et klokkeslett.",
+        /** The epic's: «Velg et tidspunkt mellom nå og Spillfristen, ti. 8. des. kl. 14:00.» */
+        range: (deadline: string) => `Velg et tidspunkt mellom nå og Spillfristen, ${deadline}.`,
+      },
+      refusals: {
+        game_finished: "Spillet er ferdig.",
+        proposal_gone: "Forslaget er byttet ut eller har gått ut.",
+        own_proposal: "Du foreslo selv dette tidspunktet.",
+      },
+    },
     /** The play route (Story 6.5): the Topplinje's «Uke 11» over «Grossist, Spill 17» (DESIGN.md
      * → Topplinje), and the four Seats. A finished game shows «Spillet er ferdig» (Story 6.18). */
     play: {

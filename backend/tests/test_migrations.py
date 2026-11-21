@@ -69,8 +69,16 @@ PRE_SESSION_TABLES = (
     | CLASS_TABLES
     | ROSTER_TABLES
 )
-HEAD_TABLES = PRE_SESSION_TABLES | SESSION_TABLES | {"progress_steps"} | STARTING_TASK_TABLES
-HEAD = "0048"  # 0048 adds `seat_turns.wait_started_at` (Story 6.14)
+TIME_PROPOSAL_TABLES = {"time_proposals", "time_acceptances"}
+"""The tables of revision 0049 (Story 6.19)."""
+HEAD_TABLES = (
+    PRE_SESSION_TABLES
+    | SESSION_TABLES
+    | {"progress_steps"}
+    | STARTING_TASK_TABLES
+    | TIME_PROPOSAL_TABLES
+)
+HEAD = "0049"  # 0049 adds the scheduling aid's proposals and acceptances (Story 6.19)
 
 
 def reset_schema(url: str) -> None:
@@ -191,7 +199,11 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "wait_started_at" in columns(url, "seat_turns")
     [(trigger,)] = rows(url, "SELECT prosrc FROM pg_proc WHERE proname = 'seat_turns_keep_opening'")
     assert "wait_started_at" in trigger and "viewed_at" in trigger
+    # 0049 (Story 6.19): one open proposal per Game; its acceptances go with it.
+    assert "UNIQUE (game_id)" in constraints(url, "time_proposals")["uq_time_proposals_game"]
 
+    command.downgrade(cfg, "0048")
+    assert TIME_PROPOSAL_TABLES.isdisjoint(tables(url))
     command.downgrade(cfg, "0047")
     assert "wait_started_at" not in columns(url, "seat_turns")
     [(trigger,)] = rows(url, "SELECT prosrc FROM pg_proc WHERE proname = 'seat_turns_keep_opening'")

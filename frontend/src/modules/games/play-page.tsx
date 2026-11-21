@@ -40,6 +40,7 @@ import { lastOrder, parseOrder } from "./order-input";
 import { gameTitle } from "./home";
 import { useServerNow, waitedFor } from "./seat-status";
 import { GameSeatStatus } from "./seat-status-view";
+import { TimeProposalBlock } from "./time-proposal-view";
 import { weekSummary } from "./week-summary";
 import { WeekSummaryView } from "./week-summary-view";
 import { ROWS } from "./week-table";
@@ -377,6 +378,8 @@ function Running({
             <CostPanel state={state} table="toggle" className="mb-8 hidden lg:block" />
             {/* Through the whole Uke, before and after the own Order, right under the Ordrefelt. */}
             <GameSeatStatus seats={seats} now={now} titleId={`seats-${game.id}`} className="max-w-md" />
+            {/* Story 6.19: the proposed time to play and «Godta tidspunktet»; proposing is on Hjem. */}
+            <TimeProposalBlock game={game} now={now} className="mt-4 max-w-md" />
             <PageLink href={rulesPath(game.id)}>{nb.games.briefing.title}</PageLink>
             <PageLink href={HOME_PATH.home}>{HOME_LINK.home}</PageLink>
           </div>
@@ -635,8 +638,14 @@ function NotRunning({ game }: { game: MyGame }) {
   );
 }
 
-/** «Setene» while the game does not run: who holds each Seat, with no order state. */
+/** «Setene» while the game does not run: who holds each Seat, with no order state, and the
+ * proposed time to play (Story 6.19). */
 function NotRunningSeats({ game }: { game: MyGame }) {
   const now = useServerNow(game.server_now);
-  return <GameSeatStatus seats={game.seats} now={now} titleId={`seats-${game.id}`} className="mt-8 max-w-md" />;
+  return (
+    <>
+      <GameSeatStatus seats={game.seats} now={now} titleId={`seats-${game.id}`} className="mt-8 max-w-md" />
+      <TimeProposalBlock game={game} now={now} className="mt-4 max-w-md" />
+    </>
+  );
 }

@@ -50,6 +50,7 @@ from app.modules.sessions.schemas import (
     SettingsCheckIn,
     SettingsCheckOut,
     StudentGameOut,
+    TimeProposalIn,
 )
 from app.platform import auth, authz
 from app.platform.errors import documented, error_response
@@ -716,6 +717,56 @@ async def start_my_game(
             else "The game is not ready to start yet."
         )
         return error_response(409, refused.code, message)
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
+    "/me/games/{game_id}/time-proposal",
+    response_model=StudentGameOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="proposeMyGameTime",
+)
+async def propose_my_game_time(
+    game_id: str,
+    body: TimeProposalIn,
+    user: Annotated[authz.Principal, Depends(authz.require("games.play_own"))],
+) -> Response:
+    """«Send forslaget til gruppen» (Story 6.19, FR-22): the Student proposes a time to play, a
+    date and a time and nothing else. It replaces the game's open proposal and its acceptances,
+    and each other Student of the game is told. Answers the game as it now stands. 422
+    `time_out_of_range` unless the time lies after now and not after the Play deadline; 409
+    `game_finished`; any other game, or a Seat the Student no longer holds, answers 403
+    `forbidden` (FR-5)."""
+    try:
+        found = await service.propose_own_time(user, game_id, body.at)
+    except service.ProposalRefused as refused:
+        return error_response(refused.status, refused.code, "The time was not proposed.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
+    "/me/games/{game_id}/time-proposal/{proposal_id}/accept",
+    response_model=StudentGameOut,
+    responses=documented(401, 403, 409),
+    operation_id="acceptMyGameTime",
+)
+async def accept_my_game_time(
+    game_id: str,
+    proposal_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.play_own"))],
+) -> Response:
+    """«Godta tidspunktet» (Story 6.19, FR-22): the Student accepts the game's open proposal with
+    one press; an acceptance already stored counts as done. Answers the game as it now stands.
+    409 `proposal_gone` (replaced, or its time has passed), `own_proposal` or `game_finished`;
+    any other game, or a Seat the Student no longer holds, answers 403 `forbidden` (FR-5)."""
+    try:
+        found = await service.accept_own_time(user, game_id, proposal_id)
+    except service.ProposalRefused as refused:
+        return error_response(refused.status, refused.code, "The time was not accepted.")
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))

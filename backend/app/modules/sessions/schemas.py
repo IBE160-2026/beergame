@@ -403,6 +403,34 @@ GameResultOut = GameResult
 the chain's, and the chain's running cost per Uke. Roles, never names; no demand."""
 
 
+class ProposalPersonOut(BaseModel):
+    """A Student named by the scheduling aid (Story 6.19): the name now, and whether it is the
+    reader. None as name for a Student no longer in the Class."""
+
+    name: str | None
+    mine: bool
+
+
+class TimeProposalOut(BaseModel):
+    """The game's open proposal of a time to play (Story 6.19, FR-22): who proposed which time
+    and who accepted, in the order they did. Never free text."""
+
+    id: uuid.UUID
+    at: AwareDatetime
+    proposed_by: ProposalPersonOut
+    accepted_by: list[ProposalPersonOut]
+    can_accept: bool
+    """The reader holds a Seat, did not propose this time and has not accepted it."""
+
+
+class TimeProposalIn(BaseModel):
+    """«Send forslaget til gruppen» (Story 6.19): a date and a time as one instant, nothing else."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    at: AwareDatetime
+
+
 class StudentGameOut(BaseModel):
     """The Student's Class game on Hjem (Story 6.1): «Spill 17 · Du er Grossist» and the four
     Seats, Fabrikk first (UX-DR73). Only from the Start date (`is_locked`)."""
@@ -429,6 +457,9 @@ class StudentGameOut(BaseModel):
     turn: PlayTurnOut | None
     """Story 6.17: the own turn in the open Week (the Order once placed), as in the play envelope;
     None unless `running`."""
+    time_proposal: TimeProposalOut | None = None
+    """Story 6.19: the open proposal of a time to play; None when there is none, its time has
+    passed or the game has finished."""
 
 
 class TableStatusOut(BaseModel):

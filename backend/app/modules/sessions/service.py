@@ -153,6 +153,7 @@ from app.modules.sessions.schemas import (
     OfferedEffortLevelOut,
     PlayOut,
     PlayTurnOut,
+    ProposalPersonOut,
     ReplacedLevelOut,
     SeatChoiceGameOut,
     SeatChoiceIn,
@@ -167,6 +168,7 @@ from app.modules.sessions.schemas import (
     StudentGameOut,
     TableSeatOut,
     TableStatusOut,
+    TimeProposalOut,
     WaitingClass,
     WaitingReason,
 )
@@ -1249,6 +1251,31 @@ async def _game_out(
         server_now=await games_service.database_now(s),
         seat_state=state,
         turn=turn,
+        time_proposal=await _time_proposal_out(s, user_id, found.game_id, row["class_id"]),
+    )
+
+
+async def _time_proposal_out(
+    s: AsyncSession, user_id: uuid.UUID, game_id: uuid.UUID, class_id: uuid.UUID
+) -> TimeProposalOut | None:
+    """The game's open proposal of a time to play as the reader sees it (Story 6.19, FR-22):
+    the names read now, never stored (AD-14)."""
+    proposal = await games_service.open_time_proposal(s, game_id)
+    if proposal is None:
+        return None
+    names = await _names_in(class_id)([proposal.proposed_by, *proposal.accepted_by])
+
+    def person(other: uuid.UUID) -> ProposalPersonOut:
+        return ProposalPersonOut(name=names.get(other), mine=other == user_id)
+
+    return TimeProposalOut(
+        id=proposal.id,
+        at=proposal.at,
+        proposed_by=person(proposal.proposed_by),
+        accepted_by=[person(other) for other in proposal.accepted_by],
+        can_accept=user_id in proposal.seated
+        and user_id != proposal.proposed_by
+        and user_id not in proposal.accepted_by,
     )
 
 
@@ -1475,6 +1502,108 @@ async def start_own_game(user: authz.Principal, game_id: str) -> StudentGameOut 
     else:
         log.info("student_started_game", game_id=str(found.game_id), user_id=str(user.id))
     return await student_game_of(user, game_id)
+
+
+class ProposalRefused(Exception):
+    """A proposal or acceptance of a time to play the api refuses (Story 6.19), with the
+    command's code and status: 409 `game_finished`, `proposal_gone`, `own_proposal`; 422
+    `time_out_of_range`."""
+
+    def __init__(self, code: str, status: int) -> None:
+        super().__init__(code)
+        self.code = code
+        self.status = status
+
+
+def _proposal_refusal(refused: Exception) -> None:
+    """None for a refusal that reads as any other game (not found, a Seat no longer held, FR-5);
+    every other refusal raises `ProposalRefused`."""
+    if not isinstance(refused, games_commands.CommandError):
+        raise refused
+    if refused.status == 404 or refused.code == "seat_not_yours":
+        return None
+    raise ProposalRefused(refused.code, refused.status) from None
+
+
+async def propose_own_time(
+    user: authz.Principal, game_id: str, at: datetime
+) -> StudentGameOut | None:
+    """«Send forslaget til gruppen» (Story 6.19, FR-22): the Student proposes a time to play in
+    their own Class game, under `student_game_of`'s checks (None for every other id alike).
+    Only `games.commands.propose_time` stores it, between now and the Class session's Play
+    deadline. Returns the game as it now stands."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+    if own is None:
+        return None
+    found, row = own
+    try:
+        await games_commands.propose_time(
+            str(found.game_id), at, actor=user.id, latest=row["play_deadline"]
+        )
+    except games_commands.CommandError as refused:
+        return _proposal_refusal(refused)
+    return await student_game_of(user, game_id)
+
+
+async def accept_own_time(
+    user: authz.Principal, game_id: str, proposal_id: str
+) -> StudentGameOut | None:
+    """«Godta tidspunktet» (Story 6.19, FR-22): the Student accepts the open proposal of their
+    own Class game with one press, under `student_game_of`'s checks (None for every other id
+    alike). An acceptance already stored counts as done. Returns the game as it now stands."""
+    async with get_sessionmaker()() as s:
+        own = await _own_locked_game(s, user, game_id)
+    if own is None:
+        return None
+    found, _ = own
+    try:
+        await games_commands.accept_time(str(found.game_id), proposal_id, actor=user.id)
+    except games_commands.CommandError as refused:
+        return _proposal_refusal(refused)
+    return await student_game_of(user, game_id)
+
+
+TIME_PROPOSED_NOTICE = games_commands.TIME_PROPOSED_NOTICE
+"""The `digest` notice of a proposed time to play (Story 6.19); its mail is read at send time by
+`time_proposal_mail_context`."""
+
+
+async def time_proposal_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of a `TIME_PROPOSED_NOTICE`, for `messaging` at send time (Story
+    6.19, AD-9): the Class's name, the game number, the proposer's name and the time in
+    Europe/Oslo. None, so the notice is left out, when the proposal was replaced, its time has
+    passed, the User accepted it or holds no Seat any more, the game has finished, the Class is
+    archived or the User is no longer a registered Student of it."""
+    if ref is None:
+        return None
+    proposal = await games_service.time_proposal_by_id(session, ref)
+    if proposal is None or proposal.at <= now:
+        return None
+    # Nothing left to ask of a Student who accepted meanwhile or no longer holds a Seat.
+    if user_id in proposal.accepted_by or user_id not in proposal.seated:
+        return None
+    info = await games_service.game_class_info(session, proposal.game_id)
+    if info is None or info[2]:
+        return None
+    class_session_id, number, _ = info
+    row = await repo.session_row(session, class_session_id)
+    if row is None:
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None or label.archived:
+        return None
+    if user_id not in await classes.registered_students(row["class_id"]):
+        return None
+    names = await classes.student_names(row["class_id"], [proposal.proposed_by])
+    return {
+        "class_name": label.name,
+        "game_number": number,
+        "proposer": names.get(proposal.proposed_by),
+        "at": proposal.at.astimezone(OSLO),
+    }
 
 
 @dataclass(frozen=True)

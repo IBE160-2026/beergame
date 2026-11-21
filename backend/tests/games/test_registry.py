@@ -13,7 +13,7 @@ from app.modules.games import commands
 from app.platform.db import get_engine
 from app.platform.events.registry import COMMAND_TOPICS
 from tests.conftest import TEST_DATABASE_URL
-from tests.games.helpers import listening, play_to_end, seat_student
+from tests.games.helpers import execute, listening, play_to_end, query, seat_student
 
 SHORT = GameSettings(weeks=8, guided_weeks=2)
 FREE = GameSettings(weeks=8, guided_weeks=0)
@@ -144,6 +144,43 @@ async def _run_set_snapshot() -> str:
     return game_id
 
 
+TOMORROW = "SELECT now() + interval '1 day'"
+"""A time to propose, read from the database clock (Issue #63)."""
+
+
+async def _two_students() -> tuple[str, uuid.UUID, uuid.UUID]:
+    """A Class game with two Students seated, not started: the scheduling aid works from the
+    Start date on, whether or not the game has started (Story 6.19)."""
+    game_id = await commands.create("class", class_session_id=uuid.uuid7(), game_number=1)
+    first, second = uuid.uuid7(), uuid.uuid7()
+    for user in (first, second):  # a notice names a User that exists
+        execute(
+            TEST_DATABASE_URL,
+            "INSERT INTO users (id, email, name, password_hash) VALUES (%s, %s, 'S', NULL)",
+            (user, f"registry-{user}@x.no"),
+        )
+    await commands.assign_seat(game_id, "retailer", "student", user_id=first)
+    await commands.assign_seat(game_id, "factory", "student", user_id=second)
+    return game_id, first, second
+
+
+async def _run_propose_time() -> str:
+    """One Student proposes a time (Story 6.19): the other's notice emits `user`."""
+    game_id, first, _ = await _two_students()
+    [(at,)] = query(TEST_DATABASE_URL, TOMORROW)
+    await commands.propose_time(game_id, at, actor=first, latest=None)
+    return game_id
+
+
+async def _run_accept_time() -> str:
+    """The other Student accepts it: every seated Student hears of it."""
+    game_id, first, second = await _two_students()
+    [(at,)] = query(TEST_DATABASE_URL, TOMORROW)
+    proposal_id = await commands.propose_time(game_id, at, actor=first, latest=None)
+    assert await commands.accept_time(game_id, proposal_id, actor=second)
+    return game_id
+
+
 RUNNERS = {
     "create": _run_create,
     "assign_seat": _run_assign_seat,
@@ -155,6 +192,8 @@ RUNNERS = {
     "move_seat": _run_move_seat,
     "set_snapshot": _run_set_snapshot,
     "view_week": _run_view_week,
+    "propose_time": _run_propose_time,
+    "accept_time": _run_accept_time,
 }
 """How to run each command once; a command added without a runner fails the test below."""
 
@@ -164,6 +203,10 @@ CLASS_SETUP_EVENTS = {
     "start": 7,
     "view_week": 10,
     "place_order": 10,
+    # create 2 + two Student Seats 2 each; `accept_time` also runs `propose_time` (4: game,
+    # session, the proposer, the other Student's notice).
+    "propose_time": 6,
+    "accept_time": 10,
 }
 """Runners on a Class game, and how many events their setup emits before the command's own."""
 
@@ -183,6 +226,8 @@ def test_every_command_is_exported_and_registered():
             "move_seat",
             "set_snapshot",
             "view_week",
+            "propose_time",
+            "accept_time",
         }
         == set(RUNNERS)
     )

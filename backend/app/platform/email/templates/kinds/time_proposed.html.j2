@@ -1,0 +1,3 @@
+{# Another Student proposed a time to play (Story 6.19, FR-22), a digest kind. #}
+{% import "kinds/_deadline.j2" as d %}
+<p style="margin:0;">{{ proposer or "En Student" }} foreslår å spille Spill {{ game_number }} i Klassen {{ class_name }} {{ d.when(at) }}. Du kan godta tidspunktet på Hjem.</p>

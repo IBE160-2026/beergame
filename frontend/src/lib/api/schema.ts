@@ -1583,6 +1583,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/games/{game_id}/time-proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose My Game Time
+         * @description «Send forslaget til gruppen» (Story 6.19, FR-22): the Student proposes a time to play, a
+         *     date and a time and nothing else. It replaces the game's open proposal and its acceptances,
+         *     and each other Student of the game is told. Answers the game as it now stands. 422
+         *     `time_out_of_range` unless the time lies after now and not after the Play deadline; 409
+         *     `game_finished`; any other game, or a Seat the Student no longer holds, answers 403
+         *     `forbidden` (FR-5).
+         */
+        post: operations["proposeMyGameTime"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/games/{game_id}/time-proposal/{proposal_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept My Game Time
+         * @description «Godta tidspunktet» (Story 6.19, FR-22): the Student accepts the game's open proposal with
+         *     one press; an acceptance already stored counts as done. Answers the game as it now stands.
+         *     409 `proposal_gone` (replaced, or its time has passed), `own_proposal` or `game_finished`;
+         *     any other game, or a Seat the Student no longer holds, answers 403 `forbidden` (FR-5).
+         */
+        post: operations["acceptMyGameTime"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/games/{game_id}/weeks/{week}/order": {
         parameters: {
             query?: never;
@@ -3092,6 +3140,17 @@ export interface components {
             viewed: boolean;
         };
         /**
+         * ProposalPersonOut
+         * @description A Student named by the scheduling aid (Story 6.19): the name now, and whether it is the
+         *     reader. None as name for a Student no longer in the Class.
+         */
+        ProposalPersonOut: {
+            /** Mine */
+            mine: boolean;
+            /** Name */
+            name: string | null;
+        };
+        /**
          * RegistrationOut
          * @description One address on the Roster with its status. `id` names the Roster entry for a reminder to
          *     it alone; `remindable` is whether a reminder would go to it (not registered, not a hard
@@ -3755,6 +3814,7 @@ export interface components {
              * @enum {string}
              */
             status: "not_ready" | "ready" | "running" | "finished";
+            time_proposal?: components["schemas"]["TimeProposalOut"] | null;
             turn: components["schemas"]["PlayTurnOut"] | null;
             /** Week */
             week: number | null;
@@ -3820,6 +3880,39 @@ export interface components {
         TableStatusOut: {
             /** Seats */
             seats: components["schemas"]["TableSeatOut"][];
+        };
+        /**
+         * TimeProposalIn
+         * @description «Send forslaget til gruppen» (Story 6.19): a date and a time as one instant, nothing else.
+         */
+        TimeProposalIn: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
+        /**
+         * TimeProposalOut
+         * @description The game's open proposal of a time to play (Story 6.19, FR-22): who proposed which time
+         *     and who accepted, in the order they did. Never free text.
+         */
+        TimeProposalOut: {
+            /** Accepted By */
+            accepted_by: components["schemas"]["ProposalPersonOut"][];
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Can Accept */
+            can_accept: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            proposed_by: components["schemas"]["ProposalPersonOut"];
         };
         /**
          * UploadRow
@@ -8048,6 +8141,127 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    proposeMyGameTime: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TimeProposalIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentGameOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    acceptMyGameTime: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentGameOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

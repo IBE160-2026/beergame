@@ -258,3 +258,35 @@ game_checks = Table(
 )
 """The finished-game check (AD-9, FR-29): one row per finished Game, written once by
 `games.service.verify_finished`. A trigger refuses UPDATE and DELETE."""
+
+time_proposals = Table(
+    "time_proposals",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("game_id", Uuid, ForeignKey("games.id"), nullable=False),
+    # The Student who proposed: the id only, never a name (AD-14). No foreign key, as in
+    # `seat_occupancy`.
+    Column("proposed_by", Uuid, nullable=False),
+    # The proposed time to play: a date and a time, never free text (FR-22).
+    Column("at", DateTime(timezone=True), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("game_id", name="uq_time_proposals_game"),
+)
+"""The scheduling aid (Story 6.19, FR-22): a Class game's one open proposal of a time to play,
+written by `games.commands.propose_time`; a new one replaces it. It is never an input of
+`games.rules.turn_times`: it starts, pauses or shortens no Inactivity limit (AD-20)."""
+
+time_acceptances = Table(
+    "time_acceptances",
+    metadata,
+    Column(
+        "proposal_id",
+        Uuid,
+        ForeignKey("time_proposals.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("user_id", Uuid, primary_key=True),
+    Column("accepted_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+"""Who accepted a proposal (Story 6.19), written by `games.commands.accept_time`; a replaced
+proposal takes its acceptances with it."""

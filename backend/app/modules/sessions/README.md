@@ -384,3 +384,21 @@ The game card (both endpoints above) also carries `briefing_first`, true until `
 rates, read by `service.game_rules` from the session's frozen `snapshot['settings']` (or its
 `game_settings` until the lock has stored the snapshot; a locked session no longer changes them).
 Never the number of Weeks, the demand, its seed or the largest Order (FR-14, AD-3).
+
+## Proposing a time to play (Story 6.19)
+
+The game card also carries `time_proposal`: the game's open proposal of a time to play, read by
+`_time_proposal_out` through `games.service.open_time_proposal` (None once the time has passed on
+the database clock or the game has finished), with `proposed_by` and `accepted_by` as `{name,
+mine}` (names read now) and `can_accept` for a seated Student who neither proposed nor accepted it.
+
+- `POST /api/me/games/{game_id}/time-proposal` (`games.play_own`, body `{at}`, nothing else)
+  calls `games.commands.propose_time` with the session's `play_deadline` as the latest time: 422
+  `time_out_of_range` outside now to the Play deadline, 409 `game_finished`.
+- `POST /api/me/games/{game_id}/time-proposal/{proposal_id}/accept` calls
+  `games.commands.accept_time`: 409 `proposal_gone` (replaced or passed), `own_proposal`,
+  `game_finished`; a second press answers 200.
+- Both answer the game card as it now stands; any other game, or a Seat no longer held, 403.
+- Each other seated Student gets a `time_proposed` notice (`digest`, one per proposal), whose
+  mail `time_proposal_mail_context` reads at send time; a replaced or passed proposal sends none.
+- The proposal is never an input of `games.rules.turn_times` (AD-20).

@@ -33,6 +33,11 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A Class game gets its Class session's snapshot and AI players at the lock (Story 5.12):
         # the Class session hears of it, and each Student who held a Seat reads it again.
         "games.set_snapshot": frozenset({"game", "session", "user"}),
+        # The scheduling aid (Story 6.19, FR-22): a Student proposes a time to play, which the
+        # Class session hears of and each other seated Student's `time_proposed` notice emits as
+        # `user`; an acceptance tells every seated Student, so all see who accepted.
+        "games.propose_time": frozenset({"game", "session", "user"}),
+        "games.accept_time": frozenset({"game", "session", "user"}),
         # A notice to a User (Story 3.5, AD-9); a notice addressed by reference emits nothing.
         "notify.enqueue": frozenset({"user"}),
         # A role the Admin grants or revokes (Story 3.9): the User's open pages reload it.

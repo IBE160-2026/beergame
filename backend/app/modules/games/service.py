@@ -82,7 +82,12 @@ __all__ = [
     "StudentGame",
     "TableSeat",
     "TableStatus",
+    "TimeProposal",
     "TurnOverview",
+    "game_class_info",
+    "open_time_proposal",
+    "seated_students",
+    "time_proposal_by_id",
     "ViewError",
     "ClassGame",
     "ClassGameSeat",
@@ -271,6 +276,72 @@ async def play_status(session: AsyncSession, game_id: uuid.UUID) -> PlayStatus:
 async def database_now(session: AsyncSession) -> datetime:
     """The database clock at this statement: the clock every stored time is on (AD-20)."""
     return await repo.clock_now(session)
+
+
+@dataclass(frozen=True)
+class TimeProposal:
+    """A Class game's proposal of a time to play (Story 6.19, FR-22): who proposed which time and
+    who accepted, in the order they did. Ids only; the caller resolves names."""
+
+    id: uuid.UUID
+    game_id: uuid.UUID
+    at: datetime
+    proposed_by: uuid.UUID
+    accepted_by: tuple[uuid.UUID, ...]
+    seated: frozenset[uuid.UUID]
+    """The Students who hold a Seat of the Game now: those who may accept."""
+
+
+def seated_students(seat_rows) -> frozenset[uuid.UUID]:
+    """The Students who hold a Seat of the Game now (each Seat's latest occupancy row): the one
+    rule both the scheduling aid's commands and its read use (Story 6.19)."""
+    return frozenset(
+        row["user_id"]
+        for row in seat_rows
+        if row["occupant_kind"] == OccupantKind.STUDENT and row["user_id"] is not None
+    )
+
+
+async def _time_proposal(session: AsyncSession, row) -> TimeProposal:
+    seats = await repo.seats_with_occupant(session, row["game_id"])
+    return TimeProposal(
+        id=row["id"],
+        game_id=row["game_id"],
+        at=row["at"],
+        proposed_by=row["proposed_by"],
+        accepted_by=tuple(await repo.time_acceptors(session, row["id"])),
+        seated=seated_students(seats),
+    )
+
+
+async def open_time_proposal(session: AsyncSession, game_id: uuid.UUID) -> TimeProposal | None:
+    """The Game's open proposal of a time to play (Story 6.19): None when there is none, the
+    Game has finished, or the time has passed on the database clock (AD-20)."""
+    row = await repo.time_proposal(session, game_id)
+    if row is None or row["at"] <= await repo.clock_now(session):
+        return None
+    game = await repo.get_game(session, game_id)
+    if game is None or game["lifecycle"] == Lifecycle.FINISHED:
+        return None
+    return await _time_proposal(session, row)
+
+
+async def time_proposal_by_id(session: AsyncSession, proposal_id: uuid.UUID) -> TimeProposal | None:
+    """A proposal by its id, for the mail read at send time (Story 6.19); None once replaced.
+    The caller judges whether it has passed, on its own clock."""
+    row = await repo.time_proposal_by_id(session, proposal_id)
+    return None if row is None else await _time_proposal(session, row)
+
+
+async def game_class_info(
+    session: AsyncSession, game_id: uuid.UUID
+) -> tuple[uuid.UUID, int, bool] | None:
+    """A Class game's Class session, game number and whether it has finished; None for a Game
+    with no Class session or none at all."""
+    game = await repo.get_game(session, game_id)
+    if game is None or game["class_session_id"] is None:
+        return None
+    return game["class_session_id"], game["game_number"], game["lifecycle"] == Lifecycle.FINISHED
 
 
 async def own_game(

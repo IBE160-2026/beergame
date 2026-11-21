@@ -17,6 +17,8 @@ from app.modules.games.models import (
     seat_weeks,
     seats,
     simulation_batches,
+    time_acceptances,
+    time_proposals,
 )
 from app.platform import authz
 
@@ -715,5 +717,63 @@ async def batch_game_ids(session: AsyncSession, batch_id: uuid.UUID) -> list[uui
     """The id of every Game of the batch, in the order they were created (ids are UUIDv7)."""
     result = await session.execute(
         select(games.c.id).where(games.c.batch_id == batch_id).order_by(games.c.id)
+    )
+    return list(result.scalars())
+
+
+# The scheduling aid (Story 6.19, FR-22): one open proposal per Game and who accepted it.
+
+
+async def time_proposal(session: AsyncSession, game_id: uuid.UUID) -> RowMapping | None:
+    """The Game's proposal of a time to play, whether or not its time has passed."""
+    result = await session.execute(
+        select(time_proposals).where(time_proposals.c.game_id == game_id)
+    )
+    return result.mappings().one_or_none()
+
+
+async def time_proposal_by_id(session: AsyncSession, proposal_id: uuid.UUID) -> RowMapping | None:
+    result = await session.execute(select(time_proposals).where(time_proposals.c.id == proposal_id))
+    return result.mappings().one_or_none()
+
+
+async def replace_time_proposal(
+    session: AsyncSession,
+    game_id: uuid.UUID,
+    proposal_id: uuid.UUID,
+    proposed_by: uuid.UUID,
+    at: Any,
+) -> None:
+    """The Game's one proposal becomes this one: the earlier proposal goes, and its acceptances
+    with it (`ON DELETE CASCADE`)."""
+    await session.execute(time_proposals.delete().where(time_proposals.c.game_id == game_id))
+    await session.execute(
+        time_proposals.insert().values(
+            id=proposal_id, game_id=game_id, proposed_by=proposed_by, at=at
+        )
+    )
+
+
+async def accept_time_proposal(
+    session: AsyncSession, proposal_id: uuid.UUID, user_id: uuid.UUID
+) -> bool:
+    """Record that `user_id` accepted the proposal; False, changing nothing, when they had."""
+    result = await session.execute(
+        insert(time_acceptances)
+        .values(proposal_id=proposal_id, user_id=user_id)
+        .on_conflict_do_nothing(
+            index_elements=[time_acceptances.c.proposal_id, time_acceptances.c.user_id]
+        )
+        .returning(time_acceptances.c.user_id)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def time_acceptors(session: AsyncSession, proposal_id: uuid.UUID) -> list[uuid.UUID]:
+    """Who accepted the proposal, in the order they did."""
+    result = await session.execute(
+        select(time_acceptances.c.user_id)
+        .where(time_acceptances.c.proposal_id == proposal_id)
+        .order_by(time_acceptances.c.accepted_at, time_acceptances.c.user_id)
     )
     return list(result.scalars())

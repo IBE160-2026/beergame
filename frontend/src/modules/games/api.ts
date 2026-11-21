@@ -100,6 +100,25 @@ export function startGame(gameId: string) {
   return request(() => api.POST("/api/me/games/{game_id}/start", { params: { path: { game_id: gameId } } }));
 }
 
+/** «Send forslaget til gruppen» (Story 6.19): proposes a time to play, which replaces the open
+ * proposal, and answers the game as it now stands. 422 `time_out_of_range` outside now to the Play
+ * deadline. */
+export function proposeTime(gameId: string, at: string) {
+  return request(() =>
+    api.POST("/api/me/games/{game_id}/time-proposal", { params: { path: { game_id: gameId } }, body: { at } }),
+  );
+}
+
+/** «Godta tidspunktet» (Story 6.19): accepts the open proposal with one press; a second press
+ * answers the same. 409 `proposal_gone` once it was replaced or has passed. */
+export function acceptTime(gameId: string, proposalId: string) {
+  return request(() =>
+    api.POST("/api/me/games/{game_id}/time-proposal/{proposal_id}/accept", {
+      params: { path: { game_id: gameId, proposal_id: proposalId } },
+    }),
+  );
+}
+
 /** «Spillet er ferdig» (Story 6.18): the finished game's cost per Role, the chain's and the
  * chain's per Uke. The api answers 409 `game_not_finished` before the end. */
 export type GameResult = components["schemas"]["GameResult"];

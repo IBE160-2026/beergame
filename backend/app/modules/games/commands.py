@@ -8,6 +8,9 @@ When a Week opens, and right after a switch, the command calls `players.ensure_o
 Seats in its own transaction (AD-5); the Orders it places join that transaction. After its own
 commit every command calls `advance` until it does nothing, so a Game whose open Week is
 complete moves on one Week per transaction and none is left complete but open (AD-2, NFR-4).
+
+The scheduling aid's `propose_time` and `accept_time` (Story 6.19) join the AD-2 list: they write
+the Game's proposal of a time to play, never a turn, so no Week moves and no wait changes (AD-20).
 """
 
 import secrets
@@ -58,17 +61,19 @@ from app.modules.games.schemas import (
     Purpose,
     SessionRuntime,
 )
-from app.modules.games.service import scope_of, student_game
+from app.modules.games.service import scope_of, seated_students, student_game
 from app.modules.games.turns import OpenGame, play_of
 from app.modules.games.views import build_seat_state, stored_orders, stored_play
 from app.modules.progress import service as progress
-from app.platform import events
+from app.platform import events, notify
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 from app.platform.parameter_sets import UnknownParameterSetError, read_parameter_set
 
 __all__ = [
+    "TIME_PROPOSED_NOTICE",
     "CommandError",
+    "accept_time",
     "advance",
     "assign_seat",
     "create",
@@ -76,6 +81,7 @@ __all__ = [
     "finish",
     "move_seat",
     "place_order",
+    "propose_time",
     "set_snapshot",
     "start",
     "switch_to_rule_based",
@@ -1607,3 +1613,99 @@ async def _record_class_game_step(session: AsyncSession, game_id: uuid.UUID) -> 
         await progress.record_step(
             student, game["class_session_id"], progress.Step.CLASS_GAME, at, within=session
         )
+
+
+TIME_PROPOSED_NOTICE = "time_proposed"
+"""The notice kind each other Student of a Class game gets when a time to play is proposed,
+`digest` (Story 6.19, AD-9). Its `ref` is the proposal; the mail reads it at send time."""
+
+
+async def _scheduling_game(
+    session: AsyncSession, game_uuid: uuid.UUID, game_id: str, actor_id: uuid.UUID | None
+) -> set[uuid.UUID]:
+    """Lock a Game for the scheduling aid and return its seated Students. Refuses
+    `game_not_found`, `game_finished`, and `seat_not_yours` for an actor who holds no Seat."""
+    game = await repo.lock_game(session, game_uuid)
+    if game is None:
+        raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
+    if game["lifecycle"] == Lifecycle.FINISHED:
+        raise CommandError("game_finished", "the Game has finished", 409)
+    students = set(seated_students(await repo.seats_with_occupant(session, game_uuid)))
+    if actor_id is None or actor_id not in students:
+        raise CommandError("seat_not_yours", "the actor holds no Seat in the Game", 409)
+    return students
+
+
+async def propose_time(
+    game_id: str, at: datetime, *, actor: uuid.UUID | str, latest: datetime | None
+) -> str:
+    """A Student proposes a time to play (Story 6.19, FR-22, AD-2): a date and a time, never
+    text. The time must lie after now on the database clock and, when the caller gives the Play
+    deadline as `latest`, not after it (`time_out_of_range`). The Game keeps one open proposal: this
+    one replaces the earlier proposal and its acceptances.
+
+    One transaction with the Game row lock and a version bump, emitting `game:<id>`,
+    `session:<id>` where the Lecturer overview lists the Game, and, through one `time_proposed`
+    notice per other seated Student (dedupe key per proposal), `user:<id>` for each (AD-8, AD-9).
+    The proposal is no input of `rules.turn_times` (AD-20). Refuses `game_not_found`,
+    `game_finished`, `seat_not_yours` and `time_out_of_range`. Returns the proposal's id."""
+    game_uuid = _game_uuid(game_id)
+    actor_id = _actor(actor)
+    if not isinstance(at, datetime) or at.tzinfo is None:
+        raise CommandError("time_out_of_range", "the time carries no time zone", 422)
+    async with get_sessionmaker().begin() as session:
+        students = await _scheduling_game(session, game_uuid, game_id, actor_id)
+        assert actor_id is not None  # `_scheduling_game` refuses a missing actor
+        now = await repo.clock_now(session)
+        if not (now < at and (latest is None or at <= latest)):
+            raise CommandError(
+                "time_out_of_range", "the time is not between now and the Play deadline", 422
+            )
+        proposal_id = uuid.uuid7()
+        await repo.replace_time_proposal(session, game_uuid, proposal_id, actor_id, at)
+        await _commit_change(session, game_uuid)
+        # The proposer's own other pages read it too; the others hear of it through the notice.
+        await events.emit(session, "user", str(actor_id))
+        for other in sorted(students - {actor_id}, key=str):
+            await notify.enqueue(
+                session,
+                other,
+                TIME_PROPOSED_NOTICE,
+                f"{TIME_PROPOSED_NOTICE}:{proposal_id}:{other}",
+                ref=proposal_id,
+            )
+    log.info("time_proposed", game_id=game_id, proposal_id=str(proposal_id))
+    return str(proposal_id)
+
+
+async def accept_time(game_id: str, proposal_id: str, *, actor: uuid.UUID | str) -> bool:
+    """A Student accepts the Game's open proposal of a time to play with one press (Story 6.19,
+    FR-22, AD-2). One transaction with the Game row lock and a version bump, emitting
+    `game:<id>`, `session:<id>` where the Lecturer overview lists the Game, and `user:<id>` for
+    every seated Student, so all see who accepted (AD-8). An acceptance already stored changes
+    nothing (no write, no version, no event) and returns False; True when it was stored.
+
+    Refuses `game_not_found`, `game_finished`, `seat_not_yours`, `proposal_gone` (not the open
+    proposal, which another replaced, or its time has passed) and `own_proposal`."""
+    game_uuid = _game_uuid(game_id)
+    actor_id = _actor(actor)
+    proposal_uuid = _actor(proposal_id)
+    async with get_sessionmaker().begin() as session:
+        students = await _scheduling_game(session, game_uuid, game_id, actor_id)
+        assert actor_id is not None
+        proposal = await repo.time_proposal(session, game_uuid)
+        if (
+            proposal is None
+            or proposal["id"] != proposal_uuid
+            or proposal["at"] <= await repo.clock_now(session)
+        ):
+            raise CommandError("proposal_gone", "the proposal is not open any more", 409)
+        if proposal["proposed_by"] == actor_id:
+            raise CommandError("own_proposal", "the Student proposed this time", 409)
+        if not await repo.accept_time_proposal(session, proposal["id"], actor_id):
+            return False
+        await _commit_change(session, game_uuid)
+        for student in sorted(str(each) for each in students):
+            await events.emit(session, "user", student)
+    log.info("time_accepted", game_id=game_id, proposal_id=proposal_id)
+    return True
