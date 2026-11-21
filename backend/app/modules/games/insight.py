@@ -136,6 +136,14 @@ class GameInsight:
     """(Week, the customer demand the first Role received that Week), per opened Week."""
     seats: tuple[InsightSeat, ...]
     roles: tuple[InsightRole, ...]
+    paused_at: datetime | None = None
+    """Story 8.7: since when the Pause in force runs; None when the Game is not paused."""
+    paused_by: uuid.UUID | None = None
+    """Story 8.7: who set the Pause in force, by id (AD-14)."""
+    resume_at: datetime | None = None
+    """Story 8.7: the Lecturer's agreed time of the Pause in force; None without one."""
+    pausable: bool = False
+    """Story 8.7 (FR-89): a Pause applies to the Game now: it runs and its policy has Pause."""
 
 
 def _in_force(history: Sequence[Mapping[str, Any]], week: int) -> Mapping[str, Any] | None:
@@ -272,6 +280,10 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
             for seat in held
         ),
         roles=tuple(roles),
+        paused_at=game["paused_at"],
+        paused_by=game["paused_by"],
+        resume_at=game["resume_at"],
+        pausable=game["lifecycle"] == Lifecycle.RUNNING and game_policy.pause,
     )
 
 

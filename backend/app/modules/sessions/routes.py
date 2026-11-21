@@ -53,6 +53,7 @@ from app.modules.sessions.schemas import (
     SeatChoiceOut,
     SettingsCheckIn,
     SettingsCheckOut,
+    StaffPauseIn,
     StartedTestGameOut,
     StudentGameOut,
     TestGameIn,
@@ -350,6 +351,86 @@ async def take_over_seat(
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))
+
+
+def _pause_answer(found: GameInsightOut | None) -> Response:
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+def _pause_refused(refused: overview.PauseRefused, message: str) -> Response:
+    return error_response(refused.status, refused.code, message, refused.fields)
+
+
+@router.post(
+    "/games/{game_id}/pause",
+    response_model=GameInsightOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="pauseGame",
+)
+async def pause_game(
+    game_id: str,
+    body: StaffPauseIn,
+    user: Annotated[authz.Principal, Depends(authz.require("games.pause"))],
+) -> Response:
+    """«Pause spillet» (Story 8.7, FR-89, AD-2, AD-12): a Lecturer of the game's Class pauses it,
+    with the agreed time `resume_at` or without one; no AI player takes a Seat over while it is
+    paused, the Play deadline stands, and the agreed time becomes the insert time of every Seat
+    that has not ordered this Uke. Recorded in the audit log. Answers Spillinnsikt as it now
+    stands. 422 `time_out_of_range` unless the time lies after now and not after the Play
+    deadline; 409 `already_paused` with `fields.acted_by` (`kind`, `user_id`) and
+    `fields.acted_at`, `game_not_running`, `game_finished` or `pause_not_allowed`. 403 `forbidden`
+    for anyone but a Lecturer of the game's Class (an Assistant lecturer included) and any Game
+    the Oversikt does not list (FR-5)."""
+    try:
+        found = await overview.pause_game(user, _id(game_id), body.resume_at)
+    except overview.PauseRefused as refused:
+        return _pause_refused(refused, "The game was not paused.")
+    return _pause_answer(found)
+
+
+@router.put(
+    "/games/{game_id}/pause/agreed-time",
+    response_model=GameInsightOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="setPauseAgreedTime",
+)
+async def set_pause_agreed_time(
+    game_id: str,
+    body: StaffPauseIn,
+    user: Annotated[authz.Principal, Depends(authz.require("games.pause"))],
+) -> Response:
+    """«Endre avtalt tid» (Story 8.7, FR-89): a Lecturer of the game's Class sets, changes or
+    (`resume_at` null) clears the agreed time of the Pause in force, also of one a Student set.
+    Recorded in the audit log. Answers Spillinnsikt as it now stands. 409 `not_paused`,
+    `game_finished`; 422 `time_out_of_range`; 403 `forbidden` as `pauseGame`."""
+    try:
+        found = await overview.set_agreed_time(user, _id(game_id), body.resume_at)
+    except overview.PauseRefused as refused:
+        return _pause_refused(refused, "The agreed time was not set.")
+    return _pause_answer(found)
+
+
+@router.delete(
+    "/games/{game_id}/pause",
+    response_model=GameInsightOut,
+    responses=documented(401, 403, 409),
+    operation_id="endPause",
+)
+async def end_pause(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.pause"))],
+) -> Response:
+    """«Avslutt pausen» (Story 8.7, FR-89): a Lecturer of the game's Class ends the Pause in force,
+    whoever set it; every Student reads that it is over. Recorded in the audit log. Answers
+    Spillinnsikt as it now stands. 409 `not_paused`, `game_finished`; 403 `forbidden` as
+    `pauseGame`."""
+    try:
+        found = await overview.end_pause(user, _id(game_id))
+    except overview.PauseRefused as refused:
+        return _pause_refused(refused, "The pause was not ended.")
+    return _pause_answer(found)
 
 
 TEST_GAME_REFUSED = {

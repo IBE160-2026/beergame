@@ -13,8 +13,10 @@ import { roleName } from "@/modules/sessions/sessions";
 
 import { classOverviewKey, type GameInsight, gameInsightKey, takeOverSeat } from "./api";
 import { seatsUpstreamFirst } from "./insight";
+import { insightPauseText, type PauseMode, PauseResult, StaffPauseForm, useEndPause } from "./staff-pause";
 
 const copy = nb.spillstyring;
+const pauseCopy = nb.spillstyring.pause;
 
 type Role = components["schemas"]["Role"];
 type From = "this_week" | "next_week";
@@ -156,12 +158,14 @@ export function TakeoverAction({
 }
 
 /**
- * Spillstyring on Spillinnsikt (Story 8.5, FR-37, UX-DR52, EXPERIENCE.md → Spillstyring): under the
- * four Seats while the game runs, one row per Student-held Seat (Fabrikk first) with its
- * consequence and «Sett inn KI-spiller for …». The api decides which Seats and from when
- * (`takeover`, AD-10). A row stays after its press, so its result line can be read; a game not
- * started or finished shows no block; a paused one keeps it (Story 8.6). The same for Lecturers and Assistant lecturers: the per-Seat
- * Takeover is the only Spillstyring action so far.
+ * Spillstyring on Spillinnsikt (Stories 8.5 and 8.7, FR-37, FR-89, UX-DR52, EXPERIENCE.md →
+ * Spillstyring): under the four Seats while the game runs. For a Lecturer of the Class (`can_pause`)
+ * first the Pause: «Pause spillet» on a game that is not paused, or the paused line «Pause siden
+ * ma. 14:10, satt av Sara.» with «Endre avtalt tid» and «Avslutt pausen»; their form opens in place,
+ * and the result line replaces it and takes focus. Then one row per Student-held Seat (Fabrikk
+ * first) with its consequence and «Sett inn KI-spiller for …», which Assistant lecturers have too.
+ * The api decides which Seats and from when (`takeover`, AD-10). A row stays after its press, so its
+ * result line can be read; a game not started or finished shows no block; a paused one keeps it.
  */
 export function Spillstyring({ data }: { data: GameInsight }) {
   const id = useId();
@@ -170,31 +174,106 @@ export function Spillstyring({ data }: { data: GameInsight }) {
   // A paused game still runs: the staff's per-Seat action stays (Story 8.6).
   if (data.status !== "running" && data.status !== "waiting" && data.status !== "paused") return null;
   const rows = seatsUpstreamFirst(data).filter((seat) => seat.takeover != null || pressed.has(seat.role));
-  if (rows.length === 0) return null;
+  if (rows.length === 0 && !data.can_pause) return null;
   return (
     <section aria-labelledby={id} className="mt-8" data-spillstyring="">
-      <h2 id={id} className="text-headline text-ink">
+      <h2 id={id} className="text-label text-ink">
         {copy.title}
       </h2>
-      <ul className="mt-3 flex flex-col gap-4">
-        {rows.map((seat) => {
-          const name = pressed.get(seat.role) ?? seat.name ?? roleName(seat.role);
-          return (
-            <li key={seat.role} data-role={seat.role} className="flex min-w-0 flex-col gap-2 border-b border-hairline pb-4">
-              <p className="text-label text-ink [overflow-wrap:anywhere]">{copy.seat(roleName(seat.role), name)}</p>
-              <TakeoverAction
-                gameId={data.game_id}
-                sessionId={data.class_session_id}
-                role={seat.role}
-                name={name}
-                consequence={seat.takeover ? consequenceText(seat.takeover, name) : null}
-                actedBy={seat.mark_by}
-                onPress={() => setPressed((before) => new Map(before).set(seat.role, name))}
-              />
-            </li>
-          );
-        })}
-      </ul>
+      {data.can_pause ? <PauseStyring data={data} /> : null}
+      {rows.length > 0 ? (
+        <ul className="mt-3 flex flex-col gap-4">
+          {rows.map((seat) => {
+            const name = pressed.get(seat.role) ?? seat.name ?? roleName(seat.role);
+            return (
+              <li key={seat.role} data-role={seat.role} className="flex min-w-0 flex-col gap-2 border-b border-hairline pb-4">
+                <p className="text-label text-ink [overflow-wrap:anywhere]">{copy.seat(roleName(seat.role), name)}</p>
+                <TakeoverAction
+                  gameId={data.game_id}
+                  sessionId={data.class_session_id}
+                  role={seat.role}
+                  name={name}
+                  consequence={seat.takeover ? consequenceText(seat.takeover, name) : null}
+                  actedBy={seat.mark_by}
+                  onPress={() => setPressed((before) => new Map(before).set(seat.role, name))}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
     </section>
+  );
+}
+
+/**
+ * The Lecturer's Pause in Spillstyring (Story 8.7): one in-place form at a time. «Pause spillet»,
+ * «Endre avtalt tid» and «Avbryt» move focus as EXPERIENCE.md asks (the form's first field; back to
+ * the opener); a done action's result line replaces the form and takes focus.
+ */
+function PauseStyring({ data }: { data: GameInsight }) {
+  const [open, setOpen] = useState<PauseMode | null>(null);
+  const [result, setResult] = useState({ text: "", n: 0 });
+  const openerRef = useRef<HTMLButtonElement>(null);
+  const done = (text: string) => {
+    setOpen(null);
+    setResult((prev) => ({ text, n: prev.n + 1 }));
+  };
+  const ending = useEndPause(data.game_id, data.class_session_id, done);
+  const paused = data.pause ?? null;
+  // A form for a state that has gone (the game was paused or resumed meanwhile) closes.
+  const shown = open === "pause" ? (paused ? null : open) : open === "change" ? (paused ? open : null) : null;
+  const opener = (mode: PauseMode) => () => {
+    ending.reset();
+    setResult((prev) => ({ text: "", n: prev.n }));
+    setOpen(mode);
+  };
+  const cancel = () => {
+    setOpen(null);
+    requestAnimationFrame(() => openerRef.current?.focus());
+  };
+  return (
+    <div className="mt-3 flex flex-col items-start gap-3 border-b border-hairline pb-4" data-spillstyring-pause="">
+      {paused ? (
+        <p className="text-body-phone text-ink [overflow-wrap:anywhere] lg:text-body" data-insight-pause="">
+          {insightPauseText(paused)}
+        </p>
+      ) : null}
+      {shown ? (
+        <StaffPauseForm
+          gameId={data.game_id}
+          sessionId={data.class_session_id}
+          mode={shown}
+          resumeAt={paused?.resume_at ?? null}
+          playDeadline={data.play_deadline}
+          now={() => Date.now()}
+          onCancel={cancel}
+          onDone={done}
+        />
+      ) : paused ? (
+        <div className="flex w-full flex-col items-stretch gap-3 lg:flex-row lg:items-center">
+          <Button ref={openerRef} data-pause-change="" className="w-full lg:w-auto" onClick={opener("change")}>
+            {pauseCopy.change}
+          </Button>
+          <Button
+            data-pause-end=""
+            className="w-full lg:w-auto"
+            unavailable={ending.isPending}
+            onClick={() => {
+              setResult((prev) => ({ text: "", n: prev.n }));
+              ending.mutate();
+            }}
+          >
+            {pauseCopy.end}
+          </Button>
+        </div>
+      ) : (
+        <Button ref={openerRef} data-pause-open="" className="w-full lg:w-auto" onClick={opener("pause")}>
+          {pauseCopy.open}
+        </Button>
+      )}
+      <ActionError message={ending.errorMessage} />
+      <PauseResult text={result.text} n={result.n} />
+    </div>
   );
 }

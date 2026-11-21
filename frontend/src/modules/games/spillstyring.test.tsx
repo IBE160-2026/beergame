@@ -47,6 +47,7 @@ function insight(status: GameInsight["status"], seats: InsightSeat[]): GameInsig
     demand: [],
     seats,
     roles: [],
+    can_pause: false,
   };
 }
 

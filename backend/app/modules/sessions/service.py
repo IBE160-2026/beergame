@@ -1381,7 +1381,13 @@ def _pause_out(table: games_service.TableStatus) -> PauseOut | None:
     pause = table.pause
     if pause is None:
         return None
-    return PauseOut(state=pause.state, name=pause.name, mine=pause.mine)
+    return PauseOut(
+        state=pause.state,
+        name=pause.name,
+        mine=pause.mine,
+        staff=pause.staff,
+        resume_at=pause.resume_at,
+    )
 
 
 def _seats_out(table: games_service.TableStatus) -> list[TableSeatOut]:
@@ -1649,8 +1655,18 @@ async def pause_own_game(user: authz.Principal, game_id: str) -> StudentGameOut 
     except games_commands.CommandError as refused:
         if refused.status == 404:
             return None
-        raise PauseRefused(refused.code, refused.status, dict(refused.fields)) from None
+        raise PauseRefused(refused.code, refused.status, _student_fields(refused.fields)) from None
     return await student_game_of(user, game_id)
+
+
+def _student_fields(fields: Mapping[str, Any]) -> dict[str, Any]:
+    """A refusal's `fields` as a Student may read them (Story 8.7): a Pause a staff member set
+    names no one to the Students, so its `acted_by` keeps the kind and drops the staff id."""
+    found = dict(fields)
+    acted = found.get("acted_by")
+    if isinstance(acted, Mapping) and acted.get("kind") == "staff":
+        found["acted_by"] = {**acted, "user_id": None}
+    return found
 
 
 class StartRefused(Exception):

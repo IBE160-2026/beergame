@@ -388,16 +388,20 @@ async def set_lifecycle(session: AsyncSession, game_id: uuid.UUID, lifecycle: st
     await session.execute(update(games).where(games.c.id == game_id).values(lifecycle=lifecycle))
 
 
-async def set_pause(session: AsyncSession, game_id: uuid.UUID, user_id: uuid.UUID) -> Any:
-    """Story 8.6: the Pause in force from the transaction's `now()`, by `user_id`, with no agreed
-    time; the last Pause's end is forgotten. Returns `paused_at`."""
+async def set_pause(
+    session: AsyncSession, game_id: uuid.UUID, user_id: uuid.UUID, resume_at: Any = None
+) -> Any:
+    """Story 8.6: the Pause in force from the transaction's `now()`, by `user_id`, with the
+    Lecturer's agreed time `resume_at` (Story 8.7; a Student's has none); the last Pause's end is
+    forgotten. Returns `paused_at`."""
     result = await session.execute(
         update(games)
         .where(games.c.id == game_id)
         .values(
             paused_at=func.now(),
             paused_by=user_id,
-            resume_at=None,
+            resume_at=resume_at,
+            agreed_time_reached_at=None,
             pause_ended_at=None,
             pause_ended_by=None,
         )
@@ -407,7 +411,8 @@ async def set_pause(session: AsyncSession, game_id: uuid.UUID, user_id: uuid.UUI
 
 
 async def end_pause(session: AsyncSession, game_id: uuid.UUID, user_id: uuid.UUID) -> None:
-    """Story 8.6: a Student's Order ends the Pause in force at the transaction's `now()`."""
+    """Story 8.6: a Student's Order ends the Pause in force at the transaction's `now()`; from
+    Story 8.7 also the Lecturer's «Avslutt pausen» (`user_id` the Lecturer)."""
     await session.execute(
         update(games)
         .where(games.c.id == game_id)
@@ -415,9 +420,51 @@ async def end_pause(session: AsyncSession, game_id: uuid.UUID, user_id: uuid.UUI
             paused_at=None,
             paused_by=None,
             resume_at=None,
+            agreed_time_reached_at=None,
             pause_ended_at=func.now(),
             pause_ended_by=user_id,
         )
+    )
+
+
+async def set_agreed_time(session: AsyncSession, game_id: uuid.UUID, resume_at: Any) -> None:
+    """Story 8.7: the Lecturer's agreed time on the Pause in force (None clears it); the sweep
+    has not seen it pass yet."""
+    await session.execute(
+        update(games)
+        .where(games.c.id == game_id)
+        .values(resume_at=resume_at, agreed_time_reached_at=None)
+    )
+
+
+async def mark_agreed_time_reached(session: AsyncSession, game_id: uuid.UUID, at: Any) -> None:
+    """Story 8.7: the sweep saw the agreed time pass at `at`."""
+    await session.execute(
+        update(games).where(games.c.id == game_id).values(agreed_time_reached_at=at)
+    )
+
+
+async def due_agreed_times(session: AsyncSession, now: Any) -> list[uuid.UUID]:
+    """Story 8.7 (AD-9): the running, paused Games whose agreed time lies at or before `now` and
+    that the sweep has not announced yet, the earliest first."""
+    result = await session.execute(
+        select(games.c.id)
+        .where(
+            games.c.lifecycle == "running",
+            games.c.paused_at.is_not(None),
+            games.c.resume_at <= now,
+            games.c.agreed_time_reached_at.is_(None),
+        )
+        .order_by(games.c.resume_at, games.c.id)
+    )
+    return list(result.scalars())
+
+
+async def set_insert_allowed(session: AsyncSession, turn_id: uuid.UUID, at: Any) -> None:
+    """Story 8.7: the turn's insert time, recomputed by a Lecturer's Pause command through
+    `rules.turn_times`; its Takeover due time is never moved."""
+    await session.execute(
+        update(seat_turns).where(seat_turns.c.id == turn_id).values(insert_allowed_at=at)
     )
 
 

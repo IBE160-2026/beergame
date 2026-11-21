@@ -315,10 +315,15 @@ async def table_status(
     game = await repo.get_game(session, game_id)
     turns, guided = await _open_turns(session, game)
     pause_by = _pause_by(game, turns)
+    students = {row["user_id"] for row in rows if row["occupant_kind"] == OccupantKind.STUDENT} | {
+        h["last_student"] for h in histories.values() if h["last_student"] is not None
+    }
+    # Story 8.7: a Pause a staff member set or ended names no one to the Students.
+    staff_pause = pause_by is not None and pause_by[1] not in students
     named = (
         {u for u in held.values() if u is not None}
         | {h["last_student"] for h in histories.values() if h["last_student"] is not None}
-        | ({pause_by[1]} if pause_by is not None else set())
+        | ({pause_by[1]} if pause_by is not None and not staff_pause else set())
     )
     found = await names(sorted(named))
     queued = await repo.queued_reclaims(session, game_id)
@@ -378,7 +383,11 @@ async def table_status(
         pause=None
         if pause_by is None
         else TablePause(
-            state=pause_by[0], name=found.get(pause_by[1]), mine=pause_by[1] == viewer_id
+            state=pause_by[0],
+            name=None if staff_pause else found.get(pause_by[1]),
+            mine=pause_by[1] == viewer_id,
+            staff=staff_pause,
+            resume_at=game["resume_at"] if pause_by[0] == "paused" and game is not None else None,
         ),
     )
 

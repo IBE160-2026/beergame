@@ -87,7 +87,7 @@ HEAD_TABLES = (
     | MESSAGE_TABLES
     | RECLAIM_TABLES
 )
-HEAD = "0056"  # 0056 adds the Pause columns (Story 8.6)
+HEAD = "0057"  # 0057 adds when the agreed Pause time was reached (Story 8.7)
 
 
 def reset_schema(url: str) -> None:

@@ -150,6 +150,19 @@ async def _take_over(item: object, now: datetime) -> bool:
     return True
 
 
+async def _due_agreed_times(now: datetime) -> Sequence[str]:
+    return await games.due_agreed_times(now)
+
+
+async def _reach_agreed_time(item: object, now: datetime) -> bool:
+    """Story 8.7 (FR-89, AD-8, AD-9): the agreed time of one paused Game has passed. The Pause
+    goes on and nothing is taken over; the command marks the Game once and emits its events, so
+    every view reads it again. A Game whose Pause ended or whose time changed meanwhile is
+    skipped by the command itself."""
+    assert isinstance(item, str)
+    return await games_commands.reach_agreed_time(item, now=now)
+
+
 DUE_ACTIONS: tuple[DueAction, ...] = (
     # The first due action (Story 3.5): claim due notices into mails and defer their `mail` jobs.
     DueAction("messaging.mail", messaging.due_items, messaging.claim),  # type: ignore[arg-type]
@@ -185,6 +198,8 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # `takeover_due_at` (FR-36, NFR-4), one Seat per transaction; within a minute of the due time,
     # so before the finished-game checks, whose replays may take a while.
     DueAction("games.takeover", _due_takeovers, _take_over),
+    # Story 8.7: announce once that a Lecturer's agreed Pause time has passed (FR-89).
+    DueAction("games.reach_agreed_time", _due_agreed_times, _reach_agreed_time),
     DueAction("games.verify_finished", _unchecked_finished_games, _verify_finished),
     # Story 5.14: remind every Student of a Play, Debrief or Test deadline 24 hours ahead, once
     # per deadline time (FR-18). The reminders join the next minute's digest claim.

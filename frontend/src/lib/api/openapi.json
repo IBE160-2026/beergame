@@ -939,6 +939,11 @@
             "title": "Before Start",
             "type": "boolean"
           },
+          "can_pause": {
+            "default": false,
+            "title": "Can Pause",
+            "type": "boolean"
+          },
           "class_id": {
             "format": "uuid",
             "title": "Class Id",
@@ -997,6 +1002,18 @@
               }
             ],
             "title": "Next Cursor"
+          },
+          "play_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Play Deadline"
           },
           "server_now": {
             "format": "date-time",
@@ -2231,6 +2248,11 @@
       "GameInsightOut": {
         "description": "Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Game week by week, for the staff of its\nClass only. The only answer that gives the staff the full chain, the demand series and the\nnumber of Weeks. Seats and Roles in chain order, the Role serving the customer first.",
         "properties": {
+          "can_pause": {
+            "default": false,
+            "title": "Can Pause",
+            "type": "boolean"
+          },
           "class_id": {
             "format": "uuid",
             "title": "Class Id",
@@ -2267,6 +2289,28 @@
               }
             ],
             "title": "Game Number"
+          },
+          "pause": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InsightPauseOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "play_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Play Deadline"
           },
           "roles": {
             "items": {
@@ -2687,6 +2731,51 @@
           "href"
         ],
         "title": "InsightLinkOut",
+        "type": "object"
+      },
+      "InsightPauseOut": {
+        "description": "The Pause in force on Spillinnsikt (Story 8.7, FR-89, UX-DR52): «Pause siden ma. 14:10,\nsatt av Sara.» or «… satt av deg.», with the agreed time if any.",
+        "properties": {
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By"
+          },
+          "mine": {
+            "title": "Mine",
+            "type": "boolean"
+          },
+          "paused_at": {
+            "format": "date-time",
+            "title": "Paused At",
+            "type": "string"
+          },
+          "resume_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume At"
+          }
+        },
+        "required": [
+          "paused_at",
+          "by",
+          "mine",
+          "resume_at"
+        ],
+        "title": "InsightPauseOut",
         "type": "object"
       },
       "InsightRoleOut": {
@@ -4361,6 +4450,23 @@
             ],
             "title": "Name"
           },
+          "resume_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume At"
+          },
+          "staff": {
+            "default": false,
+            "title": "Staff",
+            "type": "boolean"
+          },
           "state": {
             "enum": [
               "paused",
@@ -5931,6 +6037,29 @@
           "assistants"
         ],
         "title": "StaffOut",
+        "type": "object"
+      },
+      "StaffPauseIn": {
+        "additionalProperties": false,
+        "description": "«Pause spillet» and «Endre avtalt tid» (Story 8.7, FR-89): the agreed time as one instant,\nor None for «Uten avtalt tid»; nothing else.",
+        "properties": {
+          "resume_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume At"
+          }
+        },
+        "required": [
+          "resume_at"
+        ],
+        "title": "StaffPauseIn",
         "type": "object"
       },
       "StaffRole": {
@@ -12185,6 +12314,243 @@
           }
         },
         "summary": "Get Game Insight",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/games/{game_id}/pause": {
+      "delete": {
+        "description": "«Avslutt pausen» (Story 8.7, FR-89): a Lecturer of the game's Class ends the Pause in force,\nwhoever set it; every Student reads that it is over. Recorded in the audit log. Answers\nSpillinnsikt as it now stands. 409 `not_paused`, `game_finished`; 403 `forbidden` as\n`pauseGame`.",
+        "operationId": "endPause",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameInsightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End Pause",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "post": {
+        "description": "«Pause spillet» (Story 8.7, FR-89, AD-2, AD-12): a Lecturer of the game's Class pauses it,\nwith the agreed time `resume_at` or without one; no AI player takes a Seat over while it is\npaused, the Play deadline stands, and the agreed time becomes the insert time of every Seat\nthat has not ordered this Uke. Recorded in the audit log. Answers Spillinnsikt as it now\nstands. 422 `time_out_of_range` unless the time lies after now and not after the Play\ndeadline; 409 `already_paused` with `fields.acted_by` (`kind`, `user_id`) and\n`fields.acted_at`, `game_not_running`, `game_finished` or `pause_not_allowed`. 403 `forbidden`\nfor anyone but a Lecturer of the game's Class (an Assistant lecturer included) and any Game\nthe Oversikt does not list (FR-5).",
+        "operationId": "pauseGame",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffPauseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameInsightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Pause Game",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/games/{game_id}/pause/agreed-time": {
+      "put": {
+        "description": "«Endre avtalt tid» (Story 8.7, FR-89): a Lecturer of the game's Class sets, changes or\n(`resume_at` null) clears the agreed time of the Pause in force, also of one a Student set.\nRecorded in the audit log. Answers Spillinnsikt as it now stands. 409 `not_paused`,\n`game_finished`; 422 `time_out_of_range`; 403 `forbidden` as `pauseGame`.",
+        "operationId": "setPauseAgreedTime",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffPauseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameInsightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Set Pause Agreed Time",
         "tags": [
           "sessions"
         ]

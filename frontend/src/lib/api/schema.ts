@@ -1489,6 +1489,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/games/{game_id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause Game
+         * @description «Pause spillet» (Story 8.7, FR-89, AD-2, AD-12): a Lecturer of the game's Class pauses it,
+         *     with the agreed time `resume_at` or without one; no AI player takes a Seat over while it is
+         *     paused, the Play deadline stands, and the agreed time becomes the insert time of every Seat
+         *     that has not ordered this Uke. Recorded in the audit log. Answers Spillinnsikt as it now
+         *     stands. 422 `time_out_of_range` unless the time lies after now and not after the Play
+         *     deadline; 409 `already_paused` with `fields.acted_by` (`kind`, `user_id`) and
+         *     `fields.acted_at`, `game_not_running`, `game_finished` or `pause_not_allowed`. 403 `forbidden`
+         *     for anyone but a Lecturer of the game's Class (an Assistant lecturer included) and any Game
+         *     the Oversikt does not list (FR-5).
+         */
+        post: operations["pauseGame"];
+        /**
+         * End Pause
+         * @description «Avslutt pausen» (Story 8.7, FR-89): a Lecturer of the game's Class ends the Pause in force,
+         *     whoever set it; every Student reads that it is over. Recorded in the audit log. Answers
+         *     Spillinnsikt as it now stands. 409 `not_paused`, `game_finished`; 403 `forbidden` as
+         *     `pauseGame`.
+         */
+        delete: operations["endPause"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/games/{game_id}/pause/agreed-time": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Pause Agreed Time
+         * @description «Endre avtalt tid» (Story 8.7, FR-89): a Lecturer of the game's Class sets, changes or
+         *     (`resume_at` null) clears the agreed time of the Pause in force, also of one a Student set.
+         *     Recorded in the audit log. Answers Spillinnsikt as it now stands. 409 `not_paused`,
+         *     `game_finished`; 422 `time_out_of_range`; 403 `forbidden` as `pauseGame`.
+         */
+        put: operations["setPauseAgreedTime"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/games/{game_id}/seats/{role}/takeover": {
         parameters: {
             query?: never;
@@ -2399,6 +2457,11 @@ export interface components {
             /** Before Start */
             before_start: boolean;
             /**
+             * Can Pause
+             * @default false
+             */
+            can_pause: boolean;
+            /**
              * Class Id
              * Format: uuid
              */
@@ -2415,6 +2478,8 @@ export interface components {
             next_change_at: string | null;
             /** Next Cursor */
             next_cursor: string | null;
+            /** Play Deadline */
+            play_deadline?: string | null;
             /**
              * Server Now
              * Format: date-time
@@ -2909,6 +2974,11 @@ export interface components {
          */
         GameInsightOut: {
             /**
+             * Can Pause
+             * @default false
+             */
+            can_pause: boolean;
+            /**
              * Class Id
              * Format: uuid
              */
@@ -2929,6 +2999,9 @@ export interface components {
             game_id: string;
             /** Game Number */
             game_number: number | null;
+            pause?: components["schemas"]["InsightPauseOut"] | null;
+            /** Play Deadline */
+            play_deadline?: string | null;
             /** Roles */
             roles: components["schemas"]["InsightRoleOut"][];
             /** Seats */
@@ -3149,6 +3222,24 @@ export interface components {
             href: string;
             /** Kind */
             kind: string;
+        };
+        /**
+         * InsightPauseOut
+         * @description The Pause in force on Spillinnsikt (Story 8.7, FR-89, UX-DR52): «Pause siden ma. 14:10,
+         *     satt av Sara.» or «… satt av deg.», with the agreed time if any.
+         */
+        InsightPauseOut: {
+            /** By */
+            by: string | null;
+            /** Mine */
+            mine: boolean;
+            /**
+             * Paused At
+             * Format: date-time
+             */
+            paused_at: string;
+            /** Resume At */
+            resume_at: string | null;
         };
         /** InsightRoleOut */
         InsightRoleOut: {
@@ -3842,6 +3933,13 @@ export interface components {
             mine: boolean;
             /** Name */
             name: string | null;
+            /** Resume At */
+            resume_at?: string | null;
+            /**
+             * Staff
+             * @default false
+             */
+            staff: boolean;
             /**
              * State
              * @enum {string}
@@ -4545,6 +4643,15 @@ export interface components {
             assistants: components["schemas"]["StaffAssistant"][];
             /** Lecturers */
             lecturers: components["schemas"]["StaffLecturer"][];
+        };
+        /**
+         * StaffPauseIn
+         * @description «Pause spillet» and «Endre avtalt tid» (Story 8.7, FR-89): the agreed time as one instant,
+         *     or None for «Uten avtalt tid»; nothing else.
+         */
+        StaffPauseIn: {
+            /** Resume At */
+            resume_at: string | null;
         };
         /**
          * StaffRole
@@ -8923,6 +9030,188 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pauseGame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffPauseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameInsightOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    endPause: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameInsightOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    setPauseAgreedTime: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffPauseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameInsightOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

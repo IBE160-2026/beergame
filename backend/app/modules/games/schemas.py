@@ -626,6 +626,12 @@ class TablePause(BaseModel):
     """The Student's name, read now; None for someone no longer in the Class."""
     mine: bool
     """Whether the viewer set (or ended) it: «satt av deg», «Du har bestilt»."""
+    staff: bool = False
+    """Story 8.7: a staff member, not a Student of the Game, set (or ended) it: «satt av
+    faglæreren», «Faglæreren har avsluttet den». The name is then never shown to Students."""
+    resume_at: datetime | None = None
+    """Story 8.7: the Lecturer's agreed time while paused («Pause til to. 19:00, satt av
+    faglæreren.»); None without one, and always on `ended`."""
 
 
 class TableStatus(BaseModel):

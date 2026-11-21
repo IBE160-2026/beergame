@@ -10,6 +10,7 @@ import { nb } from "@/copy/nb";
 import { errorCode, useAction } from "@/lib/api/mutation";
 import { cn } from "@/lib/utils";
 import { enrolledSessionsKey } from "@/modules/sessions/api";
+import { osloWeekdayTime } from "@/modules/sessions/dates";
 
 import { type GamePause, type MyGame, myGameKey, pauseGame } from "./api";
 
@@ -17,14 +18,19 @@ const copy = nb.homes.student.pause;
 const LINE = "text-body-phone text-ink lg:text-body";
 
 /** «Pause, satt av Sara.», «Pause, satt av deg.», «Pausen er over. Sara har bestilt.» (Story 8.6,
- * EXPERIENCE.md → State Patterns → Student game): the line the api sent, in words. Nothing in it
- * says how many Uker remain (FR-14). */
+ * EXPERIENCE.md → State Patterns → Student game), and the Lecturer's «Pause, satt av faglæreren.»,
+ * «Pause til to. 19:00, satt av faglæreren.» (Story 8.7): the line the api sent, in words. Nothing
+ * in it says how many Uker remain (FR-14). */
 export function pauseText(pause: GamePause | null | undefined): string {
   if (!pause) return "";
   if (pause.state === "paused") {
+    // Story 8.7 (UX-DR62): only the Lecturer's agreed time ever shows, and it names the Lecturer.
+    if (pause.resume_at) return copy.pausedUntil(osloWeekdayTime(pause.resume_at));
+    if (pause.staff) return copy.pausedByLecturer;
     if (pause.mine) return copy.pausedByYou;
     return pause.name ? copy.pausedBy(pause.name) : copy.pausedByUnknown;
   }
+  if (pause.staff) return copy.endedByLecturer;
   if (pause.mine) return copy.endedByYou;
   return pause.name ? copy.endedBy(pause.name) : copy.endedByUnknown;
 }

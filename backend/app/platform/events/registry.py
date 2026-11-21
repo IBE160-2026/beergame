@@ -37,6 +37,11 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A Student paused the Class game (Story 8.6): its Class session hears of it, and every
         # Student of the Game reads the pause line. The Order that ends it emits as place_order.
         "games.pause": frozenset({"game", "session", "user"}),
+        # The Lecturer's agreed Pause time and «Avslutt pausen» (Story 8.7), and the sweep crossing
+        # the agreed time: the Class session hears of each, and every seated Student reads it.
+        "games.set_agreed_time": frozenset({"game", "session", "user"}),
+        "games.resume": frozenset({"game", "session", "user"}),
+        "games.reach_agreed_time": frozenset({"game", "session", "user"}),
         # A Student opened a Guided Week (Story 6.10): only Class games take Students, so their
         # Class session hears of it; the viewer's waiting status changes, and when the view
         # completes the Week every Student of the Game sees the next one.

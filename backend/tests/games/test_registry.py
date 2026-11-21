@@ -4,6 +4,7 @@ topics the events registry lists for it."""
 import ast
 import inspect
 import uuid
+from datetime import timedelta
 from pathlib import Path
 
 from sqlalchemy import event
@@ -235,6 +236,44 @@ async def _run_pause() -> str:
     return game_id
 
 
+LECTURER = uuid.UUID("01900000-0000-7000-8000-00000000a807")
+
+
+async def _run_set_agreed_time() -> str:
+    """A Lecturer gives a Student's Pause an agreed time (Story 8.7): its Class session and both
+    Students hear of it."""
+    from tests.games.test_staff_pause import db_now
+    from tests.games.test_takeover import class_game
+
+    game_id, students = await class_game()
+    await commands.pause(game_id, actor=students["retailer"])
+    await commands.set_agreed_time(game_id, db_now() + timedelta(hours=1), actor=LECTURER)
+    return game_id
+
+
+async def _run_resume() -> str:
+    """A Lecturer ends a Pause (Story 8.7): its Class session and both Students hear of it."""
+    from tests.games.test_takeover import class_game
+
+    game_id, _ = await class_game()
+    await commands.pause(game_id, actor=LECTURER, staff=True)
+    await commands.resume(game_id, actor=LECTURER)
+    return game_id
+
+
+async def _run_reach_agreed_time() -> str:
+    """The sweep crosses a Lecturer's agreed time (Story 8.7): its Class session and both
+    Students hear of it."""
+    from tests.games.test_staff_pause import db_now
+    from tests.games.test_takeover import class_game
+
+    game_id, _ = await class_game()
+    agreed = db_now() + timedelta(hours=1)
+    await commands.pause(game_id, actor=LECTURER, staff=True, resume_at=agreed)
+    await commands.reach_agreed_time(game_id, now=agreed)
+    return game_id
+
+
 RUNNERS = {
     "create": _run_create,
     "assign_seat": _run_assign_seat,
@@ -251,6 +290,9 @@ RUNNERS = {
     "takeover": _run_takeover,
     "request_reclaim": _run_request_reclaim,
     "pause": _run_pause,
+    "set_agreed_time": _run_set_agreed_time,
+    "resume": _run_resume,
+    "reach_agreed_time": _run_reach_agreed_time,
 }
 """How to run each command once; a command added without a runner fails the test below."""
 
@@ -276,6 +318,10 @@ CLASS_SETUP_EVENTS = {
     "request_reclaim": RECLAIM_SETUP,
     # Counted from the end: `pause` emits `game`, `session` and both Students' `user`.
     "pause": -4,
+    # Counted from the end: each emits `game`, `session` and both Students' `user`.
+    "set_agreed_time": -4,
+    "resume": -4,
+    "reach_agreed_time": -4,
 }
 """Runners on a Class game, and how many events their setup emits before the command's own."""
 
@@ -300,6 +346,9 @@ def test_every_command_is_exported_and_registered():
             "takeover",
             "request_reclaim",
             "pause",
+            "set_agreed_time",
+            "resume",
+            "reach_agreed_time",
         }
         == set(RUNNERS)
     )

@@ -20,12 +20,12 @@ function html(node: ReactNode): string {
 
 describe("the pause line", () => {
   it("names who paused, or who ordered and so ended it, and never a Week count", () => {
-    expect(pauseText({ state: "paused", name: "Sara", mine: false })).toBe("Pause, satt av Sara.");
-    expect(pauseText({ state: "paused", name: "Sara", mine: true })).toBe(copy.pausedByYou);
-    expect(pauseText({ state: "paused", name: null, mine: false })).toBe(copy.pausedByUnknown);
-    expect(pauseText({ state: "ended", name: "Jonas", mine: false })).toBe("Pausen er over. Jonas har bestilt.");
-    expect(pauseText({ state: "ended", name: "Jonas", mine: true })).toBe(copy.endedByYou);
-    expect(pauseText({ state: "ended", name: null, mine: false })).toBe(copy.endedByUnknown);
+    expect(pauseText({ state: "paused", name: "Sara", mine: false, staff: false })).toBe("Pause, satt av Sara.");
+    expect(pauseText({ state: "paused", name: "Sara", mine: true, staff: false })).toBe(copy.pausedByYou);
+    expect(pauseText({ state: "paused", name: null, mine: false, staff: false })).toBe(copy.pausedByUnknown);
+    expect(pauseText({ state: "ended", name: "Jonas", mine: false, staff: false })).toBe("Pausen er over. Jonas har bestilt.");
+    expect(pauseText({ state: "ended", name: "Jonas", mine: true, staff: false })).toBe(copy.endedByYou);
+    expect(pauseText({ state: "ended", name: null, mine: false, staff: false })).toBe(copy.endedByUnknown);
     expect(pauseText(null)).toBe("");
     for (const line of [copy.pausedByYou, copy.pausedByUnknown, copy.endedByYou, copy.endedByUnknown]) {
       expect(line).not.toMatch(/\d|uke/i);
@@ -33,7 +33,7 @@ describe("the pause line", () => {
   });
 
   it("is a polite live region that is always there, filled once drawn so it is also read on load", () => {
-    const line = html(<PauseLine gameId="g1" pause={{ state: "paused", name: "Sara", mine: false }} />);
+    const line = html(<PauseLine gameId="g1" pause={{ state: "paused", name: "Sara", mine: false, staff: false }} />);
     expect(line).toBe('<div aria-live="polite" data-pause-line="paused"></div>');
   });
 });
@@ -124,6 +124,7 @@ describe("the Oversikt with a paused game", () => {
       demand: [],
       seats: [{ ...seat, takeover: "this_week" as const }],
       roles: [],
+      can_pause: false,
     };
     expect(html(<Spillstyring data={data} />)).toContain('data-takeover="factory"');
   });

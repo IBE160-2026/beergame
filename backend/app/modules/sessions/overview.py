@@ -28,6 +28,7 @@ from app.modules.sessions.schemas import (
     GameWeekOut,
     GameWeeksOut,
     InsightLinkOut,
+    InsightPauseOut,
     InsightRoleOut,
     InsightSeatOut,
     InsightWeekOut,
@@ -59,6 +60,10 @@ __all__ = [
     "readable_game",
     "take_over_seat",
     "TakeoverRefused",
+    "PauseRefused",
+    "pause_game",
+    "set_agreed_time",
+    "end_pause",
     "wall_aggregates_out",
     "wall_games",
 ]
@@ -121,6 +126,8 @@ async def class_overview(user: authz.Principal, session_id: uuid.UUID) -> ClassO
         funnel=[FunnelStageOut(stage="registered", count=trakt.registered)]
         + [FunnelStageOut(stage=step.value, count=count) for step, count in trakt.steps],
         alert=None if before_start else _alert(games, names),
+        can_pause=authz.can(user, "games.pause", found),
+        play_deadline=row["play_deadline"],
         class_id=found.id,
         class_name=found.name,
         session_number=number,
@@ -399,7 +406,11 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
         by = await classes.actor_names(
             s,
             row["class_id"],
-            sorted({seat.actor_user_id for seat in insight.seats if seat.actor_user_id}, key=str),
+            sorted(
+                {seat.actor_user_id for seat in insight.seats if seat.actor_user_id}
+                | ({insight.paused_by} if insight.paused_by is not None else set()),
+                key=str,
+            ),
         )
     return GameInsightOut(
         game_id=insight.game_id,
@@ -449,6 +460,24 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
             )
             for each in insight.roles
         ],
+        pause=_insight_pause(insight, user, by),
+        can_pause=insight.pausable and authz.can(user, "games.pause", found),
+        play_deadline=row["play_deadline"],
+    )
+
+
+def _insight_pause(
+    insight: games_service.GameInsight, user: authz.Principal, by: dict[uuid.UUID, str]
+) -> InsightPauseOut | None:
+    """The Pause in force as Spillinnsikt reads it (Story 8.7): since when, by whom (the reader
+    themself as «deg»), and the agreed time."""
+    if insight.paused_at is None:
+        return None
+    return InsightPauseOut(
+        paused_at=insight.paused_at,
+        by=by.get(insight.paused_by) if insight.paused_by is not None else None,
+        mine=insight.paused_by == user.id,
+        resume_at=insight.resume_at,
     )
 
 
@@ -488,6 +517,99 @@ async def take_over_seat(
             return None
         raise TakeoverRefused(refused.code, refused.status, dict(refused.fields)) from None
     return await game_insight(user, game_id)
+
+
+class PauseRefused(Exception):
+    """A Lecturer's Pause command refused (Story 8.7): its stable code, status and `fields`
+    (`acted_by`, `acted_at` on `already_paused`)."""
+
+    def __init__(self, code: str, status: int, fields: dict[str, Any]) -> None:
+        super().__init__(code)
+        self.code = code
+        self.status = status
+        self.fields = fields
+
+
+async def _lecturer_game(user: authz.Principal, game_id: uuid.UUID) -> uuid.UUID | None:
+    """The Class session of a Class game the Oversikt lists, when `user` is a Lecturer of its
+    Class (`games.pause`, AD-12); None, one answer, for anything else (FR-5)."""
+    async with get_sessionmaker()() as s:
+        head = await games_service.class_game_head(s, game_id)
+        if head is None or head.class_session_id is None or not head.listed:
+            return None
+        row = await repo.session_row(s, head.class_session_id)
+    if row is None or await _class_for(user, row["class_id"], "games.pause") is None:
+        return None
+    return head.class_session_id
+
+
+def _play_deadline(session_id: uuid.UUID) -> Any:
+    """The Class session's Play deadline, read share-locked in the command's transaction before
+    the Game row lock, so a deadline moved meanwhile is not passed (as Story 6.19's proposal)."""
+
+    async def read(s: Any) -> datetime | None:
+        row = await repo.session_row(s, session_id, share=True)
+        return None if row is None else row["play_deadline"]
+
+    return read
+
+
+async def _staff_pause_command(
+    user: authz.Principal, game_id: uuid.UUID, run: Any
+) -> GameInsightOut | None:
+    session_id = await _lecturer_game(user, game_id)
+    if session_id is None:
+        return None
+    try:
+        await run(session_id)
+    except games_commands.CommandError as refused:
+        if refused.status == 404 and refused.code == "game_not_found":
+            return None
+        raise PauseRefused(refused.code, refused.status, dict(refused.fields)) from None
+    return await game_insight(user, game_id)
+
+
+async def pause_game(
+    user: authz.Principal, game_id: uuid.UUID, resume_at: datetime | None
+) -> GameInsightOut | None:
+    """«Pause spillet» (Story 8.7, FR-89, AD-2, AD-12): a Lecturer of the game's Class pauses it,
+    with the agreed time `resume_at` or without one. Only `games.commands.pause` acts, with the
+    Lecturer as a staff actor and the Play deadline as the latest time; its refusals are raised as
+    `PauseRefused`. None, one answer, for anyone but a Lecturer of the Class and any Game the
+    Oversikt does not list (FR-5). Returns Spillinnsikt as it now stands."""
+    return await _staff_pause_command(
+        user,
+        game_id,
+        lambda session_id: games_commands.pause(
+            str(game_id),
+            actor=user.id,
+            staff=True,
+            resume_at=resume_at,
+            latest=_play_deadline(session_id),
+        ),
+    )
+
+
+async def set_agreed_time(
+    user: authz.Principal, game_id: uuid.UUID, resume_at: datetime | None
+) -> GameInsightOut | None:
+    """«Endre avtalt tid» (Story 8.7): a Lecturer of the game's Class sets, changes or clears the
+    agreed time of the Pause in force through `games.commands.set_agreed_time`, as `pause_game`."""
+    return await _staff_pause_command(
+        user,
+        game_id,
+        lambda session_id: games_commands.set_agreed_time(
+            str(game_id), resume_at, actor=user.id, latest=_play_deadline(session_id)
+        ),
+    )
+
+
+async def end_pause(user: authz.Principal, game_id: uuid.UUID) -> GameInsightOut | None:
+    """«Avslutt pausen» (Story 8.7): a Lecturer of the game's Class ends the Pause in force through
+    `games.commands.resume`, as `pause_game`."""
+    return await _staff_pause_command(
+        user, game_id, lambda _: games_commands.resume(str(game_id), actor=user.id)
+    )
 
 
 def insight_etag(insight: GameInsightOut) -> str:

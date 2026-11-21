@@ -53,17 +53,29 @@ async def test_a_student_pauses_and_another_students_order_ends_it(klass):
     assert answer.status_code == 200
     assert (answer.json()["can_pause"], answer.json()["pause"]) == (
         False,
-        {"state": "paused", "name": name_of(sara), "mine": True},
+        {"state": "paused", "name": name_of(sara), "mine": True, "staff": False, "resume_at": None},
     )
     # Every Student of the game reads the line, on Hjem and on Spill.
     for who in (jonas, third):
         game = (await home(who))["game"]
         assert (game["can_pause"], game["pause"]) == (
             False,
-            {"state": "paused", "name": name_of(sara), "mine": False},
+            {
+                "state": "paused",
+                "name": name_of(sara),
+                "mine": False,
+                "staff": False,
+                "resume_at": None,
+            },
         )
         status = (await play(who, game_id)).json()["table_status"]
-        assert status["pause"] == {"state": "paused", "name": name_of(sara), "mine": False}
+        assert status["pause"] == {
+            "state": "paused",
+            "name": name_of(sara),
+            "mine": False,
+            "staff": False,
+            "resume_at": None,
+        }
 
     # A second press is told who came first, by kind and id.
     again = await pause(jonas, game_id)
@@ -99,7 +111,13 @@ async def test_a_student_pauses_and_another_students_order_ends_it(klass):
     assert (await order(jonas, game_id, 2, {"order": 4})).status_code in (200, 204)
     for who, mine in ((sara, False), (jonas, True), (third, False)):
         game = (await home(who))["game"]
-        assert game["pause"] == {"state": "ended", "name": name_of(jonas), "mine": mine}
+        assert game["pause"] == {
+            "state": "ended",
+            "name": name_of(jonas),
+            "mine": mine,
+            "staff": False,
+            "resume_at": None,
+        }
     assert (await home(sara))["game"]["can_pause"] is True
     body = (await overview(LECTURER, session_id)).json()
     [listed] = [g for g in body["items"] if g["game_id"] == game_id]

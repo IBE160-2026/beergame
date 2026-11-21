@@ -135,7 +135,9 @@ async def test_staff_read_every_week_of_every_role_as_stored(klass):
     # An Assistant lecturer of the Class reads the same; the ETag answers 304 until a change.
     put_staff(klass, await make(ASSISTANT, roles=()), "assistant")
     assistant = await insight(ASSISTANT, game_id)
-    assert (assistant.status_code, assistant.json()) == (200, body)
+    # The same answer, but only a Lecturer may pause the game (Story 8.7, AD-12).
+    assert body["can_pause"] is True
+    assert (assistant.status_code, assistant.json()) == (200, {**body, "can_pause": False})
     etag = response.headers["etag"]
     repeat = await insight(LECTURER, game_id, headers={"If-None-Match": etag})
     assert (repeat.status_code, repeat.content) == (304, b"")

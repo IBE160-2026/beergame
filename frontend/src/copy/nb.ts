@@ -435,6 +435,12 @@ export const nb = {
         endedBy: (name: string) => `Pausen er over. ${name} har bestilt.`,
         endedByYou: "Pausen er over. Du har bestilt.",
         endedByUnknown: "Pausen er over. En annen student har bestilt.",
+        /** Story 8.7 (UX-DR62): the Lecturer paused, or set the agreed time. Only the Lecturer's
+         * line carries a time. */
+        pausedByLecturer: "Pause, satt av faglæreren.",
+        pausedUntil: (when: string) => `Pause til ${when}, satt av faglæreren.`,
+        /** [ASSUMPTION] the Lecturer ended the Pause with «Avslutt pausen». */
+        endedByLecturer: "Pausen er over. Faglæreren har avsluttet den.",
         refusals: {
           seat_not_yours: "Du har ikke et sete i dette spillet nå.",
           game_finished: "Spillet er ferdig.",
@@ -2483,6 +2489,52 @@ export const nb = {
     } as Record<string, string>,
     /** [ASSUMPTION] */
     failed: "KI-spilleren ble ikke satt inn. Prøv igjen.",
+    /** The Lecturer's Pause (Story 8.7, FR-89, UX-DR52, EXPERIENCE.md → Spillstyring → Pause). */
+    pause: {
+      open: "Pause spillet",
+      change: "Endre avtalt tid",
+      end: "Avslutt pausen",
+      title: "Når fortsetter spillet?",
+      date: "Dato",
+      time: "Klokkeslett",
+      noTime: "Uten avtalt tid",
+      noTakeover: "Mens spillet har pause, tar ingen KI-spiller over setene. Spillfristen flyttes ikke.",
+      afterTime: "Etter avtalt tid kan studentene sette inn en KI-spiller for den som ikke har bestilt.",
+      /** The primary: «Ta pause til to. 19:00», «Ta pause uten avtalt tid», or «Ta pause» while no
+       * time is chosen yet. */
+      confirmAt: (when: string) => `Ta pause til ${when}`,
+      confirmNoTime: "Ta pause uten avtalt tid",
+      confirm: "Ta pause",
+      /** «Endre avtalt tid»'s primary. [ASSUMPTION] */
+      saveAt: (when: string) => `Lagre avtalt tid ${when}`,
+      saveNoTime: "Lagre uten avtalt tid",
+      save: "Lagre avtalt tid",
+      cancel: "Avbryt",
+      /** Spillinnsikt → Paused: «Pause siden ma. 14:10, satt av Sara.» or «… satt av deg.». */
+      since: (since: string, name: string | null) =>
+        name ? `Pause siden ${since}, satt av ${name}.` : `Pause siden ${since}.`,
+      sinceMine: (since: string) => `Pause siden ${since}, satt av deg.`,
+      /** [ASSUMPTION] the agreed time after the line. */
+      agreed: (when: string) => `Avtalt tid ${when}.`,
+      /** The result lines that replace the form and take focus. */
+      doneAt: (when: string) => `Pause til ${when} er satt.`,
+      /** [ASSUMPTION] */
+      doneNoTime: "Spillet har pause uten avtalt tid.",
+      /** [ASSUMPTION] */
+      ended: "Pausen er avsluttet.",
+      /** [ASSUMPTION] a time not after now, in a Class session with no Spillfrist. */
+      afterNow: "Velg et tidspunkt etter nå.",
+      /** [ASSUMPTION] someone paused first: the line read again says who. */
+      already: "Spillet har allerede pause.",
+      refusals: {
+        game_finished: "Spillet er ferdig.",
+        game_not_running: "Spillet er ikke i gang.",
+        pause_not_allowed: "Dette spillet kan ikke settes på pause.",
+        not_paused: "Spillet har ikke pause lenger.",
+      } as Record<string, string>,
+      /** [ASSUMPTION] */
+      failed: "Det gikk ikke. Prøv igjen.",
+    },
   },
 
   /** Links between pages (Story 3.3). Each names where it goes. */

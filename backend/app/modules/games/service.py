@@ -206,6 +206,14 @@ async def due_takeovers(now: datetime) -> list[tuple[str, str]]:
     return found
 
 
+async def due_agreed_times(now: datetime) -> list[str]:
+    """The sweep's finder for a Lecturer's agreed Pause time (Story 8.7, AD-9): the paused Games
+    whose agreed time lies at or before `now` and that are not marked yet, earliest first.
+    `games.commands.reach_agreed_time` checks again under the Game row lock."""
+    async with get_sessionmaker()() as session:
+        return [str(game_id) for game_id in await repo.due_agreed_times(session, now)]
+
+
 async def announce(game_id: str) -> None:
     """Story 8.3 (AD-8): a due Takeover the sweep found but `takeover` refused changes nothing,
     yet the due time has passed; emit `game:<id>` at its current version and, for a Game the

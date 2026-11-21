@@ -222,10 +222,14 @@ def _due_times(
     """FR-36 and FR-89: the Takeover due time is the wait start plus the limit in force (the
     in-room limit when the Game is marked, else the Inactivity limit) times the Student's factor,
     which only extends it. The insert time is the agreed time when one is set, but a Student with
-    a factor above 1 never gets one before their own extended limit; otherwise the due time."""
-    limit = inputs.in_room_limit if inputs.in_room_limit is not None else inputs.inactivity_limit
-    if seat.occupant_kind is not OccupantKind.STUDENT or waiting is None or limit is None:
+    a factor above 1 never gets one before their own extended limit; otherwise the due time.
+    With no clock running yet (nobody else has ordered) there is no due time, but an agreed time
+    stands as the insert time (Story 8.7; open-assumptions: also with Tilrettelegging)."""
+    if seat.occupant_kind is not OccupantKind.STUDENT:
         return None, None
+    limit = inputs.in_room_limit if inputs.in_room_limit is not None else inputs.inactivity_limit
+    if waiting is None or limit is None:
+        return None, inputs.agreed_time
     factor = max(inputs.time_factor or 1.0, 1.0)
     due = waiting + limit * factor
     if inputs.agreed_time is None:

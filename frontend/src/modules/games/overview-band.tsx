@@ -3,7 +3,7 @@
 import NextLink from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 
-import { buttonClassName } from "@/components/button";
+import { Button, buttonClassName } from "@/components/button";
 import { nb } from "@/copy/nb";
 import { useThrottledAnnouncement } from "@/lib/announce";
 import { roleName } from "@/modules/sessions/sessions";
@@ -11,6 +11,7 @@ import { roleName } from "@/modules/sessions/sessions";
 import type { OverviewGame } from "./api";
 import { bandMessagePath, bandSaid, bandText, type OverviewAlert } from "./overview";
 import { consequenceText, resultText, TakeoverAction, type TakeoverResult } from "./spillstyring";
+import { PauseResult, StaffPauseForm } from "./staff-pause";
 
 /** Who put the AI player in the Seat, from the Oversikt read again (`mark_by`), never from the
  * refusal (Story 8.5). */
@@ -26,8 +27,10 @@ export function markBy(items: readonly OverviewGame[], gameId: string, role: str
  * consequence of a manual Takeover in caption text under it, the primary «Send Melding» to the
  * Meldingsskjema preset to the Student waited for and the secondary «Sett inn KI-spiller for Noah»
  * (Story 8.5), which Assistant lecturers have too. Below 1024 px the actions wrap under the text at
- * full width. Nothing is drawn when nothing waits, and nothing stands in its place. Stories 8.6–8.7
- * add «Pause spillet».
+ * full width. Nothing is drawn when nothing waits, and nothing stands in its place. For a Lecturer
+ * the secondary «Pause spillet» (Story 8.7) opens the Lecturer's pause form under the band; while it
+ * is open «Send Melding» shows as secondary, so the screen keeps one primary. A paused game leaves
+ * the band at once, and the result line («Pause til to. 19:00 er satt.») stands under it.
  *
  * After a press the band moves on to the next game, so the result line («KI-spiller satt inn for
  * Noah.», or who came first, named from the Oversikt read again) stands under the band and takes
@@ -39,15 +42,26 @@ export function OverviewBand({
   sessionId,
   now,
   items = [],
+  canPause = false,
+  playDeadline = null,
 }: {
   alert: OverviewAlert;
   sessionId: string;
   now: number;
   items?: readonly OverviewGame[];
+  /** Story 8.7: the reader is a Lecturer of the Class, so the band offers «Pause spillet». */
+  canPause?: boolean;
+  playDeadline?: string | null;
 }) {
   const id = useId();
   const said = useThrottledAnnouncement(bandSaid(alert));
   const [result, setResult] = useState<{ game: string; role: string; found: TakeoverResult } | null>(null);
+  // Story 8.7: the game whose pause form is open under the band, and the Pause's result line.
+  const [pauseFor, setPauseFor] = useState<string | null>(null);
+  const [paused, setPaused] = useState({ text: "", n: 0 });
+  const pauseRef = useRef<HTMLButtonElement>(null);
+  const clock = useRef(now);
+  clock.current = now;
   const lineRef = useRef<HTMLParagraphElement>(null);
   const focusLine = useRef(false);
   useEffect(() => {
@@ -58,6 +72,12 @@ export function OverviewBand({
   });
   const name = alert ? (alert.name ?? roleName(alert.role)) : "";
   const actedBy = result ? markBy(items, result.game, result.role) : null;
+  // The form belongs to the band's game: once the band moves on, it closes for good.
+  const formOpen = canPause && alert !== null && pauseFor === alert.game_id;
+  const bandGame = alert?.game_id ?? null;
+  useEffect(() => {
+    setPauseFor((open) => (open === bandGame ? open : null));
+  }, [bandGame]);
   return (
     <>
       <p role="status" className="sr-only" data-attention-announcement="">
@@ -86,7 +106,8 @@ export function OverviewBand({
           <div className="flex w-full shrink-0 flex-col gap-3 lg:w-auto lg:flex-row lg:items-start">
             <NextLink
               href={bandMessagePath(sessionId, alert)}
-              className={buttonClassName("primary", "w-full shrink-0 lg:w-auto")}
+              // While the pause form is open its button is the primary (UX-DR9).
+              className={buttonClassName(formOpen ? "secondary" : "primary", "w-full shrink-0 lg:w-auto")}
               data-band-message=""
             >
               {nb.messages.send}
@@ -97,14 +118,50 @@ export function OverviewBand({
               sessionId={sessionId}
               role={alert.role}
               name={name}
+              onPress={() => setPaused((prev) => ({ text: "", n: prev.n }))}
               onResult={(found) => {
                 focusLine.current = true;
                 setResult({ game: alert.game_id, role: alert.role, found });
               }}
             />
+            {canPause ? (
+              <Button
+                ref={pauseRef}
+                data-band-pause=""
+                className="w-full shrink-0 lg:w-auto"
+                aria-expanded={formOpen}
+                onClick={() => {
+                  setResult(null);
+                  setPaused((prev) => ({ text: "", n: prev.n }));
+                  setPauseFor(formOpen ? null : alert.game_id);
+                }}
+              >
+                {nb.spillstyring.pause.open}
+              </Button>
+            ) : null}
           </div>
         </section>
       ) : null}
+      {formOpen && alert ? (
+        <StaffPauseForm
+          key={alert.game_id}
+          className="mt-3"
+          gameId={alert.game_id}
+          sessionId={sessionId}
+          mode="pause"
+          playDeadline={playDeadline}
+          now={() => clock.current}
+          onCancel={() => {
+            setPauseFor(null);
+            requestAnimationFrame(() => pauseRef.current?.focus());
+          }}
+          onDone={(text) => {
+            setPauseFor(null);
+            setPaused((prev) => ({ text, n: prev.n + 1 }));
+          }}
+        />
+      ) : null}
+      {paused.text ? <PauseResult className="mt-3" text={paused.text} n={paused.n} /> : null}
       {result ? (
         <p
           ref={lineRef}

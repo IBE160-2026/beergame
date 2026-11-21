@@ -308,6 +308,36 @@ export function takeOverSeat(gameId: string, role: components["schemas"]["Role"]
   );
 }
 
+/** «Pause spillet» (Story 8.7, FR-89): a Lecturer of the game's Class pauses it, with the agreed
+ * time `resumeAt` (ISO) or without one (null). Answers Spillinnsikt as it now stands; 422
+ * `time_out_of_range`, 409 `already_paused` with `acted_by` and `acted_at`. */
+export function pauseGameAsLecturer(gameId: string, resumeAt: string | null) {
+  return request(() =>
+    api.POST("/api/games/{game_id}/pause", {
+      params: { path: { game_id: gameId } },
+      body: { resume_at: resumeAt },
+    }),
+  );
+}
+
+/** «Endre avtalt tid» (Story 8.7): sets, changes or (null) clears the agreed time. */
+export function setPauseAgreedTime(gameId: string, resumeAt: string | null) {
+  return request(() =>
+    api.PUT("/api/games/{game_id}/pause/agreed-time", {
+      params: { path: { game_id: gameId } },
+      body: { resume_at: resumeAt },
+    }),
+  );
+}
+
+/** «Avslutt pausen» (Story 8.7): ends the Pause in force, whoever set it. */
+export function endPause(gameId: string) {
+  return request(() => api.DELETE("/api/games/{game_id}/pause", { params: { path: { game_id: gameId } } }));
+}
+
+/** The Pause in force on Spillinnsikt (Story 8.7). */
+export type InsightPause = NonNullable<GameInsight["pause"]>;
+
 /** «Spillet er ferdig» (Story 6.18): the finished game's cost per Role, the chain's and the
  * chain's per Uke. The api answers 409 `game_not_finished` before the end. */
 export type GameResult = components["schemas"]["GameResult"];

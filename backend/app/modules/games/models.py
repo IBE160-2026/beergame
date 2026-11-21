@@ -115,10 +115,16 @@ games = Table(
     Column("resume_at", DateTime(timezone=True), nullable=True),
     Column("pause_ended_at", DateTime(timezone=True), nullable=True),
     Column("pause_ended_by", Uuid, nullable=True),
+    # When the sweep saw the agreed time pass (Story 8.7): set once, cleared with `resume_at`.
+    Column("agreed_time_reached_at", DateTime(timezone=True), nullable=True),
     CheckConstraint(_in("purpose", Purpose), name="ck_games_purpose"),
     CheckConstraint(
         "(paused_by IS NULL AND resume_at IS NULL) OR paused_at IS NOT NULL",
         name="ck_games_pause",
+    ),
+    CheckConstraint(
+        "agreed_time_reached_at IS NULL OR resume_at IS NOT NULL",
+        name="ck_games_agreed_time_reached",
     ),
     CheckConstraint(_in("lifecycle", Lifecycle), name="ck_games_lifecycle"),
     CheckConstraint("version >= 0", name="ck_games_version"),

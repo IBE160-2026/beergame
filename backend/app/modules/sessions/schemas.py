@@ -479,6 +479,16 @@ class TimeProposalIn(BaseModel):
     at: AwareDatetime
 
 
+class StaffPauseIn(BaseModel):
+    """«Pause spillet» and «Endre avtalt tid» (Story 8.7, FR-89): the agreed time as one instant,
+    or None for «Uten avtalt tid»; nothing else."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resume_at: AwareDatetime | None
+    """Required, null for «Uten avtalt tid»: an omitted field is refused, never read as a clear."""
+
+
 class PauseOut(BaseModel):
     """The game's pause line (Story 8.6, FR-89, UX-DR62): `paused` while a Pause is in force,
     named by who set it («Pause, satt av Sara.»); `ended` from the Order that ended it until the
@@ -490,6 +500,12 @@ class PauseOut(BaseModel):
     """The Student's name now; None when they are no longer in the Class."""
     mine: bool
     """The reader set (or ended) it: «satt av deg», «Du har bestilt»."""
+    staff: bool = False
+    """Story 8.7: the Lecturer set (or ended) it, and `name` is None: «Pause, satt av
+    faglæreren.», «Pausen er over. Faglæreren har avsluttet den.»."""
+    resume_at: AwareDatetime | None = None
+    """Story 8.7: the Lecturer's agreed time while paused: «Pause til to. 19:00, satt av
+    faglæreren.» Only a Lecturer's agreed time ever shows here (UX-DR62)."""
 
 
 class StudentGameOut(BaseModel):
@@ -946,6 +962,11 @@ class ClassOverviewOut(BaseModel):
     """The Varselbånd's game (Stories 7.11, 8.3): the waiting Class game with the earliest
     `takeover_due_at`, else the longest-waiting one; None before the Start date and while no
     Class game waits for a Student."""
+    can_pause: bool = False
+    """Story 8.7 (FR-89, AD-12): the reader is a Lecturer of the Class, so the Varselbånd offers
+    «Pause spillet»; False for an Assistant lecturer."""
+    play_deadline: AwareDatetime | None = None
+    """Story 8.7: the Class session's Spillfrist, the latest agreed Pause time."""
     class_id: uuid.UUID
     class_name: str
     session_number: int
@@ -1051,6 +1072,19 @@ class DemandWeekOut(BaseModel):
     """The customer demand the first Role received that Week, as stored."""
 
 
+class InsightPauseOut(BaseModel):
+    """The Pause in force on Spillinnsikt (Story 8.7, FR-89, UX-DR52): «Pause siden ma. 14:10,
+    satt av Sara.» or «… satt av deg.», with the agreed time if any."""
+
+    paused_at: AwareDatetime
+    by: str | None
+    """The name now of who paused it; None for someone no longer in the Class."""
+    mine: bool
+    """The reader paused it: «satt av deg»."""
+    resume_at: AwareDatetime | None
+    """The Lecturer's agreed time; None without one."""
+
+
 class GameInsightOut(BaseModel):
     """Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Game week by week, for the staff of its
     Class only. The only answer that gives the staff the full chain, the demand series and the
@@ -1069,6 +1103,14 @@ class GameInsightOut(BaseModel):
     demand: list[DemandWeekOut]
     seats: list[InsightSeatOut]
     roles: list[InsightRoleOut]
+    pause: InsightPauseOut | None = None
+    """Story 8.7: the Pause in force; None when the game is not paused."""
+    can_pause: bool = False
+    """Story 8.7 (FR-89, AD-12): the reader is a Lecturer of the game's Class and a Pause applies
+    to the game now, so Spillstyring offers «Pause spillet», or «Endre avtalt tid» and «Avslutt
+    pausen» while it is paused. False for an Assistant lecturer."""
+    play_deadline: AwareDatetime | None = None
+    """Story 8.7: the Class session's Spillfrist, the latest agreed time; None without one."""
 
 
 class WallCells(StrEnum):

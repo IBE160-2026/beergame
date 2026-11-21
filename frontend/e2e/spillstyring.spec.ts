@@ -31,7 +31,8 @@ test("Spillstyring puts an AI player in one Seat, and a stale page is told who c
   await narrow.goto(path);
   const narrowBlock = narrow.locator("[data-spillstyring]");
   await expect(narrowBlock.getByRole("heading", { name: copy.title })).toBeVisible();
-  await expect(narrowBlock.getByRole("button")).toHaveCount(2);
+  // The two per-Seat actions (the Lecturer also has «Pause spillet», Story 8.7).
+  await expect(narrowBlock.locator("li").getByRole("button")).toHaveCount(2);
   const button = (await narrowBlock.getByRole("button", { name: copy.takeover(second!.name) }).boundingBox())!;
   expect(button.width).toBeGreaterThanOrEqual(240);
   await expectAccessible(narrow, true);
@@ -51,7 +52,7 @@ test("Spillstyring puts an AI player in one Seat, and a stale page is told who c
     await route.continue();
   });
   await stale.goto(path);
-  await expect(stale.locator("[data-spillstyring]").getByRole("button")).toHaveCount(2);
+  await expect(stale.locator("[data-spillstyring] li").getByRole("button")).toHaveCount(2);
 
   // 1440 px: one row per Student Seat, its consequence right above its button.
   const page = await lecturerPage(browser, lecturerSession, VIEWPORTS[2]!);

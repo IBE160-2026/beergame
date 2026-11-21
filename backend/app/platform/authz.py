@@ -107,6 +107,10 @@ POLICIES: dict[str, frozenset[str]] = {
     # of the game's Class, Lecturers and Assistant lecturers alike (the per-Seat Takeover is the
     # one Spillstyring action an Assistant lecturer has, AD-12).
     "games.takeover": frozenset({LECTURER, ASSISTANT}),
+    # «Pause spillet», «Endre avtalt tid» and «Avslutt pausen» in Spillstyring and the Varselbånd
+    # (Story 8.7, FR-89): the Lecturers of the game's Class only; an Assistant lecturer may not
+    # pause, set an agreed time or end a Pause (AD-12, EXPERIENCE.md → Spillstyring → Who).
+    "games.pause": frozenset({LECTURER}),
     # A Message to a Student, a Class game or a whole Class session (Story 7.9, FR-40): the staff
     # of its Class, Lecturers and Assistant lecturers alike.
     "messages.send": frozenset({LECTURER, ASSISTANT}),
@@ -154,6 +158,7 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "class_sessions.overview": frozenset({OWNER, ASSISTANT_STAFF}),
     "games.insight": frozenset({OWNER, ASSISTANT_STAFF}),
     "games.takeover": frozenset({OWNER, ASSISTANT_STAFF}),
+    "games.pause": frozenset({OWNER}),
     "messages.send": frozenset({OWNER, ASSISTANT_STAFF}),
     "messages.read_sent": frozenset({OWNER, ASSISTANT_STAFF}),
 }
