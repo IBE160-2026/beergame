@@ -2000,3 +2000,25 @@ Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en kort visuell ko
 
 ### Åpne punkter
 - Issue 139: beslutninger i Story 6.21. LLM-spillere ser ikke nabotallene før konfigurasjonen flyttes til v2 (sammen med Issue #60).
+
+## Story 6.22: Se kapasiteten i reglene og på en plass med kapasitet (kuttliste, `FEATURE_CAPACITY`) (2026-11-21)
+
+### Oppgave
+Bygge Story 6.22, den siste storyen i Epic 6, etter kjøreboka.
+
+### Plan
+Bygge med `bmad-build-auto` og to gjennomgangsagenter, gjøre en kort visuell kontroll og avslutte.
+
+### Resultat
+- **Spec:** `.docs/implementation-artifacts/spec-6-22-see-the-capacity-in-the-briefing-and-on-a-capped-seat.md`.
+- **Commit da35783:** `rules.capacity` i API-et, seksjonen «Kapasitet» i reglene, og radene Lager og Restordre for plassen med kapasitet.
+- **Tester:**
+  - backend: 2774 tester (66,8 s);
+  - frontend: Vitest 713 og bygg;
+  - Playwright: 138 målrettede tester.
+- **Gjennomgang:** 18 lave funn. 3 ble rettet.
+- **Visuell kontroll:** 14 skjermbilder i `screenshots/6.22/`. Ingen avvik.
+- **Status:** done.
+
+### Åpne punkter
+- Issue 140: beslutninger i Story 6.22.
