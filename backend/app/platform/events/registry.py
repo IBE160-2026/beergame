@@ -234,6 +234,7 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # The Student flagged a piece of feedback or took the flag back (Story 12.5, FR-55): their
         # own view and the Class's staff (Studentside, Klasseøkt list) read it again.
         "assessment.set_flag": frozenset({"session", "user"}),
+        "assessment.set_letter_choice": frozenset({"user"}),
         # A timed sitting ended before the Test deadline (Story 11.12, FR-51): the sweep hands the
         # attempt in, and its `test_submitted` step emits `user` and `session`, as at a hand-in.
         "tests.end_sitting": frozenset({"session", "user"}),

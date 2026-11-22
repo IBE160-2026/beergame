@@ -560,6 +560,27 @@ async def set_operator_owned(
     return result.mappings().one()
 
 
+async def set_no_letter(
+    session: AsyncSession, institution_id: uuid.UUID, on: bool, now: datetime
+) -> RowMapping:
+    """Story 12.6: set the Institution's no-letter mark, in the caller's transaction."""
+    result = await session.execute(
+        update(institutions)
+        .where(institutions.c.id == institution_id)
+        .values(no_letter=on, updated_at=now)
+        .returning(institutions)
+    )
+    return result.mappings().one()
+
+
+async def no_letter_of(session: AsyncSession, institution_id: uuid.UUID) -> bool:
+    """Story 12.6: the Institution's no-letter mark; False for an unknown id."""
+    found = await session.scalar(
+        select(institutions.c.no_letter).where(institutions.c.id == institution_id)
+    )
+    return bool(found)
+
+
 async def institution_by_id(session: AsyncSession, institution_id: uuid.UUID) -> RowMapping | None:
     result = await session.execute(select(institutions).where(institutions.c.id == institution_id))
     return result.mappings().one_or_none()

@@ -337,6 +337,9 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "letter": {
+            "$ref": "#/components/schemas/LetterSettingOut"
+          },
           "open": {
             "title": "Open",
             "type": "boolean"
@@ -358,7 +361,8 @@
           "enabled",
           "pinned_at",
           "open",
-          "can_change"
+          "can_change",
+          "letter"
         ],
         "title": "AiAssessmentOut",
         "type": "object"
@@ -2285,6 +2289,32 @@
               }
             ],
             "title": "Inactivity Limit Hours"
+          },
+          "letter_setting": {
+            "anyOf": [
+              {
+                "enum": [
+                  "all",
+                  "student_choice",
+                  "unavailable"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Letter Setting"
+          },
+          "letter_thresholds": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LetterThresholdsIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "obligatory": {
             "anyOf": [
@@ -5120,6 +5150,11 @@
             "title": "Name",
             "type": "string"
           },
+          "no_letter": {
+            "default": false,
+            "title": "No Letter",
+            "type": "boolean"
+          },
           "operator_owned": {
             "default": false,
             "title": "Operator Owned",
@@ -5618,6 +5653,148 @@
         "title": "LecturerOverviewOut",
         "type": "object"
       },
+      "LetterChoiceIn": {
+        "additionalProperties": false,
+        "description": "Story 12.6: the Student's «Veiledende bokstav» Bryter for their own view, on or off.",
+        "properties": {
+          "on": {
+            "title": "On",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "title": "LetterChoiceIn",
+        "type": "object"
+      },
+      "LetterSettingOut": {
+        "description": "The Indicative letter of a Class session (Story 12.6, FR-56), stored by\n`modules/assessment` with the «KI-vurdering» switch.",
+        "properties": {
+          "can_change": {
+            "title": "Can Change",
+            "type": "boolean"
+          },
+          "forced": {
+            "title": "Forced",
+            "type": "boolean"
+          },
+          "setting": {
+            "enum": [
+              "all",
+              "student_choice",
+              "unavailable"
+            ],
+            "title": "Setting",
+            "type": "string"
+          },
+          "stored": {
+            "enum": [
+              "all",
+              "student_choice",
+              "unavailable"
+            ],
+            "title": "Stored",
+            "type": "string"
+          },
+          "thresholds": {
+            "$ref": "#/components/schemas/LetterThresholdsOut"
+          },
+          "thresholds_open": {
+            "title": "Thresholds Open",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "setting",
+          "stored",
+          "forced",
+          "thresholds",
+          "thresholds_open",
+          "can_change"
+        ],
+        "title": "LetterSettingOut",
+        "type": "object"
+      },
+      "LetterThresholdsIn": {
+        "additionalProperties": false,
+        "description": "Story 12.6 (FR-56): the lower bounds of A to E as JSON integers; the service answers\n`out_of_range` outside 1 to 100 and `out_of_order` unless they fall strictly from A to E. The\nbounds here only keep each value an integer the database can hold.",
+        "properties": {
+          "A": {
+            "maximum": 1000.0,
+            "minimum": -1000.0,
+            "title": "A",
+            "type": "integer"
+          },
+          "B": {
+            "maximum": 1000.0,
+            "minimum": -1000.0,
+            "title": "B",
+            "type": "integer"
+          },
+          "C": {
+            "maximum": 1000.0,
+            "minimum": -1000.0,
+            "title": "C",
+            "type": "integer"
+          },
+          "D": {
+            "maximum": 1000.0,
+            "minimum": -1000.0,
+            "title": "D",
+            "type": "integer"
+          },
+          "E": {
+            "maximum": 1000.0,
+            "minimum": -1000.0,
+            "title": "E",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E"
+        ],
+        "title": "LetterThresholdsIn",
+        "type": "object"
+      },
+      "LetterThresholdsOut": {
+        "description": "Story 12.6 (FR-56): the lower bounds of the Indicative letters A to E in whole percent of\nthe total's maximum, strictly falling; F is what lies under E.",
+        "properties": {
+          "A": {
+            "title": "A",
+            "type": "integer"
+          },
+          "B": {
+            "title": "B",
+            "type": "integer"
+          },
+          "C": {
+            "title": "C",
+            "type": "integer"
+          },
+          "D": {
+            "title": "D",
+            "type": "integer"
+          },
+          "E": {
+            "title": "E",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E"
+        ],
+        "title": "LetterThresholdsOut",
+        "type": "object"
+      },
       "Lifecycle": {
         "enum": [
           "not_started",
@@ -5970,7 +6147,7 @@
         "type": "object"
       },
       "MyAssessmentOut": {
-        "description": "The Student's «KI-vurdering» of their Individual test (Story 12.2, FR-54, FR-55, FR-61):\n\n- `no_test`: they have no attempt in the Class session;\n- `not_ready`: the test is not closed yet, or no run of the assessment has finished;\n- `switched_off`: the Lecturer switched the AI assessment off for the Class session;\n- `incomplete`: some items have no AI score yet; `items` and `unassessed` (their numbers), no\n  total;\n- `failed`: no AI assessment could be made; no items, no total;\n- `ready`: every item scored, with `total` out of `total_max` from `analysis.total_score`.\n\nThere is no pass or fail and no letter. Every number is the api's; the web app adds nothing.",
+        "description": "The Student's «KI-vurdering» of their Individual test (Story 12.2, FR-54, FR-55, FR-61):\n\n- `no_test`: they have no attempt in the Class session;\n- `not_ready`: the test is not closed yet, or no run of the assessment has finished;\n- `switched_off`: the Lecturer switched the AI assessment off for the Class session;\n- `incomplete`: some items have no AI score yet; `items` and `unassessed` (their numbers), no\n  total;\n- `failed`: no AI assessment could be made; no items, no total;\n- `ready`: every item scored, with `total` out of `total_max` from `analysis.total_score`.\n\nThere is no pass or fail. Story 12.6: `letter` where the Indicative letter is allowed. Every\nnumber is the api's; the web app adds nothing.",
         "properties": {
           "checked": {
             "default": false,
@@ -5983,6 +6160,16 @@
             },
             "title": "Items",
             "type": "array"
+          },
+          "letter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MyLetterOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "state": {
             "enum": [
@@ -6054,6 +6241,49 @@
           "explanation"
         ],
         "title": "MyExplanationOut",
+        "type": "object"
+      },
+      "MyLetterOut": {
+        "description": "The Indicative letter on the Student's own ready «KI-vurdering» (Story 12.6, FR-56): an\nAI-generated indication from the total, never a grade. `setting` is `all` (the Lecturer shows it\nto everyone) or `student_choice` (the Student may turn it on for their own view: `chosen`);\n`value` is the letter when it is shown, else null. Absent (null `letter`) while the assessment\nis not ready or the letter is unavailable.",
+        "properties": {
+          "chosen": {
+            "title": "Chosen",
+            "type": "boolean"
+          },
+          "setting": {
+            "enum": [
+              "all",
+              "student_choice"
+            ],
+            "title": "Setting",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "enum": [
+                  "A",
+                  "B",
+                  "C",
+                  "D",
+                  "E",
+                  "F"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "setting",
+          "chosen",
+          "value"
+        ],
+        "title": "MyLetterOut",
         "type": "object"
       },
       "MyMessageOut": {
@@ -6417,6 +6647,21 @@
           "at"
         ],
         "title": "NextDeadline",
+        "type": "object"
+      },
+      "NoLetterIn": {
+        "additionalProperties": false,
+        "description": "Story 12.6: the Institution's no-letter Bryter, on or off.",
+        "properties": {
+          "on": {
+            "title": "On",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "title": "NoLetterIn",
         "type": "object"
       },
       "OfferedEffortLevelOut": {
@@ -9965,6 +10210,25 @@
             "title": "Items",
             "type": "array"
           },
+          "letter": {
+            "anyOf": [
+              {
+                "enum": [
+                  "A",
+                  "B",
+                  "C",
+                  "D",
+                  "E",
+                  "F"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Letter"
+          },
           "state": {
             "enum": [
               "no_test",
@@ -13169,6 +13433,90 @@
         ]
       }
     },
+    "/api/admin/institutions/{institution_id}/no-letter": {
+      "put": {
+        "description": "The Institution's no-letter Bryter (Story 12.6, FR-56, FR-3): on, its data protection\nofficer requires that no Indicative letter is shown, so every Class session of the\nInstitution can choose only «unavailable» and no letter is derived or shown. Each change is\naudited; the same value again writes nothing. An unknown id is `not_found`.",
+        "operationId": "setInstitutionNoLetter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "institution_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Institution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoLetterIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Set Institution No Letter",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/institutions/{institution_id}/operator-owned": {
       "put": {
         "description": "Mark the Institution as the operator's own, where Control tests are set up (Story 12.7,\nFR-82, AD-27). The mark moves from the Institution that held it; at most one holds it. An\nunknown id is `not_found`.",
@@ -14547,7 +14895,7 @@
         ]
       },
       "put": {
-        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level`, `debrief_mode`, `debrief_release` and `debrief_ai_text` (FR-15, FR-16, FR-42,\nFR-78), left out, keep their values; a changed `debrief_release` or `debrief_ai_text` once\nlocked answers 409 `session_locked` too. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).\n\n`game_settings.capacity` (Story 5.15) is `{role: units}` or null: one Role or every Role\ncapped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a\nnon-empty capacity answers 422 `feature_disabled` (`{\"capacity\": \"feature_disabled\"}`).\n\n`game_settings.info_visibility` (Story 5.16) is `{upstream, downstream}`, two booleans that\nlet each Seat see its neighbour's inventory and backlog; anything else is `info_visibility`\n`invalid`. While `FEATURE_INFO_VISIBILITY` is off a view switched on answers 422\n`feature_disabled` (`{\"info_visibility\": \"feature_disabled\"}`).\n\n`obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,\nFR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit\nunder 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once\nlocked a changed one answers 409 `session_locked`. Switching the mark on tells each\nregistered Student through the day's digest mail.\n\n`allocation_method` (Story 5.17, FR-21), left out, keeps the method. `student_choice` creates\nempty Class games for the registered Students and tells each of them through the day's digest\nmail that they may choose a Class game and a Seat. A changed method answers 422\n`feature_disabled` (`{\"allocation_method\": \"feature_disabled\"}`) for Student choice while\n`FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409\n`allocation_confirmed` (`{\"allocation_method\": \"confirmed\"}`) once an allocation is confirmed:\nStudent choice is final once saved.\n\n`replay_scenario` (Story 10.2, FR-49), left out, keeps the Replay scenario: `default`, or\n`own` with `replay_template`, the own scenario's editable fields (`starting_inventory`,\n`starting_backlog`, `supply_line`, the three delays, `weeks`, `guided_weeks`, `max_order` as\nwhole numbers or `{minimum, maximum}`; `holding_cost`, `backorder_cost`; `demand` as `step`\nwith a ranged `change_week`, `random` or `fixed`, each with a `spread`; `info_visibility`\nas in the Game settings, the Replay's own, Story 10.9), laid over the Class game's exact\nsettings (Information visibility: over a stored own template's). A template the engine\nrefuses answers 422 `invalid_replay_scenario` with `fields` as `invalid_settings`; while\n`FEATURE_INFO_VISIBILITY` is off a view switched on there names `info_visibility`\n`feature_disabled`; `own` with no template sent or stored names\n`replay_template` `required`. Once locked, a changed scenario answers 409 `session_locked`\n(`{\"replay_scenario\": \"locked\"}`).\n\n`ai_assessment` (Story 12.1, FR-61), left out, keeps the «KI-vurdering» switch. It can change\nafter the Start date too; once the original Test deadline has passed (and the Test-deadline\nlock has pinned it) a changed value answers 409 `ai_assessment_pinned`\n(`{\"ai_assessment\": \"pinned\"}`). Only the Class's owners change it (`ai_assessment.change`).\n\n`test_sitting` (Story 11.12, FR-51), left out, keeps the Individual test's one timed sitting:\n`{\"minutes\": n}` sets the time limit in whole minutes, `{\"minutes\": null}` switches it off. A\nlimit outside the configured range answers 422 `invalid_session_values`\n(`{\"test_sitting_minutes\": \"out_of_range\"}`); once locked a change answers 409\n`session_locked` (`{\"test_sitting\": \"locked\"}`).",
+        "description": "«Lagre Klasseøkt»: saves the Class session as it stands. LLM players while no model config\nis pinned as the default answer 409 `llm_unavailable`, and nothing changes.\n\nWith `dates` the four dates are replaced (FR-18). `fields` names each date in question:\n422 `invalid_dates` (`past`, `order` for the later date of a pair out of order, `before` for\nthe earlier one when only it changed, `required` once locked), 409 `deadline_passed`\n(`passed`). Dates count to the whole minute.\n\n`effort_level`, `debrief_mode`, `debrief_release` and `debrief_ai_text` (FR-15, FR-16, FR-42,\nFR-78), left out, keep their values; a changed `debrief_release` or `debrief_ai_text` once\nlocked answers 409 `session_locked` too. With LLM\nplayers a changed Effort level the model config does not offer answers 422\n`invalid_effort_level` (`{\"effort_level\": \"not_offered\"}`); with Rule-based players no level\nis in force and a sent one is ignored. Once the Start date has passed, a changed AI mode,\nEffort level or Debrief mode answers 409 `session_locked`, `fields` naming each.\n\nWith `game_settings` (the editable settings, laid over the stored ones; `demand` and\n`demand_seed` too) the engine judges the settings (FR-12, FR-13): 422 `invalid_settings` with\n`fields` mapping each setting (`demand.<field>` inside the Demand pattern) to\n`{code, minimum, maximum, decimal_places}`. Once locked, changed settings answer 409\n`session_locked` (`{\"game_settings\": \"locked\"}`).\n\n`game_settings.capacity` (Story 5.15) is `{role: units}` or null: one Role or every Role\ncapped per Week, `capacity.<role>` from 1 to 100. While `FEATURE_CAPACITY` is off a\nnon-empty capacity answers 422 `feature_disabled` (`{\"capacity\": \"feature_disabled\"}`).\n\n`game_settings.info_visibility` (Story 5.16) is `{upstream, downstream}`, two booleans that\nlet each Seat see its neighbour's inventory and backlog; anything else is `info_visibility`\n`invalid`. While `FEATURE_INFO_VISIBILITY` is off a view switched on answers 422\n`feature_disabled` (`{\"info_visibility\": \"feature_disabled\"}`).\n\n`obligatory`, `required_share_percent` and `inactivity_limit_hours` (Story 5.7, FR-17,\nFR-36), left out, keep their values. A changed share outside 1 to 100 or Inactivity limit\nunder 20 hours answers 422 `invalid_session_values` (`out_of_range`, `below_minimum`); once\nlocked a changed one answers 409 `session_locked`. Switching the mark on tells each\nregistered Student through the day's digest mail.\n\n`allocation_method` (Story 5.17, FR-21), left out, keeps the method. `student_choice` creates\nempty Class games for the registered Students and tells each of them through the day's digest\nmail that they may choose a Class game and a Seat. A changed method answers 422\n`feature_disabled` (`{\"allocation_method\": \"feature_disabled\"}`) for Student choice while\n`FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409\n`allocation_confirmed` (`{\"allocation_method\": \"confirmed\"}`) once an allocation is confirmed:\nStudent choice is final once saved.\n\n`replay_scenario` (Story 10.2, FR-49), left out, keeps the Replay scenario: `default`, or\n`own` with `replay_template`, the own scenario's editable fields (`starting_inventory`,\n`starting_backlog`, `supply_line`, the three delays, `weeks`, `guided_weeks`, `max_order` as\nwhole numbers or `{minimum, maximum}`; `holding_cost`, `backorder_cost`; `demand` as `step`\nwith a ranged `change_week`, `random` or `fixed`, each with a `spread`; `info_visibility`\nas in the Game settings, the Replay's own, Story 10.9), laid over the Class game's exact\nsettings (Information visibility: over a stored own template's). A template the engine\nrefuses answers 422 `invalid_replay_scenario` with `fields` as `invalid_settings`; while\n`FEATURE_INFO_VISIBILITY` is off a view switched on there names `info_visibility`\n`feature_disabled`; `own` with no template sent or stored names\n`replay_template` `required`. Once locked, a changed scenario answers 409 `session_locked`\n(`{\"replay_scenario\": \"locked\"}`).\n\n`ai_assessment` (Story 12.1, FR-61), left out, keeps the «KI-vurdering» switch. It can change\nafter the Start date too; once the original Test deadline has passed (and the Test-deadline\nlock has pinned it) a changed value answers 409 `ai_assessment_pinned`\n(`{\"ai_assessment\": \"pinned\"}`). Only the Class's owners change it (`ai_assessment.change`).\n\n`letter_setting` and `letter_thresholds` (Story 12.6, FR-56), left out, keep the Indicative\nletter's setting (`all`, `student_choice`, `unavailable`) and the lower bounds of A to E.\nThey change while the «KI-vurdering» switch can (else 409 `ai_assessment_pinned` naming the\nfield), only by the Class's owners. While the Institution forbids the letter, a setting other\nthan `unavailable` answers 409 `letter_unavailable` (`{\"letter_setting\": \"institution\"}`).\nBounds outside 1 to 100 or not strictly falling answer 422 `invalid_session_values`\n(`{\"letter_thresholds\": \"out_of_range\" | \"out_of_order\"}`); once a Test attempt exists a\nchange answers 409 `letter_thresholds_locked`. A value equal to the one in force is no\nchange.\n\n`test_sitting` (Story 11.12, FR-51), left out, keeps the Individual test's one timed sitting:\n`{\"minutes\": n}` sets the time limit in whole minutes, `{\"minutes\": null}` switches it off. A\nlimit outside the configured range answers 422 `invalid_session_values`\n(`{\"test_sitting_minutes\": \"out_of_range\"}`); once locked a change answers 409\n`session_locked` (`{\"test_sitting\": \"locked\"}`).",
         "operationId": "saveClassSession",
         "parameters": [
           {
@@ -21820,7 +22168,7 @@
     },
     "/api/me/class-sessions/{session_id}/test/assessment": {
       "get": {
-        "description": "The Student's «KI-vurdering» of their Individual test (Story 12.2, FR-54, FR-55, FR-61):\n`no_test`, `not_ready`, `switched_off`, `incomplete` (items, the unassessed item numbers, no\ntotal), `failed`, or `ready` (items and the weighted total). Counts toward nothing; no pass\nor fail, no letter. `forbidden` for any session that is not theirs.",
+        "description": "The Student's «KI-vurdering» of their Individual test (Story 12.2, FR-54, FR-55, FR-61):\n`no_test`, `not_ready`, `switched_off`, `incomplete` (items, the unassessed item numbers, no\ntotal), `failed`, or `ready` (items and the weighted total). Counts toward nothing; no pass\nor fail. Story 12.6: `letter` where the Indicative letter is allowed (the setting, the\nStudent's own choice and the letter when shown). `forbidden` for any session that is not\ntheirs.",
         "operationId": "getMyAssessment",
         "parameters": [
           {
@@ -22038,6 +22386,89 @@
           }
         },
         "summary": "Flag Feedback",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/test/assessment/letter": {
+      "put": {
+        "description": "«Veiledende bokstav» (Story 12.6, FR-56): the Student turns the Indicative letter on or off\nfor their own ready «KI-vurdering» where the Lecturer leaves it to each Student. Stored on\ntheir own assessment, never served to staff or the Admin; idempotent. Answers the view as it\nnow stands. 409 `letter_not_available` when the view offers no such choice (not ready, the\nletter unavailable or shown to everyone); `forbidden` for any session that is not theirs.",
+        "operationId": "setMyLetterChoice",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LetterChoiceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAssessmentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Set My Letter Choice",
         "tags": [
           "tests"
         ]

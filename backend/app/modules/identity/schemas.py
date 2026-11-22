@@ -5,7 +5,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 from pydantic_core import PydanticCustomError
 
 
@@ -281,6 +281,17 @@ class InstitutionOut(BaseModel):
     operator_owned: bool = False
     """The operator's own Institution, where Control tests are set up (Story 12.7, AD-27): one
     at most."""
+    no_letter: bool = False
+    """Story 12.6 (FR-56): its data protection officer requires that no Indicative letter is
+    shown; every Class session of the Institution reads the letter as unavailable."""
+
+
+class NoLetterIn(BaseModel):
+    """Story 12.6: the Institution's no-letter Bryter, on or off."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    on: StrictBool
 
 
 class InstitutionListOut(BaseModel):

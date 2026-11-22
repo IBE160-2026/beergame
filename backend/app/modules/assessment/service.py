@@ -55,6 +55,16 @@ Story 12.4 (FR-54, FR-55, FR-61, FR-69, AD-9, AD-16): being told.
   `resume_for_session` clears it (audited), resets every unsettled or failed assessment of the
   Class session and defers each again.
 
+Story 12.6 (FR-56, AD-1, AD-12): the Indicative letter. The switch row also holds the letter
+setting (`all`, `student_choice`, `unavailable`) and the lower bounds of A to E, stored by «Lagre
+Klasseøkt» (`set_letter`) and pinned with the switch, the bounds in force included (the configured
+defaults when none were stored). `letter_chosen` on the assessment is the Student's own opt-in
+(`set_letter_choice`). `letter_for` is the one place that decides who gets a letter: the
+Student's own view, the staff (only when it is shown to everyone), never an export or a ZIP, and a
+report only when the Student asks for it; the letter itself comes from
+`analysis.indicative_letter` only, and never for an assessment that is not ready. The caller
+passes the Institution's no-letter mark to `letter_rules` (this module imports no `identity`).
+
 Story 12.5 (FR-55, AD-12): flags. `set_flag` stores or removes the Student's «Marker som feil» on
 one item's written feedback (`ai_feedback_flags`), emitting `user` and `session`; the caller
 (`tests`) has judged that the Student's view shows that feedback now. `AssessmentRecord.flags`
@@ -75,8 +85,8 @@ from typing import Annotated, Any, Literal
 
 import structlog
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import delete, func, select, update
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import delete, func, literal, select, update
+from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget as ai_budget
@@ -84,6 +94,7 @@ from app.ai import config as ai_config
 from app.ai import gateway
 from app.analysis import feedback as feedback_rules
 from app.analysis.facts import FactSet
+from app.analysis.letter import Letter, indicative_letter, parse_thresholds
 from app.analysis.narration import NarrationTemplates, citable, fact_lines
 from app.analysis.total import SCALE_TOP
 from app.modules.assessment.models import (
@@ -109,6 +120,10 @@ __all__ = [
     "AssessmentOutput",
     "AssessmentRecord",
     "AssessmentSummary",
+    "DEFAULT_LETTER_SETTING",
+    "LetterReader",
+    "LetterRules",
+    "LetterSetting",
     "ItemFeedback",
     "AttemptToAssess",
     "ItemToAssess",
@@ -121,6 +136,9 @@ __all__ = [
     "assessment_of",
     "backoff",
     "copy_switch",
+    "default_thresholds",
+    "letter_for",
+    "letter_rules",
     "due_overdue",
     "mock_feedback",
     "mock_score",
@@ -132,6 +150,8 @@ __all__ = [
     "resume_for_session",
     "schedule",
     "set_flag",
+    "set_letter",
+    "set_letter_choice",
     "set_switch",
     "stop_for_session",
     "summaries_for_session",
@@ -150,6 +170,10 @@ class Switch:
     pinned_at: datetime | None
     stopped_at: datetime | None = None
     """Story 12.4: when `stop_for_session` stopped the assessment; None when it runs."""
+    letter_setting: LetterSetting = "student_choice"
+    """Story 12.6: the Indicative letter setting the Lecturer saved."""
+    letter_thresholds: dict[str, int] | None = None
+    """Story 12.6: the stored lower bounds of A to E; None for the configured defaults."""
 
     @property
     def pinned(self) -> bool:
@@ -162,6 +186,17 @@ class Switch:
 
 DEFAULT_SWITCH = Switch(enabled=True, pinned_at=None)
 """A Class session with no row: on, not pinned (FR-61: on by default)."""
+
+LetterSetting = Literal["all", "student_choice", "unavailable"]
+"""Story 12.6 (FR-56): the Indicative letter shown to everyone in the Class session, left to each
+Student for their own view, or unavailable."""
+
+DEFAULT_LETTER_SETTING: LetterSetting = "student_choice"
+
+
+def default_thresholds() -> dict[str, int]:
+    """The configured default bounds of A to E (`indicative_letter_thresholds`, placeholders)."""
+    return parse_thresholds(get_settings().indicative_letter_thresholds)
 
 
 class SwitchPinned(Exception):
@@ -178,13 +213,21 @@ async def switch_of(
         assessment_switches.c.enabled,
         assessment_switches.c.pinned_at,
         assessment_switches.c.stopped_at,
+        assessment_switches.c.letter_setting,
+        assessment_switches.c.letter_thresholds,
     ).where(assessment_switches.c.class_session_id == class_session_id)
     if share:
         query = query.with_for_update(read=True)
     row = (await session.execute(query)).first()
     if row is None:
         return DEFAULT_SWITCH
-    return Switch(enabled=row.enabled, pinned_at=row.pinned_at, stopped_at=row.stopped_at)
+    return Switch(
+        enabled=row.enabled,
+        pinned_at=row.pinned_at,
+        stopped_at=row.stopped_at,
+        letter_setting=row.letter_setting,
+        letter_thresholds=dict(row.letter_thresholds) if row.letter_thresholds else None,
+    )
 
 
 async def set_switch(
@@ -228,13 +271,21 @@ async def pin_switch(
         "model_config_id": model_config_id,
         "effort_level": effort_level,
     }
+    # Story 12.6: the letter bounds in force are pinned too, so a later change of the configured
+    # defaults never moves a pinned Class session's letters.
+    defaults = default_thresholds()
     statement = insert(assessment_switches).values(
-        class_session_id=class_session_id, enabled=True, **values
+        class_session_id=class_session_id, enabled=True, letter_thresholds=defaults, **values
     )
     pinned = await session.execute(
         statement.on_conflict_do_update(
             index_elements=[assessment_switches.c.class_session_id],
-            set_=values,
+            set_={
+                **values,
+                "letter_thresholds": func.coalesce(
+                    assessment_switches.c.letter_thresholds, literal(defaults, JSONB)
+                ),
+            },
             where=assessment_switches.c.pinned_at.is_(None),
         ).returning(assessment_switches.c.class_session_id)
     )
@@ -249,6 +300,134 @@ async def copy_switch(
     source = await switch_of(session, source_id)
     if not source.enabled:
         await set_switch(session, target_id, False, now=now)
+    # Story 12.6 (FR-66): the letter setting and the bounds the source's Lecturer stored. A pinned
+    # source holds the bounds the pin stored, which are copied as they stand.
+    if source.letter_setting != DEFAULT_LETTER_SETTING or source.letter_thresholds is not None:
+        await set_letter(
+            session,
+            target_id,
+            setting=source.letter_setting,
+            thresholds=source.letter_thresholds,
+            now=now,
+        )
+
+
+async def set_letter(
+    session: AsyncSession,
+    class_session_id: uuid.UUID,
+    *,
+    setting: LetterSetting | None,
+    thresholds: dict[str, int] | None,
+    now: datetime,
+) -> None:
+    """Story 12.6 (FR-56): store the letter setting and/or the bounds of A to E (None keeps each)
+    in the caller's transaction, which holds the Class session's row lock and has judged them.
+    Raises `SwitchPinned` when the switch is pinned and something would change."""
+    current = await switch_of(session, class_session_id)
+    changes: dict[str, Any] = {}
+    if setting is not None and setting != current.letter_setting:
+        changes["letter_setting"] = setting
+    if thresholds is not None and thresholds != current.letter_thresholds:
+        changes["letter_thresholds"] = dict(thresholds)
+    if not changes:
+        return
+    if current.pinned:
+        raise SwitchPinned
+    statement = insert(assessment_switches).values(
+        class_session_id=class_session_id, updated_at=now, **changes
+    )
+    await session.execute(
+        statement.on_conflict_do_update(
+            index_elements=[assessment_switches.c.class_session_id],
+            set_={**changes, "updated_at": now},
+            where=assessment_switches.c.pinned_at.is_(None),
+        )
+    )
+
+
+@dataclass(frozen=True)
+class LetterRules:
+    """What decides a Class session's Indicative letter (Story 12.6): the setting in force (the
+    Lecturer's, or `unavailable` when the Institution forbids the letter) and the bounds in
+    force."""
+
+    setting: LetterSetting
+    thresholds: dict[str, int]
+    forced: bool = False
+    """The Institution's no-letter mark made it unavailable."""
+
+
+def letter_rules(switch: Switch, *, institution_forbids: bool) -> LetterRules:
+    """The rules in force for a Class session with `switch`; `institution_forbids` is the
+    Institution's no-letter mark, which the caller reads through `identity.service`."""
+    return LetterRules(
+        setting="unavailable" if institution_forbids else switch.letter_setting,
+        thresholds=switch.letter_thresholds or default_thresholds(),
+        forced=institution_forbids,
+    )
+
+
+LetterReader = Literal["student", "staff", "export", "zip", "report"]
+"""Who a letter is read for (Story 12.6, FR-56, AD-12, C-2): the Student's own view, the staff of
+the Class, an export, a ZIP of reports, or one report (`requested_by_student` says whose ask)."""
+
+
+def letter_for(
+    rules: LetterRules,
+    *,
+    total: float | None,
+    total_max: int | None,
+    ready: bool,
+    opted_in: bool,
+    reader: LetterReader,
+    requested_by_student: bool = False,
+) -> Letter | None:
+    """The Indicative letter a `reader` may be given, or None (Story 12.6, FR-56). None while the
+    assessment is not ready (no total), when the letter is unavailable, and always for an export
+    or a ZIP. The staff get it only when it is shown to everyone; the Student also when they
+    turned it on for themselves (`opted_in`); a report only when the Student asks for it, then as
+    the Student's own view. The letter is `analysis.indicative_letter` of the total over its
+    maximum; it is never an input to Completion."""
+    if not ready or total is None or not total_max or rules.setting == "unavailable":
+        return None
+    if reader in ("export", "zip"):
+        return None
+    if reader == "report":
+        if not requested_by_student:
+            return None
+        reader = "student"
+    shown = rules.setting == "all" or (
+        reader == "student" and rules.setting == "student_choice" and opted_in
+    )
+    if not shown:
+        return None
+    return indicative_letter(total, rules.thresholds, total_max)
+
+
+async def set_letter_choice(attempt_id: uuid.UUID, on: bool) -> bool:
+    """Story 12.6 (FR-56, AD-12): the Student turns the Indicative letter on or off for their own
+    view, stored on their own assessment, idempotently, in a transaction of its own; a change
+    emits `user:<student>` (their other tabs). Not audited: the Student's own view. False when
+    the attempt has no assessment. The caller judges that the choice is open."""
+    async with get_sessionmaker().begin() as s:
+        row = (
+            await s.execute(
+                select(
+                    ai_assessments.c.id, ai_assessments.c.user_id, ai_assessments.c.letter_chosen
+                )
+                .where(ai_assessments.c.attempt_id == attempt_id)
+                .with_for_update()
+            )
+        ).first()
+        if row is None:
+            return False
+        if row.letter_chosen != on:
+            await s.execute(
+                update(ai_assessments).where(ai_assessments.c.id == row.id).values(letter_chosen=on)
+            )
+            await events.emit(s, "user", str(row.user_id))
+            log.info("assessment_letter_chosen", assessment_id=str(row.id), on=on)
+    return True
 
 
 async def assessment_due(
@@ -473,6 +652,8 @@ class AssessmentRecord:
     feedback: dict[str, ItemFeedback] = field(default_factory=dict)
     flags: frozenset[str] = frozenset()
     """Story 12.5: the items whose written feedback the Student marked as wrong."""
+    letter_chosen: bool = False
+    """Story 12.6: the Student turned the Indicative letter on for their own view."""
 
 
 async def assessment_of(s: AsyncSession, attempt_id: uuid.UUID) -> AssessmentRecord | None:
@@ -510,6 +691,7 @@ async def assessment_of(s: AsyncSession, attempt_id: uuid.UUID) -> AssessmentRec
             if each.feedback is not None or each.feedback_note is not None
         },
         flags=frozenset(flagged),
+        letter_chosen=row["letter_chosen"],
     )
 
 

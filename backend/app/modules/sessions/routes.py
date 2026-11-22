@@ -718,6 +718,16 @@ async def save_class_session(
     lock has pinned it) a changed value answers 409 `ai_assessment_pinned`
     (`{"ai_assessment": "pinned"}`). Only the Class's owners change it (`ai_assessment.change`).
 
+    `letter_setting` and `letter_thresholds` (Story 12.6, FR-56), left out, keep the Indicative
+    letter's setting (`all`, `student_choice`, `unavailable`) and the lower bounds of A to E.
+    They change while the «KI-vurdering» switch can (else 409 `ai_assessment_pinned` naming the
+    field), only by the Class's owners. While the Institution forbids the letter, a setting other
+    than `unavailable` answers 409 `letter_unavailable` (`{"letter_setting": "institution"}`).
+    Bounds outside 1 to 100 or not strictly falling answer 422 `invalid_session_values`
+    (`{"letter_thresholds": "out_of_range" | "out_of_order"}`); once a Test attempt exists a
+    change answers 409 `letter_thresholds_locked`. A value equal to the one in force is no
+    change.
+
     `test_sitting` (Story 11.12, FR-51), left out, keeps the Individual test's one timed sitting:
     `{"minutes": n}` sets the time limit in whole minutes, `{"minutes": null}` switches it off. A
     limit outside the configured range answers 422 `invalid_session_values`
@@ -743,6 +753,10 @@ async def save_class_session(
             replay_template=body.replay_template,
             ai_assessment=body.ai_assessment,
             test_sitting=body.test_sitting,
+            letter_setting=body.letter_setting,
+            letter_thresholds=(
+                body.letter_thresholds.model_dump() if body.letter_thresholds else None
+            ),
         )
     except service.InvalidSettings as refused:
         return error_response(
@@ -782,6 +796,8 @@ async def save_class_session(
         service.SessionLocked,
         service.AllocationConfirmed,
         service.AiAssessmentPinned,
+        service.LetterUnavailable,
+        service.LetterThresholdsLocked,
     ) as refused:
         return error_response(409, refused.code, "This can no longer change.", refused.fields)
     if saved is None:

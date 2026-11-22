@@ -92,6 +92,7 @@ from sqlalchemy import Select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import budget, config
+from app.analysis.letter import judge_thresholds
 from app.engine import (
     RULES_VERSION,
     GameSettings,
@@ -169,6 +170,8 @@ from app.modules.sessions.schemas import (
     LabHourIn,
     LabHourOut,
     LecturerOverviewOut,
+    LetterSettingOut,
+    LetterThresholdsOut,
     LlmUnavailable,
     NextDate,
     NextDeadline,
@@ -292,6 +295,20 @@ class AiAssessmentPinned(_FieldsError):
     Story 12.1)."""
 
     code = "ai_assessment_pinned"
+
+
+class LetterUnavailable(_FieldsError):
+    """Story 12.6 (FR-56): the Institution forbids the Indicative letter, so only `unavailable`
+    can be chosen (409 `letter_unavailable`, `{"letter_setting": "institution"}`)."""
+
+    code = "letter_unavailable"
+
+
+class LetterThresholdsLocked(_FieldsError):
+    """Story 12.6 (FR-56): the letter bounds changed once a Test attempt of the Class session has
+    been opened (409 `letter_thresholds_locked`, `{"letter_thresholds": "locked"}`)."""
+
+    code = "letter_thresholds_locked"
 
 
 class ScoringGuideLocked(_FieldsError):
@@ -1019,11 +1036,13 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         labs = await repo.lab_hours_of(s, [session_id]) if row else []
         switch = await assessment.switch_of(s, session_id) if row else assessment.DEFAULT_SWITCH
         sitting = await _sitting_minutes(s, session_id) if row else None
+        attempts = await _attempts_opened(s, session_id) if row else False
     if row is None:
         return None
     found = await _class_for(user, row["class_id"], "class_sessions.read")
     if found is None:
         return None
+    forbids = await identity.institution_forbids_letter(found.institution_id)
     test_game = await _latest_test_game(user, session_id) if lecturer_test_enabled() else None
     unavailable = None
     config_id = row["model_config_id"]
@@ -1097,7 +1116,9 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         effort_level_replaced=effort_level_replaced,
         lecturer_test_enabled=lecturer_test_enabled(),
         test_game=test_game,
-        ai_assessment=_ai_assessment_out(user, found, row, switch, now),
+        ai_assessment=_ai_assessment_out(
+            user, found, row, switch, now, forbids=forbids, attempts=attempts
+        ),
         test_sitting=TestSittingOut(
             minutes=sitting,
             min_minutes=get_settings().test_sitting_min_minutes,
@@ -1122,16 +1143,66 @@ def _ai_assessment_out(
     row: Mapping[str, Any],
     switch: assessment.Switch,
     now: datetime,
+    *,
+    forbids: bool,
+    attempts: bool,
 ) -> AiAssessmentOut:
     is_open = _ai_assessment_open(row, switch, now)
+    can_change = is_open and not found.archived and authz.can(user, "ai_assessment.change", found)
+    rules = assessment.letter_rules(switch, institution_forbids=forbids)
     return AiAssessmentOut(
         enabled=switch.enabled,
         pinned_at=switch.pinned_at,
         open=is_open,
-        can_change=is_open
-        and not found.archived
-        and authz.can(user, "ai_assessment.change", found),
+        can_change=can_change,
+        letter=LetterSettingOut(
+            setting=rules.setting,
+            stored=switch.letter_setting,
+            forced=rules.forced,
+            thresholds=LetterThresholdsOut.model_validate(rules.thresholds),
+            thresholds_open=can_change and not attempts,
+            can_change=can_change,
+        ),
     )
+
+
+AttemptsOpened = Callable[[AsyncSession, uuid.UUID], Awaitable[bool]]
+"""`(session, class_session_id)`: whether any Test attempt of the Class session has been opened
+(Story 12.6: the letter bounds are read-only from then on). `tests` registers it."""
+
+_attempts_readers: list[AttemptsOpened] = []
+
+
+def register_attempts_opened(reader: AttemptsOpened) -> None:
+    """Story 12.6: `tests` registers the reader of whether a Test attempt exists, for `sessions`
+    may not import it. The same one again changes nothing."""
+    if reader not in _attempts_readers:
+        _attempts_readers.append(reader)
+
+
+async def _attempts_opened(s: AsyncSession, class_session_id: uuid.UUID) -> bool:
+    for reader in _attempts_readers:
+        if await reader(s, class_session_id):
+            return True
+    return False
+
+
+async def letter_rules(
+    s: AsyncSession, class_session_id: uuid.UUID
+) -> assessment.LetterRules | None:
+    """Story 12.6 (FR-56): the Indicative letter rules in force for the Class session, read in
+    `s`: the switch row's setting and bounds, and `unavailable` when the Class's Institution
+    forbids the letter (`identity.service`). None for an unknown Class session. For `tests`,
+    whose views hand the letter out through `assessment.letter_for`."""
+    row = await repo.session_row(s, class_session_id)
+    if row is None:
+        return None
+    facts = (await classes.class_facts(s, [row["class_id"]])).get(row["class_id"])
+    forbids = facts is not None and await identity.institution_forbids_letter(
+        facts.institution_id, session=s
+    )
+    switch = await assessment.switch_of(s, class_session_id)
+    return assessment.letter_rules(switch, institution_forbids=forbids)
 
 
 async def _latest_test_game(user: authz.Principal, session_id: uuid.UUID) -> TestGameRefOut | None:
@@ -1182,6 +1253,8 @@ async def save_session(
     replay_template: Mapping[str, Any] | None = None,
     ai_assessment: bool | None = None,
     test_sitting: TestSittingIn | None = None,
+    letter_setting: assessment.LetterSetting | None = None,
+    letter_thresholds: Mapping[str, int] | None = None,
 ) -> ClassSessionOut | None:
     """«Lagre Klasseøkt»: saves the Class session as it stands and emits `session:<id>`. LLM
     players on a Class session with no model config take the active default and its budget row
@@ -1207,8 +1280,14 @@ async def save_session(
     raises `AiAssessmentPinned` once the original Test deadline has passed or the switch is
     pinned. `test_sitting` (Story 11.12), None, keeps the Individual test's one timed sitting; a
     changed limit is judged by `_judge_sitting` and stored through the registered `tests` writer
-    in the same transaction, and raises `SessionLocked` once locked. None when the User may not
-    manage the Class (or change the switch); raises `ClassArchived`."""
+    in the same transaction, and raises `SessionLocked` once locked. `letter_setting` and
+    `letter_thresholds` (Story 12.6), None, keep the Indicative letter's setting and bounds; a
+    change is stored through `assessment.set_letter` in the same transaction while the switch can
+    change (`AiAssessmentPinned` after), only by the switch's owners; a setting other than
+    `unavailable` raises `LetterUnavailable` while the Institution forbids the letter, bounds
+    that break `analysis.letter.judge_thresholds` raise `InvalidSessionValues`, and changed bounds
+    raise `LetterThresholdsLocked` once a Test attempt exists. None when the User may not
+    manage the Class (or change the switch or the letter); raises `ClassArchived`."""
     async with get_sessionmaker().begin() as s:
         row = await repo.session_row(s, session_id)
     found = (
@@ -1290,6 +1369,18 @@ async def save_session(
                     return None
                 if not _ai_assessment_open(row, switch, now):
                     raise AiAssessmentPinned({"ai_assessment": "pinned"})
+            letter = await _judge_letter(
+                s,
+                user,
+                found,
+                row,
+                switch,
+                now,
+                setting=letter_setting,
+                thresholds=letter_thresholds,
+            )
+            if letter is None:
+                return None
             _judge_values(row, share, limit)
             if timing:
                 _judge_sitting(sitting)
@@ -1377,6 +1468,10 @@ async def save_session(
             assert ai_assessment is not None
             # The Class session's row lock, held since the read, keeps `lock_test` out meanwhile.
             await assessment.set_switch(s, session_id, ai_assessment, now=now)
+        if letter.changed:
+            await assessment.set_letter(
+                s, session_id, setting=letter.setting, thresholds=letter.thresholds, now=now
+            )
         if switching and method == "student_choice":
             await _open_student_choice(s, session_id, user.id, students, now)
         await events.emit(s, "session", str(session_id))
@@ -1405,6 +1500,8 @@ async def save_session(
         students_told=len(students) if switched_on else 0,
         student_choice_opened=switching,
         ai_assessment=ai_assessment if switching_assessment else None,
+        letter_setting=letter.setting,
+        letter_thresholds_changed=letter.thresholds is not None,
         test_sitting_changed=timing,
     )
     if changed and locked:
@@ -1413,6 +1510,60 @@ async def save_session(
             "class_session_dates_moved", class_session_id=str(session_id), dates=sorted(changed)
         )
     return await get_session(user, session_id)
+
+
+@dataclass(frozen=True)
+class _LetterChange:
+    """What a save changes of the Indicative letter (Story 12.6): the new setting and bounds, each
+    None when unchanged."""
+
+    setting: assessment.LetterSetting | None = None
+    thresholds: dict[str, int] | None = None
+
+    @property
+    def changed(self) -> bool:
+        return self.setting is not None or self.thresholds is not None
+
+
+async def _judge_letter(
+    s: AsyncSession,
+    user: authz.Principal,
+    found: classes.ClassOut,
+    row: Mapping[str, Any],
+    switch: assessment.Switch,
+    now: datetime,
+    *,
+    setting: assessment.LetterSetting | None,
+    thresholds: Mapping[str, int] | None,
+) -> _LetterChange | None:
+    """Judge a save's letter setting and bounds under the Class session's row lock (Story 12.6,
+    FR-56). A value equal to the one in force is no change. None when the User may not change it
+    (403); raises `AiAssessmentPinned`, `LetterUnavailable`, `InvalidSessionValues` or
+    `LetterThresholdsLocked`."""
+    new_setting = setting if setting is not None and setting != switch.letter_setting else None
+    in_force = switch.letter_thresholds or assessment.default_thresholds()
+    new_bounds = (
+        dict(thresholds) if thresholds is not None and dict(thresholds) != in_force else None
+    )
+    if new_setting is None and new_bounds is None:
+        # The Institution may forbid the letter after the Lecturer chose one: sending that choice
+        # again is no change, but choosing it is refused below.
+        return _LetterChange()
+    if not authz.can(user, "ai_assessment.change", found):
+        return None
+    if not _ai_assessment_open(row, switch, now):
+        pinned = {"letter_setting": "pinned"} if new_setting else {}
+        raise AiAssessmentPinned(pinned | ({"letter_thresholds": "pinned"} if new_bounds else {}))
+    if new_setting is not None and new_setting != "unavailable":
+        if await identity.institution_forbids_letter(found.institution_id, session=s):
+            raise LetterUnavailable({"letter_setting": "institution"})
+    if new_bounds is not None:
+        reason = judge_thresholds(new_bounds)
+        if reason is not None:
+            raise InvalidSessionValues({"letter_thresholds": reason})
+        if await _attempts_opened(s, row["id"]):
+            raise LetterThresholdsLocked({"letter_thresholds": "locked"})
+    return _LetterChange(setting=new_setting, thresholds=new_bounds)
 
 
 def _judge_values(row: Mapping[str, Any], share: int, limit: int) -> None:

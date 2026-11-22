@@ -42,7 +42,12 @@ async def save(session_id: str, email: str = EMAIL["owner"], **body):
 async def read(session_id: str, email: str = EMAIL["owner"]) -> dict:
     response = await call(email, "GET", f"/api/class-sessions/{session_id}")
     assert response.status_code == 200
-    return response.json()["ai_assessment"]
+    return switch(response.json())
+
+
+def switch(body: dict) -> dict:
+    """The switch's own fields (Story 12.6 adds the letter beside them, `test_letter.py`)."""
+    return {k: v for k, v in body["ai_assessment"].items() if k != "letter"}
 
 
 def stored(session_id: str) -> list[tuple]:
@@ -68,14 +73,14 @@ async def test_the_owner_switches_it_off_and_on_and_the_staff_are_told(klass, em
     emitted.clear()
     response = await save(session_id, ai_assessment=False)
     assert response.status_code == 200
-    assert response.json()["ai_assessment"] == {**OPEN, "enabled": False}
+    assert switch(response.json()) == {**OPEN, "enabled": False}
     assert stored(session_id) == [(False, None)]
     assert emitted == [("session", session_id)]
     assert {topic for topic, _ in emitted} <= COMMAND_TOPICS["sessions.save"]
     # Left out, it is kept; sent again unchanged, nothing changes.
     assert (await save(session_id)).json()["ai_assessment"]["enabled"] is False
     assert (await save(session_id, ai_assessment=False)).status_code == 200
-    assert (await save(session_id, ai_assessment=True)).json()["ai_assessment"] == OPEN
+    assert switch((await save(session_id, ai_assessment=True)).json()) == OPEN
     assert stored(session_id) == [(True, None)]
 
 
@@ -189,8 +194,8 @@ async def test_a_copy_takes_the_value_but_not_the_pin(klass, monkeypatch):
     await service.lock_test(source, now=TEST)
     copied = await copy(klass, source)
     assert copied.status_code == 201
-    assert copied.json()["ai_assessment"] == {**OPEN, "enabled": False}
+    assert switch(copied.json()) == {**OPEN, "enabled": False}
     assert stored(copied.json()["id"]) == [(False, None)]
     # A source with the switch on gives the default, with nothing stored.
     plain = (await copy(klass, await new_session(klass))).json()
-    assert plain["ai_assessment"] == OPEN and stored(plain["id"]) == []
+    assert switch(plain) == OPEN and stored(plain["id"]) == []

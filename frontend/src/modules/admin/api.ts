@@ -156,6 +156,26 @@ export function useMarkOperator() {
   });
 }
 
+/** The Institution's no-letter Bryter (Story 12.6, FR-56): saved at once, audited; the list reads
+ * again. */
+export function useSetNoLetter() {
+  const queryClient = useQueryClient();
+  return useMutation<Institution, unknown, { id: string; on: boolean }>({
+    mutationFn: ({ id, on }) =>
+      request(() =>
+        api.PUT("/api/admin/institutions/{institution_id}/no-letter", {
+          params: { path: { institution_id: id } },
+          body: { on },
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: institutionsKey });
+    },
+  });
+}
+
 export type ControlTests = components["schemas"]["ControlTestsOut"];
 export type ControlTest = components["schemas"]["ControlTestOut"];
 export type ControlTestIn = components["schemas"]["ControlTestIn"];

@@ -37,6 +37,7 @@ from app.modules.identity.schemas import (
     InvitationTokenIn,
     LoginIn,
     NewPasswordIn,
+    NoLetterIn,
     PasswordResetIn,
     ResetCheckOut,
     ResetEmailOut,
@@ -597,6 +598,27 @@ async def mark_operator_institution(
     FR-82, AD-27). The mark moves from the Institution that held it; at most one holds it. An
     unknown id is `not_found`."""
     outcome = await service.mark_operator_institution(user.id, institution_id, now=auth.utcnow())
+    return _institution_answer(outcome)
+
+
+@admin_router.put(
+    "/institutions/{institution_id}/no-letter",
+    response_model=InstitutionOut,
+    responses=documented(401, 403, 404, 422),
+    operation_id="setInstitutionNoLetter",
+)
+async def set_institution_no_letter(
+    institution_id: uuid.UUID,
+    body: NoLetterIn,
+    user: Annotated[UserOut, Depends(authz.require("institutions.manage"))],
+) -> Response:
+    """The Institution's no-letter Bryter (Story 12.6, FR-56, FR-3): on, its data protection
+    officer requires that no Indicative letter is shown, so every Class session of the
+    Institution can choose only «unavailable» and no letter is derived or shown. Each change is
+    audited; the same value again writes nothing. An unknown id is `not_found`."""
+    outcome = await service.set_institution_no_letter(
+        user.id, institution_id, body.on, now=auth.utcnow()
+    )
     return _institution_answer(outcome)
 
 

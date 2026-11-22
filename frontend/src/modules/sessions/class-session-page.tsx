@@ -16,6 +16,14 @@ import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { useClass } from "@/modules/classes/api";
+import {
+  boundsBody,
+  boundsChanged,
+  type BoundsDraft,
+  boundsDraftOf,
+  boundsProblem,
+  type LetterChoice,
+} from "@/modules/assessment/letter";
 import { AiAssessmentBlock } from "@/modules/assessment/switch-block";
 import { QuizExclusionsBlock } from "@/modules/debrief/quiz-exclusions";
 import { QuestionSetBlock } from "@/modules/tests/question-set-block";
@@ -187,7 +195,19 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   // Klasseøkt» until the Test deadline, also after the Start date.
   const [aiAssessment, setAiAssessment] = useState<boolean | null>(null);
   const assessmentOpen = item.ai_assessment.can_change;
-  const assessmentBody = assessmentOpen && aiAssessment !== null ? { ai_assessment: aiAssessment } : {};
+  // Veiledende bokstav (Story 12.6, FR-56): the setting and the bounds as chosen, null until
+  // touched, sent with «Lagre Klasseøkt» while the switch can change; the bounds only until a
+  // Student has opened the test, and only when they differ from the ones in force.
+  const letter = item.ai_assessment.letter;
+  const [letterSetting, setLetterSetting] = useState<LetterChoice | null>(null);
+  const [bounds, setBounds] = useState<BoundsDraft | null>(null);
+  const [boundsChecked, setBoundsChecked] = useState(false);
+  const boundsSent = letter.thresholds_open && bounds !== null && boundsChanged(bounds, letter.thresholds);
+  const assessmentBody = {
+    ...(assessmentOpen && aiAssessment !== null ? { ai_assessment: aiAssessment } : {}),
+    ...(letter.can_change && letterSetting !== null ? { letter_setting: letterSetting } : {}),
+    ...(bounds !== null && boundsSent && boundsProblem(bounds) === undefined ? { letter_thresholds: boundsBody(bounds) } : {}),
+  };
   // The Individual test's one timed sitting (Story 11.12) as typed: sent with «Lagre Klasseøkt»
   // when it differs from the stored one, until the Start date; its reason shows once the field is
   // left or the save pressed.
@@ -215,6 +235,18 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
         // stands as text and the next save carries no change of it.
         if (error instanceof ApiRequestError && error.code === "ai_assessment_pinned") {
           setAiAssessment(null);
+          setLetterSetting(null);
+          setBounds(null);
+          void queryClient.invalidateQueries({ queryKey: classSessionKey(item.id), exact: true });
+        }
+        // Story 12.6: the Institution forbade the letter, or a Student opened the test, while the
+        // page was open: read the block again, so it shows what can still be chosen.
+        if (
+          error instanceof ApiRequestError &&
+          (error.code === "letter_unavailable" || error.code === "letter_thresholds_locked")
+        ) {
+          if (error.code === "letter_unavailable") setLetterSetting(null);
+          else setBounds(null);
           void queryClient.invalidateQueries({ queryKey: classSessionKey(item.id), exact: true });
         }
         if (error instanceof ApiRequestError && error.code === "invalid_settings") {
@@ -242,6 +274,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       invalid_session_values: copy.choices.valuesRefused,
       allocation_confirmed: copy.allocation.methodConfirmed,
       ai_assessment_pinned: nb.assessment.switchBlock.refused,
+      letter_unavailable: nb.assessment.letterBlock.refusedForced,
+      letter_thresholds_locked: nb.assessment.letterBlock.refusedLocked,
     },
     onSuccess: (result) => {
       queryClient.setQueryData(classSessionKey(item.id), result);
@@ -255,6 +289,9 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       setChoices(choicesOf(result));
       setMethod(result.allocation_method);
       setAiAssessment(null);
+      setLetterSetting(null);
+      setBounds(null);
+      setBoundsChecked(false);
       setSitting(sittingDraftOf(result));
       setSittingChecked(false);
       setTestTouched(result.test_deadline != null);
@@ -306,18 +343,28 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   const inactivityError =
     (settingsOpen && inactivityChecked ? inactivityProblem(inactivity) : undefined) ?? refusedValues.inactivity;
   const sittingError = (sittingOpen && sittingChecked ? minutesProblem(sitting, item) : undefined) ?? refusedMinutes(action.error, item);
+  // The web's own check of the letter bounds once left or saved, else what the api said of them.
+  const boundsOwnProblem = bounds !== null && boundsSent && boundsChecked ? boundsProblem(bounds) : undefined;
+  const boundsRefused =
+    action.error instanceof ApiRequestError && action.error.code === "invalid_session_values"
+      ? action.error.fields.letter_thresholds
+      : undefined;
+  const boundsReason = boundsOwnProblem ?? (boundsRefused === "out_of_order" || boundsRefused === "out_of_range" ? boundsRefused : undefined);
+  const boundsError = boundsReason ? nb.assessment.letterBlock.errors[boundsReason] : undefined;
   /** Whether the drafts the web checks itself may be sent; shows each reason otherwise. */
   const valuesReady = () => {
     const shareWrong = choosing && choices.obligatory && shareProblem(choices.requiredShare) !== undefined;
     const inactivityWrong = settingsOpen && inactivityProblem(inactivity) !== undefined;
     // Only a change is judged, as the api does: a stored limit is sent again as it is.
     const sittingWrong = sittingOpen && sittingChanged(sitting, item) && minutesProblem(sitting, item) !== undefined;
+    const boundsWrong = bounds !== null && boundsSent && boundsProblem(bounds) !== undefined;
     // Only a field on screen is marked checked, so a share field that opens later is not judged
     // before it is left.
     setShareChecked(choosing && choices.obligatory);
     setInactivityChecked(settingsOpen);
     setSittingChecked(sittingOpen && sitting.on && sittingChanged(sitting, item));
-    return !shareWrong && !inactivityWrong && !sittingWrong;
+    setBoundsChecked(boundsSent);
+    return !shareWrong && !inactivityWrong && !sittingWrong && !boundsWrong;
   };
   const cancelSettings = () => {
     checks.current += 1;
@@ -488,7 +535,19 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
         onLeave={() => setSittingChecked(true)}
       />
       {/* Story 12.1 (FR-61): KI-vurdering, open until the original Test deadline. */}
-      <AiAssessmentBlock item={item} draft={aiAssessment ?? item.ai_assessment.enabled} onChange={setAiAssessment} />
+      <AiAssessmentBlock
+        item={item}
+        draft={aiAssessment ?? item.ai_assessment.enabled}
+        onChange={setAiAssessment}
+        letter={{
+          setting: letterSetting ?? letter.setting,
+          onSetting: setLetterSetting,
+          bounds: bounds ?? boundsDraftOf(letter.thresholds),
+          onBounds: setBounds,
+          boundsError,
+          onBoundsLeave: () => setBoundsChecked(true),
+        }}
+      />
       {saveShown && !lockedSaveUnderDates ? saveRow : null}
       {/* Story 9.10: its own save, since exclusions stay open after the lock until the Test deadline. */}
       <QuizExclusionsBlock classSessionId={item.id} />

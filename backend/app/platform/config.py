@@ -160,6 +160,18 @@ class Settings(BaseSettings):
     # `effective_deadline` (a target until measured); past it the sweep logs it as overdue once
     # and defers its job again when none is alive.
     assessment_overdue_hours: int = Field(24, ge=1, le=240)
+    # Story 12.6 (FR-56). PLACEHOLDERS, to be set after the first Control test: the default lower
+    # bounds of the Indicative letters A to E, in whole percent of the total's maximum, strictly
+    # falling (F is the rest). A Class session that stores none uses these until it is pinned.
+    indicative_letter_thresholds: str = "90,80,60,50,40"
+
+    @field_validator("indicative_letter_thresholds")
+    @classmethod
+    def _letter_bounds(cls, v: str) -> str:
+        from app.analysis.letter import parse_thresholds
+
+        parse_thresholds(v)  # a malformed set refuses at load, naming the variable
+        return v
 
     # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
     # to the `[email:mock]` sender; the compose file never passes a key.

@@ -165,6 +165,29 @@ export interface paths {
         patch: operations["renameInstitution"];
         trace?: never;
     };
+    "/api/admin/institutions/{institution_id}/no-letter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Institution No Letter
+         * @description The Institution's no-letter Bryter (Story 12.6, FR-56, FR-3): on, its data protection
+         *     officer requires that no Indicative letter is shown, so every Class session of the
+         *     Institution can choose only «unavailable» and no letter is derived or shown. Each change is
+         *     audited; the same value again writes nothing. An unknown id is `not_found`.
+         */
+        put: operations["setInstitutionNoLetter"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/institutions/{institution_id}/operator-owned": {
         parameters: {
             query?: never;
@@ -632,6 +655,16 @@ export interface paths {
          *     after the Start date too; once the original Test deadline has passed (and the Test-deadline
          *     lock has pinned it) a changed value answers 409 `ai_assessment_pinned`
          *     (`{"ai_assessment": "pinned"}`). Only the Class's owners change it (`ai_assessment.change`).
+         *
+         *     `letter_setting` and `letter_thresholds` (Story 12.6, FR-56), left out, keep the Indicative
+         *     letter's setting (`all`, `student_choice`, `unavailable`) and the lower bounds of A to E.
+         *     They change while the «KI-vurdering» switch can (else 409 `ai_assessment_pinned` naming the
+         *     field), only by the Class's owners. While the Institution forbids the letter, a setting other
+         *     than `unavailable` answers 409 `letter_unavailable` (`{"letter_setting": "institution"}`).
+         *     Bounds outside 1 to 100 or not strictly falling answer 422 `invalid_session_values`
+         *     (`{"letter_thresholds": "out_of_range" | "out_of_order"}`); once a Test attempt exists a
+         *     change answers 409 `letter_thresholds_locked`. A value equal to the one in force is no
+         *     change.
          *
          *     `test_sitting` (Story 11.12, FR-51), left out, keeps the Individual test's one timed sitting:
          *     `{"minutes": n}` sets the time limit in whole minutes, `{"minutes": null}` switches it off. A
@@ -2723,7 +2756,9 @@ export interface paths {
          * @description The Student's «KI-vurdering» of their Individual test (Story 12.2, FR-54, FR-55, FR-61):
          *     `no_test`, `not_ready`, `switched_off`, `incomplete` (items, the unassessed item numbers, no
          *     total), `failed`, or `ready` (items and the weighted total). Counts toward nothing; no pass
-         *     or fail, no letter. `forbidden` for any session that is not theirs.
+         *     or fail. Story 12.6: `letter` where the Indicative letter is allowed (the setting, the
+         *     Student's own choice and the letter when shown). `forbidden` for any session that is not
+         *     theirs.
          */
         get: operations["getMyAssessment"];
         put?: never;
@@ -2757,6 +2792,30 @@ export interface paths {
          *     Idempotent; answers and refuses as `flagFeedback`.
          */
         delete: operations["unflagFeedback"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/class-sessions/{session_id}/test/assessment/letter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set My Letter Choice
+         * @description «Veiledende bokstav» (Story 12.6, FR-56): the Student turns the Indicative letter on or off
+         *     for their own ready «KI-vurdering» where the Lecturer leaves it to each Student. Stored on
+         *     their own assessment, never served to staff or the Admin; idempotent. Answers the view as it
+         *     now stands. 409 `letter_not_available` when the view offers no such choice (not ready, the
+         *     letter unavailable or shown to everyone); `forbidden` for any session that is not theirs.
+         */
+        put: operations["setMyLetterChoice"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3391,6 +3450,7 @@ export interface components {
             can_change: boolean;
             /** Enabled */
             enabled: boolean;
+            letter: components["schemas"]["LetterSettingOut"];
             /** Open */
             open: boolean;
             /** Pinned At */
@@ -4174,6 +4234,9 @@ export interface components {
             } | null;
             /** Inactivity Limit Hours */
             inactivity_limit_hours?: number | null;
+            /** Letter Setting */
+            letter_setting?: ("all" | "student_choice" | "unavailable") | null;
+            letter_thresholds?: components["schemas"]["LetterThresholdsIn"] | null;
             /** Obligatory */
             obligatory?: boolean | null;
             /** Replay Scenario */
@@ -5454,6 +5517,11 @@ export interface components {
             /** Name */
             name: string;
             /**
+             * No Letter
+             * @default false
+             */
+            no_letter: boolean;
+            /**
              * Operator Owned
              * @default false
              */
@@ -5687,6 +5755,73 @@ export interface components {
             waiting: components["schemas"]["WaitingClass"][];
         };
         /**
+         * LetterChoiceIn
+         * @description Story 12.6: the Student's «Veiledende bokstav» Bryter for their own view, on or off.
+         */
+        LetterChoiceIn: {
+            /** On */
+            on: boolean;
+        };
+        /**
+         * LetterSettingOut
+         * @description The Indicative letter of a Class session (Story 12.6, FR-56), stored by
+         *     `modules/assessment` with the «KI-vurdering» switch.
+         */
+        LetterSettingOut: {
+            /** Can Change */
+            can_change: boolean;
+            /** Forced */
+            forced: boolean;
+            /**
+             * Setting
+             * @enum {string}
+             */
+            setting: "all" | "student_choice" | "unavailable";
+            /**
+             * Stored
+             * @enum {string}
+             */
+            stored: "all" | "student_choice" | "unavailable";
+            thresholds: components["schemas"]["LetterThresholdsOut"];
+            /** Thresholds Open */
+            thresholds_open: boolean;
+        };
+        /**
+         * LetterThresholdsIn
+         * @description Story 12.6 (FR-56): the lower bounds of A to E as JSON integers; the service answers
+         *     `out_of_range` outside 1 to 100 and `out_of_order` unless they fall strictly from A to E. The
+         *     bounds here only keep each value an integer the database can hold.
+         */
+        LetterThresholdsIn: {
+            /** A */
+            A: number;
+            /** B */
+            B: number;
+            /** C */
+            C: number;
+            /** D */
+            D: number;
+            /** E */
+            E: number;
+        };
+        /**
+         * LetterThresholdsOut
+         * @description Story 12.6 (FR-56): the lower bounds of the Indicative letters A to E in whole percent of
+         *     the total's maximum, strictly falling; F is what lies under E.
+         */
+        LetterThresholdsOut: {
+            /** A */
+            A: number;
+            /** B */
+            B: number;
+            /** C */
+            C: number;
+            /** D */
+            D: number;
+            /** E */
+            E: number;
+        };
+        /**
          * Lifecycle
          * @enum {string}
          */
@@ -5835,7 +5970,8 @@ export interface components {
          *     - `failed`: no AI assessment could be made; no items, no total;
          *     - `ready`: every item scored, with `total` out of `total_max` from `analysis.total_score`.
          *
-         *     There is no pass or fail and no letter. Every number is the api's; the web app adds nothing.
+         *     There is no pass or fail. Story 12.6: `letter` where the Indicative letter is allowed. Every
+         *     number is the api's; the web app adds nothing.
          */
         MyAssessmentOut: {
             /**
@@ -5845,6 +5981,7 @@ export interface components {
             checked: boolean;
             /** Items */
             items: components["schemas"]["AssessedItemOut"][];
+            letter?: components["schemas"]["MyLetterOut"] | null;
             /**
              * State
              * @enum {string}
@@ -5863,6 +6000,25 @@ export interface components {
          */
         MyExplanationOut: {
             explanation: components["schemas"]["ExplanationOut"] | null;
+        };
+        /**
+         * MyLetterOut
+         * @description The Indicative letter on the Student's own ready «KI-vurdering» (Story 12.6, FR-56): an
+         *     AI-generated indication from the total, never a grade. `setting` is `all` (the Lecturer shows it
+         *     to everyone) or `student_choice` (the Student may turn it on for their own view: `chosen`);
+         *     `value` is the letter when it is shown, else null. Absent (null `letter`) while the assessment
+         *     is not ready or the letter is unavailable.
+         */
+        MyLetterOut: {
+            /** Chosen */
+            chosen: boolean;
+            /**
+             * Setting
+             * @enum {string}
+             */
+            setting: "all" | "student_choice";
+            /** Value */
+            value: ("A" | "B" | "C" | "D" | "E" | "F") | null;
         };
         /**
          * MyMessageOut
@@ -6032,6 +6188,14 @@ export interface components {
              * @enum {string}
              */
             kind: "start" | "play" | "debrief" | "test";
+        };
+        /**
+         * NoLetterIn
+         * @description Story 12.6: the Institution's no-letter Bryter, on or off.
+         */
+        NoLetterIn: {
+            /** On */
+            on: boolean;
         };
         /**
          * OfferedEffortLevelOut
@@ -7594,6 +7758,8 @@ export interface components {
             checked: boolean;
             /** Items */
             items: components["schemas"]["AssessedItemOut"][];
+            /** Letter */
+            letter?: ("A" | "B" | "C" | "D" | "E" | "F") | null;
             /**
              * State
              * @enum {string}
@@ -9144,6 +9310,68 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    setInstitutionNoLetter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                institution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoLetterIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -15942,6 +16170,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    setMyLetterChoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LetterChoiceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyAssessmentOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

@@ -231,6 +231,51 @@ class TestSittingIn(BaseModel):
     range. The bounds here only keep the value an integer the database holds."""
 
 
+class LetterThresholdsOut(BaseModel):
+    """Story 12.6 (FR-56): the lower bounds of the Indicative letters A to E in whole percent of
+    the total's maximum, strictly falling; F is what lies under E."""
+
+    A: int
+    B: int
+    C: int
+    D: int
+    E: int
+
+
+class LetterThresholdsIn(BaseModel):
+    """Story 12.6 (FR-56): the lower bounds of A to E as JSON integers; the service answers
+    `out_of_range` outside 1 to 100 and `out_of_order` unless they fall strictly from A to E. The
+    bounds here only keep each value an integer the database can hold."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    A: StrictInt = Field(ge=-1000, le=1000)
+    B: StrictInt = Field(ge=-1000, le=1000)
+    C: StrictInt = Field(ge=-1000, le=1000)
+    D: StrictInt = Field(ge=-1000, le=1000)
+    E: StrictInt = Field(ge=-1000, le=1000)
+
+
+class LetterSettingOut(BaseModel):
+    """The Indicative letter of a Class session (Story 12.6, FR-56), stored by
+    `modules/assessment` with the «KI-vurdering» switch."""
+
+    setting: Literal["all", "student_choice", "unavailable"]
+    """In force: `unavailable` whenever the Institution forbids the letter (`forced`)."""
+    stored: Literal["all", "student_choice", "unavailable"]
+    """What the Lecturer saved; `student_choice` by default."""
+    forced: bool
+    """The Institution's data protection officer requires that no letter is shown: only
+    `unavailable` can be chosen, and no letter is derived even where one was turned on."""
+    thresholds: LetterThresholdsOut
+    """In force: the stored bounds, or the configured defaults (placeholders)."""
+    thresholds_open: bool
+    """The bounds can still change: `can_change`, and no Test attempt of the Class session has
+    been opened."""
+    can_change: bool
+    """The reader may change the setting now: as `AiAssessmentOut.can_change`."""
+
+
 class AiAssessmentOut(BaseModel):
     """The «KI-vurdering» switch of a Class session (Story 12.1, FR-61), stored by
     `modules/assessment`."""
@@ -245,6 +290,8 @@ class AiAssessmentOut(BaseModel):
     can_change: bool
     """The reader may change it now: an owner of a Class that is not archived, while `open`.
     Assistant lecturers read it only (AD-12)."""
+    letter: LetterSettingOut
+    """Story 12.6 (FR-56): the Indicative letter's setting and bounds."""
 
 
 class ClassSessionOut(BaseModel):
@@ -459,6 +506,12 @@ class ClassSessionSaveIn(BaseModel):
     ai_assessment: bool | None = None
     """Story 12.1 (FR-61): the «KI-vurdering» switch on or off; left out, kept. It can change
     after the Start date, until the original Test deadline."""
+    letter_setting: Literal["all", "student_choice", "unavailable"] | None = None
+    """Story 12.6 (FR-56): the Indicative letter setting; left out, kept. It changes while the
+    «KI-vurdering» switch can."""
+    letter_thresholds: LetterThresholdsIn | None = None
+    """Story 12.6 (FR-56): the lower bounds of A to E; left out, kept. Read-only once the first
+    Test attempt of the Class session has been opened."""
     test_sitting: TestSittingIn | None = None
     """Story 11.12 (FR-51): one timed sitting with its time limit, or `{"minutes": null}` for
     none; left out, kept. Frozen at the Start date."""

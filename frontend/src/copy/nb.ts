@@ -2239,6 +2239,19 @@ export const nb = {
         failed: "Merket ble ikke lagret. Prøv igjen.",
         help: "Kontrolltester settes opp i operatørens egen Institusjon. Bare én Institusjon kan ha merket.",
       },
+      /** Story 12.6 (FR-56, FR-3): the Bryter that forbids the Indicative letter in every Class
+       * session of the Institution, saved at once. [ASSUMPTION] */
+      noLetter: {
+        column: "Veiledende bokstav",
+        /** The Bryter's state words. */
+        on: "Sperret",
+        off: "Faglærer velger",
+        /** The Bryter's name in a row: «Sperr veiledende bokstav for USN». */
+        name: (name: string) => `Sperr veiledende bokstav for ${name}`,
+        saved: (name: string, on: boolean) =>
+          on ? `Veiledende bokstav er sperret for ${name}.` : `${name}: faglærer velger igjen om veiledende bokstav vises.`,
+        failed: "Valget ble ikke lagret. Prøv igjen.",
+      },
       rename: {
         open: (name: string) => `Gi ${name} nytt navn`,
         field: (name: string) => `Nytt navn på ${name}`,
@@ -3233,6 +3246,44 @@ export const nb = {
       /** The save refused (`ai_assessment_pinned`). [ASSUMPTION] */
       refused: "KI-vurdering kan ikke endres etter testfristen. Valget er låst.",
     },
+    /** Story 12.6 (FR-56, UX-DR12): the Indicative letter in the Klasseøkt's «KI-vurdering». The
+     * name «Veiledende bokstav» is the spine's; the rest is [ASSUMPTION] draft copy. */
+    letterBlock: {
+      title: "Veiledende bokstav",
+      legend: "Hvem ser bokstaven",
+      options: {
+        all: "Vist for alle",
+        student_choice: "Studenten velger",
+        unavailable: "Ikke tilgjengelig",
+      },
+      /** The scope of each setting, under the Valgknapper. [ASSUMPTION] */
+      scope: {
+        all: "Alle studentene i denne Klasseøkten ser en bokstav ved summen sin, og faglærerne ser den også.",
+        student_choice: "Hver student kan slå bokstaven på for sin egen visning. Faglærerne ser aldri en bokstav studenten har slått på.",
+        unavailable: "Ingen i denne Klasseøkten ser en bokstav.",
+      },
+      /** Always under the choice: what the letter is. [ASSUMPTION] */
+      note: "Bokstaven regnes fra den vektede summen. Den er KI-generert, teller ikke og er ingen karakter.",
+      /** The Institution forbids it. [ASSUMPTION] */
+      forced: "Institusjonen har sperret veiledende bokstav etter krav fra personvernombudet. Bare «Ikke tilgjengelig» kan velges.",
+      thresholdsTitle: "Grenser",
+      thresholdsLead: "Laveste andel av maksimal sum, i prosent, for hver bokstav. Grensene må synke fra A til E.",
+      /** The bound field's label: «A fra (%)». */
+      bound: (letter: string) => `${letter} fra (%)`,
+      /** F has no field. */
+      rest: "F: under grensen for E",
+      /** One bound as text once read-only: «A fra 90 %». */
+      boundText: (letter: string, value: string) => `${letter} fra ${value} %`,
+      /** Why the bounds no longer change. [ASSUMPTION] */
+      thresholdsLocked: "Grensene kan ikke endres etter at den første studenten har åpnet testen.",
+      /** The web's own checks and the api's refusals. [ASSUMPTION] */
+      errors: {
+        out_of_range: "Skriv hele tall fra 1 til 100.",
+        out_of_order: "Grensene må synke fra A til E.",
+      },
+      refusedLocked: "Grensene kan ikke endres lenger: en student har åpnet testen.",
+      refusedForced: "Institusjonen har sperret veiledende bokstav. Valget ble ikke lagret.",
+    },
     /** Story 12.2 (FR-54, FR-55, FR-61, UX-DR66): the Student's «KI-vurdering» of their
      * Individual test. The disclosure, «kommer innen ett døgn» and the switched-off line are the
      * spine's; the rest is [ASSUMPTION] draft copy for the founder's review. */
@@ -3286,6 +3337,21 @@ export const nb = {
       /** Story 12.3 (FR-81, AD-27): the spine's line while the Scoring guide is not checked with the model by a Control
        * test. */
       unchecked: "Ikke kontrollert med en Kontrolltest.",
+    },
+    /** Story 12.6 (FR-56, UX-DR66): the Indicative letter beside the total. «Veiledende bokstav» is
+     * the spine's; the rest is [ASSUMPTION] draft copy for the founder's review. */
+    letter: {
+      /** The Student's Bryter. */
+      control: "Veiledende bokstav",
+      on: "Vist",
+      off: "Skjult",
+      /** Beside the Bryter: whom it concerns. [ASSUMPTION] */
+      help: "Bare du ser bokstaven når du slår den på. Faglærer ser den ikke.",
+      /** The letter itself: «Veiledende bokstav: B». */
+      value: (letter: string) => `Veiledende bokstav: ${letter}`,
+      /** The label under the letter, the same for the Student and the staff. [ASSUMPTION] */
+      label: "KI-generert indikasjon. Teller ikke. Ingen karakter.",
+      failed: "Det ble ikke lagret. Prøv igjen.",
     },
     /** Story 12.5 (FR-55, UX-DR39, UX-DR59): the Student's flag under a piece of feedback. The
      * spine's words. */

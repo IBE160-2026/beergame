@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue, StrictBool
 
 from app.modules.content.schemas import GUIDE_TEXT_MAX
 from app.modules.tests.models import Choice
@@ -430,6 +430,26 @@ class AssessedItemOut(BaseModel):
     ai: AiScoreOut | None
 
 
+class MyLetterOut(BaseModel):
+    """The Indicative letter on the Student's own ready «KI-vurdering» (Story 12.6, FR-56): an
+    AI-generated indication from the total, never a grade. `setting` is `all` (the Lecturer shows it
+    to everyone) or `student_choice` (the Student may turn it on for their own view: `chosen`);
+    `value` is the letter when it is shown, else null. Absent (null `letter`) while the assessment
+    is not ready or the letter is unavailable."""
+
+    setting: Literal["all", "student_choice"]
+    chosen: bool
+    value: Literal["A", "B", "C", "D", "E", "F"] | None
+
+
+class LetterChoiceIn(BaseModel):
+    """Story 12.6: the Student's «Veiledende bokstav» Bryter for their own view, on or off."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    on: StrictBool
+
+
 class MyAssessmentOut(BaseModel):
     """The Student's «KI-vurdering» of their Individual test (Story 12.2, FR-54, FR-55, FR-61):
 
@@ -441,7 +461,8 @@ class MyAssessmentOut(BaseModel):
     - `failed`: no AI assessment could be made; no items, no total;
     - `ready`: every item scored, with `total` out of `total_max` from `analysis.total_score`.
 
-    There is no pass or fail and no letter. Every number is the api's; the web app adds nothing."""
+    There is no pass or fail. Story 12.6: `letter` where the Indicative letter is allowed. Every
+    number is the api's; the web app adds nothing."""
 
     state: Literal["no_test", "not_ready", "switched_off", "incomplete", "failed", "ready"]
     items: list[AssessedItemOut]
@@ -452,6 +473,9 @@ class MyAssessmentOut(BaseModel):
     """Story 12.3 (FR-81, AD-27): whether a Control test has checked the pinned Scoring guide
     version with the assessment's model config (`content.service.is_checked`); while false the
     view says «Ikke kontrollert med en Kontrolltest.»."""
+    letter: MyLetterOut | None = None
+    """Story 12.6 (FR-56): the Indicative letter and the Student's own choice; null while not
+    ready or where the letter is unavailable."""
 
 
 AssessmentState = Literal["no_test", "not_ready", "switched_off", "incomplete", "failed", "ready"]
@@ -469,6 +493,10 @@ class StaffAssessmentOut(BaseModel):
     total: float | None
     total_max: int | None
     checked: bool = False
+    letter: Literal["A", "B", "C", "D", "E", "F"] | None = None
+    """Story 12.6 (FR-56, AD-12): the Indicative letter only when the Lecturer shows it to everyone
+    in the Class session, with the same label as the Student's; never a letter the Student turned
+    on for themselves, and never their choice."""
 
 
 class AssessmentRowOut(BaseModel):

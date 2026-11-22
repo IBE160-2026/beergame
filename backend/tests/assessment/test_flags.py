@@ -173,10 +173,23 @@ async def test_the_staff_read_the_students_view_with_its_flags(klass, monkeypatc
         assert read.headers["cache-control"] == "no-store"
         body = read.json()
         # The same scores, feedback, notes and unchecked notice as the Student, and the flag.
-        assert body == own
+        assert {k: v for k, v in body.items() if k != "letter"} == {
+            k: v for k, v in own.items() if k != "letter"
+        }
         assert item_of(body)["ai"]["flagged"] is True
-        # Nothing only the Student sees: exactly these fields (Story 12.6's letter stays out).
-        assert set(body) == {"state", "items", "unassessed", "total", "total_max", "checked"}
+        # Nothing only the Student sees: exactly these fields. Story 12.6: the staff's own letter
+        # (null unless shown to everyone), never the Student's letter block or choice.
+        assert set(body) == {
+            "state",
+            "items",
+            "unassessed",
+            "total",
+            "total_max",
+            "checked",
+            "letter",
+        }
+        assert body["letter"] is None
+        assert own["letter"] == {"setting": "student_choice", "chosen": False, "value": None}
     # A Student who opened no test reads `no_test` for the staff.
     other = (await call(LECTURER, "GET", staff_url(session_id, email(1)))).json()
     assert other["state"] == "no_test" and other["items"] == []

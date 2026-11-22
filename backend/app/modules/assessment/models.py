@@ -66,6 +66,15 @@ assessment_switches = Table(
     # change after the pin, the pinned columns never.
     Column("stopped_at", DateTime(timezone=True), nullable=True),
     Column("stopped_by", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+    # Story 12.6 (FR-56): the Indicative letter setting (`all`, `student_choice`, `unavailable`)
+    # and the lower bounds of A to E in whole percent (NULL: the configured defaults until the
+    # pin stores the ones in force). Both are pinned with the switch.
+    Column("letter_setting", Text, nullable=False, server_default="student_choice"),
+    Column("letter_thresholds", JSONB(none_as_null=True), nullable=True),
+    CheckConstraint(
+        "letter_setting IN ('all', 'student_choice', 'unavailable')",
+        name="ck_assessment_switches_letter_setting",
+    ),
 )
 
 ai_assessments = Table(
@@ -96,6 +105,9 @@ ai_assessments = Table(
     # and when the sweep logged the assessment as overdue, once.
     Column("due_at", DateTime(timezone=True), nullable=True),
     Column("overdue_at", DateTime(timezone=True), nullable=True),
+    # Story 12.6 (FR-56, AD-12): the Student turned the Indicative letter on for their own view;
+    # never served to staff or the Admin.
+    Column("letter_chosen", Boolean, nullable=False, server_default=text("false")),
     UniqueConstraint("attempt_id", name="uq_ai_assessments_attempt"),
     CheckConstraint("status IN ('incomplete', 'ready', 'failed')", name="ck_ai_assessments_status"),
     CheckConstraint("runs >= 0", name="ck_ai_assessments_runs"),

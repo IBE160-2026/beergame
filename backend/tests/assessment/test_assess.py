@@ -334,6 +334,7 @@ async def test_with_the_pinned_switch_off_nothing_is_assessed(klass, monkeypatch
         "total": None,
         "total_max": None,
         "checked": False,
+        "letter": None,
     }
 
 

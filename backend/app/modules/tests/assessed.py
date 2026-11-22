@@ -25,7 +25,13 @@ Story 12.5 (FR-55, FR-5, AD-12): each AI item carries `flagged`; `set_flag` is t
 «Marker som feil» and «Angre» on a piece of feedback their view shows (`NotFlaggable` for any
 other item). `staff_read` is the same view for the staff of the Class (`ai_assessments.read`:
 owners and Assistant lecturers) under its own schema, and `staff_list` each Student of the Class
-with the state of their assessment and their flag count. Every other caller gets None (403)."""
+with the state of their assessment and their flag count. Every other caller gets None (403).
+
+Story 12.6 (FR-56, AD-12): the ready view carries the Indicative letter as `assessment.letter_for`
+gives it to the reader: the Student's own view (`letter`: the setting, their choice and the letter
+when shown), the staff view only the letter shown to everyone. `set_letter_choice` is the
+Student's «Veiledende bokstav» Bryter (`LetterNotAvailable` unless the letter is theirs to
+choose). `attempts_opened` tells `sessions` when the letter bounds become read-only."""
 
 import uuid
 from collections.abc import Mapping
@@ -33,6 +39,7 @@ from typing import Any
 
 import structlog
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analysis import adapted as adapted_rules
 from app.analysis.facts import FactSet
@@ -56,6 +63,7 @@ from app.modules.tests.schemas import (
     FeedbackOut,
     FeedbackPartOut,
     MyAssessmentOut,
+    MyLetterOut,
     StaffAssessmentOut,
     WordingOut,
 )
@@ -64,10 +72,13 @@ from app.platform.db import get_sessionmaker
 
 __all__ = [
     "AI_TYPES",
+    "LetterNotAvailable",
     "NotFlaggable",
+    "attempts_opened",
     "read",
     "read_for_assessment",
     "set_flag",
+    "set_letter_choice",
     "staff_list",
     "staff_read",
 ]
@@ -193,6 +204,20 @@ async def read_for_assessment(attempt_id: uuid.UUID) -> assessment.AttemptToAsse
 assessment.register_attempt_reader(read_for_assessment)
 
 
+async def attempts_opened(s: AsyncSession, class_session_id: uuid.UUID) -> bool:
+    """Story 12.6 (FR-56): whether any Test attempt of the Class session has been opened, read in
+    `s` (a save holding the Class session's row lock: an attempt opens under its share lock)."""
+    found = await s.scalar(
+        select(test_attempts.c.id)
+        .where(test_attempts.c.class_session_id == class_session_id)
+        .limit(1)
+    )
+    return found is not None
+
+
+sessions.register_attempts_opened(attempts_opened)
+
+
 def _state(state: str) -> MyAssessmentOut:
     return MyAssessmentOut(state=state, items=[], unassessed=[], total=None, total_max=None)  # type: ignore[arg-type]
 
@@ -301,6 +326,7 @@ async def _view(
         ).all()
         stored = {each.item_id: each.score for each in saved}
         answers = {each.item_id: each.value for each in saved}
+        rules = await sessions.letter_rules(s, class_session_id)
     checked = record.scoring_guide_id is not None and await content.is_checked(
         record.scoring_guide_id, record.model_config_id
     )
@@ -360,14 +386,38 @@ async def _view(
     if not ready and not unassessed:
         # A later run stored the last score and has not settled the state yet: no list to show.
         return _state("not_ready"), attempt["id"]
+    total_max = sum(weights.values())
     return MyAssessmentOut(
         state="ready" if ready else "incomplete",
         items=items,
         unassessed=unassessed,
         total=total if ready else None,
-        total_max=sum(weights.values()) if ready else None,
+        total_max=total_max if ready else None,
         checked=checked,
+        letter=_own_letter(rules, total, total_max, ready=ready, chosen=record.letter_chosen),
     ), attempt["id"]
+
+
+def _own_letter(
+    rules: assessment.LetterRules | None,
+    total: float | None,
+    total_max: int,
+    *,
+    ready: bool,
+    chosen: bool,
+) -> MyLetterOut | None:
+    """The Student's own Indicative letter block (Story 12.6): null while not ready or where the
+    letter is unavailable; else the setting, their choice and the letter `letter_for` gives the
+    Student."""
+    if rules is None or not ready or rules.setting == "unavailable":
+        return None
+    return MyLetterOut(
+        setting=rules.setting,
+        chosen=chosen,
+        value=assessment.letter_for(
+            rules, total=total, total_max=total_max, ready=ready, opted_in=chosen, reader="student"
+        ),
+    )
 
 
 class NotFlaggable(Exception):
@@ -401,6 +451,33 @@ async def set_flag(
     return after
 
 
+class LetterNotAvailable(Exception):
+    """409 `letter_not_available`: the Student's view offers no «Veiledende bokstav» Bryter now
+    (not ready, the letter unavailable, or shown to everyone already)."""
+
+    code = "letter_not_available"
+
+
+async def set_letter_choice(
+    user: authz.Principal, class_session_id: uuid.UUID, on: bool
+) -> MyAssessmentOut | None:
+    """The Student's «Veiledende bokstav» Bryter (Story 12.6, FR-56): the letter on or off for
+    their own view only, idempotent; answers the view as it now stands. None (403) for every caller
+    but the Student of the Class session; raises `LetterNotAvailable` unless their ready view
+    leaves the letter to them."""
+    async with get_sessionmaker()() as s:
+        found = await sessions.individual_test_session_of(s, user, class_session_id)
+    if found is None:
+        return None
+    view, attempt_id = await _view(class_session_id, user.id)
+    if attempt_id is None or view.letter is None or view.letter.setting != "student_choice":
+        raise LetterNotAvailable
+    if not await assessment.set_letter_choice(attempt_id, on):
+        raise LetterNotAvailable
+    after, _ = await _view(class_session_id, user.id)
+    return after
+
+
 async def staff_read(
     user: authz.Principal, class_session_id: uuid.UUID, student_id: uuid.UUID
 ) -> StaffAssessmentOut | None:
@@ -414,8 +491,21 @@ async def staff_read(
     ):
         return None
     view, _ = await _view(class_session_id, student_id)
-    # Field by field: whatever only the Student's own view carries stays out (AD-12).
-    return StaffAssessmentOut.model_validate(view.model_dump())
+    async with get_sessionmaker()() as s:
+        rules = await sessions.letter_rules(s, class_session_id)
+    # Field by field: whatever only the Student's own view carries stays out (AD-12); the letter
+    # is the staff's own read, never the Student's choice (Story 12.6).
+    staff = StaffAssessmentOut.model_validate(view.model_dump(exclude={"letter"}))
+    if rules is not None:
+        staff.letter = assessment.letter_for(
+            rules,
+            total=view.total,
+            total_max=view.total_max,
+            ready=view.state == "ready",
+            opted_in=False,
+            reader="staff",
+        )
+    return staff
 
 
 async def staff_list(

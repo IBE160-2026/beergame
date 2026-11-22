@@ -39,3 +39,26 @@ module imports no other module (`tests/test_imports.py`).
   (`StaffAssessmentOut`, a separate schema so a Student-only field never reaches staff) and
   `GET /api/class-sessions/{id}/assessments`, both `ai_assessments.read` (owners and Assistant
   lecturers of the Class; never the Admin role alone).
+
+## The Indicative letter (Story 12.6, FR-56, AD-1, AD-12)
+
+- Migration 0206: `assessment_switches.letter_setting` (`all`, `student_choice` by default,
+  `unavailable`) and `letter_thresholds` (the lower bounds of A to E in whole percent of the
+  total's maximum; NULL for the configured defaults, `indicative_letter_thresholds`), both pinned
+  with the switch (the pin stores the bounds in force; the trigger refuses a later change);
+  `ai_assessments.letter_chosen`, the Student's own opt-in; `institutions.no_letter` (owned by
+  `identity`).
+- `set_letter(s, id, setting=, thresholds=, now=)` stores what «Lagre Klasseøkt» judged
+  (`sessions._judge_letter`: owners only, while the switch can change, bounds read-only once a Test
+  attempt exists, only `unavailable` while the Institution forbids the letter); `copy_switch` also
+  copies the letter setting and the stored bounds.
+- `letter_rules(switch, institution_forbids=)` is the rule in force; `sessions.letter_rules(s, id)`
+  reads the Institution's mark through `identity.service` for `tests`.
+- `letter_for(rules, total=, total_max=, ready=, opted_in=, reader=, requested_by_student=)` is
+  the one place that decides who gets a letter: the Student's own view (`all`, or their opt-in),
+  the staff only when `all`, never an export or a ZIP, a report only when the Student asks for it.
+  The letter itself is `analysis.indicative_letter` only; none for an assessment that is not
+  ready. It is never an input to Completion (Epic 13 asserts that).
+- `set_letter_choice(attempt_id, on)` stores the Student's «Veiledende bokstav» (emits `user`, not
+  audited); `tests.assessed.set_letter_choice` judges first that the view leaves the letter to them
+  (409 `letter_not_available`).

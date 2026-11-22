@@ -40,6 +40,18 @@ export function setFeedbackFlag(classSessionId: string, itemId: string, flagged:
   );
 }
 
+/** «Veiledende bokstav» (Story 12.6, FR-56): the Student turns the Indicative letter on or off for
+ * their own view; answers the view as it now stands; 409 `letter_not_available` when the view
+ * offers no such choice. */
+export function setLetterChoice(classSessionId: string, on: boolean) {
+  return request(() =>
+    api.PUT("/api/me/class-sessions/{session_id}/test/assessment/letter", {
+      params: { path: { session_id: classSessionId } },
+      body: { on },
+    }),
+  );
+}
+
 /** A Student's «KI-vurdering» as the staff of their Class read it (Story 12.5). */
 export type StaffAssessment = components["schemas"]["StaffAssessmentOut"];
 /** The Klasseøkt's list of the Students' AI assessments (Story 12.5). */

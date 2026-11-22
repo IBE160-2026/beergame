@@ -9,9 +9,17 @@ import { HOME_LINK, HOME_PATH } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { itemLabel, itemLines } from "@/modules/tests/individual-test";
 
-import { type AssessedItem, type ItemFeedback, type MyAssessment, myAssessmentKey, useMyAssessment } from "./api";
+import {
+  type AssessedItem,
+  type ItemFeedback,
+  type MyAssessment,
+  myAssessmentKey,
+  type StaffAssessment,
+  useMyAssessment,
+} from "./api";
 import { flagCountText, pointsText, scoreText, stateLine, totalText, type Viewer } from "./assessment";
 import { FlagControl } from "./flag-control";
+import { LetterControl, LetterLine } from "./letter-control";
 
 const copy = nb.assessment.student;
 const LINE = "text-body-phone lg:text-body";
@@ -23,7 +31,7 @@ const ITEMS_HEADING_ID = "assessment-items";
  * ta feil. Teller ikke. Ingen karakter.»; then one line for a state with nothing to show (not
  * ready, switched off, no test, failed), or each item in the test's order with its score in words
  * and its points of its weight, and, when every item has a score, the weighted total. There is no
- * pass or fail and no letter. Every number is the api's (AD-10), through the number formatter.
+ * pass or fail. Every number is the api's (AD-10), through the number formatter.
  * Another Student's or an unknown session shows the permission-denied page.
  *
  * Story 12.3 (FR-34, FR-54, FR-81, UX-DR66, UX-DR69): under an AI item's score its written
@@ -32,6 +40,9 @@ const ITEMS_HEADING_ID = "assessment-items";
  * not checked by a Control test, «Ikke kontrollert med en Kontrolltest.» under the disclosure.
  *
  * Story 12.5 (FR-55, UX-DR39): under each piece of feedback the Student's «Marker som feil».
+ *
+ * Story 12.6 (FR-56, UX-DR66): beside the total, the Indicative letter where it is allowed, and the
+ * Student's own «Veiledende bokstav» Bryter where the Lecturer leaves it to them.
  */
 export function AssessmentPage({ classSessionId }: { classSessionId: string }) {
   return (
@@ -62,7 +73,8 @@ type HeadingLevel = 2 | 3;
  * the staff of their Class in the Studentside's block: the same disclosure, unchecked notice,
  * scores, feedback and dropped-feedback notes. The Student flags feedback (`classSessionId`); the
  * staff read which pieces the Student flagged, in words. `level` is the heading level of
- * «Oppgavene»; each item's heading is one below it.
+ * «Oppgavene»; each item's heading is one below it. The letter (Story 12.6): the Student's own
+ * block with their Bryter, or for the staff only a letter shown to everyone.
  */
 export function AssessmentView({
   assessment,
@@ -70,7 +82,7 @@ export function AssessmentView({
   classSessionId,
   level = 2,
 }: {
-  assessment: MyAssessment;
+  assessment: MyAssessment | StaffAssessment;
   viewer: Viewer;
   classSessionId?: string;
   level?: HeadingLevel;
@@ -112,10 +124,29 @@ export function AssessmentView({
         <div data-total className="mt-6 border-t border-axis pt-4">
           <p className="text-step-title font-semibold text-ink tabular-nums">{total}</p>
           <p className={`${LINE} mt-1 text-ink-secondary`}>{copy.totalNote}</p>
+          <Letter assessment={assessment} viewer={viewer} classSessionId={classSessionId} />
         </div>
       ) : null}
     </div>
   );
+}
+
+/** The letter beside the total: the Student's own block (`MyAssessment.letter`), or the letter
+ * the staff may read (`StaffAssessment.letter`, only when shown to everyone). */
+function Letter({
+  assessment,
+  viewer,
+  classSessionId,
+}: {
+  assessment: MyAssessment | StaffAssessment;
+  viewer: Viewer;
+  classSessionId?: string;
+}) {
+  const letter = assessment.letter;
+  if (letter == null) return null;
+  if (typeof letter === "string") return viewer === "staff" ? <LetterLine value={letter} /> : null;
+  if (viewer !== "student" || !classSessionId) return null;
+  return <LetterControl classSessionId={classSessionId} letter={letter} />;
 }
 
 /** One item: «Oppgave 3», its type, the question, the score in words, any computed criteria, and

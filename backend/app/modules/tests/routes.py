@@ -37,6 +37,7 @@ from app.modules.tests.schemas import (
     AssessmentListOut,
     DeadlineExtensionIn,
     FinalIn,
+    LetterChoiceIn,
     MyAssessmentOut,
     MyTestOut,
     QuestionSetIn,
@@ -296,7 +297,9 @@ async def get_my_assessment(
     """The Student's «KI-vurdering» of their Individual test (Story 12.2, FR-54, FR-55, FR-61):
     `no_test`, `not_ready`, `switched_off`, `incomplete` (items, the unassessed item numbers, no
     total), `failed`, or `ready` (items and the weighted total). Counts toward nothing; no pass
-    or fail, no letter. `forbidden` for any session that is not theirs."""
+    or fail. Story 12.6: `letter` where the Indicative letter is allowed (the setting, the
+    Student's own choice and the letter when shown). `forbidden` for any session that is not
+    theirs."""
     found = await assessed.read(user, _id(session_id))
     if found is None:
         raise authz.Forbidden
@@ -347,6 +350,33 @@ async def unflag_feedback(
     """«Angre» (Story 12.5, FR-55): the Student takes their flag on one item's feedback back.
     Idempotent; answers and refuses as `flagFeedback`."""
     return await _flag(user, session_id, item_id, False)
+
+
+@router.put(
+    f"{_TEST}/assessment/letter",
+    response_model=MyAssessmentOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="setMyLetterChoice",
+)
+async def set_my_letter_choice(
+    session_id: str,
+    body: LetterChoiceIn,
+    user: Annotated[authz.Principal, Depends(authz.require("tests.take_own"))],
+) -> Response:
+    """«Veiledende bokstav» (Story 12.6, FR-56): the Student turns the Indicative letter on or off
+    for their own ready «KI-vurdering» where the Lecturer leaves it to each Student. Stored on
+    their own assessment, never served to staff or the Admin; idempotent. Answers the view as it
+    now stands. 409 `letter_not_available` when the view offers no such choice (not ready, the
+    letter unavailable or shown to everyone); `forbidden` for any session that is not theirs."""
+    try:
+        found = await assessed.set_letter_choice(user, _id(session_id), body.on)
+    except assessed.LetterNotAvailable:
+        return error_response(
+            409, assessed.LetterNotAvailable.code, "The letter is not the Student's to choose now."
+        )
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"), headers=_PERSONAL)
 
 
 @router.get(

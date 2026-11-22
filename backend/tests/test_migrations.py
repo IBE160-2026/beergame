@@ -162,8 +162,9 @@ HEAD_TABLES = (
     | ADJUSTMENT_TABLES
     | FLAG_TABLES
 )
-# 0205 (12.5), 0204 (12.4), 0203 (12.3) and 0202 (12.2) follow 0201 (12.7); 0120-0130 follow 0064
-HEAD = "0205"
+# 0206 (12.6), 0205 (12.5), 0204 (12.4), 0203 (12.3) and 0202 (12.2) follow 0201 (12.7);
+# 0120-0130 follow 0064
+HEAD = "0206"
 
 
 def reset_schema(url: str) -> None:
@@ -351,6 +352,16 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0206 (Story 12.6): the Indicative letter's setting and bounds, the Student's own choice and
+    # the Institution's no-letter mark; the pin trigger also covers the letter columns.
+    assert {"letter_setting", "letter_thresholds"} <= columns(url, "assessment_switches")
+    assert "letter_chosen" in columns(url, "ai_assessments")
+    assert "no_letter" in columns(url, "institutions")
+    command.downgrade(cfg, "0205")
+    assert "letter_setting" not in columns(url, "assessment_switches")
+    assert "letter_chosen" not in columns(url, "ai_assessments")
+    assert "no_letter" not in columns(url, "institutions")
 
     # 0205 (Story 12.5): the Student's flags on pieces of written feedback.
     assert FLAG_TABLES <= tables(url)

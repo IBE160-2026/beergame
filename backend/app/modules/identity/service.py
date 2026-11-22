@@ -1208,6 +1208,8 @@ INSTITUTION_RENAMED = "institution.renamed"
 """The audit actions of an Institution the Admin creates or renames (FR-3, AD-15)."""
 INSTITUTION_OPERATOR_MARKED = "institution.operator_marked"
 """The audit action of the Admin marking the operator's own Institution (Story 12.7, AD-15)."""
+INSTITUTION_NO_LETTER = "institution.no_letter_changed"
+"""The audit action of the Admin switching an Institution's no-letter mark (Story 12.6, FR-56)."""
 
 
 @dataclass(frozen=True)
@@ -1221,6 +1223,7 @@ def _institution_out(row) -> InstitutionOut:
         name=row["name"],
         created_at=row["created_at"],
         operator_owned=row["operator_owned"],
+        no_letter=row["no_letter"],
     )
 
 
@@ -1309,6 +1312,41 @@ async def mark_operator_institution(
         actor_user_id=str(actor),
     )
     return _institution_out(row)
+
+
+async def set_institution_no_letter(
+    actor: uuid.UUID, institution_id: uuid.UUID, on: bool, *, now: datetime
+) -> InstitutionOut | InstitutionRefused:
+    """The Institution's no-letter mark (Story 12.6, FR-56, FR-3, AD-15): on, no Indicative
+    letter is derived or shown in any Class session of the Institution. One transaction with one
+    audit row (ids and the new value); the same value again writes nothing. Refused with
+    `not_found`."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.lock_institution(s, institution_id)
+        if row is None:
+            return InstitutionRefused("not_found")
+        if row["no_letter"] == on:
+            return _institution_out(row)
+        row = await repo.set_no_letter(s, institution_id, on, now)
+        await audit.record(
+            s, actor, INSTITUTION_NO_LETTER, {"institution_id": institution_id}, {"on": on}, now
+        )
+    log.info(
+        "institution_no_letter_changed",
+        institution_id=str(institution_id),
+        actor_user_id=str(actor),
+        on=on,
+    )
+    return _institution_out(row)
+
+
+async def institution_forbids_letter(
+    institution_id: uuid.UUID, session: AsyncSession | None = None
+) -> bool:
+    """Story 12.6 (FR-56): whether the Institution's no-letter mark is on; in the caller's
+    `session` when given. False for an unknown id."""
+    async with reading(session) as s:
+        return await repo.no_letter_of(s, institution_id)
 
 
 async def operator_institution(session: AsyncSession | None = None) -> InstitutionOut | None:
