@@ -1126,6 +1126,39 @@ export const nb = {
       hiddenWeeks:
         "Antall uker trekkes for hver student og vises ikke for studentene. Hver student får sin egen etterspørsel, med samme nivåer som i Klassespillet.",
       hiddenNone: "Hver student får sin egen etterspørsel, med samme nivåer som i Klassespillet.",
+      /** Story 10.2 (FR-49, UX-DR12, UX-DR48): the own scenario. [ASSUMPTION] draft copy. */
+      choice: "Scenario",
+      own: "Eget scenario",
+      choiceHelp: "Gjelder alle Replay i Klasseøkta. Valget tar effekt når du lagrer Klasseøkta.",
+      ownLead: "Starter fra Spillinnstillingene. Endre det du vil; Replay bruker verdiene her.",
+      weeksFrom: "Antall uker, minst",
+      weeksTo: "Antall uker, høyst",
+      changeWeekFrom: "Endres fra uke, tidligst",
+      changeWeekTo: "Endres fra uke, senest",
+      toHint: "Tom gir samme verdi for alle. Et høyere tall gir et spenn, og hver student får sin egen verdi.",
+      refused: "Replay-scenariet ble ikke lagret. Se feltene over.",
+      ownFixedDemand: (weeks: number) => `Fast serie på ${weeks} uker, siste verdi videre`,
+      hiddenChange:
+        "Uka for endringen trekkes for hver student og vises ikke for studentene. Antall uker vises ikke heller.",
+      hiddenOwnNone:
+        "Alle studenter får de samme verdiene. Antall uker og uka for endringen vises ikke for studentene.",
+      hiddenOwnNoise:
+        "Alle studenter får de samme verdiene, men sin egen etterspørsel rundt nivåene. Antall uker og uka for endringen vises ikke for studentene.",
+      warnings: {
+        easier: "Det gjør trolig Replay lettere.",
+        inventory: (replay: string, classGame: string) =>
+          `Advarsel: Startlager (${replay}) er høyere enn i Klassespillet (${classGame}).`,
+        delay: (label: string, replay: string, classGame: string) =>
+          `Advarsel: ${label} (${replay}) er kortere enn i Klassespillet (${classGame}).`,
+        guided: (replay: string) =>
+          `Advarsel: Veiledede uker (opptil ${replay}) gir hjelp som Standard-scenariet ikke gir.`,
+        lower: (replay: string, classGame: string) =>
+          `Advarsel: Høyeste nivå i etterspørselen (${replay}) er lavere enn i Klassespillet (${classGame}).`,
+        lessVariable: (replay: string, classGame: string) =>
+          `Advarsel: Spredningen (${replay}) er mindre enn i Klassespillet (${classGame}).`,
+        noChange: "Advarsel: Etterspørselen skifter ikke nivå, slik den gjorde i Klassespillet.",
+        other: "Advarsel: Endringen kan gjøre Replay lettere.",
+      },
     },
     save: "Lagre Klasseøkt",
     saving: "Lagrer …",

@@ -57,7 +57,7 @@ import {
 } from "./dates";
 import { LabHours } from "./lab-hours-panel";
 import { inactivityProblem, shareProblem, valueErrorsOf } from "./obligatory";
-import { ReplayScenarioBlock } from "./replay-scenario-block";
+import { ReplayScenarioBlock, useReplayScenario } from "./replay-scenario-block";
 import { copyLines } from "./rerun";
 import {
   calibratedText,
@@ -161,6 +161,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
   const checked = useRef("");
   const checks = useRef(0);
   const settingsOpen = editing && item.can_manage && !item.locked;
+  // The Replay scenario as chosen (Story 10.2): sent with «Lagre Klasseøkt» while it can change.
+  const replay = useReplayScenario(item);
   const action = useAction({
     mutationFn: async () => {
       try {
@@ -171,8 +173,10 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
           datesBody(inputs),
           settingsOpen ? settingsBody(draft, item.game_settings.roles) : undefined,
           settingsOpen ? Number(inactivity.trim()) : undefined,
+          choosing ? replay.body() : undefined,
         );
       } catch (error) {
+        replay.refused(error);
         if (error instanceof ApiRequestError && error.code === "invalid_settings") {
           checks.current += 1;
           setProblems(problemsOf(error.fields));
@@ -192,6 +196,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       deadline_passed: copy.dates.refused,
       session_locked: copy.dates.locked,
       invalid_settings: copy.edit.refused,
+      invalid_replay_scenario: copy.replay.refused,
       feature_disabled: copy.edit.featureDisabled,
       invalid_effort_level: copy.choices.effortRefused,
       invalid_session_values: copy.choices.valuesRefused,
@@ -212,6 +217,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       setShareChecked(false);
       setInactivity(String(result.inactivity_limit_hours));
       setInactivityChecked(false);
+      replay.saved(result);
       // The saved values stand in the list; the block opens again for a next change.
       checks.current += 1;
       setProblems({});
@@ -414,8 +420,9 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
         shareError={shareError}
         onShareLeave={() => setShareChecked(true)}
       />
-      {/* Story 10.1 (FR-49): the Replay scenario, frozen at the Start date like the choices above. */}
-      <ReplayScenarioBlock item={item} />
+      {/* Stories 10.1 and 10.2 (FR-49): the Replay scenario, frozen at the Start date like the
+          choices above. */}
+      <ReplayScenarioBlock item={item} editable={choosing} state={replay} />
       {saveShown && !item.locked ? saveRow : null}
       {/* Story 9.10: its own save, since exclusions stay open after the lock until the Test deadline. */}
       <QuizExclusionsBlock classSessionId={item.id} />

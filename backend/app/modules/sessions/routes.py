@@ -45,6 +45,7 @@ from app.modules.sessions.schemas import (
     LecturerOverviewOut,
     OrderIn,
     PlayOut,
+    ReplayScenarioCheckIn,
     SeatChoiceIn,
     SeatChoiceOut,
     SettingsCheckIn,
@@ -274,7 +275,17 @@ async def save_class_session(
     `feature_disabled` (`{"allocation_method": "feature_disabled"}`) for Student choice while
     `FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409
     `allocation_confirmed` (`{"allocation_method": "confirmed"}`) once an allocation is confirmed:
-    Student choice is final once saved."""
+    Student choice is final once saved.
+
+    `replay_scenario` (Story 10.2, FR-49), left out, keeps the Replay scenario: `default`, or
+    `own` with `replay_template`, the own scenario's editable fields (`starting_inventory`,
+    `starting_backlog`, `supply_line`, the three delays, `weeks`, `guided_weeks`, `max_order` as
+    whole numbers or `{minimum, maximum}`; `holding_cost`, `backorder_cost`; `demand` as `step`
+    with a ranged `change_week`, `random` or `fixed`, each with a `spread`), laid over the Class
+    game's exact settings. A template the engine refuses answers 422 `invalid_replay_scenario`
+    with `fields` as `invalid_settings`; `own` with no template sent or stored names
+    `replay_template` `required`. Once locked, a changed scenario answers 409 `session_locked`
+    (`{"replay_scenario": "locked"}`)."""
     try:
         saved = await service.save_session(
             user,
@@ -291,12 +302,21 @@ async def save_class_session(
             required_share_percent=body.required_share_percent,
             inactivity_limit_hours=body.inactivity_limit_hours,
             allocation_method=body.allocation_method,
+            replay_scenario=body.replay_scenario,
+            replay_template=body.replay_template,
         )
     except service.InvalidSettings as refused:
         return error_response(
             422,
             refused.code,
             "The Game settings break the engine's rules.",
+            {field: problem.model_dump() for field, problem in refused.problems.items()},
+        )
+    except service.InvalidReplayScenario as refused:
+        return error_response(
+            422,
+            refused.code,
+            "The Replay scenario breaks the engine's rules.",
             {field: problem.model_dump() for field, problem in refused.problems.items()},
         )
     except service.LlmUnavailableError:
@@ -574,6 +594,32 @@ async def check_class_session_settings(
     try:
         found = await service.check_settings(
             user, _id(session_id), body.game_settings, now=auth.utcnow()
+        )
+    except service.SessionLocked as refused:
+        return error_response(409, refused.code, "This can no longer change.", refused.fields)
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.post(
+    "/class-sessions/{session_id}/replay-scenario-check",
+    response_model=SettingsCheckOut,
+    responses=documented(401, 403, 409),
+    operation_id="checkReplayScenario",
+)
+async def check_replay_scenario(
+    session_id: str,
+    body: ReplayScenarioCheckIn,
+    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.manage"))],
+) -> Response:
+    """The engine's errors on a draft of an own Replay scenario and the warnings of changes that
+    probably make the Replay easier than the Class game (`replay_*` codes), as the Lecturer
+    leaves a field (Story 10.2, FR-12, FR-49). Stores nothing. Once locked it answers 409
+    `session_locked`."""
+    try:
+        found = await service.check_replay_scenario(
+            user, _id(session_id), body.replay_template, now=auth.utcnow()
         )
     except service.SessionLocked as refused:
         return error_response(409, refused.code, "This can no longer change.", refused.fields)

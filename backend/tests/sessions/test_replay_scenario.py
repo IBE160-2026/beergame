@@ -54,10 +54,8 @@ async def test_the_klasseokt_reads_the_default_derived_from_the_current_settings
     assert template.shipping_delay == 3
     choice, _, snapshot = stored_row(session_id)
     assert (choice, snapshot) == ("default", None)
-    columns = rows(
-        "SELECT column_name FROM information_schema.columns WHERE table_name = 'class_sessions'"
-    )
-    assert not any("template" in name for (name,) in columns)
+    # The default is never stored as a copy (Story 10.2 adds a column for an own one only).
+    assert rows("SELECT replay_template FROM class_sessions WHERE id = %s", session_id) == [(None,)]
 
     # An Assistant lecturer reads it too.
     put_staff(klass, await make(ASSISTANT, roles=()), "assistant")

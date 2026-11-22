@@ -561,6 +561,16 @@ export interface paths {
          *     `FEATURE_STUDENT_CHOICE` is off, 409 `session_locked` once locked and 409
          *     `allocation_confirmed` (`{"allocation_method": "confirmed"}`) once an allocation is confirmed:
          *     Student choice is final once saved.
+         *
+         *     `replay_scenario` (Story 10.2, FR-49), left out, keeps the Replay scenario: `default`, or
+         *     `own` with `replay_template`, the own scenario's editable fields (`starting_inventory`,
+         *     `starting_backlog`, `supply_line`, the three delays, `weeks`, `guided_weeks`, `max_order` as
+         *     whole numbers or `{minimum, maximum}`; `holding_cost`, `backorder_cost`; `demand` as `step`
+         *     with a ranged `change_week`, `random` or `fixed`, each with a `spread`), laid over the Class
+         *     game's exact settings. A template the engine refuses answers 422 `invalid_replay_scenario`
+         *     with `fields` as `invalid_settings`; `own` with no template sent or stored names
+         *     `replay_template` `required`. Once locked, a changed scenario answers 409 `session_locked`
+         *     (`{"replay_scenario": "locked"}`).
          */
         put: operations["saveClassSession"];
         post?: never;
@@ -803,6 +813,29 @@ export interface paths {
          *     ended answers 409 `lab_hour_ended`.
          */
         delete: operations["removeLabHour"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/class-sessions/{session_id}/replay-scenario-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Replay Scenario
+         * @description The engine's errors on a draft of an own Replay scenario and the warnings of changes that
+         *     probably make the Replay easier than the Class game (`replay_*` codes), as the Lecturer
+         *     leaves a field (Story 10.2, FR-12, FR-49). Stores nothing. Once locked it answers 409
+         *     `session_locked`.
+         */
+        post: operations["checkReplayScenario"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2813,12 +2846,15 @@ export interface components {
             play_time_warning: boolean;
             /** Provider Unavailable */
             provider_unavailable: boolean;
+            replay_default: components["schemas"]["ReplayTemplate"];
             /**
              * Replay Scenario
-             * @constant
+             * @enum {string}
              */
-            replay_scenario: "default";
+            replay_scenario: "default" | "own";
             replay_template: components["schemas"]["ReplayTemplate"];
+            /** Replay Warnings */
+            replay_warnings: components["schemas"]["SettingWarning"][];
             /** Required Share Percent */
             required_share_percent: number;
             /** Saved At */
@@ -2864,6 +2900,12 @@ export interface components {
             inactivity_limit_hours?: number | null;
             /** Obligatory */
             obligatory?: boolean | null;
+            /** Replay Scenario */
+            replay_scenario?: ("default" | "own") | null;
+            /** Replay Template */
+            replay_template?: {
+                [key: string]: unknown;
+            } | null;
             /** Required Share Percent */
             required_share_percent?: number | null;
         };
@@ -4381,6 +4423,18 @@ export interface components {
             mean: number;
             /** Spread */
             spread: number;
+        };
+        /**
+         * ReplayScenarioCheckIn
+         * @description A draft of an own Replay scenario to judge without saving (Story 10.2): the editable
+         *     template fields, as typed. The chain, capacity and Information visibility are the Class
+         *     session's.
+         */
+        ReplayScenarioCheckIn: {
+            /** Replay Template */
+            replay_template: {
+                [key: string]: unknown;
+            };
         };
         /**
          * ReplayStep
@@ -7674,6 +7728,68 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    checkReplayScenario: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayScenarioCheckIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsCheckOut"];
+                };
             };
             /** @description Unauthorized */
             401: {

@@ -88,6 +88,20 @@ class SettingsCheckIn(BaseModel):
     game_settings: dict[str, Any]
 
 
+ReplayScenario = Literal["default", "own"]
+"""The Replay scenario choice of a Class session (Stories 10.1 and 10.2)."""
+
+
+class ReplayScenarioCheckIn(BaseModel):
+    """A draft of an own Replay scenario to judge without saving (Story 10.2): the editable
+    template fields, as typed. The chain, capacity and Information visibility are the Class
+    session's."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    replay_template: dict[str, Any]
+
+
 class SettingsCheckOut(BaseModel):
     """What the engine says of a draft (FR-12): the errors by setting, which block a save, and the
     warnings, which do not."""
@@ -204,12 +218,18 @@ class ClassSessionOut(BaseModel):
     debrief_ai_text: bool
     """Story 9.14: whether the Debrief shows AI text (narration, quiz lines); off, it is
     code-only and no Debrief call reaches the AI gateway."""
-    replay_scenario: Literal["default"]
-    """Story 10.1 (FR-49): the Replay scenario choice. Only `default` so far."""
+    replay_scenario: ReplayScenario
+    """Stories 10.1 and 10.2 (FR-49): the Replay scenario choice, the default or an own one."""
     replay_template: ReplayTemplate
-    """The Replay scenario in force: before the lock derived from the current Game settings, after
-    it the template the lock pinned. Its ranged values are drawn per Student; staff see the
-    ranges, no Student surface shows them."""
+    """The Replay scenario in force: before the lock the own template, or the default derived from
+    the current Game settings; after it the template the lock pinned. Its ranged values are drawn
+    per Student; staff see the ranges, no Student surface shows them."""
+    replay_default: ReplayTemplate
+    """Story 10.2: the default scenario derived from the current Game settings, which the screen
+    describes while the Lecturer switches back to it before saving."""
+    replay_warnings: list[SettingWarning]
+    """Story 10.2 (FR-49): the changes of an own scenario that probably make the Replay easier
+    than the Class game (`replay_*` codes); empty for the default. They never block a save."""
     inactivity_limit_hours: int
     """«Ventetid før KI tar over» in whole hours, never under 20 (Story 5.7, FR-36)."""
     obligatory: bool
@@ -389,6 +409,12 @@ class ClassSessionSaveIn(BaseModel):
     allocation_method: AllocationMethod | None = None
     """Story 5.17: `student_choice` opens the Students' choice of a Class game and a Seat; left
     out, the method stays."""
+    replay_scenario: ReplayScenario | None = None
+    """Story 10.2: `default` or `own`; left out, the choice stays. Frozen at the Start date."""
+    replay_template: dict[str, Any] | None = None
+    """Story 10.2: the own scenario's editable template fields, as typed (whole numbers or
+    `{minimum, maximum}`, the demand as `step`/`random`/`fixed` with a `spread`, costs as decimal
+    strings). Left out with `own`, the stored own template stays."""
 
 
 class NextDeadline(BaseModel):

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useId, useRef, useState } from "react";
 
 import { SegmentedChoice } from "@/components/segmented-choice";
 import { SelectField } from "@/components/select-field";
@@ -219,17 +219,29 @@ const DEMAND_LABELS: Record<DemandFieldName, { label: string; hint?: string }> =
 };
 
 /** The Demand pattern (Story 5.4, FR-13): «Mønster» and the chosen pattern's fields as Tekstfelt,
- * each api error under its field with the allowed range. The web app holds no demand rule. */
-function DemandFields({
+ * each api error under its field with the allowed range. The web app holds no demand rule. The
+ * Replay scenario (Story 10.2) shows it without the seed (`seed`), under its own ids (`idPrefix`),
+ * with its own labels and a field after the change Week (`extra`), and warnings under «Mønster». */
+export function DemandFields({
   demand,
   problems,
   onChange,
   onLeave,
+  idPrefix = "setting",
+  seed = true,
+  labels = {},
+  extra = {},
+  notes,
 }: {
   demand: DemandDraft;
   problems: Readonly<Record<string, SettingProblem>>;
   onChange: (demand: DemandDraft) => void;
   onLeave: () => void;
+  idPrefix?: string;
+  seed?: boolean;
+  labels?: Partial<Record<DemandFieldName, string>>;
+  extra?: Partial<Record<DemandFieldName, ReactNode>>;
+  notes?: readonly string[];
 }) {
   const titleId = useId();
   const patternProblem = problems.demand;
@@ -240,7 +252,7 @@ function DemandFields({
       </h3>
       <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SelectField
-          id="setting-demand-kind"
+          id={`${idPrefix}-demand-kind`}
           label={d.pattern}
           value={demand.kind}
           error={patternProblem ? copy.edit.errors.pattern : undefined}
@@ -254,14 +266,15 @@ function DemandFields({
           ))}
         </SelectField>
         {DEMAND_FIELDS[demand.kind].map((name) => {
+          if (name === "seed" && !seed) return null;
           const problem = problems[demandProblemKey(name)];
-          const field = DEMAND_LABELS[name];
+          const field = { ...DEMAND_LABELS[name], label: labels[name] ?? DEMAND_LABELS[name].label };
           if (name === "values") {
             // 36–52 numbers do not fit one line (GitHub issue 102).
             return (
               <TextAreaField
                 key={name}
-                id={`setting-demand-${name}`}
+                id={`${idPrefix}-demand-${name}`}
                 label={field.label}
                 rows={4}
                 autoComplete="off"
@@ -276,23 +289,30 @@ function DemandFields({
             );
           }
           return (
-            <TextField
-              key={name}
-              id={`setting-demand-${name}`}
-              label={field.label}
-              type="text"
-              inputMode="numeric"
-              autoComplete="off"
-              className={name === "seed" ? "lg:col-span-2" : undefined}
-              value={demand[name]}
-              hint={field.hint}
-              error={problem ? problemText(problem) : undefined}
-              onChange={(event) => onChange({ ...demand, [name]: event.target.value })}
-              onBlur={onLeave}
-            />
+            <Fragment key={name}>
+              <TextField
+                id={`${idPrefix}-demand-${name}`}
+                label={field.label}
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                className={name === "seed" ? "lg:col-span-2" : undefined}
+                value={demand[name]}
+                hint={field.hint}
+                error={problem ? problemText(problem) : undefined}
+                onChange={(event) => onChange({ ...demand, [name]: event.target.value })}
+                onBlur={onLeave}
+              />
+              {extra[name]}
+            </Fragment>
           );
         })}
       </div>
+      {(notes ?? []).map((text) => (
+        <p key={text} className="mt-2 text-body-phone text-ink">
+          {text}
+        </p>
+      ))}
     </section>
   );
 }
