@@ -3096,3 +3096,22 @@ Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Neste byg
 
 ### Åpne punkter
 - Issue #193: beslutninger (spørsmålet står til det er besvart, når det spørres, lagring uten fremmednøkkel).
+
+## Story 10.9: La Informasjonssynlighet være annerledes i Replay (spor 2)
+
+### Oppgave
+Bygge Story 10.9 på `epic-10` i spor 2, den siste storyen i Epic 10 (kuttlista, bak `FEATURE_INFO_VISIBILITY`).
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres i avslutningen av Epic 10.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-10-9-let-information-visibility-differ-in-the-replay.md`.
+- Commit: b94450d.
+- Med flagget på kan et eget Replay-scenario ha sin egen informasjonssynlighet, med én advarsel per visning som klassespillene ikke viser. Med flagget av vises ingenting, og nye visninger avvises.
+- Tester: backend 3160, Vitest 1043 (én feil i en kjøring under last, fire nye kjøringer passerte), typecheck, `check:copy`, `lint:colours`, bygg, Playwright 75 og 82 med flagget på og av.
+- Gjennomgang: 15 funn, 6 lave rettet.
+- Status: done.
+
+### Åpne punkter
+- Issue #194: beslutninger (visninger følger ikke klasseøkta etter lagring, ingen advarsel ved færre visninger).
