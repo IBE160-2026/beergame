@@ -166,6 +166,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # The one Admin exception to FR-5 (AD-12): a pseudonymised export of a Class session, held to
     # the recorded Institution agreement (`RESOURCE_CONDITIONS`).
     "export_pseudonymised": frozenset({ADMIN}),
+    # «KI-kostnad» (Story 15.5, FR-68): the Admin reads the model configs, pins one for a Class
+    # session before its Start date and freezes one for a learning study.
+    "ai_models.manage": frozenset({ADMIN}),
     # FR-5: no account role grants these. Epic 4+ adds the Class-scoped grants.
     "student_answers.read": frozenset(),
     "ai_assessments.read": frozenset(),

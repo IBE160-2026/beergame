@@ -152,7 +152,8 @@ AI_PUBLIC = (
     "app.ai.text",
 )
 AI_TABLES = re.compile(
-    r"\b(ai_model_configs|ai_budgets|llm_call|effort_measurements|ai_default_pins)\b"
+    r"\b(ai_model_configs|ai_budgets|llm_call|effort_measurements|ai_default_pins"
+    r"|ai_model_freezes)\b"
 )
 """Whole words, so `llm_call_ids` (on the gateway's results) is not a table name."""
 
@@ -177,7 +178,7 @@ def test_only_ops_imports_messaging_and_nothing_imports_ops():
     the local dev mailbox, `messaging.routes` (Story 3.6), the provider's webhook,
     `messaging.webhooks` (Story 4.6), and the Meldingsskjema's endpoints,
     `messaging.message_routes` (Story 7.9); and the Admin's operations endpoints,
-    `ops.routes` (Story 15.4)."""
+    `ops.routes` (Story 15.4) and `ops.ai_routes` (Story 15.5)."""
     for path, line, name in imports(APP):
         inside = {
             folder: (APP / "modules" / folder) in path.parents
@@ -194,8 +195,11 @@ def test_only_ops_imports_messaging_and_nothing_imports_ops():
                 and name.startswith("app.modules.messaging.service")
             ), f"{path.name}:{line} imports {name}"
         if name.startswith("app.modules.ops") and not inside["ops"]:
-            # Story 15.4: the app factory also mounts the Admin's operations endpoints.
-            mounts_ops = path == APP / "main.py" and name == "app.modules.ops.routes"
+            # Stories 15.4 and 15.5: the app factory also mounts the Admin's operations endpoints.
+            mounts_ops = path == APP / "main.py" and name in (
+                "app.modules.ops.routes",
+                "app.modules.ops.ai_routes",
+            )
             assert mounts_ops or path == APP / "worker.py", f"{path.name}:{line} imports {name}"
 
 

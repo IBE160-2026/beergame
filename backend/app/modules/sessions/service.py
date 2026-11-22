@@ -5336,3 +5336,112 @@ async def evaluation_sessions(
             )
         )
     return found
+
+
+@dataclass(frozen=True)
+class ModelSetting:
+    """A Class session as the Admin's «KI-kostnad» lists it (Story 15.5, FR-68): how the Admin
+    names it, and its model setting. After the lock the frozen values come from the snapshot."""
+
+    id: uuid.UUID
+    number: int
+    class_name: str
+    institution_name: str | None
+    start_at: datetime | None
+    locked: bool
+    ai_mode: str
+    model_config_id: uuid.UUID | None
+    effort_level: str | None
+    frozen_model_config_id: uuid.UUID | None
+    """The `SessionRuntime`'s config once locked (None before, and for Rule-based players)."""
+    frozen_effort_level: str | None
+    prompt_versions: dict[str, int] | None
+
+
+async def model_settings(
+    session: AsyncSession, ids: list[uuid.UUID] | None = None, *, now: datetime
+) -> list[ModelSetting]:
+    """Every saved Class session, newest first, or the ones with these ids, with its model
+    setting (Story 15.5). No Student data."""
+    rows = await repo.model_setting_rows(session, ids)
+    facts = await classes.class_facts(session, list({row["class_id"] for row in rows}))
+    found = []
+    for row in rows:
+        fact = facts.get(row["class_id"])
+        if fact is None:  # pragma: no cover - a Class session always has its Class
+            continue
+        runtime = row["session_runtime"] or {}
+        frozen = runtime.get("model_config_id")
+        found.append(
+            ModelSetting(
+                id=row["id"],
+                number=row["number"],
+                class_name=fact.name,
+                institution_name=fact.institution_name,
+                start_at=row["start_at"],
+                locked=is_locked(row, now=now),
+                ai_mode=row["ai_mode"],
+                model_config_id=row["model_config_id"],
+                effort_level=row["effort_level"],
+                frozen_model_config_id=uuid.UUID(frozen) if frozen else None,
+                frozen_effort_level=runtime.get("effort_level"),
+                prompt_versions=runtime.get("prompt_versions"),
+            )
+        )
+    return found
+
+
+class ModelConfigFrozen(Exception):
+    """The Class session is locked or its Start date has passed: its model config is frozen in
+    `SessionRuntime` and can no longer change (AD-4, FR-68)."""
+
+    code = "model_config_frozen"
+
+
+@dataclass(frozen=True)
+class PinOutcome:
+    changed: bool
+    """False when this config was pinned already: nothing was written."""
+    previous: uuid.UUID | None
+
+
+async def pin_model_config(
+    s: AsyncSession, class_session_id: uuid.UUID, model_config_id: uuid.UUID, *, now: datetime
+) -> PinOutcome | None:
+    """The Admin pins a model config for a Class session before its Start date (Story 15.5,
+    FR-68), in the caller's transaction under the session's row lock, so the lock cannot freeze
+    the old config meanwhile. With LLM players the Effort level in force stays when the new config
+    offers it, else the new config's first offered level (FR-78). The budget row is created when
+    there is none, the config is marked referenced (an edit makes a new row) and `session:<id>`
+    is emitted.
+
+    None when the Class session does not exist. Raises `ModelConfigFrozen` once `is_locked`."""
+    row = await repo.session_row(s, class_session_id, lock=True)
+    if row is None:
+        return None
+    if is_locked(row, now=now):
+        raise ModelConfigFrozen
+    if row["model_config_id"] == model_config_id:
+        return PinOutcome(False, model_config_id)
+    level: str | None = None
+    if row["ai_mode"] == AiMode.llm.value:
+        # Offered here, else measured here (a config whose provider has no key yet offers
+        # nothing): never a level without a measurement, which the lock would freeze (FR-78).
+        offered = [o.name for o in await config.offered_effort_levels(model_config_id, session=s)]
+        offered = offered or await config.measured_levels(model_config_id, session=s)
+        level = row["effort_level"] if row["effort_level"] in offered else None
+        level = level or (offered[0] if offered else None)
+    scope = budget.BudgetScope.class_session(class_session_id)
+    if await budget.state(scope, session=s) is None:
+        await budget.set_budget(scope, session=s)
+    await config.mark_referenced(model_config_id, session=s)
+    await repo.set_model_config(
+        s, class_session_id, model_config_id=model_config_id, effort_level=level
+    )
+    await events.emit(s, "session", str(class_session_id))
+    log.info(
+        "class_session_model_pinned",
+        class_session_id=str(class_session_id),
+        model_config_id=str(model_config_id),
+    )
+    return PinOutcome(True, row["model_config_id"])

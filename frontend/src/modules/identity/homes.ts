@@ -32,6 +32,9 @@ export const ADMIN_AUDIT_PATH = "/admin/revisjonslogg";
 /** «Pseudonymisert eksport» in the Admin-område (Story 15.4). */
 export const ADMIN_EVALUATION_PATH = "/admin/evaluering";
 
+/** «KI-kostnad» in the Admin-område (Story 15.5; Stories 15.6 and 15.7 extend it). */
+export const ADMIN_AI_COST_PATH = "/admin/ki-kostnad";
+
 /** «Lag Klasse» (Story 4.1). */
 export const NEW_CLASS_PATH = "/klasser/ny";
 

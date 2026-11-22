@@ -429,3 +429,85 @@ export function useRunExport() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: evaluationKey }),
   });
 }
+
+export type ModelConfig = components["schemas"]["ModelConfigOut"];
+export type ModelSession = components["schemas"]["ModelSessionOut"];
+export type ModelFreezeState = components["schemas"]["FreezeStateOut"];
+
+/** The query keys of «KI-kostnad» (Story 15.5). */
+export const aiCostKey = ["admin", "ai-cost"] as const;
+export const modelConfigsKey = [...aiCostKey, "model-configs"] as const;
+export const modelSessionsKey = [...aiCostKey, "class-sessions"] as const;
+export const modelFreezeKey = [...aiCostKey, "freeze"] as const;
+
+/** Every model config with its measured Effort levels (Story 15.5). */
+export function useModelConfigs() {
+  return useQuery({
+    queryKey: modelConfigsKey,
+    queryFn: () => request(() => api.GET("/api/admin/ai/model-configs")),
+    retry: false,
+  });
+}
+
+/** Every saved Class session with its model setting (Story 15.5). */
+export function useModelSessions() {
+  return useQuery({
+    queryKey: modelSessionsKey,
+    queryFn: () => request(() => api.GET("/api/admin/ai/class-sessions")),
+    retry: false,
+  });
+}
+
+/** The study freeze in force, or null (Story 15.5). */
+export function useModelFreeze() {
+  return useQuery({
+    queryKey: modelFreezeKey,
+    queryFn: () => request(() => api.GET("/api/admin/ai/freeze")),
+    retry: false,
+  });
+}
+
+/** Pin a model config for one Class session (Story 15.5); the page reads again. */
+export function usePinModel() {
+  const queryClient = useQueryClient();
+  return useMutation<ModelSession, unknown, { id: string; modelConfigId: string }>({
+    mutationFn: ({ id, modelConfigId }) =>
+      request(() =>
+        api.PUT("/api/admin/ai/class-sessions/{class_session_id}/model-config", {
+          params: { path: { class_session_id: id } },
+          body: { model_config_id: modelConfigId },
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: aiCostKey }),
+  });
+}
+
+/** Freeze a model config for a learning study (Story 15.5); the page reads again. */
+export function useFreezeModel() {
+  const queryClient = useQueryClient();
+  return useMutation<ModelFreezeState, unknown, { modelConfigId: string; ids: string[] }>({
+    mutationFn: ({ modelConfigId, ids }) =>
+      request(() =>
+        api.POST("/api/admin/ai/freezes", {
+          body: { model_config_id: modelConfigId, class_session_ids: ids },
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: aiCostKey }),
+  });
+}
+
+/** Lift the study freeze (Story 15.5); the page reads again. */
+export function useLiftFreeze() {
+  const queryClient = useQueryClient();
+  return useMutation<ModelFreezeState, unknown, string>({
+    mutationFn: (id) =>
+      request(() => api.POST("/api/admin/ai/freezes/{freeze_id}/lift", { params: { path: { freeze_id: id } } })),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: aiCostKey }),
+  });
+}

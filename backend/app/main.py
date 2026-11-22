@@ -19,6 +19,7 @@ from app.modules.identity import service as identity_service
 from app.modules.messaging import message_routes
 from app.modules.messaging import routes as messaging_routes
 from app.modules.messaging import webhooks as messaging_webhooks
+from app.modules.ops import ai_routes as ops_ai_routes
 from app.modules.ops import routes as ops_routes
 from app.modules.replay import dev as replay_dev
 from app.modules.replay import routes as replay_routes
@@ -114,6 +115,7 @@ def create_app() -> FastAPI:
     app.include_router(message_routes.router)  # Messages from staff (Story 7.9)
     app.include_router(replay_routes.router)  # the Student's Replay (Story 10.3)
     app.include_router(ops_routes.router)  # «Pseudonymisert eksport» (Story 15.4)
+    app.include_router(ops_ai_routes.router)  # «KI-kostnad» (Story 15.5)
     app.include_router(messaging_webhooks.router)  # the provider's events (Story 4.6), signed
     if get_settings().app_env != "production":
         app.include_router(messaging_routes.router)  # the dev mailbox (Story 3.6), local only
@@ -127,6 +129,7 @@ def create_app() -> FastAPI:
     audit.register_labels("institution_id", identity_service.institution_labels)
     audit.register_labels("access_request_id", identity_service.access_request_labels)
     audit.register_labels("class_session_id", ops_routes.evaluation.class_session_labels)
+    audit.register_labels("model_config_id", ops_ai_routes.ai_models.config_labels)
     app.add_exception_handler(authz.NotAuthenticated, _not_authenticated)
     app.add_exception_handler(authz.Forbidden, _forbidden)
     app.add_exception_handler(RequestValidationError, _invalid_request)

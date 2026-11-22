@@ -45,6 +45,138 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/ai/class-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sessions
+         * @description Every saved Class session, newest first, with its model config and Effort level; once
+         *     locked, what `SessionRuntime` froze (model version, endpoint, prompt versions).
+         */
+        get: operations["listModelSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/class-sessions/{class_session_id}/model-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Pin
+         * @description Pin a model config for a Class session before its Start date (FR-68), audited as
+         *     `model_config.pinned`. Refused with 409 `model_config_frozen` once the session is locked,
+         *     `study_frozen` for another config in a frozen study, `no_measured_level` for a config with no
+         *     measured Effort level here; 404 `config_not_found` or `not_found`. The answer warns
+         *     `provider_key_missing` when its LLM players' provider has no key here (AD-17).
+         */
+        put: operations["pinModelConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/freeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Freeze State
+         * @description The study freeze in force, or null.
+         */
+        get: operations["getModelFreeze"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/freezes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Freeze
+         * @description Freeze a model config for a learning study (FR-68): the chosen Class sessions get it and
+         *     new ones get it as their default until it is lifted. Refused with 409 `freeze_active`,
+         *     `no_measured_level` or `model_config_frozen` (a chosen session locked with another config,
+         *     `fields.class_session_ids`); 404 `config_not_found` or `not_found`. Audited as
+         *     `model_config.frozen`.
+         */
+        post: operations["freezeModelConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/freezes/{freeze_id}/lift": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lift
+         * @description Lift the study freeze, audited as `model_config.freeze_lifted`; 409 `freeze_lifted` when
+         *     it was lifted already.
+         */
+        post: operations["liftModelFreeze"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ai/model-configs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Configs
+         * @description Every model config with provider, endpoint, region, model version and per Effort level the
+         *     newest measurement that counts here (cost per Game, fallback share, Play-guard switched
+         *     share), as stored by Story 2.12.
+         */
+        get: operations["listModelConfigs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/audit": {
         parameters: {
             query?: never;
@@ -4057,6 +4189,16 @@ export interface components {
             /** Week */
             week: number;
         };
+        /** EffortLevelEntryOut */
+        EffortLevelEntryOut: {
+            /** Label */
+            label: string | null;
+            measurement: components["schemas"]["MeasurementOut"] | null;
+            /** Name */
+            name: string;
+            /** Offered */
+            offered: boolean;
+        };
         /**
          * EnrolledClassListOut
          * @description The Classes the User is a Student in, by name. No paging: a Student has a handful.
@@ -4354,6 +4496,72 @@ export interface components {
              * @enum {string}
              */
             state: "off" | "open" | "closed";
+        };
+        /** FreezeIn */
+        FreezeIn: {
+            /** Class Session Ids */
+            class_session_ids: string[];
+            /**
+             * Model Config Id
+             * Format: uuid
+             */
+            model_config_id: string;
+        };
+        /** FreezeOut */
+        FreezeOut: {
+            /** Class Session Ids */
+            class_session_ids: string[];
+            /**
+             * Frozen At
+             * Format: date-time
+             */
+            frozen_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Lifted At */
+            lifted_at: string | null;
+            /**
+             * Model Config Id
+             * Format: uuid
+             */
+            model_config_id: string;
+            /** Model Name */
+            model_name: string | null;
+            /** Model Version */
+            model_version: string | null;
+        };
+        /**
+         * FreezeStateOut
+         * @description The freeze in force, or null.
+         */
+        FreezeStateOut: {
+            active: components["schemas"]["FreezeOut"] | null;
+        };
+        /**
+         * FrozenSettingOut
+         * @description What the lock froze in `SessionRuntime` (AD-4), read-only.
+         */
+        FrozenSettingOut: {
+            /** Effort Level */
+            effort_level: string | null;
+            /** Endpoint */
+            endpoint: string | null;
+            /**
+             * Model Config Id
+             * Format: uuid
+             */
+            model_config_id: string;
+            /** Model Name */
+            model_name: string | null;
+            /** Model Version */
+            model_version: string | null;
+            /** Prompt Versions */
+            prompt_versions: {
+                [key: string]: number;
+            };
         };
         /**
          * FunnelStageOut
@@ -5170,6 +5378,31 @@ export interface components {
             upload_row?: components["schemas"]["UploadRow"] | null;
         };
         /**
+         * MeasurementOut
+         * @description The newest measurement of an Effort level that counts here, as the approval of Story 2.12
+         *     stored it: decimal strings, never recomputed. A mock measurement has no
+         *     figures.
+         */
+        MeasurementOut: {
+            /**
+             * Approved At
+             * Format: date-time
+             */
+            approved_at: string;
+            /** Cost Per Game Usd */
+            cost_per_game_usd: string | null;
+            /** Fallback Share */
+            fallback_share: string | null;
+            /** Games */
+            games: number | null;
+            /** Mock */
+            mock: boolean;
+            /** Switched Share */
+            switched_share: string | null;
+            /** Time Per Order P95 S */
+            time_per_order_p95_s: string | null;
+        };
+        /**
          * MessageFormOut
          * @description What the Meldingsskjema shows before a send (UX-DR46).
          */
@@ -5231,6 +5464,88 @@ export interface components {
             sent_before: number;
             /** Students */
             students: number;
+        };
+        /** ModelConfigListOut */
+        ModelConfigListOut: {
+            /** Items */
+            items: components["schemas"]["ModelConfigOut"][];
+        };
+        /** ModelConfigOut */
+        ModelConfigOut: {
+            /** Active Default */
+            active_default: boolean;
+            /** Effort Levels */
+            effort_levels: components["schemas"]["EffortLevelEntryOut"][];
+            /** Endpoint */
+            endpoint: string;
+            /** Frozen */
+            frozen: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** May Answer */
+            may_answer: boolean;
+            /** Model Version */
+            model_version: string;
+            /** Name */
+            name: string;
+            /** Pinnable */
+            pinnable: boolean;
+            /** Prompts */
+            prompts: {
+                [key: string]: number;
+            };
+            /** Provider */
+            provider: string;
+            /** Quantisation */
+            quantisation: string;
+            /** Referenced */
+            referenced: boolean;
+            /** Region */
+            region: string;
+        };
+        /** ModelSessionListOut */
+        ModelSessionListOut: {
+            /** Items */
+            items: components["schemas"]["ModelSessionOut"][];
+        };
+        /**
+         * ModelSessionOut
+         * @description A saved Class session with its model setting.
+         */
+        ModelSessionOut: {
+            /** Ai Mode */
+            ai_mode: string;
+            /** Class Name */
+            class_name: string;
+            /** Effort Level */
+            effort_level: string | null;
+            frozen: components["schemas"]["FrozenSettingOut"] | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** In Freeze */
+            in_freeze: boolean;
+            /** Institution Name */
+            institution_name: string | null;
+            /** Locked */
+            locked: boolean;
+            /** Model Config Id */
+            model_config_id: string | null;
+            /** Model Name */
+            model_name: string | null;
+            /** Model Version */
+            model_version: string | null;
+            /** Number */
+            number: number;
+            /** Start At */
+            start_at: string | null;
+            /** Warnings */
+            warnings: string[];
         };
         /**
          * MomentOut
@@ -5624,6 +5939,14 @@ export interface components {
              * @enum {string}
              */
             state: "paused" | "ended";
+        };
+        /** PinIn */
+        PinIn: {
+            /**
+             * Model Config Id
+             * Format: uuid
+             */
+            model_config_id: string;
         };
         /**
          * PlayOut
@@ -7891,6 +8214,327 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listModelSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelSessionListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    pinModelConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelSessionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getModelFreeze: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreezeStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    freezeModelConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FreezeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreezeStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    liftModelFreeze: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                freeze_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreezeStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listModelConfigs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelConfigListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

@@ -2538,6 +2538,47 @@
         "title": "DemandWeekOut",
         "type": "object"
       },
+      "EffortLevelEntryOut": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "measurement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeasurementOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "offered": {
+            "title": "Offered",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "offered",
+          "measurement"
+        ],
+        "title": "EffortLevelEntryOut",
+        "type": "object"
+      },
       "EnrolledClassListOut": {
         "description": "The Classes the User is a Student in, by name. No paging: a Student has a handful.",
         "properties": {
@@ -3290,6 +3331,195 @@
           "asked"
         ],
         "title": "FollowUpOut",
+        "type": "object"
+      },
+      "FreezeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "class_session_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Class Session Ids",
+            "type": "array"
+          },
+          "model_config_id": {
+            "format": "uuid",
+            "title": "Model Config Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_config_id",
+          "class_session_ids"
+        ],
+        "title": "FreezeIn",
+        "type": "object"
+      },
+      "FreezeOut": {
+        "properties": {
+          "class_session_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Class Session Ids",
+            "type": "array"
+          },
+          "frozen_at": {
+            "format": "date-time",
+            "title": "Frozen At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "lifted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifted At"
+          },
+          "model_config_id": {
+            "format": "uuid",
+            "title": "Model Config Id",
+            "type": "string"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          }
+        },
+        "required": [
+          "id",
+          "model_config_id",
+          "model_name",
+          "model_version",
+          "class_session_ids",
+          "frozen_at",
+          "lifted_at"
+        ],
+        "title": "FreezeOut",
+        "type": "object"
+      },
+      "FreezeStateOut": {
+        "description": "The freeze in force, or null.",
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FreezeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "active"
+        ],
+        "title": "FreezeStateOut",
+        "type": "object"
+      },
+      "FrozenSettingOut": {
+        "description": "What the lock froze in `SessionRuntime` (AD-4), read-only.",
+        "properties": {
+          "effort_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort Level"
+          },
+          "endpoint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endpoint"
+          },
+          "model_config_id": {
+            "format": "uuid",
+            "title": "Model Config Id",
+            "type": "string"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "prompt_versions": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Prompt Versions",
+            "type": "object"
+          }
+        },
+        "required": [
+          "model_config_id",
+          "model_name",
+          "model_version",
+          "endpoint",
+          "effort_level",
+          "prompt_versions"
+        ],
+        "title": "FrozenSettingOut",
         "type": "object"
       },
       "FunnelStageOut": {
@@ -5077,6 +5307,86 @@
         "title": "ManualRegistrationIn",
         "type": "object"
       },
+      "MeasurementOut": {
+        "description": "The newest measurement of an Effort level that counts here, as the approval of Story 2.12\nstored it: decimal strings, never recomputed. A mock measurement has no\nfigures.",
+        "properties": {
+          "approved_at": {
+            "format": "date-time",
+            "title": "Approved At",
+            "type": "string"
+          },
+          "cost_per_game_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Per Game Usd"
+          },
+          "fallback_share": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Share"
+          },
+          "games": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Games"
+          },
+          "mock": {
+            "title": "Mock",
+            "type": "boolean"
+          },
+          "switched_share": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Switched Share"
+          },
+          "time_per_order_p95_s": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Per Order P95 S"
+          }
+        },
+        "required": [
+          "mock",
+          "games",
+          "cost_per_game_usd",
+          "fallback_share",
+          "switched_share",
+          "time_per_order_p95_s",
+          "approved_at"
+        ],
+        "title": "MeasurementOut",
+        "type": "object"
+      },
       "MessageFormOut": {
         "description": "What the Meldingsskjema shows before a send (UX-DR46).",
         "properties": {
@@ -5236,6 +5546,256 @@
           "sent_before"
         ],
         "title": "MessageSentOut",
+        "type": "object"
+      },
+      "ModelConfigListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ModelConfigOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ModelConfigListOut",
+        "type": "object"
+      },
+      "ModelConfigOut": {
+        "properties": {
+          "active_default": {
+            "title": "Active Default",
+            "type": "boolean"
+          },
+          "effort_levels": {
+            "items": {
+              "$ref": "#/components/schemas/EffortLevelEntryOut"
+            },
+            "title": "Effort Levels",
+            "type": "array"
+          },
+          "endpoint": {
+            "title": "Endpoint",
+            "type": "string"
+          },
+          "frozen": {
+            "title": "Frozen",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "may_answer": {
+            "title": "May Answer",
+            "type": "boolean"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pinnable": {
+            "title": "Pinnable",
+            "type": "boolean"
+          },
+          "prompts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Prompts",
+            "type": "object"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "quantisation": {
+            "title": "Quantisation",
+            "type": "string"
+          },
+          "referenced": {
+            "title": "Referenced",
+            "type": "boolean"
+          },
+          "region": {
+            "title": "Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "provider",
+          "endpoint",
+          "region",
+          "model_version",
+          "quantisation",
+          "prompts",
+          "referenced",
+          "may_answer",
+          "pinnable",
+          "active_default",
+          "frozen",
+          "effort_levels"
+        ],
+        "title": "ModelConfigOut",
+        "type": "object"
+      },
+      "ModelSessionListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ModelSessionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ModelSessionListOut",
+        "type": "object"
+      },
+      "ModelSessionOut": {
+        "description": "A saved Class session with its model setting.",
+        "properties": {
+          "ai_mode": {
+            "title": "Ai Mode",
+            "type": "string"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "effort_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort Level"
+          },
+          "frozen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrozenSettingOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "in_freeze": {
+            "title": "In Freeze",
+            "type": "boolean"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "model_config_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Config Id"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "class_name",
+          "institution_name",
+          "start_at",
+          "locked",
+          "ai_mode",
+          "model_config_id",
+          "model_name",
+          "model_version",
+          "effort_level",
+          "in_freeze",
+          "frozen",
+          "warnings"
+        ],
+        "title": "ModelSessionOut",
         "type": "object"
       },
       "MomentOut": {
@@ -6209,6 +6769,21 @@
           "mine"
         ],
         "title": "PauseOut",
+        "type": "object"
+      },
+      "PinIn": {
+        "additionalProperties": false,
+        "properties": {
+          "model_config_id": {
+            "format": "uuid",
+            "title": "Model Config Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_config_id"
+        ],
+        "title": "PinIn",
         "type": "object"
       },
       "PlayOut": {
@@ -11187,6 +11762,392 @@
           }
         },
         "summary": "Dismiss Access Request",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/class-sessions": {
+      "get": {
+        "description": "Every saved Class session, newest first, with its model config and Effort level; once\nlocked, what `SessionRuntime` froze (model version, endpoint, prompt versions).",
+        "operationId": "listModelSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelSessionListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Sessions",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/class-sessions/{class_session_id}/model-config": {
+      "put": {
+        "description": "Pin a model config for a Class session before its Start date (FR-68), audited as\n`model_config.pinned`. Refused with 409 `model_config_frozen` once the session is locked,\n`study_frozen` for another config in a frozen study, `no_measured_level` for a config with no\nmeasured Effort level here; 404 `config_not_found` or `not_found`. The answer warns\n`provider_key_missing` when its LLM players' provider has no key here (AD-17).",
+        "operationId": "pinModelConfig",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Pin",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/freeze": {
+      "get": {
+        "description": "The study freeze in force, or null.",
+        "operationId": "getModelFreeze",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FreezeStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "Freeze State",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/freezes": {
+      "post": {
+        "description": "Freeze a model config for a learning study (FR-68): the chosen Class sessions get it and\nnew ones get it as their default until it is lifted. Refused with 409 `freeze_active`,\n`no_measured_level` or `model_config_frozen` (a chosen session locked with another config,\n`fields.class_session_ids`); 404 `config_not_found` or `not_found`. Audited as\n`model_config.frozen`.",
+        "operationId": "freezeModelConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FreezeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FreezeStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Freeze",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/freezes/{freeze_id}/lift": {
+      "post": {
+        "description": "Lift the study freeze, audited as `model_config.freeze_lifted`; 409 `freeze_lifted` when\nit was lifted already.",
+        "operationId": "liftModelFreeze",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "freeze_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Freeze Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FreezeStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lift",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/model-configs": {
+      "get": {
+        "description": "Every model config with provider, endpoint, region, model version and per Effort level the\nnewest measurement that counts here (cost per Game, fallback share, Play-guard switched\nshare), as stored by Story 2.12.",
+        "operationId": "listModelConfigs",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelConfigListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Configs",
         "tags": [
           "admin"
         ]

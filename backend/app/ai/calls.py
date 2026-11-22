@@ -15,7 +15,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.budget import BudgetScope
 from app.ai.db import transaction
-from app.ai.models import budgets, default_pins, effort_measurements, llm_calls, model_configs
+from app.ai.models import (
+    budgets,
+    default_pins,
+    effort_measurements,
+    llm_calls,
+    model_configs,
+    model_freezes,
+)
 
 CALL_TABLE = llm_calls.name
 """The call table's name, for the personal-data registry (Story 15.2): only `app/ai` spells it."""
@@ -25,6 +32,7 @@ TABLES_WITHOUT_PERSONAL_DATA = {
     default_pins.name: "Pinned model configs.",
     model_configs.name: "Model configs.",
     effort_measurements.name: "Simulation measurements.",
+    model_freezes.name: "Study freezes of a model config: ids and times only (Story 15.5).",
 }
 """The `app/ai` tables that hold no personal data, for the registry (Story 15.2, AD-14)."""
 

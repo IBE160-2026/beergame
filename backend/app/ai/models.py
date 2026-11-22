@@ -18,7 +18,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 
 from app.platform.db import metadata
 
@@ -185,3 +185,26 @@ default_pins = Table(
     Column("pinned_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 """One row per `pin`; the newest row names the active default model config (FR-68)."""
+
+model_freezes = Table(
+    "ai_model_freezes",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("model_config_id", Uuid, ForeignKey("ai_model_configs.id"), nullable=False),
+    # The Class sessions the freeze pinned; ids only, no foreign key out of `ai` (AD-6).
+    Column("class_session_ids", ARRAY(Uuid), nullable=False),
+    Column("frozen_at", DateTime(timezone=True), nullable=False),
+    Column("lifted_at", DateTime(timezone=True), nullable=True),
+    CheckConstraint(
+        "lifted_at IS NULL OR lifted_at >= frozen_at", name="ck_ai_model_freezes_lifted"
+    ),
+    Index(
+        "uq_ai_model_freezes_active",
+        text("(lifted_at IS NULL)"),
+        unique=True,
+        postgresql_where=text("lifted_at IS NULL"),
+    ),
+)
+"""A learning study's freeze of one model config (Story 15.5, FR-68): at most one active
+(`lifted_at` NULL); while it is, `config.active_default` names its config. No User id: the Admin
+who froze or lifted it is in the audit."""

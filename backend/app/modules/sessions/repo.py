@@ -116,6 +116,45 @@ async def evaluation_rows(
     return list((await session.execute(query)).mappings())
 
 
+async def model_setting_rows(
+    session: AsyncSession, ids: list[uuid.UUID] | None = None
+) -> list[RowMapping]:
+    """The saved Class sessions (or these ones, saved or not) with their model setting, newest
+    first, for the Admin's «KI-kostnad» (Story 15.5): AI mode, model config, Effort level, the
+    lock and the snapshot's `session_runtime`. No User's scope and no Student data."""
+    query = select(
+        _numbered.c.id,
+        _numbered.c.class_id,
+        _numbered.c.number,
+        _numbered.c.start_at,
+        _numbered.c.locked_at,
+        _numbered.c.ai_mode,
+        _numbered.c.model_config_id,
+        _numbered.c.effort_level,
+        _numbered.c.snapshot["session_runtime"].label("session_runtime"),
+    ).order_by(_numbered.c.id.desc())
+    if ids is None:
+        query = query.where(_numbered.c.saved_at.is_not(None))
+    else:
+        query = query.where(_numbered.c.id.in_(ids))
+    return list((await session.execute(query)).mappings())
+
+
+async def set_model_config(
+    session: AsyncSession,
+    session_id: uuid.UUID,
+    *,
+    model_config_id: uuid.UUID,
+    effort_level: str | None,
+) -> None:
+    """The Admin's pin (Story 15.5): the model config and the Effort level in force with it."""
+    await session.execute(
+        update(class_sessions)
+        .where(class_sessions.c.id == session_id)
+        .values(model_config_id=model_config_id, effort_level=effort_level)
+    )
+
+
 async def enrolled_sessions(session: AsyncSession, user: authz.Principal) -> list[RowMapping]:
     """The sessions of the Classes `user` is a Student in (`authz.classes_enrolled_by`), with
     their numbers: dates and the obligatory mark, and the settings and the snapshot's settings

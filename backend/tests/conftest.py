@@ -173,7 +173,9 @@ def games_db(test_database) -> str:
     return test_database
 
 
-AI_TABLES = "effort_measurements, ai_default_pins, llm_call, ai_budgets, ai_model_configs"
+AI_TABLES = (
+    "effort_measurements, ai_default_pins, ai_model_freezes, llm_call, ai_budgets, ai_model_configs"
+)
 
 
 @pytest.fixture

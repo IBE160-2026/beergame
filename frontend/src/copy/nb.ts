@@ -2114,6 +2114,8 @@ export const nb = {
       audit: "Revisjonslogg",
       // [ASSUMPTION] Story 15.4.
       evaluation: "Pseudonymisert eksport",
+      // [ASSUMPTION] Story 15.5 (EXPERIENCE.md → Admin-område, UX-DR57).
+      aiCost: "KI-kostnad",
     },
     /** «Revisjonslogg» (Story 3.12, FR-3): every Admin action with who did it and when. The page
      * renders any action from these entries; a later epic adds its own action names here and the
@@ -2164,6 +2166,10 @@ export const nb = {
         "evaluation_agreement.recorded": "Avtale om evaluering registrert",
         "evaluation_export.run": "Pseudonymisert eksport",
         "pseudonym_key.replaced": "Nøkkel for pseudonymer byttet",
+        // [ASSUMPTION] Story 15.5.
+        "model_config.pinned": "Modell festet for Klasseøkt",
+        "model_config.frozen": "Modell fryst for en studie",
+        "model_config.freeze_lifted": "Frysing av modell opphevet",
       } as Record<string, string>,
       /** What an action concerns, by its target key. */
       targets: {
@@ -2173,6 +2179,8 @@ export const nb = {
         access_request_id: (label: string) => `Forespørsel fra ${label}`,
         // [ASSUMPTION] Story 15.4.
         class_session_id: (label: string) => label,
+        // [ASSUMPTION] Story 15.5.
+        model_config_id: (label: string) => `Modell ${label}`,
       } as Record<string, (label: string) => string>,
       /** The labels of the change fields; an unknown field shows its own key. */
       fields: {
@@ -2192,6 +2200,10 @@ export const nb = {
         key_fingerprint: "Fingeravtrykk",
         old_fingerprint: "Gammelt fingeravtrykk",
         new_fingerprint: "Nytt fingeravtrykk",
+        // [ASSUMPTION] Story 15.5.
+        model_config_id: "Modell",
+        previous_model_config_id: "Forrige modell",
+        freeze_id: "Frysing",
       } as Record<string, string>,
       values: {
         roles: { lecturer: "Faglærer", admin: "Admin" } as Record<string, string>,
@@ -2285,6 +2297,102 @@ export const nb = {
           pseudonym_key_changed: "Avvist: nøkkelen er endret",
           failed: "Feilet",
         } as Record<string, string>,
+      },
+    },
+    /** «KI-kostnad», its first page (Story 15.5, FR-68, FR-78, UX-DR57): the model configs with
+     * their measured Effort levels, the model per Class session and the study freeze. Stories 15.6
+     * and 15.7 add the cost and the limit. [ASSUMPTION] Story 15.5, all of it. */
+    aiCost: {
+      title: "KI-kostnad",
+      lead: "Hvilken modell LLM-spillerne bruker i hver Klasseøkt. Modellen kan byttes fram til startdatoen. Da låses den og endres ikke mer i den Klasseøkten.",
+      configs: {
+        title: "Modellkonfigurasjoner",
+        lead: "Tallene per innsatsnivå er fra kjøringene med bare KI-spillere, slik de ble godkjent. Bare målte innsatsnivåer kan tilbys en Klasseøkt.",
+        empty: "Ingen modellkonfigurasjoner er lagret.",
+        facts: {
+          provider: "Leverandør",
+          endpoint: "Endepunkt",
+          region: "Region",
+          version: "Modellversjon",
+        },
+        isDefault: "Standard for nye Klasseøkter",
+        isFrozen: "Fryst for en studie",
+        noKey:
+          "Leverandøren har ingen nøkkel her. En Klasseøkt med LLM-spillere og denne modellen kan ikke låses.",
+        columns: {
+          level: "Innsatsnivå",
+          cost: "Kostnad per spill",
+          fallback: "Andel reserveordrer",
+          switched: "Seter byttet av spillvakten",
+          measured: "Målt",
+        },
+        notMeasured: "Ikke målt",
+        mockMeasured: "Testmåling uten tall",
+        measuredOn: (games: string, date: string) => `${games} spill, ${date}`,
+        notOffered: "Tilbys ikke her",
+        // A no-break space, so the unit never parts from the number at a line end.
+        usd: (value: string) => `${value} USD`,
+        percent: (value: string) => `${value} %`,
+        none: "–",
+      },
+      sessions: {
+        title: "Modell per Klasseøkt",
+        lead: "En Klasseøkt får standardmodellen når den lages. Her kan du feste en annen modell før startdatoen. Faglæreren får da velge blant de målte innsatsnivåene til den modellen.",
+        empty: "Ingen lagrede Klasseøkter ennå.",
+        columns: {
+          session: "Klasseøkt",
+          start: "Startdato",
+          model: "Modell",
+          level: "Innsatsnivå",
+          action: "Handling",
+        },
+        noStart: "Ikke satt",
+        noModel: "Ingen modell",
+        ruleBased: "Regelbaserte spillere",
+        inStudy: "Med i studien",
+        locked: "Låst",
+        lockedModel: (version: string, endpoint: string) => `${version}, ${endpoint}`,
+        prompts: "Promptversjoner",
+        promptVersion: (purpose: string, version: number) => `${purpose} v${version}`,
+        lockedNote: "Modellen er fryst i Klasseøkten og kan ikke byttes.",
+        choose: (label: string) => `Modell for ${label}`,
+        pin: (label: string) => `Fest modellen for ${label}`,
+        pinned: (label: string, model: string) => `${label} bruker nå ${model}.`,
+        keyMissing:
+          "Klasseøkten kan ikke låses uten nøkkelen til leverandøren. Legg inn nøkkelen før startdatoen, eller velg en annen modell.",
+        refused: {
+          model_config_frozen: "Klasseøkten er låst. Modellen kan ikke byttes.",
+          study_frozen: "Klasseøkten er med i en fryst studie. Opphev frysingen først.",
+          no_measured_level: "Modellen har ingen målte innsatsnivåer og kan ikke velges.",
+          config_not_found: "Modellen finnes ikke lenger. Last siden på nytt.",
+          not_found: "Klasseøkten finnes ikke lenger. Last siden på nytt.",
+        } as Record<string, string>,
+        failed: "Modellen ble ikke byttet. Prøv igjen.",
+      },
+      freeze: {
+        title: "Frys en modell for en studie",
+        lead: "Valgte Klasseøkter får samme modell, og nye Klasseøkter får den som standard til frysingen oppheves. En endring av en modell lager alltid en ny konfigurasjon, så den fryste endres aldri.",
+        model: "Modell",
+        sessions: "Klasseøkter i studien",
+        none: "Ingen modell har målte innsatsnivåer ennå.",
+        noSessions: "Ingen Klasseøkt kan få en ny modell nå.",
+        pickOne: "Velg minst én Klasseøkt.",
+        tooMany: "Velg høyst 50 Klasseøkter.",
+        submit: "Frys modellen for valgte Klasseøkter",
+        active: (model: string, count: number, at: string) =>
+          `${model} er fryst for ${count === 1 ? "1 Klasseøkt" : `${count} Klasseøkter`} siden ${at}.`,
+        lift: "Opphev frysingen. Nye Klasseøkter får standardmodellen igjen",
+        lifted: "Frysingen er opphevet.",
+        refused: {
+          freeze_active: "En annen modell er allerede fryst. Opphev den frysingen først.",
+          model_config_frozen: "En valgt Klasseøkt er låst med en annen modell.",
+          no_measured_level: "Modellen har ingen målte innsatsnivåer og kan ikke fryses.",
+          freeze_lifted: "Frysingen er allerede opphevet. Last siden på nytt.",
+          not_found: "En valgt Klasseøkt finnes ikke lenger. Last siden på nytt.",
+          config_not_found: "Modellen finnes ikke lenger. Last siden på nytt.",
+        } as Record<string, string>,
+        failed: "Modellen ble ikke fryst. Prøv igjen.",
+        liftFailed: "Frysingen ble ikke opphevet. Prøv igjen.",
       },
     },
     /** «Institusjoner» (Story 3.11, FR-3): create and rename the Institutions Classes belong to.

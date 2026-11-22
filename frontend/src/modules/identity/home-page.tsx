@@ -10,6 +10,7 @@ import { loginPath } from "@/lib/return-path";
 
 import { meKey, type SessionUser, useMe } from "./api";
 import {
+  ADMIN_AI_COST_PATH,
   ADMIN_AUDIT_PATH,
   ADMIN_EVALUATION_PATH,
   ADMIN_INSTITUTIONS_PATH,
@@ -80,6 +81,11 @@ function AdminSections() {
       <li className="border-b border-hairline">
         <Link href={ADMIN_EVALUATION_PATH} standalone>
           {nb.admin.sections.evaluation}
+        </Link>
+      </li>
+      <li className="border-b border-hairline">
+        <Link href={ADMIN_AI_COST_PATH} standalone>
+          {nb.admin.sections.aiCost}
         </Link>
       </li>
     </ul>
