@@ -122,6 +122,16 @@ All stories of Epics 7–10 are built; 7 and 9 are merged to `main` (PRs #165, #
 - Stray empty untracked files at the repo root (`policy.py`, `walkthrough-chart.tsx`) are not ours to stage; the founder may delete them.
 - Scratchpad lists (`epic8-todo.md`, `epic10-todo.md`, drafts) may vanish; the story issues #143–#195 hold the same items.
 
+## Re-plan after the compact (2026-11-22)
+
+- The founder ran `/compact` and said go. Epic 10 merged first (PR #196, e9817a0); Epic 8's close-out merges `main` again and relinks its 0053 after 0119.
+- Epic 12 is not standalone: 12.2–12.10 need Epic 11 (question set, Scoring guide, answers). 12.1 is built on `epic-12` (a753981, migration 0120, a minimal `sessions.lock_test` seam).
+- **Lane 2** now builds **Epic 11** on `epic-11`, made from `epic-12` (so it carries 12.1). Migrations from 0121. After Epic 11, lane 2 continues Epic 12 (12.2–12.10) on `epic-12` after merging `epic-11`/`main` into it.
+- **Lane 1**, after the Epic 8 close-out merges: **Epic 15** (skip 15.10, 15.14) on `epic-15` from `main`, migrations from 0064 (relinked at merge). A story that needs Epics 11–14 is skipped and taken later.
+- Then Epics 13 and 14.
+- Faster close-outs: visual checks deferred to a close-out are done there once, in one pass. Only one lane runs the full Playwright suite at a time; the other runs targeted specs. Do not edit files by relative path with .NET (`[IO.File]`): its working directory is not PowerShell's location.
+- Memory: Docker's WSL VM can hold 20+ GB page cache after many builds. Free it with `wsl -d docker-desktop -u root sh -c "echo 1 > /proc/sys/vm/drop_caches"` and `echo 1 > /proc/sys/vm/compact_memory`; stop leftover `tail -f` processes older than an hour.
+
 ## Done
 
 The goal is reached when every story outside the skip list is `done`, `review` or (after three attempts) `blocked`, every epic is merged to `main` with CI green, and a final log section lists the `review` and `blocked` stories with their issues.
