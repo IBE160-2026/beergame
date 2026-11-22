@@ -26,6 +26,10 @@ export type NetOverGameProps = {
   /** The Netto lager values the y scale must hold, beyond this chart's own: the shared screen
    * gives every Role's, so the four charts share one scale. */
   scaleWith?: readonly number[];
+  /** A second run on the same Uke axis, drawn as a thin `ink-muted` line under the main one
+   * (Story 10.7: the Class game beside the Replay, `09-alle-sider.png`, «grå: Klassespill»). The
+   * axis runs from the first to the last Uke of either run. */
+  compare?: readonly NetOverGamePoint[];
 };
 
 /** The Uker labelled under the axis besides the first and the last (`07-debrief.png`: 1, 12, 24,
@@ -40,9 +44,10 @@ const WEEK_STEP = 12;
  * last Uke), not table columns: there is no week table under it. `aria-hidden`; «Vis som tabell»
  * is its alternative. Hand-made SVG like the rest of the module (see README).
  */
-export function NetOverGame({ width, height, fontSize, points, title, formatTick, weekLabel, marker, scaleWith }: NetOverGameProps) {
+export function NetOverGame({ width, height, fontSize, points, title, formatTick, weekLabel, marker, scaleWith, compare }: NetOverGameProps) {
   const clip = useId().replace(/:/g, "");
-  const domain = netDomain([...points.map((p) => p.net), ...(scaleWith ?? [])]);
+  const others = compare ?? [];
+  const domain = netDomain([...points.map((p) => p.net), ...others.map((p) => p.net), ...(scaleWith ?? [])]);
   const plotTop = Math.round(fontSize * 0.8);
   const base = height - Math.round(fontSize * 1.9);
   const ticks = netTicks(domain, base - plotTop, fontSize);
@@ -50,8 +55,9 @@ export function NetOverGame({ width, height, fontSize, points, title, formatTick
   const left = Math.ceil(tickWidth);
   const right = width - Math.ceil(fontSize * 0.4);
   const y = scaleLinear().domain(domain).range([base, plotTop]);
-  const first = points[0]?.week ?? 1;
-  const last = points[points.length - 1]?.week ?? first;
+  const weeks = [...points, ...others].map((p) => p.week);
+  const first = weeks.length ? Math.min(...weeks) : 1;
+  const last = weeks.length ? Math.max(...weeks) : first;
   const x = last > first ? scaleLinear().domain([first, last]).range([left, right]) : () => (left + right) / 2;
   const zero = y(0);
   const netLine = line<NetOverGamePoint>()
@@ -61,7 +67,17 @@ export function NetOverGame({ width, height, fontSize, points, title, formatTick
     .x((p) => x(p.week))
     .y0(zero)
     .y1((p) => y(p.net))(points);
-  const labelled = weekLabels(points, x, fontSize);
+  const compareLine = others.length > 1 ? line<NetOverGamePoint>().x((p) => x(p.week)).y((p) => y(p.net))(others) : null;
+  const labelled = weeks.length
+    ? weekLabels(
+        [
+          { week: first, net: 0 },
+          { week: last, net: 0 },
+        ],
+        x,
+        fontSize,
+      )
+    : [];
   return (
     <svg
       width={width}
@@ -103,6 +119,18 @@ export function NetOverGame({ width, height, fontSize, points, title, formatTick
           <path d={netArea} fill={colour("restordre-fill")} clipPath={`url(#${clip}-below)`} />
         </>
       ) : null}
+      {compareLine ? (
+        <path
+          data-mark="compare"
+          data-weeks={others.map((p) => p.week).join(" ")}
+          d={compareLine}
+          fill="none"
+          stroke={colour("ink-muted")}
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ) : null}
       {netLine ? (
         <g
           data-mark="net"
@@ -129,7 +157,7 @@ export function NetOverGame({ width, height, fontSize, points, title, formatTick
         />
       ) : null}
       {points.length === 1 ? (
-        <circle cx={x(first)} cy={y(points[0]!.net)} r={3.5} fill={colour(points[0]!.net < 0 ? "restordre" : "lager")} />
+        <circle cx={x(points[0]!.week)} cy={y(points[0]!.net)} r={3.5} fill={colour(points[0]!.net < 0 ? "restordre" : "lager")} />
       ) : null}
       {labelled.map((week, index) => (
         <text

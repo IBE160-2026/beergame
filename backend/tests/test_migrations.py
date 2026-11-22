@@ -101,6 +101,8 @@ MESSAGE_TABLES = {"messages", "message_recipients"}
 """The tables of revision 0052 (Story 7.9)."""
 REPLAY_TABLES = {"replays"}
 """The tables of revision 0116 (Story 10.3)."""
+WALKTHROUGH_TABLES = {"replay_narrations", "replay_walkthroughs"}
+"""The tables of revision 0118 (Story 10.7)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -122,8 +124,9 @@ HEAD_TABLES = (
     | GAME_SUMMARY_TABLES
     | MESSAGE_TABLES
     | REPLAY_TABLES
+    | WALKTHROUGH_TABLES
 )
-HEAD = "0117"  # 0117 says why a Game ended without its last Week (Story 10.6)
+HEAD = "0118"  # 0118 stores the Replay walkthrough (Story 10.7)
 
 
 def reset_schema(url: str) -> None:
@@ -312,6 +315,14 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0118 (Story 10.7): the Replay walkthrough's line and record, each stored once.
+    assert {"replay_fact_set_id", "compared_fact_set_id"} <= columns(url, "replay_walkthroughs")
+    assert function_names(url, "replay_narrations_immutable")
+    assert function_names(url, "replay_walkthroughs_immutable")
+    command.downgrade(cfg, "0117")
+    assert WALKTHROUGH_TABLES.isdisjoint(tables(url))
+    assert not function_names(url, "replay_walkthroughs_immutable")
 
     # 0117 (Story 10.6): why a Game ended without its last Week, only on a finished Game.
     assert "end_reason" in columns(url, "games")

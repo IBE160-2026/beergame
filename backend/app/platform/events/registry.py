@@ -154,6 +154,12 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # started through `games.commands` (`game`), and the Student's Hjem reads it again
         # (`user`). No Lecturer overview lists a Replay, so no `session`.
         "replay.start": frozenset({"game", "user"}),
+        # A finished Replay's walkthrough line stored by the `llm-batch` job (Story 10.7): the
+        # Student's waiting walkthrough page reads again (`user`).
+        "replay.store_narration": frozenset({"user"}),
+        # A Student's walkthrough stored at their first ready view (Story 10.7): no event, the
+        # viewing page has it and no other reader sees it.
+        "replay.record_walkthrough": frozenset(),
     }
 )
 """`<module>.<command>` -> topics. Commands on a Game the Lecturer overview lists will add

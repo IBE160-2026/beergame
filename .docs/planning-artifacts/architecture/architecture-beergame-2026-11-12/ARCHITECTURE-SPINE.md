@@ -540,7 +540,7 @@ beergame/
 | Inactivity, Takeover, Pause, playout (FR-35 to FR-38, FR-89) | `games`, `ops.sweep` | AD-2, AD-5, AD-9, AD-20 |
 | Lecturer overview, Messages (FR-39, FR-40) | `games` (`game_summaries`), `progress`, `messaging` | AD-25, AD-8, AD-12, AD-16 |
 | Debrief, quiz (FR-41 to FR-47) | `debrief`, `content`, `analysis`, `ai` | AD-21, AD-7, AD-23, AD-8 |
-| Replay (FR-48 to FR-50) | `replay` (creates `purpose=replay` Games), `games`, `debrief` (walkthrough) | AD-4, AD-5, AD-7 |
+| Replay (FR-48 to FR-50) | `replay` (creates `purpose=replay` Games; the walkthrough, with `analysis`' facts, moments and validator and `app.ai.text`), `games` | AD-4, AD-5, AD-7 |
 | Individual test, Interactive and Adapted items (FR-51 to FR-53, FR-80, FR-81) | `tests`, `content`, `analysis` (computed scoring) | AD-7, AD-23, AD-10, AD-9 |
 | AI assessment, letter, Control test (FR-54 to FR-56, FR-61, FR-82) | `assessment`, `ai`, `sessions` (`kind=control_test`), `analysis` (agreement) | AD-6, AD-7, AD-9, AD-12, AD-13, AD-27 |
 | Reports, exports (FR-57 to FR-60, FR-88) | `reports`, `frontend/print` | AD-18, AD-16, AD-13 |

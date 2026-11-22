@@ -2375,6 +2375,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/games/{game_id}/walkthrough": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Replay Walkthrough
+         * @description The Replay-gjennomgang (Story 10.7, FR-50, AD-7): the Student's finished Replay beside
+         *     their own Class game, every number from the two Games' stored Week rows and facts sets.
+         *     `pending` while the line is being worded (`retry_after_seconds`); 409 `replay_closed` for a
+         *     Replay closed at the Test deadline (Story 10.6) and `replay_not_finished` before its end;
+         *     403 `forbidden` for any Game that is not the User's own Replay (FR-5, AD-12).
+         */
+        get: operations["getMyReplayWalkthrough"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/games/{game_id}/weeks/{week}/order": {
         parameters: {
             query?: never;
@@ -5184,6 +5208,41 @@ export interface components {
             weeks: number | components["schemas"]["IntRange"];
         };
         /**
+         * ReplayWalkthroughOut
+         * @description `GET /api/me/games/{game_id}/walkthrough`. `pending`: the line is still being worded;
+         *     only `retry_after_seconds` (the rest of the wait limit) is set. `ready`: the Replay run, the
+         *     Class game beside it (None when that game was played mostly by AI players, `mostly_ai`), the
+         *     moments shown and the line fixed at the Student's first ready view.
+         */
+        ReplayWalkthroughOut: {
+            class_game?: components["schemas"]["WalkthroughClassGameOut"] | null;
+            /**
+             * Game Id
+             * Format: uuid
+             */
+            game_id: string;
+            /**
+             * Moments
+             * @default []
+             */
+            moments: components["schemas"]["WalkthroughMomentOut"][];
+            /**
+             * Mostly Ai
+             * @default false
+             */
+            mostly_ai: boolean;
+            narration?: components["schemas"]["WalkthroughTextOut"] | null;
+            replay?: components["schemas"]["WalkthroughRunOut"] | null;
+            /** Retry After Seconds */
+            retry_after_seconds?: number | null;
+            role: components["schemas"]["Role"];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "ready";
+        };
+        /**
          * ResetCheckOut
          * @description A usable reset link: its address, and whether the account has no password yet (a manually
          *     registered Student, Story 4.8), so «Nytt passord» words it as a first password.
@@ -6377,6 +6436,81 @@ export interface components {
             class_name: string;
             /** Sessions */
             sessions: components["schemas"]["SessionRef"][];
+        };
+        /**
+         * WalkthroughClassGameOut
+         * @description The Student's own Class game, compared with: its number too («Spill 17»).
+         */
+        WalkthroughClassGameOut: {
+            /** Game Number */
+            game_number: number | null;
+            /** Total Cost */
+            total_cost: string;
+            /** Weeks */
+            weeks: components["schemas"]["WalkthroughWeekOut"][];
+        };
+        /**
+         * WalkthroughMomentOut
+         * @description One own moment of the Replay, rendered by code from its facts set (`analysis.moments`):
+         *     the heading, «Dette regnet du», «Dette kostet det senere» and the pattern (or gap)
+         *     sentences with the mechanism.
+         */
+        WalkthroughMomentOut: {
+            /** Heading */
+            heading: string;
+            /** Id */
+            id: string;
+            /** Later */
+            later: string;
+            /** Order */
+            order: number;
+            /** Patterns */
+            patterns: string[];
+            /** Reckoning */
+            reckoning: string;
+            /** Week */
+            week: number;
+        };
+        /**
+         * WalkthroughRunOut
+         * @description One run of the Student's Seat: every Uke, and its Totalkostnad (the last Uke's running
+         *     sum, the facts set's own Total cost of the Role).
+         */
+        WalkthroughRunOut: {
+            /** Total Cost */
+            total_cost: string;
+            /** Weeks */
+            weeks: components["schemas"]["WalkthroughWeekOut"][];
+        };
+        /**
+         * WalkthroughTextOut
+         * @description The line that ties the moments together (AD-7): `ai_generated` alone decides the
+         *     «KI-generert, kan ta feil:» marking.
+         */
+        WalkthroughTextOut: {
+            /**
+             * Ai Generated
+             * @default false
+             */
+            ai_generated: boolean;
+            /** Llm Call Id */
+            llm_call_id?: string | null;
+            /** Text */
+            text: string;
+        };
+        /**
+         * WalkthroughWeekOut
+         * @description One Uke of a run, as the Seat saw it when it ordered (its Decision log row).
+         */
+        WalkthroughWeekOut: {
+            /** Net Inventory */
+            net_inventory: number;
+            /** Order */
+            order: number;
+            /** Total Cost */
+            total_cost: string;
+            /** Week */
+            week: number;
         };
         /**
          * WallAggregatesOut
@@ -12538,6 +12672,73 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getMyReplayWalkthrough: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayWalkthroughOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

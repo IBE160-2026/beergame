@@ -1,7 +1,9 @@
-"""The Student's Replay (Story 10.3, FR-48): `POST /api/me/class-sessions/{session_id}/replay`.
+"""The Student's Replay (Story 10.3, FR-48): `POST /api/me/class-sessions/{session_id}/replay`;
+its walkthrough (Story 10.7, FR-50): `GET /api/me/games/{game_id}/walkthrough`.
 
 A Class session that is not one of the User's own locked sessions, one that does not exist and an
-id that is not one all answer the same 403 `forbidden` (FR-5)."""
+id that is not one all answer the same 403 `forbidden` (FR-5); so does a Game that is not the
+User's own Replay."""
 
 import uuid
 from typing import Annotated
@@ -10,7 +12,9 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
-from app.modules.replay import service
+from app.modules.games import service as games_service
+from app.modules.replay import service, walkthrough
+from app.modules.replay.schemas import ReplayWalkthroughOut
 from app.platform import authz
 from app.platform.errors import documented, error_response
 
@@ -59,3 +63,35 @@ async def start_my_replay(
         ReplayStartOut(game_id=started.game_id).model_dump(mode="json"),
         status_code=201 if started.created else 200,
     )
+
+
+UNAVAILABLE = {
+    "replay_closed": "The Replay was closed at the Test deadline and has no walkthrough.",
+    "replay_not_finished": "The Replay has not finished.",
+}
+
+
+@router.get(
+    "/me/games/{game_id}/walkthrough",
+    response_model=ReplayWalkthroughOut,
+    responses=documented(401, 403, 404, 409),
+    operation_id="getMyReplayWalkthrough",
+)
+async def get_my_replay_walkthrough(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.read_own"))],
+) -> Response:
+    """The Replay-gjennomgang (Story 10.7, FR-50, AD-7): the Student's finished Replay beside
+    their own Class game, every number from the two Games' stored Week rows and facts sets.
+    `pending` while the line is being worded (`retry_after_seconds`); 409 `replay_closed` for a
+    Replay closed at the Test deadline (Story 10.6) and `replay_not_finished` before its end;
+    403 `forbidden` for any Game that is not the User's own Replay (FR-5, AD-12)."""
+    try:
+        found = await walkthrough.walkthrough(user, game_id)
+    except walkthrough.Unavailable as refused:
+        return error_response(409, refused.code, UNAVAILABLE[refused.code])
+    except games_service.ViewError as failed:
+        return error_response(failed.status, failed.code, "No walkthrough can be built.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))

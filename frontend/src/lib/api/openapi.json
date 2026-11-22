@@ -6283,6 +6283,88 @@
         "title": "ReplayTemplate",
         "type": "object"
       },
+      "ReplayWalkthroughOut": {
+        "description": "`GET /api/me/games/{game_id}/walkthrough`. `pending`: the line is still being worded;\nonly `retry_after_seconds` (the rest of the wait limit) is set. `ready`: the Replay run, the\nClass game beside it (None when that game was played mostly by AI players, `mostly_ai`), the\nmoments shown and the line fixed at the Student's first ready view.",
+        "properties": {
+          "class_game": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WalkthroughClassGameOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "moments": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/WalkthroughMomentOut"
+            },
+            "title": "Moments",
+            "type": "array"
+          },
+          "mostly_ai": {
+            "default": false,
+            "title": "Mostly Ai",
+            "type": "boolean"
+          },
+          "narration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WalkthroughTextOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "replay": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WalkthroughRunOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retry_after_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry After Seconds"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "ready"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game_id",
+          "role",
+          "state"
+        ],
+        "title": "ReplayWalkthroughOut",
+        "type": "object"
+      },
       "ResetCheckOut": {
         "description": "A usable reset link: its address, and whether the account has no password yet (a manually\nregistered Student, Story 4.8), so «Nytt passord» words it as a first password.",
         "properties": {
@@ -8993,6 +9075,169 @@
           "sessions"
         ],
         "title": "WaitingClass",
+        "type": "object"
+      },
+      "WalkthroughClassGameOut": {
+        "description": "The Student's own Class game, compared with: its number too («Spill 17»).",
+        "properties": {
+          "game_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Number"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/WalkthroughWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "weeks",
+          "total_cost",
+          "game_number"
+        ],
+        "title": "WalkthroughClassGameOut",
+        "type": "object"
+      },
+      "WalkthroughMomentOut": {
+        "description": "One own moment of the Replay, rendered by code from its facts set (`analysis.moments`):\nthe heading, «Dette regnet du», «Dette kostet det senere» and the pattern (or gap)\nsentences with the mechanism.",
+        "properties": {
+          "heading": {
+            "title": "Heading",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "later": {
+            "title": "Later",
+            "type": "string"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "patterns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Patterns",
+            "type": "array"
+          },
+          "reckoning": {
+            "title": "Reckoning",
+            "type": "string"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "week",
+          "order",
+          "heading",
+          "reckoning",
+          "later",
+          "patterns"
+        ],
+        "title": "WalkthroughMomentOut",
+        "type": "object"
+      },
+      "WalkthroughRunOut": {
+        "description": "One run of the Student's Seat: every Uke, and its Totalkostnad (the last Uke's running\nsum, the facts set's own Total cost of the Role).",
+        "properties": {
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/WalkthroughWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "weeks",
+          "total_cost"
+        ],
+        "title": "WalkthroughRunOut",
+        "type": "object"
+      },
+      "WalkthroughTextOut": {
+        "description": "The line that ties the moments together (AD-7): `ai_generated` alone decides the\n«KI-generert, kan ta feil:» marking.",
+        "properties": {
+          "ai_generated": {
+            "default": false,
+            "title": "Ai Generated",
+            "type": "boolean"
+          },
+          "llm_call_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Call Id"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "WalkthroughTextOut",
+        "type": "object"
+      },
+      "WalkthroughWeekOut": {
+        "description": "One Uke of a run, as the Seat saw it when it ordered (its Decision log row).",
+        "properties": {
+          "net_inventory": {
+            "title": "Net Inventory",
+            "type": "integer"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "string"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "net_inventory",
+          "order",
+          "total_cost"
+        ],
+        "title": "WalkthroughWeekOut",
         "type": "object"
       },
       "WallAggregatesOut": {
@@ -17282,6 +17527,89 @@
         "summary": "Accept My Game Time",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/api/me/games/{game_id}/walkthrough": {
+      "get": {
+        "description": "The Replay-gjennomgang (Story 10.7, FR-50, AD-7): the Student's finished Replay beside\ntheir own Class game, every number from the two Games' stored Week rows and facts sets.\n`pending` while the line is being worded (`retry_after_seconds`); 409 `replay_closed` for a\nReplay closed at the Test deadline (Story 10.6) and `replay_not_finished` before its end;\n403 `forbidden` for any Game that is not the User's own Replay (FR-5, AD-12).",
+        "operationId": "getMyReplayWalkthrough",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayWalkthroughOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Replay Walkthrough",
+        "tags": [
+          "replay"
         ]
       }
     },

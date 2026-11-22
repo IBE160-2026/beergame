@@ -347,6 +347,18 @@ describe("Ditt netto lager, hele spillet (Story 9.3)", () => {
     expect(html).toContain(">-80</text>");
     expect(renderToStaticMarkup(<NetOverGame {...props} marker={99} />)).not.toContain('data-mark="marker"');
   });
+
+  it("draws a second run on the same Uke axis as a thin grey line, its values in the scale (Story 10.7)", () => {
+    const replay = points.slice(0, 30);
+    const html = renderToStaticMarkup(<NetOverGame {...props} points={replay} compare={points.map((p) => ({ ...p, net: p.net - 70 }))} />);
+    expect(html).toContain('data-mark="compare"');
+    expect(html).toContain(`data-weeks="${replay.map((p) => p.week).join(" ")}"`);
+    expect(html).toMatch(/data-mark="compare"[^>]*stroke="#[0-9a-f]+"[^>]*stroke-width="1.5"/i);
+    // The axis runs to the longer run's last Uke, and the scale holds the lower line.
+    expect(html).toContain(">Uke 36</text>");
+    expect(html).toContain(">-80</text>");
+    expect(renderToStaticMarkup(<NetOverGame {...props} />)).not.toContain('data-mark="compare"');
+  });
 });
 
 describe("Etterspørselsbånd (Story 9.4)", () => {

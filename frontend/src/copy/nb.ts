@@ -2659,6 +2659,57 @@ export const nb = {
     },
   },
 
+  /** The Replay after the Debrief (Epic 10). */
+  replay: {
+    /** Replay-gjennomgang (Story 10.7, FR-50, UX-DR64, EXPERIENCE.md → Replay-gjennomgang,
+     * `09-alle-sider.png`). «Gjennomgangen lages.» and «Ikke like for like.» are the spine's; every
+     * other line is [ASSUMPTION] draft copy (open-assumptions.md). No line ranks, praises or says
+     * which run was better (UX-DR72). */
+    walkthrough: {
+      title: "Replay-gjennomgang",
+      roleReplay: (role: string) => `${role}, Replay`,
+      pending: "Gjennomgangen lages.",
+      totalLabel: "Totalkostnad, Replay",
+      classTotalLabel: (number: number | null) =>
+        number === null ? "Totalkostnad, Klassespillet" : `Totalkostnad, Klassespillet (${gameName(number)})`,
+      chartTitle: "Netto lager, Replay og Klassespillet på samme ukeakse",
+      chartTitleAlone: "Netto lager, Replay",
+      legend: "Farget linje og flate: Replay. Grå linje: Klassespillet.",
+      chartSvg: "Graf over netto lager i hver uke: Replay med farget linje, Klassespillet med grå linje.",
+      chartSvgAlone: "Graf over netto lager i hver uke av Replay.",
+      week: (week: number) => `Uke ${week}`,
+      showTable: "Vis som tabell",
+      showChart: "Vis som graf",
+      tableCaption: "Replay og Klassespillet uke for uke: netto lager, din ordre og kostnad så langt, i kroner",
+      tableCaptionAlone: "Replay uke for uke: netto lager, din ordre og kostnad så langt, i kroner",
+      columnNet: (run: string) => `Netto lager, ${run}`,
+      /** «Ordre», not «Din ordre»: in the Class game a KI-spiller may have ordered for the Seat. */
+      columnOrder: (run: string) => `Ordre, ${run}`,
+      columnCost: (run: string) => `Kostnad så langt, ${run}`,
+      /** A cell of an Uke the shorter run did not have. */
+      noWeek: "–",
+      runReplay: "Replay",
+      runClass: "Klassespill",
+      /** «Ikke like for like.» and why, in words (FR-50, UX-DR70). */
+      unlike: "Ikke like for like.",
+      unlikeNeighbours: "I Replay var de tre andre Rollene KI-spillere.",
+      unlikeDemand: "Kundene etterspurte andre mengder enn i Klassespillet.",
+      unlikeWeeks: (replay: number, klass: number) =>
+        replay === klass ? `Begge hadde ${replay} uker.` : `Replay hadde ${replay} uker, Klassespillet ${klass}.`,
+      mostlyAi: "Klassespillet ditt ble spilt mest av KI-spillere, så det står ikke ved siden av Replay her.",
+      momentsTitle: "Øyeblikk fra din Replay",
+      narration: "Slik henger øyeblikkene sammen",
+      noMoments: "Replay hadde for få av dine egne ordrer til å velge øyeblikk.",
+      reckoned: "Dette regnet du",
+      later: "Dette kostet det senere",
+      pattern: "Mønster",
+      /** The Replay has not finished: no walkthrough yet. */
+      notFinished: "Gjennomgangen kommer når Replay er ferdig.",
+      toReplay: "Til Replay",
+      loadFailed: "Gjennomgangen kunne ikke hentes.",
+    },
+  },
+
   /** Quizvalg's marks on a scored question (UX-DR37): in text, never by colour alone. The spine's
    * words. */
   quizChoice: {

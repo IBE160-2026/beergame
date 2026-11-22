@@ -29,6 +29,9 @@ PURPOSES: dict[str, Purpose] = {
     # Story 9.15 (FR-45, AD-7): a Student's follow-up question about their Game, answered with
     # hints or declined. One attempt, on the api's request with a deadline; never retried.
     "debrief_follow_up": Purpose("debrief_follow_up", attempt_limit=1, player=False),
+    # Story 10.7 (FR-50, AD-7): the Replay walkthrough's line, worded on `llm-batch` once the
+    # Replay finishes. One attempt; the caller shows the code text instead.
+    "replay_walkthrough": Purpose("replay_walkthrough", attempt_limit=1, player=False),
 }
 
 
