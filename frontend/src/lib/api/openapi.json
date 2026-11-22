@@ -215,6 +215,65 @@
         "title": "AdjustmentOut",
         "type": "object"
       },
+      "AgreementIn": {
+        "description": "An Institution agreement for one Class session: who agreed, on which day, and who is\ncontroller for the evaluation (FR-71).",
+        "properties": {
+          "agreed_by": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Agreed By",
+            "type": "string"
+          },
+          "agreed_on": {
+            "format": "date",
+            "title": "Agreed On",
+            "type": "string"
+          },
+          "controller": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Controller",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agreed_by",
+          "agreed_on",
+          "controller"
+        ],
+        "title": "AgreementIn",
+        "type": "object"
+      },
+      "AgreementOut": {
+        "properties": {
+          "agreed_by": {
+            "title": "Agreed By",
+            "type": "string"
+          },
+          "agreed_on": {
+            "format": "date",
+            "title": "Agreed On",
+            "type": "string"
+          },
+          "controller": {
+            "title": "Controller",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agreed_by",
+          "agreed_on",
+          "controller",
+          "recorded_at"
+        ],
+        "title": "AgreementOut",
+        "type": "object"
+      },
       "AiDescriptionsOut": {
         "description": "The plain-language Norwegian description of each AI player type, from\n`players.service.describe` (FR-33): Markdown with a title line, paragraphs and `- ` lists.",
         "properties": {
@@ -2771,6 +2830,121 @@
         "title": "ErrorEnvelope",
         "type": "object"
       },
+      "EvaluationSessionListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationSessionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "EvaluationSessionListOut",
+        "type": "object"
+      },
+      "EvaluationSessionOut": {
+        "description": "A Class session as the export page lists it: how it is named, its Test deadline, the day\nits Student data is deleted (null while there is no Test deadline), and its agreement.",
+        "properties": {
+          "agreement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgreementOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "deletion_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deletion Date"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "test_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Deadline"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "class_name",
+          "course_code",
+          "institution_name",
+          "start_at",
+          "test_deadline",
+          "deletion_date",
+          "agreement"
+        ],
+        "title": "EvaluationSessionOut",
+        "type": "object"
+      },
       "ExplanationIn": {
         "description": "«Send Forklaring»: the text as typed. It must hold more than white space and at most\n5000 characters (422 `validation_error`).",
         "properties": {
@@ -2808,6 +2982,171 @@
           "saved_at"
         ],
         "title": "ExplanationOut",
+        "type": "object"
+      },
+      "ExportIn": {
+        "properties": {
+          "class_session_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Class Session Ids",
+            "type": "array"
+          },
+          "key": {
+            "format": "password",
+            "title": "Key",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "class_session_ids",
+          "key"
+        ],
+        "title": "ExportIn",
+        "type": "object"
+      },
+      "ExportListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExportOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ExportListOut",
+        "type": "object"
+      },
+      "ExportOut": {
+        "description": "One export run or refusal, from its audit row.",
+        "properties": {
+          "actor_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name"
+          },
+          "class_sessions": {
+            "items": {
+              "$ref": "#/components/schemas/ExportSessionOut"
+            },
+            "title": "Class Sessions",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "key_fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Fingerprint"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "occurred_at",
+          "actor_id",
+          "actor_name",
+          "outcome",
+          "key_fingerprint",
+          "class_sessions"
+        ],
+        "title": "ExportOut",
+        "type": "object"
+      },
+      "ExportSessionOut": {
+        "description": "A Class session of an export, with the day by which the exported data must be deleted;\nthe name fields are null for a Class session that is gone.",
+        "properties": {
+          "class_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Name"
+          },
+          "deletion_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deletion Date"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "class_name",
+          "deletion_date"
+        ],
+        "title": "ExportSessionOut",
         "type": "object"
       },
       "FillSeatsIn": {
@@ -4501,6 +4840,56 @@
           "terms"
         ],
         "title": "ItemResultOut",
+        "type": "object"
+      },
+      "KeyIn": {
+        "description": "The pseudonym key, typed by the key holder; never stored, logged or echoed.",
+        "properties": {
+          "key": {
+            "format": "password",
+            "title": "Key",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "title": "KeyIn",
+        "type": "object"
+      },
+      "KeyStateOut": {
+        "description": "The stored fingerprint of the pseudonym key, or nulls before the first export.",
+        "properties": {
+          "fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fingerprint"
+          },
+          "set_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set At"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "set_at"
+        ],
+        "title": "KeyStateOut",
         "type": "object"
       },
       "LabHourIn": {
@@ -10991,6 +11380,347 @@
           }
         },
         "summary": "List Audit Actors",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/evaluation/class-sessions": {
+      "get": {
+        "description": "Every saved Class session, newest first, with its Institution agreement (or null) and the\nday its Student data is deleted (null while it has no Test deadline). No Student data.",
+        "operationId": "listEvaluationSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationSessionListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Sessions",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/evaluation/class-sessions/{class_session_id}/agreement": {
+      "put": {
+        "description": "Record or replace the Institution agreement of a Class session (FR-71): who agreed, on\nwhich day, and who is controller for the evaluation. Audited as\n`evaluation_agreement.recorded`.",
+        "operationId": "recordEvaluationAgreement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Class Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgreementIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Record Agreement",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/evaluation/exports": {
+      "get": {
+        "description": "The newest export runs and refusals: who, when, the Class sessions with their deletion\ndates, the key fingerprint and the outcome.",
+        "operationId": "listEvaluationExports",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Exports",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "description": "Run the pseudonymised export of the chosen Class sessions and stream it as a ZIP (FR-71).\nRefused with 403 `no_agreement` (`fields.class_session_ids`) when a Class session has no\nagreement, and 409 `pseudonym_key_changed` when the key is not the one whose fingerprint is\nstored. Every run and refusal is audited as `evaluation_export.run`.",
+        "operationId": "runEvaluationExport",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Run Export",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/evaluation/key": {
+      "get": {
+        "description": "The stored fingerprint of the pseudonym key, or nulls before the first export.",
+        "operationId": "getPseudonymKeyState",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "Key State",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "description": "Replace the stored fingerprint with the new key's (AD-14), audited as\n`pseudonym_key.replaced`. Later exports must use the new key.",
+        "operationId": "replacePseudonymKey",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Replace Key",
         "tags": [
           "admin"
         ]

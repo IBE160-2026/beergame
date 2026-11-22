@@ -96,6 +96,26 @@ async def sessions_of(session: AsyncSession, class_id: uuid.UUID) -> list[RowMap
     return list(result.mappings())
 
 
+async def evaluation_rows(
+    session: AsyncSession, ids: list[uuid.UUID] | None = None
+) -> list[RowMapping]:
+    """The saved Class sessions (or these ones, saved or not) with their numbers, Classes, Start
+    dates and Test deadlines, for the Admin's evaluation export (Story 15.4): no User's scope,
+    the Admin names Class sessions by id and sees no Student data here."""
+    query = select(
+        _numbered.c.id,
+        _numbered.c.class_id,
+        _numbered.c.number,
+        _numbered.c.start_at,
+        _numbered.c.test_deadline,
+    ).order_by(_numbered.c.id.desc())
+    if ids is None:
+        query = query.where(_numbered.c.saved_at.is_not(None))
+    else:
+        query = query.where(_numbered.c.id.in_(ids))
+    return list((await session.execute(query)).mappings())
+
+
 async def enrolled_sessions(session: AsyncSession, user: authz.Principal) -> list[RowMapping]:
     """The sessions of the Classes `user` is a Student in (`authz.classes_enrolled_by`), with
     their numbers: dates and the obligatory mark, and the settings and the snapshot's settings

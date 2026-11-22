@@ -6,7 +6,7 @@ from collections.abc import Collection, Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Numeric, RowMapping, delete, func, select, text, update
+from sqlalchemy import Numeric, RowMapping, delete, func, select, text, tuple_, update
 from sqlalchemy.dialects.postgresql import distinct_on, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -1747,3 +1747,84 @@ async def insert_believability_rating(
         .returning(believability_ratings.c.rating)
     )
     return result.first() is not None
+
+
+DECISION_LOG_COLUMNS = (
+    "class_session_id",
+    "game_id",
+    "game_number",
+    "purpose",
+    "rules_version",
+    "role",
+    "position",
+    "week",
+    "student",
+    "occupant_kind",
+    "reason",
+    "decided_by",
+    "fallback",
+    "order",
+    "rule_based_reference_order",
+    "near_optimal_reference_order",
+    "near_optimal_algorithm_version",
+    "effort_level",
+    "opened_at",
+    "ordered_at",
+    "ai_deadline_at",
+    "wait_started_at",
+    "takeover_due_at",
+    "insert_allowed_at",
+    "state_seen",
+    "llm_call_ids",
+)
+"""The columns of the Decision log in the pseudonymised export (Story 15.4, FR-67, FR-71)."""
+
+
+async def decision_log_rows(
+    session: AsyncSession,
+    class_session_ids: Collection[uuid.UUID],
+    in_scope: Any,
+    students: Any,
+) -> list[RowMapping]:
+    """Every Decision log row of the Games of these Class sessions that `in_scope` (a subquery of
+    Game ids, `reports.scope`) keeps, with the Student in force that Week (`student`, the User id
+    of the occupancy row that applied, NULL for an AI or a free Seat), in Class session, game
+    number, Week and chain order (Story 15.4, AD-13, AD-15). A row a Student ordered is left out
+    unless `students` (a subquery of `(class_session_id, user_id)`) keeps that Student."""
+    occupant = (
+        select(seat_occupancy.c.user_id)
+        .where(
+            seat_occupancy.c.seat_id == seat_weeks.c.seat_id,
+            seat_occupancy.c.from_week <= seat_weeks.c.week,
+        )
+        .order_by(seat_occupancy.c.from_week.desc(), seat_occupancy.c.id.desc())
+        .limit(1)
+        .correlate(seat_weeks)
+        .scalar_subquery()
+    )
+    query = (
+        select(
+            games.c.class_session_id,
+            games.c.id.label("game_id"),
+            games.c.game_number,
+            games.c.purpose,
+            games.c.rules_version,
+            seats.c.role,
+            seats.c.position,
+            seat_weeks.c.week,
+            occupant.label("student"),
+            *(seat_weeks.c[name] for name in DECISION_LOG_COLUMNS[9:]),
+        )
+        .select_from(seat_weeks)
+        .join(games, games.c.id == seat_weeks.c.game_id)
+        .join(seats, seats.c.id == seat_weeks.c.seat_id)
+        .where(
+            games.c.class_session_id.in_(list(class_session_ids)),
+            games.c.id.in_(in_scope),
+            occupant.is_(None) | tuple_(games.c.class_session_id, occupant).in_(students),
+        )
+        .order_by(
+            games.c.class_session_id, games.c.game_number, seat_weeks.c.week, seats.c.position
+        )
+    )
+    return list((await session.execute(query)).mappings())

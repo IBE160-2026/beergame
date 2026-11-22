@@ -1429,3 +1429,22 @@ async def class_played(
         for row in await repo.placed_orders_of(session, game_ids):
             orders[row["game_id"]][(row["week"], str(row["role"]))] = row["order"]
     return [PlayedGame(states=tuple(states[g]), orders=orders[g]) for g in game_ids]
+
+
+ExportRows = tuple[tuple[str, ...], list[tuple[Any, ...]]]
+"""A section of the pseudonymised export: its column names and its rows (Story 15.4)."""
+
+
+async def export_decision_log(
+    session: AsyncSession,
+    class_session_ids: Collection[uuid.UUID],
+    in_scope: Any,
+    students: Any,
+) -> ExportRows:
+    """The Decision log of the Class sessions for the pseudonymised export (Story 15.4, FR-67,
+    FR-71, AD-15): every `seat_week` column, the Role, the game number and, in `student`, the User
+    id of the Student who held the Seat that Week. `in_scope` and `students` are the
+    `reports.scope` subqueries (AD-13); the caller replaces `student` by a pseudonym."""
+    rows = await repo.decision_log_rows(session, class_session_ids, in_scope, students)
+    columns = repo.DECISION_LOG_COLUMNS
+    return columns, [tuple(row[name] for name in columns) for row in rows]

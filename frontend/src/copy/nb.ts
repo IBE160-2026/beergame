@@ -2112,6 +2112,8 @@ export const nb = {
       institutions: "Institusjoner",
       // [ASSUMPTION] Story 3.12.
       audit: "Revisjonslogg",
+      // [ASSUMPTION] Story 15.4.
+      evaluation: "Pseudonymisert eksport",
     },
     /** «Revisjonslogg» (Story 3.12, FR-3): every Admin action with who did it and when. The page
      * renders any action from these entries; a later epic adds its own action names here and the
@@ -2158,6 +2160,10 @@ export const nb = {
         // Story 3.13.
         "access_request.invited": "Invitert fra forespørsel",
         "access_request.dismissed": "Forespørsel avvist",
+        // [ASSUMPTION] Story 15.4.
+        "evaluation_agreement.recorded": "Avtale om evaluering registrert",
+        "evaluation_export.run": "Pseudonymisert eksport",
+        "pseudonym_key.replaced": "Nøkkel for pseudonymer byttet",
       } as Record<string, string>,
       /** What an action concerns, by its target key. */
       targets: {
@@ -2165,6 +2171,8 @@ export const nb = {
         invitation_id: (label: string) => `Invitasjon til ${label}`,
         institution_id: (label: string) => label,
         access_request_id: (label: string) => `Forespørsel fra ${label}`,
+        // [ASSUMPTION] Story 15.4.
+        class_session_id: (label: string) => label,
       } as Record<string, (label: string) => string>,
       /** The labels of the change fields; an unknown field shows its own key. */
       fields: {
@@ -2177,12 +2185,106 @@ export const nb = {
         voided_invitation_ids: "Lenker gjort ugyldige",
         // [ASSUMPTION] Story 15.2: the reference to the Institution's instruction.
         reference: "Referanse",
+        // [ASSUMPTION] Story 15.4.
+        agreed_on: "Dato for avtalen",
+        outcome: "Utfall",
+        class_session_ids: "Antall Klasseøkter",
+        key_fingerprint: "Fingeravtrykk",
+        old_fingerprint: "Gammelt fingeravtrykk",
+        new_fingerprint: "Nytt fingeravtrykk",
       } as Record<string, string>,
       values: {
         roles: { lecturer: "Faglærer", admin: "Admin" } as Record<string, string>,
         account: { created: "Ny konto", existing: "Eksisterende konto" } as Record<string, string>,
         yes: "Ja",
         no: "Nei",
+      },
+    },
+    /** «Pseudonymisert eksport» (Story 15.4, FR-71, FR-77): Institution agreements per Class
+     * session, the run with the key holder's key, the key's fingerprint and the list of runs.
+     * [ASSUMPTION] Story 15.4, all of it. */
+    evaluation: {
+      title: "Pseudonymisert eksport",
+      lead: "Beslutningsloggen, Startoppgaven og Forklaringene fra valgte Klasseøkter, med hver Student byttet ut med et fast pseudonym. Eksporten har ingen navn, e-postadresser, studentnumre, KI-vurderinger eller veiledende karakterer, men Forklaringene står slik Studentene skrev dem og kan nevne navn. Dataene er fortsatt personopplysninger og må slettes innen slettedatoen.",
+      sessions: {
+        title: "Klasseøkter og avtaler",
+        lead: "En Klasseøkt kan eksporteres bare når Institusjonens avtale om evalueringen er registrert.",
+        columns: {
+          session: "Klasseøkt",
+          testDeadline: "Testfrist",
+          deletion: "Slettes",
+          agreement: "Avtale",
+          actions: "Handling",
+        },
+        label: (className: string, number: number) => `${className} · Klasseøkt ${number}`,
+        noDate: "Ikke satt",
+        noAgreement: "Ingen avtale",
+        agreement: (by: string, on: string) => `${by}, ${on}`,
+        controller: (controller: string) => `Behandlingsansvarlig: ${controller}`,
+        empty: "Ingen lagrede Klasseøkter ennå.",
+        record: (label: string) => `Registrer avtale for ${label}`,
+        change: (label: string) => `Endre avtalen for ${label}`,
+      },
+      agreementForm: {
+        agreedBy: "Hvem ga avtalen",
+        agreedByHint: "Rolle eller enhet ved Institusjonen, for eksempel prorektor for utdanning.",
+        agreedOn: "Dato for avtalen",
+        controller: "Behandlingsansvarlig for evalueringen",
+        save: "Lagre avtalen",
+        cancel: "Avbryt",
+        saved: (label: string) => `Avtalen for ${label} er registrert.`,
+        required: "Fyll ut feltet.",
+        tooLong: "Høyst 200 tegn.",
+        inFuture: "Datoen kan ikke være etter i dag.",
+        failed: "Avtalen ble ikke lagret. Prøv igjen.",
+      },
+      run: {
+        title: "Kjør eksport",
+        lead: "Nøkkelholderen, som ikke er grunnleggeren, skriver inn nøkkelen. Den brukes bare i denne kjøringen og lagres ikke. Systemet lagrer bare et fingeravtrykk av den.",
+        sessions: "Klasseøkter med avtale",
+        none: "Ingen Klasseøkt har avtale ennå. Registrer en avtale først.",
+        key: "Nøkkel",
+        keyHint: "Minst 32 tilfeldige tegn. Samme nøkkel gir samme pseudonym for hver Student hver gang.",
+        submit: "Last ned pseudonymisert eksport",
+        pickOne: "Velg minst én Klasseøkt.",
+        tooMany: "Velg høyst 20 Klasseøkter.",
+        keyTooShort: "Nøkkelen må ha minst 32 tegn.",
+        keyTooLong: "Nøkkelen kan ha høyst 512 tegn.",
+        keyChanged:
+          "Nøkkelen er endret. Fingeravtrykket stemmer ikke med nøkkelen som er lagret. Bruk samme nøkkel som før, eller bytt nøkkel under.",
+        noAgreement: "En valgt Klasseøkt har ikke avtale. Last siden på nytt.",
+        done: (file: string) => `${file} er lastet ned.`,
+        failed: "Eksporten ble ikke laget. Prøv igjen.",
+      },
+      key: {
+        title: "Nøkkel",
+        none: "Ingen nøkkel er lagret ennå. Den første eksporten lagrer fingeravtrykket.",
+        stored: (fingerprint: string, at: string) => `Fingeravtrykk ${fingerprint}, lagret ${at}.`,
+        lead: "Bytt nøkkel bare når nøkkelholderen har laget en ny. Senere eksporter må bruke den nye nøkkelen, og hver Student får et nytt pseudonym.",
+        field: "Ny nøkkel",
+        submit: "Bytt nøkkel for senere eksporter",
+        replaced: "Nøkkelen er byttet. Senere eksporter må bruke den nye nøkkelen.",
+        failed: "Nøkkelen ble ikke byttet. Prøv igjen.",
+      },
+      exports: {
+        title: "Eksporter",
+        columns: {
+          time: "Tidspunkt",
+          actor: "Utført av",
+          sessions: "Klasseøkter",
+          fingerprint: "Fingeravtrykk",
+          outcome: "Utfall",
+        },
+        empty: "Ingen eksporter ennå.",
+        deletes: (date: string) => `slettes ${date}`,
+        noDeletion: "ingen slettedato ennå",
+        gone: "Klasseøkten finnes ikke lenger",
+        outcomes: {
+          exported: "Eksportert",
+          no_agreement: "Avvist: mangler avtale",
+          pseudonym_key_changed: "Avvist: nøkkelen er endret",
+          failed: "Feilet",
+        } as Record<string, string>,
       },
     },
     /** «Institusjoner» (Story 3.11, FR-3): create and rename the Institutions Classes belong to.

@@ -1319,3 +1319,13 @@ async def people(session: AsyncSession, ids: list[uuid.UUID]) -> list[RowMapping
         select(users.c.id, users.c.name, users.c.email).where(users.c.id.in_(ids))
     )
     return list(result.mappings())
+
+
+async def erased_among(session: AsyncSession, user_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+    """Which of these Users were erased (Story 15.4: they get no pseudonym in an export)."""
+    if not user_ids:
+        return set()
+    result = await session.execute(
+        select(users.c.id).where(users.c.id.in_(user_ids), users.c.deleted_at.is_not(None))
+    )
+    return set(result.scalars())

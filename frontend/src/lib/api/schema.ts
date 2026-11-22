@@ -88,6 +88,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/evaluation/class-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sessions
+         * @description Every saved Class session, newest first, with its Institution agreement (or null) and the
+         *     day its Student data is deleted (null while it has no Test deadline). No Student data.
+         */
+        get: operations["listEvaluationSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/evaluation/class-sessions/{class_session_id}/agreement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Record Agreement
+         * @description Record or replace the Institution agreement of a Class session (FR-71): who agreed, on
+         *     which day, and who is controller for the evaluation. Audited as
+         *     `evaluation_agreement.recorded`.
+         */
+        put: operations["recordEvaluationAgreement"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/evaluation/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Exports
+         * @description The newest export runs and refusals: who, when, the Class sessions with their deletion
+         *     dates, the key fingerprint and the outcome.
+         */
+        get: operations["listEvaluationExports"];
+        put?: never;
+        /**
+         * Run Export
+         * @description Run the pseudonymised export of the chosen Class sessions and stream it as a ZIP (FR-71).
+         *     Refused with 403 `no_agreement` (`fields.class_session_ids`) when a Class session has no
+         *     agreement, and 409 `pseudonym_key_changed` when the key is not the one whose fingerprint is
+         *     stored. Every run and refusal is audited as `evaluation_export.run`.
+         */
+        post: operations["runEvaluationExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/evaluation/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Key State
+         * @description The stored fingerprint of the pseudonym key, or nulls before the first export.
+         */
+        get: operations["getPseudonymKeyState"];
+        put?: never;
+        /**
+         * Replace Key
+         * @description Replace the stored fingerprint with the new key's (AD-14), audited as
+         *     `pseudonym_key.replaced`. Later exports must use the new key.
+         */
+        post: operations["replacePseudonymKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/institutions": {
         parameters: {
             query?: never;
@@ -2993,6 +3089,39 @@ export interface components {
             time_factor: number;
         };
         /**
+         * AgreementIn
+         * @description An Institution agreement for one Class session: who agreed, on which day, and who is
+         *     controller for the evaluation (FR-71).
+         */
+        AgreementIn: {
+            /** Agreed By */
+            agreed_by: string;
+            /**
+             * Agreed On
+             * Format: date
+             */
+            agreed_on: string;
+            /** Controller */
+            controller: string;
+        };
+        /** AgreementOut */
+        AgreementOut: {
+            /** Agreed By */
+            agreed_by: string;
+            /**
+             * Agreed On
+             * Format: date
+             */
+            agreed_on: string;
+            /** Controller */
+            controller: string;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+        };
+        /**
          * AiDescriptionsOut
          * @description The plain-language Norwegian description of each AI player type, from
          *     `players.service.describe` (FR-33): Markdown with a title line, paragraphs and `- ` lists.
@@ -4042,6 +4171,38 @@ export interface components {
         ErrorEnvelope: {
             error: components["schemas"]["ErrorBody"];
         };
+        /** EvaluationSessionListOut */
+        EvaluationSessionListOut: {
+            /** Items */
+            items: components["schemas"]["EvaluationSessionOut"][];
+        };
+        /**
+         * EvaluationSessionOut
+         * @description A Class session as the export page lists it: how it is named, its Test deadline, the day
+         *     its Student data is deleted (null while there is no Test deadline), and its agreement.
+         */
+        EvaluationSessionOut: {
+            agreement: components["schemas"]["AgreementOut"] | null;
+            /** Class Name */
+            class_name: string;
+            /** Course Code */
+            course_code: string | null;
+            /** Deletion Date */
+            deletion_date: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Institution Name */
+            institution_name: string | null;
+            /** Number */
+            number: number;
+            /** Start At */
+            start_at: string | null;
+            /** Test Deadline */
+            test_deadline: string | null;
+        };
         /**
          * ExplanationIn
          * @description «Send Forklaring»: the text as typed. It must hold more than white space and at most
@@ -4066,6 +4227,65 @@ export interface components {
             saved_at: string;
             /** Text */
             text: string;
+        };
+        /** ExportIn */
+        ExportIn: {
+            /** Class Session Ids */
+            class_session_ids: string[];
+            /**
+             * Key
+             * Format: password
+             */
+            key: string;
+        };
+        /** ExportListOut */
+        ExportListOut: {
+            /** Items */
+            items: components["schemas"]["ExportOut"][];
+        };
+        /**
+         * ExportOut
+         * @description One export run or refusal, from its audit row.
+         */
+        ExportOut: {
+            /** Actor Id */
+            actor_id: string | null;
+            /** Actor Name */
+            actor_name: string | null;
+            /** Class Sessions */
+            class_sessions: components["schemas"]["ExportSessionOut"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Key Fingerprint */
+            key_fingerprint: string | null;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Outcome */
+            outcome: string;
+        };
+        /**
+         * ExportSessionOut
+         * @description A Class session of an export, with the day by which the exported data must be deleted;
+         *     the name fields are null for a Class session that is gone.
+         */
+        ExportSessionOut: {
+            /** Class Name */
+            class_name: string | null;
+            /** Deletion Date */
+            deletion_date: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Number */
+            number: number | null;
         };
         /**
          * FillSeatsIn
@@ -4832,6 +5052,27 @@ export interface components {
             expected: number;
             /** Terms */
             terms: components["schemas"]["SumTermOut"][];
+        };
+        /**
+         * KeyIn
+         * @description The pseudonym key, typed by the key holder; never stored, logged or echoed.
+         */
+        KeyIn: {
+            /**
+             * Key
+             * Format: password
+             */
+            key: string;
+        };
+        /**
+         * KeyStateOut
+         * @description The stored fingerprint of the pseudonym key, or nulls before the first export.
+         */
+        KeyStateOut: {
+            /** Fingerprint */
+            fingerprint: string | null;
+            /** Set At */
+            set_at: string | null;
         };
         /**
          * LabHourIn
@@ -7737,6 +7978,293 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listEvaluationSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationSessionListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    recordEvaluationAgreement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                class_session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgreementIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationSessionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listEvaluationExports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportListOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    runEvaluationExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getPseudonymKeyState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeyStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    replacePseudonymKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeyStateOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

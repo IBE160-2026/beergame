@@ -5297,3 +5297,42 @@ identity.register_erasure_preparation("games", {"seat_reclaims"}, _hand_over_sea
 identity.register_erasure_step(
     "sessions", {"student_adjustments", calls.CALL_TABLE}, _erase_session_data
 )
+
+
+@dataclass(frozen=True)
+class EvaluationSession:
+    """A Class session as the Admin's evaluation export lists it (Story 15.4, FR-71)."""
+
+    id: uuid.UUID
+    number: int
+    class_name: str
+    course_code: str | None
+    institution_name: str | None
+    start_at: datetime | None
+    test_deadline: datetime | None
+
+
+async def evaluation_sessions(
+    session: AsyncSession, ids: list[uuid.UUID] | None = None
+) -> list[EvaluationSession]:
+    """Every saved Class session, newest first, or the ones with these ids (Story 15.4): how
+    the Admin names them, with the dates the deletion date is computed from. No Student data."""
+    rows = await repo.evaluation_rows(session, ids)
+    facts = await classes.class_facts(session, list({row["class_id"] for row in rows}))
+    found = []
+    for row in rows:
+        fact = facts.get(row["class_id"])
+        if fact is None:  # pragma: no cover - a Class session always has its Class
+            continue
+        found.append(
+            EvaluationSession(
+                id=row["id"],
+                number=row["number"],
+                class_name=fact.name,
+                course_code=fact.course_code,
+                institution_name=fact.institution_name,
+                start_at=row["start_at"],
+                test_deadline=row["test_deadline"],
+            )
+        )
+    return found

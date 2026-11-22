@@ -29,6 +29,9 @@ export const ADMIN_INSTITUTIONS_PATH = "/admin/institusjoner";
 /** «Revisjonslogg» in the Admin-område (Story 3.12). */
 export const ADMIN_AUDIT_PATH = "/admin/revisjonslogg";
 
+/** «Pseudonymisert eksport» in the Admin-område (Story 15.4). */
+export const ADMIN_EVALUATION_PATH = "/admin/evaluering";
+
 /** «Lag Klasse» (Story 4.1). */
 export const NEW_CLASS_PATH = "/klasser/ny";
 

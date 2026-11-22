@@ -8,11 +8,11 @@ records `progress` `starting_task` in the same transaction. The game's status is
 finished game with no Orders still offers the task."""
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -179,3 +179,49 @@ async def finish(
             )
             stored = await _stored(s, user.id, own.class_session_id)
     return _out(version, task, stored)
+
+
+STARTING_TASK_COLUMNS = (
+    "class_session_id",
+    "student",
+    "content_version",
+    "item_id",
+    "answer",
+    "correct",
+    "choice",
+    "answered_at",
+)
+"""The columns of the Starting task results in the pseudonymised export (Story 15.4, FR-71)."""
+
+
+async def export_starting_task(
+    s: AsyncSession,
+    class_session_ids: Collection[uuid.UUID],
+    in_scope: Any,
+    students: Any,
+) -> tuple[tuple[str, ...], list[tuple[Any, ...]]]:
+    """Every stored Starting task answer of the Class sessions for the pseudonymised export
+    (Story 15.4, FR-71, FR-85): one row per Student and item, `student` the User id the caller
+    replaces by a pseudonym. Only the Students `students` keeps (a subquery of `(class_session_id,
+    user_id)` from `reports.scope`, AD-13): the answers belong to the Class session, not to a Game,
+    so `in_scope` filters nothing here."""
+    del in_scope
+    t = starting_task_answers.c
+    rows = await s.execute(
+        select(
+            t.class_session_id,
+            t.user_id,
+            t.content_version,
+            t.item_id,
+            t.answer,
+            t.correct,
+            t.choice,
+            t.answered_at,
+        )
+        .where(
+            t.class_session_id.in_(list(class_session_ids)),
+            tuple_(t.class_session_id, t.user_id).in_(students),
+        )
+        .order_by(t.class_session_id, t.user_id, t.item_id)
+    )
+    return STARTING_TASK_COLUMNS, [tuple(row) for row in rows]

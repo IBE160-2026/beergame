@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import func, literal, or_, select, update
+from sqlalchemy import ARRAY, Uuid, any_, func, literal, or_, select, update
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -112,6 +112,51 @@ async def get(ids: Sequence[uuid.UUID]) -> list[Attempt]:
             )
         ).all()
     return [Attempt(*row) for row in rows]
+
+
+EXPORT_COLUMNS = (
+    "id",
+    "purpose",
+    "model_config_id",
+    "provider",
+    "endpoint",
+    "model_version",
+    "quantisation",
+    "effort_level",
+    "seed",
+    "temperature",
+    "prompt_version",
+    "attempt",
+    "input_tokens",
+    "output_tokens",
+    "reasoning_tokens",
+    "cost_usd",
+    "latency_ms",
+    "outcome",
+    "served_model",
+    "served_by",
+    "started_at",
+)
+"""The call metadata in the pseudonymised export (Story 15.4, FR-67, FR-71): no body, no caller
+reference and no error text, which could quote what the call was about."""
+
+
+async def export_metadata(
+    ids: Sequence[uuid.UUID], session: AsyncSession | None = None
+) -> tuple[tuple[str, ...], list[tuple]]:
+    """The metadata of the calls with these ids, oldest first (Story 15.4)."""
+    if not ids:
+        return EXPORT_COLUMNS, []
+    columns = [getattr(llm_calls.c, name) for name in EXPORT_COLUMNS]
+    async with transaction(session) as session:
+        rows = (
+            await session.execute(
+                select(*columns)
+                .where(llm_calls.c.id == any_(literal(list(ids), ARRAY(Uuid))))
+                .order_by(llm_calls.c.started_at, llm_calls.c.id)
+            )
+        ).all()
+    return EXPORT_COLUMNS, [tuple(row) for row in rows]
 
 
 PLAYER_PURPOSE = "player_order"

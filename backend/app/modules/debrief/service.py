@@ -52,12 +52,14 @@
 
 import random
 import uuid
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import replace
 from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, tuple_
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analysis import moments as moment_text
 from app.analysis import narration as narration_rules
@@ -1602,3 +1604,30 @@ async def fallback_due(debrief_id: object, now: datetime) -> bool:
 
 # Story 15.2 (FR-76, AD-14): the Student's Debrief text goes in the one erasure routine.
 identity.register_erasure_step("debrief", commands.ERASED_TABLES, commands.erase_user_text)
+
+
+EXPLANATION_COLUMNS = ("class_session_id", "game_id", "student", "text", "length", "saved_at")
+"""The columns of the Explanations in the pseudonymised export (Story 15.4, FR-71, FR-41)."""
+
+
+async def export_explanations(
+    s: AsyncSession,
+    class_session_ids: Collection[uuid.UUID],
+    in_scope: Any,
+    students: Any,
+) -> tuple[tuple[str, ...], list[tuple[Any, ...]]]:
+    """Every Explanation of the Class sessions for the pseudonymised export (Story 15.4, FR-71):
+    the text as the Student wrote it (not scrubbed, open assumption 15.4), `student` the User id
+    the caller replaces by a pseudonym. Only Explanations of Games `in_scope` keeps, by Students
+    `students` keeps (`reports.scope`, AD-13)."""
+    e = debrief_explanations.c
+    rows = await s.execute(
+        select(e.class_session_id, e.game_id, e.user_id, e.text, e.length, e.saved_at)
+        .where(
+            e.class_session_id.in_(list(class_session_ids)),
+            e.game_id.in_(in_scope),
+            tuple_(e.class_session_id, e.user_id).in_(students),
+        )
+        .order_by(e.class_session_id, e.game_id, e.user_id)
+    )
+    return EXPLANATION_COLUMNS, [tuple(row) for row in rows]

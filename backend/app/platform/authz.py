@@ -160,6 +160,12 @@ POLICIES: dict[str, frozenset[str]] = {
     "session.read": frozenset({ANY_USER}),
     # The live event stream (Story 6.4, AD-8): any User; the scope decides which topics it sends.
     "events.read": frozenset({ANY_USER}),
+    # «Pseudonymisert eksport» (Story 15.4, FR-71, AD-12, AD-14): the Admin records Institution
+    # agreements, replaces the key fingerprint and reads the export list.
+    "evaluation.manage": frozenset({ADMIN}),
+    # The one Admin exception to FR-5 (AD-12): a pseudonymised export of a Class session, held to
+    # the recorded Institution agreement (`RESOURCE_CONDITIONS`).
+    "export_pseudonymised": frozenset({ADMIN}),
     # FR-5: no account role grants these. Epic 4+ adds the Class-scoped grants.
     "student_answers.read": frozenset(),
     "ai_assessments.read": frozenset(),
@@ -200,15 +206,33 @@ class ClassResource(Protocol):
     staff_role: str
 
 
+class EvaluationResource(Protocol):
+    """A Class session as the pseudonymised export sees it (Story 15.4): whether an Institution
+    agreement is recorded for it."""
+
+    agreement_recorded: bool
+
+
+RESOURCE_CONDITIONS: dict[str, Callable[[Any], bool]] = {
+    # Story 15.4 (FR-71, AD-12): the Admin may export a Class session only while an Institution
+    # agreement is recorded for it.
+    "export_pseudonymised": lambda resource: getattr(resource, "agreement_recorded", False) is True,
+}
+"""Action → what its resource must satisfy besides the account roles."""
+
+
 def can(user: Principal, action: str, resource: Any = None) -> bool:
     """Whether `user` may do `action`. A Class action on a `resource` also needs a staff role in
-    that Class the action allows; with no resource only the account roles are checked (the
-    route's policy, before any Class is loaded)."""
+    that Class the action allows, and an action in `RESOURCE_CONDITIONS` its condition; with no
+    resource only the account roles are checked (the route's policy, before anything is
+    loaded)."""
     allowed = POLICIES[action]
     if not (ANY_USER in allowed or not allowed.isdisjoint(user.roles)):
         return False
     if resource is not None and action in CLASS_STAFF_ROLES:
         return getattr(resource, "staff_role", None) in CLASS_STAFF_ROLES[action]
+    if resource is not None and action in RESOURCE_CONDITIONS:
+        return RESOURCE_CONDITIONS[action](resource)
     return True
 
 

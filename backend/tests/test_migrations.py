@@ -109,6 +109,8 @@ RECLAIM_TABLES = {"seat_reclaims"}
 """The table of revision 0055 (Story 8.4)."""
 ADJUSTMENT_TABLES = {"student_adjustments"}
 """The table of revision 0059 (Story 8.9)."""
+EVALUATION_TABLES = {"evaluation_agreements", "pseudonym_key_fingerprints"}
+"""The tables of revision 0066 (Story 15.4)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -134,8 +136,9 @@ HEAD_TABLES = (
     | RATING_TABLES
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
+    | EVALUATION_TABLES
 )
-HEAD = "0065"  # 0065 marks erased Users (Story 15.2)
+HEAD = "0066"  # 0066 records evaluation agreements and the key fingerprint (Story 15.4)
 
 
 def reset_schema(url: str) -> None:
@@ -268,6 +271,13 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     sent = constraints(url, "messages")
     assert "UNIQUE (key)" in sent["messages_key_key"]
     assert "'class_session'" in sent["ck_messages_recipient_kind"]
+
+    # 0066 (Story 15.4): the evaluation agreements and the key fingerprint, and back.
+    command.downgrade(cfg, "0065")
+    assert tables(url) == HEAD_TABLES - EVALUATION_TABLES
+    command.upgrade(cfg, "0066")
+    assert tables(url) == HEAD_TABLES
+    command.downgrade(cfg, "0065")
 
     # 0065 (Story 15.2): when a User was erased; a Debrief summary takes the one update that
     # empties its reflection, and its downgrade makes the summary immutable again.

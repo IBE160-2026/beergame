@@ -101,6 +101,17 @@ async def class_label(session: AsyncSession, class_id: uuid.UUID) -> RowMapping 
     return result.mappings().one_or_none()
 
 
+async def labels_of(session: AsyncSession, class_ids: list[uuid.UUID]) -> list[RowMapping]:
+    """The name, course code and Institution of these Classes, for the Admin's evaluation export
+    (Story 15.4): no User's scope, the Admin names Class sessions by id."""
+    result = await session.execute(
+        select(classes.c.id, classes.c.name, classes.c.course_code, classes.c.institution_id).where(
+            classes.c.id.in_(class_ids)
+        )
+    )
+    return list(result.mappings())
+
+
 def _enrolled(user: authz.Principal | uuid.UUID):
     """The Classes the User is a Student in, through the Student scope (Story 4.5, AD-12). An
     archived Class is left out: nothing in it is open to a Student (Story 4.10)."""

@@ -2468,3 +2468,9 @@ async def close_class(s: AsyncSession, class_id: uuid.UUID, now: datetime) -> in
 async def people(s: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, Person]:
     """Name and address of these Users, for the Class's staff list."""
     return {r["id"]: Person(r["id"], r["name"], r["email"]) for r in await repo.people(s, ids)}
+
+
+async def erased_among(session: AsyncSession, user_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+    """Which of these Users were erased (Story 15.2): the evaluation export (Story 15.4) gives
+    them no pseudonym, so nothing it hands out links their rows."""
+    return await repo.erased_among(session, user_ids)

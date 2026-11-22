@@ -682,6 +682,31 @@ async def label_of_class(session: AsyncSession, class_id: uuid.UUID) -> identity
     return identity.ClassLabel(row["name"], row["course_code"], row["archived_at"] is not None)
 
 
+@dataclass(frozen=True)
+class ClassFacts:
+    """How the Admin's evaluation export names a Class (Story 15.4)."""
+
+    name: str
+    course_code: str | None
+    institution_name: str | None
+
+
+async def class_facts(
+    session: AsyncSession, class_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, ClassFacts]:
+    """The name, course code and Institution name of these Classes (Story 15.4, FR-71)."""
+    if not class_ids:
+        return {}
+    rows = await repo.labels_of(session, class_ids)
+    institutions = {i.id: i.name for i in await identity.list_institutions()}
+    return {
+        row["id"]: ClassFacts(
+            row["name"], row["course_code"], institutions.get(row["institution_id"])
+        )
+        for row in rows
+    }
+
+
 # The Classes a Student is in (Story 4.5, FR-5, FR-7, AD-12): read through the Student scope only.
 
 

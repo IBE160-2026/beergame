@@ -339,3 +339,93 @@ export function useDismissAccessRequest() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: accessRequestsKey }),
   });
 }
+
+export type EvaluationSession = components["schemas"]["EvaluationSessionOut"];
+export type EvaluationExport = components["schemas"]["ExportOut"];
+export type KeyState = components["schemas"]["KeyStateOut"];
+export type AgreementInput = components["schemas"]["AgreementIn"];
+
+/** The query keys of «Pseudonymisert eksport» (Story 15.4). */
+export const evaluationKey = ["admin", "evaluation"] as const;
+export const evaluationSessionsKey = [...evaluationKey, "class-sessions"] as const;
+export const evaluationExportsKey = [...evaluationKey, "exports"] as const;
+export const evaluationKeyStateKey = [...evaluationKey, "key"] as const;
+
+/** Every saved Class session with its agreement and deletion date (Story 15.4). */
+export function useEvaluationSessions() {
+  return useQuery({
+    queryKey: evaluationSessionsKey,
+    queryFn: () => request(() => api.GET("/api/admin/evaluation/class-sessions")),
+    retry: false,
+  });
+}
+
+/** The newest export runs and refusals (Story 15.4). */
+export function useEvaluationExports() {
+  return useQuery({
+    queryKey: evaluationExportsKey,
+    queryFn: () => request(() => api.GET("/api/admin/evaluation/exports")),
+    retry: false,
+  });
+}
+
+/** The stored fingerprint of the pseudonym key (Story 15.4). */
+export function useKeyState() {
+  return useQuery({
+    queryKey: evaluationKeyStateKey,
+    queryFn: () => request(() => api.GET("/api/admin/evaluation/key")),
+    retry: false,
+  });
+}
+
+/** Record or replace a Class session's agreement (Story 15.4); the list reads again. */
+export function useRecordAgreement() {
+  const queryClient = useQueryClient();
+  return useMutation<EvaluationSession, unknown, { id: string; body: AgreementInput }>({
+    mutationFn: ({ id, body }) =>
+      request(() =>
+        api.PUT("/api/admin/evaluation/class-sessions/{class_session_id}/agreement", {
+          params: { path: { class_session_id: id } },
+          body,
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: evaluationSessionsKey }),
+  });
+}
+
+/** Store a new key's fingerprint (Story 15.4); the key state reads again. */
+export function useReplaceKey() {
+  const queryClient = useQueryClient();
+  return useMutation<KeyState, unknown, string>({
+    mutationFn: (key) => request(() => api.POST("/api/admin/evaluation/key", { body: { key } })),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: evaluationKey }),
+  });
+}
+
+/** Run the export and hand back the ZIP with its file name (Story 15.4). The key goes in the
+ * body only. The export list and the key state read again, run or refused. */
+export function useRunExport() {
+  const queryClient = useQueryClient();
+  return useMutation<{ blob: Blob; name: string }, unknown, { ids: string[]; key: string }>({
+    mutationFn: async ({ ids, key }) => {
+      let name = "pseudonymisert-eksport.zip";
+      const blob = await request(async () => {
+        const result = await api.POST("/api/admin/evaluation/exports", {
+          body: { class_session_ids: ids, key },
+          parseAs: "blob",
+        });
+        const disposition = result.response.headers.get("content-disposition") ?? "";
+        name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? name;
+        return result;
+      });
+      return { blob: blob as unknown as Blob, name };
+    },
+    networkMode: "always",
+    retry: false,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: evaluationKey }),
+  });
+}

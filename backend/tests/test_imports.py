@@ -176,7 +176,8 @@ def test_only_ops_imports_messaging_and_nothing_imports_ops():
     `messaging.service`, and only the worker entry point imports `ops`. The app factory mounts
     the local dev mailbox, `messaging.routes` (Story 3.6), the provider's webhook,
     `messaging.webhooks` (Story 4.6), and the Meldingsskjema's endpoints,
-    `messaging.message_routes` (Story 7.9)."""
+    `messaging.message_routes` (Story 7.9); and the Admin's operations endpoints,
+    `ops.routes` (Story 15.4)."""
     for path, line, name in imports(APP):
         inside = {
             folder: (APP / "modules" / folder) in path.parents
@@ -193,7 +194,9 @@ def test_only_ops_imports_messaging_and_nothing_imports_ops():
                 and name.startswith("app.modules.messaging.service")
             ), f"{path.name}:{line} imports {name}"
         if name.startswith("app.modules.ops") and not inside["ops"]:
-            assert path == APP / "worker.py", f"{path.name}:{line} imports {name}"
+            # Story 15.4: the app factory also mounts the Admin's operations endpoints.
+            mounts_ops = path == APP / "main.py" and name == "app.modules.ops.routes"
+            assert mounts_ops or path == APP / "worker.py", f"{path.name}:{line} imports {name}"
 
 
 def test_messaging_reaches_other_modules_only_through_their_service():

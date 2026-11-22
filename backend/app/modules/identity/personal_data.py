@@ -106,6 +106,13 @@ REGISTRY: dict[str, Entry] = {
     CALL_TABLE: _e("clear", "Scrubbed bodies of calls made for the User; cost rows stay."),
     **{name: _e("none", note) for name, note in TABLES_WITHOUT_PERSONAL_DATA.items()},
     "simulation_batches": _e("none", "Simulation batches."),
+    # ops (Story 15.4)
+    "evaluation_agreements": _e(
+        "keep",
+        "An Institution agreement per Class session: who agreed and the controller are the "
+        "Admin's text about the Institution; `recorded_by` is an id.",
+    ),
+    "pseudonym_key_fingerprints": _e("keep", "The key's fingerprint; `set_by` is an id."),
     # platform
     "audit_events": _e("keep", "Ids and codes only (AD-14)."),
     "rate_limit_counters": _e("none", "Hashed keys in a short window."),
