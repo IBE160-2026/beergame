@@ -97,15 +97,18 @@ async def test_a_student_pauses_and_another_students_order_ends_it(klass):
     assert listed["paused_at"]
     assert (body["counts"]["running"], body["counts"]["paused"]) == (1, 1)
     assert body["alert"] is None
-    # The wall's Status filter «Pågår» takes the paused game too.
+    # The wall's Status filter has «Pause n» of its own (Epic 8 close-out): «Pågår» leaves the
+    # paused game out, though the headline still counts it («1 pågår (herav 1 pauset)»).
     async with get_sessionmaker()() as s:
         [summary] = [
             g
             for g in await games_service.class_overview(s, uuid.UUID(session_id))
             if str(g.game_id) == game_id
         ]
-    assert sessions_overview._matches(summary, WallStatus.RUNNING)
+    assert sessions_overview._matches(summary, WallStatus.PAUSED)
+    assert not sessions_overview._matches(summary, WallStatus.RUNNING)
     assert not sessions_overview._matches(summary, WallStatus.WAITING)
+    assert listed["resume_at"] is None  # a Student's Pause has no agreed time
 
     # Jonas orders Uke 2: the Pause ends, and the line names who ordered until Uke 3 opens.
     assert (await order(jonas, game_id, 2, {"order": 4})).status_code in (200, 204)

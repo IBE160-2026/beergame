@@ -1039,6 +1039,8 @@ class ClassGameSummary:
     """Who set it, by id (Story 8.6)."""
     in_room_until: datetime | None = None
     """Until when the game is marked «I rommet» (Story 8.11); None when it is not."""
+    resume_at: datetime | None = None
+    """The Lecturer's agreed time of the Pause in force (Story 8.7); None without one."""
 
 
 def _user(value: object) -> uuid.UUID | None:
@@ -1068,6 +1070,7 @@ async def class_overview(
             paused_at=row["paused_at"],
             paused_by=row["paused_by"],
             in_room_until=row["in_room_until"],
+            resume_at=row["resume_at"],
             waiting_for=tuple(
                 SummaryWait(
                     role=wait["role"],

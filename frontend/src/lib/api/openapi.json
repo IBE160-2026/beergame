@@ -5387,6 +5387,18 @@
             ],
             "title": "Paused By"
           },
+          "resume_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume At"
+          },
           "seats": {
             "items": {
               "$ref": "#/components/schemas/OverviewSeatOut"
@@ -9487,10 +9499,11 @@
         "type": "string"
       },
       "WallStatus": {
-        "description": "Which Class games the wall shows (Story 7.4, the Status filter): all, one status, or\nthose with a Seat held by an AI player.",
+        "description": "Which Class games the wall shows (Story 7.4, the Status filter): all, one status, or\nthose with a Seat held by an AI player. `paused` is a status of its own («Pause n», Epic 8\nclose-out), so `running` matches the running games only.",
         "enum": [
           "all",
           "waiting",
+          "paused",
           "running",
           "not_started",
           "finished",

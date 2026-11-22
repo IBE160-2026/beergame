@@ -95,6 +95,8 @@ async def recompute(
         "paused_by": game.get("paused_by") if status is GameStatus.PAUSED else None,
         # «I rommet» in force (Story 8.11): the wall's row label carries it while the Game runs.
         "in_room_until": game.get("in_room_until") if started and _runs(status) else None,
+        # Its agreed time (Story 8.7): «Pause i Uke 29, fortsetter to. 19:00».
+        "resume_at": game.get("resume_at") if status is GameStatus.PAUSED else None,
     }
 
 

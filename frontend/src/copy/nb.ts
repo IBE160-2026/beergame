@@ -2811,6 +2811,10 @@ export const nb = {
         /** «Ida, Detaljist, 18 t». */
         who: (name: string, role: string, duration: string) => `${name}, ${role}, ${duration}`,
         whoRole: (role: string, duration: string) => `${role}, ${duration}`,
+        /** A Pause with an agreed time (Story 8.7, Epic 8 close-out): «Pause i Uke 29, fortsetter
+         * to. 19:00». [ASSUMPTION] the line without a Week. */
+        pausedUntil: (week: number | null, when: string) =>
+          week == null ? `Pause, fortsetter ${when}` : `Pause i Uke ${week}, fortsetter ${when}`,
         /** «22 KI-spillere i 17 spill, alle merket.»; [ASSUMPTION] the singular and none. */
         ai: (seats: number, games: number) =>
           seats === 0

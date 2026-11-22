@@ -5058,6 +5058,8 @@ export interface components {
             paused_at?: string | null;
             /** Paused By */
             paused_by?: string | null;
+            /** Resume At */
+            resume_at?: string | null;
             /** Seats */
             seats: components["schemas"]["OverviewSeatOut"][];
             status: components["schemas"]["GameStatus"];
@@ -6904,10 +6906,11 @@ export interface components {
         /**
          * WallStatus
          * @description Which Class games the wall shows (Story 7.4, the Status filter): all, one status, or
-         *     those with a Seat held by an AI player.
+         *     those with a Seat held by an AI player. `paused` is a status of its own («Pause n», Epic 8
+         *     close-out), so `running` matches the running games only.
          * @enum {string}
          */
-        WallStatus: "all" | "waiting" | "running" | "not_started" | "finished" | "with_ai";
+        WallStatus: "all" | "waiting" | "paused" | "running" | "not_started" | "finished" | "with_ai";
         /**
          * WallWeekOut
          * @description One Uke of the wall's bottom rows and its class median graph (Story 7.4, UX-DR40).

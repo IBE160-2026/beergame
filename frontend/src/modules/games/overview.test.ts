@@ -297,7 +297,7 @@ describe("Veggfiltre on the rows received (Story 7.4, AD-10)", () => {
   });
 
   it("counts every Status choice over the received games", () => {
-    expect(statusCounts(games)).toEqual({ all: 4, waiting: 1, running: 1, not_started: 0, finished: 2, with_ai: 2 });
+    expect(statusCounts(games)).toEqual({ all: 4, waiting: 1, paused: 0, running: 1, not_started: 0, finished: 2, with_ai: 2 });
   });
 
   it("takes the chosen cells: Ordre up to the first Uke without one, Kost per uke as a number", () => {

@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { nb } from "@/copy/nb";
 
 import type { OverviewGame } from "./api";
-import { filterGroups, groupsOf, headline, statusCounts, statusLines, wallGroups } from "./overview";
+import { filterGroups, groupsOf, headline, statusCounts, statusLines, waitingElsewhere, wallGroups } from "./overview";
 import { PauseControl, PauseLine, pauseText } from "./pause-view";
 import { Spillstyring } from "./spillstyring";
 
@@ -134,13 +134,29 @@ describe("the Oversikt with a paused game", () => {
     expect(html(<Spillstyring data={data} />)).toContain('data-takeover="factory"');
   });
 
-  it("counts it as running, «herav n pauset», and the «Pågår» filter takes it", () => {
+  it("counts it as running in the headline, «herav n pauset», and the Status filter has «Pause n»", () => {
     expect(headline({ finished: 41, running: 15, waiting: 4, not_started: 0, paused: 2 })).toBe(
       "41 ferdig · 15 pågår (herav 2 pauset) · 4 venter",
     );
-    expect(statusCounts(games).running).toBe(3);
-    const running = filterGroups(groupsOf(games), "running");
-    expect(running.map((g) => g.name)).toEqual(["paused", "running"]);
+    // Mockup 08, DESIGN.md → wall-filters: «Pause 2»; «Pågår» counts the running games only.
+    expect(statusCounts(games)).toMatchObject({ paused: 2, running: 1 });
+    expect(filterGroups(groupsOf(games), "running").map((g) => g.name)).toEqual(["running"]);
+    expect(filterGroups(groupsOf(games), "paused").map((g) => g.name)).toEqual(["paused"]);
     expect(filterGroups(groupsOf(games), "waiting").map((g) => g.name)).toEqual(["waiting"]);
+  });
+
+  it("lists a Pause with an agreed time in «Venter ellers» after the waiting games", () => {
+    const agreed = game({
+      game_id: "a",
+      game_number: 7,
+      status: "paused",
+      week: 29,
+      paused_at: "2026-11-23T12:00:00Z",
+      paused_by: "Bard",
+      resume_at: "2026-11-26T18:00:00Z",
+    });
+    const rows = waitingElsewhere(groupsOf([...games, agreed]), Date.parse("2026-11-24T12:00:00Z"));
+    expect(rows.map((row) => row.id)).toEqual(["w", "a"]);
+    expect(rows[1]!.who).toEqual(["Pause i Uke 29, fortsetter to. 19:00"]);
   });
 });

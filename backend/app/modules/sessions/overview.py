@@ -364,6 +364,7 @@ def _game_out(
         paused_at=game.paused_at,
         paused_by=(by or {}).get(game.paused_by) if game.paused_by is not None else None,
         in_room_until=game.in_room_until,
+        resume_at=game.resume_at,
     )
 
 
@@ -1093,8 +1094,6 @@ def _matches(game: ClassGameSummary, status: WallStatus) -> bool:
         return True
     if status is WallStatus.WITH_AI:
         return any(_is_ai(seat) for seat in game.seats)
-    if status is WallStatus.RUNNING and game.status is GameStatus.PAUSED:
-        return True  # «pågår (herav n pauset)»: a paused game is one that runs (Story 8.6)
     return game.status.value == status.value
 
 

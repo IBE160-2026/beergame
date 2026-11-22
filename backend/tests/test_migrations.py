@@ -126,7 +126,7 @@ HEAD_TABLES = (
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
 )
-HEAD = "0063"  # 0063 adds when the Play deadline playout took a Game over (Story 8.14)
+HEAD = "0064"  # 0064 adds the agreed Pause time to the Oversikt summaries (Story 8.7)
 
 
 def reset_schema(url: str) -> None:
@@ -261,6 +261,10 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "UNIQUE (key)" in sent["messages_key_key"]
     assert "'class_session'" in sent["ck_messages_recipient_kind"]
 
+    # 0064 (Story 8.7, Epic 8 close-out): the agreed Pause time on the summaries.
+    assert "resume_at" in columns(url, "game_summaries")
+    command.downgrade(cfg, "0063")
+    assert "resume_at" not in columns(url, "game_summaries")
     # 0055 (Story 8.4): at most one queued Reclaim per Seat.
     assert definition(url, "seat_reclaims_pkey") == "PRIMARY KEY (seat_id)"
     command.downgrade(cfg, "0054")

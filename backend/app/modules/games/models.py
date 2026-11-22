@@ -452,6 +452,8 @@ game_summaries = Table(
     Column("paused_by", Uuid, nullable=True),
     # «I rommet» in force (Story 8.11): until when; the wall's row label carries it.
     Column("in_room_until", DateTime(timezone=True), nullable=True),
+    # The Lecturer's agreed time of that Pause (Story 8.7), for «Venter ellers» and the row.
+    Column("resume_at", DateTime(timezone=True), nullable=True),
     CheckConstraint(_in("status", GameStatus), name="ck_game_summaries_status"),
 )
 """The Lecturer overview's read model (AD-25, Story 7.1): one row per Game, rewritten by

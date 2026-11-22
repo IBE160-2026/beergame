@@ -128,6 +128,20 @@ test("Spillstyring pauses the game with an agreed time, and the Student reads it
   await again.getByRole("button", { name: copy.saveAt(when) }).click();
   await expect(done).toHaveText(copy.doneAt(when));
 
+  // The Oversikt (Epic 8 close-out): the Status filter has «Pause 1», and «Venter ellers» lists
+  // the Pause with its agreed time.
+  const board = await lecturerPage(browser, lecturerSession, VIEWPORTS[2]!);
+  await board.goto(`/klasseokter/${game.sessionId}/oversikt`);
+  const boardMain = board.getByRole("main");
+  await expect(boardMain.locator('[data-wall-filters] [data-filter="paused"]')).toHaveText(
+    new RegExp(`^${nb.wall.status.paused}\\s*1$`),
+  );
+  await expect(boardMain.locator('[data-wall-filters] [data-filter="running"]')).toHaveCount(0);
+  await expect(boardMain.locator('[data-rail="waiting"]')).toContainText(
+    nb.overview.rail.waiting.pausedUntil(1, when),
+  );
+  await board.context().close();
+
   // 320 CSS px: the paused state reflows, its actions full width, axe passes.
   const narrow = await lecturerPage(browser, lecturerSession, VIEWPORTS[0]!);
   await narrow.goto(path);

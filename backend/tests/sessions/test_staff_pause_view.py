@@ -74,12 +74,17 @@ async def test_a_lecturer_pauses_with_a_time_changes_it_and_ends_it(klass):
         )
         assert parse(line["resume_at"]) == agreed
         assert game["can_pause"] is False
+    # The Oversikt's row carries the agreed time for «Venter ellers» (Epic 8 close-out).
+    [row] = (await overview(LECTURER, session_id)).json()["items"]
+    assert (row["status"], parse(row["resume_at"])) == ("paused", agreed)
 
     # «Uten avtalt tid» on «Endre avtalt tid» clears it; the line has no time then.
     cleared = await change_time(LECTURER, game_id, None)
     assert cleared.status_code == 200
     assert cleared.json()["pause"]["resume_at"] is None
     assert (await home(email(0)))["game"]["pause"]["resume_at"] is None
+    [row] = (await overview(LECTURER, session_id)).json()["items"]
+    assert row["resume_at"] is None
 
     ended = await end(LECTURER, game_id)
     assert ended.status_code == 200

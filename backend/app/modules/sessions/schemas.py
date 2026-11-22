@@ -953,6 +953,8 @@ class OverviewGameOut(BaseModel):
     in_room_until: AwareDatetime | None = None
     """Story 8.11 (FR-36): until when the game is marked «I rommet»; the wall's row label carries
     it. None when it is not."""
+    resume_at: AwareDatetime | None = None
+    """Story 8.7: the Lecturer's agreed time of the Pause; None without one or when not paused."""
 
 
 class OverviewCountsOut(BaseModel):
@@ -1350,10 +1352,12 @@ class WallCells(StrEnum):
 
 class WallStatus(StrEnum):
     """Which Class games the wall shows (Story 7.4, the Status filter): all, one status, or
-    those with a Seat held by an AI player."""
+    those with a Seat held by an AI player. `paused` is a status of its own («Pause n», Epic 8
+    close-out), so `running` matches the running games only."""
 
     ALL = "all"
     WAITING = "waiting"
+    PAUSED = "paused"
     RUNNING = "running"
     NOT_STARTED = "not_started"
     FINISHED = "finished"

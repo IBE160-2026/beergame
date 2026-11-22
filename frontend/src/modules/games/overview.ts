@@ -242,11 +242,12 @@ export type StatusFilter = WallFilter["status"];
 
 const hasAi = (game: OverviewGame) => game.seats.some((seat) => seat.holder === "ai");
 
-/** The Status filter a group answers to: a paused game is one that runs, so «Pågår» takes it
- * (Story 8.6, «15 pågår (herav 2 pauset)»). */
+/** The Status filter a group answers to. «Pause n» is a choice of its own (mockup 08, DESIGN.md →
+ * `wall-filters`), so «Pågår» takes the running games only; the headline still reads «15 pågår
+ * (herav 2 pauset)» (Story 8.6). */
 const GROUP_STATUS: Record<GroupName, StatusFilter> = {
   waiting: "waiting",
-  paused: "running",
+  paused: "paused",
   running: "running",
   notStarted: "not_started",
   finished: "finished",
@@ -270,7 +271,8 @@ export function statusCounts(games: readonly OverviewGame[]): Record<StatusFilte
   return {
     all: games.length,
     waiting: count("waiting"),
-    running: count("running") + count("paused"),
+    paused: count("paused"),
+    running: count("running"),
     not_started: count("not_started"),
     finished: count("finished"),
     with_ai: games.filter(hasAi).length,
@@ -511,10 +513,24 @@ export type WaitingRow = { id: string; game: string; who: string[] };
 /**
  * «Venter ellers» (Story 7.6, UX-DR40): the waiting games as the Venter group orders them, longest
  * wait first, each with whom it waits for and for how long at `now`, leaving out the Varselbånd's
- * game (`alertId`, Story 7.11, UX-DR45). Reads the groups it is given.
+ * game (`alertId`, Story 7.11, UX-DR45). Then the paused games with an agreed time, the soonest
+ * first: «Pause i Uke 29, fortsetter to. 19:00» (Story 8.7, Epic 8 close-out). Reads the groups it
+ * is given.
  */
 export function waitingElsewhere(groups: readonly OverviewGroup[], now: number, alertId: string | null = null): WaitingRow[] {
   const waiting = groups.find((group) => group.name === "waiting")?.games ?? [];
+  const agreed = (groups.find((group) => group.name === "paused")?.games ?? [])
+    .filter((game) => game.resume_at != null && game.game_id !== alertId)
+    .sort((a, b) => Date.parse(a.resume_at!) - Date.parse(b.resume_at!))
+    .map((game) => ({
+      id: game.game_id,
+      game: copy.game(game.game_number ?? null),
+      who: [rail.waiting.pausedUntil(game.week ?? null, osloWeekdayTime(game.resume_at!))],
+    }));
+  return [...waitingRows(waiting, now, alertId), ...agreed];
+}
+
+function waitingRows(waiting: readonly OverviewGame[], now: number, alertId: string | null): WaitingRow[] {
   return waiting.filter((game) => game.game_id !== alertId).map((game) => ({
     id: game.game_id,
     game: copy.game(game.game_number ?? null),
