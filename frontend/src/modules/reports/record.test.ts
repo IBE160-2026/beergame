@@ -136,6 +136,28 @@ describe("the Oppfølgingsspill on the Klassespill row (Story 13.4)", () => {
   });
 });
 
+describe("a day in May ends its sentence like any other", () => {
+  const MAY = "2027-05-12T09:00:00Z";
+  it("keeps one full stop after «mai» in every line built from a day", () => {
+    expect(completionRows(completion({ steps: completion().steps.map((s) => ({ ...s, recorded_at: MAY })) }))[0]!.lines[0]).toBe(
+      "Registrert on. 12. mai.",
+    );
+    expect(copy.corrected(true, "Bård", "12. mai")).toBe("Gjort, rettet av Bård 12. mai.");
+    expect(copy.corrected(true, "Bård", "12. des.")).toBe("Gjort, rettet av Bård 12. des.");
+    expect(gameLines({ game_id: "g", number: 3, role: "wholesaler", state: "finished", played_out: false, finished_at: MAY }, (r) => r)[1]).toBe(
+      "Ferdig on. 12. mai.",
+    );
+    expect(debriefLines({ explanation: null, explanation_saved_at: null, finished_at: MAY, late: false, moments: 3 })[0]).toBe(
+      "Fullført on. 12. mai. 3 nøkkeløyeblikk.",
+    );
+    expect(debriefLines({ explanation: null, explanation_saved_at: null, finished_at: MAY, late: false, moments: 0 })[0]).toBe(
+      "Fullført on. 12. mai.",
+    );
+    expect(replayLine({ game_id: "r", finished_at: MAY })).toBe("Ferdig on. 12. mai.");
+    expect(nb.reports.record.debrief.sent("on. 12. mai")).toBe("Sendt on. 12. mai.");
+  });
+});
+
 describe("participation, information only (FR-17)", () => {
   it("gives the time on own Orders and whether they were constant", () => {
     expect(duration(3840)).toBe("1 t 4 min");

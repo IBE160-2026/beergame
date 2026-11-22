@@ -178,9 +178,9 @@ async def student_record(
         can_give_makeup=(
             may_give
             and not staffed.archived
-            and completion is not None
             and given is None
-            and makeup.refusal(row, user_id, auth.utcnow()) is None
+            # `completion_status` is None for a Student `scope.reporting_students` leaves out.
+            and makeup.refusal(row, user_id, auth.utcnow(), counted=completion is not None) is None
         ),
         test_deadline=test_deadline,
         makeup=makeup_out,

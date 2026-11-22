@@ -3836,7 +3836,7 @@ export const nb = {
       notDone: "ikke gjort",
       /** «Registrert ti. 12. des.»: when the step event was recorded (the day ends in its own
        * full stop). */
-      recorded: (day: string) => `Registrert ${day}`,
+      recorded: (day: string) => `Registrert ${sentence(day)}`,
       /** A recorded step that does not count, said in text. */
       notCounted: {
         class_game: "Spillet er ferdig, men studenten bestilte selv for sjelden.",
@@ -3884,7 +3884,7 @@ export const nb = {
       save: "Lagre retting",
       cancel: "Avbryt",
       /** «Gjort, rettet av Bård 12. des.» (the day ends in its own full stop). */
-      corrected: (done: boolean, by: string, day: string) => `${done ? "Gjort" : "Ikke gjort"}, rettet av ${by} ${day}`,
+      corrected: (done: boolean, by: string, day: string) => `${done ? "Gjort" : "Ikke gjort"}, rettet av ${by} ${sentence(day)}`,
       /** The corrector's name when it is no longer known in the Class. */
       someone: "en faglærer",
       refusals: {
@@ -3913,6 +3913,7 @@ export const nb = {
         } as Record<string, string>,
         cancel: "Avbryt",
         refusals: {
+          not_counted: "Studenten telles ikke i rapportene, så et Oppfølgingsspill teller ikke.",
           session_not_locked: "Klasseøkta er ikke låst ennå, så det finnes ikke noe spill å gi.",
           no_test_deadline: "Klasseøkta har ingen Testfrist.",
           test_deadline_passed: "Testfristen er ute.",
@@ -3937,7 +3938,7 @@ export const nb = {
           ended: "Avsluttet før siste uke.",
         } as Record<string, string>,
         /** «Ferdig ti. 12. des.» (the day ends in its own full stop) */
-        finishedOn: (day: string) => `Ferdig ${day}`,
+        finishedOn: (day: string) => `Ferdig ${sentence(day)}`,
         playedOut: "Spilt ut ved Spillfristen.",
         insight: "Se Spillinnsikt",
       },
@@ -3946,11 +3947,11 @@ export const nb = {
         explanation: "Forklaring",
         noExplanation: "Ingen Forklaring ennå.",
         /** «Sendt ti. 12. des.» */
-        sent: (day: string) => `Sendt ${day}`,
+        sent: (day: string) => `Sendt ${sentence(day)}`,
         notFinished: "Debriefen er ikke fullført.",
         /** «Fullført ti. 12. des. 3 nøkkeløyeblikk.» */
         finished: (day: string, moments: number) =>
-          moments === 0 ? `Fullført ${day}` : `Fullført ${day} ${moments} nøkkeløyeblikk.`,
+          moments === 0 ? `Fullført ${sentence(day)}` : `Fullført ${sentence(day)} ${moments} nøkkeløyeblikk.`,
         late: "Etter Debrieffristen.",
         summary: "Se Debrief-sammendraget",
       },
@@ -3965,7 +3966,7 @@ export const nb = {
         title: "Replay",
         none: "Ingen Replay ennå.",
         running: "Startet, ikke ferdig.",
-        finishedOn: (day: string) => `Ferdig ${day}`,
+        finishedOn: (day: string) => `Ferdig ${sentence(day)}`,
         insight: "Se Replay i Spillinnsikt",
       },
       test: {

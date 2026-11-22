@@ -98,10 +98,11 @@ async def give_makeup(
     gives the Student a make-up game: a Class game of their own against three AI players on the
     Class session's frozen snapshot, open until the Student's Test deadline. Recorded in the audit
     log; the Student is told on Hjem and by mail. One per Student: a second press answers the
-    existing one and writes nothing. Answers the Studentside's record. 409 `session_not_locked`
-    before the Class session's lock, `no_test_deadline`, `test_deadline_passed`,
-    `class_archived`; 403 `forbidden` for an Assistant lecturer and anyone else as
-    `getStudentRecord`."""
+    existing one and writes nothing. Answers the Studentside's record. 409 `not_counted` for a
+    Student reports leave out (a test student, a Control test Class session),
+    `session_not_locked` before the Class session's lock, `no_test_deadline`,
+    `test_deadline_passed`, `class_archived`; 403 `forbidden` for an Assistant lecturer and
+    anyone else as `getStudentRecord`."""
     student_id = _id(user_id)
     class_session_id = _id(session_id)
     try:

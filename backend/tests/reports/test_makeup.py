@@ -15,6 +15,7 @@ from app.modules.identity.schemas import AccountRole
 from app.modules.messaging import delivery
 from app.modules.ops import sweep
 from app.modules.reports import makeup as reports_makeup
+from app.modules.reports import repo as reports_repo
 from app.modules.reports import scope
 from app.modules.reports import service as reports
 from app.modules.sessions import service as sessions
@@ -30,7 +31,17 @@ from tests.messaging.helpers import rows
 from tests.reports.test_completion_status import obligatory
 from tests.reports.test_studentside import ADMIN, OTHER_LECTURER, record
 from tests.sessions.test_allocation import students
-from tests.sessions.test_dates import NOW, OUTSIDER, START, TEST, student_of
+from tests.sessions.test_dates import (
+    NOW,
+    OUTSIDER,
+    PLAN,
+    START,
+    TEST,
+    refusal,
+    save,
+    stored_dates,
+    student_of,
+)
 from tests.sessions.test_game_end import WEEKS, _empty, clock, klass, play_weeks, short_game
 from tests.sessions.test_lock import MINUTE, dated
 from tests.sessions.test_orders import code
@@ -126,8 +137,9 @@ async def test_a_lecturer_gives_a_makeup_that_the_student_plays_and_completion_r
     assert {("user", str(me)), ("session", session_id)} <= set(emitted)
     [(kind, user, ref)] = rows("SELECT kind, user_id, ref FROM notices WHERE kind = 'makeup_given'")
     assert (kind, user, ref) == ("makeup_given", me, sid)
+    # The notice reaches its mail through the delivery's own registered kind.
     async with get_sessionmaker()() as s:
-        context = await sessions.makeup_given_mail_context(s, me, sid, NOW)
+        context = await delivery.KINDS[kind].context(s, me, sid, NOW)
     assert context is not None and context["at"] == TEST
 
     # A second press answers the same one and writes nothing.
@@ -241,8 +253,25 @@ async def test_a_late_registrant_gets_a_drawn_role_and_refusals_write_nothing(kl
     execute("UPDATE classes SET archived_at = now() WHERE id = %s", klass)
     assert (await record(LECTURER, session_id, late)).json()["can_give_makeup"] is False
     assert code(await give(LECTURER, session_id, late)) == (409, "class_archived")
-    assert written() == (0, 0, 0, 0)
     execute("UPDATE classes SET archived_at = NULL WHERE id = %s", klass)
+
+    # A Student reports leave out (a test student; any Student of a Control test Class session):
+    # never offered, and refused by a direct call, as the offer says (`makeup.refusal`).
+    async def is_late(session, ids):
+        return {u for u in ids if str(u) == str(late)}
+
+    async def every(session, ids):
+        return set(ids)
+
+    for hook, read in ((scope._test_students, is_late), (scope._control_tests, every)):
+        before = hook[0]
+        hook[0] = read
+        try:
+            assert (await record(LECTURER, session_id, late)).json()["can_give_makeup"] is False
+            assert code(await give(LECTURER, session_id, late)) == (409, "not_counted")
+        finally:
+            hook[0] = before
+    assert written() == (0, 0, 0, 0)
 
     # Given, by two presses at the same moment: one Game, one row, one notice, one audit row.
     first_press, second_press = await asyncio.gather(
@@ -269,6 +298,12 @@ async def test_a_late_registrant_gets_a_drawn_role_and_refusals_write_nothing(kl
     )
     assert task.status_code == 200
 
+    # The Test deadline it closes at cannot be removed: a make-up needs the lock, and once locked
+    # a date can move but never be cleared (FR-18), so the sweep below always has one.
+    removed = await save(session_id, {**PLAN, "test_deadline": None})
+    assert refusal(removed) == (422, "invalid_dates", {"test_deadline": "required"})
+    assert stored_dates(session_id)[3] == TEST
+
     # The sweep closes it at the Student's Test deadline without a playout, once.
     action = next(a for a in sweep.DUE_ACTIONS if a.name == "games.close_at_test_deadline")
     makeup_id = str(game.id)
@@ -291,8 +326,18 @@ def test_the_makeup_notice_is_a_digest_mail_loaded_by_the_worker():
     assert delivery.KINDS[reports_makeup.NOTICE].mode == delivery.DIGEST
     assert "app.modules.reports.service" in jobs.TASK_MODULES
     template = delivery.KINDS[reports_makeup.NOTICE].template
+    assert template == reports_makeup.NOTICE
     context = {"class_name": "Logistikk", "at": TEST}
     mail = render(Recipient("a@x.no", context=context), [Section(template)], digest=False)
     assert mail.subject == "Du har fått et Oppfølgingsspill"
     assert "Oppfølgingsspill i Klassen Logistikk" in mail.text
     assert "Testfristen" in mail.html and "Logistikk" in mail.html
+    # In a digest beside other notices too.
+    both = render(
+        Recipient("a@x.no", context=context), [Section(template), Section(template)], digest=True
+    )
+    assert both.text.count("Oppfølgingsspill i Klassen Logistikk") == 2
+    # The worker imports `jobs.TASK_MODULES`, and `reports.service` registers there the lookup of
+    # a Student's Oppfølgingsspill that the mail context reads through `sessions`.
+    jobs.load_tasks()
+    assert sessions._makeup_game == [reports_repo.makeup_game_of]

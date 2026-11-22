@@ -24,7 +24,7 @@ import structlog
 from app.modules.classes import service as classes
 from app.modules.games import commands as games_commands
 from app.modules.games import service as games
-from app.modules.reports import repo
+from app.modules.reports import repo, scope
 from app.modules.sessions import service as sessions
 from app.platform import audit, auth, authz, events, notify
 from app.platform.db import get_sessionmaker
@@ -44,18 +44,25 @@ NOTICE = "makeup_given"
 
 
 class MakeupRefused(Exception):
-    """409: `session_not_locked` (no frozen snapshot yet), `no_test_deadline`,
-    `test_deadline_passed`."""
+    """409: `not_counted` (a Student reports leave out), `session_not_locked` (no frozen snapshot
+    yet), `no_test_deadline`, `test_deadline_passed`."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
 
 
-def refusal(row: Mapping[str, Any], user_id: uuid.UUID, now: datetime) -> str | None:
+def refusal(
+    row: Mapping[str, Any], user_id: uuid.UUID, now: datetime, *, counted: bool
+) -> str | None:
     """Why no Oppfølgingsspill can be given now in the Class session `row` (read with the
-    Student's own deadlines), or None: before `sessions.lock` has stored the frozen snapshot, with
-    no Test deadline, or once the Student's effective Test deadline has passed (app clock)."""
+    Student's own deadlines), or None: for a Student reports leave out (`counted` False: a test
+    student, or any Student of a Control test Class session, `scope.reporting_students`), before
+    `sessions.lock` has stored the frozen snapshot, with no Test deadline, or once the Student's
+    effective Test deadline has passed (app clock). The command and the Studentside's
+    `can_give_makeup` both ask this one function."""
+    if not counted:
+        return "not_counted"
     if row["snapshot"] is None:
         return "session_not_locked"
     deadline = sessions.effective_test_deadline(user_id, row)
@@ -90,7 +97,8 @@ async def give(
             row = await sessions.makeup_session_row(s, class_session_id, user_id, share=True)
             if row is None:
                 return None
-            refused = refusal(row, user_id, now)
+            counted = user_id in await scope.reporting_students(s, class_session_id)
+            refused = refusal(row, user_id, now, counted=counted)
             if refused is not None:
                 raise MakeupRefused(refused)
             snapshot = row["snapshot"]

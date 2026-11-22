@@ -62,7 +62,8 @@ The minimums are configuration, `COMPLETION_EXPLANATION_MIN_LENGTH` (50 characte
 ## Oppfølgingsspill (Story 13.4)
 
 - `POST /api/class-sessions/{id}/students/{user_id}/makeup` (`giveMakeup`, `makeup.py`), policy
-  `makeup.give`: the Lecturers of the Class only. 409 `session_not_locked` (no frozen snapshot),
+  `makeup.give`: the Lecturers of the Class only. 409 `not_counted` (a Student outside
+  `scope.reporting_students`; `refusal` also decides `can_give_makeup`), `session_not_locked` (no frozen snapshot),
   `no_test_deadline`, `test_deadline_passed` (the Student's effective one, app clock),
   `class_archived`; 403 `forbidden` for everyone else. Answers the Studentside's record.
 - One transaction under the session row's share lock: `games.commands.create("makeup",
