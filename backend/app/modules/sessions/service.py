@@ -205,7 +205,7 @@ from app.modules.sessions.schemas import (
 )
 from app.platform import audit, auth, authz, events, notify
 from app.platform.config import get_settings
-from app.platform.db import get_sessionmaker
+from app.platform.db import get_sessionmaker, reading
 
 log = structlog.get_logger(__name__)
 
@@ -810,6 +810,69 @@ async def _class_for(
     return found
 
 
+def _refuse_control_test(found: classes.ClassOut) -> None:
+    """A Control test Class holds its one Class session (Story 12.7, AD-27): no other is made in
+    it, and none is copied into or out of it. Raises `classes.ControlTestClass`."""
+    if found.control_test:
+        log.info("class_session_refused", class_id=str(found.id), error_code="control_test_class")
+        raise classes.ControlTestClass
+
+
+CONTROL_TEST = "control_test"
+COURSE = "course"
+"""The kinds of a Class session (Story 12.7, AD-27): `course`, or a Control test."""
+
+
+async def kind_of(
+    class_session_id: uuid.UUID, *, session: AsyncSession | None = None
+) -> str | None:
+    """The kind of a Class session, `course` or `control_test` (Story 12.7, FR-82, AD-13); None
+    for no such session. In the caller's `session` when given. What other modules ask to leave a
+    Control test out (Epic 13's `reports.scope`)."""
+    async with reading(session) as s:
+        row = await repo.session_row(s, class_session_id)
+    return None if row is None else row["kind"]
+
+
+def control_test_session_ids() -> Select[tuple[uuid.UUID]]:
+    """The ids of every Control test Class session, as a subquery for `NOT IN (...)` (Story 12.7,
+    AD-13): what reports, statistics and exports leave out."""
+    return repo.control_test_ids()
+
+
+ControlTestGuidePinner = Callable[[AsyncSession, uuid.UUID, uuid.UUID, datetime], Awaitable[Any]]
+"""`(session, class_session_id, scoring_guide_id, now)`: pins the Scoring guide version under test
+for a new Control test, in its creation's transaction (Story 12.7). `tests` registers it; it
+raises `LookupError` (`content.ContentNotFound`) for an id that is no Scoring guide version."""
+ControlTestGuideReader = Callable[[AsyncSession, uuid.UUID], Awaitable[Any]]
+"""`(session, class_session_id)`: the Scoring guide record in force
+(`content.ScoringGuideRecord`)."""
+
+
+@dataclass(frozen=True)
+class ControlTestGuide:
+    """What `tests` lends `sessions` for a Control test's Scoring guide (Story 12.7)."""
+
+    pin: ControlTestGuidePinner
+    read: ControlTestGuideReader
+
+
+_control_test_guide: list[ControlTestGuide] = []
+
+
+def register_control_test_guide(pin: ControlTestGuidePinner, read: ControlTestGuideReader) -> None:
+    """Called at import by `tests.guide`, which `sessions` may not import; once."""
+    if not _control_test_guide:
+        _control_test_guide.append(ControlTestGuide(pin, read))
+
+
+def control_test_guide() -> ControlTestGuide:
+    """The registered Scoring guide hooks; `RuntimeError` when `tests` was never imported."""
+    if not _control_test_guide:  # pragma: no cover - the app and the tests import `tests.guide`
+        raise RuntimeError("no Control test guide registered")
+    return _control_test_guide[0]
+
+
 @dataclass(frozen=True)
 class StaffedSession:
     """A Class session as a module acting for its staff sees it (Story 7.9): its Class and its
@@ -866,8 +929,10 @@ async def create_session(
     """«Lag Klasseøkt»: one transaction stores the Class session with its defaults, its model
     config and budget row when a default is active, and emits `session:<id>`. None when the User
     may not manage the Class; raises `ClassArchived`."""
-    if await _class_for(user, class_id, "class_sessions.manage") is None:
+    found = await _class_for(user, class_id, "class_sessions.manage")
+    if found is None:
         return None
+    _refuse_control_test(found)
     session_id = uuid.uuid7()
     settings = classic_settings()
     async with get_sessionmaker().begin() as s:
@@ -979,6 +1044,7 @@ async def get_session(user: authz.Principal, session_id: uuid.UUID) -> ClassSess
         class_id=row["class_id"],
         class_name=found.name,
         number=number,
+        kind=row["kind"],
         game_settings=settings,
         is_classic=is_classic(settings),
         ai_mode=AiMode(row["ai_mode"]),
@@ -5827,12 +5893,20 @@ async def copy_from(
     here."""
     if not rerun_enabled():
         raise FeatureDisabled(dict(RERUN_DISABLED))
-    if await _class_for(user, target_class_id, "class_sessions.manage") is None:
+    target = await _class_for(user, target_class_id, "class_sessions.manage")
+    if target is None:
         return None
     async with get_sessionmaker().begin() as s:
         source = await repo.session_row(s, source_id)
-    if source is None or await _class_for(user, source["class_id"], "class_sessions.read") is None:
+    found = (
+        await _class_for(user, source["class_id"], "class_sessions.read")
+        if source is not None
+        else None
+    )
+    if source is None or found is None:
         return None
+    _refuse_control_test(target)
+    _refuse_control_test(found)
     session_id = uuid.uuid7()
     replaced: str | None = None
     async with get_sessionmaker().begin() as s:

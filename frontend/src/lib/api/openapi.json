@@ -1331,6 +1331,11 @@
             "title": "Can Manage",
             "type": "boolean"
           },
+          "control_test": {
+            "default": false,
+            "title": "Control Test",
+            "type": "boolean"
+          },
           "course_code": {
             "anyOf": [
               {
@@ -1727,6 +1732,15 @@
           "is_classic": {
             "title": "Is Classic",
             "type": "boolean"
+          },
+          "kind": {
+            "default": "course",
+            "enum": [
+              "course",
+              "control_test"
+            ],
+            "title": "Kind",
+            "type": "string"
           },
           "lab_hours": {
             "items": {
@@ -2207,6 +2221,243 @@
           "value"
         ],
         "title": "ColumnRowOut",
+        "type": "object"
+      },
+      "ControlTestConfigOut": {
+        "description": "A model config: its name and model version; `default` for the active default.",
+        "properties": {
+          "default": {
+            "title": "Default",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "model_version",
+          "default"
+        ],
+        "title": "ControlTestConfigOut",
+        "type": "object"
+      },
+      "ControlTestGuideOut": {
+        "description": "A Scoring guide version: the latest default, or one a Lecturer edited (`edited`).",
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "draft": {
+            "title": "Draft",
+            "type": "boolean"
+          },
+          "edited": {
+            "title": "Edited",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "edited",
+          "draft"
+        ],
+        "title": "ControlTestGuideOut",
+        "type": "object"
+      },
+      "ControlTestIn": {
+        "description": "A new Control test: its Class's name, and the Scoring guide version and the model config\nunder test. The service checks every field and answers each refused one in `fields`.",
+        "properties": {
+          "model_config_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Config Id"
+          },
+          "name": {
+            "default": "",
+            "maxLength": 800,
+            "title": "Name",
+            "type": "string"
+          },
+          "scoring_guide_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scoring Guide Id"
+          }
+        },
+        "title": "ControlTestIn",
+        "type": "object"
+      },
+      "ControlTestInstitutionOut": {
+        "description": "The operator's own Institution, where a Control test is set up.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ControlTestInstitutionOut",
+        "type": "object"
+      },
+      "ControlTestOut": {
+        "description": "One Control test: its Class and Class session, its Institution, when and with what it was\nset up. `can_open` when the asking Admin owns its Class (only the owner opens its screens).",
+        "properties": {
+          "ai_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ControlTestConfigOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "can_open": {
+            "title": "Can Open",
+            "type": "boolean"
+          },
+          "class_id": {
+            "format": "uuid",
+            "title": "Class Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "scoring_guide": {
+            "$ref": "#/components/schemas/ControlTestGuideOut"
+          }
+        },
+        "required": [
+          "id",
+          "class_id",
+          "name",
+          "institution_name",
+          "created_at",
+          "scoring_guide",
+          "ai_config",
+          "can_open"
+        ],
+        "title": "ControlTestOut",
+        "type": "object"
+      },
+      "ControlTestsOut": {
+        "description": "The Kontrolltest page: the operator's own Institution (None until one is marked), the\nchoices for a new Control test, and every Control test, newest first.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ControlTestOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "model_configs": {
+            "items": {
+              "$ref": "#/components/schemas/ControlTestConfigOut"
+            },
+            "title": "Model Configs",
+            "type": "array"
+          },
+          "operator_institution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ControlTestInstitutionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scoring_guides": {
+            "items": {
+              "$ref": "#/components/schemas/ControlTestGuideOut"
+            },
+            "title": "Scoring Guides",
+            "type": "array"
+          }
+        },
+        "required": [
+          "operator_institution",
+          "scoring_guides",
+          "model_configs",
+          "items"
+        ],
+        "title": "ControlTestsOut",
         "type": "object"
       },
       "CopiedFromOut": {
@@ -4562,6 +4813,11 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "operator_owned": {
+            "default": false,
+            "title": "Operator Owned",
+            "type": "boolean"
           }
         },
         "required": [
@@ -12102,6 +12358,118 @@
         ]
       }
     },
+    "/api/admin/control-tests": {
+      "get": {
+        "description": "The Kontrolltest page (Story 12.7): the operator's own Institution (null until one is\nmarked), the Scoring guide versions and model configs a new Control test may pin, and every\nControl test, newest first, with what it pinned.",
+        "operationId": "listControlTests",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTestsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "List Control Tests",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "description": "Set up a Control test (Story 12.7, FR-82, AD-27): one transaction makes a Class in the\noperator's own Institution with the Admin as its owner and in it a Class session of kind\n`control_test`, pinned to the Scoring guide version and the model config under test. 409\n`operator_institution_missing` while no Institution is marked; 422 `invalid_request` with\n`fields` `name` (the Class name rule's code), `scoring_guide_id` and `model_config_id`\n(`missing` or `unknown`).",
+        "operationId": "createControlTest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlTestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlTestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Create Control Test",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/institutions": {
       "get": {
         "description": "The Institutions with name and creation date, newest first (FR-3).",
@@ -12344,6 +12712,80 @@
           }
         },
         "summary": "Rename Institution",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/institutions/{institution_id}/operator-owned": {
+      "put": {
+        "description": "Mark the Institution as the operator's own, where Control tests are set up (Story 12.7,\nFR-82, AD-27). The mark moves from the Institution that held it; at most one holds it. An\nunknown id is `not_found`.",
+        "operationId": "markOperatorInstitution",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "institution_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Institution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark Operator Institution",
         "tags": [
           "admin"
         ]
@@ -16264,7 +16706,7 @@
     },
     "/api/classes": {
       "get": {
-        "description": "The Classes the User is staff of, by name: «Klassene dine» on the Lærerhjem.",
+        "description": "The Classes the User is staff of, by name: «Klassene dine» on the Lærerhjem; a Control\ntest Class is never among them (Story 12.7), and the Lærerhjem's policy holds it, so the Admin\nrole alone, which reads a Control test Class it owns, does not reach this list.",
         "operationId": "listClasses",
         "responses": {
           "200": {
@@ -17891,6 +18333,16 @@
             },
             "description": "Forbidden"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -18038,6 +18490,16 @@
               }
             },
             "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {

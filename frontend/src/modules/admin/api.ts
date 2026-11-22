@@ -136,6 +136,55 @@ export function useRenameInstitution() {
   });
 }
 
+/** Mark an Institution as the operator's own (Story 12.7, FR-82): the mark moves from the one that
+ * held it, so the whole list reads again; so does the Kontrolltest page, which names it. */
+export function useMarkOperator() {
+  const queryClient = useQueryClient();
+  return useMutation<Institution, unknown, string>({
+    mutationFn: (id) =>
+      request(() =>
+        api.PUT("/api/admin/institutions/{institution_id}/operator-owned", {
+          params: { path: { institution_id: id } },
+        }),
+      ),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: institutionsKey });
+      void queryClient.invalidateQueries({ queryKey: controlTestsKey });
+    },
+  });
+}
+
+export type ControlTests = components["schemas"]["ControlTestsOut"];
+export type ControlTest = components["schemas"]["ControlTestOut"];
+export type ControlTestIn = components["schemas"]["ControlTestIn"];
+
+/** The query key of the Kontrolltest page (Story 12.7). */
+export const controlTestsKey = ["admin", "control-tests"] as const;
+
+/** The Kontrolltest page (Story 12.7): the operator's Institution, the choices and every Control
+ * test. */
+export function useControlTests() {
+  return useQuery({
+    queryKey: controlTestsKey,
+    queryFn: () => request(() => api.GET("/api/admin/control-tests")),
+    retry: false,
+  });
+}
+
+/** «Opprett Kontrolltest» (Story 12.7). The page reads again, so the new one stands first. The
+ * caller words the refusals: a field's reason goes beside it. */
+export function useCreateControlTest() {
+  const queryClient = useQueryClient();
+  return useMutation<ControlTest, unknown, ControlTestIn>({
+    mutationFn: (body) => request(() => api.POST("/api/admin/control-tests", { body })),
+    networkMode: "always",
+    retry: false,
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: controlTestsKey }),
+  });
+}
+
 /** The query key of the User list for one search text (Story 3.9). */
 export const usersKey = (search: string) => ["admin", "users", search] as const;
 

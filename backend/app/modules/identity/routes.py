@@ -583,6 +583,23 @@ async def rename_institution(
     return _institution_answer(outcome)
 
 
+@admin_router.put(
+    "/institutions/{institution_id}/operator-owned",
+    response_model=InstitutionOut,
+    responses=documented(401, 403, 404),
+    operation_id="markOperatorInstitution",
+)
+async def mark_operator_institution(
+    institution_id: uuid.UUID,
+    user: Annotated[UserOut, Depends(authz.require("institutions.manage"))],
+) -> Response:
+    """Mark the Institution as the operator's own, where Control tests are set up (Story 12.7,
+    FR-82, AD-27). The mark moves from the Institution that held it; at most one holds it. An
+    unknown id is `not_found`."""
+    outcome = await service.mark_operator_institution(user.id, institution_id, now=auth.utcnow())
+    return _institution_answer(outcome)
+
+
 @admin_router.get(
     "/access-requests",
     response_model=AccessRequestListOut,

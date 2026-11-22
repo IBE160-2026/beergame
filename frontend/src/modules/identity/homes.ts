@@ -29,6 +29,9 @@ export const ADMIN_INSTITUTIONS_PATH = "/admin/institusjoner";
 /** «Revisjonslogg» in the Admin-område (Story 3.12). */
 export const ADMIN_AUDIT_PATH = "/admin/revisjonslogg";
 
+/** «Kontrolltest» in the Admin-område (Story 12.7). */
+export const ADMIN_CONTROL_TESTS_PATH = "/admin/kontrolltest";
+
 /** «Lag Klasse» (Story 4.1). */
 export const NEW_CLASS_PATH = "/klasser/ny";
 
@@ -130,10 +133,30 @@ const isStaff = (user: RoleHolder) => isLecturer(user) || isAssistant(user);
 /** Whether `user` may create a Class: a Lecturer, never an Assistent (Story 4.9). */
 export const canCreateClass = isLecturer;
 
+/** Whether `user` may open a Class page and its Klasseøkt (Stories 4.1, 5.1): the staff, and an
+ * Admin, who owns the Control test Classes they set up (Story 12.7). The api decides which Class
+ * (`platform/authz`); any other reads as the permission-denied page. */
+export function canOpenClasses(user: RoleHolder): boolean {
+  return isStaff(user) || isAdmin(user);
+}
+
 export function homeOf(user: RoleHolder): Home {
   if (isStaff(user)) return "lecturerHome";
   if (isAdmin(user)) return "adminArea";
   return "home";
+}
+
+/** The crumbs before a Class and its Klasseøkt: the Lærerhjem for its staff; for a Control test
+ * Class whose owner holds no staff role, only the Admin's, the Admin-område and «Kontrolltest»
+ * (Story 12.7), where they reached it. */
+export function classCrumbs(user: RoleHolder, controlTest: boolean) {
+  if (controlTest && homeOf(user) === "adminArea") {
+    return [
+      { label: nb.homes.adminArea, href: HOME_PATH.adminArea },
+      { label: nb.admin.controlTests.title, href: ADMIN_CONTROL_TESTS_PATH },
+    ] as const;
+  }
+  return [{ label: nb.homes.lecturerHome, href: HOME_PATH.lecturerHome }] as const;
 }
 
 /** Whether `user` may open `page`. Hjem is the home of a User with no staff role. */

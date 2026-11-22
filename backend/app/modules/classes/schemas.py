@@ -107,6 +107,9 @@ class ClassOut(BaseModel):
     """Archived (Story 4.10): read-only, kept until the retention period ends."""
     roster_count: int
     """Addresses on the Class's Roster (Story 4.4)."""
+    control_test: bool = False
+    """A Control test Class (Story 12.7, AD-27): it never counts in a Class session; it takes no
+    other staff and no other Class session. `authz.can` reads it."""
 
 
 class EnrolledClassOut(BaseModel):

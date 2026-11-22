@@ -88,6 +88,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/control-tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Control Tests
+         * @description The Kontrolltest page (Story 12.7): the operator's own Institution (null until one is
+         *     marked), the Scoring guide versions and model configs a new Control test may pin, and every
+         *     Control test, newest first, with what it pinned.
+         */
+        get: operations["listControlTests"];
+        put?: never;
+        /**
+         * Create Control Test
+         * @description Set up a Control test (Story 12.7, FR-82, AD-27): one transaction makes a Class in the
+         *     operator's own Institution with the Admin as its owner and in it a Class session of kind
+         *     `control_test`, pinned to the Scoring guide version and the model config under test. 409
+         *     `operator_institution_missing` while no Institution is marked; 422 `invalid_request` with
+         *     `fields` `name` (the Class name rule's code), `scoring_guide_id` and `model_config_id`
+         *     (`missing` or `unknown`).
+         */
+        post: operations["createControlTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/institutions": {
         parameters: {
             query?: never;
@@ -132,6 +163,28 @@ export interface paths {
          *     `not_found`.
          */
         patch: operations["renameInstitution"];
+        trace?: never;
+    };
+    "/api/admin/institutions/{institution_id}/operator-owned": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Mark Operator Institution
+         * @description Mark the Institution as the operator's own, where Control tests are set up (Story 12.7,
+         *     FR-82, AD-27). The mark moves from the Institution that held it; at most one holds it. An
+         *     unknown id is `not_found`.
+         */
+        put: operations["markOperatorInstitution"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/admin/invitations": {
@@ -1276,7 +1329,9 @@ export interface paths {
         };
         /**
          * List Classes
-         * @description The Classes the User is staff of, by name: «Klassene dine» on the Lærerhjem.
+         * @description The Classes the User is staff of, by name: «Klassene dine» on the Lærerhjem; a Control
+         *     test Class is never among them (Story 12.7), and the Lærerhjem's policy holds it, so the Admin
+         *     role alone, which reads a Control test Class it owns, does not reach this list.
          */
         get: operations["listClasses"];
         put?: never;
@@ -3674,6 +3729,11 @@ export interface components {
             archived: boolean;
             /** Can Manage */
             can_manage: boolean;
+            /**
+             * Control Test
+             * @default false
+             */
+            control_test: boolean;
             /** Course Code */
             course_code: string | null;
             /**
@@ -3838,6 +3898,12 @@ export interface components {
             info_visibility_enabled: boolean;
             /** Is Classic */
             is_classic: boolean;
+            /**
+             * Kind
+             * @default course
+             * @enum {string}
+             */
+            kind: "course" | "control_test";
             /** Lab Hours */
             lab_hours: components["schemas"]["LabHourOut"][];
             /**
@@ -3969,6 +4035,115 @@ export interface components {
             label: string;
             /** Value */
             value: number;
+        };
+        /**
+         * ControlTestConfigOut
+         * @description A model config: its name and model version; `default` for the active default.
+         */
+        ControlTestConfigOut: {
+            /** Default */
+            default: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Model Version */
+            model_version: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * ControlTestGuideOut
+         * @description A Scoring guide version: the latest default, or one a Lecturer edited (`edited`).
+         */
+        ControlTestGuideOut: {
+            /** Created At */
+            created_at?: string | null;
+            /** Draft */
+            draft: boolean;
+            /** Edited */
+            edited: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * ControlTestIn
+         * @description A new Control test: its Class's name, and the Scoring guide version and the model config
+         *     under test. The service checks every field and answers each refused one in `fields`.
+         */
+        ControlTestIn: {
+            /** Model Config Id */
+            model_config_id?: string | null;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /** Scoring Guide Id */
+            scoring_guide_id?: string | null;
+        };
+        /**
+         * ControlTestInstitutionOut
+         * @description The operator's own Institution, where a Control test is set up.
+         */
+        ControlTestInstitutionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * ControlTestOut
+         * @description One Control test: its Class and Class session, its Institution, when and with what it was
+         *     set up. `can_open` when the asking Admin owns its Class (only the owner opens its screens).
+         */
+        ControlTestOut: {
+            ai_config: components["schemas"]["ControlTestConfigOut"] | null;
+            /** Can Open */
+            can_open: boolean;
+            /**
+             * Class Id
+             * Format: uuid
+             */
+            class_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Institution Name */
+            institution_name: string | null;
+            /** Name */
+            name: string;
+            scoring_guide: components["schemas"]["ControlTestGuideOut"];
+        };
+        /**
+         * ControlTestsOut
+         * @description The Kontrolltest page: the operator's own Institution (None until one is marked), the
+         *     choices for a new Control test, and every Control test, newest first.
+         */
+        ControlTestsOut: {
+            /** Items */
+            items: components["schemas"]["ControlTestOut"][];
+            /** Model Configs */
+            model_configs: components["schemas"]["ControlTestConfigOut"][];
+            operator_institution: components["schemas"]["ControlTestInstitutionOut"] | null;
+            /** Scoring Guides */
+            scoring_guides: components["schemas"]["ControlTestGuideOut"][];
         };
         /**
          * CopiedFromOut
@@ -5039,6 +5214,11 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /**
+             * Operator Owned
+             * @default false
+             */
+            operator_owned: boolean;
         };
         /**
          * IntRange
@@ -8400,6 +8580,104 @@ export interface operations {
             };
         };
     };
+    listControlTests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlTestsOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    createControlTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlTestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlTestOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     listInstitutions: {
         parameters: {
             query?: {
@@ -8577,6 +8855,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    markOperatorInstitution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                institution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstitutionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -12801,6 +13137,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
             /** @description Unprocessable Content */
             422: {
                 headers: {
@@ -12904,6 +13249,15 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

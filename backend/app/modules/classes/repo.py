@@ -44,11 +44,16 @@ async def insert_class(
     )
 
 
+_control_test = classes.c.id.in_(authz.control_test_classes())
+"""Whether a Class is a Control test Class (Story 12.7, AD-27): it holds a `control_test` Class
+session."""
+
+
 def _visible(user: authz.Principal | uuid.UUID):
     """The Class columns with the User's staff role, inside the User's scope."""
     user_id = user if isinstance(user, uuid.UUID) else user.id
     return (
-        select(classes, class_staff.c.role.label("staff_role"))
+        select(classes, class_staff.c.role.label("staff_role"), _control_test.label("control_test"))
         .join(
             class_staff,
             (class_staff.c.class_id == classes.c.id) & (class_staff.c.user_id == user_id),
@@ -58,9 +63,10 @@ def _visible(user: authz.Principal | uuid.UUID):
 
 
 async def classes_of(session: AsyncSession, user: authz.Principal) -> list[RowMapping]:
-    """The Classes the User is staff of, by name (case-insensitively), then id."""
+    """The Classes the User is staff of, by name (case-insensitively), then id. A Control test
+    Class is never among them (Story 12.7, AD-13): it is reached from the Admin-område only."""
     result = await session.execute(
-        _visible(user).order_by(func.lower(classes.c.name), classes.c.id)
+        _visible(user).where(~_control_test).order_by(func.lower(classes.c.name), classes.c.id)
     )
     return list(result.mappings())
 
@@ -79,7 +85,11 @@ async def count_owned_active(session: AsyncSession, user_id: uuid.UUID) -> int:
     result = await session.execute(
         _visible(user_id)
         .with_only_columns(func.count())
-        .where(class_staff.c.role == StaffRole.owner.value, classes.c.archived_at.is_(None))
+        .where(
+            class_staff.c.role == StaffRole.owner.value,
+            classes.c.archived_at.is_(None),
+            ~_control_test,
+        )
     )
     return result.scalar_one()
 
@@ -99,6 +109,19 @@ async def class_label(session: AsyncSession, class_id: uuid.UUID) -> RowMapping 
         )
     )
     return result.mappings().one_or_none()
+
+
+async def class_rows(session: AsyncSession, class_ids: list[uuid.UUID]) -> list[RowMapping]:
+    """The Classes with these ids, no User's scope (Story 12.7: the Admin's Kontrolltest list,
+    behind its own policy)."""
+    if not class_ids:
+        return []
+    result = await session.execute(
+        select(classes.c.id, classes.c.name, classes.c.institution_id, classes.c.archived_at).where(
+            classes.c.id.in_(class_ids)
+        )
+    )
+    return list(result.mappings())
 
 
 def _enrolled(user: authz.Principal | uuid.UUID):

@@ -156,7 +156,7 @@ HEAD_TABLES = (
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
 )
-HEAD = "0130"  # 0130 adds one Student's own Test deadline (11.13); 0120-0130 follow main's 0064
+HEAD = "0201"  # 0201 adds the Control test (12.7); 0120-0130 follow main's 0064, 0201 follows 0130
 
 
 def reset_schema(url: str) -> None:
@@ -344,6 +344,16 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0201 (Story 12.7): the operator's own Institution, the kind of a Class session, and the
+    # trigger that keeps a Control test's kind and model config.
+    assert "operator_owned" in columns(url, "institutions")
+    assert "kind" in columns(url, "class_sessions")
+    assert function_names(url, "class_sessions_kind_fixed")
+    command.downgrade(cfg, "0130")
+    assert "operator_owned" not in columns(url, "institutions")
+    assert "kind" not in columns(url, "class_sessions")
+    assert not function_names(url, "class_sessions_kind_fixed")
 
     # 0130 (Story 11.13): one Student's own Test deadline, and a reminder row may name a Student.
     assert {"test_deadline", "debrief_deadline", "updated_by"} <= columns(

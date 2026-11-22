@@ -255,6 +255,9 @@ class ClassSessionOut(BaseModel):
     class_name: str
     number: int
     """«Klasseøkt 2»: its place among its Class's sessions, oldest first, from 1."""
+    kind: Literal["course", "control_test"] = "course"
+    """`control_test` for a Control test (Story 12.7, AD-27): it never counts in a Class
+    session; its Scoring guide and model config were pinned when it was created."""
     game_settings: GameSettings
     """The engine's `GameSettings` the Class session holds, its demand seed included."""
     is_classic: bool
@@ -1608,3 +1611,71 @@ class AdjustmentIn(BaseModel):
 
     time_factor: float
     share_percent: StrictInt | None = None
+
+
+# The Control test (Story 12.7, FR-82, AD-27): Admin-område → «Kontrolltest».
+
+CONTROL_TEST_NAME_MAX_LENGTH = 200
+"""The Class name rule's limit (`classes.schemas.class_name`)."""
+
+
+class ControlTestIn(BaseModel):
+    """A new Control test: its Class's name, and the Scoring guide version and the model config
+    under test. The service checks every field and answers each refused one in `fields`."""
+
+    name: str = Field(default="", max_length=4 * CONTROL_TEST_NAME_MAX_LENGTH)
+    scoring_guide_id: uuid.UUID | None = None
+    model_config_id: uuid.UUID | None = None
+
+
+class ControlTestInstitutionOut(BaseModel):
+    """The operator's own Institution, where a Control test is set up."""
+
+    id: uuid.UUID
+    name: str
+
+
+class ControlTestGuideOut(BaseModel):
+    """A Scoring guide version: the latest default, or one a Lecturer edited (`edited`)."""
+
+    id: uuid.UUID
+    version: int
+    edited: bool
+    draft: bool
+    created_at: datetime | None = None
+    """When the version was stored; given with the choices only."""
+
+
+class ControlTestConfigOut(BaseModel):
+    """A model config: its name and model version; `default` for the active default."""
+
+    id: uuid.UUID
+    name: str
+    model_version: str
+    default: bool
+
+
+class ControlTestOut(BaseModel):
+    """One Control test: its Class and Class session, its Institution, when and with what it was
+    set up. `can_open` when the asking Admin owns its Class (only the owner opens its screens)."""
+
+    id: uuid.UUID
+    """The Control test's Class session."""
+    class_id: uuid.UUID
+    name: str
+    institution_name: str | None
+    created_at: datetime
+    scoring_guide: ControlTestGuideOut
+    ai_config: ControlTestConfigOut | None
+    """The model config under test; None only if its row were gone (configs are never deleted)."""
+    can_open: bool
+
+
+class ControlTestsOut(BaseModel):
+    """The Kontrolltest page: the operator's own Institution (None until one is marked), the
+    choices for a new Control test, and every Control test, newest first."""
+
+    operator_institution: ControlTestInstitutionOut | None
+    scoring_guides: list[ControlTestGuideOut]
+    model_configs: list[ControlTestConfigOut]
+    items: list[ControlTestOut]

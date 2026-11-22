@@ -667,6 +667,8 @@ export const nb = {
       staff: "Faglærere og assistenter",
       /** Above the Roster an Assistant lecturer reads (Story 4.9). [ASSUMPTION] */
       assistantLead: "Du er Assistent i Klassen. Du ser Klasselista, men Faglærerne endrer den.",
+      /** A Control test Class (Story 12.7, FR-82). [ASSUMPTION] */
+      controlTest: "Kontrolltest. Teller aldri med i en Klasseøkt.",
     },
     /** Archiving a Class (Story 4.10, FR-6, UX-DR56). [ASSUMPTION] draft copy: EXPERIENCE.md asks
      * only that the button states the consequence and that archived Classes are marked in text. */
@@ -2123,6 +2125,8 @@ export const nb = {
       institutions: "Institusjoner",
       // [ASSUMPTION] Story 3.12.
       audit: "Revisjonslogg",
+      // EXPERIENCE.md → Terms («Kontrolltest»); Story 12.7.
+      controlTests: "Kontrolltest",
     },
     /** «Revisjonslogg» (Story 3.12, FR-3): every Admin action with who did it and when. The page
      * renders any action from these entries; a later epic adds its own action names here and the
@@ -2167,6 +2171,9 @@ export const nb = {
         // Story 3.13.
         "access_request.invited": "Invitert fra forespørsel",
         "access_request.dismissed": "Forespørsel avvist",
+        // [ASSUMPTION] Story 12.7.
+        "institution.operator_marked": "Merket som operatørens egen Institusjon",
+        "control_test.created": "Kontrolltest satt opp",
       } as Record<string, string>,
       /** What an action concerns, by its target key. */
       targets: {
@@ -2184,6 +2191,12 @@ export const nb = {
         old_name: "Gammelt navn",
         new_name: "Nytt navn",
         voided_invitation_ids: "Lenker gjort ugyldige",
+        // [ASSUMPTION] Story 12.7.
+        previous_institution_id: "Merket før",
+        scoring_guide_id: "Sensorveiledning",
+        scoring_guide_version: "Versjon av sensorveiledningen",
+        model_config_id: "Modellkonfigurasjon",
+        institution_id: "Institusjon",
       } as Record<string, string>,
       values: {
         roles: { lecturer: "Faglærer", admin: "Admin" } as Record<string, string>,
@@ -2217,6 +2230,15 @@ export const nb = {
         more: "Vis flere Institusjoner",
         moreFailed: "Flere Institusjoner kunne ikke lastes. Prøv igjen.",
       },
+      /** The operator's own Institution (Story 12.7, FR-82, AD-27). [ASSUMPTION] */
+      operator: {
+        column: "Kontrolltest",
+        label: "Operatørens egen",
+        mark: (name: string) => `Merk ${name} som operatørens egen`,
+        marked: (name: string) => `${name} er nå operatørens egen Institusjon. Kontrolltester settes opp her.`,
+        failed: "Merket ble ikke lagret. Prøv igjen.",
+        help: "Kontrolltester settes opp i operatørens egen Institusjon. Bare én Institusjon kan ha merket.",
+      },
       rename: {
         open: (name: string) => `Gi ${name} nytt navn`,
         field: (name: string) => `Nytt navn på ${name}`,
@@ -2224,6 +2246,50 @@ export const nb = {
         cancel: "Avbryt",
         renamed: (old: string, name: string) => `${old} heter nå ${name}.`,
         failed: "Navnet ble ikke endret. Prøv igjen.",
+      },
+    },
+    /** Admin-område → «Kontrolltest» (Story 12.7, FR-82, AD-27, UX-DR57). [ASSUMPTION] all but
+     * «Teller aldri med i en Klasseøkt.», which EXPERIENCE.md gives. */
+    controlTests: {
+      title: "Kontrolltest",
+      never: "Teller aldri med i en Klasseøkt.",
+      lead: "En Kontrolltest er en egen Klasse med én Klasseøkt i operatørens egen Institusjon. Den sjekker KI-vurderingen mot menneskelige sensorer på ekte svar.",
+      operator: (name: string) => `Settes opp i ${name}.`,
+      noOperator: "Ingen Institusjon er merket som operatørens egen. Merk én under Institusjoner først.",
+      toInstitutions: "Til Institusjoner",
+      create: {
+        title: "Ny Kontrolltest",
+        name: "Navn på Klassen",
+        guide: "Sensorveiledning som testes",
+        config: "Modellkonfigurasjon som testes",
+        pinned: "Sensorveiledningen og modellkonfigurasjonen låses når Kontrolltesten opprettes, og kan ikke endres etterpå.",
+        submit: "Opprett Kontrolltest",
+        created: (name: string) => `${name} er opprettet. Sett datoer, last opp Klasselista og fordel som i en vanlig Klasse.`,
+        failed: "Kontrolltesten ble ikke opprettet. Prøv igjen.",
+        noChoices: "Det finnes ingen modellkonfigurasjon å teste ennå.",
+        errors: {
+          name_empty: "Skriv navnet på Klassen.",
+          name_too_long: "Navnet kan ha høyst 200 tegn.",
+          name_invalid: "Navnet kan ikke inneholde kontrolltegn.",
+          unknown: "Valget finnes ikke lenger. Velg på nytt.",
+          operator_institution_missing: "Ingen Institusjon er merket som operatørens egen. Merk én under Institusjoner først.",
+        } as Record<string, string>,
+      },
+      guide: (version: number, edited: boolean, draft: boolean) =>
+        `Versjon ${version}${edited ? ", endret av en Faglærer" : ", standard"}${draft ? " (utkast)" : ""}`,
+      config: (name: string, model: string, isDefault: boolean) =>
+        `${name} (${model})${isDefault ? ", standard" : ""}`,
+      list: {
+        title: "Kontrolltester",
+        empty: "Ingen Kontrolltester ennå.",
+        guide: "Sensorveiledning",
+        config: "Modellkonfigurasjon",
+        institution: "Institusjon",
+        created: "Opprettet",
+        configGone: "Ukjent",
+        openClass: (name: string) => `Åpne Klassen ${name}`,
+        openSession: (name: string) => `Åpne Klasseøkten i ${name}`,
+        notOwner: "Bare Admin som satte den opp, åpner Klassen.",
       },
     },
     users: {
@@ -3137,6 +3203,8 @@ export const nb = {
       /** Read-only reasons. */
       assistant: "Bare Faglærerne i Klassen kan endre sensorveiledningen.",
       closed: "Testfristen er passert. Sensorveiledningen er låst.",
+      /** A Control test (Story 12.7): the version under test, pinned at creation. [ASSUMPTION] */
+      controlTest: "Låst da Kontrolltesten ble opprettet. Det er denne versjonen som testes.",
       /** Refusals beside «Lagre sensorveiledning». */
       archived: "Klassen er arkivert, så sensorveiledningen kan ikke endres.",
       invalid: "En veiledning er tom eller for lang. Ingenting ble lagret.",

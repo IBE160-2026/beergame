@@ -51,7 +51,9 @@ __all__ = [
     "InForce",
     "UnknownQuestions",
     "copy_guide",
+    "guide_record",
     "in_force",
+    "pin_for_control_test",
     "pin_guide",
     "read_block",
     "save",
@@ -141,6 +143,39 @@ async def pin_guide(s: AsyncSession, class_session: Mapping[str, Any], at: datet
         )
     )
     return True
+
+
+async def pin_for_control_test(
+    s: AsyncSession, class_session_id: uuid.UUID, scoring_guide_id: uuid.UUID, at: datetime
+) -> content.ScoringGuideRecord:
+    """`sessions`' Control test guide pinner (Story 12.7, AD-27, AD-23): the Scoring guide version
+    under test, pinned when the Control test is created, in its transaction. «Sensorveiledning»
+    is then read-only, and `pin_guide` at the Test deadline finds it pinned and keeps it. An
+    edited version keeps the default it derives from. Raises `content.ContentNotFound` for an id
+    that is no Scoring guide version."""
+    record = await content.scoring_guide_record(s, scoring_guide_id)
+    base_id = await s.scalar(
+        select(test_scoring_guides.c.base_id)
+        .where(test_scoring_guides.c.scoring_guide_id == scoring_guide_id)
+        .limit(1)
+    )
+    await s.execute(
+        insert(test_scoring_guides).values(
+            class_session_id=class_session_id,
+            scoring_guide_id=record.id,
+            base_id=base_id or record.id,
+            pinned_at=at,
+            updated_by=None,
+            updated_at=at,
+        )
+    )
+    return record
+
+
+async def guide_record(s: AsyncSession, class_session_id: uuid.UUID) -> content.ScoringGuideRecord:
+    """The Scoring guide version in force for a Class session (Story 12.7: what the Kontrolltest
+    list names as the version under test)."""
+    return (await in_force(s, class_session_id)).record
 
 
 async def copy_guide(
@@ -314,3 +349,4 @@ async def save(
 # carries an edited one over (FR-66).
 sessions.register_test_pinner(pin_guide)
 sessions.register_copier(copy_guide)
+sessions.register_control_test_guide(pin_for_control_test, guide_record)

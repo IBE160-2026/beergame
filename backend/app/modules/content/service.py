@@ -13,6 +13,7 @@ only (AD-27). This module imports no feature module."""
 
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import func, select, text
@@ -467,6 +468,46 @@ async def latest_scoring_guide(session: AsyncSession) -> ScoringGuideRecord:
         )
     ).one()
     return _guide_record(row)
+
+
+@dataclass(frozen=True)
+class ScoringGuideChoice:
+    """A Scoring guide version a Control test may pin (Story 12.7, AD-27): the latest default, or
+    a version a Lecturer edited for a Class session (`edited`)."""
+
+    id: uuid.UUID
+    version: int
+    edited: bool
+    draft: bool
+    created_at: datetime
+
+
+async def scoring_guide_choices(session: AsyncSession) -> list[ScoringGuideChoice]:
+    """The latest default Scoring guide first, then every edited version, newest first (Story
+    12.7). Older defaults are left out: a Control test checks the default in force or an edit."""
+    latest = await latest_scoring_guide(session)
+    rows = (
+        await session.execute(
+            select(*_GUIDE_COLUMNS, content_records.c.created_at)
+            .where(
+                content_records.c.kind == Kind.SCORING_GUIDE.value,
+                (content_records.c.id == latest.id)
+                | content_records.c.class_session_id.is_not(None),
+            )
+            .order_by(content_records.c.version.desc())
+        )
+    ).all()
+    choices = [
+        ScoringGuideChoice(
+            id=row.id,
+            version=row.version,
+            edited=row.class_session_id is not None,
+            draft=_guide_record(row).guide.status == "draft",
+            created_at=row.created_at,
+        )
+        for row in rows
+    ]
+    return sorted(choices, key=lambda c: (c.edited, -c.version))
 
 
 async def is_checked(

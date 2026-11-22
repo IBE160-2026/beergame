@@ -86,17 +86,20 @@ POLICIES: dict[str, frozenset[str]] = {
     "users.manage": frozenset({ADMIN}),
     "institutions.manage": frozenset({ADMIN}),
     "audit.read": frozenset({ADMIN}),
+    # Admin-område → «Kontrolltest» (Story 12.7, FR-82, AD-27): only the Admin sets one up.
+    "control_tests.manage": frozenset({ADMIN}),
     # The Lærerhjem and the Classes on it (Story 4.1). The Class actions are also held to the
     # User's staff role in the Class (`CLASS_STAFF_ROLES`). An Assistant lecturer reads the
-    # Classes they are staff of and nothing else (Story 4.9).
+    # Classes they are staff of and nothing else (Story 4.9). The Admin holds the Class actions of
+    # Epics 4 and 5 only on a Control test Class they own (`CONTROL_TEST_ACTIONS`, Story 12.7).
     "lecturer_home.view": frozenset({LECTURER, ASSISTANT}),
     "classes.create": frozenset({LECTURER}),
-    "classes.read": frozenset({LECTURER, ASSISTANT}),
-    "classes.manage": frozenset({LECTURER}),
+    "classes.read": frozenset({LECTURER, ASSISTANT, ADMIN}),
+    "classes.manage": frozenset({LECTURER, ADMIN}),
     # A Class's sessions (Story 5.1): its owners create and save them, its Assistant lecturers
     # read them. Held to the User's staff role in the Class (`CLASS_STAFF_ROLES`).
-    "class_sessions.read": frozenset({LECTURER, ASSISTANT}),
-    "class_sessions.manage": frozenset({LECTURER}),
+    "class_sessions.read": frozenset({LECTURER, ASSISTANT, ADMIN}),
+    "class_sessions.manage": frozenset({LECTURER, ADMIN}),
     # The Oversikt of a Class session (Story 7.1, FR-39): its Class's staff, held to the User's
     # staff role in the Class like the actions above.
     "class_sessions.overview": frozenset({LECTURER, ASSISTANT}),
@@ -211,8 +214,17 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
 """Class action → the staff roles in the Class that may do it. Later stories add theirs."""
 
 
+CONTROL_TEST_ACTIONS = frozenset(
+    {"classes.read", "classes.manage", "class_sessions.read", "class_sessions.manage"}
+)
+"""The Class actions of Epics 4 and 5 that the Admin role grants on a Control test Class only
+(Story 12.7, AD-12, AD-27): the Admin sets its dates, Roster, Invitations and allocation as its
+owner on the ordinary screens. On any other Class the Admin role grants none of them."""
+
+
 class ClassResource(Protocol):
-    """A Class as `can` sees it: the asking User's staff role in it."""
+    """A Class as `can` sees it: the asking User's staff role in it, and whether it is a Control
+    test Class (`control_test`, Story 12.7; a resource without it is not one)."""
 
     staff_role: str
 
@@ -220,12 +232,17 @@ class ClassResource(Protocol):
 def can(user: Principal, action: str, resource: Any = None) -> bool:
     """Whether `user` may do `action`. A Class action on a `resource` also needs a staff role in
     that Class the action allows; with no resource only the account roles are checked (the
-    route's policy, before any Class is loaded)."""
+    route's policy, before any Class is loaded). When the Admin role is the only one that grants
+    a Class action (`CONTROL_TEST_ACTIONS`), the resource must be a Control test Class."""
     allowed = POLICIES[action]
-    if not (ANY_USER in allowed or not allowed.isdisjoint(user.roles)):
+    granted = allowed.intersection(user.roles)
+    if not (ANY_USER in allowed or granted):
         return False
     if resource is not None and action in CLASS_STAFF_ROLES:
-        return getattr(resource, "staff_role", None) in CLASS_STAFF_ROLES[action]
+        if getattr(resource, "staff_role", None) not in CLASS_STAFF_ROLES[action]:
+            return False
+        if granted == {ADMIN} and action in CONTROL_TEST_ACTIONS:
+            return getattr(resource, "control_test", False) is True
     return True
 
 
@@ -315,6 +332,19 @@ def class_games_staffed_by(user: Principal | uuid.UUID) -> Select:
     """The ids of the Class games of those Class sessions (Story 6.4, AD-8): with `own_seat`, the
     `game:<id>` topics a User's event stream forwards."""
     return select(_games.c.id).where(_games.c.class_session_id.in_(class_sessions_staffed_by(user)))
+
+
+_kinded_sessions = table("class_sessions", column("class_id"), column("kind"))
+"""`sessions.class_sessions` with its kind, by name only, for the Control test scope."""
+
+CONTROL_TEST_KIND = "control_test"
+
+
+def control_test_classes() -> Select:
+    """The ids of the Control test Classes (Story 12.7, AD-27): the Classes of the Class sessions
+    of kind `control_test`. A subquery for `classes.id IN (...)`: what tells `classes` that a
+    Class is a Control test (`ClassResource.control_test`), and what its staff lists leave out."""
+    return select(_kinded_sessions.c.class_id).where(_kinded_sessions.c.kind == CONTROL_TEST_KIND)
 
 
 _debrief_sessions = table("debrief_sessions", column("id"), column("game_id"))

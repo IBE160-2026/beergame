@@ -278,6 +278,9 @@ class InstitutionOut(BaseModel):
     id: uuid.UUID
     name: str
     created_at: datetime
+    operator_owned: bool = False
+    """The operator's own Institution, where Control tests are set up (Story 12.7, AD-27): one
+    at most."""
 
 
 class InstitutionListOut(BaseModel):

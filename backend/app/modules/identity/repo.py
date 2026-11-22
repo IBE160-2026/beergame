@@ -535,6 +535,31 @@ async def rename_institution(
     return result.mappings().one()
 
 
+async def operator_institution(session: AsyncSession) -> RowMapping | None:
+    """The Institution marked as the operator's own (Story 12.7), or None."""
+    result = await session.execute(select(institutions).where(institutions.c.operator_owned))
+    return result.mappings().one_or_none()
+
+
+async def set_operator_owned(
+    session: AsyncSession, institution_id: uuid.UUID, now: datetime
+) -> RowMapping:
+    """Clear the mark from every other Institution, then mark this one, in the caller's
+    transaction (the partial unique index allows one marked row at a time)."""
+    await session.execute(
+        update(institutions)
+        .where(institutions.c.operator_owned, institutions.c.id != institution_id)
+        .values(operator_owned=False, updated_at=now)
+    )
+    result = await session.execute(
+        update(institutions)
+        .where(institutions.c.id == institution_id)
+        .values(operator_owned=True, updated_at=now)
+        .returning(institutions)
+    )
+    return result.mappings().one()
+
+
 async def institution_by_id(session: AsyncSession, institution_id: uuid.UUID) -> RowMapping | None:
     result = await session.execute(select(institutions).where(institutions.c.id == institution_id))
     return result.mappings().one_or_none()

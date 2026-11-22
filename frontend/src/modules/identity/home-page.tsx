@@ -9,7 +9,18 @@ import { usePageState } from "@/lib/page-state";
 import { loginPath } from "@/lib/return-path";
 
 import { meKey, type SessionUser, useMe } from "./api";
-import { ADMIN_AUDIT_PATH, ADMIN_INSTITUTIONS_PATH, ADMIN_USERS_PATH, canView, HOME_LINK, HOME_PATH, type Home, homeOf } from "./homes";
+import {
+  ADMIN_AUDIT_PATH,
+  ADMIN_CONTROL_TESTS_PATH,
+  ADMIN_INSTITUTIONS_PATH,
+  ADMIN_USERS_PATH,
+  canOpenClasses,
+  canView,
+  HOME_LINK,
+  HOME_PATH,
+  type Home,
+  homeOf,
+} from "./homes";
 import { PageLink, PageShell } from "./page-shell";
 
 const TITLE: Record<Home, string> = {
@@ -67,6 +78,11 @@ function AdminSections() {
           {nb.admin.sections.audit}
         </Link>
       </li>
+      <li className="border-b border-hairline">
+        <Link href={ADMIN_CONTROL_TESTS_PATH} standalone>
+          {nb.admin.sections.controlTests}
+        </Link>
+      </li>
     </ul>
   );
 }
@@ -84,7 +100,8 @@ export function GuardedPage({
   page,
   children,
 }: {
-  page: Home | "any";
+  /** `classes`: a Class page and its Klasseøkt, for the staff and the Admin (`canOpenClasses`). */
+  page: Home | "any" | "classes";
   children: (user: SessionUser, updatedAt: number) => ReactNode;
 }) {
   const router = useRouter();
@@ -99,7 +116,8 @@ export function GuardedPage({
   }, [user, router, pathname]);
 
   if (!user) return <PageShell phase={phase === "ready" ? "loading" : phase} onRetry={retry} />;
-  if (page !== "any" && !canView(page, user)) return <AccessDenied user={user} updatedAt={me.dataUpdatedAt} />;
+  const allowed = page === "any" || (page === "classes" ? canOpenClasses(user) : canView(page, user));
+  if (!allowed) return <AccessDenied user={user} updatedAt={me.dataUpdatedAt} />;
   return <>{children(user, me.dataUpdatedAt)}</>;
 }
 

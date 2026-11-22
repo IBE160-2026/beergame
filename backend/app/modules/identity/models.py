@@ -176,12 +176,21 @@ institutions = Table(
     Column("name", Text, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
+    # The operator's own Institution, where Control tests are set up (Story 12.7, AD-27): one at
+    # most (`uq_institutions_operator_owned`), written and read through `service` only.
+    Column("operator_owned", Boolean, nullable=False, server_default=text("false")),
     CheckConstraint("name <> ''", name="ck_institutions_name_not_empty"),
 )
 """One row per Institution the Admin creates (Story 3.11, FR-3); Classes belong to one (Epic 4).
 Names are unique case-insensitively. Times come from the api's clock. No delete in v1."""
 
 Index("uq_institutions_name", func.lower(institutions.c.name), unique=True)
+Index(
+    "uq_institutions_operator_owned",
+    institutions.c.operator_owned,
+    unique=True,
+    postgresql_where=institutions.c.operator_owned,
+)
 
 access_requests = Table(
     "access_requests",

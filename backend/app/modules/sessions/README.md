@@ -481,3 +481,20 @@ mine}` (names read now) and `can_accept` for a seated Student who neither propos
   the Class session, `ClassArchived`, `InvalidExtension`, row lock, upsert, audit
   `deadline_extension.saved`). `service.student_target` is the Studentside's reach (also Story 8.9's).
 - The Studentside (`StudentPageOut.deadlines`, `service.deadlines_out`) shows the block «Frister».
+
+## The Control test (Story 12.7, FR-82, AD-27, AD-13)
+
+- `class_sessions.kind`: `course` (default) or `control_test`, set at creation; a trigger
+  (`class_sessions_kind_fixed`, migration 0201) refuses changing it, and changing a Control test's
+  `model_config_id`. `service.kind_of` and `service.control_test_session_ids()` are what Epic 13's
+  `reports.scope` reads.
+- `control_tests.py` (routes `GET/POST /api/admin/control-tests`, policy `control_tests.manage`,
+  Admin only): one transaction makes the Class (`classes.create_class_in`, the Admin its owner) in
+  the operator's own Institution (`identity.operator_institution`) and the `control_test` session
+  with the model config under test (`config.mark_referenced`), its own budget row, the Scoring
+  guide version under test pinned through `tests.guide.pin_for_control_test` (registered with
+  `register_control_test_guide`), audit `control_test.created`. Refusals: 409
+  `operator_institution_missing`, 422 `invalid_request` with `fields`.
+- A Control test Class takes no other Class session: `create_session` and `copy_from` (into or out
+  of it) raise `classes.ControlTestClass` (409 `control_test_class`, mapped in `main.py`).
+- The Admin works it on the ordinary Epic 4/5 routes as its owner (`authz.CONTROL_TEST_ACTIONS`).

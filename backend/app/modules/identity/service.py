@@ -1206,6 +1206,8 @@ async def resend_invitation(
 INSTITUTION_CREATED = "institution.created"
 INSTITUTION_RENAMED = "institution.renamed"
 """The audit actions of an Institution the Admin creates or renames (FR-3, AD-15)."""
+INSTITUTION_OPERATOR_MARKED = "institution.operator_marked"
+"""The audit action of the Admin marking the operator's own Institution (Story 12.7, AD-15)."""
 
 
 @dataclass(frozen=True)
@@ -1214,7 +1216,12 @@ class InstitutionRefused:
 
 
 def _institution_out(row) -> InstitutionOut:
-    return InstitutionOut(id=row["id"], name=row["name"], created_at=row["created_at"])
+    return InstitutionOut(
+        id=row["id"],
+        name=row["name"],
+        created_at=row["created_at"],
+        operator_owned=row["operator_owned"],
+    )
 
 
 async def create_institution(
@@ -1270,6 +1277,46 @@ async def rename_institution(
         )
     log.info("institution_renamed", institution_id=str(institution_id), actor_user_id=str(actor))
     return _institution_out(row)
+
+
+async def mark_operator_institution(
+    actor: uuid.UUID, institution_id: uuid.UUID, *, now: datetime
+) -> InstitutionOut | InstitutionRefused:
+    """Mark the Institution as the operator's own (Story 12.7, FR-82, AD-27, AD-15): the mark
+    moves from the one that held it, in one transaction holding the Institution names lock, with
+    one audit row (ids only). Marking the marked one again writes nothing. Control tests set up
+    before keep their Class's Institution. Refused with `not_found`."""
+    async with get_sessionmaker().begin() as s:
+        await repo.lock_institution_names(s)
+        row = await repo.lock_institution(s, institution_id)
+        if row is None:
+            return InstitutionRefused("not_found")
+        if row["operator_owned"]:
+            return _institution_out(row)
+        previous = await repo.operator_institution(s)
+        row = await repo.set_operator_owned(s, institution_id, now)
+        await audit.record(
+            s,
+            actor,
+            INSTITUTION_OPERATOR_MARKED,
+            {"institution_id": institution_id},
+            {"previous_institution_id": str(previous["id"]) if previous else None},
+            now,
+        )
+    log.info(
+        "institution_operator_marked",
+        institution_id=str(institution_id),
+        actor_user_id=str(actor),
+    )
+    return _institution_out(row)
+
+
+async def operator_institution(session: AsyncSession | None = None) -> InstitutionOut | None:
+    """The operator's own Institution, where a Control test is set up (Story 12.7, AD-27), or
+    None while no Institution is marked. In the caller's `session` when given."""
+    async with reading(session) as s:
+        row = await repo.operator_institution(s)
+    return _institution_out(row) if row else None
 
 
 async def institution_page(cursor: str | None, limit: int) -> InstitutionListOut:

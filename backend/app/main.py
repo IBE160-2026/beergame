@@ -93,6 +93,11 @@ async def _class_archived(_: Request, __: Exception):
     return classes_routes.class_archived_response()
 
 
+async def _control_test_class(_: Request, __: Exception):
+    # Story 12.7: a Control test Class takes no other staff and no other Class session.
+    return classes_routes.control_test_refused()
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="ØL-spillet API",
@@ -108,6 +113,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_routes.router)
     app.include_router(classes_routes.router)
     app.include_router(sessions_routes.router)
+    app.include_router(sessions_routes.admin_router)  # «Kontrolltest» (Story 12.7)
     app.include_router(tests_routes.router)  # the Starting task (Story 6.3)
     app.include_router(debrief_routes.router)  # the Debrief (Story 9.2)
     app.include_router(message_routes.router)  # Messages from staff (Story 7.9)
@@ -128,6 +134,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(authz.Forbidden, _forbidden)
     app.add_exception_handler(RequestValidationError, _invalid_request)
     app.add_exception_handler(classes_service.ClassArchived, _class_archived)
+    app.add_exception_handler(classes_service.ControlTestClass, _control_test_class)
     app.add_middleware(CsrfMiddleware)
     app.add_middleware(RequestLogMiddleware)  # outermost: refused requests are logged too
     return app

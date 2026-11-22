@@ -57,9 +57,15 @@ log = structlog.get_logger(__name__)
 
 @dataclass(frozen=True)
 class _StaffOf:
-    """A Class as `authz.can` sees it."""
+    """A Class as `authz.can` sees it: the User's staff role and whether it is a Control test
+    Class (Story 12.7)."""
 
     staff_role: str
+    control_test: bool = False
+
+
+def _staff_of(row) -> _StaffOf:
+    return _StaffOf(row["staff_role"], bool(row["control_test"]))
 
 
 async def institution_choices() -> InstitutionChoicesOut:
@@ -114,11 +120,39 @@ async def create_class(user: authz.Principal, body: ClassIn, *, now: datetime) -
     )
 
 
+async def create_class_in(
+    session: AsyncSession,
+    owner: uuid.UUID,
+    *,
+    name: str,
+    institution_id: uuid.UUID,
+    now: datetime,
+) -> uuid.UUID:
+    """A Class with `owner` as its owner, in the caller's transaction (Story 12.7: the Control
+    test's Class, created with its Class session in one transaction). Raises `InvalidClass` for a
+    name the rule refuses; the caller has checked the Institution and the policy."""
+    stored, reason = class_name(name)
+    if reason:
+        raise InvalidClass({"name": reason})
+    class_id = uuid.uuid7()
+    await repo.insert_class(
+        session,
+        class_id=class_id,
+        name=stored,
+        course_code=None,
+        institution_id=institution_id,
+        owner=owner,
+        now=now,
+    )
+    log.info("class_created", class_id=str(class_id), user_id=str(owner))
+    return class_id
+
+
 async def list_classes(user: authz.Principal) -> ClassListOut:
     """The Classes `user` is staff of, by name: «Klassene dine»."""
     async with get_sessionmaker().begin() as s:
         rows = await repo.classes_of(s, user)
-    readable = [row for row in rows if authz.can(user, "classes.read", _StaffOf(row["staff_role"]))]
+    readable = [row for row in rows if authz.can(user, "classes.read", _staff_of(row))]
     counts = await identity.roster_counts([row["id"] for row in readable])
     return ClassListOut(
         items=[
@@ -138,7 +172,7 @@ async def get_class(user: authz.Principal, class_id: uuid.UUID) -> ClassOut | No
     """The Class, or None when `user` may not read it, or it does not exist: one answer (FR-5)."""
     async with get_sessionmaker().begin() as s:
         row = await repo.class_for(s, user, class_id)
-    if row is None or not authz.can(user, "classes.read", _StaffOf(row["staff_role"])):
+    if row is None or not authz.can(user, "classes.read", _staff_of(row)):
         return None
     institution = await identity.get_institution(row["institution_id"])
     counts = await identity.roster_counts([row["id"]])
@@ -149,10 +183,11 @@ async def get_class(user: authz.Principal, class_id: uuid.UUID) -> ClassOut | No
         institution_id=row["institution_id"],
         institution_name=institution.name if institution else None,
         staff_role=StaffRole(row["staff_role"]),
-        can_manage=authz.can(user, "classes.manage", _StaffOf(row["staff_role"])),
+        can_manage=authz.can(user, "classes.manage", _staff_of(row)),
         created_at=row["created_at"],
         archived=row["archived_at"] is not None,
         roster_count=counts.get(row["id"], 0),
+        control_test=bool(row["control_test"]),
     )
 
 
@@ -161,7 +196,7 @@ async def may_read(user: authz.Principal, class_id: uuid.UUID) -> bool:
     (Story 4.9). Outside the User's scope and not existing both answer False."""
     async with get_sessionmaker().begin() as s:
         row = await repo.class_for(s, user, class_id)
-    return row is not None and authz.can(user, "classes.read", _StaffOf(row["staff_role"]))
+    return row is not None and authz.can(user, "classes.read", _staff_of(row))
 
 
 async def may_manage(user: authz.Principal, class_id: uuid.UUID) -> bool:
@@ -169,7 +204,7 @@ async def may_manage(user: authz.Principal, class_id: uuid.UUID) -> bool:
     that does not exist both answer False."""
     async with get_sessionmaker().begin() as s:
         row = await repo.class_for(s, user, class_id)
-    return row is not None and authz.can(user, "classes.manage", _StaffOf(row["staff_role"]))
+    return row is not None and authz.can(user, "classes.manage", _staff_of(row))
 
 
 # Archived Classes are read-only (Story 4.10, FR-6). Every change to a Class passes the one check
@@ -181,6 +216,12 @@ async def may_manage(user: authz.Principal, class_id: uuid.UUID) -> bool:
 
 class ClassArchived(Exception):
     """The Class is archived: it takes no change (`class_archived`)."""
+
+
+class ControlTestClass(Exception):
+    """A Control test Class takes no other staff and no other Class session (Story 12.7, AD-27:
+    only the Admin who set it up, and later the scorers they name, read it)
+    (`control_test_class`)."""
 
 
 def _refuse_archived(class_id: uuid.UUID, archived_at: datetime | None) -> None:
@@ -195,7 +236,7 @@ async def manageable(user: authz.Principal, class_id: uuid.UUID) -> bool:
     exist); raises `ClassArchived` when they may but it is archived."""
     async with get_sessionmaker().begin() as s:
         row = await repo.class_for(s, user, class_id)
-    if row is None or not authz.can(user, "classes.manage", _StaffOf(row["staff_role"])):
+    if row is None or not authz.can(user, "classes.manage", _staff_of(row)):
         return False
     _refuse_archived(class_id, row["archived_at"])
     return True
@@ -663,6 +704,32 @@ async def actor_names(
     return found
 
 
+@dataclass(frozen=True)
+class ClassFacts:
+    """A Class's name, Institution and archive state, read with no User's scope."""
+
+    id: uuid.UUID
+    name: str
+    institution_id: uuid.UUID
+    archived: bool
+
+
+async def class_facts(
+    session: AsyncSession, class_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, ClassFacts]:
+    """These Classes by id, with no User's scope (Story 12.7): for the Admin's Kontrolltest list,
+    which has its own policy (`control_tests.manage`). An unknown id is left out."""
+    return {
+        row["id"]: ClassFacts(
+            id=row["id"],
+            name=row["name"],
+            institution_id=row["institution_id"],
+            archived=row["archived_at"] is not None,
+        )
+        for row in await repo.class_rows(session, class_ids)
+    }
+
+
 async def owners_of(session: AsyncSession, class_id: uuid.UUID) -> list[uuid.UUID]:
     """The ids of the Class's owners and co-owners (Story 5.11: who is told that a Class session
     cannot lock). Assistant lecturers are not among them."""
@@ -719,6 +786,15 @@ STAFF_INVITED = "class_staff.invited"
 STAFF_INVITATION_VOIDED = "class_staff.invitation_voided"
 STAFF_JOINED = "class_staff.joined"
 STAFF_REMOVED = "class_staff.removed"
+
+
+async def _refuse_control_test(user: authz.Principal, class_id: uuid.UUID) -> None:
+    """Raises `ControlTestClass` for a Control test Class (Story 12.7)."""
+    async with get_sessionmaker().begin() as s:
+        row = await repo.class_for(s, user, class_id)
+    if row is not None and row["control_test"]:
+        log.info("staff_refused", class_id=str(class_id), error_code="control_test_class")
+        raise ControlTestClass
 
 
 def _checked(address: str) -> str:
@@ -789,12 +865,15 @@ async def add_lecturer(
     Lecturer role: one reason, so nothing about the account is revealed) or `already_staff`."""
     if not await manageable(user, class_id):
         return None
+    await _refuse_control_test(user, class_id)
     address = _checked(body.email)
     async with get_sessionmaker().begin() as s:
         if not await _hold(s, class_id, exclusive=True):
             return None
         found = await identity.active_user_for_email(s, address)
-        if found is None or not authz.can(found, "classes.manage"):
+        # The Lecturer role: `classes.create` is the Lecturer's alone (`classes.manage` is also
+        # the Admin's, on a Control test Class, Story 12.7).
+        if found is None or not authz.can(found, "classes.create"):
             log.info("staff_refused", class_id=str(class_id), error_code="not_lecturer")
             raise StaffRefused("not_lecturer")
         before = await repo.staff_role(s, class_id, found.id)
@@ -824,6 +903,7 @@ async def invite_assistant(
     the Class. Raises `StaffRefused`: an address problem or `already_staff`."""
     if not await manageable(user, class_id):
         return None
+    await _refuse_control_test(user, class_id)
     address = _checked(body.email)
     async with get_sessionmaker().begin() as s:
         if not await _hold(s, class_id, exclusive=True):

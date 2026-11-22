@@ -28,7 +28,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, Response
 
 from app.engine.settings import Role
-from app.modules.sessions import adjustments, overview, service
+from app.modules.sessions import adjustments, control_tests, overview, service
 from app.modules.sessions.schemas import (
     AdjustmentIn,
     AllocationConfirmIn,
@@ -40,6 +40,9 @@ from app.modules.sessions.schemas import (
     ClassSessionListOut,
     ClassSessionOut,
     ClassSessionSaveIn,
+    ControlTestIn,
+    ControlTestOut,
+    ControlTestsOut,
     CopyIn,
     CopySourceListOut,
     DemandSeriesOut,
@@ -1438,10 +1441,11 @@ async def accept_my_game_time(
     operation_id="lecturerHomeClassSessions",
 )
 async def lecturer_home_class_sessions(
-    user: Annotated[authz.Principal, Depends(authz.require("class_sessions.read"))],
+    user: Annotated[authz.Principal, Depends(authz.require("lecturer_home.view"))],
 ) -> Response:
     """The Lærerhjem's «Venter» and «Neste frist» over the User's Classes that are not archived
-    (UX-DR56)."""
+    (UX-DR56). The Lærerhjem's policy holds it: the Admin role alone, which reads a Control test
+    Class it owns (Story 12.7), does not reach it, and a Control test is never among them."""
     found = await service.lecturer_overview(user)
     return JSONResponse(found.model_dump(mode="json"))
 
@@ -1570,3 +1574,55 @@ async def save_adjustment(
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"), headers=PERSONAL)
+
+
+# Admin-område → «Kontrolltest» (Story 12.7, FR-82, AD-27).
+admin_router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+@admin_router.get(
+    "/control-tests",
+    response_model=ControlTestsOut,
+    responses=documented(401, 403),
+    operation_id="listControlTests",
+)
+async def list_control_tests(
+    user: Annotated[authz.Principal, Depends(authz.require("control_tests.manage"))],
+) -> Response:
+    """The Kontrolltest page (Story 12.7): the operator's own Institution (null until one is
+    marked), the Scoring guide versions and model configs a new Control test may pin, and every
+    Control test, newest first, with what it pinned."""
+    found = await control_tests.overview(user)
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@admin_router.post(
+    "/control-tests",
+    status_code=201,
+    response_model=ControlTestOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="createControlTest",
+)
+async def create_control_test(
+    body: ControlTestIn,
+    user: Annotated[authz.Principal, Depends(authz.require("control_tests.manage"))],
+) -> Response:
+    """Set up a Control test (Story 12.7, FR-82, AD-27): one transaction makes a Class in the
+    operator's own Institution with the Admin as its owner and in it a Class session of kind
+    `control_test`, pinned to the Scoring guide version and the model config under test. 409
+    `operator_institution_missing` while no Institution is marked; 422 `invalid_request` with
+    `fields` `name` (the Class name rule's code), `scoring_guide_id` and `model_config_id`
+    (`missing` or `unknown`)."""
+    try:
+        created = await control_tests.create(user, body, now=auth.utcnow())
+    except control_tests.OperatorInstitutionMissing:
+        return error_response(
+            409,
+            "operator_institution_missing",
+            "Mark the operator's own Institution first.",
+        )
+    except control_tests.InvalidControlTest as refused:
+        return error_response(
+            422, "invalid_request", "The Control test is not valid.", refused.fields
+        )
+    return JSONResponse(created.model_dump(mode="json"), status_code=201)

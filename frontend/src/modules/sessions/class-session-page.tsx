@@ -29,7 +29,7 @@ import {
   sittingDraftOf,
 } from "@/modules/tests/sitting";
 import { TimedSittingBlock } from "@/modules/tests/timed-sitting-block";
-import { classOverviewPath, classPath, classSessionPath, HOME_PATH } from "@/modules/identity/homes";
+import { classCrumbs, classOverviewPath, classPath, classSessionPath } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { LINK_BUTTON } from "@/modules/classes/roster-entry-forms";
 
@@ -99,7 +99,7 @@ const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 export function ClassSessionPage({ sessionId }: { sessionId: string }) {
   const named = SESSION_ID.test(sessionId);
   return (
-    <GuardedPage page="lecturerHome">
+    <GuardedPage page="classes">
       {(user, updatedAt) =>
         named ? (
           <ClassSessionView sessionId={sessionId} user={user} updatedAt={updatedAt} />
@@ -120,7 +120,7 @@ function ClassSessionView({ sessionId, user, updatedAt }: { sessionId: string; u
   const item = found.data;
   const crumbs = item
     ? ([
-        { label: nb.homes.lecturerHome, href: HOME_PATH.lecturerHome },
+        ...classCrumbs(user, item.kind === "control_test"),
         { label: item.class_name, href: classPath(item.class_id) },
         { label: copy.crumb, href: classSessionPath(item.id) },
       ] as const)
@@ -134,6 +134,12 @@ function ClassSessionView({ sessionId, user, updatedAt }: { sessionId: string; u
       phase={item ? "ready" : phase === "ready" ? "loading" : phase}
       onRetry={retry}
     >
+      {/* A Control test (Story 12.7): it never counts in a Class session. */}
+      {item?.kind === "control_test" ? (
+        <p className="mt-2 max-w-2xl border-l-2 border-axis pl-3 text-body-phone text-ink lg:text-body">
+          {nb.classes.page.controlTest}
+        </p>
+      ) : null}
       {item ? <ClassSessionBody item={item} /> : null}
     </PageShell>
   );
@@ -489,7 +495,7 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       {/* Story 11.1: its own save, the selection belongs to the Individual test; locks at the Start date. */}
       <QuestionSetBlock classSessionId={item.id} />
       {/* Story 11.2: its own save, the Scoring guide belongs to the Individual test; locks at the Test deadline. */}
-      <ScoringGuideBlock classSessionId={item.id} />
+      <ScoringGuideBlock classSessionId={item.id} controlTest={item.kind === "control_test"} />
       <TestGameBlock item={item} />
     </>
   );

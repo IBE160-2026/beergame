@@ -9,7 +9,7 @@ import { TextField } from "@/components/text-field";
 import { nb } from "@/copy/nb";
 import { usePageState } from "@/lib/page-state";
 
-import { type Institution, institutionsKey, useInstitutions, useRenameInstitution } from "./api";
+import { type Institution, institutionsKey, useInstitutions, useMarkOperator, useRenameInstitution } from "./api";
 import { cleanName, nameError, refusalForField } from "./institutions";
 import { formatDate } from "./invitations";
 import { Cell, type RowLine, RowMessage } from "./user-list";
@@ -33,6 +33,7 @@ export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () =>
   const [line, setLine] = useState<RowLine>();
   const [focusRow, setFocusRow] = useState<{ id: string; n: number }>();
   const items = institutions.data?.pages.flatMap((page) => page.items) ?? [];
+  const markOperator = useMarkOperator();
 
   useEffect(() => {
     if (focusRow) document.getElementById(`rename-${focusRow.id}`)?.focus();
@@ -71,7 +72,7 @@ export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () =>
               <thead className="@max-[60em]:hidden">
                 <tr className="border-b border-axis">
                   {/* Opprettet has a fixed width, so the date column stays put whatever the names. */}
-                  {[copy.list.columns.name, copy.list.columns.created, copy.list.columns.actions].map((heading) => (
+                  {[copy.list.columns.name, copy.list.columns.created, copy.operator.column, copy.list.columns.actions].map((heading) => (
                     <th
                       key={heading}
                       scope="col"
@@ -93,6 +94,30 @@ export function InstitutionList({ onStart, otherStarted = 0 }: { onStart?: () =>
                     </Cell>
                     <Cell label={copy.list.columns.created}>
                       <span className="@min-[60em]:whitespace-nowrap">{formatDate(institution.created_at)}</span>
+                    </Cell>
+                    <Cell label={copy.operator.column}>
+                      {/* The operator's own Institution (Story 12.7): named in text; the others
+                          take the mark with one button, and it moves from the one that held it. */}
+                      {institution.operator_owned ? (
+                        <span className="font-semibold">{copy.operator.label}</span>
+                      ) : (
+                        <Button
+                          className="[overflow-wrap:anywhere] @max-[60em]:w-full @min-[60em]:px-3 @min-[60em]:text-left"
+                          unavailable={markOperator.isPending}
+                          onClick={() => {
+                            if (markOperator.isPending) return;
+                            setLine(undefined);
+                            onStart?.();
+                            markOperator.mutate(institution.id, {
+                              onSuccess: (marked) =>
+                                setLine({ key: institution.id, text: copy.operator.marked(marked.name), refused: false }),
+                              onError: () => setLine({ key: institution.id, text: copy.operator.failed, refused: true }),
+                            });
+                          }}
+                        >
+                          {copy.operator.mark(institution.name)}
+                        </Button>
+                      )}
                     </Cell>
                     <td className="py-3 @max-[60em]:block @max-[60em]:pt-2 @max-[60em]:pb-0 @min-[60em]:w-[24em]">
                       {editing === institution.id ? (
