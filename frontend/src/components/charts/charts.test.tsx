@@ -5,11 +5,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { ChainBand, type SeatBandProps } from "./chain-band";
-import { type ChainBandInput, chainLayout } from "./chain-band-layout";
-import { flowStep, OrderBars } from "./order-bars";
-import { colour } from "./palette";
+import { type ChainBandInput, chainLayout, textWidth } from "./chain-band-layout";
 import { CostArea, endPlaces } from "./cost-area";
 import { CostBars } from "./cost-bars";
+import { CostDistribution, distributionAxis } from "./cost-distribution";
 import { DemandBand, demandAxis } from "./demand-band";
 import { NetGraph, type NetPoint } from "./net-graph";
 import { NetOverGame, weekLabels } from "./net-over-game";
@@ -461,43 +460,43 @@ describe("the four-Role Kjedebånd (Story 9.5)", () => {
   });
 });
 
-describe("Ordrestolper (Story 9.5)", () => {
-  const rows = [
-    { orders: [4, 23, 31], own: false, firstLarge: { index: 1, text: "Uke 15" } },
-    { orders: [4, 12, 8], own: true, firstLarge: { index: 1, text: "Uke 11" } },
-    { orders: [4, 4, null], own: false, firstLarge: null },
-  ];
-  const html = renderToStaticMarkup(
-    <OrderBars width={90} height={150} fontSize={13} xs={[15, 45, 75]} columnWidth={30} rows={rows} chosen={2} title="Ordrestolper" />,
-  );
+describe("Kostnadsfordeling (Story 7.6)", () => {
+  const props = {
+    fontSize: 13,
+    values: [660, 1954, 1500, 2600, 3532],
+    median: 1954,
+    lower: 1500,
+    upper: 2600,
+    medianLabel: "Median 1 954",
+    title: "Kjedekost i hvert ferdige spill, 5 spill",
+    formatTick: (value: number) => value.toLocaleString("nb-NO"),
+  };
 
-  it("draws a bar per Order, the own Role in ink, the others in order-history", () => {
-    expect(html).toContain("<title>Ordrestolper</title>");
-    expect(html.match(/data-mark="order"/g)).toHaveLength(8);
-    const own = html.split('data-own=""')[1]!.split("</g>")[0]!;
-    expect(own).toContain(`fill="${colour("ink")}"`);
-    expect(own).not.toContain(`fill="${colour("order-history")}"`);
-    expect(html).toContain(`fill="${colour("order-history")}"`);
+  it("runs its axis from 0 in 1–2–2,5–5 steps whose labels have room", () => {
+    const label = () => 40; // 1.6 labels: 64 px between ticks at least
+    expect(distributionAxis(3532, 400, label)).toEqual([0, 1000, 2000, 3000, 4000]);
+    expect(distributionAxis(3532, 120, label)).toEqual([0, 5000]);
+    expect(distributionAxis(800, 400, label)).toEqual([0, 200, 400, 600, 800]);
+    expect(distributionAxis(0, 400, label)).toEqual([0, 1]);
+    // Narrower than two labels: no step fits, so 0 and the lowest top that holds the values.
+    expect(distributionAxis(3532, 20, label)).toEqual([0, 5000]);
+    expect(distributionAxis(3532, 0, label)).toEqual([0, 5000]);
   });
 
-  it("marks each first large Order with a red dot and its Uke, joined by one diagonal, and the chosen Uke dashed", () => {
-    expect(html.match(/data-mark="first-large"/g)).toHaveLength(2);
-    expect(html).toContain(">Uke 15</text>");
-    expect(html).toMatch(/data-mark="diagonal" points="[\d.]+,[\d.]+ [\d.]+,[\d.]+"/);
-    expect(html).toMatch(/data-mark="chosen" x1="75" x2="75"[^>]*stroke-dasharray="3 2"/);
-  });
-
-  it("keeps two first large Orders in the same Uke apart", () => {
-    const same = rows.map((row) => ({ ...row, firstLarge: { index: 1, text: "Uke 11" } }));
-    const twice = renderToStaticMarkup(
-      <OrderBars width={90} height={150} fontSize={13} xs={[15, 45, 75]} columnWidth={30} rows={same} chosen={null} title="Ordrestolper" />,
-    );
-    expect(twice.match(/data-mark="first-large"/g)).toHaveLength(3);
-    expect(twice).not.toContain('data-mark="chosen"');
-  });
-
-  it("puts every cell on a flow step by its share of the largest Order", () => {
-    expect([0, 1, 6, 7, 13, 19, 25, 31].map((order) => flowStep(order, 31))).toEqual([0, 0, 0, 1, 2, 3, 4, 4]);
-    expect(flowStep(4, 0)).toBe(0);
+  it("draws one tick per game, the middle-half box, the labelled median and a title, all inside", () => {
+    for (const width of [288, 352]) {
+      const html = renderToStaticMarkup(<CostDistribution {...props} width={width} />);
+      expect(html.match(/data-mark="game"/g)).toHaveLength(5);
+      expect(html).toContain('data-mark="box"');
+      expect(html).toContain('data-mark="median"');
+      expect(html).toContain(">Median 1 954</text>");
+      expect(html).toContain("<title>Kjedekost i hvert ferdige spill, 5 spill</title>");
+      expect(html).toContain('aria-hidden="true"');
+      // Every label inside the drawing, by the same upper-bound width the layout uses.
+      for (const [, x, weight, text] of html.matchAll(/<text x="([\d.]+)"[^>]*?(?:font-weight="(\d+)")?[^>]*>([^<]+)<\/text>/g)) {
+        expect(Number(x)).toBeGreaterThanOrEqual(0);
+        expect(Number(x) + textWidth(text!, 13, weight === "600" ? 600 : 400)).toBeLessThanOrEqual(width + 0.5);
+      }
+    }
   });
 });

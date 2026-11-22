@@ -33,7 +33,9 @@ export async function expectReflow(page: Page, phone: boolean) {
   if (!phone) return;
   const small = await page.evaluate(() =>
     [...document.querySelectorAll<HTMLElement>("main a, main button, main input, main select")]
-      .filter((el) => el.offsetParent !== null)
+      // A link drawn in a chart (the Matrisevegg's «Melding», Story 7.11) sits in a dense grid
+      // row; the same link stands as a full tap target in the game list (WCAG 2.5.8, equivalent).
+      .filter((el) => !(el instanceof SVGElement) && el.offsetParent !== null)
       .map((el) => ({ name: el.id || el.textContent?.trim(), ...el.getBoundingClientRect().toJSON() }))
       .filter((b) => b.height < 44 || b.width < 44),
   );
@@ -51,6 +53,9 @@ export async function freshLecturerWithAddress(
   browser: Browser,
   text200 = false,
 ): Promise<{ page: Page; address: string }> {
+  // One mail through the worker: on a loaded machine its queue can hold it for most of the
+  // default 30 s, so the test gets at least 90 s (the Epic 9 close-out saw it time out).
+  test.info().setTimeout(Math.max(test.info().timeout, 90_000));
   const { session, address } = await invitedLecturer(browser, test.info().project.use.baseURL);
   const viewport = page.viewportSize();
   const own = await lecturerPage(browser, session, { width: viewport!.width, height: viewport!.height, text200 });

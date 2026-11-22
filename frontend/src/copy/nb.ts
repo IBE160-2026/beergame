@@ -168,6 +168,12 @@ export const nb = {
       demoData: "Demodata",
       classCurves: "Lagerkurvene for hele klassen ser du først når du er logget inn.",
     },
+    /** The second figure (Story 7.2, UX-DR70): the Matrisevegg with bundled demo data. */
+    wall: {
+      title: "Alle spillene på én skjerm",
+      /** [ASSUMPTION] the line under the title. */
+      lead: "Hver rad er ett spill og hver rute én uke, farget etter netto lager.",
+    },
   },
 
   /** «Be om lærertilgang» (Story 3.13, UX-DR61): a short public form the Admin answers by e-mail.
@@ -382,11 +388,12 @@ export const nb = {
       },
       /** A Seat whose LLM player the Play guard switched (FR-79). [ASSUMPTION] */
       guardSwitched: "KI-spiller (regelbasert)",
+      /** With non-breaking spaces, so «min» never wraps away from its number (Epic 7 close-out). */
       duration: {
-        underMinute: "under 1 min",
-        minutes: (n: number) => `${n} min`,
-        hours: (n: number) => `${n} t`,
-        days: (n: number) => `${n} d`,
+        underMinute: "under 1 min",
+        minutes: (n: number) => `${n} min`,
+        hours: (n: number) => `${n} t`,
+        days: (n: number) => `${n} d`,
       },
       /** One waited-for Seat in «Venter på»: «Jonas (3 min)», «Fabrikk», «deg». */
       waitedFor: (who: string, duration: string | null) => (duration ? `${who} (${duration})` : who),
@@ -2591,6 +2598,334 @@ export const nb = {
     right: "Riktig",
   },
 
+  /** The Oversikt of a Class session (Story 7.1, FR-39, UX-DR40). The headline form, «Oppdatert»,
+   * the group names «Venter», «Pågår» and «Ferdig, lavest kjedekost øverst», «KI-spiller» and
+   * «Spill n» are the spine's; everything else is [ASSUMPTION] draft copy for the founder's
+   * review. Never a Week total or anything that hints at the game's length (FR-14). */
+  overview: {
+    title: "Oversikt",
+    crumb: "Oversikt",
+    /** The Lenke on the Klasseøkt. */
+    open: "Oversikt",
+    /** «Klasseøkt 2, class-of-1994» beside the heading. */
+    session: (number: number, className: string) => `Klasseøkt ${number}, ${className}`,
+    counts: {
+      finished: (n: number) => `${n} ferdig`,
+      running: (n: number) => `${n} pågår`,
+      waiting: (n: number) => `${n} venter`,
+      /** [ASSUMPTION] Class games that have not started after the Start date. */
+      notStarted: (n: number) => `${n} ikke startet`,
+    },
+    updated: (clock: string) => `Oppdatert ${clock}`,
+    groups: {
+      waiting: "Venter",
+      running: "Pågår",
+      /** [ASSUMPTION] */
+      notStarted: "Ikke startet",
+      finished: "Ferdig, lavest kjedekost øverst",
+    },
+    game: (number: number | null) => gameName(number),
+    week: (week: number) => `Uke ${week}`,
+    /** «Venter på Noah (Grossist), 23 t». [ASSUMPTION] */
+    waitingFor: (who: string, role: string, duration: string) => `Venter på ${who} (${role}), ${duration}`,
+    /** A waited-for Student no longer in the Class: by Role only. [ASSUMPTION] */
+    waitingForRole: (role: string, duration: string) => `Venter på ${role}, ${duration}`,
+    /** [ASSUMPTION] the wall row's note where the full one has no room (Story 7.6): «Venter, 23 t». */
+    waitingShort: (duration: string) => `Venter, ${duration}`,
+    seat: (role: string, holder: string) => `${role}: ${holder}`,
+    aiPlayer: "KI-spiller",
+    /** [ASSUMPTION] a free Seat, before the lock gives it an AI player. */
+    freeSeat: "Ledig",
+    /** [ASSUMPTION] a Student no longer in the Class. */
+    unknownStudent: "Student",
+    chainCost: "Kjedekost",
+    seatsLabel: (game: string) => `Seter i ${game}`,
+    /** Before the Start date (Story 7.1). [ASSUMPTION] */
+    beforeStart: {
+      title: "Fordeling",
+      startsAt: (date: string) => `Spillene starter ${date}. Til da vises bare fordelingen.`,
+      noDate: "Spillene starter på startdatoen. Til da vises bare fordelingen.",
+      empty: "Ingen spill er fordelt ennå.",
+    },
+    /** [ASSUMPTION] after the Start date with no Class game at all. */
+    empty: "Klasseøkten har ingen klassespill.",
+    /** [ASSUMPTION] Story 7.2: the heading of the game list under the Matrisevegg. */
+    listTitle: "Spill og seter",
+    /** The Varselbånd (Story 7.11, UX-DR45): «Spill 2 venter på Noah (Grossist) i 23 t.» is the
+     * spine's; the rest is [ASSUMPTION]. Epic 8 adds the countdown and its other actions. */
+    band: {
+      /** [ASSUMPTION] the band's accessible name. */
+      label: "Spillet som har ventet lengst",
+      text: (game: string, name: string | null, role: string, duration: string) =>
+        name ? `${game} venter på ${name} (${role}) i ${duration}.` : `${game} venter på ${role} i ${duration}.`,
+      /** [ASSUMPTION] read out when the band appears or changes game: the line without its duration. */
+      said: (game: string, name: string | null, role: string) =>
+        name ? `${game} venter på ${name} (${role}).` : `${game} venter på ${role}.`,
+    },
+    /** «Oppdater automatisk» and the Oversikt's Tilkoblingslinje (Story 7.5, EXPERIENCE.md →
+     * Oppdater automatisk and State Patterns → Oversikt). */
+    live: {
+      label: "Oppdater automatisk",
+      /** [ASSUMPTION] the Bryter's state words. */
+      on: "På",
+      off: "Av",
+      /** «3 endringer siden 14:02»; [ASSUMPTION] the singular «1 endring». */
+      changes: (n: number, clock: string) => `${n} ${n === 1 ? "endring" : "endringer"} siden ${clock}`,
+      apply: "Oppdater",
+      stale: (clock: string) => `Ikke oppdatert siden ${clock}. Prøver igjen.`,
+      reload: "Last inn på nytt",
+      /** [ASSUMPTION] a background read failed while the stream is live. */
+      failed: (clock: string) => `Ikke oppdatert siden ${clock}.`,
+    },
+    /** The right rail (Story 7.6, UX-DR40, UX-DR51, UX-DR69, UX-DR72, `08-laerer-oversikt.png`).
+     * The headings, «Snitt per ferdig spill, per Rolle», the AI line and the Trakt's stage names
+     * are the mockup's and the epic's; the rest is [ASSUMPTION]. */
+    rail: {
+      label: "Klassen samlet",
+      waiting: {
+        title: "Venter ellers",
+        /** [ASSUMPTION] */
+        none: "Ingen spill venter nå.",
+        /** [ASSUMPTION] the band's game waits, no other does (Story 7.11). */
+        noneOther: "Ingen andre spill venter.",
+        /** «Ida, Detaljist, 18 t». */
+        who: (name: string, role: string, duration: string) => `${name}, ${role}, ${duration}`,
+        whoRole: (role: string, duration: string) => `${role}, ${duration}`,
+        /** «22 KI-spillere i 17 spill, alle merket.»; [ASSUMPTION] the singular and none. */
+        ai: (seats: number, games: number) =>
+          seats === 0
+            ? "Ingen KI-spillere."
+            : seats === 1
+              ? `1 KI-spiller i 1 spill, merket.`
+              : `${seats} KI-spillere i ${games} spill, alle merket.`,
+      },
+      cost: {
+        title: "Klassens kostnad",
+        /** «Kjedekost i 41 ferdige spill. Hvert merke er ett spill.» */
+        intro: (games: number) => `Kjedekost i ${games} ${games === 1 ? "ferdig spill" : "ferdige spill"}. Hvert merke er ett spill.`,
+        /** [ASSUMPTION] */
+        none: "Ingen spill er ferdige ennå.",
+        median: (value: string) => `Median ${value}`,
+        axis: "Kroner. Boksen er midterste halvdel.",
+        /** «Median 1 954. Midterste halvdel 1 500–2 600.» (EXPERIENCE.md → Charts). */
+        summary: (median: string, low: string, high: string) => `Median ${median}. Midterste halvdel ${low}–${high}.`,
+        /** [ASSUMPTION] the SVG title. */
+        chartTitle: (games: number) => `Kjedekost i hvert ferdige spill, ${games} spill`,
+        showTable: "Vis som tabell",
+        showChart: "Vis som graf",
+        /** [ASSUMPTION] */
+        tableCaption: "Kjedekost per ferdige spill, lavest først",
+        gameColumn: "Spill",
+        costColumn: "Kjedekost, kr",
+        rolesTitle: "Snitt per ferdig spill, per Rolle",
+        /** [ASSUMPTION] read with the printed amount: «Detaljist: lager 120, restordre 93, i alt 213 kr». */
+        roleName: (role: string, holding: string, backorder: string, total: string) =>
+          `${role}: lager ${holding}, restordre ${backorder}, i alt ${total} kr`,
+        /** The key: «lager 949», «restordre 1 063 kr». */
+        keyHolding: (amount: string) => `lager ${amount}`,
+        keyBackorder: (amount: string) => `restordre ${amount} kr`,
+      },
+      funnel: {
+        title: "Trakt",
+        stages: {
+          registered: "Registrert",
+          class_game: "Klassespill ferdig",
+          debrief: "Debrief ferdig",
+          quiz_passed: "Quiz bestått",
+          replay: "Replay ferdig",
+          test_submitted: "Test levert",
+          assessment_ready: "KI-vurdering klar",
+        },
+      },
+    },
+  },
+
+  /** The Matrisevegg (Story 7.2, DESIGN.md → Components → Matrisevegg, EXPERIENCE.md →
+   * Matrisevegg). The legend's bins and its minus line are DESIGN.md's own. */
+  wall: {
+    region: "Alle spill",
+    /** [ASSUMPTION] the SVG title: «Netto lager for Fabrikk per uke i alle spill». */
+    title: (measure: string, role: string) => `${measure} for ${role} per uke i alle spill`,
+    /** [ASSUMPTION] the Landing's SVG title: no Role named beside the one-Seat figure. */
+    demoTitle: "Netto lager per uke i hvert spill, demodata",
+    gameHeader: "Spill",
+    /** [ASSUMPTION] the header over the kjedekost figures, in whole kroner. */
+    figureHeader: "Kjedekost, kr",
+    /** [ASSUMPTION] the line above the wall naming what its cells show: «Netto lager, Fabrikk». */
+    shown: (measure: string, role: string) => `${measure}, ${role}`,
+    week: (week: number) => `Uke ${week}`,
+    /** «Spill 2, Uke 14: Netto lager −13.» [ASSUMPTION: copy of the cell reading] */
+    cell: (game: string, week: number, measure: string, value: string) => `${game}, Uke ${week}: ${measure} ${value}.`,
+    legend: "Fargeskala for netto lager",
+    bins: [
+      "−35 og lavere",
+      "−34 til −20",
+      "−19 til −10",
+      "−9 til −1",
+      "0",
+      "1 til 9",
+      "10 til 19",
+      "20 til 34",
+      "35 og over",
+    ],
+    minusNote: "− i en celle: restordre (under null).",
+    /** [ASSUMPTION] the legend for Ordre and Kost per uke (Story 7.4): DESIGN.md's flow bins,
+     * «<5 no fill; 5–9 / 10–19 / 20–29 / 30+», in words. */
+    flowLegend: (measure: string) => `Fargeskala for ${measure.toLowerCase()}`,
+    flowBins: ["Under 5", "5 til 9", "10 til 19", "20 til 29", "30 og over"],
+    /** Veggfiltre (Story 7.4, UX-DR43). «Rolle», «Celler», «Status», «Alle» and «Med KI-spiller»
+     * are the mockup's (`08-laerer-oversikt.png`). */
+    filters: {
+      role: "Rolle",
+      cells: "Celler",
+      status: "Status",
+      all: "Alle",
+      withAi: "Med KI-spiller",
+      /** [ASSUMPTION] in place of the wall when the Status filter matches no game. */
+      empty: "Ingen spill i dette utvalget.",
+    },
+    /** The class median graph and the rows under the wall (Story 7.4, UX-DR40, UX-DR41).
+     * «Median, Fabrikk» and «Kjedekost/uke, snitt» are DESIGN.md's own. */
+    median: {
+      /** [ASSUMPTION] the graph's key above the wall. */
+      line: "Median",
+      band: "Midterste halvdel av spillene",
+      row: (role: string) => `Median, ${role}`,
+      chainRow: "Kjedekost/uke, snitt",
+      /** [ASSUMPTION] a median cell as read. */
+      cell: (week: number, median: string, low: string, high: string, games: number) =>
+        `Uke ${week}: median ${median}, midterste halvdel ${low} til ${high}, ${games} spill.`,
+      /** [ASSUMPTION] a mean chain cost cell as read. */
+      chainCell: (week: number, value: string) => `Uke ${week}: kjedekost per uke, snitt ${value} kr.`,
+      /** [ASSUMPTION] shown when the median rows cannot be read; the wall stays. */
+      failed: "Medianen kunne ikke hentes.",
+    },
+    /** Status words after the cells and in the row header. [ASSUMPTION] */
+    status: {
+      waiting: "Venter",
+      running: "Pågår",
+      notStarted: "Ikke startet",
+      finished: "Ferdig",
+    },
+    /** The row header as read: «Spill 2, venter på Noah (Grossist), 23 t, kjedekost 1 058 kr».
+     * [ASSUMPTION] */
+    rowName: (parts: readonly string[]) => parts.join(", "),
+    chainCost: (cost: string) => `kjedekost ${cost}`,
+    /** The Visningsbryter and «Vis som tabell» (Story 7.3, UX-DR42). «Vegg» and «Vis som tabell»
+     * are EXPERIENCE.md's own; «Visning» is the mockup's (`08-laerer-oversikt.png`). */
+    table: {
+      view: "Visning",
+      wall: "Vegg",
+      table: "Vis som tabell",
+      /** [ASSUMPTION] the column headers beside «Spill» and «Kjedekost, kr». */
+      status: "Status",
+      waitingFor: "Venter på",
+      /** «Noah (Grossist), 23 t»; a Student no longer in the Class is named by Role. [ASSUMPTION] */
+      wait: (who: string, role: string, duration: string) => `${who} (${role}), ${duration}`,
+      waitRole: (role: string, duration: string) => `${role}, ${duration}`,
+      /** [ASSUMPTION] the read-only header of the «Melding» column (Story 7.11). */
+      link: "Melding",
+    },
+  },
+
+  /** Spillinnsikt (Story 7.7, FR-62, FR-34, UX-DR55): one Class game week by week for the staff.
+   * «Spillet har ikke startet.» and «KI-spiller» are the spine's; the rest is [ASSUMPTION] draft
+   * copy for the founder's review. The page never shows a Week total. */
+  insight: {
+    crumb: (game: string) => game,
+    /** «Spill 2» as the page heading and tab title. */
+    title: (number: number | null) => gameName(number),
+    status: {
+      waiting: "Venter",
+      running: "Pågår",
+      not_started: "Ikke startet",
+      finished: "Ferdig",
+    },
+    /** Read before the status word. */
+    statusLabel: "Status",
+    seatsTitle: "Setene",
+    /** The Seats' list name. */
+    seatsLabel: "Setene i kjeden, Fabrikk først",
+    aiPlayer: "KI-spiller",
+    freeSeat: "Ledig",
+    unknownStudent: "Student",
+    /** The link slot of a Student Seat while no Explanation or Debrief summary exists (Epic 9
+     * fills it). [ASSUMPTION] */
+    noLinks: "Forklaring og Debrief-sammendrag kommer når studenten har kommet dit.",
+    /** The words of each link kind a later epic registers. [ASSUMPTION] */
+    links: {
+      explanation: "Forklaring",
+      debrief_summary: "Debrief-sammendrag",
+    } as Record<string, string>,
+    /** A link kind with no words of its own yet. [ASSUMPTION] */
+    otherLink: "Åpne",
+    notStarted: "Spillet har ikke startet.",
+    /** The charts over the per-Role tables (Story 7.8, FR-62, UX-DR33, UX-DR55). [ASSUMPTION] but
+     * «Vis som tabell», «Ordrestolper» and «Kundene», which are the spine's. */
+    charts: {
+      title: "Kjeden i grafer",
+      week: "Uke",
+      weekLabel: (week: number) => `Uke ${week}`,
+      showTable: "Vis som tabell",
+      showChart: "Vis som graf",
+      swipe: "Sveip for tidligere uker",
+      axisSvg: "Rollene, Fabrikk øverst",
+      orders: {
+        title: "Ordre",
+        key: "Ordre per uke, Fabrikk øverst og kundenes etterspørsel nederst. Prikken med «Uke n» viser hver rolles første ordre på 10 eller mer.",
+        region: "Ordrestolper og ordre per rolle og uke",
+        tableRegion: "Ordre per rolle og uke",
+        svg: "Ordrestolper: ordre per rolle og uke",
+        customers: "Kundene",
+        /** OrderBarsTable's texts for a column Spillinnsikt does not show yet (Forsterkning comes
+         * with Story 9.5) and a viewer's own Role, which staff have none of. */
+        amplification: "Forsterkning",
+        own: "(deg)",
+        none: "–",
+      },
+      stock: {
+        title: "Lager og restordre",
+        key: "Lager over streken, restordre under. Samme skala for alle rollene.",
+        region: "Lager og restordre per rolle og uke",
+        tableRegion: "Lager og restordre per rolle og uke, tabell",
+        svg: "Lager og restordre per rolle og uke",
+        stockRow: (role: string) => `${role}, lager`,
+        backlogRow: (role: string) => `${role}, restordre`,
+      },
+    },
+    /** The heading over the per-Role tables. */
+    weeksTitle: "Uke for uke",
+    /** The region of one Role's table, «Detaljist uke for uke». */
+    region: (role: string) => `${role} uke for uke`,
+    columns: {
+      week: "Uke",
+      playedBy: "Spilt av",
+      incomingOrder: "Ordre inn",
+      incomingDelivery: "Levering inn",
+      inventory: "Lager",
+      backlog: "Restordre",
+      order: "Ordre",
+      cost: "Kost, kr",
+      marks: "Merknad",
+    },
+    /** An Order not placed yet in the open Week, as read. */
+    noOrder: "ikke lagt inn",
+    /** The marks of the one AD-15 mapping, always in text (FR-34). */
+    marks: {
+      guard_switch: "Byttet til regelbasert KI (spillvakt)",
+      cost_limit: "Byttet til regelbasert KI (kostnadsgrense)",
+      takeover_inactivity: "KI tok over etter ventetiden",
+      takeover_staff: "KI satt inn av faglærer",
+      takeover_peer: "KI satt inn av gruppa",
+      reclaim: "Studenten tok setet tilbake",
+      playout: "KI spilte spillet ferdig",
+      fallback_timeout: "Reserveordre: KI svarte ikke i tide",
+      fallback_invalid_output: "Reserveordre: KI ga ugyldig svar",
+      fallback_budget_exhausted: "Reserveordre: KI-budsjettet var brukt opp",
+      fallback_provider_error: "Reserveordre: feil hos KI-tjenesten",
+    },
+  },
+
   /** Links between pages (Story 3.3). Each names where it goes. */
   navigation: {
     // «Til Hjem» and «Til Lærerhjem» are EXPERIENCE.md's own (State Patterns → permission denied).
@@ -2602,6 +2937,75 @@ export const nb = {
     toLogin: "Til innlogging",
     // [ASSUMPTION] the accessible name of the staff breadcrumb.
     breadcrumb: "Du er her",
+  },
+
+  /** The Meldingsskjema (Story 7.9, FR-40, UX-DR46): a one-way Message from staff to Students.
+   * «Send Melding», «Meldingen er sendt til 4 studenter.» and «Sendt tidligere: 3» are the spine's;
+   * the rest is [ASSUMPTION] draft copy. */
+  messages: {
+    crumb: "Melding",
+    /** The page title names the recipient: «Melding til Noah, Spill 2». */
+    title: {
+      student: (name: string, game: number | null) =>
+        game === null ? `Melding til ${name}` : `Melding til ${name}, ${gameName(game)}`,
+      classGame: (game: number | null) => `Melding til ${gameName(game)}`,
+      classSession: (session: number) => `Melding til alle i Klasseøkt ${session}`,
+    },
+    /** A Student whose name the api no longer gives. */
+    unknownStudent: "studenten",
+    /** Who gets it, under the title. */
+    reach: (n: number) => (n === 1 ? "Meldingen går til 1 student." : `Meldingen går til ${n} studenter.`),
+    noStudents: "Ingen studenter får denne meldingen nå.",
+    field: "Melding",
+    /** Under the field: the length limit and the one-way rule. */
+    hint: (max: string) => `Høyst ${max} tegn. Studentene får meldingen her og på e-post, og kan ikke svare.`,
+    send: "Send Melding",
+    sending: "Sender …",
+    sent: (n: number) => (n === 1 ? "Meldingen er sendt til 1 student." : `Meldingen er sendt til ${n} studenter.`),
+    sentBefore: (n: number) => `Sendt tidligere: ${n}`,
+    /** After a send: one more Message to the same recipient. */
+    writeAnother: "Skriv en ny melding",
+    tooLong: (max: string) => `Meldingen er for lang. Høyst ${max} tegn.`,
+    empty: "Skriv en melding først.",
+    /** The Lenke in the Oversikt header: worded unlike the Varselbånd's «Send Melding». */
+    toSession: "Skriv melding til alle",
+    /** On Spillinnsikt: to the whole Class game, and beside a Student's Seat. */
+    toGame: "Melding",
+    toStudent: "Melding",
+    /** The accessible names of those two, which read the same on screen. */
+    toGameLabel: (game: number | null) => `Melding til alle i ${gameName(game)}`,
+    toStudentLabel: (name: string) => `Melding til ${name}`,
+    /** Story 7.10: the Student's Messages on Hjem. No read state, no reply. [ASSUMPTION] */
+    mine: {
+      title: "Meldinger",
+      /** When the sender's account is gone. */
+      unknownSender: "Faglærer",
+      /** The polite announcement of Messages that arrived while Hjem was open. */
+      arrived: (sender: string, n: number) => (n === 1 ? `Ny melding fra ${sender}.` : `Nye meldinger: ${n}.`),
+    },
+    /** Story 7.10: «Meldinger», what a Class session was sent, for its staff. [ASSUMPTION] */
+    sentList: {
+      title: "Meldinger",
+      crumb: "Meldinger",
+      /** The Lenke in the Oversikt header and under the Meldingsskjema. */
+      link: "Meldinger",
+      fromForm: "Se sendte meldinger",
+      session: (number: number, className: string) => `Klasseøkt ${number} · ${className}`,
+      empty: "Ingen meldinger er sendt i denne Klasseøkten ennå.",
+      to: {
+        student: (name: string, game: number | null) =>
+          game === null ? `Til ${name}` : `Til ${name}, ${gameName(game)}`,
+        formerStudent: "Til en tidligere student",
+        classGame: (game: number | null) => `Til ${gameName(game)}`,
+        classSession: (session: number) => `Til alle i Klasseøkt ${session}`,
+        list: (n: number) => (n === 1 ? "Til 1 student" : `Til ${n} studenter`),
+      },
+      from: (sender: string) => `Fra ${sender}`,
+      reach: (n: number) => (n === 1 ? "Sendt til 1 student" : `Sendt til ${n} studenter`),
+      /** Back to the Meldingsskjema for the same recipient; its accessible name says whom. */
+      writeAgain: "Skriv ny melding",
+      writeAgainLabel: (recipient: string) => `Skriv ny melding ${recipient.charAt(0).toLowerCase()}${recipient.slice(1)}`,
+    },
   },
 
   /** EXPERIENCE.md → State Patterns (UX-DR59). */

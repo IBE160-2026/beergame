@@ -15,12 +15,16 @@ import { formatClock, useConnection } from "@/lib/connection";
 export function ConnectionNotice({
   message,
   onRetry,
+  action,
   updatedAt,
 }: {
   message?: string;
   onRetry?: () => void;
+  /** Another action than «Prøv igjen» at the line's right («Last inn på nytt»). */
+  action?: LineAction;
   updatedAt?: number;
 }) {
+  const act = action ?? (onRetry ? { label: nb.system.retry, onPress: onRetry } : undefined);
   return (
     <div role="status" data-connection-notice="">
       {message ? (
@@ -34,15 +38,15 @@ export function ConnectionNotice({
               </>
             ) : null}
           </p>
-          {onRetry ? (
+          {act ? (
             // A button that looks like a Lenke: it reloads the page's data in place, so anything
             // typed stays, and a Lenke never acts.
             <button
               type="button"
-              onClick={onRetry}
+              onClick={act.onPress}
               className="inline-flex min-h-tap-target-min cursor-pointer items-center text-label text-lager underline underline-offset-2 hover:decoration-2 active:text-ink"
             >
-              {nb.system.retry}
+              {act.label}
             </button>
           ) : null}
         </div>
@@ -51,26 +55,43 @@ export function ConnectionNotice({
   );
 }
 
+export type LineAction = { label: string; onPress: () => void };
+
+/** A page's own wording for its live values (the Oversikt, Story 7.5): the stale line with its
+ * action, and a line for a background read that failed while the page still shows the last one. */
+export type LiveLines = {
+  stale: (clock: string) => string;
+  staleAction: LineAction;
+  failed?: { message: string; action: LineAction };
+};
+
 /**
  * The Tilkoblingslinje a page shows: offline first, then a page error (with «Prøv igjen»), then
  * live values gone stale (no heartbeat from the event stream, Story 6.4) with the time they were
- * last known current, then «Tilkoblet igjen.» for 5 s after the connection or the stream returns.
+ * last known current, in the page's own `lines` when it gives them, then a failed background read
+ * (`lines.failed`), then «Tilkoblet igjen.» for 5 s after the connection or the stream returns.
  * `updatedAt` is when the page's live values were last read; it shows while offline.
  */
 export function ConnectionLine({
   pageError = false,
   onRetry,
   updatedAt,
+  lines,
 }: {
   pageError?: boolean;
   onRetry?: () => void;
   updatedAt?: number;
+  lines?: LiveLines;
 }) {
   const connection = useConnection();
   const live = useLive();
   if (connection === "offline") return <ConnectionNotice message={nb.system.offline} updatedAt={updatedAt} />;
   if (pageError) return <ConnectionNotice message={nb.system.pageError} onRetry={onRetry} />;
+  if (live.status === "stale" && lines) {
+    return <ConnectionNotice message={lines.stale(formatClock(live.lastBeat))} action={lines.staleAction} />;
+  }
   if (live.status === "stale") return <ConnectionNotice message={nb.system.stale} updatedAt={live.lastBeat} />;
+  if (lines?.failed) return <ConnectionNotice message={lines.failed.message} action={lines.failed.action} />;
   if (connection === "reconnected" || live.recovered) return <ConnectionNotice message={nb.system.reconnected} />;
   return <ConnectionNotice />;
 }

@@ -59,6 +59,20 @@ async def session_row(
     return (await session.execute(query)).mappings().one_or_none()
 
 
+async def class_ids_of(
+    session: AsyncSession, session_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, uuid.UUID]:
+    """The Class of each of these Class sessions, by session id; an unknown id is left out."""
+    if not session_ids:
+        return {}
+    result = await session.execute(
+        select(class_sessions.c.id, class_sessions.c.class_id).where(
+            class_sessions.c.id.in_(session_ids)
+        )
+    )
+    return {row.id: row.class_id for row in result}
+
+
 async def number_of(session: AsyncSession, session_id: uuid.UUID, class_id: uuid.UUID) -> int:
     """The Class session's number within its Class."""
     return (

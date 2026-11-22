@@ -2102,3 +2102,431 @@ Merge Epic 6 når CI er grønn, lage `epic-7` fra den nye `main`, og stoppe før
 - Issue #139: LLM-spillere bruker `player_order/v2` først etter målingen i Issue #60.
 - Issue #117: punkter som står igjen fra Epic 5.
 - Issue #31: tekstgjennomgang av alle [ASSUMPTION]-tekster.
+
+## Story 7.1: Se status for alle klassespill på Oversikt (spor 1)
+
+### Oppgave
+Bygge Story 7.1 på `epic-7`, i spor 1 (hovedmappa). Første story med to spor i parallell: spor 2 bygger Epic 9 i `.claude/worktrees/lane-2` med egen stack (8081/5433).
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet (blind og edge case), deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-1-see-the-status-of-every-class-game-on-the-oversikt.md`, pluss `epic-7-context.md`.
+- Commits: bfd8f8b (storyen og første runde etter gjennomgang), 7483a5d (andre runde).
+- Én statusregel (`games.rules.game_status`), lesemodellen `game_summaries` (migrasjon 0051 med utfylling av eksisterende spill), `GET /api/class-sessions/{id}/overview` bak den nye tillatelsen `class_sessions.overview`, og siden `/klasseokter/{id}/oversikt`.
+- Tester: backend 2793 på 70 s, Vitest 718, typecheck, `lint:colours`, bygg, Playwright for oversikten og berørte skjermer (47).
+- Gjennomgang: 24 funn. Rettet blant annet: ferdige spill viser ikke siste uke (FR-14), ETag godtar `W/` og `*`, sterkere test for faste spørringer, tidsuavhengig e2e. Resten avvist eller utsatt med begrunnelse i specen.
+- Gjennomgangsagentene klarte ikke å levere tilbake til byggeagenten. Jeg sendte funnene videre med SendMessage.
+- Visuell kontroll (Sonnet): 14 skjermbilder i `screenshots/7.1/`, ingen klare avvik, to små punkter til avslutningen av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #143: beslutninger og utsatte funn (oppfrisking på hver kommando uten budsjett, ingen gjenoppbygging av `game_summaries`, sletting i Epic 15, «pause» i Epic 8).
+
+## Story 9.1: Regn ut fakta om et ferdig spill (spor 2)
+
+### Oppgave
+Bygge Story 9.1 på `epic-9` i spor 2 (`.claude/worktrees/lane-2`, egen stack på 8081/5433), samtidig med Epic 7 i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Ingen skjerm endret, så ingen visuell kontroll.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-1-compute-the-facts-of-a-finished-game.md`, pluss `epic-9-context.md` (på `epic-9`).
+- Commit: b494185 på `epic-9`.
+- Faktasett per spill og sete, tre oppdagede mønstre som én innholdspost med versjon, tre øyeblikk, migrasjon 0101, og `python -m app.sim facts` for simulerte spill.
+- Tester: backend 2856, ruff, migrasjon fram og tilbake, Vitest 713, bygg, Playwright 42.
+- Gjennomgang: 22 funn, 12 rettet, 8 avvist og 2 utsatt.
+- Status: done.
+
+### Åpne punkter
+- Issue #144: beslutninger (terskler for mønstrene, øyeblikk, lagring én gang) og leser for gamle faktasett ved ny analyseversjon.
+
+## Story 7.2: Les alle klassespill uke for uke på Matriseveggen (spor 1)
+
+### Oppgave
+Bygge Story 7.2 på `epic-7` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet som også skriver funnene til fil, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-2-read-all-class-games-week-by-week-on-the-matrisevegg.md`.
+- Commit: 2a12c33.
+- `GET /api/games/{id}/weeks` for stab, med ETag. Matriseveggen som SVG laget for hånd, med `role="grid"` og lesing celle for celle fra tastaturet, på Oversikt og på Landing med demodata.
+- Tester: backend 2797, Vitest 736, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 72 med axe på 1440 px, 320 px og 200 % tekst.
+- Gjennomgang: 23 funn, 8 rettet (blant dem at rader ble tomme hver gang spillets versjon endret seg), 12 avvist med begrunnelse.
+- Visuell kontroll (Sonnet): 11 skjermbilder i `screenshots/7.2/`, ingen avvik. Overskriften på Landing brytes ett ord per linje ved 200 % tekst; den er tatt med i lista til slutten av epicen (gammelt punkt fra Epic 6).
+- Status: done.
+
+### Åpne punkter
+- Issue #145: beslutninger og risiko (tom rad ved feilet henting til Story 7.5, skjermleser bare sjekket i Chromium).
+
+## Story 9.2: Åpne Debrief når klassespillet er slutt (spor 2)
+
+### Oppgave
+Bygge Story 9.2 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2 (port 8081).
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-2-open-the-debrief-when-the-class-game-has-ended.md` (på `epic-9`).
+- Commit: 1d9bad6.
+- Modulen `debrief` med én regel for når Debrief er åpen, valget «Når Debriefen åpner» på Klasseøkt, frigjøring i sweepen med samlet e-post, og lenker fra «Spillet er ferdig», Stegene og Hjem. Migrasjon 0102.
+- Tester: backend 2864 på 69 s, Vitest 719, typecheck, `check:copy`, `lint:colours`, bygg, Playwright 78 på port 8081 med axe i tre bredder.
+- Gjennomgang: 19 funn, 4 rettet (blant dem at Debrief-id-er ikke lekker), 1 utsatt, resten avvist med begrunnelse.
+- Visuell kontroll (Sonnet, spor 2): 22 skjermbilder i `screenshots/9.2/` (commit e8ae6b9 på `epic-9`), ingen avvik. Valgknappene for «Når Debriefen åpner» står uten mellomrom når de stables; tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #146: beslutninger, og at en tilbakeholdt Debrief blir stående hvis et klassespill aldri blir ferdig (Epic 8).
+
+## Story 7.3: Bytt veggen til «Vis som tabell» (spor 1)
+
+### Oppgave
+Bygge Story 7.3 på `epic-7` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-3-switch-the-wall-to-vis-som-tabell.md`.
+- Commit: b131971.
+- Bare frontend: valget «Visning», tabellen `components/charts/matrix-table.tsx` med sortering og `aria-sort`, og felles posisjon med veggen slik at fokus følger samme spill.
+- Tester: backend 2797 på 79 s, Vitest 750, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 54 med axe i tre bredder.
+- Gjennomgang: 21 funn, 5 rettet (blant dem at sorteringen forsvant ved bytte av visning), 14 avvist.
+- Visuell kontroll (Sonnet): 18 skjermbilder i `screenshots/7.3/`. Rettet fokusringen på radoverskriftene, som ikke tegnet noe (9e1a4fc). Tre avvik går til Story 7.4 på samme side: «Visning» står som en blokk på 450 px over veggen i stedet for et lite valg ved siden av, tabellen er bare 590 px bred ved 1280 px, og «Venter på» brytes over 3–4 linjer.
+- Status: done.
+
+### Åpne punkter
+- Issue #147: beslutninger og risiko (tastaturnavigasjon med flere spill bare testet i Vitest).
+
+## Story 9.3: Skriv Forklaringen før avsløringen (spor 2)
+
+### Oppgave
+Bygge Story 9.3 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-3-write-the-explanation-before-the-reveal.md` (på `epic-9`).
+- Commit: 18c2974.
+- Migrasjon 0103 med én Forklaring per student og klasseøkt, lagret én gang og låst. Senere steg krever Forklaringen. Steg 1 viser studentens netto lager over hele spillet med «Vis som tabell», skrivefeltet og «Send Forklaring».
+- Tester: backend 2861 på 72 s, Vitest 725, typecheck, `check:copy`, `lint:colours`, bygg, Playwright 66 med axe.
+- Gjennomgang: 21 funn, 3 rettet (feilmelding og «Prøv igjen» når lesing feiler, test for 409, ødelagte norske tegn i en testfil), 18 avvist.
+- Visuell kontroll (Sonnet, spor 2): 15 skjermbilder i `screenshots/9.3/` (e6c6c85), ingen klare avvik. Ukestripen fra mockupen er utelatt med vilje (beslutning 7). Tabellvisningen har ingen høydegrense og skyver skrivefeltet langt ned på mobil; det går til Story 9.4 på samme side.
+- Status: done.
+
+### Åpne punkter
+- Issue #148: beslutninger (låst Forklaring, maks 5000 tegn, endepunkter for steg 2–5).
+
+## Story 9.4: Se avsløringen av kundeetterspørselen (spor 2)
+
+### Oppgave
+Bygge Story 9.4 på `epic-9` i spor 2, og rette tabellhøyden på steg 1 fra den visuelle kontrollen av 9.3.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-4-see-the-reveal-of-customer-demand.md` (på `epic-9`).
+- Commits: 2ce357c (storyen), 066fd73 (byggeagentens skjermbilder).
+- Steg 2 med avsløringen: overskrift laget av kode fra etterspørselsrekken med setningsmaler (ny innholdstype `sentence_templates`, migrasjon 0104), Etterspørselsbåndet over tabellen med Kundene, Ordre inn og Din ordre, og «Øvelsen heter Beer Game.». Tabellen på steg 1 har nå høydegrense.
+- Tester: backend 2884 på 69 s, Vitest 732, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 117 med axe.
+- Gjennomgang: 27 funn, 7 rettet (blant dem at plassholderne i malene må være rene navn).
+- `week-advance` feilet én gang på tidskravet mens begge sporene kjørte, og passerte alene.
+- Visuell kontroll (Sonnet, spor 2): ti skjermbilder i `screenshots/9.4/` (b331cfc). Rettet at ukene 34–36 lå bak sidelengs rulling ved 1280 px (5b94e3a). Nøkkel over båndet og alle ukenummer som kolonneoverskrifter avviker fra mockupen, men følger specen.
+- Status: done.
+
+### Åpne punkter
+- Issue #149: beslutninger (setningsmaler, valg av overskrift, plassering av steg 2).
+
+## Story 7.4: Filtrer veggen og sammenlign med medianen for klassen (spor 1)
+
+### Oppgave
+Bygge Story 7.4 på `epic-7` i spor 1, og rette tre layoutfeil fra den visuelle kontrollen av 7.3 på samme side.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-4-filter-the-wall-and-compare-with-the-class-median.md`.
+- Commit: 9cfb9d6.
+- Filtre for Rolle, Celler og Status, fargeskala for flyt, `GET /api/class-sessions/{id}/overview/aggregates` med median, midterste halvdel og snitt, og mediangraf over ukekolonnene. De tre layoutfeilene fra 7.3 er rettet.
+- Tester: backend 2809 (74 s og 94 s, trolig mens spor 2 kjørte samtidig), Vitest 762, typecheck, bygg, Playwright for oversikt, landing og ordre med axe.
+- Gjennomgang: 20 funn, 6 rettet, resten avvist.
+- Én uforklart feil i en backend-kjøring og én ustabil `homes`-test ved 360 px; begge passerte ved ny kjøring.
+- Visuell kontroll (Sonnet): 18 skjermbilder i `screenshots/7.4/` med tre spill, ingen klare avvik. De tre layoutfeilene fra 7.3 er bekreftet rettet. «Venter på …» kuttes ved høyre kant av veggen ved 390 px; det står på lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #150: beslutninger, tid på backend-pakken med to spor, og to ustabile tester til stabiliseringen.
+
+## Story 7.5: Følg spillene live med «Oppdater automatisk» (spor 1)
+
+### Oppgave
+Bygge Story 7.5 på `epic-7` i spor 1, og lukke de utsatte punktene fra 7.1 og 7.2 om feilet henting og om Startdatoen.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-5-follow-the-games-live-with-oppdater-automatisk.md`.
+- Commit: c4d928b.
+- Ny lesing med ETag, bryteren «Oppdater automatisk», «N endringer siden hh:mm» når den er av, rader som står stille mens fokus er i veggen, høflig opplesing av tallene, egne tilkoblingslinjer, nye forsøk hvert 10. sekund og ny lesing ved Startdatoen (`next_change_at`).
+- Tester: backend 2809 på 97,5 s (mens spor 2 kjørte samtidig), Vitest 776, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 47 uten ustabile tester.
+- Gjennomgang: 20 funn, 4 rettet (1 middels), 14 avvist.
+- Visuell kontroll (Sonnet): 13 skjermbilder i `screenshots/7.5/`, ingen avvik. Tilkoblingslinjene følger reglene i EXPERIENCE.md.
+- Status: done.
+
+### Åpne punkter
+- Issue #151: beslutninger, og tiden på backend-pakken når to spor kjører samtidig.
+
+## Story 9.5: Skrubb gjennom hele kjeden og se forsterkningen (spor 2)
+
+### Oppgave
+Bygge Story 9.5 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-5-scrub-the-whole-chain-and-see-the-amplification.md` (på `epic-9`).
+- Commit: b54b964.
+- Steg 3 i Debrief: Ukeskrubberen, Kjedebåndet med alle fire roller, Ordrestolper over tallene per rolle og uke, og Forsterkning. Ordrestolpene og tabellen er felles komponenter som Story 7.8 skal gjenbruke.
+- Tester: backend 2880, Vitest 747, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 123.
+- Gjennomgang: 24 funn, 13 rettet, 6 falske, ingenting utsatt.
+- `test_ai/test_effort` og `week-advance` feilet én gang hver og passerte ved ny kjøring.
+- Visuell kontroll (Sonnet, spor 2): ti skjermbilder i `screenshots/9.5/` (4b20820). Rettet at Forsterkning-kolonnen lå utenfor synsfeltet ved 1280 px, og at fokusringen på skrubberen dekket ukeetikettene (f9cc374). Kjedebåndet er begrenset til 56 rem ved 1280 px; går til Story 9.6 på samme side.
+- Status: done.
+
+### Åpne punkter
+- Issue #152: beslutninger, felles komponenter for Story 7.8, og to ustabile tester.
+
+## Story 9.6: Svar på refleksjonsspørsmålene (spor 2)
+
+### Oppgave
+Bygge Story 9.6 på `epic-9` i spor 2, og la Kjedebåndet på steg 3 få full bredde (fra den visuelle kontrollen av 9.5).
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-6-answer-the-reflection-questions.md` (på `epic-9`).
+- Commit: 0688d38.
+- Tre refleksjonsspørsmål som innhold med versjon (migrasjon 0105), ett om gangen, med utkast som blir tatt vare på. Svar kan ikke endres. Kjedebåndet på steg 3 har nå full bredde.
+- Tester: backend 2886 på 70 s, Vitest 750, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 129, ingen ustabile tester.
+- Gjennomgang: 28 funn, ingen høye eller middels, 4 rettet.
+- Visuell kontroll (Sonnet, spor 2): 13 skjermbilder i `screenshots/9.6/` (1ef3c11), ingen avvik. Kjedebåndet har bekreftet full bredde. Refleksjonsdelen står i en smal kolonne som steg 1; skrivefelt i lesebredde er et rimelig valg.
+- Status: done.
+
+### Åpne punkter
+- Issue #153: beslutninger (midlertidige spørsmål til Issue #16, svar som ikke kan endres, ingen skjerm for lærerne ennå).
+
+## Story 7.6: Se hvem som venter, klassens kostnad og trakten i høyre kolonne (spor 1)
+
+### Oppgave
+Bygge Story 7.6 på `epic-7` i spor 1, og rette at «Venter på …» kuttes ved 390 px.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-6-see-who-waits-the-class-cost-and-the-funnel-in-the-right-rail.md`.
+- Commit: 59f10fe.
+- Høyre kolonne med «Venter ellers», «Klassens kostnad» (Kostnadsfordeling som SVG, tabell, stolper per rolle) og «Trakt». Ny ren funksjon `analysis.class_cost` og `progress.service.funnel` med hurtigbuffer. Kort merknad i veggen ved 390 px. Ingen migrasjon.
+- Tester: backend 2815 på 71 s, Vitest 785, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 48.
+- Gjennomgang: 27 funn, 2 middels (samme uendelige løkke i aksen, funnet av begge, rettet), 6 lave rettet, 1 utsatt.
+- `week-advance` feilet én gang på grensen på 2 s mens gjennomgangsagentene kjørte; tredje gang denne testen er ustabil.
+- Visuell kontroll (Sonnet): 20 skjermbilder i `screenshots/7.6/`. Rettet at høyre kolonne klemte spillradene til én bokstav per linje ved 200 % tekst og at radene var trange ved 1024 px (49153fc). «min» i «Venter ellers» brytes med lange navn; tatt med i lista til slutten av epicen.
+- Orkestratoren satte grensen i `week-advance` til 3 s lokalt og 2 s i CI (d9201b9).
+- Status: done.
+
+### Åpne punkter
+- Issue #154: beslutninger og den ustabile `week-advance`-testen.
+
+## Story 9.7: Se egne øyeblikk, laget fra faktasettet (spor 2)
+
+### Oppgave
+Bygge Story 9.7 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-7-see-my-own-moments-rendered-from-the-facts.md` (på `epic-9`).
+- Commit: 26d2e33. I tillegg 07e2db3 (grensen i `week-advance` fra spor 1, plukket inn).
+- Steg 4: tre egne øyeblikk, ett om gangen, med setninger fylt inn av kode fra faktasettet, grafen over tabellen i den uken, mønsteret, hva de andre så, og studentens egen Forklaring ved siden av. Ny innholdstype `moment_templates` (migrasjon 0106) og tabellen `debrief_fact_sets`.
+- Tester: backend 2908 på 81 s (kjørt av orkestratoren etter byggeagentens siste retting), Vitest 752, typecheck, bygg, Playwright 134.
+- Gjennomgang: 23 funn, ingen høye eller middels, 4 rettet.
+- Ti e2e-tester feilet i én kjøring mens gjennomgangsagentene kjørte, og passerte ved ny kjøring.
+- Visuell kontroll (Sonnet, spor 2): ti skjermbilder i `screenshots/9.7/` (a36cd06). Rettet at tabellen «Dette så de andre i Uke N» rullet hele siden sidelengs ved 200 % tekst (e2a559d). Tabell i stedet for linjer som i mockupen er beholdt.
+- Status: done.
+
+### Åpne punkter
+- Issue #155: beslutninger og ustabile e2e-tester under last.
+
+## Story 7.7: Åpne ett spill uke for uke i Spillinnsikt (spor 1)
+
+### Oppgave
+Bygge Story 7.7 på `epic-7` i spor 1, og bruke felles komponenter fra `epic-9` der de trengs.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-7-open-one-game-week-by-week-in-spillinnsikt.md`.
+- Commit: 569ffab.
+- `GET /api/games/{id}/insight` bare for stab, med ETag; merker for alle årsaker til at et sete skifter; siden `/klasseokter/{id}/oversikt/spill/{gameId}` med tabeller per rolle og fokus tilbake til samme spill. `scroll-region.tsx` hentet uendret fra `epic-9`.
+- Tester: backend 2835 (første kjøring hadde 1175 tidsavbrudd mot databasen mens begge sporene kjørte; ny kjøring passerte), Vitest 794, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 50.
+- Gjennomgang: 26 funn, 1 middels og 8 lave rettet.
+- Åtte e2e-tester feilet én gang på tidsavbrudd for e-post og passerte ved ny kjøring.
+- Visuell kontroll (Sonnet): elleve skjermbilder i `screenshots/7.7/`, ingen avvik. Matrisen og grafene fra mockupen kommer i Story 7.8. En overview-test var ustabil i en samlet kjøring under last.
+- Status: done.
+
+### Åpne punkter
+- Issue #156: beslutninger og last fra to spor på samme maskin.
+
+## Story 7.8: Se ordre, lager og restordre for alle fire roller som grafer i Spillinnsikt (spor 1)
+
+### Oppgave
+Bygge Story 7.8 på `epic-7` i spor 1, med de felles komponentene fra `epic-9` (Story 9.5).
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-8-see-all-four-roles-orders-inventory-and-backlog-as-charts-in-spillinnsikt.md`.
+- Commit: 72a9cbf.
+- «Kjeden i grafer» i Spillinnsikt: Ordrestolper over tallene per rolle og uke med «Kundene» nederst, og en ny felles graf for lager og restordre med ett bånd per rolle. Begge har «Vis som tabell». `first_large_order_week` per rolle fra endepunktet.
+- Felles komponenter: `order-bars.tsx` hentet uendret fra `epic-9`; `order-bars-table.tsx` med én liten tilføyelse (Forsterkning valgfri). Notert til merge.
+- Tester: backend 2835, Vitest 806, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 50, ingen ustabile tester.
+- Gjennomgang: 14 funn, ingen høye eller middels, 3 rettet.
+- Visuell kontroll (Sonnet): ni skjermbilder i `screenshots/7.8/` med et spill på 22 uker. Rettet ujevne ukekolonner i tabellene (b88ae24). Tre punkter til avslutningen av epicen: «Lager og restordre» mangler verdietiketter, `ScrollRegion` toner kantene selv om DESIGN.md sier nei til fading, og røde ukemerker i Ordrestolpene står tett ved 390 px.
+- Status: done.
+
+### Åpne punkter
+- Issue #157: beslutninger og punkter til merge av `epic-7` og `epic-9`.
+
+## Story 9.8: Se kjedens regning og fullfør Debrief (spor 2)
+
+### Oppgave
+Bygge Story 9.8 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2. Byggeagenten spurte om å merge `epic-7` for lenkepunktet fra Story 7.7; jeg sa nei og godkjente en registrering som bare skjer når lenkepunktet finnes, og som gjøres ubetinget ved merge.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-8-see-the-chains-bill-and-finish-the-debrief.md` (på `epic-9`).
+- Commit: b3e9488.
+- «Kjedens regning» med simulerte rader fra en ren simulering i faktasettet (analyseversjon 2), «Fullfør Debriefen» med `debrief_summaries` (migrasjon 0107), og en side der stab leser Forklaring og oppsummering.
+- Tester: backend 2912, Vitest 757, Playwright 144 med axe, ingen ustabile tester, ingen nye over 1 s.
+- Commit 719b43e: sjekken for lenkepunktet fra Story 7.7 samlet på ett sted, med TODO til merge.
+- Visuell kontroll (Sonnet, spor 2): 16 skjermbilder i `screenshots/9.8/` (9a25f4e), ingen avvik. Ved 200 % tekst og 390 px ruller regningstabellen i sin egen beholder, slik «Spillet er ferdig» gjør.
+- Status: done.
+
+### Åpne punkter
+- Issue #158: beslutninger, simulerte kostnader med plassholderparametre, og lenkene i Spillinnsikt etter merge.
+
+## Story 7.9: Send en Melding til en student, et klassespill eller hele klasseøkta (spor 1)
+
+### Oppgave
+Bygge Story 7.9 på `epic-7` i spor 1.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-9-send-a-message-to-a-student-a-class-game-or-the-whole-class-session.md`.
+- Commit: f553c6b. Migrasjon 0052_messages.
+- Meldingsskjemaet på `/klasseokter/{id}/melding`, åpnet fra Oversikt, Spillinnsikt og hvert sete. Én transaksjon lagrer meldingen, mottakerne og varslene, og hver student får e-post. En nøkkel fra klienten hindrer dobbel sending.
+- Tester: backend 2842, Vitest 812, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 52 med `--workers=4`, ingen ustabile tester.
+- Gjennomgang: 29 funn, 2 middels (en importløkke som krasjet, rettet), 6 lave rettet.
+- Visuell kontroll (Sonnet): 33 skjermbilder i `screenshots/7.9/`, ingen avvik. Felles sidehode brytes over to linjer ved 390 px (ikke denne storyen); tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #159: beslutninger (mottakere, 403 for utenforstående, nøkkel mot dobbel sending).
+
+## Story 9.9: Bestå Debrief-quizen (spor 2)
+
+### Oppgave
+Bygge Story 9.9 på `epic-9` i spor 2.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-9-pass-the-debrief-quiz.md` (på `epic-9`).
+- Commit: 93444ab.
+- Steg 5 «Debrief-quiz» med ny innholdstype `debrief_quiz` (midlertidige spørsmål), poeng regnet bare på serveren, forsøk som ikke kan endres (`quiz_attempts`, migrasjon 0108), og `quiz_passed` i samme transaksjon. Komponenten Quizvalg i `components/quiz-choice.tsx`.
+- Tester: backend 2932, Vitest 763, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 149 med `--workers=4`, ingen ustabile tester.
+- Gjennomgang: 23 funn, ingen høye eller middels, 5 rettet.
+- Visuell kontroll (Sonnet, spor 2): 24 skjermbilder i `screenshots/9.9/` (9dfae1f). Rettet at «Ditt svar, ikke riktig» ble kuttet og at «−13» ble delt ved 200 % tekst (1230385).
+- Status: done.
+
+### Åpne punkter
+- Issue #160: beslutninger (midlertidige spørsmål til Issue #16, stokking ved nye forsøk, ingen nye forsøk etter bestått).
+
+## Story 7.10: Les Meldinger i appen (spor 1)
+
+### Oppgave
+Bygge Story 7.10 på `epic-7` i spor 1, og legge til en test for importrekkefølgen i `messaging.messages` (fra 7.9).
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-10-read-messages-in-the-product.md`.
+- Commit: 2a4652b. Ingen migrasjon.
+- Studenter: «Meldinger» på Hjem etter klassene, nyeste først, oppdatert live. Stab: siden `/klasseokter/{id}/meldinger`. Nytt hjelpemiddel for tilgang, `authz.messages_addressed_to`.
+- Tester: backend 2849, Vitest 817, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 66 etter ny bygging av stacken, ingen ustabile tester. Ny importtest i en fersk tolk (2,8 s).
+- Gjennomgang: 23 funn, ingen høye eller middels, 7 rettet (blant dem at arkiverte klasser holdes utenfor for studenter).
+- Visuell kontroll (Sonnet): 15 skjermbilder i `screenshots/7.10/`, ingen avvik. Klassenavnet for en student med to klasser er verken fotografert eller dekket av en test; tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #161: beslutninger (ingen lest-status, tak på 100 og 200 meldinger uten sider, tilgang for fjernede studenter).
+
+## Story 9.10: Utelat et quizspørsmål og se quizforsøk (spor 2)
+
+### Oppgave
+Bygge Story 9.10 på `epic-9` i spor 2, og avgjøre om stabssiden for Debrief fra 9.8 skal vise navnet på studenten.
+
+### Plan
+Byggeagent med `bmad-build-auto`, to gjennomgangsagenter på Sonnet, deretter visuell kontroll på Sonnet i spor 2. Byggeagenten ble stoppet én gang av en feil med abonnementet og startet igjen.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-9-10-exclude-a-quiz-question-and-see-quiz-attempts.md` (på `epic-9`).
+- Commit: 2001f84.
+- Eiere kan utelate quizspørsmål på Klasseøkt med «Lagre quizvalg» (`quiz_exclusions`, migrasjon 0109, revisjonslogg). Studentene får bare de gjenværende spørsmålene, og de som berøres får e-post og en linje på Hjem. Stabssiden viser nå navnet på studenten og alle quizforsøk.
+- Tester: backend 2940, Vitest 767, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 259 etter ny bygging av stacken, ingen ustabile tester.
+- Gjennomgang: 32 funn, ingen høye eller middels, 7 rettet.
+- Visuell kontroll (Sonnet, spor 2): 27 skjermbilder i `screenshots/9.10/` (463a8ac), ingen avvik. Kolonnene for spørsmålene på Klasseøkt flukter ikke helt ved 1280 px; tatt med i lista til slutten av epicen.
+- Status: done.
+
+### Åpne punkter
+- Issue #162: beslutninger (navn på stabssiden etter FR-47, egen lagreknapp, hvem som varsles).
+
+## Story 7.11: Handle på spillet som har ventet lengst, fra Varselbåndet (spor 1)
+
+### Oppgave
+Bygge Story 7.11 på `epic-7` i spor 1, den siste storyen i Epic 7.
+
+### Plan
+Byggeagent med `bmad-build-auto` og to gjennomgangsagenter på Sonnet. Den visuelle kontrollen gjøres av agenten som avslutter Epic 7, etter den nye flyten i kjøreboka («Faster flow»).
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-7-11-act-on-the-longest-waiting-game-from-the-varselband.md`.
+- Commit: 114331e. Ingen migrasjon.
+- Overview-svaret velger spillet som har ventet lengst (`alert`). Varselbåndet viser «Spill 2 venter på Noah (Grossist) i 23 t.» med «Send Melding» til den studenten, leses høflig opp maks én gang i minuttet og står stille når «Oppdater automatisk» er av. Raden er markert i vegg, tabell og spilliste, og hver rad har «Melding» til sitt klassespill.
+- Tester: backend 2857, Vitest 829, typecheck, `lint:colours`, `check:copy`, bygg, Playwright 69 i ti spesifikasjoner, ingen ustabile tester.
+- Gjennomgang: 20 funn, ingen høye eller middels, 3 rettet.
+- Visuell kontroll: gjøres i avslutningen av Epic 7.
+- Status: done.
+
+### Åpne punkter
+- Issue #163: beslutninger (hvem båndet nevner, likhet mellom spill, plassering av «Melding»).

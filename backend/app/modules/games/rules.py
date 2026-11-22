@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from app.engine import GameSettings
-from app.modules.games.policy import GamePolicy
-from app.modules.games.schemas import OccupantKind
+from app.modules.games.policy import GamePolicy, policy
+from app.modules.games.schemas import GameStatus, Lifecycle, OccupantKind
 
 
 def guided_week(game_policy: GamePolicy, settings: GameSettings, week: int) -> bool:
@@ -30,6 +30,31 @@ def week_complete(turns: Sequence[Mapping[str, object]], *, guided: bool) -> boo
     `occupant_kind` in force that Week (`repo.week_turns_with_occupant`); no turns means there
     is nothing to complete."""
     return bool(turns) and all(has_ordered(turn, guided=guided) for turn in turns)
+
+
+def game_status(game: Mapping[str, object], turns: Sequence[Mapping[str, object]]) -> GameStatus:
+    """The one definition of a Game's status (AD-2, FR-39); `game_summaries` stores its result.
+
+    `game` is a `games` row (`lifecycle`, `purpose`, `settings`); `turns` are its open Week's
+    `seat_turns` rows, each with the `occupant_kind` in force that Week
+    (`repo.week_turns_with_occupant`). A Game that runs is `waiting` when at least one Student has
+    ordered in the open Week and at least one Student-held Seat has not (FR-25); in a Guided Week
+    viewing counts as ordering (FR-24). Otherwise it is `running`. Pure: no I/O, no clock."""
+    lifecycle = game["lifecycle"]
+    if lifecycle == Lifecycle.NOT_STARTED:
+        return GameStatus.NOT_STARTED
+    if lifecycle == Lifecycle.FINISHED:
+        return GameStatus.FINISHED
+    students = [turn for turn in turns if turn["occupant_kind"] == OccupantKind.STUDENT]
+    if not students:
+        return GameStatus.RUNNING
+    week = students[0]["week"]
+    assert isinstance(week, int)  # every turn of the open Week carries it
+    guided = guided_week(
+        policy(str(game["purpose"])), GameSettings.model_validate(game["settings"]), week
+    )
+    ordered = [has_ordered(turn, guided=guided) for turn in students]
+    return GameStatus.WAITING if any(ordered) and not all(ordered) else GameStatus.RUNNING
 
 
 @dataclass(frozen=True)

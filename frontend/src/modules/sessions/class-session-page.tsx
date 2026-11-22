@@ -12,12 +12,13 @@ import { nb } from "@/copy/nb";
 import { ApiRequestError } from "@/lib/api/client";
 import { useAction } from "@/lib/api/mutation";
 import { usePageState } from "@/lib/page-state";
+import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { useClass } from "@/modules/classes/api";
 import { QuizExclusionsBlock } from "@/modules/debrief/quiz-exclusions";
-import { classPath, classSessionPath, HOME_PATH } from "@/modules/identity/homes";
-import { PageShell } from "@/modules/identity/page-shell";
+import { classOverviewPath, classPath, classSessionPath, HOME_PATH } from "@/modules/identity/homes";
+import { PageLink, PageShell } from "@/modules/identity/page-shell";
 import { LINK_BUTTON } from "@/modules/classes/roster-entry-forms";
 
 import {
@@ -347,6 +348,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
       {readOnlyLine ? (
         <p className="mt-2 max-w-2xl text-body-phone text-ink-secondary lg:text-body">{readOnlyLine}</p>
       ) : null}
+      {/* Every Class game's status, whom it waits for and its cost (Story 7.1). */}
+      <PageLink href={classOverviewPath(item.id)}>{nb.overview.open}</PageLink>
       <div className="mt-8 grid grid-cols-1 gap-x-16 gap-y-10 lg:grid-cols-2">
         <section aria-labelledby="settings-title" className="min-w-0">
           <h2 id="settings-title" className="text-headline text-ink">
@@ -434,6 +437,8 @@ function ClassSessionBody({ item }: { item: ClassSession }) {
 /** On a wide screen each segment is as wide as its label, as in mockup 03; on a phone the
  * segments share the row. */
 const CONTENT_SIZED = "lg:[&_label]:flex-none";
+/** Two long options stacked on a phone: each a whole segment of its own, with a gap (Story 9.2). */
+const STACKED_ON_PHONE = "max-sm:[&_label]:ml-0 max-sm:[&_label]:basis-full max-sm:[&_label]:rounded-sm";
 
 /**
  * KI-modus, Debrief-modus with «Når Debriefen åpner» (Story 9.2, FR-42) and the Bryter «KI-tekst i
@@ -562,7 +567,7 @@ function Choices({
           {editable ? (
             <SegmentedChoice
               name="debrief-release"
-              className={CONTENT_SIZED}
+              className={cn(CONTENT_SIZED, STACKED_ON_PHONE)}
               legend={c.debriefRelease}
               options={[
                 { value: "open", label: c.releaseOpen },

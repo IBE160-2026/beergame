@@ -81,6 +81,7 @@ _ONE_GAME = {
     "seat_turns": "SELECT * FROM seat_turns WHERE game_id = {}",
     "seat_weeks": "SELECT * FROM seat_weeks WHERE game_id = {}",
     "game_checks": "SELECT * FROM game_checks WHERE game_id = {}",
+    "game_summaries": "SELECT * FROM game_summaries WHERE game_id = {}",
 }
 """Every stored row of one Game, table by table in the order they can be inserted."""
 

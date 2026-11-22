@@ -40,6 +40,17 @@ const FALLBACK = { width: 288, fontSize: 13 };
 /** The Role column beside each chart and the gap after it, in em of the caption size. */
 const LABEL_EM = 8.5;
 const GAP_EM = 0.5;
+/** A wide chart grows to an eighth of its width, at most this many caption lines, so a projector
+ * shows a curve rather than a flat strip. */
+const NET_MAX_LINES = 14;
+/** Below this box width, in em, the Role names stand over the charts. */
+const STACK_EM = 26;
+/**
+ * Display mode on a projector or a large screen: the root text grows with the window from 1280 px
+ * (1.25 vw, 24 px at 1920 px, at most 150 %), so the whole page reads from the back of the room.
+ * `max(100%, …)` keeps a larger text size the User has chosen (200 % text stays 200 %).
+ */
+const PROJECTOR_SCALE = "html{font-size:max(100%,min(1.25vw,150%))}";
 
 /**
  * «Delt skjerm: hele kjeden» (Story 9.13, FR-74, UX-DR34, UX-DR35, `07-debrief.png`, right): a
@@ -86,7 +97,8 @@ function Screen({ shared }: { shared: Shared }) {
     wasLocked.current = shared.locked;
   }, [shared.locked]);
   return (
-    <div data-shared-screen={shared.locked ? "locked" : "open"}>
+    <div data-shared-screen={shared.locked ? "locked" : "open"} className="@container">
+      <style>{PROJECTOR_SCALE}</style>
       <p className={`${LINE} mt-1 text-ink-secondary`}>
         {copy.game(shared.game_number)}. <span data-shared-step={shared.step}>{copy.step(shared.step, INDIVIDUAL_STEP, DEBRIEF_STEPS)}</span>
       </p>
@@ -95,7 +107,7 @@ function Screen({ shared }: { shared: Shared }) {
         {announced}
       </p>
       {shared.locked || !shared.chain ? (
-        <p data-shared-locked="" className={`${LINE} mt-8 max-w-md border-t border-axis pt-4 text-ink`}>
+        <p data-shared-locked="" className="mt-8 max-w-3xl border-t border-axis pt-4 text-headline text-ink">
           {copy.locked}
         </p>
       ) : shared.chain.last_week < 1 ? null : (
@@ -124,7 +136,7 @@ function ChainScreen({ chain }: { chain: SharedChain }) {
   return (
     <>
       <section aria-labelledby={`${id}-at`} data-shared-chain="" className="mt-8 border-t border-axis pt-4">
-        <div className="grid gap-x-8 gap-y-2 lg:grid-cols-[1fr_minmax(20rem,28rem)] lg:items-end">
+        <div className="grid gap-x-8 gap-y-2 @[52rem]:grid-cols-[1fr_minmax(20rem,28rem)] @[52rem]:items-end">
           <div>
             <h2 id={`${id}-at`} data-shared-at="" className="text-headline text-ink">
               {copy.at(week)}
@@ -147,7 +159,7 @@ function ChainScreen({ chain }: { chain: SharedChain }) {
         <FourRoleBand chain={chain} week={week} />
         <BandTable chain={chain} week={week} />
       </section>
-      <div className="mt-10 grid grid-cols-1 gap-x-12 gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,26rem)]">
+      <div className="mt-10 grid grid-cols-1 gap-x-12 gap-y-10 @[60rem]:grid-cols-[minmax(0,1fr)_minmax(18rem,26rem)]">
         <NetPerRole chain={chain} week={week} />
         <ChainBill rows={costs.rows} chain={costs.chain} titleId={`${id}-cost`} title={copy.costTitle} className="border-t border-axis pt-4" />
       </div>
@@ -204,7 +216,12 @@ function NetPerRole({ chain, week }: { chain: SharedChain; week: number }) {
   // The box stays in place in both modes, so its size follows the page (a chart box would be
   // measured once and lost when the table takes its place); the charts get its width less the
   // Role column.
-  const chartWidth = Math.max(0, Math.floor(size.width - (LABEL_EM + GAP_EM) * size.fontSize));
+  // A narrow box (a phone, or large text) puts each Role's name over its chart instead of beside.
+  const stacked = size.width < STACK_EM * size.fontSize;
+  const chartWidth = Math.max(0, Math.floor(size.width - (stacked ? 0 : (LABEL_EM + GAP_EM) * size.fontSize)));
+  const chartHeight = Math.round(
+    Math.max(size.fontSize * NET_LINES, Math.min(chartWidth / 8, size.fontSize * NET_MAX_LINES)),
+  );
   return (
     <section aria-labelledby={`${id}-title`} data-shared-net="" className="min-w-0 border-t border-axis pt-4">
       <h2 id={`${id}-title`} className="text-headline text-ink">
@@ -218,14 +235,14 @@ function NetPerRole({ chain, week }: { chain: SharedChain; week: number }) {
         ) : (
           <div
             className="grid items-center gap-y-1"
-            style={{ gridTemplateColumns: `${LABEL_EM}em minmax(0,1fr)`, columnGap: `${GAP_EM}em` }}
+            style={{ gridTemplateColumns: stacked ? "minmax(0,1fr)" : `${LABEL_EM}em minmax(0,1fr)`, columnGap: `${GAP_EM}em` }}
           >
             {chain.roles.map((role) => (
               <div key={role.role} data-shared-net-role={role.role} className="contents">
                 <p className="text-label text-ink">{roleName(role.role)}</p>
                 <NetOverGame
                   width={chartWidth}
-                  height={Math.round(size.fontSize * NET_LINES)}
+                  height={chartHeight}
                   fontSize={size.fontSize}
                   points={role.weeks.map((w) => ({ week: w.week, net: w.net_inventory }))}
                   title={copy.netSvg(roleName(role.role))}

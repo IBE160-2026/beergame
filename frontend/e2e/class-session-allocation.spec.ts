@@ -11,6 +11,9 @@ import { expectAccessible, freshClass, lecturerPage, test } from "./support/clas
  * Each test makes a fresh Class with Students registered by hand through the api. The draw, the
  * stored draft, the lock and the refusals are pinned by `backend/tests/sessions/test_allocation.py`;
  * here the screen. */
+/** Drawing a draft reads and writes the Roster: under a loaded machine it can take over 5 s. */
+const DRAW_TIMEOUT = 15_000;
+
 const copy = nb.sessions;
 const a = copy.allocation;
 const CSRF = { "X-Requested-With": "olspillet" };
@@ -70,7 +73,7 @@ test("opening «Fordeling» draws a draft, shows it, and running it again replac
   expect((await storedAllocation(lecturer, id)).draft).toBeNull();
 
   await opener(lecturer).click();
-  await expect(heading(lecturer, 2)).toBeFocused();
+  await expect(heading(lecturer, 2)).toBeFocused({ timeout: DRAW_TIMEOUT });
   await expect(lecturer.getByText(a.lead(5))).toBeVisible();
   const first = (await storedAllocation(lecturer, id)).draft!;
   expect(first.revision).toBe(1);
@@ -95,7 +98,7 @@ test("opening «Fordeling» draws a draft, shows it, and running it again replac
   await lecturer.getByRole("button", { name: a.close }).click();
   await expect(opener(lecturer)).toBeFocused();
   await opener(lecturer).click();
-  await expect(heading(lecturer, 2)).toBeVisible();
+  await expect(heading(lecturer, 2)).toBeVisible({ timeout: DRAW_TIMEOUT });
   expect((await storedAllocation(lecturer, id)).draft!.id).toBe(first.id);
 
   // «Kjør fordeling på nytt» is secondary; it stores a new draft and tells nobody. «Bekreft
@@ -164,7 +167,7 @@ for (const [who, changes] of [
     });
     await lecturer.goto(`/klasseokter/${id}`);
     await opener(lecturer).click();
-    await expect(heading(lecturer, 1)).toBeFocused();
+    await expect(heading(lecturer, 1)).toBeFocused({ timeout: DRAW_TIMEOUT });
     await expect(lecturer.getByRole("button", { name: a.redraw })).toHaveCount(0);
     await expect(lecturer.getByRole("button", { name: /^Flytt/ })).toHaveCount(0);
     await expect(lecturer.getByText(gameLine((await storedAllocation(lecturer, id)).draft!.games[0]))).toBeVisible();
@@ -223,7 +226,7 @@ for (const vp of SIZES) {
       await lecturer.route(`**/api/class-sessions/${id}/allocation`, (route) => route.fulfill({ json: body }));
       await lecturer.goto(`/klasseokter/${id}`);
       await opener(lecturer).click();
-      await expect(heading(lecturer, 100)).toBeFocused();
+      await expect(heading(lecturer, 100)).toBeFocused({ timeout: DRAW_TIMEOUT });
       const region = lecturer.getByRole("group", { name: a.chartLabel });
       const widths = await region.evaluate((el) => ({
         scroll: el.scrollWidth,
@@ -257,7 +260,7 @@ test("«Bekreft fordeling» commits the draft shown and closes to the confirmed 
   const { id } = await sessionWithStudents(lecturer, 5);
   await lecturer.goto(`/klasseokter/${id}`);
   await opener(lecturer).click();
-  await expect(heading(lecturer, 2)).toBeFocused();
+  await expect(heading(lecturer, 2)).toBeFocused({ timeout: DRAW_TIMEOUT });
   const confirm = lecturer.getByRole("button", { name: a.confirm });
   await expect(confirm).toHaveAccessibleDescription(a.noticeLine);
   await confirm.click();
@@ -269,7 +272,7 @@ test("«Bekreft fordeling» commits the draft shown and closes to the confirmed 
   expect(stored.confirmed).toBe(true);
   // Opened again it shows the confirmed draft, with neither a new draw nor a second confirm.
   await opener(lecturer).click();
-  await expect(heading(lecturer, 2)).toBeFocused();
+  await expect(heading(lecturer, 2)).toBeFocused({ timeout: DRAW_TIMEOUT });
   await expectSeats(lecturer, stored.draft!.games[0]);
   // It says it is confirmed, and when (issue 107).
   const when = osloDayAndTime(stored.confirmed_at!);
@@ -294,7 +297,7 @@ test("a draft drawn again meanwhile is shown, not confirmed", async ({ browser, 
   await lecturer.route("**/api/events", (route) => route.abort());
   await lecturer.goto(`/klasseokter/${id}`);
   await opener(lecturer).click();
-  await expect(heading(lecturer, 2)).toBeFocused();
+  await expect(heading(lecturer, 2)).toBeFocused({ timeout: DRAW_TIMEOUT });
   // A co-owner runs it again in another tab.
   const redrawn = await lecturer.request.post(`/api/class-sessions/${id}/allocation/redraw`, { headers: CSRF });
   const current = ((await redrawn.json()) as Allocation).draft!;
@@ -322,7 +325,7 @@ test("a removed Student's cell reads apart, and the selected frame is 1 px until
   await lecturer.route(`**/api/class-sessions/${id}/allocation`, (route) => route.fulfill({ json: body }));
   await lecturer.goto(`/klasseokter/${id}`);
   await opener(lecturer).click();
-  await expect(heading(lecturer, 3)).toBeFocused();
+  await expect(heading(lecturer, 3)).toBeFocused({ timeout: DRAW_TIMEOUT });
   const removed = lecturer.locator("svg rect[data-seat='removed']");
   await expect(removed).toHaveCount(1);
   await expect(removed).toHaveAttribute("stroke-dasharray", "3 2");
@@ -358,7 +361,7 @@ test("a Student is moved and two swapped by keyboard, before and after the confi
   const { id } = await sessionWithStudents(lecturer, 5);
   await lecturer.goto(`/klasseokter/${id}`);
   await opener(lecturer).click();
-  await expect(heading(lecturer, 2)).toBeFocused();
+  await expect(heading(lecturer, 2)).toBeFocused({ timeout: DRAW_TIMEOUT });
   const first = (await storedAllocation(lecturer, id)).draft!;
 
   // Game 1's first Student is picked with Space; the pick is said, and the button now cancels it.
@@ -397,7 +400,7 @@ test("a Student is moved and two swapped by keyboard, before and after the confi
 
   // After it, a swap still works until the lock; the Class games follow (the api tests pin them).
   await opener(lecturer).click();
-  await expect(heading(lecturer, 2)).toBeFocused();
+  await expect(heading(lecturer, 2)).toBeFocused({ timeout: DRAW_TIMEOUT });
   const when = osloDayAndTime(confirmed.confirmed_at!);
   await expect(lecturer.getByText(a.confirmedOn(when.day, when.time))).toBeVisible();
   const c = confirmed.draft!;
@@ -436,7 +439,7 @@ test("a confirmed allocation opened read-only says it is confirmed, and when", a
   });
   await lecturer.goto(`/klasseokter/${id}`);
   await opener(lecturer).click();
-  await expect(heading(lecturer, 1)).toBeFocused();
+  await expect(heading(lecturer, 1)).toBeFocused({ timeout: DRAW_TIMEOUT });
   const when = osloDayAndTime(stored.confirmed_at!);
   await expect(lecturer.getByText(a.confirmedOn(when.day, when.time))).toBeVisible();
   await expect(lecturer.getByText(gameLine(stored.draft!.games[0]))).toBeVisible();
@@ -454,7 +457,7 @@ for (const vp of SIZES) {
     const { id } = await sessionWithStudents(lecturer, 5);
     await lecturer.goto(`/klasseokter/${id}`);
     await opener(lecturer).click();
-    await expect(heading(lecturer, 2)).toBeFocused();
+    await expect(heading(lecturer, 2)).toBeFocused({ timeout: DRAW_TIMEOUT });
     const first = (await storedAllocation(lecturer, id)).draft!;
     await expectAccessible(lecturer, vp.phone);
     const from = at(first.games[0], studentIndex(first.games[0]));
@@ -481,7 +484,7 @@ test("a move on a draft changed meanwhile is refused, and the current draft is s
   await lecturer.route("**/api/events", (route) => route.abort());
   await lecturer.goto(`/klasseokter/${id}`);
   await opener(lecturer).click();
-  await expect(heading(lecturer, 2)).toBeFocused();
+  await expect(heading(lecturer, 2)).toBeFocused({ timeout: DRAW_TIMEOUT });
   const first = (await storedAllocation(lecturer, id)).draft!;
   const from = at(first.games[0], studentIndex(first.games[0]));
   await lecturer.getByRole("button", { name: pickLabel(from) }).click();

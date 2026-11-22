@@ -22,7 +22,7 @@ const CELL = "py-1 pr-3 text-right tabular-nums lining-nums";
  * Debrief step 4, the Student's own moments (Story 9.7, FR-44, FR-41, UX-DR31, `07-debrief.png`):
  * shown once every reflection question is answered; the api checks the gate. The heading and every
  * sentence are the api's, rendered by code from the stored facts (`ai_generated` false, so no
- * «KI-generert» prefix). Under «Dette så de andre», the line that ties the moments together (Story 9.14):
+ * «KI-generert» prefix). Under the heading, the line that ties the moments together (Story 9.14):
  * the AI's, marked «KI-generert, kan ta feil: «…»» with the note that it can be wrong, or the code's
  * own; whichever the api fixed at this Student's first view. The moments are paged one at a time; «Forrige» and «Neste» move focus to
  * the new moment's heading. Each shows «Dette så du» (the play screen's Graf over tabell at that
@@ -62,15 +62,17 @@ export function MomentsStep({ debrief }: { debrief: Debrief }) {
           <p>{copy.mostlyAiChain}</p>
         </div>
       ) : (
-        <Paged debrief={debrief} moments={moments} />
+        <>
+          <Paged debrief={debrief} moments={moments} />
+        </>
       )}
     </section>
   );
 }
 
 /** The line that ties the moments together (Story 9.14, FR-44): AI text only when `ai_generated`.
- * As `07-debrief.png` draws it: a quiet, smaller line in the moment's column under «Dette så de
- * andre», the same for every moment. */
+ * A muted, smaller line at the top of the moment column (`07-debrief.png`), not a block over the
+ * pager. */
 function Narration({ text }: { text: RenderedText }) {
   const id = useId();
   return (
@@ -127,6 +129,7 @@ function Paged({ debrief, moments }: { debrief: Debrief; moments: Moments }) {
           </div>
         </div>
         <div className={`${LINE} flex min-w-0 flex-col gap-5 text-ink`}>
+          {moments.narration ? <Narration text={moments.narration} /> : null}
           <div>
             <h4 className={LABEL}>{copy.reckoned}</h4>
             <p className="mt-1" data-moment-reckoning="">
@@ -148,7 +151,6 @@ function Paged({ debrief, moments }: { debrief: Debrief; moments: Moments }) {
             ))}
           </div>
           <Others moment={moment} />
-          {moments.narration ? <Narration text={moments.narration} /> : null}
           <Explanation debrief={debrief} />
         </div>
       </div>

@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     SmallInteger,
     Table,
     Text,
@@ -25,6 +26,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from app.modules.games.schemas import (
     DecidedBy,
     Fallback,
+    GameStatus,
     Lifecycle,
     OccupancyReason,
     OccupantKind,
@@ -310,3 +312,30 @@ fact_sets = Table(
 """The facts set of each Seat of a finished Game (Story 9.1, AD-7), written once by
 `games.facts.get_or_create` and never rebuilt: everything that cites facts stores its id. A
 trigger refuses every UPDATE."""
+game_summaries = Table(
+    "game_summaries",
+    metadata,
+    Column("game_id", Uuid, ForeignKey("games.id", ondelete="CASCADE"), primary_key=True),
+    # Copied from the Game, which never changes them, so the overview reads this table alone.
+    Column("class_session_id", Uuid, nullable=True, index=True),
+    Column("game_number", Integer, nullable=True),
+    Column("purpose", Text, nullable=False),
+    # `games.rules.game_status` (AD-2); Epic 8 adds `paused`.
+    Column("status", Text, nullable=False),
+    # The open Week while the Game runs, the finished state's Week once it has finished.
+    Column("week", Integer, nullable=True),
+    # The earliest `wait_started_at` of `waiting_for` (Story 6.14's clock, FR-25).
+    Column("wait_started_at", DateTime(timezone=True), nullable=True),
+    # `[{role, user_id, since}]` in chain order: the Student Seats the Game waits for. Ids only.
+    Column("waiting_for", JSONB, nullable=False),
+    # `[{role, occupant_kind, user_id}]` in chain order, from each Seat's latest occupancy row.
+    Column("occupants", JSONB, nullable=False),
+    # The chain Total cost of the newest stored Week state; NULL before the start.
+    Column("chain_cost", Numeric(14, 4), nullable=True),
+    Column("version", Integer, nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint(_in("status", GameStatus), name="ck_game_summaries_status"),
+)
+"""The Lecturer overview's read model (AD-25, Story 7.1): one row per Game, rewritten by
+`games.commands` in the transaction of every change (`overview.refresh`). The only source of a
+Game's status for lists and overviews. Never a name or an email (AD-14)."""

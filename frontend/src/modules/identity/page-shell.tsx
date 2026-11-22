@@ -4,7 +4,7 @@ import { type ReactNode, useEffect } from "react";
 
 import { AppHeader } from "@/components/app-header";
 import { Breadcrumb, type Crumb } from "@/components/breadcrumb";
-import { ConnectionLine } from "@/components/connection-notice";
+import { ConnectionLine, type LiveLines } from "@/components/connection-notice";
 import { Link } from "@/components/link";
 import { LoadingNote, Skeleton } from "@/components/skeleton";
 import { nb } from "@/copy/nb";
@@ -27,6 +27,7 @@ export function PageShell({
   crumbs,
   header,
   skeleton,
+  liveLines,
   children,
 }: {
   user?: SessionUser;
@@ -40,18 +41,30 @@ export function PageShell({
   header?: ReactNode;
   /** The Skjelett's rows and columns, when the page's real table is known (UX-DR58). */
   skeleton?: { rows: number; columns: number };
+  /** The page's own Tilkoblingslinje wording for its live values (the Oversikt, Story 7.5). */
+  liveLines?: LiveLines;
   children?: ReactNode;
 }) {
   const ready = phase === "ready";
-  // The tab title follows the h1, so a refused page is not titled with the page it refuses.
+  // The tab title follows the h1, so a refused page is not titled with the page it refuses. The
+  // route's own metadata title can stream in after this effect (Next.js streams metadata) and
+  // would name the refused page again: while mounted, the shell sets its title back.
   useEffect(() => {
-    if (title && ready) document.title = `${title} – ${nb.product.name}`;
+    if (!title || !ready) return;
+    const wanted = `${title} – ${nb.product.name}`;
+    const apply = () => {
+      if (document.title !== wanted) document.title = wanted;
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(document.head, { subtree: true, childList: true, characterData: true });
+    return () => observer.disconnect();
   }, [title, ready]);
   return (
     <div className="min-h-dvh">
       {user ? <SessionHeader user={user} /> : <AppHeader />}
       <main className="px-gutter-phone pt-10 pb-16 lg:px-margin-laptop lg:pt-16">
-        <ConnectionLine pageError={phase === "failed"} onRetry={onRetry} updatedAt={updatedAt} />
+        <ConnectionLine pageError={phase === "failed"} onRetry={onRetry} updatedAt={updatedAt} lines={liveLines} />
         {phase === "loading" || phase === "slow" ? (
           <>
             <Skeleton rows={skeleton?.rows} columns={skeleton?.columns} />

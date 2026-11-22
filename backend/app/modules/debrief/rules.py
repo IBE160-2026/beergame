@@ -72,6 +72,8 @@ class Availability:
     game: games.StudentGame
     group_mode: bool = False
     """Story 9.11: the Class session's Debrief mode is Group debrief."""
+    hold: bool = False
+    """Story 9.2: the Class session holds every Debrief until all Class games have finished."""
 
 
 async def available(user: authz.Principal, class_session_id: uuid.UUID) -> Availability | None:
@@ -87,7 +89,7 @@ async def available(user: authz.Principal, class_session_id: uuid.UUID) -> Avail
         judged = await state(s, user.id, class_session_id, found.hold)
     if judged is None:
         return None
-    return Availability(judged, game, found.group)
+    return Availability(judged, game, found.group, found.hold)
 
 
 async def excluded_questions(session: AsyncSession, class_session_id: uuid.UUID) -> set[str]:

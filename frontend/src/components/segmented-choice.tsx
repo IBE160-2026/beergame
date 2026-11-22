@@ -18,7 +18,8 @@ export type SegmentedOption<T extends string> = {
  * a screen reader reads «1 av 2». Each radio covers its whole segment (transparent), so the tap
  * target is the segment (44 px at least); the focus ring is drawn on the segment. An unavailable
  * option keeps its focus (UX-DR8) but never becomes the choice. Four options stand 2 + 2 on a
- * phone, never 3 + 1.
+ * phone, never 3 + 1. Segments that wrap onto a new line (long labels on a phone) keep a gap
+ * between the lines instead of touching.
  */
 export function SegmentedChoice<T extends string>({
   name,
@@ -28,6 +29,7 @@ export function SegmentedChoice<T extends string>({
   onChange,
   describedBy,
   className,
+  inline = false,
 }: {
   name: string;
   legend: string;
@@ -37,17 +39,28 @@ export function SegmentedChoice<T extends string>({
   /** The id of help text for the whole group, such as its scope. */
   describedBy?: string;
   className?: string;
+  /** The legend stands left of the segments, each segment as wide as its text: a compact
+   * control beside a chart (the Oversikt's «Visning», `08-laerer-oversikt.png`). */
+  inline?: boolean;
 }) {
   const quad = options.length === 4;
   return (
-    <fieldset className={cn("m-0 min-w-0 border-0 p-0", className)} aria-describedby={describedBy}>
-      <legend className="mb-field-gap text-label text-ink">{legend}</legend>
-      <div className={cn("flex flex-wrap", quad && "max-sm:grid max-sm:grid-cols-2")}>
+    <fieldset className={cn("m-0 min-w-0 border-0 p-0", inline && "flex-none", className)} aria-describedby={describedBy}>
+      <legend
+        className={cn(
+          "text-label text-ink",
+          inline ? "float-left mr-3 flex min-h-control-height-phone items-center text-caption text-ink-secondary" : "mb-field-gap",
+        )}
+      >
+        {legend}
+      </legend>
+      <div className={cn(inline ? "inline-flex" : "flex flex-wrap gap-y-2", quad && "max-sm:grid max-sm:grid-cols-2 max-sm:gap-y-0")}>
         {options.map((option, i) => (
           <label
             key={option.value}
             className={cn(
-              "relative -ml-px inline-flex min-h-control-height-phone min-w-tap-target-min flex-auto cursor-pointer items-center justify-center border border-ink-muted bg-paper px-5 py-2 text-button text-ink first:ml-0 hover:z-10 hover:border-ink not-has-checked:active:bg-hairline",
+              "relative -ml-px inline-flex min-w-tap-target-min cursor-pointer items-center justify-center border border-ink-muted bg-paper px-5 py-2 text-button text-ink first:ml-0 hover:z-10 hover:border-ink not-has-checked:active:bg-hairline",
+              "min-h-control-height-phone", inline ? "flex-none px-4 py-1" : "flex-auto",
               "has-checked:z-10 has-checked:border-ink has-checked:bg-ink has-checked:text-paper",
               "has-focus-visible:z-20 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ink",
               option.unavailable &&

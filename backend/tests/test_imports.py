@@ -150,8 +150,9 @@ def test_only_ops_imports_messaging_and_nothing_imports_ops():
     """Story 3.5 (AD-9): modules tell people through `platform/notify`, never by importing
     `messaging`; only the sweep (`ops`) and `classes` (delivery state, Story 4.6) call
     `messaging.service`, and only the worker entry point imports `ops`. The app factory mounts
-    the local dev mailbox, `messaging.routes` (Story 3.6), and the provider's webhook,
-    `messaging.webhooks` (Story 4.6)."""
+    the local dev mailbox, `messaging.routes` (Story 3.6), the provider's webhook,
+    `messaging.webhooks` (Story 4.6), and the Meldingsskjema's endpoints,
+    `messaging.message_routes` (Story 7.9)."""
     for path, line, name in imports(APP):
         inside = {
             folder: (APP / "modules" / folder) in path.parents
@@ -161,6 +162,7 @@ def test_only_ops_imports_messaging_and_nothing_imports_ops():
             mounts_routes = path == APP / "main.py" and name in (
                 "app.modules.messaging.routes",
                 "app.modules.messaging.webhooks",
+                "app.modules.messaging.message_routes",
             )
             assert mounts_routes or (
                 (inside["ops"] or inside["classes"])

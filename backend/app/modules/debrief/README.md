@@ -185,7 +185,8 @@ The Debrief (Epic 9, FR-41 to FR-47, AD-21). Never imports `modules/players`
   in 9.11. `move_on` commits its settle before judging the caller.
 - Sweep: `debrief.dropouts` (`service.due_dropouts`, database time) → `commands.leave(dropout=True)`;
   `debrief.fallback` (`service.due_fallbacks`: shared, not run, pointer < 4,
-  `fallback_due_at` = the Game's finish time + 48 h, stored at the open) →
+  `fallback_due_at` = the Game's finish time + 48 h, stored at the open; in a held Class
+  session the first open + 48 h, so a late release does not fall back at once) →
   `commands.open_personal_fallback(debrief_id)`: once, each Student of the game who has not
   finished goes alone and gets a `debrief_fallback` notice (digest). Registry `debrief.leave` →
   `debrief`; `debrief.open_personal_fallback` → `debrief`, `user`.

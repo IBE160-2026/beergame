@@ -16,6 +16,7 @@ from app.modules.debrief import routes as debrief_routes
 from app.modules.identity import routes as identity_routes
 from app.modules.identity import seed as identity_seed
 from app.modules.identity import service as identity_service
+from app.modules.messaging import message_routes
 from app.modules.messaging import routes as messaging_routes
 from app.modules.messaging import webhooks as messaging_webhooks
 from app.modules.sessions import dev as sessions_dev
@@ -107,6 +108,7 @@ def create_app() -> FastAPI:
     app.include_router(sessions_routes.router)
     app.include_router(tests_routes.router)  # the Starting task (Story 6.3)
     app.include_router(debrief_routes.router)  # the Debrief (Story 9.2)
+    app.include_router(message_routes.router)  # Messages from staff (Story 7.9)
     app.include_router(messaging_webhooks.router)  # the provider's events (Story 4.6), signed
     if get_settings().app_env != "production":
         app.include_router(messaging_routes.router)  # the dev mailbox (Story 3.6), local only
