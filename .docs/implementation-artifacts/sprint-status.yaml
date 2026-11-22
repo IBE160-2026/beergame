@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-17-2026 12:28
-last_updated: 11-22-2026 05:57
+last_updated: 11-22-2026 06:03
 project: beergame
 project_key: NOKEY
 tracking_system: file-system
@@ -171,7 +171,7 @@ development_status:
   8-11-mark-a-class-game-as-i-rommet-during-a-lab-hour: done
   8-12-fill-every-waited-for-seat-in-one-action: done
   8-13-get-an-email-when-the-game-waits-for-your-order: done
-  8-14-finish-every-unfinished-class-game-at-the-play-deadline: in-progress
+  8-14-finish-every-unfinished-class-game-at-the-play-deadline: done
   epic-8-retrospective: optional
 
   epic-9: done
