@@ -2808,6 +2808,11 @@
             ],
             "title": "Game Number"
           },
+          "replay": {
+            "default": false,
+            "title": "Replay",
+            "type": "boolean"
+          },
           "roles": {
             "items": {
               "$ref": "#/components/schemas/InsightRoleOut"

@@ -456,6 +456,8 @@ export const nb = {
         /** Story 10.4: the way to the running Replay, at its open Uke; the spine's line as a
          * button label, without the full stop. */
         resume: (week: number) => `Fortsett Replay, Uke ${week}`,
+        /** Story 10.5: the finished Replay, read again on its own screen. [ASSUMPTION] */
+        view: "Se Replay",
         failed: "Replay ble ikke startet. Prøv igjen.",
         errors: {
           quiz_required: "Bestå Debrief-quizen først.",
@@ -1741,6 +1743,14 @@ export const nb = {
          * how many remain. [ASSUMPTION] */
         held: "Debriefen åpner når alle Klassespillene er ferdige.",
       },
+      /** «Replay er ferdig» (Story 10.5, FR-50, UX-DR64, EXPERIENCE.md → Replay, Finished): the
+       * spine's title, «Totalkostnad» and button; the note under the total is [ASSUMPTION]. */
+      replayEnd: {
+        title: "Replay er ferdig",
+        totalLabel: "Totalkostnad",
+        totalNote: (role: string) => `${role}, to kostnadsarter, hele Replay.`,
+        toWalkthrough: "Gå til gjennomgangen",
+      },
       /** Ordrefelt (Story 6.10, DESIGN.md → Ordrefelt, UX-DR20). The label is the spine's; the
        * Veiledet uke line is [ASSUMPTION] draft copy. It never says how many Veiledede uker are
        * left (FR-14): the briefing told that. */
@@ -2874,6 +2884,8 @@ export const nb = {
     crumb: (game: string) => game,
     /** «Spill 2» as the page heading and tab title. */
     title: (number: number | null) => gameName(number),
+    /** Story 10.5 (FR-34): a Student's Replay on Spillinnsikt, labelled as one. [ASSUMPTION] */
+    replayTitle: "Replay",
     status: {
       waiting: "Venter",
       running: "Pågår",
@@ -2895,6 +2907,8 @@ export const nb = {
     links: {
       explanation: "Forklaring",
       debrief_summary: "Debrief-sammendrag",
+      /** Story 10.5: the Student's Replay, from their Seat on the Class game. */
+      replay: "Replay",
     } as Record<string, string>,
     /** A link kind with no words of its own yet. [ASSUMPTION] */
     otherLink: "Åpne",

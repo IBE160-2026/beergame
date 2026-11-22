@@ -439,6 +439,12 @@ async def game_class_info(
     return game["class_session_id"], game["game_number"], game["lifecycle"] == Lifecycle.FINISHED
 
 
+def _own_round(rules: GamePolicy) -> bool:
+    """Whether Games of this policy are a Student's own round outside the Class games: of a Class
+    session, without a number, and no Lecturer plays it — the Replay (Stories 10.4, 10.5)."""
+    return rules.class_session_game and not rules.game_number and not rules.played_by_staff
+
+
 async def own_game(
     session: AsyncSession, user_id: uuid.UUID, game_id: uuid.UUID
 ) -> StudentGame | None:
@@ -449,7 +455,7 @@ async def own_game(
     if game is None or game["class_session_id"] is None:
         return None
     rules = policy(game["purpose"])
-    if rules.played_by_staff or not rules.game_number:
+    if rules.played_by_staff or _own_round(rules):
         # A Lecturer's test Game (Story 6.20) or a Student's Replay (Story 10.4): theirs while they
         # hold its Seat; no Class game of the session is ever one (`student_game` leaves it out).
         role = await repo.held_role(session, game_id, user_id)
@@ -462,7 +468,7 @@ async def own_game(
             role=role,
             pre_play_gate=rules.pre_play_gate,
             test_game=rules.played_by_staff,
-            replay=not rules.played_by_staff,
+            replay=_own_round(rules),
             projection=rules.projection,
         )
     found = await student_game(session, user_id, game["class_session_id"])
@@ -800,6 +806,10 @@ class ClassGameHead:
     class_session_id: uuid.UUID | None
     listed: bool
     version: int
+    insight: bool = False
+    """Whether its Class's staff open it on Spillinnsikt (`games.policy` `staff_insight`)."""
+    replay: bool = False
+    """Whether it is a Student's Replay, labelled so on Spillinnsikt (Story 10.5)."""
 
 
 @dataclass(frozen=True)
@@ -827,11 +837,14 @@ async def class_game_head(session: AsyncSession, game_id: uuid.UUID) -> ClassGam
     game = await repo.get_game(session, game_id)
     if game is None:
         return None
+    rules = policy(game["purpose"])
     return ClassGameHead(
         game_id=game["id"],
         class_session_id=game["class_session_id"],
-        listed=str(game["purpose"]) in purposes_with("lecturer_overview"),
+        listed=rules.lecturer_overview,
         version=game["version"],
+        insight=rules.staff_insight,
+        replay=_own_round(rules),
     )
 
 

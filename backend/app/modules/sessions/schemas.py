@@ -1096,6 +1096,8 @@ class GameInsightOut(BaseModel):
     class_name: str
     session_number: int
     game_number: int | None
+    replay: bool = False
+    """A Student's Replay (Story 10.5, FR-34): no game number; the page labels it «Replay»."""
     status: GameStatus
     version: int
     weeks_total: int | None

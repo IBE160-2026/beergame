@@ -118,3 +118,10 @@ def test_the_replay_row_snapshots_at_creation_and_only_it_has_the_projection():
     assert purposes_with("projection") == ["replay"]
     for column in ("inactivity_takeover", "pause", "play_deadline_playout", "lecturer_overview"):
         assert "replay" not in purposes_with(column)  # type: ignore[arg-type]
+
+
+def test_staff_open_class_games_and_replays_on_spillinnsikt_and_nothing_else():
+    """Story 10.5 (FR-34, AD-13): the Replay is no Class game, yet its Class's staff open it on
+    Spillinnsikt; a Lecturer's test Game and a simulation never."""
+    assert purposes_with("staff_insight") == ["class", "replay"]
+    assert set(purposes_with("lecturer_overview")) <= set(purposes_with("staff_insight"))

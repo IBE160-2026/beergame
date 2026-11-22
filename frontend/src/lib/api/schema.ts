@@ -3643,6 +3643,11 @@ export interface components {
             game_id: string;
             /** Game Number */
             game_number: number | null;
+            /**
+             * Replay
+             * @default false
+             */
+            replay: boolean;
             /** Roles */
             roles: components["schemas"]["InsightRoleOut"][];
             /** Seats */

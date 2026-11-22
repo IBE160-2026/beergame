@@ -984,6 +984,8 @@ async def finished_student_seats(
         )
         .where(
             games.c.class_session_id.is_not(None),
+            # Class games only: a finished Replay or test Game has no Debrief (Story 10.5).
+            _listed(),
             game_weeks.c.created_at > finished_after,
             game_weeks.c.created_at <= finished_before,
             held,

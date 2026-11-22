@@ -15,7 +15,7 @@ import { gamePath } from "@/modules/identity/homes";
 import { enrolledSessionsKey } from "@/modules/sessions/api";
 
 import { type ReplayGame, type StudentReplay, startReplay } from "./api";
-import { replayTitle, resumeWeek } from "./replay";
+import { finishedReplay, replayTitle, resumeWeek } from "./replay";
 
 const copy = nb.homes.student.replay;
 const LINE = "text-body-phone text-ink lg:text-body";
@@ -27,7 +27,8 @@ const LINE = "text-body-phone text-ink lg:text-body";
  * once and opens its play screen, so the Student never meets an empty Seat; a Replay stored but not
  * started shows its Seats above the button. Once started: «Replay · Du er Grossist», its Setene,
  * every AI player «KI-spiller» in text from the first view, and while it runs «Fortsett Replay,
- * Uke 9» to the play screen at its open Uke. After the Testfrist with no Replay, nothing shows
+ * Uke 9» to the play screen at its open Uke; once finished, the Lenke «Se Replay» to its end
+ * screen (Story 10.5). After the Testfrist with no Replay, nothing shows
  * here; Stegene says the step is not done. The api decides each state (AD-10).
  */
 export function ReplayBlock({
@@ -48,6 +49,14 @@ export function ReplayBlock({
         {replayTitle(replay)}
       </h3>
       {replay.game && week !== null ? <ResumeAction game={replay.game} week={week} primary={primary} /> : null}
+      {replay.game && finishedReplay(replay) ? (
+        // Story 10.5: the finished Replay is read again on its screen, which takes no Order.
+        <p className="mt-3">
+          <Link href={gamePath(replay.game.id)} standalone>
+            {copy.view}
+          </Link>
+        </p>
+      ) : null}
       {replay.game ? <ReplaySeats game={replay.game} titleId={`${titleId}-seats`} /> : null}
       {replay.can_start ? <StartAction sessionId={sessionId} primary={primary} /> : null}
     </section>

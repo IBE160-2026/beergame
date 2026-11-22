@@ -20,6 +20,34 @@ async def replay_game(
     )
 
 
+async def replay_owner(
+    session: AsyncSession, game_id: uuid.UUID
+) -> tuple[uuid.UUID, uuid.UUID] | None:
+    """The Student and Class session whose Replay `game_id` is, or None for any other Game."""
+    row = (
+        await session.execute(
+            select(replays.c.user_id, replays.c.class_session_id).where(
+                replays.c.game_id == game_id
+            )
+        )
+    ).first()
+    return None if row is None else (row[0], row[1])
+
+
+async def replay_games(
+    session: AsyncSession, user_ids: list[uuid.UUID], class_session_id: uuid.UUID
+) -> dict[uuid.UUID, uuid.UUID]:
+    """The Replay Game of each of these Students in the Class session, by Student; one read."""
+    if not user_ids:
+        return {}
+    result = await session.execute(
+        select(replays.c.user_id, replays.c.game_id).where(
+            replays.c.class_session_id == class_session_id, replays.c.user_id.in_(user_ids)
+        )
+    )
+    return {user_id: game_id for user_id, game_id in result.all()}
+
+
 async def insert_replay(
     session: AsyncSession, user_id: uuid.UUID, class_session_id: uuid.UUID, game_id: uuid.UUID
 ) -> bool:

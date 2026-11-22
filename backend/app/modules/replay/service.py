@@ -27,7 +27,15 @@ from app.modules.sessions import service as sessions
 from app.platform import auth, authz, events
 from app.platform.db import get_sessionmaker
 
-__all__ = ["ReplayRefused", "Started", "replay_game_of", "start"]
+__all__ = [
+    "REPLAY_LINK",
+    "ReplayRefused",
+    "Started",
+    "insight_links",
+    "insight_path",
+    "replay_game_of",
+    "start",
+]
 
 log = structlog.get_logger(__name__)
 
@@ -62,6 +70,61 @@ async def replay_game_of(
 
 
 sessions.register_replay_game(replay_game_of)
+
+
+async def _record_replay_step(session: AsyncSession, finished: games_service.FinishedGame) -> None:
+    """The finish hook (Story 10.5, FR-48, AD-16): when the finished Game is a Student's Replay —
+    the one their `replays` row names — record their `replay` step at database time, in the
+    finishing transaction, which unlocks the Individual test. `record_step` stores it once and
+    emits `user:<id>` and `session:<id>`, so Stegene moves on without reload (AD-8). Its time,
+    against the Debrief deadline, is what lateness is read from (FR-18)."""
+    owner = await repo.replay_owner(session, finished.game_id)
+    if owner is None:
+        return
+    user_id, class_session_id = owner
+    at = await games_service.database_now(session)
+    if await progress.record_step(
+        user_id, class_session_id, progress.Step.REPLAY, at, within=session
+    ):
+        log.info("replay_finished", game_id=str(finished.game_id))
+
+
+games_service.on_game_finished("replay.step", _record_replay_step)
+
+REPLAY_LINK = "replay"
+"""The kind of the link from a Student's Seat on their Class game's Spillinnsikt to their Replay."""
+
+
+def insight_path(class_session_id: object, game_id: object) -> str:
+    """Spillinnsikt of a Game in the web app (the staff page `/klasseokter/…/oversikt/spill/…`)."""
+    return f"/klasseokter/{class_session_id}/oversikt/spill/{game_id}"
+
+
+async def insight_links(
+    session: AsyncSession, game_id: uuid.UUID
+) -> list[games_service.InsightLink]:
+    """On a Class game's Spillinnsikt, a link from each Student-held Seat to that Student's Replay
+    in the Class session, where they have one (Story 10.5, FR-34): the way staff reach it, since
+    the Oversikt does not list it. Spillinnsikt gives links to Student-held Seats only (Story
+    7.7), like the Debrief's. None on any other Game. Ids only (AD-14)."""
+    found = await games_service.get_game(str(game_id))
+    if found is None or found.class_session_id is None:
+        return []
+    if not games_service.policy(found.purpose).lecturer_overview:
+        return []
+    held = {uuid.UUID(seat.user_id): seat.role for seat in found.seats if seat.user_id}
+    replays = await repo.replay_games(session, list(held), uuid.UUID(found.class_session_id))
+    return [
+        games_service.InsightLink(
+            role=held[user_id],
+            kind=REPLAY_LINK,
+            href=insight_path(found.class_session_id, replay_game),
+        )
+        for user_id, replay_game in sorted(replays.items(), key=lambda item: str(item[0]))
+    ]
+
+
+games_service.register_insight_links(insight_links)
 
 
 def _replay_snapshot(frozen: dict[str, Any], seed: int, template: ReplayTemplate) -> dict[str, Any]:

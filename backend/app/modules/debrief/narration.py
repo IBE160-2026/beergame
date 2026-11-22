@@ -96,8 +96,11 @@ def enabled_pin(pins: object) -> Mapping[str, Any] | None:
 
 
 async def _defer_on_finish(session: AsyncSession, finished: games.FinishedGame) -> None:
-    """The finish hook: one narration job per Seat a Student held, when the pin is on."""
+    """The finish hook: one narration job per Seat a Student held in a Class game, when the pin
+    is on. A Replay or a Lecturer's test Game has no Debrief (Story 10.5, AD-13)."""
     if finished.class_session_id is None or enabled_pin(finished.pins) is None:
+        return
+    if not games.policy(finished.purpose).lecturer_overview:
         return
     for seat_id in finished.student_seat_ids:
         await jobs.defer(

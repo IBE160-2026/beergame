@@ -16,6 +16,7 @@ import type { SessionUser } from "@/modules/identity/api";
 import { AccessDenied, GuardedPage } from "@/modules/identity/home-page";
 import { classSessionPath, HOME_LINK, HOME_PATH, rulesPath } from "@/modules/identity/homes";
 import { PageLink, PageShell } from "@/modules/identity/page-shell";
+import { ReplayEnd } from "@/modules/replay/replay-end";
 import { classSessionKey } from "@/modules/sessions/api";
 
 import { AllRowsView } from "./all-rows-view";
@@ -35,7 +36,7 @@ import { ChainBandView } from "./chain-band-view";
 import { CostPanel } from "./cost-panel-view";
 import { isCapped } from "./briefing";
 import { GameAction } from "./game-action";
-import { GameEnd, GameEndHeading } from "./game-end";
+import { endTitle, GameEnd, GameEndHeading } from "./game-end";
 import { OrderField } from "./order-field";
 import { lastOrder, parseOrder } from "./order-input";
 import { gameTitle, roleGameText } from "./home";
@@ -125,7 +126,7 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
           ? running
             ? copy.week(shown?.seat_state.week ?? game.week!)
             : finished
-              ? copy.end.title
+              ? endTitle(game)
               : gameTitle(game)
           : undefined
       }
@@ -152,7 +153,12 @@ function PlayView({ gameId, user, updatedAt }: { gameId: string; user: SessionUs
         shown ? (
           <Running game={game} envelope={shown} userId={user.id} allRows={allRows} />
         ) : result ? (
-          <GameEnd game={game} result={result} />
+          // Story 10.5: a Replay ends on its own screen, never the Class game's Debrief line.
+          game.replay ? (
+            <ReplayEnd game={game} result={result} />
+          ) : (
+            <GameEnd game={game} result={result} />
+          )
         ) : running || finished ? null : (
           <NotRunning game={game} />
         )

@@ -24,10 +24,14 @@ export function holderText(holder: Pick<InsightSeat, "holder" | "name">): string
   return holder.name ?? copy.unknownStudent;
 }
 
-/** The words of a Student Seat's links, or the line that none exists yet; nothing for the others. */
-export function linkTexts(seat: InsightSeat): { kind: string; text: string; href: string }[] | string | null {
+/** The words of a Student Seat's links, or the line that none exists yet; nothing for the others.
+ * A Replay (Story 10.5) has no Explanation or Debrief of its own: no line while it has no link. */
+export function linkTexts(
+  seat: InsightSeat,
+  replay = false,
+): { kind: string; text: string; href: string }[] | string | null {
   if (seat.holder !== "student") return null;
-  if (seat.links.length === 0) return copy.noLinks;
+  if (seat.links.length === 0) return replay ? null : copy.noLinks;
   return seat.links.map((link) => ({ kind: link.kind, text: copy.links[link.kind] ?? copy.otherLink, href: link.href }));
 }
 

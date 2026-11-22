@@ -22,15 +22,20 @@ const LINE = "text-body-phone lg:text-body";
 
 /** The hero total with a plain space before «kr», so at 200 % text on a phone «kr» wraps to the
  * next line instead of pushing the page sideways; the number itself never breaks. */
-function heroTotal(total: string) {
+export function heroTotal(total: string) {
   return total.endsWith(KRONER) ? `${total.slice(0, -KRONER.length)} kr` : total;
 }
 
-/** The page's heading: «Spillet er ferdig» over «Grossist, Spill 17», as the Topplinje stands. */
+/** The page's heading: «Spillet er ferdig» over «Grossist, Spill 17», as the Topplinje stands; a
+ * Replay's reads «Replay er ferdig» over «Grossist, Replay» (Story 10.5). */
+export function endTitle(game: Pick<MyGame, "replay">): string {
+  return game.replay ? copy.replayEnd.title : copy.end.title;
+}
+
 export function GameEndHeading({ game }: { game: MyGame }) {
   return (
     <div className="min-w-0">
-      <h1 className="text-title-phone text-ink lg:text-title-page">{copy.end.title}</h1>
+      <h1 className="text-title-phone text-ink lg:text-title-page">{endTitle(game)}</h1>
       <p className={`${LINE} mt-1 text-ink-secondary`}>{roleGameText(game)}</p>
     </div>
   );

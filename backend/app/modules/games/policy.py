@@ -52,6 +52,10 @@ class GamePolicy(BaseModel):
     projection: bool
     """Whether the play screen draws the projection of net stock at nå + delay horizon (Story 10.3
     adds the column, Story 10.4 draws it, UX-DR19): only the Replay."""
+    staff_insight: bool
+    """Whether the staff of its Class open it on Spillinnsikt (Story 7.7, FR-62): every Game the
+    Lecturer overview lists, and the Replay, which is no Class game but a Student's own round in
+    the Class session (Story 10.5, FR-34). A Lecturer's test Game and a simulation never."""
 
 
 POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
@@ -71,6 +75,7 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             game_number=False,
             played_by_staff=False,
             projection=False,
+            staff_insight=False,
         ),
         # A Class game (Story 5.9): created when the allocation is confirmed, its snapshot taken
         # at the Class session's lock.
@@ -89,6 +94,7 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             game_number=True,
             played_by_staff=False,
             projection=False,
+            staff_insight=True,
         ),
         # A Lecturer's private test Game (Story 6.20, FR-87): snapshot of its Class session's
         # current settings at creation, the Lecturer in one Seat and AI players in the others. It
@@ -109,6 +115,7 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             game_number=False,
             played_by_staff=True,
             projection=False,
+            staff_insight=False,
         ),
         # A Student's Replay (Story 10.3, FR-48, AD-13): one round alone in the Class game's Role
         # against three AI players, on the Class session's frozen runtime with its own drawn
@@ -130,6 +137,7 @@ POLICIES: Mapping[Purpose, GamePolicy] = MappingProxyType(
             game_number=False,
             played_by_staff=False,
             projection=True,
+            staff_insight=True,
         ),
     }
 )
@@ -148,6 +156,7 @@ BoolColumn = Literal[
     "game_number",
     "played_by_staff",
     "projection",
+    "staff_insight",
 ]
 
 

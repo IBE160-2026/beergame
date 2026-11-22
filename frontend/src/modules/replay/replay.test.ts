@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import { nb } from "@/copy/nb";
+import type { GameResult } from "@/modules/games/api";
+import result from "@/modules/games/fixtures/result-classic.json";
 import { stepItems } from "@/modules/games/home";
 
 import type { StudentReplay } from "./api";
-import { replayTitle, resumeWeek, wantsReplayPrimary } from "./replay";
+import { finishedReplay, replayEnd, replayTitle, resumeWeek, wantsReplayPrimary } from "./replay";
+
+const classic = result as GameResult;
+/** The formatter's narrow spaces as plain ones, so the expectations read as the screen does. */
+const plain = (value: unknown): unknown => JSON.parse(JSON.stringify(value).replace(/[  ]/g, " "));
 
 const STARTED: StudentReplay = {
   can_start: false,
@@ -44,6 +50,20 @@ describe("the Replay on Hjem (Story 10.3)", () => {
     const [none] = stepItems(steps, "s1", { can_start: true, game: null });
     expect(none.href).toBeUndefined();
     expect(none.note).toBe(nb.homes.student.current);
+  });
+
+  it("offers a finished Replay to read again, never as the primary (Story 10.5)", () => {
+    const finished = { ...STARTED, game: { ...STARTED.game!, status: "finished" as const, week: null } };
+    expect(finishedReplay(finished)).toBe(true);
+    expect(finishedReplay(STARTED)).toBe(false);
+    expect(finishedReplay(null)).toBe(false);
+    expect(wantsReplayPrimary(finished)).toBe(false);
+  });
+
+  it("gives «Replay er ferdig» the Student's own Totalkostnad, formatted (Story 10.5)", () => {
+    const model = replayEnd(classic, "wholesaler");
+    expect(plain(model)).toEqual({ total: "553,50 kr", note: "Grossist, to kostnadsarter, hele Replay." });
+    expect(replayEnd({ ...classic, roles: [] }, "wholesaler")).toBeNull();
   });
 
   it("says in Stegene when the Testfrist has passed with no Replay", () => {

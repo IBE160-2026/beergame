@@ -20,3 +20,12 @@ game, against three AI players, under the Class session's Replay scenario.
   Lecturer plays to the Student while they hold its Seat (`replay`, `projection` from the policy),
   `sessions` states its own settings as its rules and no Debrief, refuses a time proposal and the
   Starting task, and puts `projection` in `PlayOut`. Orders only through `place_order`.
+- **Story 10.5:** the finish hook `replay.step` (`games.service.on_game_finished`) records
+  `progress` `replay` at database time in the finishing transaction for the Game a `replays` row
+  names (once; `user:<id>` and `session:<id>`), which unlocks the Individual test. Every worker
+  imports `replay.jobs` (`platform.jobs.TASK_MODULES`), so an AI player's last Order records it
+  too. Spillinnsikt: policy `staff_insight` opens the Replay to its Class's staff (`replay: true`);
+  `insight_links` adds a `replay` link on the Student's Seat of the Class game's Spillinnsikt. The
+  finished-game check is the sweep's `games.verify_finished`, which takes every finished Game.
+  Dev only: `POST /api/dev/class-sessions/{id}/quiz-passed` records the logged-in Student's steps
+  up to `quiz_passed` (for the end-to-end test of a real Replay), never mounted in production.
