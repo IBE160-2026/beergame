@@ -724,7 +724,9 @@ export interface paths {
          *     registered Student nothing is stored. No Game or Seat is created and no Student is told.
          *     Once the Start date has passed a stored draft is still returned, and a draw answers 409
          *     `session_locked` (`{"allocation": "locked"}`). An archived Class answers 409
-         *     `class_archived`.
+         *     `class_archived`. A Control test draws nothing while N registered test students have not
+         *     consented: 409 `consent_missing` (`{"allocation": "consent_missing", "missing": "<N>"}`,
+         *     Story 12.8).
          */
         post: operations["openAllocation"];
         delete?: never;
@@ -752,7 +754,9 @@ export interface paths {
          *     the current one (drawn again or changed), `{"draft": "students_removed"}` when Students in it
          *     have left the Roster, whose Seats the draft now leaves free under a raised revision. 409
          *     `session_locked` (`{"allocation": "locked"}`) once the Start date has passed; 409
-         *     `class_archived` for an archived Class.
+         *     `class_archived` for an archived Class. A Control test answers 409 `consent_missing`
+         *     (`{"allocation": "consent_missing", "missing": "<N>"}`) while N registered test students have
+         *     not consented (Story 12.8).
          */
         post: operations["confirmAllocation"];
         delete?: never;
@@ -2676,8 +2680,9 @@ export interface paths {
          *     moves to it from the Seat they hold, in one request; their own Seat again changes nothing.
          *     409 `seat_taken` (`{"seat": "taken"}`) when another occupant holds it, 422 `invalid_seat`
          *     (`{"seat": "unknown"}`) for a game or Role the session does not have, 409 `session_locked`
-         *     (`{"seat": "locked"}`) once locked, 409 `class_archived` for an archived Class; nothing changes
-         *     then. Not found as the read.
+         *     (`{"seat": "locked"}`) once locked, 409 `class_archived` for an archived Class, 409
+         *     `consent_missing` (`{"seat": "consent_missing"}`) for a test student of a Control test who has
+         *     not consented (Story 12.8); nothing changes then. Not found as the read.
          */
         put: operations["takeSeat"];
         post?: never;
@@ -3278,6 +3283,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/test-student-consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Test Student Consent
+         * @description A test student's decision on the current consent text (Story 12.8, FR-82, AD-27): None
+         *     until they take one. 403 for a User who is no test student.
+         */
+        get: operations["getTestStudentConsent"];
+        /**
+         * Decide Test Student Consent
+         * @description «Jeg samtykker» or «Nei takk» on Hjem (Story 12.8): one row with the User, the time and the
+         *     text version read. The decision held already changes nothing. 409 `consent_text_changed` when
+         *     `text_version` is not the current text (`fields.text_version`), 409 `consent_given` for a
+         *     decline after consent (`fields.decision`). 403 for a User who is no test student.
+         */
+        put: operations["decideTestStudentConsent"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3577,6 +3610,11 @@ export interface components {
             confirmed: boolean;
             /** Confirmed At */
             confirmed_at: string | null;
+            /**
+             * Consent Missing
+             * @default 0
+             */
+            consent_missing: number;
             draft: components["schemas"]["AllocationDraftOut"] | null;
             /**
              * Method
@@ -4310,6 +4348,38 @@ export interface components {
              */
             result: "right" | "partly" | "wrong" | "not_answered";
         };
+        /**
+         * ConsentIn
+         * @description A test student's decision on the consent text they read (Story 12.8).
+         */
+        ConsentIn: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "given" | "declined";
+            /** Text Version */
+            text_version: string;
+        };
+        /**
+         * ConsentOut
+         * @description The test student's decision on the current consent text: None until they take one.
+         */
+        ConsentOut: {
+            /** Decided At */
+            decided_at: string | null;
+            /** Decision */
+            decision: ("given" | "declined") | null;
+            /** Text Version */
+            text_version: string;
+        };
+        /**
+         * ConsentStatus
+         * @description A test student's consent as the Roster lists it: «Samtykket», «Takket nei», «Ikke svart»
+         *     (Story 12.8).
+         * @enum {string}
+         */
+        ConsentStatus: "given" | "declined" | "pending";
         /**
          * ControlTestConfigOut
          * @description A model config: its name and model version; `default` for the active default.
@@ -6706,6 +6776,7 @@ export interface components {
          */
         RegistrationOut: {
             bounce_class?: components["schemas"]["BounceClass"] | null;
+            consent?: components["schemas"]["ConsentStatus"] | null;
             /** Email */
             email: string;
             /**
@@ -6718,6 +6789,11 @@ export interface components {
             /** Remindable */
             remindable: boolean;
             status: components["schemas"]["RegistrationStatus"];
+            /**
+             * Test Student
+             * @default false
+             */
+            test_student: boolean;
         };
         /**
          * RegistrationStatus
@@ -7155,7 +7231,7 @@ export interface components {
             /** First Row */
             first_row?: number | null;
             /** Reason */
-            reason: components["schemas"]["AddressProblem"] | ("duplicate" | "on_roster");
+            reason: components["schemas"]["AddressProblem"] | ("duplicate" | "on_roster" | "not_test_student" | "address_unavailable");
             /** Row Number */
             row_number: number;
             /** Value */
@@ -8541,6 +8617,11 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Is Test Student
+             * @default false
+             */
+            is_test_student: boolean;
             /** Name */
             name: string;
             /** Roles */
@@ -17414,6 +17495,104 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getTestStudentConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    decideTestStudentConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

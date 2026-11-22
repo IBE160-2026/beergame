@@ -36,9 +36,28 @@ users = Table(
     Column("session_version", Integer, nullable=False, server_default=text("0")),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    # A test student (Story 12.8, AD-27): set when the User is created from a Control test's
+    # Roster, never changed after. Written and read through `service` only.
+    Column("is_test_student", Boolean, nullable=False, server_default=text("false")),
     CheckConstraint("email = lower(btrim(email))", name="ck_users_email_normalised"),
 )
 """One row per account; exactly one User per e-mail (FR-4)."""
+
+test_student_consents = Table(
+    "test_student_consents",
+    metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("user_id", Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True),
+    Column("decision", Text, nullable=False),
+    # The version of the consent text the test student read (`service.CONSENT_TEXT_VERSION`).
+    Column("text_version", Text, nullable=False),
+    Column("decided_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("decision IN ('given', 'declined')", name="ck_test_student_consents_decision"),
+    CheckConstraint("text_version <> ''", name="ck_test_student_consents_text_version"),
+)
+"""One row per decision a test student takes on Hjem (Story 12.8, FR-82, AD-27): `given` or
+`declined`, the text version they read and the time (the api's clock). The newest row of the
+current text version is the User's decision. Personal data; deleted with the User."""
 
 user_roles = Table(
     "user_roles",

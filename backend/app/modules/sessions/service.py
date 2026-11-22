@@ -271,6 +271,14 @@ class AllocationConfirmed(_FieldsError):
     code = "allocation_confirmed"
 
 
+class ConsentMissing(_FieldsError):
+    """A Control test's allocation while registered test students have not consented (409
+    `consent_missing`, Story 12.8): `{"allocation": "consent_missing", "missing": "<N>"}`, or
+    `{"seat": "consent_missing", "missing": "1"}` for the Student's own «Ta setet»."""
+
+    code = "consent_missing"
+
+
 class InvalidMove(_FieldsError):
     """A move or swap that the draft cannot take (422 `invalid_move`, Story 5.10): `{"to":
     "same"}`, `{"from"|"to": "unknown"}` (no such game in the draft), `{"from": "empty"}` (no
@@ -3680,6 +3688,30 @@ SEAT_ORDER: tuple[Role, ...] = tuple(reversed(ROLES))
 """The Seats of a Class game as the preview lists them: Fabrikk first, Detaljist last."""
 
 
+async def _without_consent(
+    row: Mapping[str, Any],
+    students: list[uuid.UUID],
+    session: AsyncSession | None = None,
+) -> list[uuid.UUID]:
+    """Those of `students` a Control test may not seat yet: no consent given on the current text
+    (Story 12.8, FR-82, AD-27). None for a course."""
+    if row["kind"] != authz.CONTROL_TEST_KIND or not students:
+        return []
+    async with reading(session) as s:
+        given = await identity.consented_users(s, students)
+    return [student for student in students if student not in given]
+
+
+async def _seatable(
+    row: Mapping[str, Any],
+    students: list[uuid.UUID],
+    session: AsyncSession | None = None,
+) -> list[uuid.UUID]:
+    """`students` less those a Control test may not seat yet, in their order (Story 12.8)."""
+    missing = set(await _without_consent(row, students, session))
+    return [student for student in students if student not in missing]
+
+
 async def _allocation_out(
     class_id: uuid.UUID,
     draft: Mapping[str, Any] | None,
@@ -3800,9 +3832,13 @@ async def _out_for(
     if method == "student_choice" and draft is not None and not opened:
         async with get_sessionmaker().begin() as s:
             games = await games_service.class_games(s, row["id"])
-        return await _opened_out(row["class_id"], draft, games, is_open=False, method=method)
-    out = await _allocation_out(row["class_id"], draft, opened)
-    out.method = method
+        out = await _opened_out(row["class_id"], draft, games, is_open=False, method=method)
+    else:
+        out = await _allocation_out(row["class_id"], draft, opened)
+        out.method = method
+    if row["kind"] == authz.CONTROL_TEST_KIND:  # Story 12.8
+        registered = await classes.registered_students(row["class_id"])
+        out.consent_missing = len(await _without_consent(row, registered))
     return out
 
 
@@ -3875,6 +3911,19 @@ async def draw_allocation(
                 error_code=confirmed.code,
             )
             raise confirmed
+        # Story 12.8, after the lock and confirmed refusals: a Control test is drawn only once
+        # every test student has consented.
+        if (draft is None or again) and (missing := await _without_consent(row, students, s)):
+            refused_consent = ConsentMissing(
+                {"allocation": "consent_missing", "missing": str(len(missing))}
+            )
+            log.info(
+                "allocation_refused",
+                class_session_id=str(session_id),
+                error_code=refused_consent.code,
+                missing=len(missing),
+            )
+            raise refused_consent
         if draft is not None and not again:
             pass  # The stored draft, never recomputed.
         elif not students:
@@ -3967,6 +4016,14 @@ async def confirm_allocation(
             changed = AllocationChanged({"draft": "changed"})
             _confirm_refused(session_id, changed.code)
             raise changed
+        if draft["confirmed_at"] is None and (
+            missing := await _without_consent(row, [uuid.UUID(r) for r in registered], s)
+        ):
+            refused_consent = ConsentMissing(
+                {"allocation": "consent_missing", "missing": str(len(missing))}
+            )
+            _confirm_refused(session_id, refused_consent.code)
+            raise refused_consent
         assignments = draft["assignments"]
         kept = _without(assignments, registered)
         if draft["confirmed_at"] is not None:
@@ -4707,7 +4764,7 @@ async def _allocate_at_lock(s: AsyncSession, row: Mapping[str, Any], now: dateti
         return 0
     if not await classes.is_writable(row["class_id"], session=s):
         return 0
-    students = await classes.registered_students(row["class_id"])
+    students = await _seatable(row, await classes.registered_students(row["class_id"]), s)
     if not students:
         if draft is not None:  # a preview of Students who have all left: nothing to show
             await repo.delete_draft(s, row["id"])
@@ -5031,7 +5088,8 @@ async def late_registrants(now: datetime) -> list[tuple[uuid.UUID, uuid.UUID]]:
         if locked and not any(_open_seats(game, locked=True) for game in games):
             continue
         seated = _seated(games)
-        due.extend((row["id"], student) for student in sorted(registered - seated))
+        waiting = await _seatable(row, sorted(registered - seated))
+        due.extend((row["id"], student) for student in waiting)
     return due
 
 
@@ -5109,6 +5167,8 @@ async def seat_late_registrant(
             return False
         if user_id not in await classes.registered_students(row["class_id"]):
             return False
+        if not await _seatable(row, [user_id], s):
+            return False  # Story 12.8: a test student without consent gets no Seat.
         if await games_service.student_seated(s, class_session_id, user_id):
             return False
         locked = is_locked(row, now=now)
@@ -5613,7 +5673,7 @@ async def _draw_at_lock(s: AsyncSession, row: Mapping[str, Any], now: datetime) 
     registered = await classes.registered_students(row["class_id"])
     games = await games_service.class_games(s, row["id"])
     seated = _seated(games)
-    waiting = [student for student in registered if student not in seated]
+    waiting = await _seatable(row, [student for student in registered if student not in seated], s)
     if not waiting:
         return 0
     # A Seat a Student chose and then left the Class with is free to the draw too: the open would
@@ -5788,6 +5848,8 @@ async def take_seat(
             row = locked_row
             if is_locked(row, now=now):
                 raise SessionLocked({"seat": "locked"})
+            if not await _seatable(row, [user.id], s):
+                raise ConsentMissing({"seat": "consent_missing", "missing": "1"})
             games = await games_service.class_games(s, session_id)
             game = next((g for g in games if g.number == wanted.game_number), None)
             target = (

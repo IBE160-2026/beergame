@@ -907,6 +907,9 @@ async def get_allocation(
     return JSONResponse(found.model_dump(mode="json"))
 
 
+_CONSENT_MISSING = "Test students of this Control test have not consented."
+
+
 async def _draw(user: authz.Principal, session_id: str, *, again: bool) -> Response:
     try:
         drawn = await service.draw_allocation(user, _id(session_id), now=auth.utcnow(), again=again)
@@ -916,6 +919,8 @@ async def _draw(user: authz.Principal, session_id: str, *, again: bool) -> Respo
         return error_response(
             409, refused.code, "The allocation is confirmed; it is not drawn again.", refused.fields
         )
+    except service.ConsentMissing as refused:
+        return error_response(409, refused.code, _CONSENT_MISSING, refused.fields)
     if drawn is None:
         raise authz.Forbidden
     return JSONResponse(drawn.model_dump(mode="json"))
@@ -936,7 +941,9 @@ async def open_allocation(
     registered Student nothing is stored. No Game or Seat is created and no Student is told.
     Once the Start date has passed a stored draft is still returned, and a draw answers 409
     `session_locked` (`{"allocation": "locked"}`). An archived Class answers 409
-    `class_archived`."""
+    `class_archived`. A Control test draws nothing while N registered test students have not
+    consented: 409 `consent_missing` (`{"allocation": "consent_missing", "missing": "<N>"}`,
+    Story 12.8)."""
     return await _draw(user, session_id, again=False)
 
 
@@ -975,11 +982,15 @@ async def confirm_allocation(
     the current one (drawn again or changed), `{"draft": "students_removed"}` when Students in it
     have left the Roster, whose Seats the draft now leaves free under a raised revision. 409
     `session_locked` (`{"allocation": "locked"}`) once the Start date has passed; 409
-    `class_archived` for an archived Class."""
+    `class_archived` for an archived Class. A Control test answers 409 `consent_missing`
+    (`{"allocation": "consent_missing", "missing": "<N>"}`) while N registered test students have
+    not consented (Story 12.8)."""
     try:
         confirmed = await service.confirm_allocation(user, _id(session_id), body, now=auth.utcnow())
     except service.SessionLocked as refused:
         return error_response(409, refused.code, "The Class session has started.", refused.fields)
+    except service.ConsentMissing as refused:
+        return error_response(409, refused.code, _CONSENT_MISSING, refused.fields)
     except service.AllocationChanged as refused:
         return error_response(
             409, refused.code, "The allocation is not the one confirmed.", refused.fields
@@ -1520,8 +1531,9 @@ async def take_seat(
     moves to it from the Seat they hold, in one request; their own Seat again changes nothing.
     409 `seat_taken` (`{"seat": "taken"}`) when another occupant holds it, 422 `invalid_seat`
     (`{"seat": "unknown"}`) for a game or Role the session does not have, 409 `session_locked`
-    (`{"seat": "locked"}`) once locked, 409 `class_archived` for an archived Class; nothing changes
-    then. Not found as the read."""
+    (`{"seat": "locked"}`) once locked, 409 `class_archived` for an archived Class, 409
+    `consent_missing` (`{"seat": "consent_missing"}`) for a test student of a Control test who has
+    not consented (Story 12.8); nothing changes then. Not found as the read."""
     found_id = _choice_id(session_id)
     try:
         taken = (
@@ -1531,7 +1543,7 @@ async def take_seat(
         )
     except service.InvalidSeat as refused:
         return error_response(422, refused.code, "No such Seat.", refused.fields)
-    except (service.SeatTaken, service.SessionLocked) as refused:
+    except (service.SeatTaken, service.SessionLocked, service.ConsentMissing) as refused:
         return error_response(409, refused.code, "The Seat cannot be taken.", refused.fields)
     if taken is None:
         return _no_seat_choice()

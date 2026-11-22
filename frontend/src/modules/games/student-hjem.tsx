@@ -12,7 +12,9 @@ import { nb } from "@/copy/nb";
 import { formatNumber } from "@/lib/number-format";
 import { usePageState } from "@/lib/page-state";
 import { enrolledClassesKey, useEnrolledClasses } from "@/modules/classes/api";
+import { useMe } from "@/modules/identity/api";
 import { ASSESSMENT_PATH, gamePath, rulesPath, seatChoicePath } from "@/modules/identity/homes";
+import { TestStudentConsent } from "@/modules/identity/test-student-consent";
 import { MyMessages } from "@/modules/messaging/my-messages";
 import { type EnrolledSession, enrolledSessionsKey, useEnrolledSessions } from "@/modules/sessions/api";
 import { ownLines } from "@/modules/reports/adjustment";
@@ -71,6 +73,8 @@ const copy = nb.homes.student;
  * shows the page-error line with «Prøv igjen» (Story 3.4).
  */
 export function StudentHjem() {
+  // Story 12.8: a test student is asked for consent first, above their Classes.
+  const testStudent = useMe().data?.is_test_student ?? false;
   const classes = useEnrolledClasses();
   const sessions = useEnrolledSessions();
   const classState = usePageState(classes, enrolledClassesKey);
@@ -119,6 +123,7 @@ export function StudentHjem() {
     primaryGame === null ? (listed.find((session) => wantsReplayPrimary(session.replay))?.id ?? null) : null;
   return (
     <>
+      {testStudent ? <TestStudentConsent /> : null}
       <ul className="mt-8 flex max-w-md flex-col border-t border-hairline">
         {items.map((item) => {
           const own = all.filter((session) => session.class_id === item.id);

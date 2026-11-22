@@ -368,6 +368,29 @@ export const nb = {
     startDate: START_DATE_LINE,
     // [ASSUMPTION] Issue #93: Hjem with no Class (none yet, removed, or archived).
     noClass: "Du er ikke med i noen Klasse nå. Når en Faglærer legger deg til, står Klassen her.",
+    /** A test student's consent on Hjem (Story 12.8, FR-82, AD-27). [ASSUMPTION] draft copy for the
+     * founder's review: the purpose and the data controller are the AC's, the wording is not.
+     * `version` is the api's `CONSENT_TEXT_VERSION`: a new text takes a new version. */
+    consent: {
+      version: "kontrolltest-samtykke-1",
+      title: "Samtykke til Kontrolltest",
+      purpose:
+        "Du er teststudent i en Kontrolltest av ØL-spillet. Kontrolltesten måler hvor godt KI-vurderingen av Individuell test stemmer med vurderinger fra mennesker. Den teller aldri med i en Klasseøkt, og du får ingen karakter.",
+      data:
+        "Vi lagrer spillene dine, svarene dine på Individuell test og vurderingene av dem. Navnet ditt og e-postadressen din sendes aldri til KI-tjenesten.",
+      controller: "Operatøren av ØL-spillet er behandlingsansvarlig for opplysningene.",
+      seat: "Du får Sete i Kontrolltesten først når du har samtykket. Sier du nei, er du ikke med.",
+      give: "Jeg samtykker",
+      decline: "Nei takk",
+      giveAfterAll: "Jeg samtykker likevel",
+      /** «Du samtykket 23. november.» */
+      given: (day: string) => `Du samtykket ${day}. Du får Sete når Kontrolltesten fordeles.`,
+      declined: "Du sa nei takk. Du er ikke med i Kontrolltesten og får ikke Sete.",
+      changed: "Samtykketeksten er endret. Last inn siden på nytt og les den nye teksten.",
+      alreadyGiven: "Du har allerede samtykket.",
+      readFailed: "Samtykket kunne ikke hentes.",
+      failed: "Svaret ble ikke lagret. Prøv igjen.",
+    },
     /** Hjem from the Start date (Story 6.1, UX-DR29, EXPERIENCE.md → Hjem (Student), mockup
      * `04-student-hjem.png`). «Spill 17 · Du er Grossist», «Setene», «Stegene», «pågår», «Neste
      * frist», the Replay and Individuell test lock lines are the spine's; the rest is
@@ -669,6 +692,9 @@ export const nb = {
       assistantLead: "Du er Assistent i Klassen. Du ser Klasselista, men Faglærerne endrer den.",
       /** A Control test Class (Story 12.7, FR-82). [ASSUMPTION] */
       controlTest: "Kontrolltest. Teller aldri med i en Klasseøkt.",
+      /** Story 12.8. [ASSUMPTION] */
+      controlTestRoster:
+        "Bare teststudenter kan stå på Klasselista. Hver av dem samtykker på Hjem før de får Sete.",
     },
     /** Archiving a Class (Story 4.10, FR-6, UX-DR56). [ASSUMPTION] draft copy: EXPERIENCE.md asks
      * only that the button states the consequence and that archived Classes are marked in text. */
@@ -818,6 +844,10 @@ export const nb = {
         not_invited: "Ikke invitert ennå",
       },
       invitedUntil: (lastDay: string) => `Invitert, gyldig til og med ${lastDay}`,
+      /** Story 12.8 (UX-DR57): a test student of a Control test is labelled «Teststudent», with
+       * their consent in text. The consent words are [ASSUMPTION] draft copy. */
+      testStudent: "Teststudent",
+      consent: { given: "Samtykket", declined: "Takket nei", pending: "Ikke svart ennå" },
     },
     /** Manual registration and single addresses (Story 4.8, FR-7, FR-9, UX-DR47). «Registrer
      * manuelt» is EXPERIENCE.md's own; the rest is [ASSUMPTION] draft copy. */
@@ -927,6 +957,10 @@ export const nb = {
         two_at: "To @",
         missing_name: "Mangler navn før @",
         missing_domain: "Domene mangler",
+        // [ASSUMPTION] Story 12.8: a Control test's Klasseliste takes test students only, and an
+        // ordinary one none of them.
+        not_test_student: "Adressen har en konto som ikke er teststudent. Bruk en ny adresse.",
+        address_unavailable: "Adressen kan ikke brukes i denne Klassen. Bruk en annen adresse.",
       },
       duplicate: (firstRow: number) => `Dublett av rad ${firstRow}`,
       /** Story 4.4 (FR-7). [ASSUMPTION] */
@@ -1531,6 +1565,10 @@ export const nb = {
       title: "Fordeling",
       notConfirmed: "Ikke bekreftet.",
       nobody: "Ingen registrerte studenter å fordele ennå.",
+      /** A Control test (Story 12.8): no allocation while test students have not consented; the
+       * count is the api's. [ASSUMPTION] */
+      consentMissing: (count: number) =>
+        `${count} ${count === 1 ? "teststudent har" : "teststudenter har"} ikke samtykket ennå. Kontrolltesten fordeles når alle har samtykket, eller når de som sa nei er tatt av Klasselista.`,
       open: "Se fordelingen",
       opening: "Henter fordelingen …",
       close: "Lukk",

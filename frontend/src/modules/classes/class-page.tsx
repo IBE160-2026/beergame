@@ -107,6 +107,7 @@ function ClassView({ classId, user, updatedAt }: { classId: string; user: Sessio
         {controlTest ? (
           <p className="mt-4 max-w-2xl border-l-2 border-axis pl-3 text-body-phone text-ink lg:text-body">
             {nb.classes.page.controlTest}
+            <span className="mt-1 block">{nb.classes.page.controlTestRoster}</span>
           </p>
         ) : null}
         {item?.can_manage && !controlTest ? (

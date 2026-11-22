@@ -238,3 +238,9 @@ sources show it), never counted by the Lecturer revoke blocker, and takes no oth
 (`add_lecturer`/`invite_assistant` raise `ControlTestClass`, 409 `control_test_class`).
 `create_class_in` makes one in the caller's transaction; `class_facts` reads Classes with no
 User's scope for the Kontrolltest list.
+
+Test students (Story 12.8): `label_of_class` tells `identity` whether a Class is a Control test
+(`ClassLabel.control_test`). `identity` then makes a User created from its Roster a test student
+and refuses, on every Roster path, an address whose User is of the other kind (`not_test_student`
+on a Control test, `test_student` on an ordinary Class). «Status etter utsending» carries
+`test_student` and `consent` per row.

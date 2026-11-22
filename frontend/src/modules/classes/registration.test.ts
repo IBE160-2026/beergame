@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Registration } from "./api";
-import { barShares, filterRegistrations, reminderReach, statusLabel } from "./registration";
+import { barShares, filterRegistrations, reminderReach, statusLabel, testStudentLabel } from "./registration";
 
 const item = (email: string, status: Registration["status"], extra: Partial<Registration> = {}): Registration => ({
   id: email,
@@ -9,6 +9,7 @@ const item = (email: string, status: Registration["status"], extra: Partial<Regi
   status,
   last_valid_day: null,
   bounce_class: null,
+  test_student: false,
   remindable: status !== "registered" && status !== "registered_manually",
   ...extra,
 });
@@ -64,5 +65,20 @@ describe("barShares and reminderReach", () => {
       item("d", "unregistered"),
     ];
     expect(reminderReach(items)).toEqual({ reach: 2, leftOut: 1 });
+  });
+});
+
+describe("A test student on a Control test's Klasseliste (Story 12.8)", () => {
+  it("is labelled «Teststudent» with their consent in text, anyone else not at all", () => {
+    expect(testStudentLabel(item("a", "registered"))).toBeNull();
+    expect(testStudentLabel(item("b", "registered", { test_student: true, consent: "pending" }))).toBe(
+      "Teststudent · Ikke svart ennå",
+    );
+    expect(testStudentLabel(item("c", "registered", { test_student: true, consent: "given" }))).toBe(
+      "Teststudent · Samtykket",
+    );
+    expect(testStudentLabel(item("d", "registered", { test_student: true, consent: "declined" }))).toBe(
+      "Teststudent · Takket nei",
+    );
   });
 });

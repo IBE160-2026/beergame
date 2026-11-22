@@ -111,6 +111,7 @@ def create_app() -> FastAPI:
     app.include_router(event_stream.router)  # the live event stream (Story 6.4, AD-8)
     app.include_router(identity_routes.router)
     app.include_router(identity_routes.admin_router)
+    app.include_router(identity_routes.me_router)  # a test student's consent (Story 12.8)
     app.include_router(admin_routes.router)
     app.include_router(classes_routes.router)
     app.include_router(sessions_routes.router)

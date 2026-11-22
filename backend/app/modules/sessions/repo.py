@@ -420,6 +420,7 @@ async def confirmed_sessions(session: AsyncSession) -> list[RowMapping]:
             class_sessions.c.locked_at,
             class_sessions.c.snapshot,
             class_sessions.c.allocation_method,
+            class_sessions.c.kind,
         )
         .join(allocation_drafts, allocation_drafts.c.class_session_id == class_sessions.c.id)
         .where(allocation_drafts.c.confirmed_at.is_not(None))

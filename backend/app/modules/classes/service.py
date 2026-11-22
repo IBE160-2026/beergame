@@ -21,6 +21,7 @@ from app.modules.classes.schemas import (
     ClassListItem,
     ClassListOut,
     ClassOut,
+    ConsentStatus,
     EnrolledClassListOut,
     EnrolledClassOut,
     InstitutionChoice,
@@ -474,6 +475,8 @@ def _status(
         last_valid_day=last_day if status is RegistrationStatus.invited else None,
         bounce_class=BounceClass(bounce) if status is RegistrationStatus.bounced else None,
         remindable=not registered and bounce != BounceClass.hard,
+        test_student=facts.test_student,
+        consent=ConsentStatus(facts.consent) if facts.consent is not None else None,
     )
 
 
@@ -746,7 +749,12 @@ async def label_of_class(session: AsyncSession, class_id: uuid.UUID) -> identity
     row = await repo.class_label(session, class_id)
     if row is None:
         return None
-    return identity.ClassLabel(row["name"], row["course_code"], row["archived_at"] is not None)
+    return identity.ClassLabel(
+        row["name"],
+        row["course_code"],
+        row["archived_at"] is not None,
+        control_test=bool(row["control_test"]),
+    )
 
 
 # The Classes a Student is in (Story 4.5, FR-5, FR-7, AD-12): read through the Student scope only.

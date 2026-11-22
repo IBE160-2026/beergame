@@ -26,6 +26,7 @@ from app.modules.identity.models import (
     roster_entries,
     roster_upload_rows,
     roster_uploads,
+    test_student_consents,
     user_roles,
     users,
 )
@@ -68,10 +69,16 @@ async def insert_user(
     password_hash: str | None,
     is_active: bool,
     roles: list[str],
+    is_test_student: bool = False,
 ) -> None:
     await session.execute(
         users.insert().values(
-            id=user_id, email=email, name=name, password_hash=password_hash, is_active=is_active
+            id=user_id,
+            email=email,
+            name=name,
+            password_hash=password_hash,
+            is_active=is_active,
+            is_test_student=is_test_student,
         )
     )
     if roles:
@@ -1006,9 +1013,12 @@ async def class_roster_facts(session: AsyncSession, class_id: uuid.UUID) -> list
             newest.c.accepted_at,
             newest.c.voided_at,
             asked.c.roster_entry_id.is_not(None).label("renewal_requested"),
+            roster_entries.c.user_id,
+            func.coalesce(users.c.is_test_student, False).label("test_student"),
         )
         .outerjoin(newest, newest.c.roster_entry_id == roster_entries.c.id)
         .outerjoin(asked, asked.c.roster_entry_id == roster_entries.c.id)
+        .outerjoin(users, users.c.id == roster_entries.c.user_id)
         .where(roster_entries.c.class_id == class_id, roster_entries.c.removed_at.is_(None))
         .order_by(roster_entries.c.email)
     )
@@ -1310,3 +1320,73 @@ async def people(session: AsyncSession, ids: list[uuid.UUID]) -> list[RowMapping
         select(users.c.id, users.c.name, users.c.email).where(users.c.id.in_(ids))
     )
     return list(result.mappings())
+
+
+# Test students and their consent (Story 12.8, FR-82, AD-27).
+
+
+async def addresses_of_kind(
+    session: AsyncSession, addresses: list[str], test_student: bool
+) -> set[str]:
+    """Those of the normalised `addresses` that belong to a User whose test student mark is
+    `test_student`."""
+    if not addresses:
+        return set()
+    result = await session.execute(
+        select(users.c.email).where(
+            users.c.email.in_(sorted(set(addresses))),
+            users.c.is_test_student.is_(test_student),
+        )
+    )
+    return set(result.scalars())
+
+
+async def test_student_ids(session: AsyncSession, user_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+    if not user_ids:
+        return set()
+    result = await session.execute(
+        select(users.c.id).where(users.c.id.in_(set(user_ids)), users.c.is_test_student.is_(True))
+    )
+    return set(result.scalars())
+
+
+async def latest_decisions(
+    session: AsyncSession, user_ids: list[uuid.UUID], text_version: str
+) -> dict[uuid.UUID, RowMapping]:
+    """Each User's newest consent decision on `text_version` (by `decided_at`, then id, a
+    UUIDv7), by User id; a User with none is left out."""
+    if not user_ids:
+        return {}
+    result = await session.execute(
+        select(test_student_consents)
+        .where(
+            test_student_consents.c.user_id.in_(set(user_ids)),
+            test_student_consents.c.text_version == text_version,
+        )
+        .ext(distinct_on(test_student_consents.c.user_id))
+        .order_by(
+            test_student_consents.c.user_id,
+            test_student_consents.c.decided_at.desc(),
+            test_student_consents.c.id.desc(),
+        )
+    )
+    return {row["user_id"]: row for row in result.mappings()}
+
+
+async def insert_decision(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    decision: str,
+    text_version: str,
+    decided_at: datetime,
+) -> None:
+    await session.execute(
+        test_student_consents.insert().values(
+            id=uuid.uuid7(),
+            user_id=user_id,
+            decision=decision,
+            text_version=text_version,
+            decided_at=decided_at,
+        )
+    )

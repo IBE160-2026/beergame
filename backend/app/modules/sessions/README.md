@@ -498,3 +498,9 @@ mine}` (names read now) and `can_accept` for a seated Student who neither propos
 - A Control test Class takes no other Class session: `create_session` and `copy_from` (into or out
   of it) raise `classes.ControlTestClass` (409 `control_test_class`, mapped in `main.py`).
 - The Admin works it on the ordinary Epic 4/5 routes as its owner (`authz.CONTROL_TEST_ACTIONS`).
+- Consent before a Seat (Story 12.8): opening, drawing again and confirming a Control test's
+  allocation raise `ConsentMissing` (409 `consent_missing`, `fields.missing` the count) while a
+  registered test student has no `given` decision (`identity.consented_users`); the lock's random
+  allocation, the Student-choice draw at the lock, the late-registrant finder and command and «Ta
+  setet» leave such a Student unseated (`_seatable`). `AllocationOut.consent_missing` carries the
+  count. A course session is never asked.

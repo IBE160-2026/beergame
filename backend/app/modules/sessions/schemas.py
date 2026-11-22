@@ -1021,6 +1021,9 @@ class AllocationOut(BaseModel):
     without_seat: list[AllocationStudentOut] = []
     """Once the session is locked: the registered Students no Class game could seat (Story
     5.13), by name. Empty before the lock, when a late registrant is seated within a minute."""
+    consent_missing: int = 0
+    """A Control test (Story 12.8): how many registered test students have not consented; no
+    allocation is drawn or confirmed while it is above 0. Always 0 for a course."""
 
 
 class AllocationConfirmIn(BaseModel):
