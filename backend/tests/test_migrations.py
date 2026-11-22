@@ -113,6 +113,8 @@ EVALUATION_TABLES = {"evaluation_agreements", "pseudonym_key_fingerprints"}
 """The tables of revision 0066 (Story 15.4)."""
 FREEZE_TABLES = {"ai_model_freezes"}
 """The table of revision 0067 (Story 15.5)."""
+SPEND_ALERT_TABLES = {"ai_spend_alerts"}
+"""The table of revision 0068 (Story 15.7)."""
 HEAD_TABLES = (
     PRE_SESSION_TABLES
     | SESSION_TABLES
@@ -140,8 +142,9 @@ HEAD_TABLES = (
     | ADJUSTMENT_TABLES
     | EVALUATION_TABLES
     | FREEZE_TABLES
+    | SPEND_ALERT_TABLES
 )
-HEAD = "0067"  # 0067 records the study freeze of a model config (Story 15.5)
+HEAD = "0068"  # 0068 records the daily AI spend alerts (Story 15.7)
 
 
 def reset_schema(url: str) -> None:
@@ -275,22 +278,33 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     assert "UNIQUE (key)" in sent["messages_key_key"]
     assert "'class_session'" in sent["ck_messages_recipient_kind"]
 
+    # 0068 (Story 15.7): the daily AI spend alerts, one per day, and back.
+    alerts = constraints(url, "ai_spend_alerts")
+    assert "UNIQUE (day)" in alerts["uq_ai_spend_alerts_day"]
+    assert "spent_usd > alert_usd" in alerts["ck_ai_spend_alerts_money"]
+    assert rows(url, "SELECT 1 FROM pg_indexes WHERE indexname = 'ix_llm_call_started_at'")
+    command.downgrade(cfg, "0067")
+    assert tables(url) == HEAD_TABLES - SPEND_ALERT_TABLES
+    command.upgrade(cfg, "0068")
+    assert tables(url) == HEAD_TABLES
+    command.downgrade(cfg, "0067")
+
     # 0067 (Story 15.5): the study freeze, at most one in force, and back.
     [(index,)] = rows(
         url, "SELECT indexdef FROM pg_indexes WHERE indexname = 'uq_ai_model_freezes_active'"
     )
     assert "UNIQUE" in index and "lifted_at IS NULL" in index
     command.downgrade(cfg, "0066")
-    assert tables(url) == HEAD_TABLES - FREEZE_TABLES
+    assert tables(url) == HEAD_TABLES - FREEZE_TABLES - SPEND_ALERT_TABLES
     command.upgrade(cfg, "0067")
-    assert tables(url) == HEAD_TABLES
+    assert tables(url) == HEAD_TABLES - SPEND_ALERT_TABLES
     command.downgrade(cfg, "0066")
 
     # 0066 (Story 15.4): the evaluation agreements and the key fingerprint, and back.
     command.downgrade(cfg, "0065")
-    assert tables(url) == HEAD_TABLES - EVALUATION_TABLES - FREEZE_TABLES
+    assert tables(url) == HEAD_TABLES - EVALUATION_TABLES - FREEZE_TABLES - SPEND_ALERT_TABLES
     command.upgrade(cfg, "0066")
-    assert tables(url) == HEAD_TABLES - FREEZE_TABLES
+    assert tables(url) == HEAD_TABLES - FREEZE_TABLES - SPEND_ALERT_TABLES
     command.downgrade(cfg, "0065")
 
     # 0065 (Story 15.2): when a User was erased; a Debrief summary takes the one update that

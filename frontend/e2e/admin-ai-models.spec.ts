@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
 import { nb } from "../src/copy/nb";
+import { dayUsdText } from "../src/modules/admin/daily-spend";
 import { loginByApi } from "./support/auth";
 import { expectAccessible, freshClass, lecturerPage, test, VIEWPORTS } from "./support/classes";
 
@@ -128,3 +129,72 @@ test("the Admin freezes the default model for a study and lifts it", async ({ pa
     await noFreeze(page);
   }
 });
+
+/** «KI-kostnad per dag» (Story 15.7, FR-69). The stack's mock model costs nothing and the sweep's
+ * alert is pinned by `backend/tests/ops/test_daily_spend_alert.py`, so the alerted day is served
+ * from a route here to show how the page and the Admin-område read it. */
+for (const vp of VIEWPORTS.filter((v) => !v.text200)) {
+  test(`${vp.name}: the Admin reads the AI spend of a day and the alert of today`, async ({ page }) => {
+    await page.setViewportSize({ width: vp.width, height: vp.height });
+    await loginByApi(page, "admin");
+    const today = (await (await page.request.get("/api/admin/ai/daily-spend")).json()) as {
+      day: string;
+      alert_usd: string | null;
+    };
+    // The stack's amount, as the page writes it (the placeholder unless the stack sets another).
+    const limit = today.alert_usd === null ? null : dayUsdText(today.alert_usd);
+    const [year, month, date] = today.day.split("-").map(Number);
+    const yesterday = new Date(Date.UTC(year, month - 1, date - 1)).toISOString().slice(0, 10);
+
+    // Today, unless `?dag=` names a real day: the total, the alert amount, no later day.
+    await page.goto("/admin/ki-kostnad?dag=ikke-en-dag");
+    const section = page.getByRole("region", { name: copy.day.title });
+    await expect(section.getByText(limit === null ? copy.day.noAlert : copy.day.alertLimit(limit))).toBeVisible();
+    await expect(section.getByText(/USD for .* KI-kall\./)).toBeVisible();
+    const days = section.getByRole("navigation", { name: copy.day.days });
+    await expect(days.getByRole("link", { name: /^Neste dag/ })).toHaveCount(0);
+    await days.getByRole("link", { name: /^Forrige dag/ }).click();
+    await expect(page).toHaveURL((url) => url.searchParams.get("dag") === yesterday);
+    await expect(days.getByRole("link", { name: /^Neste dag/ })).toBeVisible();
+    await expectAccessible(page, vp.phone);
+
+    // An alerted day: the page says when, and the Admin-område shows it under «KI-kostnad».
+    const alerted = {
+      day: today.day,
+      today: today.day,
+      total_usd: "31.25000000",
+      calls: 4210,
+      evaluation_usd: "1.00000000",
+      alert_usd: "25.00",
+      passed: true,
+      alerted_at: new Date().toISOString(),
+      sessions: [
+        {
+          class_session_id: "00000000-0000-7000-8000-000000000001",
+          label: "class-of-2026 · Klasseøkt 1",
+          institution_name: "USN Bø",
+          usd: "30.25000000",
+          calls: 4100,
+        },
+      ],
+      session_count: 1,
+    };
+    const route = /\/api\/admin\/ai\/daily-spend(\?.*)?$/;
+    await page.route(route, (r) => r.fulfill({ json: alerted }));
+    try {
+      await page.goto("/admin");
+      const line = page.getByText(copy.day.homeAlert(`25,00 USD`));
+      await expect(line).toBeVisible();
+      await expectAccessible(page, vp.phone);
+      await page.getByRole("link", { name: copy.day.homeAlertLink }).click();
+      await expect(page).toHaveURL(
+        (url) => url.pathname === "/admin/ki-kostnad" && url.searchParams.get("dag") === today.day,
+      );
+      await expect(section.getByText(copy.day.passed)).toBeVisible();
+      await expect(section.getByRole("cell", { name: /class-of-2026 · Klasseøkt 1/ })).toBeVisible();
+      await expectAccessible(page, vp.phone);
+    } finally {
+      await page.unroute(route);
+    }
+  });
+}

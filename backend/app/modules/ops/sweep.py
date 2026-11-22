@@ -19,6 +19,7 @@ from app.modules.games import commands as games_commands
 from app.modules.games import service as games
 from app.modules.identity import service as identity
 from app.modules.messaging import service as messaging
+from app.modules.ops import spend_alert
 from app.modules.sessions import service as sessions
 from app.platform import ratelimit
 from app.platform.config import get_settings
@@ -315,6 +316,10 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # Story 9.14 (AD-9): defer the narration job of a Seat again when it was lost (no narration
     # stored ten minutes after its Class game finished).
     DueAction("debrief.narration", debrief.due_narrations, debrief.narrate_due),
+    # Story 15.7 (FR-69): once today's AI spend (Europe/Oslo) passes `AI_DAILY_ALERT_USD`, tell
+    # every active Admin once that day, an immediate notice. Before the deadline reminders, which
+    # stay last.
+    DueAction("ops.daily_spend_alert", spend_alert.due_days, spend_alert.alert_due),
     # Story 5.14: remind every Student of a Play, Debrief or Test deadline 24 hours ahead, once
     # per deadline time (FR-18). The reminders join the next minute's digest claim.
     DueAction(

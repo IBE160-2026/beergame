@@ -7,6 +7,8 @@ import { Link } from "@/components/link";
 import { nb } from "@/copy/nb";
 import { usePageState } from "@/lib/page-state";
 import { loginPath } from "@/lib/return-path";
+import { useDailySpend } from "@/modules/admin/api";
+import { dailySpendPath, dayUsdText } from "@/modules/admin/daily-spend";
 
 import { meKey, type SessionUser, useMe } from "./api";
 import {
@@ -87,8 +89,26 @@ function AdminSections() {
         <Link href={ADMIN_AI_COST_PATH} standalone>
           {nb.admin.sections.aiCost}
         </Link>
+        <DailySpendAlert />
       </li>
     </ul>
+  );
+}
+
+/** Today's daily AI spend alert under «KI-kostnad» once the sweep has sent it (Story 15.7, FR-69),
+ * with a Lenke to the day; nothing before it, or when the day's spend cannot be read. */
+function DailySpendAlert() {
+  const spend = useDailySpend();
+  const found = spend.data;
+  if (!found?.alerted_at || found.alert_usd === null) return null;
+  const text = nb.admin.aiCost.day;
+  return (
+    <div className="mb-2 max-w-md">
+      <p className="text-body-phone font-semibold text-ink lg:text-body">{text.homeAlert(dayUsdText(found.alert_usd))}</p>
+      <Link href={dailySpendPath(found.day)} standalone>
+        {text.homeAlertLink}
+      </Link>
+    </div>
   );
 }
 

@@ -4,9 +4,11 @@ import { type FormEvent, useState } from "react";
 
 import { ActionError } from "@/components/action-error";
 import { Button } from "@/components/button";
+import { Link } from "@/components/link";
 import { SelectField } from "@/components/select-field";
 import { LoadingNote, Skeleton } from "@/components/skeleton";
 import { nb } from "@/copy/nb";
+import { formatNumber } from "@/lib/number-format";
 import { usePageState } from "@/lib/page-state";
 import { GuardedPage } from "@/modules/identity/home-page";
 import { ADMIN_AI_COST_PATH, HOME_PATH } from "@/modules/identity/homes";
@@ -14,9 +16,11 @@ import { PageShell } from "@/modules/identity/page-shell";
 
 import { levelName, modelName, percentText, refusalText, usdText, FREEZE_SESSIONS_MAX } from "./ai-models";
 import {
+  type DailySpend,
   type ModelConfig,
   type ModelSession,
   modelConfigsKey,
+  useDailySpend,
   useFreezeModel,
   useLiftFreeze,
   useModelConfigs,
@@ -25,6 +29,7 @@ import {
   usePinModel,
 } from "./api";
 import { formatTime } from "./audit";
+import { dailySpendPath, dayText, dayUsdText, shiftDay } from "./daily-spend";
 import { sessionLabel } from "./evaluation";
 import { formatDate } from "./invitations";
 import { Cell, type RowLine, RowMessage } from "./user-list";
@@ -48,15 +53,18 @@ const TEXT = "text-body-phone text-ink lg:text-body";
  * «KI-kostnad» in the Admin-område, its first page (Story 15.5, FR-68, FR-78, UX-DR57): the model
  * configs with the measured figures of their Effort levels as stored, the model of each Class
  * session (pinned before its Start date, read-only once locked) and the freeze of one model for a
- * learning study, whose button is the page's one primary button. Stories 15.6 and 15.7 add the
- * cost and the limit. Only an Admin sees it; anyone else gets the permission-denied page.
+ * learning study, whose button is the page's one primary button. Story 15.7 adds the AI spend of
+ * a day (`day`, from `?dag=`; today without it) with its alert, first on the page; Story 15.6 adds
+ * the cost per Class session and the limit. Only an Admin sees it; anyone else gets the
+ * permission-denied page.
  */
-export function AiModelsPage() {
+export function AiModelsPage({ day }: { day?: string }) {
   return (
     <GuardedPage page="adminArea">
       {(user, updatedAt) => (
         <PageShell user={user} title={copy.title} updatedAt={updatedAt} crumbs={CRUMBS}>
           <p className="mt-2 max-w-2xl text-body-phone text-ink-secondary lg:text-body">{copy.lead}</p>
+          <DaySection day={day} />
           <Content />
         </PageShell>
       )}
@@ -98,6 +106,104 @@ function Content() {
         </>
       ) : null}
     </>
+  );
+}
+
+/** «KI-kostnad per dag» (Story 15.7, FR-69): the day's AI spend across every scope, the alert
+ * amount or that none is set, the alert when the sweep sent it, the dearest Class sessions and the
+ * simulation runs apart, with links to the days next to it. Read again every minute. */
+function DaySection({ day }: { day?: string }) {
+  const spend = useDailySpend(day);
+  const text = copy.day;
+  return (
+    <section aria-labelledby="day-title" className="mt-10 @container">
+      <h2 id="day-title" className="text-headline text-ink">
+        {text.title}
+      </h2>
+      <p className={LEAD}>{text.lead}</p>
+      {spend.isPending ? <Skeleton heading={false} rows={3} columns={3} /> : null}
+      {spend.isError ? (
+        <p role="alert" className="text-body-phone text-restordre lg:text-body">
+          {nb.system.pageError}
+        </p>
+      ) : null}
+      {spend.data ? <DaySpendView found={spend.data} /> : null}
+    </section>
+  );
+}
+
+export function DaySpendView({ found }: { found: DailySpend }) {
+  const text = copy.day;
+  const columns = text.columns;
+  const previous = shiftDay(found.day, -1);
+  const next = shiftDay(found.day, 1);
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h3 className="text-step-title font-semibold text-ink">{dayText(found.day)}</h3>
+        <p className={`${TEXT} mt-1 tabular-nums lining-nums`}>
+          {text.total(dayUsdText(found.total_usd), formatNumber(found.calls))}
+        </p>
+        <p className={`${TEXT} tabular-nums lining-nums`}>
+          {found.alert_usd === null ? text.noAlert : text.alertLimit(dayUsdText(found.alert_usd))}
+        </p>
+        {found.passed || found.alerted_at ? (
+          <p className={`${TEXT} font-semibold`}>
+            {text.passed}
+            {found.alerted_at ? ` ${text.alerted(formatTime(found.alerted_at))}` : ""}
+          </p>
+        ) : null}
+      </div>
+      {found.sessions.length === 0 ? (
+        <p className={TEXT}>{text.noSessions}</p>
+      ) : (
+        <div>
+          <table className={TABLE}>
+            <thead className="@max-[60em]:hidden">
+              <tr className="border-b border-axis">
+                <th scope="col" className={HEAD}>
+                  {columns.session}
+                </th>
+                <th scope="col" className={HEAD}>
+                  {columns.cost}
+                </th>
+                <th scope="col" className={HEAD}>
+                  {columns.calls}
+                </th>
+              </tr>
+            </thead>
+            <tbody className={BODY}>
+              {found.sessions.map((item) => (
+                <tr key={item.class_session_id} className={ROW}>
+                  <Cell label={columns.session}>
+                    <span className="font-semibold [overflow-wrap:anywhere]">{item.label}</span>
+                    {item.institution_name ? (
+                      <span className="block text-ink-secondary [overflow-wrap:anywhere]">{item.institution_name}</span>
+                    ) : null}
+                  </Cell>
+                  <Cell label={columns.cost}>{dayUsdText(item.usd)}</Cell>
+                  <Cell label={columns.calls}>{formatNumber(item.calls)}</Cell>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {found.session_count > found.sessions.length ? (
+            <p className="mt-2 text-label text-ink-secondary">{text.more(found.sessions.length, found.session_count)}</p>
+          ) : null}
+        </div>
+      )}
+      <p className={`${TEXT} tabular-nums lining-nums`}>{text.evaluation(dayUsdText(found.evaluation_usd))}</p>
+      <nav aria-label={text.days} className="flex flex-col items-start">
+        <Link href={dailySpendPath(previous)} standalone>
+          {text.previous(dayText(previous))}
+        </Link>
+        {next <= found.today ? (
+          <Link href={dailySpendPath(next)} standalone>
+            {text.next(dayText(next))}
+          </Link>
+        ) : null}
+      </nav>
+    </div>
   );
 }
 

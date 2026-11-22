@@ -1,15 +1,17 @@
 """`/api/admin/ai`: «KI-kostnad» for the Admin, its first page (Story 15.5, FR-68, FR-78): the
 model configs with their measured Effort levels, each Class session's model setting, the pin and
-the study freeze."""
+the study freeze; Story 15.7 adds the AI spend of a day and its alert."""
 
 import uuid
+from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse, Response
 
-from app.modules.ops import ai_models
+from app.modules.ops import ai_models, spend_alert
 from app.modules.ops.ai_schemas import (
+    DailySpendOut,
     FreezeIn,
     FreezeStateOut,
     ModelConfigListOut,
@@ -21,6 +23,9 @@ from app.platform import auth, authz
 from app.platform.errors import documented, error_response
 
 router = APIRouter(prefix="/api/admin/ai", tags=["admin"])
+
+EARLIEST_DAY = date(2020, 1, 1)
+"""No AI call is older than the product; an earlier day is refused with 422 (Story 15.7)."""
 
 Manager = Annotated[authz.Principal, Depends(authz.require("ai_models.manage"))]
 
@@ -121,4 +126,27 @@ async def lift(freeze_id: uuid.UUID, user: Manager) -> Response:
         found = await ai_models.lift(user, freeze_id, now=auth.utcnow())
     except ai_models.Refused as refused:
         return _refused(refused)
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    "/daily-spend",
+    response_model=DailySpendOut,
+    responses=documented(401, 403, 422),
+    operation_id="getDailySpend",
+)
+async def daily_spend(
+    _: Manager,
+    day: Annotated[date | None, Query(ge=EARLIEST_DAY, description="A Europe/Oslo day.")] = None,
+) -> Response:
+    """The AI spend of a Europe/Oslo day (today when no `day` is given) across every scope, with
+    its dearest Class sessions by name, the evaluation runs apart, `AI_DAILY_ALERT_USD` (null when
+    not set; for an alerted day the amount it was alerted at) and when the Admins were alerted
+    about the day (Story 15.7, FR-69). A day after today is refused with 422 `day_in_future`."""
+    try:
+        found = await spend_alert.daily_spend(day, now=auth.utcnow())
+    except spend_alert.FutureDay:
+        return error_response(
+            422, "day_in_future", "The day has not come yet.", {"day": "day_in_future"}
+        )
     return JSONResponse(found.model_dump(mode="json"))

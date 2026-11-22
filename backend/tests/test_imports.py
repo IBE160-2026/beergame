@@ -153,7 +153,7 @@ AI_PUBLIC = (
 )
 AI_TABLES = re.compile(
     r"\b(ai_model_configs|ai_budgets|llm_call|effort_measurements|ai_default_pins"
-    r"|ai_model_freezes)\b"
+    r"|ai_model_freezes|ai_spend_alerts)\b"
 )
 """Whole words, so `llm_call_ids` (on the gateway's results) is not a table name."""
 

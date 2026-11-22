@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     # the AI assessment when a budget is created without one.
     ai_default_session_budget_usd: Decimal = Field(Decimal("15.00"), ge=0, decimal_places=8)
     ai_budget_reserve_usd: Decimal = Field(Decimal("1.00"), ge=0, decimal_places=8)
+    # The daily AI spend above which every Admin is alerted once that day (Story 15.7, FR-69).
+    # PLACEHOLDER until the prototype sets it (issue #8): about 50 Students at the USD 0.50 target
+    # in one day. Empty (`AI_DAILY_ALERT_USD=`) means not set: no alert is sent.
+    ai_daily_alert_usd: Decimal | None = Field(Decimal("25.00"), ge=0, decimal_places=8)
 
     # Session and login (AD-11, Story 3.2). Production refuses a missing, default or weak one.
     jwt_secret: str = LOCAL_JWT_SECRET
@@ -172,6 +176,11 @@ class Settings(BaseSettings):
     @classmethod
     def _lower_level(cls, v: object) -> object:
         return v.lower() if isinstance(v, str) else v
+
+    @field_validator("ai_daily_alert_usd", mode="before")
+    @classmethod
+    def _unset_alert(cls, v: object) -> object:
+        return None if isinstance(v, str) and not v.strip() else v
 
     @field_validator("database_url")
     @classmethod

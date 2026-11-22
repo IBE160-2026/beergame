@@ -2179,6 +2179,85 @@
         "title": "CostSum",
         "type": "object"
       },
+      "DailySpendOut": {
+        "description": "The AI spend of one Europe/Oslo day and its alert (Story 15.7, FR-69): decimal strings as\nsummed by `ai.calls.day_spend`, unrounded.",
+        "properties": {
+          "alert_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alert Usd"
+          },
+          "alerted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alerted At"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "evaluation_usd": {
+            "title": "Evaluation Usd",
+            "type": "string"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "session_count": {
+            "title": "Session Count",
+            "type": "integer"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/DaySessionSpendOut"
+            },
+            "title": "Sessions",
+            "type": "array"
+          },
+          "today": {
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          },
+          "total_usd": {
+            "title": "Total Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "today",
+          "total_usd",
+          "calls",
+          "evaluation_usd",
+          "alert_usd",
+          "passed",
+          "alerted_at",
+          "sessions",
+          "session_count"
+        ],
+        "title": "DailySpendOut",
+        "type": "object"
+      },
       "DatesIn": {
         "additionalProperties": false,
         "description": "The four dates as the Lecturer set them, each an instant with its offset or None.",
@@ -2239,6 +2318,48 @@
           "test_deadline"
         ],
         "title": "DatesIn",
+        "type": "object"
+      },
+      "DaySessionSpendOut": {
+        "description": "One Class session's AI spend on the day, named as the Admin names it (no Student data).",
+        "properties": {
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "class_session_id": {
+            "format": "uuid",
+            "title": "Class Session Id",
+            "type": "string"
+          },
+          "institution_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution Name"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "usd": {
+            "title": "Usd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "class_session_id",
+          "label",
+          "institution_name",
+          "usd",
+          "calls"
+        ],
+        "title": "DaySessionSpendOut",
         "type": "object"
       },
       "DebriefMode": {
@@ -11898,6 +12019,79 @@
           }
         },
         "summary": "Pin",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ai/daily-spend": {
+      "get": {
+        "description": "The AI spend of a Europe/Oslo day (today when no `day` is given) across every scope, with\nits dearest Class sessions by name, the evaluation runs apart, `AI_DAILY_ALERT_USD` (null when\nnot set; for an alerted day the amount it was alerted at) and when the Admins were alerted\nabout the day (Story 15.7, FR-69). A day after today is refused with 422 `day_in_future`.",
+        "operationId": "getDailySpend",
+        "parameters": [
+          {
+            "description": "A Europe/Oslo day.",
+            "in": "query",
+            "name": "day",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A Europe/Oslo day.",
+              "title": "Day"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailySpendOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Daily Spend",
         "tags": [
           "admin"
         ]

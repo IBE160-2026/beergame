@@ -2305,6 +2305,25 @@ export const nb = {
     aiCost: {
       title: "KI-kostnad",
       lead: "Hvilken modell LLM-spillerne bruker i hver Klasseøkt. Modellen kan byttes fram til startdatoen. Da låses den og endres ikke mer i den Klasseøkten.",
+      /** The AI spend of one day and its alert (Story 15.7, FR-69). [ASSUMPTION] Story 15.7. */
+      day: {
+        title: "KI-kostnad per dag",
+        lead: "Summen av alle KI-kall den dagen, norsk tid, også simuleringskjøringene. Når summen passerer varselgrensen, får alle Admin ett varsel den dagen, i e-post.",
+        total: (usd: string, calls: string) => `${usd} for ${calls} KI-kall.`,
+        alertLimit: (usd: string) => `Varselgrense: ${usd} per dag.`,
+        noAlert: "Ingen daglig varselgrense er satt. Ingen får varsel om høy KI-kostnad.",
+        passed: "Summen har passert varselgrensen.",
+        alerted: (time: string) => `Varsel sendt til alle Admin ${time}.`,
+        evaluation: (usd: string) => `Simuleringskjøringer: ${usd}.`,
+        noSessions: "Ingen Klasseøkt brukte KI denne dagen.",
+        more: (shown: number, count: number) => `De ${shown} dyreste av ${count} Klasseøkter.`,
+        columns: { session: "Klasseøkt", cost: "KI-kostnad", calls: "KI-kall" },
+        previous: (date: string) => `Forrige dag, ${date}`,
+        next: (date: string) => `Neste dag, ${date}`,
+        days: "Andre dager",
+        homeAlert: (usd: string) => `Dagens KI-kostnad har passert varselgrensen på ${usd}.`,
+        homeAlertLink: "Se dagens KI-kostnad",
+      },
       configs: {
         title: "Modellkonfigurasjoner",
         lead: "Tallene per innsatsnivå er fra kjøringene med bare KI-spillere, slik de ble godkjent. Bare målte innsatsnivåer kan tilbys en Klasseøkt.",

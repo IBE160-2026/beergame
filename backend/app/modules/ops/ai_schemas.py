@@ -2,7 +2,7 @@
 sessions' model settings and the study freeze (Story 15.5, FR-68, FR-78, AD-19)."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -126,3 +126,36 @@ class FreezeStateOut(BaseModel):
     """The freeze in force, or null."""
 
     active: FreezeOut | None
+
+
+class DaySessionSpendOut(BaseModel):
+    """One Class session's AI spend on the day, named as the Admin names it (no Student data)."""
+
+    class_session_id: uuid.UUID
+    label: str
+    """«class-of-1994 · Klasseøkt 2»."""
+    institution_name: str | None
+    usd: str
+    calls: int
+
+
+class DailySpendOut(BaseModel):
+    """The AI spend of one Europe/Oslo day and its alert (Story 15.7, FR-69): decimal strings as
+    summed by `ai.calls.day_spend`, unrounded."""
+
+    day: date
+    today: date
+    """Today in Europe/Oslo, so the page offers no later day."""
+    total_usd: str
+    calls: int
+    evaluation_usd: str
+    """What simulation runs spent, apart from Class sessions (AD-22)."""
+    alert_usd: str | None
+    """`AI_DAILY_ALERT_USD`; null when no daily alert is set."""
+    passed: bool
+    """The day's spend is above the alert amount."""
+    alerted_at: datetime | None
+    """When the sweep alerted the Admins about this day; null when it did not."""
+    sessions: list[DaySessionSpendOut]
+    """The dearest Class sessions, dearest first, at most ten."""
+    session_count: int

@@ -19,7 +19,7 @@ session's row with `set_budget(BudgetScope.class_session(id))`, whose limit defa
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
@@ -30,7 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import config
 from app.ai.db import transaction
-from app.ai.models import budgets
+from app.ai.models import budgets, spend_alerts
 from app.platform.config import get_settings
 
 ScopeKind = Literal["evaluation", "class_session"]
@@ -256,6 +256,53 @@ async def settle(
             updated_at=func.now(),
         )
     )
+
+
+@dataclass(frozen=True)
+class DailyAlert:
+    """The day the AI spend passed `AI_DAILY_ALERT_USD` (Story 15.7, FR-69): the amount and the
+    spend when the sweep found it, and when (the sweep's clock)."""
+
+    id: uuid.UUID
+    day: date
+    alert_usd: Decimal
+    spent_usd: Decimal
+    alerted_at: datetime
+
+
+def _alert(row: Any) -> DailyAlert:
+    return DailyAlert(row.id, row.day, row.alert_usd, row.spent_usd, row.alerted_at)
+
+
+async def record_daily_alert(
+    day: date, alert_usd: Decimal, spent_usd: Decimal, now: datetime, *, session: AsyncSession
+) -> DailyAlert:
+    """Record that `day`'s spend passed `alert_usd`, in the caller's transaction; the first record
+    of a day stands, so a repeat returns it unchanged."""
+    if spent_usd <= alert_usd:
+        raise ValueError("a daily alert records a spend above its amount")
+    await session.execute(
+        insert(spend_alerts)
+        .values(id=uuid.uuid7(), day=day, alert_usd=alert_usd, spent_usd=spent_usd, alerted_at=now)
+        .on_conflict_do_nothing(constraint="uq_ai_spend_alerts_day")
+    )
+    row = (await session.execute(select(spend_alerts).where(spend_alerts.c.day == day))).one()
+    return _alert(row)
+
+
+async def daily_alert(
+    *,
+    day: date | None = None,
+    alert_id: uuid.UUID | None = None,
+    session: AsyncSession | None = None,
+) -> DailyAlert | None:
+    """The alert recorded for `day`, or the one with `alert_id`; None when there is none."""
+    if (day is None) == (alert_id is None):
+        raise ValueError("name the alert by its day or by its id")
+    where = spend_alerts.c.day == day if day is not None else spend_alerts.c.id == alert_id
+    async with transaction(session) as s:
+        row = (await s.execute(select(spend_alerts).where(where))).one_or_none()
+    return None if row is None else _alert(row)
 
 
 async def release(reservation: Reservation) -> None:

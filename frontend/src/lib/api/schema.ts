@@ -90,6 +90,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/ai/daily-spend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daily Spend
+         * @description The AI spend of a Europe/Oslo day (today when no `day` is given) across every scope, with
+         *     its dearest Class sessions by name, the evaluation runs apart, `AI_DAILY_ALERT_USD` (null when
+         *     not set; for an alerted day the amount it was alerted at) and when the Admins were alerted
+         *     about the day (Story 15.7, FR-69). A day after today is refused with 422 `day_in_future`.
+         */
+        get: operations["getDailySpend"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/ai/freeze": {
         parameters: {
             query?: never;
@@ -4032,6 +4055,39 @@ export interface components {
             total_cost: string;
         };
         /**
+         * DailySpendOut
+         * @description The AI spend of one Europe/Oslo day and its alert (Story 15.7, FR-69): decimal strings as
+         *     summed by `ai.calls.day_spend`, unrounded.
+         */
+        DailySpendOut: {
+            /** Alert Usd */
+            alert_usd: string | null;
+            /** Alerted At */
+            alerted_at: string | null;
+            /** Calls */
+            calls: number;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Evaluation Usd */
+            evaluation_usd: string;
+            /** Passed */
+            passed: boolean;
+            /** Session Count */
+            session_count: number;
+            /** Sessions */
+            sessions: components["schemas"]["DaySessionSpendOut"][];
+            /**
+             * Today
+             * Format: date
+             */
+            today: string;
+            /** Total Usd */
+            total_usd: string;
+        };
+        /**
          * DatesIn
          * @description The four dates as the Lecturer set them, each an instant with its offset or None.
          */
@@ -4044,6 +4100,25 @@ export interface components {
             start_at: string | null;
             /** Test Deadline */
             test_deadline: string | null;
+        };
+        /**
+         * DaySessionSpendOut
+         * @description One Class session's AI spend on the day, named as the Admin names it (no Student data).
+         */
+        DaySessionSpendOut: {
+            /** Calls */
+            calls: number;
+            /**
+             * Class Session Id
+             * Format: uuid
+             */
+            class_session_id: string;
+            /** Institution Name */
+            institution_name: string | null;
+            /** Label */
+            label: string;
+            /** Usd */
+            usd: string;
         };
         /**
          * DebriefMode
@@ -8309,6 +8384,56 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getDailySpend: {
+        parameters: {
+            query?: {
+                /** @description A Europe/Oslo day. */
+                day?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailySpendOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

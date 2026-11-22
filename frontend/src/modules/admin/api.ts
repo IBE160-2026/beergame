@@ -433,12 +433,30 @@ export function useRunExport() {
 export type ModelConfig = components["schemas"]["ModelConfigOut"];
 export type ModelSession = components["schemas"]["ModelSessionOut"];
 export type ModelFreezeState = components["schemas"]["FreezeStateOut"];
+export type DailySpend = components["schemas"]["DailySpendOut"];
 
 /** The query keys of «KI-kostnad» (Story 15.5). */
 export const aiCostKey = ["admin", "ai-cost"] as const;
 export const modelConfigsKey = [...aiCostKey, "model-configs"] as const;
 export const modelSessionsKey = [...aiCostKey, "class-sessions"] as const;
 export const modelFreezeKey = [...aiCostKey, "freeze"] as const;
+/** The AI spend of a day (Story 15.7); `undefined` is today. */
+export const dailySpendKey = (day?: string) => [...aiCostKey, "daily-spend", day ?? "today"] as const;
+
+/** How often the day's AI spend is read again while the page is open (Story 15.7). */
+export const DAILY_SPEND_REFETCH_MS = 60_000;
+
+/** The AI spend of a Europe/Oslo day (today without `day`) with its alert (Story 15.7, FR-69),
+ * read again every minute. */
+export function useDailySpend(day?: string) {
+  return useQuery({
+    queryKey: dailySpendKey(day),
+    queryFn: () =>
+      request(() => api.GET("/api/admin/ai/daily-spend", { params: { query: day ? { day } : {} } })),
+    refetchInterval: DAILY_SPEND_REFETCH_MS,
+    retry: false,
+  });
+}
 
 /** Every model config with its measured Effort levels (Story 15.5). */
 export function useModelConfigs() {
