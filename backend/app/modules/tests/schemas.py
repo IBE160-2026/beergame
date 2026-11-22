@@ -360,3 +360,67 @@ class DeadlineExtensionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     test_deadline: AwareDatetime
+
+
+class ComputedCriterionOut(BaseModel):
+    """One coded criterion of an Interactive item as the computed rule scored it (FR-80): met or
+    not, and the computed explanation in words."""
+
+    code: str
+    met: bool
+    explanation: str
+
+
+class ComputedScoreOut(BaseModel):
+    """The computed score of an answer-key or Interactive item (Story 12.2, FR-80), as `tests`
+    stored it at the hand-in: `result` is `right` (full credit), `partly` (some), `wrong` (none) or
+    `not_answered`; an Interactive item carries each criterion. Never recomputed for the view."""
+
+    result: Literal["right", "partly", "wrong", "not_answered"]
+    criteria: list[ComputedCriterionOut]
+
+
+class AiScoreOut(BaseModel):
+    """The AI's overall score of a long-answer or Adapted item (Story 12.2, FR-54): the step on
+    the Scoring guide's five-step scale and its label, or `assessed` false with no step."""
+
+    assessed: bool
+    step: int | None
+    top: int
+    label: str | None
+
+
+class AssessedItemOut(BaseModel):
+    """One item of the Student's «KI-vurdering» in the test's order: its number, type and question
+    (an Adapted item's frozen `wording`), its Item weight and its points (the weight times its
+    share, null while it has no score), and either its computed score or the AI's score."""
+
+    id: str
+    number: int
+    type: Literal["choice", "table", "number", "long", "adapted"]
+    title: str
+    wording: WordingOut | None
+    weight: int
+    points: float | None
+    computed: ComputedScoreOut | None
+    ai: AiScoreOut | None
+
+
+class MyAssessmentOut(BaseModel):
+    """The Student's «KI-vurdering» of their Individual test (Story 12.2, FR-54, FR-55, FR-61):
+
+    - `no_test`: they have no attempt in the Class session;
+    - `not_ready`: the test is not closed yet, or no run of the assessment has finished;
+    - `switched_off`: the Lecturer switched the AI assessment off for the Class session;
+    - `incomplete`: some items have no AI score yet; `items` and `unassessed` (their numbers), no
+      total;
+    - `failed`: no AI assessment could be made; no items, no total;
+    - `ready`: every item scored, with `total` out of `total_max` from `analysis.total_score`.
+
+    There is no pass or fail and no letter. Every number is the api's; the web app adds nothing."""
+
+    state: Literal["no_test", "not_ready", "switched_off", "incomplete", "failed", "ready"]
+    items: list[AssessedItemOut]
+    unassessed: list[int]
+    total: float | None
+    total_max: int | None

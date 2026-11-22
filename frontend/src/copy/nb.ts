@@ -3233,6 +3233,49 @@ export const nb = {
       /** The save refused (`ai_assessment_pinned`). [ASSUMPTION] */
       refused: "KI-vurdering kan ikke endres etter testfristen. Valget er låst.",
     },
+    /** Story 12.2 (FR-54, FR-55, FR-61, UX-DR66): the Student's «KI-vurdering» of their
+     * Individual test. The disclosure, «kommer innen ett døgn» and the switched-off line are the
+     * spine's; the rest is [ASSUMPTION] draft copy for the founder's review. */
+    student: {
+      title: "KI-vurdering",
+      /** The Lenke on Hjem once the test is handed in. [ASSUMPTION] */
+      link: "KI-vurdering",
+      /** First on every view (FR-55). */
+      disclosure: "KI-generert, kan ta feil. Teller ikke. Ingen karakter.",
+      notReady: "KI-vurderingen kommer innen ett døgn etter testfristen.",
+      switchedOff: "Faglærer har slått av KI-vurdering for denne Klasseøkten. Studentrapporten finnes som vanlig.",
+      /** No attempt in the Class session. [ASSUMPTION] */
+      noTest: "Du har ingen levert test i denne Klasseøkten, så det finnes ingen KI-vurdering.",
+      /** Every item has no AI score yet after a run; `numbers` as «3 og 6». [ASSUMPTION] */
+      incomplete: (numbers: string) => `KI-vurderingen er ikke ferdig. Disse oppgavene mangler vurdering: ${numbers}. Derfor er det ingen samlet sum ennå.`,
+      /** The run cap was reached, or no model was pinned. [ASSUMPTION] */
+      failed: "KI-vurderingen kunne ikke lages. De automatisk rettede poengene står i Studentrapporten.",
+      loadFailed: "KI-vurderingen kunne ikke hentes.",
+      /** The item's points of its Item weight: «7,5 av 10 poeng». [ASSUMPTION] */
+      points: (points: string, weight: string) => `${points} av ${weight} poeng`,
+      /** An item still without an AI score. [ASSUMPTION] */
+      notAssessed: "Ikke vurdert ennå",
+      /** The AI's step on the Scoring guide's scale: «KI-vurdering: 3 av 4 (Godt)». [ASSUMPTION] */
+      aiStep: (step: string, top: string, label: string) => `KI-vurdering: ${step} av ${top} (${label})`,
+      /** The computed score of an answer-key or Interactive item. [ASSUMPTION] */
+      computed: {
+        right: "Rettet automatisk: riktig.",
+        partly: "Rettet automatisk: delvis riktig.",
+        wrong: "Rettet automatisk: ikke riktig.",
+        not_answered: "Rettet automatisk: ikke besvart.",
+      },
+      /** One criterion of an Interactive item, before its computed explanation. [ASSUMPTION] */
+      criterionMet: "Oppfylt",
+      criterionNotMet: "Ikke oppfylt",
+      /** The weighted total: «Vektet sum: 72,5 av 100 poeng». [ASSUMPTION] */
+      total: (points: string, max: string) => `Vektet sum: ${points} av ${max} poeng`,
+      /** Under the total. [ASSUMPTION] */
+      totalNote: "Summen er vektet etter oppgavenes vekt. Den teller ikke og er ingen karakter.",
+      /** The list's heading. [ASSUMPTION] */
+      itemsTitle: "Oppgavene",
+      /** «og» between the last two item numbers. */
+      and: "og",
+    },
   },
 
   /** The Oversikt of a Class session (Story 7.1, FR-39, UX-DR40). The headline form, «Oppdatert»,

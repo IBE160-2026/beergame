@@ -12,7 +12,7 @@ import { nb } from "@/copy/nb";
 import { formatNumber } from "@/lib/number-format";
 import { usePageState } from "@/lib/page-state";
 import { enrolledClassesKey, useEnrolledClasses } from "@/modules/classes/api";
-import { gamePath, rulesPath, seatChoicePath } from "@/modules/identity/homes";
+import { ASSESSMENT_PATH, gamePath, rulesPath, seatChoicePath } from "@/modules/identity/homes";
 import { MyMessages } from "@/modules/messaging/my-messages";
 import { type EnrolledSession, enrolledSessionsKey, useEnrolledSessions } from "@/modules/sessions/api";
 import { ownLines } from "@/modules/reports/adjustment";
@@ -30,6 +30,7 @@ import {
   netSentence,
   nextAction,
   stepItems,
+  testHandedIn,
   toWeekText,
 } from "./home";
 import { InRoomLine } from "./in-room-view";
@@ -192,6 +193,14 @@ function SessionBlock({
       {/* Story 10.3: the Replay, once the Debrief quiz is passed. */}
       {session.replay ? <ReplayBlock replay={session.replay} sessionId={session.id} primary={replayPrimary} /> : null}
       <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps, session.id, session.replay)} />
+      {/* Story 12.2: the «KI-vurdering» once the test is handed in; the page says whether it is ready. */}
+      {testHandedIn(session.steps) ? (
+        <p className="mt-3">
+          <Link href={ASSESSMENT_PATH(session.id)} standalone>
+            {nb.assessment.student.link}
+          </Link>
+        </p>
+      ) : null}
       {/* The Student's own Tilrettelegging (Story 8.9): only they read it. */}
       {ownLines(session.adjustment).length > 0 ? (
         <div className="mt-3 flex flex-col gap-1 text-body-phone text-ink-secondary lg:text-body" data-own-adjustment="">

@@ -30,12 +30,13 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, Response
 
 from app.modules.sessions import service as sessions
-from app.modules.tests import attempt, commands, guide, preview, selection, service
+from app.modules.tests import assessed, attempt, commands, guide, preview, selection, service
 from app.modules.tests.schemas import (
     AdaptedPreviewOut,
     AnswerIn,
     DeadlineExtensionIn,
     FinalIn,
+    MyAssessmentOut,
     MyTestOut,
     QuestionSetIn,
     QuestionSetOut,
@@ -275,6 +276,26 @@ async def get_my_test(
         found = await attempt.read(user, _id(session_id), auth.utcnow())
     except commands.ReplayRequired:
         return error_response(403, "replay_required", "Complete the Replay first.")
+    if found is None:
+        raise authz.Forbidden
+    return JSONResponse(found.model_dump(mode="json"))
+
+
+@router.get(
+    f"{_TEST}/assessment",
+    response_model=MyAssessmentOut,
+    responses=documented(401, 403),
+    operation_id="getMyAssessment",
+)
+async def get_my_assessment(
+    session_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("tests.take_own"))],
+) -> Response:
+    """The Student's «KI-vurdering» of their Individual test (Story 12.2, FR-54, FR-55, FR-61):
+    `no_test`, `not_ready`, `switched_off`, `incomplete` (items, the unassessed item numbers, no
+    total), `failed`, or `ready` (items and the weighted total). Counts toward nothing; no pass
+    or fail, no letter. `forbidden` for any session that is not theirs."""
+    found = await assessed.read(user, _id(session_id))
     if found is None:
         raise authz.Forbidden
     return JSONResponse(found.model_dump(mode="json"))

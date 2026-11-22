@@ -2496,7 +2496,8 @@ export interface paths {
         /**
          * Lecturer Home Class Sessions
          * @description The Lærerhjem's «Venter» and «Neste frist» over the User's Classes that are not archived
-         *     (UX-DR56).
+         *     (UX-DR56). The Lærerhjem's policy holds it: the Admin role alone, which reads a Control test
+         *     Class it owns (Story 12.7), does not reach it, and a Control test is never among them.
          */
         get: operations["lecturerHomeClassSessions"];
         put?: never;
@@ -2656,6 +2657,29 @@ export interface paths {
          *     the item, 403 `forbidden` for any session that is not theirs or a test not yet opened.
          */
         put: operations["saveMyTestAnswer"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/class-sessions/{session_id}/test/assessment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Assessment
+         * @description The Student's «KI-vurdering» of their Individual test (Story 12.2, FR-54, FR-55, FR-61):
+         *     `no_test`, `not_ready`, `switched_off`, `incomplete` (items, the unassessed item numbers, no
+         *     total), `failed`, or `ready` (items and the weighted total). Counts toward nothing; no pass
+         *     or fail, no letter. `forbidden` for any session that is not theirs.
+         */
+        get: operations["getMyAssessment"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -3315,6 +3339,21 @@ export interface components {
          */
         AiMode: "llm" | "rule_based";
         /**
+         * AiScoreOut
+         * @description The AI's overall score of a long-answer or Adapted item (Story 12.2, FR-54): the step on
+         *     the Scoring guide's five-step scale and its label, or `assessed` false with no step.
+         */
+        AiScoreOut: {
+            /** Assessed */
+            assessed: boolean;
+            /** Label */
+            label: string | null;
+            /** Step */
+            step: number | null;
+            /** Top */
+            top: number;
+        };
+        /**
          * AllocationConfirmIn
          * @description «Bekreft fordeling» (Story 5.9): the draft the Lecturer is looking at.
          */
@@ -3461,6 +3500,32 @@ export interface components {
             answer: number;
             /** Item Id */
             item_id: string;
+        };
+        /**
+         * AssessedItemOut
+         * @description One item of the Student's «KI-vurdering» in the test's order: its number, type and question
+         *     (an Adapted item's frozen `wording`), its Item weight and its points (the weight times its
+         *     share, null while it has no score), and either its computed score or the AI's score.
+         */
+        AssessedItemOut: {
+            ai: components["schemas"]["AiScoreOut"] | null;
+            computed: components["schemas"]["ComputedScoreOut"] | null;
+            /** Id */
+            id: string;
+            /** Number */
+            number: number;
+            /** Points */
+            points: number | null;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "choice" | "table" | "number" | "long" | "adapted";
+            /** Weight */
+            weight: number;
+            wording: components["schemas"]["WordingOut"] | null;
         };
         /**
          * AuditActor
@@ -4035,6 +4100,34 @@ export interface components {
             label: string;
             /** Value */
             value: number;
+        };
+        /**
+         * ComputedCriterionOut
+         * @description One coded criterion of an Interactive item as the computed rule scored it (FR-80): met or
+         *     not, and the computed explanation in words.
+         */
+        ComputedCriterionOut: {
+            /** Code */
+            code: string;
+            /** Explanation */
+            explanation: string;
+            /** Met */
+            met: boolean;
+        };
+        /**
+         * ComputedScoreOut
+         * @description The computed score of an answer-key or Interactive item (Story 12.2, FR-80), as `tests`
+         *     stored it at the hand-in: `result` is `right` (full credit), `partly` (some), `wrong` (none) or
+         *     `not_answered`; an Interactive item carries each criterion. Never recomputed for the view.
+         */
+        ComputedScoreOut: {
+            /** Criteria */
+            criteria: components["schemas"]["ComputedCriterionOut"][];
+            /**
+             * Result
+             * @enum {string}
+             */
+            result: "right" | "partly" | "wrong" | "not_answered";
         };
         /**
          * ControlTestConfigOut
@@ -5583,6 +5676,35 @@ export interface components {
             role: components["schemas"]["Role"];
             /** Student Orders */
             student_orders: number;
+        };
+        /**
+         * MyAssessmentOut
+         * @description The Student's «KI-vurdering» of their Individual test (Story 12.2, FR-54, FR-55, FR-61):
+         *
+         *     - `no_test`: they have no attempt in the Class session;
+         *     - `not_ready`: the test is not closed yet, or no run of the assessment has finished;
+         *     - `switched_off`: the Lecturer switched the AI assessment off for the Class session;
+         *     - `incomplete`: some items have no AI score yet; `items` and `unassessed` (their numbers), no
+         *       total;
+         *     - `failed`: no AI assessment could be made; no items, no total;
+         *     - `ready`: every item scored, with `total` out of `total_max` from `analysis.total_score`.
+         *
+         *     There is no pass or fail and no letter. Every number is the api's; the web app adds nothing.
+         */
+        MyAssessmentOut: {
+            /** Items */
+            items: components["schemas"]["AssessedItemOut"][];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "no_test" | "not_ready" | "switched_off" | "incomplete" | "failed" | "ready";
+            /** Total */
+            total: number | null;
+            /** Total Max */
+            total_max: number | null;
+            /** Unassessed */
+            unassessed: number[];
         };
         /**
          * MyExplanationOut
@@ -15373,6 +15495,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getMyAssessment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyAssessmentOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

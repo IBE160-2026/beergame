@@ -49,6 +49,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analysis.scoring import INTERACTIVE_LIMIT
+from app.modules.assessment import service as assessment
 from app.modules.content import service as content
 from app.modules.content.schemas import QuestionSet, QuestionSetItem
 from app.modules.debrief import service as debrief
@@ -661,7 +662,9 @@ async def close_attempt(attempt_id: uuid.UUID, now: datetime) -> bool:
     scored as at a hand-in (`score_answers`), it becomes `auto_submitted` as of its deadline, and
     `test_submitted` is recorded through `progress.record_step` (which emits `user:<id>` and
     `session:<id>`). An attempt handed in earlier keeps everything and emits nothing. Either way
-    `closed_at` is set, so a repeat changes nothing. Ids and counts only are logged."""
+    `closed_at` is set, so a repeat changes nothing, and the AI assessment is deferred in the
+    same transaction when the pinned switch is on (`assessment.schedule`, Story 12.2). Ids and
+    counts only are logged."""
     async with get_sessionmaker().begin() as s:
         class_session_id = await s.scalar(
             select(test_attempts.c.class_session_id).where(test_attempts.c.id == attempt_id)
@@ -708,12 +711,16 @@ async def close_attempt(attempt_id: uuid.UUID, now: datetime) -> bool:
                 handed,
                 within=s,
             )
+        # Story 12.2 (FR-54, AD-9): the one place a first AI assessment is enqueued, in this
+        # transaction, when the pinned «KI-vurdering» switch is on.
+        assessed = await assessment.schedule(s, attempt_id, class_session_id)
     log.info(
         "test_attempt_closed",
         class_session_id=str(class_session_id),
         attempt_id=str(attempt_id),
         auto_submitted=auto,
         scored=scored,
+        assessment_deferred=assessed,
     )
     return True
 

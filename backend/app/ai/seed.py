@@ -39,6 +39,7 @@ MOCK_SPEC: dict[str, object] = {
         "debrief_follow_up": 1,
         "replay_walkthrough": 1,
         "adapted_item_wording": 1,
+        "assessment": 1,
     },
     "effort_levels": [
         {

@@ -4612,6 +4612,37 @@ def register_test_pinner(pinner: TestPinner) -> None:
         _test_pinners.append(pinner)
 
 
+ASSESSMENT_PURPOSE = "assessment"
+"""The purpose a model config must name a prompt for before the AI assessment uses it (12.2)."""
+
+
+async def _assessment_config(
+    s: AsyncSession, row: Mapping[str, Any]
+) -> tuple[uuid.UUID, str | None] | None:
+    """The model config (and Effort level) the Test-deadline lock pins for the AI assessment
+    (Story 12.2, AD-23, AD-27), marked referenced; None while the switch is off or when no config
+    names the `assessment` prompt. The Class session's own `model_config_id` (kept by Story 12.7's
+    trigger for a Control test, and set for Rule-based players too) when its config names it;
+    otherwise, for a course session made before the purpose existed, the active default when it
+    names it. A Control test never falls back: it checks its own config."""
+    if not (await assessment.switch_of(s, row["id"])).enabled:
+        return None
+    own = row["model_config_id"]
+    found = await config.get(own, session=s) if own is not None else None
+    level: str | None = row["effort_level"]
+    if found is None or ASSESSMENT_PURPOSE not in found.spec.prompts:
+        if row["kind"] != COURSE:
+            return None
+        found = await config.active_default(session=s)
+        if found is None or ASSESSMENT_PURPOSE not in found.spec.prompts:
+            return None
+        level = None
+    if level is not None and found.effort_level(level) is None:
+        level = None
+    await config.mark_referenced(found.id, session=s)
+    return found.id, level
+
+
 async def lock_test(class_session_id: uuid.UUID, *, now: datetime) -> bool:
     """The Test-deadline lock (Story 12.1; Epic 11's `lock_test`, AD-9, FR-18): under the Class
     session's row lock, in one transaction, it pins what hangs on the original Test deadline,
@@ -4631,7 +4662,14 @@ async def lock_test(class_session_id: uuid.UUID, *, now: datetime) -> bool:
         # runs it before the deadline, as of now.
         deadline = row["test_deadline"]
         at = now if deadline is None else min(now, deadline)
-        pinned = await assessment.pin_switch(s, class_session_id, at=at)
+        chosen = await _assessment_config(s, row)
+        pinned = await assessment.pin_switch(
+            s,
+            class_session_id,
+            at=at,
+            model_config_id=None if chosen is None else chosen[0],
+            effort_level=None if chosen is None else chosen[1],
+        )
         for pinner in _test_pinners:
             await pinner(s, row, at)
         await repo.set_test_locked(s, class_session_id, now)

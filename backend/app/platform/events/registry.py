@@ -221,6 +221,9 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # FR-51): an open one is auto-submitted and its `test_submitted` step emits `user` and
         # `session`, as at a hand-in; closing one handed in earlier emits nothing.
         "tests.close_attempt": frozenset({"session", "user"}),
+        # A run of the AI assessment of one Test attempt finished (Story 12.2, FR-54): the Student
+        # reads «KI-vurdering» again.
+        "assessment.assess": frozenset({"user"}),
         # A timed sitting ended before the Test deadline (Story 11.12, FR-51): the sweep hands the
         # attempt in, and its `test_submitted` step emits `user` and `session`, as at a hand-in.
         "tests.end_sitting": frozenset({"session", "user"}),

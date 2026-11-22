@@ -1515,6 +1515,12 @@ async def fact_set(
     return result.mappings().one_or_none()
 
 
+async def fact_set_by_id(session: AsyncSession, fact_set_id: uuid.UUID) -> RowMapping | None:
+    """The stored facts set with this id (Story 12.2: the one an Adapted item cites), or None."""
+    result = await session.execute(select(fact_sets).where(fact_sets.c.id == fact_set_id))
+    return result.mappings().one_or_none()
+
+
 def chain_cost_of(state: Any) -> Any:
     """The chain Total cost of a stored Week state in SQL: the sum of its seats' `total_cost`, as
     revision 0051's backfill sums it."""

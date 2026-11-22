@@ -151,6 +151,11 @@ class Settings(BaseSettings):
     # prototype: how long, in minutes, a Class game may stay `playing_out` after the Play deadline
     # playout took it over; a Game still playing out after it is logged as an error.
     playout_allowed_minutes: int = Field(60, ge=1, le=10080)
+    # The AI assessment (Story 12.2, FR-54, AD-6). PLACEHOLDERS: the back-off before the next run
+    # of an assessment that still lacks an item score (doubled after each run), and the most job
+    # runs one assessment gets before it is `failed`.
+    assessment_retry_minutes: int = Field(30, ge=1, le=1440)
+    assessment_max_runs: int = Field(4, ge=1, le=20)
 
     # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
     # to the `[email:mock]` sender; the compose file never passes a key.

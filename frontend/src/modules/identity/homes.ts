@@ -113,6 +113,10 @@ export const DEBRIEF_PATH = (classSessionId: string) => `/debrief/${encodeURICom
  * step leads. One attempt per Student and Class session. */
 export const TEST_PATH = (classSessionId: string) => `/individuell-test/${encodeURIComponent(classSessionId)}`;
 
+/** The Student's «KI-vurdering» of their Individual test in a Class session (Story 12.2), linked
+ * from Hjem once the test step is done. */
+export const ASSESSMENT_PATH = (classSessionId: string) => `/ki-vurdering/${encodeURIComponent(classSessionId)}`;
+
 /** A Student's Explanation and Debrief summary for the Class's staff (Story 9.8), where
  * Spillinnsikt's links lead (`debrief.insight` in the api builds the same path). */
 export const studentDebriefPath = (classSessionId: string, studentId: string) =>

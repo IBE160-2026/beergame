@@ -391,6 +391,49 @@
         "title": "AiMode",
         "type": "string"
       },
+      "AiScoreOut": {
+        "description": "The AI's overall score of a long-answer or Adapted item (Story 12.2, FR-54): the step on\nthe Scoring guide's five-step scale and its label, or `assessed` false with no step.",
+        "properties": {
+          "assessed": {
+            "title": "Assessed",
+            "type": "boolean"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "top": {
+            "title": "Top",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assessed",
+          "step",
+          "top",
+          "label"
+        ],
+        "title": "AiScoreOut",
+        "type": "object"
+      },
       "AllocationConfirmIn": {
         "additionalProperties": false,
         "description": "«Bekreft fordeling» (Story 5.9): the draft the Lecturer is looking at.",
@@ -702,6 +745,92 @@
           "answer"
         ],
         "title": "AnswerIn",
+        "type": "object"
+      },
+      "AssessedItemOut": {
+        "description": "One item of the Student's «KI-vurdering» in the test's order: its number, type and question\n(an Adapted item's frozen `wording`), its Item weight and its points (the weight times its\nshare, null while it has no score), and either its computed score or the AI's score.",
+        "properties": {
+          "ai": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AiScoreOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComputedScoreOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "points": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Points"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "choice",
+              "table",
+              "number",
+              "long",
+              "adapted"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          },
+          "wording": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WordingOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "type",
+          "title",
+          "wording",
+          "weight",
+          "points",
+          "computed",
+          "ai"
+        ],
+        "title": "AssessedItemOut",
         "type": "object"
       },
       "AuditActor": {
@@ -2221,6 +2350,58 @@
           "value"
         ],
         "title": "ColumnRowOut",
+        "type": "object"
+      },
+      "ComputedCriterionOut": {
+        "description": "One coded criterion of an Interactive item as the computed rule scored it (FR-80): met or\nnot, and the computed explanation in words.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "met": {
+            "title": "Met",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "met",
+          "explanation"
+        ],
+        "title": "ComputedCriterionOut",
+        "type": "object"
+      },
+      "ComputedScoreOut": {
+        "description": "The computed score of an answer-key or Interactive item (Story 12.2, FR-80), as `tests`\nstored it at the hand-in: `result` is `right` (full credit), `partly` (some), `wrong` (none) or\n`not_answered`; an Interactive item carries each criterion. Never recomputed for the view.",
+        "properties": {
+          "criteria": {
+            "items": {
+              "$ref": "#/components/schemas/ComputedCriterionOut"
+            },
+            "title": "Criteria",
+            "type": "array"
+          },
+          "result": {
+            "enum": [
+              "right",
+              "partly",
+              "wrong",
+              "not_answered"
+            ],
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result",
+          "criteria"
+        ],
+        "title": "ComputedScoreOut",
         "type": "object"
       },
       "ControlTestConfigOut": {
@@ -5661,6 +5842,68 @@
           "moments"
         ],
         "title": "MomentsOut",
+        "type": "object"
+      },
+      "MyAssessmentOut": {
+        "description": "The Student's «KI-vurdering» of their Individual test (Story 12.2, FR-54, FR-55, FR-61):\n\n- `no_test`: they have no attempt in the Class session;\n- `not_ready`: the test is not closed yet, or no run of the assessment has finished;\n- `switched_off`: the Lecturer switched the AI assessment off for the Class session;\n- `incomplete`: some items have no AI score yet; `items` and `unassessed` (their numbers), no\n  total;\n- `failed`: no AI assessment could be made; no items, no total;\n- `ready`: every item scored, with `total` out of `total_max` from `analysis.total_score`.\n\nThere is no pass or fail and no letter. Every number is the api's; the web app adds nothing.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AssessedItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "no_test",
+              "not_ready",
+              "switched_off",
+              "incomplete",
+              "failed",
+              "ready"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "total_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Max"
+          },
+          "unassessed": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Unassessed",
+            "type": "array"
+          }
+        },
+        "required": [
+          "state",
+          "items",
+          "unassessed",
+          "total",
+          "total_max"
+        ],
+        "title": "MyAssessmentOut",
         "type": "object"
       },
       "MyExplanationOut": {
@@ -20633,7 +20876,7 @@
     },
     "/api/lecturer-home/class-sessions": {
       "get": {
-        "description": "The Lærerhjem's «Venter» and «Neste frist» over the User's Classes that are not archived\n(UX-DR56).",
+        "description": "The Lærerhjem's «Venter» and «Neste frist» over the User's Classes that are not archived\n(UX-DR56). The Lærerhjem's policy holds it: the Admin role alone, which reads a Control test\nClass it owns (Story 12.7), does not reach it, and a Control test is never among them.",
         "operationId": "lecturerHomeClassSessions",
         "responses": {
           "200": {
@@ -21226,6 +21469,69 @@
           }
         },
         "summary": "Save My Test Answer",
+        "tags": [
+          "tests"
+        ]
+      }
+    },
+    "/api/me/class-sessions/{session_id}/test/assessment": {
+      "get": {
+        "description": "The Student's «KI-vurdering» of their Individual test (Story 12.2, FR-54, FR-55, FR-61):\n`no_test`, `not_ready`, `switched_off`, `incomplete` (items, the unassessed item numbers, no\ntotal), `failed`, or `ready` (items and the weighted total). Counts toward nothing; no pass\nor fail, no letter. `forbidden` for any session that is not theirs.",
+        "operationId": "getMyAssessment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAssessmentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Assessment",
         "tags": [
           "tests"
         ]

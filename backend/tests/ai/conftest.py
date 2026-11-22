@@ -9,7 +9,8 @@ from app.ai import config
 def prompts(tmp_path, monkeypatch) -> Path:
     """A prompts directory holding `v1.md` of every purpose the shipped configs reference
     (`player_order`, `recognition_probe`, the Debrief's since Stories 9.14 and 9.15 and the Replay
-    walkthrough's since Story 10.7), so no test depends on the shipped prompt text."""
+    walkthrough's since Story 10.7, the AI assessment's since Story 12.2), so no test depends on the
+    shipped prompt text."""
     for purpose in (
         "player_order",
         "recognition_probe",
@@ -18,6 +19,7 @@ def prompts(tmp_path, monkeypatch) -> Path:
         "debrief_follow_up",
         "replay_walkthrough",
         "adapted_item_wording",
+        "assessment",
     ):
         (tmp_path / purpose).mkdir()
         (tmp_path / purpose / "v1.md").write_text("prompt", encoding="utf-8")
