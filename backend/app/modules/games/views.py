@@ -4,6 +4,7 @@
 the Decision log read the `SeatState` it returns and nothing else about the Game.
 """
 
+import math
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import datetime
@@ -35,6 +36,7 @@ from app.modules.games.schemas import (
     OccupantKind,
     RoleCost,
     SeatState,
+    TableInRoom,
     TablePause,
     TableSeat,
     TableStatus,
@@ -297,7 +299,11 @@ Class). `games` imports no feature module, so the caller passes it (`classes.stu
 
 
 async def table_status(
-    session: AsyncSession, game_id: uuid.UUID, viewer_id: uuid.UUID, names: NameResolver
+    session: AsyncSession,
+    game_id: uuid.UUID,
+    viewer_id: uuid.UUID,
+    names: NameResolver,
+    factor: float | None = None,
 ) -> TableStatus:
     """Who sits in each Seat of the Game, as `viewer_id` sees it (Story 6.1, AD-3): Fabrikk first
     (UX-DR73), a Student by the name `names` gives now, every AI player as an AI player with no
@@ -307,7 +313,9 @@ async def table_status(
     While the Game runs, each Seat also says whether it has ordered in the open Week
     (`rules.has_ordered`), the stored wait start of a Seat that has not, and its mark
     (`marks.seat_mark`); and the stored due times still open: AI deadlines (Story 6.14), Takeover
-    due times and insert times (Story 8.1, AD-20).
+    due times and insert times (Story 8.1, AD-20). While the Game is marked «I rommet», the line's
+    end and the viewer's own minutes: the in-room limit times `factor`, the viewer's own
+    Tilrettelegging factor the caller read (Story 8.11).
     Nothing here computes a wait."""
     rows = await repo.seats_with_occupant(session, game_id)
     held = {row["role"]: row["user_id"] for row in rows}
@@ -410,7 +418,21 @@ async def table_status(
             staff=staff_pause,
             resume_at=game["resume_at"] if pause_by[0] == "paused" and game is not None else None,
         ),
+        in_room=_in_room(game, factor),
     )
+
+
+def _in_room(game: RowMapping | None, factor: float | None) -> TableInRoom | None:
+    """Story 8.11: the «I rommet» line of a running Game marked as in the room, with the
+    viewer's own whole minutes (never more than they have)."""
+    if (
+        game is None
+        or game["in_room_minutes"] is None
+        or game["lifecycle"] not in (Lifecycle.RUNNING, Lifecycle.PLAYING_OUT)
+    ):
+        return None
+    minutes = math.floor(game["in_room_minutes"] * max(factor or 1.0, 1.0))
+    return TableInRoom(until=game["in_room_until"], minutes=minutes)
 
 
 def _insert_state(

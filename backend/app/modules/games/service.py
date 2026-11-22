@@ -226,6 +226,40 @@ async def due_insert_times(now: datetime) -> list[tuple[str, str]]:
         ]
 
 
+async def due_in_room_ends(now: datetime) -> list[str]:
+    """The sweep's finder for «I rommet» marks whose Lab hour has ended (Story 8.11, AD-9): the
+    marked Games whose `in_room_until` lies at or before `now`, earliest first.
+    `games.commands.end_in_room` checks again under the Game row lock."""
+    async with get_sessionmaker()() as session:
+        return [str(game_id) for game_id in await repo.due_in_room_ends(session, now)]
+
+
+async def lab_hour_changed(
+    lab_hour_id: uuid.UUID, starts_at: datetime | None, ends_at: datetime | None, now: datetime
+) -> int:
+    """A Lab hour was moved or (`starts_at`/`ends_at` None) removed (Story 8.11, FR-36): each Game
+    marked «I rommet» for it ends its mark when the Lab hour is gone or no longer on at `now`
+    (the api's clock Lab hours are judged on), else its mark follows the new end. One
+    `games.commands` call per Game, each its own transaction. Returns how many Games changed."""
+    # Imported here: `commands` imports this module.
+    from app.modules.games import commands
+
+    async with get_sessionmaker()() as session:
+        marked = await repo.games_in_room_of(session, lab_hour_id)
+    changed = 0
+    on = starts_at is not None and ends_at is not None and starts_at <= now < ends_at
+    for game_id in marked:
+        if on:
+            assert ends_at is not None
+            done = await commands.mark_in_room(
+                str(game_id), None, actor=None, lab_hour_id=lab_hour_id, until=ends_at, now=now
+            )
+        else:
+            done = await commands.end_in_room(str(game_id), actor=None, lab_hour_id=lab_hour_id)
+        changed += int(done)
+    return changed
+
+
 async def announce(game_id: str) -> None:
     """Story 8.3 (AD-8): a due Takeover the sweep found but `takeover` refused changes nothing,
     yet the due time has passed; emit `game:<id>` at its current version and, for a Game the
@@ -720,6 +754,8 @@ class ClassGameSummary:
     """Since when the Pause in force runs (Story 8.6); None when the game is not paused."""
     paused_by: uuid.UUID | None = None
     """Who set it, by id (Story 8.6)."""
+    in_room_until: datetime | None = None
+    """Until when the game is marked «I rommet» (Story 8.11); None when it is not."""
 
 
 def _user(value: object) -> uuid.UUID | None:
@@ -748,6 +784,7 @@ async def class_overview(
             takeover_due_at=row["takeover_due_at"],
             paused_at=row["paused_at"],
             paused_by=row["paused_by"],
+            in_room_until=row["in_room_until"],
             waiting_for=tuple(
                 SummaryWait(
                     role=wait["role"],

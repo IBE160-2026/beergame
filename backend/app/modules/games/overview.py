@@ -98,7 +98,13 @@ async def recompute(
         # carries none.
         "paused_at": game.get("paused_at") if status is GameStatus.PAUSED else None,
         "paused_by": game.get("paused_by") if status is GameStatus.PAUSED else None,
+        # «I rommet» in force (Story 8.11): the wall's row label carries it while the Game runs.
+        "in_room_until": game.get("in_room_until") if started and _runs(status) else None,
     }
+
+
+def _runs(status: GameStatus) -> bool:
+    return status in (GameStatus.RUNNING, GameStatus.WAITING, GameStatus.PAUSED)
 
 
 async def refresh(session: AsyncSession, game: Mapping[str, Any], version: int) -> None:

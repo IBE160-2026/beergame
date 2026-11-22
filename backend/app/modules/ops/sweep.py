@@ -163,6 +163,18 @@ async def _reach_agreed_time(item: object, now: datetime) -> bool:
     return await games_commands.reach_agreed_time(item, now=now)
 
 
+async def _due_in_room_ends(now: datetime) -> Sequence[str]:
+    return await games.due_in_room_ends(now)
+
+
+async def _end_in_room(item: object, now: datetime) -> bool:
+    """Story 8.11 (FR-36, AD-9): the Lab hour of one Game marked «I rommet» has ended. The command
+    clears the mark and puts the due times back on the Inactivity limit; a mark ended or moved
+    meanwhile is skipped by the command itself."""
+    assert isinstance(item, str)
+    return await games_commands.end_in_room(item, actor=None, now=now)
+
+
 async def _due_insert_times(now: datetime) -> Sequence[tuple[str, str]]:
     return await games.due_insert_times(now)
 
@@ -211,6 +223,10 @@ DUE_ACTIONS: tuple[DueAction, ...] = (
     # `takeover_due_at` (FR-36, NFR-4), one Seat per transaction; within a minute of the due time,
     # so before the finished-game checks, whose replays may take a while.
     DueAction("games.takeover", _due_takeovers, _take_over),
+    # Story 8.11: end each «I rommet» mark whose Lab hour has ended (FR-36); the due times go back
+    # to the Inactivity limit. After the Takeover, so a Seat due under the in-room limit this
+    # minute is still taken.
+    DueAction("games.end_in_room", _due_in_room_ends, _end_in_room),
     # Story 8.7: announce once that a Lecturer's agreed Pause time has passed (FR-89).
     DueAction("games.reach_agreed_time", _due_agreed_times, _reach_agreed_time),
     # Story 8.8: announce once that a Seat's insert time has passed (FR-89); after the Takeover,

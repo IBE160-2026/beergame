@@ -90,7 +90,7 @@ HEAD_TABLES = (
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
 )
-HEAD = "0060"  # 0060 adds who started a Game and when (Story 8.10)
+HEAD = "0061"  # 0061 adds the «I rommet» mark (Story 8.11)
 
 
 def reset_schema(url: str) -> None:

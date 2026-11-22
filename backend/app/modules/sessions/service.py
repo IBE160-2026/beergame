@@ -145,6 +145,7 @@ from app.modules.sessions.schemas import (
     EnrolledSessionOut,
     GameResultOut,
     GameRulesOut,
+    InRoomOut,
     LabHourIn,
     LabHourOut,
     LecturerOverviewOut,
@@ -1557,8 +1558,10 @@ async def student_play_of(user: authz.Principal, game_id: str) -> PlayOut | None
         play = await games_service.play_status(s, found.game_id)
         if play.status != "running":
             raise GameNotRunning
+        # Story 8.11: the reader's own Tilrettelegging factor gives their own «I rommet» minutes.
+        own_factor = (await time_factors(s, found.class_session_id, [user.id])).get(user.id)
         table = await games_service.table_status(
-            s, found.game_id, user.id, _names_in(row["class_id"], s)
+            s, found.game_id, user.id, _names_in(row["class_id"], s), factor=own_factor
         )
         state, turn = await _own_week(s, found, play.week)
         now = await games_service.database_now(s)
@@ -1566,7 +1569,12 @@ async def student_play_of(user: authz.Principal, game_id: str) -> PlayOut | None
         seat_state=state,
         turn=turn,
         table_status=TableStatusOut(
-            seats=_seats_out(table), can_pause=table.can_pause, pause=_pause_out(table)
+            seats=_seats_out(table),
+            can_pause=table.can_pause,
+            pause=_pause_out(table),
+            in_room=None
+            if table.in_room is None
+            else InRoomOut(until=table.in_room.until, minutes=table.in_room.minutes),
         ),
         server_now=now,
         # Read again when an AI player's Order falls due (AD-8, AD-20); one already past is the
@@ -2173,6 +2181,9 @@ async def change_lab_hour(
         revision=revision,
         students=len(students),
     )
+    # Story 8.11: a Class game marked «I rommet» for it follows the new end, or ends its mark when
+    # the Lab hour is no longer on.
+    await games_service.lab_hour_changed(lab_hour_id, stored["starts_at"], stored["ends_at"], now)
     return _lab_hour_out(stored, now)
 
 
@@ -2201,6 +2212,8 @@ async def remove_lab_hour(
         lab_hour_id=str(lab_hour_id),
         students=len(students),
     )
+    # Story 8.11: a Class game marked «I rommet» for it is no longer in the room.
+    await games_service.lab_hour_changed(lab_hour_id, None, None, now)
     return True
 
 

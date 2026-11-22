@@ -1540,6 +1540,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/games/{game_id}/in-room": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark In Room
+         * @description «Marker som i rommet» (Story 8.11, FR-36, AD-2, AD-12): a Lecturer of the game's Class marks
+         *     the running game as played in the room during the Lab hour on now, with the in-room limit
+         *     `minutes` in place of the Inactivity limit (times each Student's Tilrettelegging factor) until
+         *     the Lab hour ends. Recorded in the audit log. Answers Spillinnsikt as it now stands. 422
+         *     `minutes_out_of_range` unless `minutes` is a whole number from 2 to 120; 409
+         *     `not_in_lab_hour` outside every Lab hour of the Class session, `already_in_room` with
+         *     `fields.acted_by` and `fields.acted_at`, `game_not_running`, `game_finished` or
+         *     `in_room_not_allowed`. 403 `forbidden` for anyone but a Lecturer of the game's Class (an
+         *     Assistant lecturer included) and any Game the Oversikt does not list (FR-5).
+         */
+        post: operations["markInRoom"];
+        /**
+         * End In Room
+         * @description «Ikke i rommet lenger» (Story 8.11, FR-36): a Lecturer of the game's Class ends the mark;
+         *     the due times go back to the Inactivity limit from the same wait starts. Recorded in the audit
+         *     log. Answers Spillinnsikt as it now stands. 409 `not_in_room`; 403 `forbidden` as
+         *     `markInRoom`.
+         */
+        delete: operations["endInRoom"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/games/{game_id}/insight": {
         parameters: {
             query?: never;
@@ -3135,6 +3170,11 @@ export interface components {
              */
             can_adjust: boolean;
             /**
+             * Can Mark In Room
+             * @default false
+             */
+            can_mark_in_room: boolean;
+            /**
              * Can Pause
              * @default false
              */
@@ -3165,6 +3205,9 @@ export interface components {
             game_id: string;
             /** Game Number */
             game_number: number | null;
+            in_room?: components["schemas"]["InsightInRoomOut"] | null;
+            /** Lab Hour Ends At */
+            lab_hour_ends_at?: string | null;
             pause?: components["schemas"]["InsightPauseOut"] | null;
             /** Play Deadline */
             play_deadline?: string | null;
@@ -3364,6 +3407,31 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * InRoomIn
+         * @description «Marker som i rommet, 10 min» (Story 8.11): the in-room limit in whole minutes. Any number
+         *     is taken here; the command answers 422 `minutes_out_of_range` unless it is whole and from 2
+         *     to 120.
+         */
+        InRoomIn: {
+            /** Minutes */
+            minutes: number;
+        };
+        /**
+         * InRoomOut
+         * @description «I rommet til kl. 16:00. En KI-spiller tar setet etter 10 min uten ordre.» (Story 8.11,
+         *     FR-36, UX-DR62): until when, and the reader's own whole minutes (Tilrettelegging included,
+         *     never another Student's).
+         */
+        InRoomOut: {
+            /** Minutes */
+            minutes: number;
+            /**
+             * Until
+             * Format: date-time
+             */
+            until: string;
+        };
+        /**
          * InfoVisibility
          * @description Information visibility (cut list, FR-83): which neighbour each Seat sees, with its current
          *     inventory and backlog. Both views off by default; the Factory has no upstream neighbour and
@@ -3380,6 +3448,20 @@ export interface components {
              * @default false
              */
             upstream: boolean;
+        };
+        /**
+         * InsightInRoomOut
+         * @description «I rommet til 16:00. KI tar over etter 10 min uten ordre.» on Spillinnsikt (Story 8.11,
+         *     FR-36, UX-DR52): the Lab hour's end and the in-room limit in whole minutes.
+         */
+        InsightInRoomOut: {
+            /** Minutes */
+            minutes: number;
+            /**
+             * Until
+             * Format: date-time
+             */
+            until: string;
         };
         /**
          * InsightLinkOut
@@ -4042,6 +4124,8 @@ export interface components {
             game_id: string;
             /** Game Number */
             game_number: number | null;
+            /** In Room Until */
+            in_room_until?: string | null;
             /** Paused At */
             paused_at?: string | null;
             /** Paused By */
@@ -5135,6 +5219,7 @@ export interface components {
              * @default false
              */
             can_pause: boolean;
+            in_room?: components["schemas"]["InRoomOut"] | null;
             pause?: components["schemas"]["PauseOut"] | null;
             /** Seats */
             seats: components["schemas"]["TableSeatOut"][];
@@ -9462,6 +9547,126 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": unknown;
+                };
+            };
+        };
+    };
+    markInRoom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InRoomIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameInsightOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    endInRoom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameInsightOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

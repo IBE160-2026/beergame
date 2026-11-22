@@ -151,6 +151,13 @@ class GameInsight:
     """Story 8.10: who pressed «Start spillet», by id (AD-14); None when no person did."""
     started_at: datetime | None = None
     """Story 8.10: when the Game started; None before, and for a Game started before 0060."""
+    in_room_minutes: int | None = None
+    """Story 8.11: the in-room limit of the «I rommet» mark in force; None when not marked."""
+    in_room_until: datetime | None = None
+    """Story 8.11: until when the mark holds (the Lab hour's end); None when not marked."""
+    markable: bool = False
+    """Story 8.11 (FR-36): «I rommet» applies to the Game now: it runs (also paused) and its
+    policy has inactivity Takeover."""
 
 
 def _in_force(history: Sequence[Mapping[str, Any]], week: int) -> Mapping[str, Any] | None:
@@ -297,6 +304,9 @@ async def game_insight(session: AsyncSession, game_id: uuid.UUID) -> GameInsight
         and any(seat["occupant_kind"] == OccupantKind.STUDENT for seat in held),
         started_by=game["started_by"],
         started_at=game["started_at"],
+        in_room_minutes=game["in_room_minutes"],
+        in_room_until=game["in_room_until"],
+        markable=game["lifecycle"] == Lifecycle.RUNNING and game_policy.inactivity_takeover,
     )
 
 

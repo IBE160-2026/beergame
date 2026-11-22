@@ -114,6 +114,9 @@ POLICIES: dict[str, frozenset[str]] = {
     # «Start spillet» in Spillstyring and «Start spill» for every Class game not started (Story
     # 8.10, FR-22): the Lecturers of the Class only (AD-12, EXPERIENCE.md → Spillstyring → Who).
     "games.start": frozenset({LECTURER}),
+    # «Marker som i rommet» and «Ikke i rommet lenger» in Spillstyring (Story 8.11, FR-36): the
+    # Lecturers of the Class only (AD-12, EXPERIENCE.md → Spillstyring → Who).
+    "games.in_room": frozenset({LECTURER}),
     # A Message to a Student, a Class game or a whole Class session (Story 7.9, FR-40): the staff
     # of its Class, Lecturers and Assistant lecturers alike.
     "messages.send": frozenset({LECTURER, ASSISTANT}),
@@ -163,6 +166,7 @@ CLASS_STAFF_ROLES: dict[str, frozenset[str]] = {
     "games.takeover": frozenset({OWNER, ASSISTANT_STAFF}),
     "games.pause": frozenset({OWNER}),
     "games.start": frozenset({OWNER}),
+    "games.in_room": frozenset({OWNER}),
     "messages.send": frozenset({OWNER, ASSISTANT_STAFF}),
     "messages.read_sent": frozenset({OWNER, ASSISTANT_STAFF}),
 }

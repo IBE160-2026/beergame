@@ -127,6 +127,7 @@ describe("the Oversikt with a paused game", () => {
       can_pause: false,
       can_adjust: false,
       can_start: false,
+      can_mark_in_room: false,
     };
     expect(html(<Spillstyring data={data} />)).toContain('data-takeover="factory"');
   });

@@ -648,6 +648,18 @@ class TablePause(BaseModel):
     faglæreren.»); None without one, and always on `ended`."""
 
 
+class TableInRoom(BaseModel):
+    """«I rommet» as a Student of the game sees it (Story 8.11, FR-36, UX-DR62): until when (the
+    Lab hour's end) and after how many whole minutes without an Order an AI player takes the
+    viewer's own Seat: the in-room limit times the viewer's own Tilrettelegging factor, rounded
+    down, so it never says more time than the Student has. Never another Student's minutes."""
+
+    model_config = _FROZEN
+
+    until: datetime
+    minutes: int
+
+
 class TableStatus(BaseModel):
     """The people side of a Game for one viewer (AD-3), Fabrikk first (UX-DR73). Built at read
     time by `views.table_status`; never stored and never passed to an LLM."""
@@ -663,3 +675,5 @@ class TableStatus(BaseModel):
     running and not paused, and a Seat the viewer holds now as a Student."""
     pause: TablePause | None = None
     """The Pause line (Story 8.6); None when there is none to show."""
+    in_room: TableInRoom | None = None
+    """The «I rommet» line (Story 8.11); None while the game is not marked or not running."""

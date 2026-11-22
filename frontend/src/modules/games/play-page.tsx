@@ -41,6 +41,7 @@ import { OrderField } from "./order-field";
 import { lastOrder, parseOrder } from "./order-input";
 import { gameTitle } from "./home";
 import { ownSeatTakenOver, useServerNow, waitedFor } from "./seat-status";
+import { InRoomLine } from "./in-room-view";
 import { PauseControl, PauseLine } from "./pause-view";
 import { GameSeatStatus, TakenOverNote } from "./seat-status-view";
 import { TimeProposalBlock } from "./time-proposal-view";
@@ -412,6 +413,8 @@ function Running({
             <CostPanel state={state} table="toggle" className="mb-8 hidden lg:block" />
             {/* Story 8.6: the pause line above Setestatus, for every Student of the game. */}
             <PauseLine gameId={game.id} pause={envelope.table_status.pause} className="mb-4" />
+            {/* Story 8.11: the «I rommet» line above Setestatus, with the reader's own minutes. */}
+            <InRoomLine inRoom={envelope.table_status.in_room} className="mb-4" />
             {/* Through the whole Uke, before and after the own Order, right under the Ordrefelt. */}
             <GameSeatStatus gameId={game.id} seats={seats} now={now} titleId={`seats-${game.id}`} className="max-w-md" />
             {/* Story 8.6: «Ta pause» under Setestatus, and the Pausevalg in place. */}

@@ -45,6 +45,7 @@ from app.modules.sessions.schemas import (
     GameInsightOut,
     GameResultOut,
     GameWeeksOut,
+    InRoomIn,
     LabHourIn,
     LabHourOut,
     LecturerOverviewOut,
@@ -435,6 +436,58 @@ async def end_pause(
         found = await overview.end_pause(user, _id(game_id))
     except overview.PauseRefused as refused:
         return _pause_refused(refused, "The pause was not ended.")
+    return _pause_answer(found)
+
+
+@router.post(
+    "/games/{game_id}/in-room",
+    response_model=GameInsightOut,
+    responses=documented(401, 403, 409, 422),
+    operation_id="markInRoom",
+)
+async def mark_in_room(
+    game_id: str,
+    body: InRoomIn,
+    user: Annotated[authz.Principal, Depends(authz.require("games.in_room"))],
+) -> Response:
+    """«Marker som i rommet» (Story 8.11, FR-36, AD-2, AD-12): a Lecturer of the game's Class marks
+    the running game as played in the room during the Lab hour on now, with the in-room limit
+    `minutes` in place of the Inactivity limit (times each Student's Tilrettelegging factor) until
+    the Lab hour ends. Recorded in the audit log. Answers Spillinnsikt as it now stands. 422
+    `minutes_out_of_range` unless `minutes` is a whole number from 2 to 120; 409
+    `not_in_lab_hour` outside every Lab hour of the Class session, `already_in_room` with
+    `fields.acted_by` and `fields.acted_at`, `game_not_running`, `game_finished` or
+    `in_room_not_allowed`. 403 `forbidden` for anyone but a Lecturer of the game's Class (an
+    Assistant lecturer included) and any Game the Oversikt does not list (FR-5)."""
+    try:
+        found = await overview.mark_in_room(user, _id(game_id), body.minutes)
+    except overview.InRoomRefused as refused:
+        return error_response(
+            refused.status, refused.code, "The game was not marked.", refused.fields
+        )
+    return _pause_answer(found)
+
+
+@router.delete(
+    "/games/{game_id}/in-room",
+    response_model=GameInsightOut,
+    responses=documented(401, 403, 409),
+    operation_id="endInRoom",
+)
+async def end_in_room(
+    game_id: str,
+    user: Annotated[authz.Principal, Depends(authz.require("games.in_room"))],
+) -> Response:
+    """«Ikke i rommet lenger» (Story 8.11, FR-36): a Lecturer of the game's Class ends the mark;
+    the due times go back to the Inactivity limit from the same wait starts. Recorded in the audit
+    log. Answers Spillinnsikt as it now stands. 409 `not_in_room`; 403 `forbidden` as
+    `markInRoom`."""
+    try:
+        found = await overview.end_in_room(user, _id(game_id))
+    except overview.InRoomRefused as refused:
+        return error_response(
+            refused.status, refused.code, "The mark was not ended.", refused.fields
+        )
     return _pause_answer(found)
 
 

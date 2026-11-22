@@ -564,6 +564,15 @@ class StudentGameOut(BaseModel):
     """Story 8.6: the pause line above Setestatus; None when there is none to show."""
 
 
+class InRoomOut(BaseModel):
+    """«I rommet til kl. 16:00. En KI-spiller tar setet etter 10 min uten ordre.» (Story 8.11,
+    FR-36, UX-DR62): until when, and the reader's own whole minutes (Tilrettelegging included,
+    never another Student's)."""
+
+    until: AwareDatetime
+    minutes: int
+
+
 class TableStatusOut(BaseModel):
     """Who sits in each Seat of the game, Fabrikk first (AD-3, UX-DR73): people, never numbers;
     and the pause line and whether the reader may pause (Story 8.6)."""
@@ -571,6 +580,8 @@ class TableStatusOut(BaseModel):
     seats: list[TableSeatOut]
     can_pause: bool = False
     pause: PauseOut | None = None
+    in_room: InRoomOut | None = None
+    """Story 8.11: the «I rommet» line above Setestatus; None while the game is not marked."""
 
 
 class OrderIn(BaseModel):
@@ -899,6 +910,9 @@ class OverviewGameOut(BaseModel):
     paused_by: str | None = None
     """Story 8.6: the name now of who paused it; None when it is not paused, or they are no longer
     in the Class."""
+    in_room_until: AwareDatetime | None = None
+    """Story 8.11 (FR-36): until when the game is marked «I rommet»; the wall's row label carries
+    it. None when it is not."""
 
 
 class OverviewCountsOut(BaseModel):
@@ -1117,6 +1131,24 @@ class InsightPauseOut(BaseModel):
     """The Lecturer's agreed time; None without one."""
 
 
+class InsightInRoomOut(BaseModel):
+    """«I rommet til 16:00. KI tar over etter 10 min uten ordre.» on Spillinnsikt (Story 8.11,
+    FR-36, UX-DR52): the Lab hour's end and the in-room limit in whole minutes."""
+
+    until: AwareDatetime
+    minutes: int
+
+
+class InRoomIn(BaseModel):
+    """«Marker som i rommet, 10 min» (Story 8.11): the in-room limit in whole minutes. Any number
+    is taken here; the command answers 422 `minutes_out_of_range` unless it is whole and from 2
+    to 120."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    minutes: int | float
+
+
 class GameInsightOut(BaseModel):
     """Spillinnsikt (Story 7.7, FR-62, AD-3, AD-12): one Game week by week, for the staff of its
     Class only. The only answer that gives the staff the full chain, the demand series and the
@@ -1156,6 +1188,15 @@ class GameInsightOut(BaseModel):
     started_at: AwareDatetime | None = None
     """Story 8.10: when the game started; None before, and for a game started before it was
     recorded."""
+    in_room: InsightInRoomOut | None = None
+    """Story 8.11 (FR-36): the «I rommet» mark in force; None when the game is not marked."""
+    can_mark_in_room: bool = False
+    """Story 8.11 (AD-12): the reader is a Lecturer of the Class and the game runs (also paused)
+    with inactivity Takeover, so Spillstyring shows «Marker som i rommet» (or «Ikke i rommet
+    lenger» while marked). False for an Assistant lecturer."""
+    lab_hour_ends_at: AwareDatetime | None = None
+    """Story 8.11: the end of the Class session's Lab hour on now («Den gjelder til Labtimen
+    slutter kl. 16:00.»); None outside every Lab hour, when «Marker som i rommet» is unavailable."""
 
 
 class StartGamesOut(BaseModel):

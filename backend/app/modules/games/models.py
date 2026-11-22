@@ -79,6 +79,14 @@ simulation_batches = Table(
 `games.service.create_batch`. A trigger refuses UPDATE and DELETE, so its pass lines never
 change after its first Game starts."""
 
+IN_ROOM_TOGETHER = (
+    "(in_room_minutes IS NULL AND in_room_until IS NULL AND in_room_lab_hour_id IS NULL"
+    " AND in_room_marked_at IS NULL AND in_room_by IS NULL)"
+    " OR (in_room_minutes IS NOT NULL AND in_room_until IS NOT NULL"
+    " AND in_room_lab_hour_id IS NOT NULL AND in_room_marked_at IS NOT NULL)"
+)
+"""Story 8.11: the «I rommet» mark is whole or absent (revision 0061)."""
+
 games = Table(
     "games",
     metadata,
@@ -122,7 +130,20 @@ games = Table(
     # did (a simulation or a Game started before revision 0060). Ids only.
     Column("started_at", DateTime(timezone=True), nullable=True),
     Column("started_by", Uuid, nullable=True),
+    # «I rommet» in force (Story 8.11, FR-36): the in-room limit in whole minutes, until when (the
+    # Lab hour's end), which Lab hour, who marked it and when. Written by `mark_in_room`, cleared
+    # by `end_in_room`. Ids only.
+    Column("in_room_minutes", SmallInteger, nullable=True),
+    Column("in_room_until", DateTime(timezone=True), nullable=True),
+    Column("in_room_lab_hour_id", Uuid, nullable=True),
+    Column("in_room_by", Uuid, nullable=True),
+    Column("in_room_marked_at", DateTime(timezone=True), nullable=True),
     CheckConstraint(_in("purpose", Purpose), name="ck_games_purpose"),
+    CheckConstraint(IN_ROOM_TOGETHER, name="ck_games_in_room"),
+    CheckConstraint(
+        "in_room_minutes IS NULL OR in_room_minutes BETWEEN 2 AND 120",
+        name="ck_games_in_room_minutes",
+    ),
     CheckConstraint("started_by IS NULL OR started_at IS NOT NULL", name="ck_games_started"),
     CheckConstraint(
         "(paused_by IS NULL AND resume_at IS NULL) OR paused_at IS NOT NULL",
@@ -393,6 +414,8 @@ game_summaries = Table(
     # The Pause in force (Story 8.6): since when and by whom (an id; names are read at read time).
     Column("paused_at", DateTime(timezone=True), nullable=True),
     Column("paused_by", Uuid, nullable=True),
+    # «I rommet» in force (Story 8.11): until when; the wall's row label carries it.
+    Column("in_room_until", DateTime(timezone=True), nullable=True),
     CheckConstraint(_in("status", GameStatus), name="ck_game_summaries_status"),
 )
 """The Lecturer overview's read model (AD-25, Story 7.1): one row per Game, rewritten by

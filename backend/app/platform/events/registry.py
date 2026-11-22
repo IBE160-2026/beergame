@@ -48,6 +48,10 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # A Student's Tilrettelegging moved the open Week's due times (Story 8.9): the Varselbånd
         # and every Student of the Game read the new times.
         "games.recompute_turn_times": frozenset({"game", "session", "user"}),
+        # «I rommet» marked or ended (Story 8.11): the wall's row label, Spillstyring and every
+        # Student's line above Setestatus read it again with the new due times.
+        "games.mark_in_room": frozenset({"game", "session", "user"}),
+        "games.end_in_room": frozenset({"game", "session", "user"}),
         # A Student opened a Guided Week (Story 6.10): only Class games take Students, so their
         # Class session hears of it; the viewer's waiting status changes, and when the view
         # completes the Week every Student of the Game sees the next one.

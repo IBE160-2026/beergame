@@ -341,7 +341,7 @@ export function wallGroups(
     key: group.name,
     title: `${group.title} ${group.games.length}`,
     rows: group.games.map((game): WallRow => {
-      const label = copy.game(game.game_number ?? null);
+      const label = rowLabel(game);
       const waits = statusLines(game, now);
       const cost = costText(game);
       const status = [...(waits.length > 0 ? waits : [STATUS_WORD[game.status]]), ...seatMarks(game)].join("; ");
@@ -359,6 +359,12 @@ export function wallGroups(
       };
     }),
   }));
+}
+
+/** A game's row label on the wall and in the table: «Spill 3», and «Spill 3 · I rommet» while the
+ * api says it is marked as played in the room (Story 8.11, `in_room_until`). */
+export function rowLabel(game: OverviewGame): string {
+  return game.in_room_until ? copy.gameInRoom(game.game_number ?? null) : copy.game(game.game_number ?? null);
 }
 
 function rowExtras(game: OverviewGame, actions: RowActions | undefined): { tint?: boolean; link?: WallLink } {
@@ -478,7 +484,7 @@ export function tableRows(
       const since = game.waiting_for.map((wait) => Date.parse(wait.since)).filter((ms) => !Number.isNaN(ms));
       return {
         id: game.game_id,
-        label: copy.game(game.game_number ?? null),
+        label: rowLabel(game),
         cells: {
           status: STATUS_WORD[game.status],
           wait: waitTexts(game, now).join("; "),

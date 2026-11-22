@@ -315,6 +315,28 @@ async def _run_recompute_turn_times() -> str:
     return game_id
 
 
+async def _run_mark_in_room() -> str:
+    """A Lecturer marks a started Class game «I rommet» (Story 8.11): its Class session and both
+    Students hear of it."""
+    from tests.games.test_in_room import mark
+    from tests.games.test_takeover import class_game
+
+    game_id, _ = await class_game()
+    assert await mark(game_id, 10)
+    return game_id
+
+
+async def _run_end_in_room() -> str:
+    """A Lecturer ends the mark (Story 8.11): its Class session and both Students hear of it."""
+    from tests.games.test_in_room import mark
+    from tests.games.test_takeover import class_game
+
+    game_id, _ = await class_game()
+    assert await mark(game_id, 10)
+    assert await commands.end_in_room(game_id, actor=LECTURER)
+    return game_id
+
+
 RUNNERS = {
     "create": _run_create,
     "assign_seat": _run_assign_seat,
@@ -336,6 +358,8 @@ RUNNERS = {
     "reach_agreed_time": _run_reach_agreed_time,
     "announce_insert_time": _run_announce_insert_time,
     "recompute_turn_times": _run_recompute_turn_times,
+    "mark_in_room": _run_mark_in_room,
+    "end_in_room": _run_end_in_room,
 }
 """How to run each command once; a command added without a runner fails the test below."""
 
@@ -367,6 +391,8 @@ CLASS_SETUP_EVENTS = {
     "reach_agreed_time": -4,
     "announce_insert_time": -4,
     "recompute_turn_times": -4,
+    "mark_in_room": -4,
+    "end_in_room": -4,
 }
 """Runners on a Class game, and how many events their setup emits before the command's own."""
 
@@ -396,6 +422,8 @@ def test_every_command_is_exported_and_registered():
             "reach_agreed_time",
             "announce_insert_time",
             "recompute_turn_times",
+            "mark_in_room",
+            "end_in_room",
         }
         == set(RUNNERS)
     )

@@ -44,6 +44,7 @@ function insight(over: Partial<GameInsight>): GameInsight {
     can_pause: false,
     can_adjust: false,
     can_start: true,
+    can_mark_in_room: false,
     ...over,
   };
 }

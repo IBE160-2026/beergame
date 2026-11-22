@@ -51,6 +51,7 @@ function insight(status: GameInsight["status"], seats: InsightSeat[]): GameInsig
     can_pause: false,
     can_adjust: false,
     can_start: false,
+    can_mark_in_room: false,
   };
 }
 

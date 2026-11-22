@@ -111,6 +111,7 @@ describe("Spillstyring's Tilrettelegging line", () => {
     can_pause: false,
     can_adjust: false,
     can_start: false,
+    can_mark_in_room: false,
   });
 
   it("adds «Jonas har tilrettelegging med mer tid.» only where the api marks the Seat", () => {

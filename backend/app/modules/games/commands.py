@@ -88,7 +88,9 @@ __all__ = [
     "assign_seat",
     "create",
     "default_runtime",
+    "end_in_room",
     "finish",
+    "mark_in_room",
     "move_seat",
     "pause",
     "place_order",
@@ -1587,8 +1589,9 @@ async def _start_waits(session: AsyncSession, game: Mapping[str, Any], week: int
     start gets one, from `rules.turn_times` with this transaction's clock as the clock start
     (Story 6.14, FR-25, AD-20); one already set stays, so the first Student's moment counts.
     A Student-held one also gets its FR-36 due times from the Inactivity limit in the Game's
-    `SessionRuntime` times the Student's Tilrettelegging factor (Story 8.9), when the Game's policy
-    has inactivity Takeover (Story 8.1, AD-13). An insert
+    `SessionRuntime` (or the in-room limit of a Game marked «I rommet», Story 8.11) times the
+    Student's Tilrettelegging factor (Story 8.9), when the Game's policy has inactivity Takeover
+    (Story 8.1, AD-13). An insert
     time a Lecturer's agreed Pause time gave the turn before any clock ran is its agreed time, so
     it stays the insert time for this Week after the Order (Story 8.7, open-assumptions)."""
     guided = rules.guided_week(
@@ -1613,6 +1616,7 @@ async def _start_waits(session: AsyncSession, game: Mapping[str, Any], week: int
             inactivity_limit=limit,
             time_factor=factors.get(turn["user_id"]),
             agreed_time=turn["insert_allowed_at"],
+            in_room_limit=_in_room_limit(game),
         )
         times = rules.turn_times(rules.TurnGame(guided_week=guided), seat, inputs)
         await repo.set_wait_times(
@@ -1641,6 +1645,16 @@ async def _time_factors(
     from app.modules.sessions import service as sessions_service
 
     return await sessions_service.time_factors(session, game["class_session_id"], students)
+
+
+def _in_room_limit(game: Mapping[str, Any]) -> timedelta | None:
+    """The in-room limit of a Game marked «I rommet» (Story 8.11, FR-36): it replaces the
+    Inactivity limit in `rules.turn_times`. None when the Game is not marked or its policy has no
+    inactivity Takeover."""
+    minutes = game.get("in_room_minutes")
+    if minutes is None or _inactivity_limit(game) is None:
+        return None
+    return timedelta(minutes=int(minutes))
 
 
 def _inactivity_limit(game: Mapping[str, Any]) -> timedelta | None:
@@ -2248,71 +2262,253 @@ async def announce_insert_time(game_id: str, seat_id: str, *, now: datetime) -> 
 async def recompute_turn_times(game_id: str) -> bool:
     """A Student's Tilrettelegging changed (Story 8.9, FR-17, FR-36, FR-89, AD-2, AD-20): every turn
     of the open Week that a Student holds and that has not ordered gets its Takeover due time and
-    insert time again from `rules.turn_times`, with its stored wait start as the clock start, the
-    Inactivity limit the Game froze, the Student's factor (`sessions.service.time_factors`) and the
-    agreed time: the Game's `resume_at` while paused, else the stored insert time when it differs
-    from the stored due time (an agreed time kept after the Pause ended, Story 8.7), else none. So
-    automatic Takeover, the Varselbånd and «Sett inn KI-spiller» follow at once. The wait start
-    never moves. One transaction under the Game row lock; when a time changed the version rises
-    with `game:<id>`, `session:<id>` and `user:<id>` for every seated Student; True then. False,
-    writing nothing, for a Game not running, with no open Week or no change. Refuses
-    `game_not_found` (404)."""
+    insert time again (`_recompute_due_times`), so automatic Takeover, the Varselbånd and «Sett inn
+    KI-spiller» follow at once. The wait start never moves. One transaction under the Game row
+    lock; when a time changed the version rises with `game:<id>`, `session:<id>` and `user:<id>`
+    for every seated Student; True then. False, writing nothing, for a Game not running, with no
+    open Week or no change. Refuses `game_not_found` (404)."""
     game_uuid = _game_uuid(game_id)
     async with get_sessionmaker().begin() as session:
         game = await repo.lock_game(session, game_uuid)
         if game is None:
             raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
-        if game["lifecycle"] != Lifecycle.RUNNING or game["settings"] is None:
-            return False
-        week = await repo.open_week(session, game_uuid)
-        if week is None:
-            return False
-        guided = rules.guided_week(
-            _policy(game["purpose"]), GameSettings.model_validate(game["settings"]), week
-        )
-        limit = _inactivity_limit(game)
-        turns = await repo.week_turns_with_occupant(session, game_uuid, week)
-        factors = await _time_factors(session, game, turns)
-        changed = False
-        for turn in turns:
-            if turn["occupant_kind"] != OccupantKind.STUDENT or rules.has_ordered(
-                turn, guided=guided
-            ):
-                continue
-            stored_due, stored_insert = turn["takeover_due_at"], turn["insert_allowed_at"]
-            if rules.is_paused(game) and game["resume_at"] is not None:
-                agreed = game["resume_at"]
-            elif stored_insert is not None and stored_insert != stored_due:
-                agreed = stored_insert
-            else:
-                agreed = None
-            times = rules.turn_times(
-                rules.TurnGame(guided_week=guided),
-                rules.TurnSeat(occupant_kind=OccupantKind.STUDENT, opened_at=turn["opened_at"]),
-                rules.TurnInputs(
-                    clock_start=turn["wait_started_at"],
-                    inactivity_limit=limit,
-                    time_factor=factors.get(turn["user_id"]),
-                    agreed_time=agreed,
-                ),
-            )
-            if (times.takeover_due_at, times.insert_allowed_at) != (stored_due, stored_insert):
-                await repo.set_due_times(
-                    session,
-                    turn["id"],
-                    takeover_due_at=times.takeover_due_at,
-                    insert_allowed_at=times.insert_allowed_at,
-                    insert_moved=times.insert_allowed_at != stored_insert,
-                )
-                changed = True
-        if not changed:
+        if not await _recompute_due_times(session, game):
             return False
         await _commit_change(session, game_uuid)
-        seated = seated_students(await repo.seats_with_occupant(session, game_uuid))
-        for student in sorted(seated, key=str):
-            await events.emit(session, "user", str(student))
+        await _tell_seated(session, game_uuid)
     log.info("turn_times_recomputed", game_id=game_id)
     return True
+
+
+async def _recompute_due_times(session: AsyncSession, game: Mapping[str, Any]) -> bool:
+    """Every turn of the open Week that a Student holds and that has not ordered gets its
+    Takeover due time and insert time again from `rules.turn_times` (AD-20), with its stored wait
+    start as the clock start, the limit in force (the in-room limit of a Game marked «I rommet»,
+    Story 8.11, else the Inactivity limit the Game froze), the Student's factor
+    (`sessions.service.time_factors`, Story 8.9) and the agreed time: the Game's `resume_at` while
+    paused, else the stored insert time when it differs from the stored due time (an agreed time
+    kept after the Pause ended, Story 8.7), else none. `game` is the row as the caller's command
+    leaves it. Whether a time changed; nothing for a Game not running or with no open Week."""
+    if game["lifecycle"] != Lifecycle.RUNNING or game["settings"] is None:
+        return False
+    week = await repo.open_week(session, game["id"])
+    if week is None:
+        return False
+    guided = rules.guided_week(
+        _policy(game["purpose"]), GameSettings.model_validate(game["settings"]), week
+    )
+    limit = _inactivity_limit(game)
+    in_room = _in_room_limit(game)
+    turns = await repo.week_turns_with_occupant(session, game["id"], week)
+    factors = await _time_factors(session, game, turns)
+    changed = False
+    for turn in turns:
+        if turn["occupant_kind"] != OccupantKind.STUDENT or rules.has_ordered(turn, guided=guided):
+            continue
+        stored_due, stored_insert = turn["takeover_due_at"], turn["insert_allowed_at"]
+        if rules.is_paused(game) and game["resume_at"] is not None:
+            agreed = game["resume_at"]
+        elif stored_insert is not None and stored_insert != stored_due:
+            agreed = stored_insert
+        else:
+            agreed = None
+        times = rules.turn_times(
+            rules.TurnGame(guided_week=guided),
+            rules.TurnSeat(occupant_kind=OccupantKind.STUDENT, opened_at=turn["opened_at"]),
+            rules.TurnInputs(
+                clock_start=turn["wait_started_at"],
+                inactivity_limit=limit,
+                time_factor=factors.get(turn["user_id"]),
+                agreed_time=agreed,
+                in_room_limit=in_room,
+            ),
+        )
+        if (times.takeover_due_at, times.insert_allowed_at) != (stored_due, stored_insert):
+            await repo.set_due_times(
+                session,
+                turn["id"],
+                takeover_due_at=times.takeover_due_at,
+                insert_allowed_at=times.insert_allowed_at,
+                insert_moved=times.insert_allowed_at != stored_insert,
+            )
+            changed = True
+    return changed
+
+
+async def _tell_seated(session: AsyncSession, game_id: uuid.UUID) -> None:
+    """`user:<id>` for every Student who holds a Seat of the Game now (AD-8)."""
+    seated = seated_students(await repo.seats_with_occupant(session, game_id))
+    for student in sorted(seated, key=str):
+        await events.emit(session, "user", str(student))
+
+
+IN_ROOM_MINUTES = range(2, 121)
+"""The in-room limit in whole minutes (FR-36): 2 to 120; the sweep acts within one minute."""
+GAME_MARKED_IN_ROOM = "game.marked_in_room"
+"""Audit action of a Lecturer's «Marker som i rommet» (Story 8.11)."""
+GAME_IN_ROOM_ENDED = "game.in_room_ended"
+"""Audit action of a Lecturer's «Ikke i rommet lenger» (Story 8.11)."""
+
+
+async def mark_in_room(
+    game_id: str,
+    minutes: object,
+    *,
+    actor: uuid.UUID | str | None,
+    lab_hour_id: uuid.UUID | str,
+    until: datetime,
+    now: datetime,
+) -> bool:
+    """«Marker som i rommet» (Story 8.11, FR-36, AD-2, AD-20): the Lecturer `actor` marks the
+    running Class game as played in the room during the Lab hour `lab_hour_id`, which ends at
+    `until`; the route has checked the Lecturer through `platform/authz` and that the Lab hour is
+    on at `now`, the api's clock Lab hours are judged on. The in-room limit `minutes` replaces the
+    Inactivity limit (times each Student's Tilrettelegging factor) until `end_in_room` clears it.
+
+    One transaction under the Game row lock: the mark is written, the open Week's due times are
+    recomputed from the same wait starts (`_recompute_due_times`), and an audit row
+    `game.marked_in_room`; the version rises once with `game:<id>`, `session:<id>` and
+    `user:<id>` for every seated Student (AD-8). Refuses `game_not_found` (404), 409
+    `in_room_not_allowed` (the Game's policy has no inactivity Takeover), `game_finished`,
+    `game_not_running`, `not_in_lab_hour` (`until` not after `now`), 422 `minutes_out_of_range`
+    (not a whole number from 2 to 120) and 409 `already_in_room` with `fields.acted_by` (`kind`
+    `staff`, `user_id`) and `fields.acted_at` (Story 8.5's shape).
+
+    With no `actor` (a Lab hour moved, through `games.service`), only the end of a mark in force
+    for that same Lab hour moves to `until`, with no audit row; False, writing nothing, for a Game
+    marked for another Lab hour, not marked, or already ending at `until`; `minutes` is then
+    not read. Returns True."""
+    game_uuid = _game_uuid(game_id)
+    actor_id = _actor(actor)
+    lab_hour = uuid.UUID(str(lab_hour_id))
+    if actor_id is not None and (
+        isinstance(minutes, bool) or not isinstance(minutes, int) or minutes not in IN_ROOM_MINUTES
+    ):
+        raise CommandError(
+            "minutes_out_of_range", "the in-room limit is a whole number from 2 to 120", 422
+        )
+    if not isinstance(until, datetime) or until.tzinfo is None:
+        raise ValueError("the end of a Lab hour carries a time zone")
+    async with get_sessionmaker().begin() as session:
+        game = await repo.lock_game(session, game_uuid)
+        if game is None:
+            raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
+        if actor_id is None:
+            if game["in_room_lab_hour_id"] != lab_hour or game["in_room_until"] == until:
+                return False
+            await repo.move_in_room_end(session, game_uuid, until)
+            await _commit_change(session, game_uuid)
+            await _tell_seated(session, game_uuid)
+            log.info("in_room_moved", game_id=game_id)
+            return True
+        _check_in_room_game(game)
+        if until <= now:
+            raise CommandError("not_in_lab_hour", "no Lab hour is on now", 409)
+        if game["in_room_minutes"] is not None:
+            by = game["in_room_by"]
+            raise CommandError(
+                "already_in_room",
+                "the Game is marked as in the room already",
+                409,
+                {
+                    "acted_by": {"kind": "staff", "user_id": None if by is None else str(by)},
+                    "acted_at": game["in_room_marked_at"].isoformat(),
+                },
+            )
+        assert isinstance(minutes, int)
+        marked_at = await repo.set_in_room(
+            session,
+            game_uuid,
+            minutes=minutes,
+            until=until,
+            lab_hour_id=lab_hour,
+            user_id=actor_id,
+        )
+        marked = await repo.get_game(session, game_uuid)
+        assert marked is not None
+        await _recompute_due_times(session, marked)
+        await audit.record(
+            session,
+            actor_id,
+            GAME_MARKED_IN_ROOM,
+            {"game_id": game_uuid},
+            {"minutes": minutes, "in_room_until": until.isoformat()},
+            marked_at,
+        )
+        await _commit_change(session, game_uuid)
+        await _tell_seated(session, game_uuid)
+    log.info("in_room_marked", game_id=game_id, minutes=minutes)
+    return True
+
+
+async def end_in_room(
+    game_id: str,
+    *,
+    actor: uuid.UUID | str | None,
+    now: datetime | None = None,
+    lab_hour_id: uuid.UUID | str | None = None,
+) -> bool:
+    """«Ikke i rommet lenger» (Story 8.11, FR-36, AD-2, AD-9, AD-20): the mark in force ends, and
+    the open Week's due times go back to the Inactivity limit (times each Student's factor) from
+    the same wait starts (`_recompute_due_times`). The one way a mark ends: a Lecturer `actor`
+    (the route has checked them through `platform/authz`; audit row `game.in_room_ended`), the
+    sweep with no actor once `in_room_until` is at or before its clock `now`, or `games.service`
+    with no actor when the Lab hour `lab_hour_id` is removed or moved so it is no longer on.
+
+    One transaction under the Game row lock; the version rises once with `game:<id>`,
+    `session:<id>` and `user:<id>` for every seated Student (AD-8). A finished Game only loses
+    its mark. With a person, refuses `game_not_found` (404) and 409 `not_in_room`; with no actor,
+    returns False, writing nothing, when the Game is not marked, its mark ends after `now`, or it
+    was marked for another Lab hour. Returns True."""
+    game_uuid = _game_uuid(game_id)
+    actor_id = _actor(actor)
+    lab_hour = None if lab_hour_id is None else uuid.UUID(str(lab_hour_id))
+    async with get_sessionmaker().begin() as session:
+        game = await repo.lock_game(session, game_uuid)
+        if game is None:
+            raise CommandError("game_not_found", f"no Game {game_id!r}", 404)
+        if game["in_room_minutes"] is None:
+            if actor_id is not None:
+                raise CommandError("not_in_room", "the Game is not marked as in the room", 409)
+            return False
+        if actor_id is None and (
+            (now is not None and game["in_room_until"] > now)
+            or (lab_hour is not None and game["in_room_lab_hour_id"] != lab_hour)
+        ):
+            return False
+        await repo.clear_in_room(session, game_uuid)
+        cleared = await repo.get_game(session, game_uuid)
+        assert cleared is not None
+        await _recompute_due_times(session, cleared)
+        if actor_id is not None:
+            at = await repo.clock_now(session)
+            await audit.record(
+                session,
+                actor_id,
+                GAME_IN_ROOM_ENDED,
+                {"game_id": game_uuid},
+                {
+                    "minutes": game["in_room_minutes"],
+                    "in_room_until": game["in_room_until"].isoformat(),
+                },
+                at,
+            )
+        await _commit_change(session, game_uuid)
+        await _tell_seated(session, game_uuid)
+    log.info("in_room_ended", game_id=game_id, by_person=actor_id is not None)
+    return True
+
+
+def _check_in_room_game(game: Mapping[str, Any]) -> None:
+    """A Game «I rommet» applies to: a running Game whose policy has inactivity Takeover."""
+    if not _policy(game["purpose"]).inactivity_takeover:
+        raise CommandError(
+            "in_room_not_allowed", "Games of this purpose have no inactivity Takeover", 409
+        )
+    if game["lifecycle"] == Lifecycle.FINISHED:
+        raise CommandError("game_finished", "the Game has finished", 409)
+    if game["lifecycle"] != Lifecycle.RUNNING:
+        raise CommandError("game_not_running", "the Game is not running", 409)
 
 
 async def _pausable_game(
@@ -2390,6 +2586,7 @@ async def _recompute_insert_times(
                 inactivity_limit=limit,
                 time_factor=factors.get(turn["user_id"]),
                 agreed_time=agreed,
+                in_room_limit=_in_room_limit(game),
             ),
         )
         if times.insert_allowed_at != stored:

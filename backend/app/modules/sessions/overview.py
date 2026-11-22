@@ -30,6 +30,7 @@ from app.modules.sessions.schemas import (
     GameInsightOut,
     GameWeekOut,
     GameWeeksOut,
+    InsightInRoomOut,
     InsightLinkOut,
     InsightPauseOut,
     InsightRoleOut,
@@ -50,8 +51,8 @@ from app.modules.sessions.schemas import (
     WallWeekOut,
     WeekSeatOut,
 )
-from app.modules.sessions.service import _class_for, is_locked, time_factors
-from app.platform import authz
+from app.modules.sessions.service import _class_for, current_lab_hour, is_locked, time_factors
+from app.platform import auth, authz
 from app.platform.db import get_sessionmaker
 
 log = structlog.get_logger(__name__)
@@ -75,6 +76,9 @@ __all__ = [
     "set_agreed_time",
     "end_pause",
     "StartRefused",
+    "InRoomRefused",
+    "mark_in_room",
+    "end_in_room",
     "start_game",
     "start_games",
     "start_games_page",
@@ -338,6 +342,7 @@ def _game_out(
         # The Pause in force (Story 8.6): since when and by whom, by name now.
         paused_at=game.paused_at,
         paused_by=(by or {}).get(game.paused_by) if game.paused_by is not None else None,
+        in_room_until=game.in_room_until,
     )
 
 
@@ -452,6 +457,14 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
             if can_adjust
             else {}
         )
+    # «Marker som i rommet» (Story 8.11): a Lecturer, a running game, and the Lab hour on now on
+    # the api's clock, the one Lab hours are judged on.
+    can_mark = insight.markable and authz.can(user, "games.in_room", found)
+    lab_hour = (
+        await current_lab_hour(head.class_session_id, auth.utcnow())
+        if can_mark and insight.in_room_minutes is None
+        else None
+    )
     return GameInsightOut(
         game_id=insight.game_id,
         class_session_id=head.class_session_id,
@@ -510,6 +523,13 @@ async def game_insight(user: authz.Principal, game_id: uuid.UUID) -> GameInsight
         can_start=insight.startable and is_locked(row) and authz.can(user, "games.start", found),
         started_by=by.get(insight.started_by) if insight.started_by is not None else None,
         started_at=insight.started_at,
+        in_room=InsightInRoomOut(until=insight.in_room_until, minutes=insight.in_room_minutes)
+        if insight.markable
+        and insight.in_room_minutes is not None
+        and insight.in_room_until is not None
+        else None,
+        can_mark_in_room=can_mark,
+        lab_hour_ends_at=None if lab_hour is None else lab_hour.ends_at,
     )
 
 
@@ -784,6 +804,80 @@ async def start_games(
     started = sum(outcomes)
     log.info("lecturer_started_games", class_session_id=str(session_id), started=started)
     return StartedGamesOut(started=started, skipped=len(wanted) - started)
+
+
+class InRoomRefused(Exception):
+    """A Lecturer's «I rommet» command refused (Story 8.11): its stable code, status and
+    `fields` (`acted_by`, `acted_at` on `already_in_room`)."""
+
+    def __init__(self, code: str, status: int, fields: dict[str, Any]) -> None:
+        super().__init__(code)
+        self.code = code
+        self.status = status
+        self.fields = fields
+
+
+async def _in_room_game(user: authz.Principal, game_id: uuid.UUID) -> uuid.UUID | None:
+    """The Class session of a Class game the Oversikt lists, when `user` is a Lecturer of its
+    Class (`games.in_room`, AD-12); None, one answer, for anything else (FR-5)."""
+    async with get_sessionmaker()() as s:
+        head = await games_service.class_game_head(s, game_id)
+        if head is None or head.class_session_id is None or not head.listed:
+            return None
+        row = await repo.session_row(s, head.class_session_id)
+    if row is None or await _class_for(user, row["class_id"], "games.in_room") is None:
+        return None
+    return head.class_session_id
+
+
+async def _in_room_command(
+    user: authz.Principal, game_id: uuid.UUID, run: Any
+) -> GameInsightOut | None:
+    session_id = await _in_room_game(user, game_id)
+    if session_id is None:
+        return None
+    try:
+        await run(session_id)
+    except games_commands.CommandError as refused:
+        if refused.status == 404 and refused.code == "game_not_found":
+            return None
+        raise InRoomRefused(refused.code, refused.status, dict(refused.fields)) from None
+    return await game_insight(user, game_id)
+
+
+async def mark_in_room(
+    user: authz.Principal, game_id: uuid.UUID, minutes: int | float
+) -> GameInsightOut | None:
+    """«Marker som i rommet» (Story 8.11, FR-36, AD-2, AD-12): a Lecturer of the game's Class marks
+    it as played in the room with the in-room limit `minutes`, until the Class session's Lab hour
+    on now ends (the api's clock, as Lab hours are judged); with none on, `not_in_lab_hour`. Only
+    `games.commands.mark_in_room` acts; its refusals are raised as `InRoomRefused`. None, one
+    answer, for anyone but a Lecturer of the Class and any Game the Oversikt does not list (FR-5).
+    Returns Spillinnsikt as it now stands."""
+    now = auth.utcnow()
+
+    async def run(session_id: uuid.UUID) -> None:
+        lab_hour = await current_lab_hour(session_id, now)
+        if lab_hour is None:
+            raise games_commands.CommandError("not_in_lab_hour", "no Lab hour is on now", 409)
+        await games_commands.mark_in_room(
+            str(game_id),
+            minutes,
+            actor=user.id,
+            lab_hour_id=lab_hour.id,
+            until=lab_hour.ends_at,
+            now=now,
+        )
+
+    return await _in_room_command(user, game_id, run)
+
+
+async def end_in_room(user: authz.Principal, game_id: uuid.UUID) -> GameInsightOut | None:
+    """«Ikke i rommet lenger» (Story 8.11): a Lecturer of the game's Class ends the mark through
+    `games.commands.end_in_room`, as `mark_in_room`."""
+    return await _in_room_command(
+        user, game_id, lambda _: games_commands.end_in_room(str(game_id), actor=user.id)
+    )
 
 
 def insight_etag(insight: GameInsightOut) -> str:

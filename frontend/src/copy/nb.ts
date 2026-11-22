@@ -481,6 +481,15 @@ export const nb = {
         } as Record<string, string>,
         failed: "Spillet ble ikke satt på pause. Prøv igjen.",
       },
+      /** «I rommet» above Setestatus (Story 8.11, FR-36, UX-DR62, EXPERIENCE.md → State Patterns →
+       * Student game): the line is the spine's, with the reader's own minutes (Tilrettelegging); the
+       * line read out when the mark ends is [ASSUMPTION] draft copy. Never another's minutes. */
+      inRoom: {
+        line: (until: string, minutes: number) =>
+          `I rommet til kl. ${until}. En KI-spiller tar setet etter ${minutes}\u00a0min uten ordre.`,
+        /** [ASSUMPTION] read out (not shown) when the mark ends while the page is open. */
+        ended: "Spillet er ikke i rommet lenger. Den vanlige ventetiden gjelder igjen.",
+      },
       /** With non-breaking spaces, so «min» never wraps away from its number (Epic 7 close-out). */
       duration: {
         underMinute: "under 1 min",
@@ -2184,6 +2193,9 @@ export const nb = {
     pausedSince: (since: string, name: string | null) =>
       name ? `Pause siden ${since}, satt av ${name}.` : `Pause siden ${since}.`,
     game: (number: number | null) => gameName(number),
+    /** The wall's and the table's row label of a game marked «I rommet» (Story 8.11, FR-36,
+     * EXPERIENCE.md → Spillstyring → I rommet): «Spill 3 · I rommet». */
+    gameInRoom: (number: number | null) => `${gameName(number)} · I rommet`,
     week: (week: number) => `Uke ${week}`,
     /** «Venter på Noah (Grossist), 23 t». [ASSUMPTION] */
     waitingFor: (who: string, role: string, duration: string) => `Venter på ${who} (${role}), ${duration}`,
@@ -2602,6 +2614,45 @@ export const nb = {
         game_not_running: "Spillet er ikke i gang.",
         pause_not_allowed: "Dette spillet kan ikke settes på pause.",
         not_paused: "Spillet har ikke pause lenger.",
+      } as Record<string, string>,
+      /** [ASSUMPTION] */
+      failed: "Det gikk ikke. Prøv igjen.",
+    },
+    /** «I rommet» (Story 8.11, FR-36, UX-DR52, EXPERIENCE.md → Spillstyring → I rommet): the
+     * button, the form's label, line and primary, the marked line, «Ikke i rommet lenger», «I rommet
+     * til 16:00.» and «Kan bare brukes i en Labtime.» are the spine's; the field's help and error,
+     * the ended line, the refusals and the failure are [ASSUMPTION] draft copy. */
+    inRoom: {
+      open: "Marker som i rommet",
+      /** Shown with the unavailable button outside every Labtime. */
+      onlyInLabHour: "Kan bare brukes i en Labtime.",
+      field: "Ventetid i rommet",
+      /** [ASSUMPTION] the field's unit and range, under its label. */
+      help: "Hele minutter, fra 2 til 120.",
+      /** [ASSUMPTION] the Ordrefelt error pattern. */
+      error: "Skriv et helt antall minutter fra 2 til 120.",
+      consequence: (until: string) =>
+        `Studentene i spillet ser den kortere ventetiden. Den gjelder til Labtimen slutter kl. ${until}.`,
+      /** The primary: «Marker som i rommet, 10 min»; without a valid number, without minutes. */
+      confirm: (minutes: number | null) =>
+        minutes === null ? "Marker som i rommet" : `Marker som i rommet, ${minutes}\u00a0min`,
+      cancel: "Avbryt",
+      /** «I rommet til 16:00. KI tar over etter 10 min uten ordre.» */
+      marked: (until: string, minutes: number) =>
+        `I rommet til ${until}. KI tar over etter ${minutes}\u00a0min uten ordre.`,
+      end: "Ikke i rommet lenger",
+      /** The result line that replaces the form and takes focus: «I rommet til 16:00.» */
+      done: (until: string) => `I rommet til ${until}.`,
+      /** [ASSUMPTION] */
+      ended: "Ikke i rommet lenger. Den vanlige ventetiden gjelder igjen.",
+      refusals: {
+        not_in_lab_hour: "Kan bare brukes i en Labtime.",
+        already_in_room: "Spillet er allerede markert som i rommet.",
+        not_in_room: "Spillet er ikke i rommet lenger.",
+        game_finished: "Spillet er ferdig.",
+        game_not_running: "Spillet er ikke i gang.",
+        in_room_not_allowed: "Dette spillet kan ikke markeres som i rommet.",
+        minutes_out_of_range: "Skriv et helt antall minutter fra 2 til 120.",
       } as Record<string, string>,
       /** [ASSUMPTION] */
       failed: "Det gikk ikke. Prøv igjen.",

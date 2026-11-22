@@ -349,6 +349,28 @@ export function endPause(gameId: string) {
 /** The Pause in force on Spillinnsikt (Story 8.7). */
 export type InsightPause = NonNullable<GameInsight["pause"]>;
 
+/** «Marker som i rommet» (Story 8.11, FR-36): a Lecturer of the game's Class marks it as played
+ * in the room with the in-room limit `minutes`, until the Lab hour on now ends. Answers Spillinnsikt
+ * as it now stands; 422 `minutes_out_of_range`, 409 `not_in_lab_hour`, `already_in_room`. */
+export function markInRoom(gameId: string, minutes: number) {
+  return request(() =>
+    api.POST("/api/games/{game_id}/in-room", {
+      params: { path: { game_id: gameId } },
+      body: { minutes },
+    }),
+  );
+}
+
+/** «Ikke i rommet lenger» (Story 8.11): ends the mark; 409 `not_in_room`. */
+export function endInRoom(gameId: string) {
+  return request(() => api.DELETE("/api/games/{game_id}/in-room", { params: { path: { game_id: gameId } } }));
+}
+
+/** The «I rommet» mark on Spillinnsikt (Story 8.11). */
+export type InsightInRoom = NonNullable<GameInsight["in_room"]>;
+/** The «I rommet» line a Student reads on Spill (Story 8.11). */
+export type GameInRoom = NonNullable<PlayEnvelope["table_status"]["in_room"]>;
+
 /** «Start spillet» in Spillstyring (Story 8.10, FR-22): a Lecturer of the game's Class starts it.
  * Answers Spillinnsikt as it now stands; 409 `game_already_started` with `acted_by` and
  * `acted_at` when someone started it first, 409 `game_not_ready` before the lock. */

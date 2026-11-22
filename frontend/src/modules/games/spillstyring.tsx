@@ -19,6 +19,7 @@ import {
   startGamesKey,
   takeOverSeat,
 } from "./api";
+import { InRoomStyring } from "./in-room-view";
 import { seatsUpstreamFirst } from "./insight";
 import { insightPauseText, type PauseMode, PauseResult, StaffPauseForm, useEndPause } from "./staff-pause";
 import { type StartResult, startedFirst, startResultText } from "./start-games";
@@ -171,7 +172,8 @@ export function TakeoverAction({
  * Spillstyring): under the four Seats while the game runs. For a Lecturer of the Class (`can_pause`)
  * first the Pause: «Pause spillet» on a game that is not paused, or the paused line «Pause siden
  * ma. 14:10, satt av Sara.» with «Endre avtalt tid» and «Avslutt pausen»; their form opens in place,
- * and the result line replaces it and takes focus. Then one row per Student-held Seat (Fabrikk
+ * and the result line replaces it and takes focus. Then «I rommet» for a Lecturer (Story 8.11,
+ * `InRoomStyring`). Then one row per Student-held Seat (Fabrikk
  * first) with its consequence and «Sett inn KI-spiller for …», which Assistant lecturers have too.
  * The api decides which Seats and from when (`takeover`, AD-10). A row stays after its press, so its
  * result line can be read; a finished game shows no block; a paused one keeps it. A game not
@@ -188,7 +190,8 @@ export function Spillstyring({ data }: { data: GameInsight }) {
   const running = data.status === "running" || data.status === "waiting" || data.status === "paused";
   const rows = running ? seatsUpstreamFirst(data).filter((seat) => seat.takeover != null || pressed.has(seat.role)) : [];
   const pauseShown = running && data.can_pause;
-  if (!startShown && !pauseShown && rows.length === 0) return null;
+  const inRoomShown = running && data.can_mark_in_room;
+  if (!startShown && !pauseShown && !inRoomShown && rows.length === 0) return null;
   return (
     <section aria-labelledby={id} className="mt-8" data-spillstyring="">
       <h2 id={id} className="text-label text-ink">
@@ -196,6 +199,8 @@ export function Spillstyring({ data }: { data: GameInsight }) {
       </h2>
       {startShown ? <StartStyring data={data} result={started} onResult={setStarted} /> : null}
       {pauseShown ? <PauseStyring data={data} /> : null}
+      {/* «I rommet» (Story 8.11): a Lecturer, while the game runs. */}
+      {inRoomShown ? <InRoomStyring data={data} /> : null}
       {rows.length > 0 ? (
         <ul className="mt-3 flex flex-col gap-4">
           {rows.map((seat) => {

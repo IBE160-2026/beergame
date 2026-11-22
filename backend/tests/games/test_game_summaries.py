@@ -186,6 +186,20 @@ async def test_a_reclaim_leaves_the_row_equal_to_a_recomputation(games_db, mail_
     assert (factory["occupant_kind"], factory["reason"]) == ("student", "reclaim")
 
 
+async def test_in_room_leaves_the_row_equal_to_a_recomputation(games_db, mail_db):
+    """Story 8.11: `mark_in_room` and `end_in_room` join the recomputation test; the row carries
+    the wall's «I rommet» mark while it holds."""
+    from tests.games.test_in_room import mark
+    from tests.games.test_staff_pause import LECTURER
+    from tests.games.test_takeover import class_game as started
+
+    game_id, _ = await started()
+    assert await mark(game_id, 10)
+    assert (await check(game_id))["in_room_until"] is not None
+    assert await commands.end_in_room(game_id, actor=LECTURER)
+    assert (await check(game_id))["in_room_until"] is None
+
+
 async def test_a_command_that_changes_nothing_writes_no_row(games_db):
     game_id = await class_game(1)
     await commands.assign_seat(game_id, "retailer", "student", user_id=A)

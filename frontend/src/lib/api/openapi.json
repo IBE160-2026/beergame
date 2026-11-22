@@ -2320,6 +2320,11 @@
             "title": "Can Adjust",
             "type": "boolean"
           },
+          "can_mark_in_room": {
+            "default": false,
+            "title": "Can Mark In Room",
+            "type": "boolean"
+          },
           "can_pause": {
             "default": false,
             "title": "Can Pause",
@@ -2366,6 +2371,28 @@
               }
             ],
             "title": "Game Number"
+          },
+          "in_room": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InsightInRoomOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lab_hour_ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lab Hour Ends At"
           },
           "pause": {
             "anyOf": [
@@ -2796,6 +2823,48 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "InRoomIn": {
+        "additionalProperties": false,
+        "description": "«Marker som i rommet, 10 min» (Story 8.11): the in-room limit in whole minutes. Any number\nis taken here; the command answers 422 `minutes_out_of_range` unless it is whole and from 2\nto 120.",
+        "properties": {
+          "minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Minutes"
+          }
+        },
+        "required": [
+          "minutes"
+        ],
+        "title": "InRoomIn",
+        "type": "object"
+      },
+      "InRoomOut": {
+        "description": "«I rommet til kl. 16:00. En KI-spiller tar setet etter 10 min uten ordre.» (Story 8.11,\nFR-36, UX-DR62): until when, and the reader's own whole minutes (Tilrettelegging included,\nnever another Student's).",
+        "properties": {
+          "minutes": {
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "until": {
+            "format": "date-time",
+            "title": "Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "until",
+          "minutes"
+        ],
+        "title": "InRoomOut",
+        "type": "object"
+      },
       "InfoVisibility": {
         "additionalProperties": false,
         "description": "Information visibility (cut list, FR-83): which neighbour each Seat sees, with its current\ninventory and backlog. Both views off by default; the Factory has no upstream neighbour and\nthe Retailer no downstream one, so their view on that side shows nothing.",
@@ -2812,6 +2881,26 @@
           }
         },
         "title": "InfoVisibility",
+        "type": "object"
+      },
+      "InsightInRoomOut": {
+        "description": "«I rommet til 16:00. KI tar over etter 10 min uten ordre.» on Spillinnsikt (Story 8.11,\nFR-36, UX-DR52): the Lab hour's end and the in-room limit in whole minutes.",
+        "properties": {
+          "minutes": {
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "until": {
+            "format": "date-time",
+            "title": "Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "until",
+          "minutes"
+        ],
+        "title": "InsightInRoomOut",
         "type": "object"
       },
       "InsightLinkOut": {
@@ -4353,6 +4442,18 @@
               }
             ],
             "title": "Game Number"
+          },
+          "in_room_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Room Until"
           },
           "paused_at": {
             "anyOf": [
@@ -6832,6 +6933,16 @@
             "default": false,
             "title": "Can Pause",
             "type": "boolean"
+          },
+          "in_room": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InRoomOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "pause": {
             "anyOf": [
@@ -12853,6 +12964,160 @@
           }
         },
         "summary": "Stream Events"
+      }
+    },
+    "/api/games/{game_id}/in-room": {
+      "delete": {
+        "description": "«Ikke i rommet lenger» (Story 8.11, FR-36): a Lecturer of the game's Class ends the mark;\nthe due times go back to the Inactivity limit from the same wait starts. Recorded in the audit\nlog. Answers Spillinnsikt as it now stands. 409 `not_in_room`; 403 `forbidden` as\n`markInRoom`.",
+        "operationId": "endInRoom",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameInsightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End In Room",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "post": {
+        "description": "«Marker som i rommet» (Story 8.11, FR-36, AD-2, AD-12): a Lecturer of the game's Class marks\nthe running game as played in the room during the Lab hour on now, with the in-room limit\n`minutes` in place of the Inactivity limit (times each Student's Tilrettelegging factor) until\nthe Lab hour ends. Recorded in the audit log. Answers Spillinnsikt as it now stands. 422\n`minutes_out_of_range` unless `minutes` is a whole number from 2 to 120; 409\n`not_in_lab_hour` outside every Lab hour of the Class session, `already_in_room` with\n`fields.acted_by` and `fields.acted_at`, `game_not_running`, `game_finished` or\n`in_room_not_allowed`. 403 `forbidden` for anyone but a Lecturer of the game's Class (an\nAssistant lecturer included) and any Game the Oversikt does not list (FR-5).",
+        "operationId": "markInRoom",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InRoomIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameInsightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Mark In Room",
+        "tags": [
+          "sessions"
+        ]
       }
     },
     "/api/games/{game_id}/insight": {

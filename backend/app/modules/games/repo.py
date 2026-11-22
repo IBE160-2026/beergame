@@ -472,6 +472,71 @@ async def due_agreed_times(session: AsyncSession, now: Any) -> list[uuid.UUID]:
     return list(result.scalars())
 
 
+async def set_in_room(
+    session: AsyncSession,
+    game_id: uuid.UUID,
+    *,
+    minutes: int,
+    until: Any,
+    lab_hour_id: uuid.UUID,
+    user_id: uuid.UUID | None,
+) -> Any:
+    """Story 8.11: «I rommet» in force from the transaction's `now()`, by `user_id`, with the
+    in-room limit `minutes` until `until` (the Lab hour's end). Returns `in_room_marked_at`."""
+    result = await session.execute(
+        update(games)
+        .where(games.c.id == game_id)
+        .values(
+            in_room_minutes=minutes,
+            in_room_until=until,
+            in_room_lab_hour_id=lab_hour_id,
+            in_room_by=user_id,
+            in_room_marked_at=func.now(),
+        )
+        .returning(games.c.in_room_marked_at)
+    )
+    return result.scalar_one()
+
+
+async def move_in_room_end(session: AsyncSession, game_id: uuid.UUID, until: Any) -> None:
+    """Story 8.11: the Lab hour of the mark in force now ends at `until`."""
+    await session.execute(update(games).where(games.c.id == game_id).values(in_room_until=until))
+
+
+async def clear_in_room(session: AsyncSession, game_id: uuid.UUID) -> None:
+    """Story 8.11: the mark in force ends."""
+    await session.execute(
+        update(games)
+        .where(games.c.id == game_id)
+        .values(
+            in_room_minutes=None,
+            in_room_until=None,
+            in_room_lab_hour_id=None,
+            in_room_by=None,
+            in_room_marked_at=None,
+        )
+    )
+
+
+async def due_in_room_ends(session: AsyncSession, now: Any) -> list[uuid.UUID]:
+    """Story 8.11 (AD-9): the Games whose «I rommet» mark lies at or past its end at `now`, the
+    earliest first."""
+    result = await session.execute(
+        select(games.c.id)
+        .where(games.c.in_room_until.is_not(None), games.c.in_room_until <= now)
+        .order_by(games.c.in_room_until, games.c.id)
+    )
+    return list(result.scalars())
+
+
+async def games_in_room_of(session: AsyncSession, lab_hour_id: uuid.UUID) -> list[uuid.UUID]:
+    """Story 8.11: the Games marked «I rommet» for the Lab hour `lab_hour_id`."""
+    result = await session.execute(
+        select(games.c.id).where(games.c.in_room_lab_hour_id == lab_hour_id).order_by(games.c.id)
+    )
+    return list(result.scalars())
+
+
 async def set_insert_allowed(session: AsyncSession, turn_id: uuid.UUID, at: Any) -> None:
     """Story 8.7: the turn's insert time, recomputed by a Lecturer's Pause command through
     `rules.turn_times`; its Takeover due time is never moved. The sweep has not announced the new
