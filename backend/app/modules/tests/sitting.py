@@ -73,13 +73,8 @@ async def copy_sitting(
 
 async def time_factor(s: AsyncSession, class_session_id: uuid.UUID, user_id: uuid.UUID) -> Decimal:
     """The Student's time factor on a timed sitting (FR-17): the factor of their Tilrettelegging
-    from `sessions.get_adjustment` (Story 8.9) where one above 1 is recorded, else 1. Story 8.9
-    lives on another branch until the merge; until then `sessions` has no such function and every
-    factor is 1."""
-    get_adjustment = getattr(sessions, "get_adjustment", None)
-    if get_adjustment is None:
-        return ONE
-    found = await get_adjustment(s, class_session_id, user_id)
+    from `sessions.get_adjustment` (Story 8.9) where one above 1 is recorded, else 1."""
+    found = await sessions.get_adjustment(s, class_session_id, user_id)
     if found is None:
         return ONE
     factor = Decimal(str(found.time_factor))

@@ -10,7 +10,6 @@ database clock is never read."""
 import uuid
 from datetime import timedelta
 from decimal import Decimal
-from types import SimpleNamespace
 
 import pytest
 
@@ -78,13 +77,17 @@ async def open_test(session_id: str) -> dict:
     return response.json()
 
 
-def factor(monkeypatch, value: str) -> None:
-    """Story 8.9's `sessions.get_adjustment`, which lives on another branch until the merge."""
-
-    async def get_adjustment(s, class_session_id, user_id):
-        return SimpleNamespace(time_factor=Decimal(value))
-
-    monkeypatch.setattr(sessions, "get_adjustment", get_adjustment, raising=False)
+def factor(session_id: str, user_id, value: str) -> None:
+    """The Student's Tilrettelegging as «Lagre tilrettelegging» stores it (Story 8.9), read by
+    `sessions.get_adjustment`."""
+    execute(
+        "INSERT INTO student_adjustments (class_session_id, user_id, time_factor, updated_at) "
+        "VALUES (%s, %s, %s, %s)",
+        session_id,
+        user_id,
+        value,
+        NOW,
+    )
 
 
 # The setting on the Klasseøkt.
@@ -190,9 +193,9 @@ async def test_the_statement_names_the_limit_and_the_sitting_ends_after_it(klass
     assert test["sitting_ended"] is False
 
 
-async def test_a_time_factor_extends_the_sitting(klass, monkeypatch):
-    factor(monkeypatch, "1.5")
+async def test_a_time_factor_extends_the_sitting(klass):
     session_id, seated = await timed(klass, 45)
+    factor(session_id, seated[0], "1.5")
     assert (await call(email(0), "GET", path(session_id))).json()["time_limit_minutes"] == 68
     test = await open_test(session_id)
     assert attempt(session_id, seated[0])[4] == NOW + timedelta(minutes=67, seconds=30)
@@ -200,9 +203,18 @@ async def test_a_time_factor_extends_the_sitting(klass, monkeypatch):
     assert attempt(session_id, seated[0])[5] == TEST
 
 
-async def test_a_factor_of_one_or_none_leaves_the_limit(klass, monkeypatch):
-    factor(monkeypatch, "1")
+async def test_a_factor_of_one_or_none_leaves_the_limit(klass):
     session_id, seated = await timed(klass, 30)
+    factor(session_id, seated[0], "1")
+    await open_test(session_id)
+    assert attempt(session_id, seated[0])[4] == NOW + 30 * MINUTE
+
+
+async def test_the_time_factor_is_the_students_own(klass):
+    """Story 8.9's factor of another Student of the session leaves this Student's limit alone."""
+    session_id, seated = await timed(klass, 30)
+    other = rows("SELECT id FROM users WHERE id <> %s LIMIT 1", seated[0])[0][0]
+    factor(session_id, other, "3")
     await open_test(session_id)
     assert attempt(session_id, seated[0])[4] == NOW + 30 * MINUTE
 
