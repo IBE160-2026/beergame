@@ -3593,3 +3593,22 @@ Byggeagenten gjorde mergen først, så storyen med `bmad-build-auto` og fire gje
 
 ### Åpne punkter
 - Issue #221: beslutninger og nye tabeller med persondata.
+
+## Story 11.14: Svar på interaktive oppgaver ved å tegne i en graf (spor 2)
+
+### Oppgave
+Bygge Story 11.14 på `epic-11` i spor 2, den siste storyen i Epic 11.
+
+### Plan
+Byggeagent med `bmad-build-auto` og fire gjennomgangsagenter på Sonnet. Etterpå starter avslutningen av Epic 11 i samme worktree.
+
+### Resultat
+- Spec: `.docs/implementation-artifacts/spec-11-14-answer-drawn-interactive-items-in-a-graph.md`.
+- Commit: f8cd6f8. Ingen migrasjon.
+- Tegnede oppgaver: én graf over en tabell, der hver uke er en glider som kan styres med tastatur, mus og berøring. Lagres og får poeng som en tabelloppgave.
+- Tester: backend 3674, Vitest 1173, tsc, `lint:colours`, `check:copy`, Playwright 133 ved 320/360/1440 px og 200 % tekst med axe.
+- Gjennomgang: 38 funn, 15 rettet.
+- Status: done. Alle stories i Epic 11 er bygget; avslutningsagenten `close-epic-11` er startet (visuell kontroll, `keepalive` ved lukking, testfart, PR og CI).
+
+### Åpne punkter
+- Issue #222: beslutninger (ingen tegnet oppgave i utkastet til spørsmålssett ennå).
