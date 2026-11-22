@@ -8,3 +8,7 @@ Shots for Story 10.6 (b211c33). Widths: 390, 1280, 200 (1280 px wide with html f
 - replay-closed-{390,1280,200}.png: "Replay stengt", lead and kept lines, only "Til Hjem" link, no primary, no Totalkostnad. Matches.
 - hjem-closed-{390,1280,200}.png: Hjem Replay block with the closed line, no "Se Replay"; Stegene "stengt ved Testfristen, ikke fullført". Matches; seat list still reads "har bestilt/venter" (judgement).
 - insight-closed-{390,1280,200}.png: staff Spillinnsikt, status "Stengt ved Testfristen, ikke fullført" in the header (stubbed insight). Matches; per-Role tables scroll in their own regions at 390.
+
+## After the Epic 10 close-out fixes (lane 2, port 8081)
+- play-order80-after-{390,1280,200}.png: the play screen picks its columns by the content's width in rem (container query). At 200 % text it is one column: chain band, chart title «Lager over null, restordre under», cost legend and the in-graph «Posisjon −4» / «Restordre 20» are whole; the Ordrefelt follows the table. 390 and 1280 as before. Matches.
+- After a Testfrist refusal the Ordrefelt is read-only and «Bekreft ordre på …» unavailable (unit test in order-field.test.tsx; not shot).

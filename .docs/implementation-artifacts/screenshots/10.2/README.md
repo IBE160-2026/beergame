@@ -10,3 +10,7 @@ States and match against DESIGN/EXPERIENCE:
 - assistant (can_manage false, mocked): read-only list with warnings, no controls. Matches.
 - locked (dev lock route): read-only list with warnings, no controls. Matches.
 No horizontal scroll in any state at 390, 1280 or 200 %.
+
+## After the Epic 10 close-out fixes (lane 2, port 8081)
+- replay-errors-after-block-{390,1280,200}.png: weeks 40 to 30, order delay 9, change Week 99: all three errors show at once (the api judged only the reversed range before). The reversed range stands under «Antall uker, høyst» as «Må være 40 eller mer, ikke lavere enn det første tallet.» Matches.
+- replay-standard-after-block-{390,1280,200}.png: «Replay-scenario» is a headline like «Debrief-quiz»; the lists run in two columns from 1024 px (block max-w-4xl). Matches.
