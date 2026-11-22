@@ -13,7 +13,12 @@ the pinned versions and the id of the call it came from (`llm_call_id`). The tot
 stored: it comes from `analysis.total_score` when read.
 
 Story 12.3 (FR-54, AD-7): an item's written feedback, or the note that it was left out, on its
-`ai_item_scores` row (migration 0203)."""
+`ai_item_scores` row (migration 0203).
+
+Story 12.4 (FR-54, FR-61, FR-69, AD-9): the stop mark of a Class session's assessment
+(`stopped_at`, `stopped_by`) on its switch row, which the pin trigger lets change; on an
+assessment the attempt's `effective_deadline` (`due_at`), from which the sweep counts the 24-hour
+target, and when it was logged as overdue (`overdue_at`) (migration 0204)."""
 
 from sqlalchemy import (
     Boolean,
@@ -30,6 +35,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     func,
+    text,
     true,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -52,6 +58,10 @@ assessment_switches = Table(
     # Story 12.2: the model config the lock pinned with the switch; NULL when none could be.
     Column("model_config_id", Uuid, nullable=True),
     Column("effort_level", Text, nullable=True),
+    # Story 12.4: `stop_for_session` sets these, `resume_for_session` clears them; they may
+    # change after the pin, the pinned columns never.
+    Column("stopped_at", DateTime(timezone=True), nullable=True),
+    Column("stopped_by", Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
 )
 
 ai_assessments = Table(
@@ -78,11 +88,20 @@ ai_assessments = Table(
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
     Column("ready_at", DateTime(timezone=True), nullable=True),
+    # Story 12.4: the attempt's `effective_deadline` (set by 0204 for the rows made before it),
+    # and when the sweep logged the assessment as overdue, once.
+    Column("due_at", DateTime(timezone=True), nullable=True),
+    Column("overdue_at", DateTime(timezone=True), nullable=True),
     UniqueConstraint("attempt_id", name="uq_ai_assessments_attempt"),
     CheckConstraint("status IN ('incomplete', 'ready', 'failed')", name="ck_ai_assessments_status"),
     CheckConstraint("runs >= 0", name="ck_ai_assessments_runs"),
     Index("ix_ai_assessments_class_session", "class_session_id"),
     Index("ix_ai_assessments_user", "user_id"),
+    Index(
+        "ix_ai_assessments_unsettled",
+        "due_at",
+        postgresql_where=text("status = 'incomplete'"),
+    ),
 )
 
 ai_item_scores = Table(

@@ -23,6 +23,7 @@ from app.modules.replay import dev as replay_dev
 from app.modules.replay import routes as replay_routes
 from app.modules.sessions import dev as sessions_dev
 from app.modules.sessions import routes as sessions_routes
+from app.modules.tests import dev as tests_dev
 from app.modules.tests import routes as tests_routes
 from app.platform import audit, auth, authz, db
 from app.platform.auth import CsrfMiddleware
@@ -124,6 +125,7 @@ def create_app() -> FastAPI:
         app.include_router(sessions_dev.router)  # the dev lock (Story 6.15), local only
         app.include_router(debrief_dev.router)  # Group debrief back-dating (9.11), local only
         app.include_router(replay_dev.router)  # the dev quiz pass (10.5), local only
+        app.include_router(tests_dev.router)  # the dev close of a test (12.4), local only
     authz.register_principal_loader(identity_service.load_user)
     # The audit page shows names, read at request time from the module that owns them (AD-14).
     audit.register_labels("user_id", identity_service.user_labels)

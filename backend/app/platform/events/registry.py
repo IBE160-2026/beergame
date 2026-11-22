@@ -222,8 +222,15 @@ COMMAND_TOPICS: Mapping[str, frozenset[str]] = MappingProxyType(
         # `session`, as at a hand-in; closing one handed in earlier emits nothing.
         "tests.close_attempt": frozenset({"session", "user"}),
         # A run of the AI assessment of one Test attempt finished (Story 12.2, FR-54): the Student
-        # reads «KI-vurdering» again.
-        "assessment.assess": frozenset({"user"}),
+        # reads «KI-vurdering» again. Story 12.4: the run that marks it ready records the
+        # `assessment_ready` step, whose `progress.record_step` emits `user` and `session` (the
+        # Class session's funnel), and its notice emits `user`; a failed one tells each Admin
+        # through a notice (`user` of the Admin).
+        "assessment.assess": frozenset({"session", "user"}),
+        # The AI assessment of a Class session stopped or resumed (Story 12.4, FR-61, FR-69): the
+        # Class session and every Student with an assessment in it read it again.
+        "assessment.stop_for_session": frozenset({"session", "user"}),
+        "assessment.resume_for_session": frozenset({"session", "user"}),
         # A timed sitting ended before the Test deadline (Story 11.12, FR-51): the sweep hands the
         # attempt in, and its `test_submitted` step emits `user` and `session`, as at a hand-in.
         "tests.end_sitting": frozenset({"session", "user"}),

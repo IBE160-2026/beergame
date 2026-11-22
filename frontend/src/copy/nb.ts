@@ -3240,6 +3240,8 @@ export const nb = {
       title: "KI-vurdering",
       /** The Lenke on Hjem once the test is handed in. [ASSUMPTION] */
       link: "KI-vurdering",
+      /** Story 12.4 (FR-55): on Hjem, before that Lenke, once the assessment is ready. [ASSUMPTION] */
+      readyOnHjem: "KI-vurderingen er klar.",
       /** First on every view (FR-55). */
       disclosure: "KI-generert, kan ta feil. Teller ikke. Ingen karakter.",
       notReady: "KI-vurderingen kommer innen ett døgn etter testfristen.",

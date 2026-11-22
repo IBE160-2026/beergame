@@ -38,9 +38,28 @@ feedback is asked for once more with a new call; when that one is rejected too (
 feedback is left out with the note `dropped` and the first call's score is kept. A config naming
 `assessment/v1` keeps the score-only output of Story 12.2.
 
+Story 12.4 (FR-54, FR-55, FR-61, FR-69, AD-9, AD-16): being told.
+
+- `schedule` now also creates the attempt's `ai_assessments` row (`incomplete`, no run yet, with
+  the attempt's `effective_deadline` as `due_at`) in the close's transaction, so every closed
+  attempt of a due Class session has a row even when its job is lost or crashes before a run.
+- The run that marks an assessment `ready` records the `assessment_ready` step through
+  `progress.record_step` and enqueues the `assessment_ready` digest notice
+  (`platform/notify`), in the same transaction; both are idempotent. The run that marks it
+  `failed` enqueues one `assessment_failed` digest notice per active Admin per Class session.
+- `due_overdue` / `overdue_due` are the sweep's `assessment.overdue` action: an assessment still
+  `incomplete` `assessment_overdue_hours` after `due_at` is logged as `assessment_overdue` once,
+  and its job is deferred again when no job of it is alive and runs remain.
+- `stop_for_session` sets a stop mark (time, actor, audited) that `schedule`, the job and the
+  sweep honour and the Student's view reads as switched off unless the assessment is ready;
+  `resume_for_session` clears it (audited), resets every unsettled or failed assessment of the
+  Class session and defers each again.
+
 No answer text, guide text or score is logged: ids, counts and codes only.
 
-This module imports no feature module: `sessions` and `tests` call it, never the other way round."""
+This module imports no feature module but `progress.service` (AD-16: any module records a step
+through it): `sessions` and `tests` call it, never the other way round, and the Admins come
+through the reader `sessions` registers."""
 
 import uuid
 from collections.abc import Awaitable, Callable
@@ -62,7 +81,8 @@ from app.analysis.facts import FactSet
 from app.analysis.narration import NarrationTemplates, citable, fact_lines
 from app.analysis.total import SCALE_TOP
 from app.modules.assessment.models import ai_assessments, ai_item_scores, assessment_switches
-from app.platform import auth, events, jobs
+from app.modules.progress import service as progress
+from app.platform import audit, auth, events, jobs, notify
 from app.platform.config import get_settings
 from app.platform.db import get_sessionmaker
 
@@ -71,6 +91,10 @@ __all__ = [
     "DEFAULT_SWITCH",
     "PURPOSE",
     "FEEDBACK_VERSION",
+    "FAILED_NOTICE",
+    "READY_NOTICE",
+    "RESUMED",
+    "STOPPED",
     "AssessmentOutput",
     "AssessmentRecord",
     "ItemFeedback",
@@ -85,13 +109,18 @@ __all__ = [
     "assessment_of",
     "backoff",
     "copy_switch",
+    "due_overdue",
     "mock_feedback",
     "mock_score",
+    "overdue_due",
     "pin_switch",
     "pinned_config",
+    "register_admin_reader",
     "register_attempt_reader",
+    "resume_for_session",
     "schedule",
     "set_switch",
+    "stop_for_session",
     "switch_of",
 ]
 
@@ -105,10 +134,16 @@ class Switch:
 
     enabled: bool
     pinned_at: datetime | None
+    stopped_at: datetime | None = None
+    """Story 12.4: when `stop_for_session` stopped the assessment; None when it runs."""
 
     @property
     def pinned(self) -> bool:
         return self.pinned_at is not None
+
+    @property
+    def stopped(self) -> bool:
+        return self.stopped_at is not None
 
 
 DEFAULT_SWITCH = Switch(enabled=True, pinned_at=None)
@@ -119,16 +154,23 @@ class SwitchPinned(Exception):
     """The switch was pinned at the Test deadline and no longer changes."""
 
 
-async def switch_of(session: AsyncSession, class_session_id: uuid.UUID) -> Switch:
-    """The Class session's switch as stored, or `DEFAULT_SWITCH` when nothing is stored."""
-    row = (
-        await session.execute(
-            select(assessment_switches.c.enabled, assessment_switches.c.pinned_at).where(
-                assessment_switches.c.class_session_id == class_session_id
-            )
-        )
-    ).first()
-    return DEFAULT_SWITCH if row is None else Switch(enabled=row.enabled, pinned_at=row.pinned_at)
+async def switch_of(
+    session: AsyncSession, class_session_id: uuid.UUID, *, share: bool = False
+) -> Switch:
+    """The Class session's switch as stored, or `DEFAULT_SWITCH` when nothing is stored. With
+    `share` its row is share-locked until the transaction ends (Story 12.4: a close and a
+    `resume_for_session` then see each other's work)."""
+    query = select(
+        assessment_switches.c.enabled,
+        assessment_switches.c.pinned_at,
+        assessment_switches.c.stopped_at,
+    ).where(assessment_switches.c.class_session_id == class_session_id)
+    if share:
+        query = query.with_for_update(read=True)
+    row = (await session.execute(query)).first()
+    if row is None:
+        return DEFAULT_SWITCH
+    return Switch(enabled=row.enabled, pinned_at=row.pinned_at, stopped_at=row.stopped_at)
 
 
 async def set_switch(
@@ -290,6 +332,25 @@ def _reader() -> AttemptReader:
     return _readers[0]
 
 
+AdminReader = Callable[[AsyncSession], Awaitable[list[uuid.UUID]]]
+"""`(session)`: the ids of the active Admins, read in the caller's transaction."""
+
+_admin_readers: list[AdminReader] = []
+
+
+def register_admin_reader(reader: AdminReader) -> None:
+    """Register where the active Admins are read (Story 12.4: `sessions` registers
+    `identity.active_admins` at import; this module may not import `identity`). One reader;
+    registering again replaces it."""
+    _admin_readers[:] = [reader]
+
+
+async def _admins(s: AsyncSession) -> list[uuid.UUID]:
+    if not _admin_readers:  # pragma: no cover - the app, the worker and the tests import sessions
+        raise RuntimeError("no Admin reader is registered")
+    return await _admin_readers[0](s)
+
+
 @dataclass(frozen=True)
 class PinnedConfig:
     """The model config (and Effort level) the Test-deadline lock pinned for the assessment."""
@@ -313,17 +374,60 @@ async def pinned_config(s: AsyncSession, class_session_id: uuid.UUID) -> PinnedC
     return PinnedConfig(row.model_config_id, row.effort_level)
 
 
-async def schedule(s: AsyncSession, attempt_id: uuid.UUID, class_session_id: uuid.UUID) -> bool:
-    """`tests.commands.close_attempt`'s call, in its transaction, once per attempt: defer the
-    attempt's assessment when the pinned switch is on (`assessment_due`); True when deferred.
-    The one place a first assessment is enqueued (AD-9)."""
-    if not await assessment_due(class_session_id, session=s):
+async def schedule(
+    s: AsyncSession,
+    attempt_id: uuid.UUID,
+    class_session_id: uuid.UUID,
+    *,
+    user_id: uuid.UUID,
+    question_set_version: int,
+    due_at: datetime,
+    now: datetime,
+) -> bool:
+    """`tests.commands.close_attempt`'s call, in its transaction, once per attempt: when the
+    pinned switch is on (`assessment_due`), create the attempt's assessment row (`incomplete`,
+    no run yet, `due_at` its `effective_deadline`, Story 12.4) and defer its job, unless the
+    Class session's assessment is stopped (`resume_for_session` defers it then). True when
+    deferred. The one place a first assessment is enqueued (AD-9). The switch row is
+    share-locked, so a resume running at the same time either sees this row or is seen as done."""
+    switch = await switch_of(s, class_session_id, share=True)
+    if not (switch.pinned and switch.enabled):
         return False
+    pin = await pinned_config(s, class_session_id)
+    await s.execute(
+        insert(ai_assessments)
+        .values(
+            id=uuid.uuid7(),
+            attempt_id=attempt_id,
+            class_session_id=class_session_id,
+            user_id=user_id,
+            status="incomplete",
+            runs=0,
+            question_set_version=question_set_version,
+            model_config_id=None if pin is None else pin.model_config_id,
+            due_at=due_at,
+            created_at=now,
+            updated_at=now,
+        )
+        .on_conflict_do_nothing(constraint="uq_ai_assessments_attempt")
+    )
+    if switch.stopped:
+        log.info("assessment_not_deferred", attempt_id=str(attempt_id), reason="stopped")
+        return False
+    return await _defer(s, attempt_id)
+
+
+async def _defer(
+    s: AsyncSession, attempt_id: uuid.UUID, *, schedule_at: datetime | None = None
+) -> bool:
+    """Defer one run of the attempt's assessment on `llm-batch`, ids only; False when a run of
+    it waits already (its queueing lock)."""
     return await jobs.defer(
         s,
         ASSESS_TASK,
         queue=jobs.LLM_BATCH,
         queueing_lock=assessment_key(attempt_id),
+        schedule_at=schedule_at,
         attempt_id=str(attempt_id),
     )
 
@@ -629,8 +733,9 @@ async def _store_score(
 async def _started(
     found: AttemptToAssess, pin: PinnedConfig | None, now: datetime
 ) -> tuple[uuid.UUID, Status, set[str]]:
-    """The attempt's assessment row, made now when it has none, with its state and the items
-    scored so far."""
+    """The attempt's assessment row, made now when it has none (a row from before migration 0204;
+    since Story 12.4 `schedule` makes it at the close), with its state and the items scored so
+    far. The Scoring guide version the reader found is stored on a row made without it."""
     async with get_sessionmaker().begin() as s:
         await s.execute(
             insert(ai_assessments)
@@ -648,6 +753,15 @@ async def _started(
                 updated_at=now,
             )
             .on_conflict_do_nothing(constraint="uq_ai_assessments_attempt")
+        )
+        await s.execute(
+            update(ai_assessments)
+            .where(
+                ai_assessments.c.attempt_id == found.attempt_id,
+                ai_assessments.c.scoring_guide_id.is_(None),
+                ai_assessments.c.runs == 0,
+            )
+            .values(scoring_guide_id=found.scoring_guide_id)
         )
         row = (
             await s.execute(
@@ -676,7 +790,12 @@ async def _finish(
 ) -> Status:
     """Count the run and settle the state under the row lock: `ready` when every item has a
     score, `failed` with no pinned config or after the last allowed run, else `incomplete` with
-    one later run deferred."""
+    one later run deferred (none while the Class session's assessment is stopped: its resume
+    defers it).
+
+    Story 12.4, in the same transaction: `ready` records the Student's `assessment_ready` step and
+    enqueues their `assessment_ready` notice; `failed` enqueues one `assessment_failed` notice
+    per active Admin per Class session. Both are keyed, so nothing is told twice."""
     wanted = {item.item_id for item in found.items}
     async with get_sessionmaker().begin() as s:
         row = (
@@ -709,20 +828,19 @@ async def _finish(
             values |= {"status": status, "reason": "runs_exhausted"}
         else:
             status = "incomplete"
-            deferred = await jobs.defer(
-                s,
-                ASSESS_TASK,
-                queue=jobs.LLM_BATCH,
-                queueing_lock=assessment_key(found.attempt_id),
-                schedule_at=now + backoff(runs),
-                attempt_id=str(found.attempt_id),
-            )
-            if not deferred:  # a run of the attempt waits already: that one goes on
+            if (await switch_of(s, found.class_session_id)).stopped:
+                log.info("assessment_rerun_not_deferred", attempt_id=str(found.attempt_id))
+            elif not await _defer(s, found.attempt_id, schedule_at=now + backoff(runs)):
+                # A run of the attempt waits already: that one goes on.
                 log.warning("assessment_rerun_not_deferred", attempt_id=str(found.attempt_id))
         await s.execute(
             update(ai_assessments).where(ai_assessments.c.id == assessment_id).values(**values)
         )
         await events.emit(s, "user", str(found.user_id))
+        if status == "ready":
+            await _tell_ready(s, found, now)
+        elif status == "failed":
+            await _tell_failed(s, found.class_session_id)
     log.info(
         "assessment_run_finished",
         attempt_id=str(found.attempt_id),
@@ -733,19 +851,76 @@ async def _finish(
     return status
 
 
+READY_NOTICE = "assessment_ready"
+"""The Student's notice that their assessment is ready (Story 12.4, a digest kind)."""
+
+FAILED_NOTICE = "assessment_failed"
+"""Each Admin's notice that an assessment of a Class session failed (Story 12.4, a digest
+kind), once per Class session."""
+
+
+async def _tell_ready(s: AsyncSession, found: AttemptToAssess, now: datetime) -> None:
+    """The `ready` transition's two records, in its transaction (FR-55, AD-9, AD-16)."""
+    await progress.record_step(
+        found.user_id,
+        found.class_session_id,
+        progress.Step.ASSESSMENT_READY,
+        now,
+        within=s,
+    )
+    await notify.enqueue(
+        s,
+        found.user_id,
+        READY_NOTICE,
+        f"{READY_NOTICE}:{found.attempt_id}",
+        ref=found.class_session_id,
+    )
+
+
+async def _tell_failed(s: AsyncSession, class_session_id: uuid.UUID) -> None:
+    """One `assessment_failed` notice per active Admin, keyed by the Class session and the
+    Admin: a second failed assessment of the session tells no one again."""
+    told = 0
+    for admin_id in await _admins(s):
+        told += await notify.enqueue(
+            s,
+            admin_id,
+            FAILED_NOTICE,
+            f"{FAILED_NOTICE}:{class_session_id}:{admin_id}",
+            ref=class_session_id,
+        )
+    if told:
+        log.warning(
+            "assessment_failed_notified", class_session_id=str(class_session_id), admins=told
+        )
+
+
+async def _stopped(class_session_id: uuid.UUID) -> bool:
+    async with get_sessionmaker()() as s:
+        return (await switch_of(s, class_session_id)).stopped
+
+
 async def assess(attempt_id: uuid.UUID) -> str:
     """The `assessment.assess` job's work (idempotent on `attempt_id`): what this run did, as a
-    code (`not_closed`, `not_due`, or the state it left: `ready`, `incomplete`, `failed`). A
-    `ready` or `failed` assessment is left as it is; every other run makes at most one call per
-    item still without a score. Never raises for a provider or config problem."""
+    code (`not_closed`, `not_due`, `stopped`, or the state it left: `ready`, `incomplete`,
+    `failed`). A `ready` or `failed` assessment is left as it is; every other run makes at most
+    one call per item still without a score. Never raises for a provider or config problem.
+
+    Story 12.4: while the Class session's assessment is stopped, a run makes no call: it ends
+    before the first one, or before the next one when the stop comes during the run, without
+    counting the run or deferring another (`resume_for_session` does)."""
     found = await _reader()(attempt_id)
     if found is None or not found.closed:
         log.info("assessment_skipped", attempt_id=str(attempt_id), reason="not_closed")
         return "not_closed"
     async with get_sessionmaker()() as s:
-        if not await assessment_due(found.class_session_id, session=s):
+        switch = await switch_of(s, found.class_session_id)
+        if not (switch.pinned and switch.enabled):
             log.info("assessment_skipped", attempt_id=str(attempt_id), reason="not_due")
             return "not_due"
+        if switch.stopped:
+            log.info("assessment_skipped", attempt_id=str(attempt_id), reason="stopped")
+            return "stopped"
         pin = await pinned_config(s, found.class_session_id)
     now = auth.utcnow()
     assessment_id, status, scored = await _started(found, pin, now)
@@ -765,6 +940,9 @@ async def assess(attempt_id: uuid.UUID) -> str:
     for item in found.items:
         if item.item_id in scored:
             continue
+        if await _stopped(found.class_session_id):
+            log.info("assessment_run_stopped", attempt_id=str(attempt_id))
+            return "stopped"
         try:
             await _assess_item(assessment_id, found, item, scope, config_id, feedback=feedback)
         except Exception as exc:  # the type only: the item stays without a score, the run counts
@@ -820,3 +998,220 @@ async def _gives_feedback(config_id: uuid.UUID | None) -> bool:
     found = await ai_config.get(config_id)
     version = None if found is None else found.spec.prompts.get(PURPOSE)
     return version is not None and version >= FEEDBACK_VERSION
+
+
+# Story 12.4: the stop mark, and the sweep's overdue action.
+
+STOPPED = "assessment.stopped"
+"""The audit action of `stop_for_session`."""
+
+RESUMED = "assessment.resumed"
+"""The audit action of `resume_for_session`."""
+
+
+async def _users_of(s: AsyncSession, class_session_id: uuid.UUID) -> list[uuid.UUID]:
+    found = await s.scalars(
+        select(ai_assessments.c.user_id)
+        .where(ai_assessments.c.class_session_id == class_session_id)
+        .distinct()
+    )
+    return list(found)
+
+
+async def _announce(s: AsyncSession, class_session_id: uuid.UUID) -> None:
+    """A stop or a resume changes what the Students of the Class session read: their pages and
+    the session's read it again (AD-8)."""
+    await events.emit(s, "session", str(class_session_id))
+    for user_id in await _users_of(s, class_session_id):
+        await events.emit(s, "user", str(user_id))
+
+
+async def stop_for_session(
+    class_session_id: uuid.UUID,
+    actor: uuid.UUID | None,
+    *,
+    now: datetime,
+    within: AsyncSession | None = None,
+) -> bool:
+    """Stop the AI assessment of a Class session (the cost limit is reached, or the Admin leaves
+    it out; FR-61, FR-69, AD-9): set the stop mark with its time and actor, audited, in `within`
+    or a transaction of its own. From then on `schedule` defers no job, a running job ends before
+    its next call, the sweep's overdue action skips the session, and an assessment that is not
+    ready reads as switched off; a ready one stays readable. True when this call stopped it; a
+    session already stopped is left as it is, with no audit row."""
+    if within is None:
+        async with get_sessionmaker().begin() as s:
+            return await stop_for_session(class_session_id, actor, now=now, within=s)
+    s = within
+    statement = insert(assessment_switches).values(
+        class_session_id=class_session_id,
+        enabled=True,
+        updated_at=now,
+        stopped_at=now,
+        stopped_by=actor,
+    )
+    stopped = await s.execute(
+        statement.on_conflict_do_update(
+            index_elements=[assessment_switches.c.class_session_id],
+            set_={"stopped_at": now, "stopped_by": actor},
+            where=assessment_switches.c.stopped_at.is_(None),
+        ).returning(assessment_switches.c.class_session_id)
+    )
+    if stopped.first() is None:
+        return False
+    await audit.record(s, actor, STOPPED, {"class_session_id": class_session_id}, {}, now)
+    await _announce(s, class_session_id)
+    log.info("assessment_stopped", class_session_id=str(class_session_id))
+    return True
+
+
+async def resume_for_session(
+    class_session_id: uuid.UUID,
+    actor: uuid.UUID | None,
+    *,
+    now: datetime,
+    within: AsyncSession | None = None,
+) -> int:
+    """Restart the AI assessment of a Class session, after the cost limit was raised (FR-61,
+    FR-69, AD-9), audited, in `within` or a transaction of its own: clear the stop mark, reset
+    every `incomplete` and `failed` assessment of the session to `incomplete` with no run, and,
+    while the pinned switch is on, defer each one's job again. Every closed attempt of such a
+    session has its row from its close (`schedule`), so this reaches the attempts closed while it
+    was stopped too. Returns how many assessments it deferred (a run already waiting counts)."""
+    if within is None:
+        async with get_sessionmaker().begin() as s:
+            return await resume_for_session(class_session_id, actor, now=now, within=s)
+    s = within
+    await s.execute(
+        select(assessment_switches.c.class_session_id)
+        .where(assessment_switches.c.class_session_id == class_session_id)
+        .with_for_update()
+    )
+    await s.execute(
+        update(assessment_switches)
+        .where(
+            assessment_switches.c.class_session_id == class_session_id,
+            assessment_switches.c.stopped_at.is_not(None),
+        )
+        .values(stopped_at=None, stopped_by=None)
+    )
+    reset = list(
+        await s.scalars(
+            update(ai_assessments)
+            .where(
+                ai_assessments.c.class_session_id == class_session_id,
+                ai_assessments.c.status.in_(("incomplete", "failed")),
+            )
+            .values(status="incomplete", runs=0, reason=None, updated_at=now)
+            .returning(ai_assessments.c.attempt_id)
+        )
+    )
+    deferred = 0
+    if reset and await assessment_due(class_session_id, session=s):
+        for attempt_id in sorted(reset):
+            await _defer(s, attempt_id)
+            deferred += 1
+    await audit.record(
+        s,
+        actor,
+        RESUMED,
+        {"class_session_id": class_session_id},
+        {"reset": len(reset), "deferred": deferred},
+        now,
+    )
+    await _announce(s, class_session_id)
+    log.info(
+        "assessment_resumed",
+        class_session_id=str(class_session_id),
+        reset=len(reset),
+        deferred=deferred,
+    )
+    return deferred
+
+
+OVERDUE_PER_SWEEP = 200
+"""The most overdue assessments one sweep handles; the next minute's sweep takes the rest."""
+
+
+async def due_overdue(now: datetime) -> list[uuid.UUID]:
+    """The sweep's `assessment.overdue` finder (FR-54, AD-9, NFR-8): the attempts whose
+    assessment is still `incomplete` `assessment_overdue_hours` after its `due_at`, in a Class
+    session whose pinned switch is on and that is not stopped, either not yet logged as overdue
+    or untouched for `assessment_retry_minutes` with runs left (so a job that keeps failing is
+    deferred again at that pace, never each minute), the oldest first."""
+    settings = get_settings()
+    late = now - timedelta(hours=settings.assessment_overdue_hours)
+    quiet = now - timedelta(minutes=settings.assessment_retry_minutes)
+    async with get_sessionmaker()() as s:
+        found = await s.scalars(
+            select(ai_assessments.c.attempt_id)
+            .join(
+                assessment_switches,
+                assessment_switches.c.class_session_id == ai_assessments.c.class_session_id,
+            )
+            .where(
+                ai_assessments.c.status == "incomplete",
+                ai_assessments.c.due_at <= late,
+                assessment_switches.c.pinned_at.is_not(None),
+                assessment_switches.c.enabled,
+                assessment_switches.c.stopped_at.is_(None),
+                (ai_assessments.c.overdue_at.is_(None))
+                | (
+                    (ai_assessments.c.runs < settings.assessment_max_runs)
+                    & (ai_assessments.c.updated_at <= quiet)
+                ),
+            )
+            .order_by(ai_assessments.c.due_at, ai_assessments.c.id)
+            .limit(OVERDUE_PER_SWEEP)
+        )
+        return list(found)
+
+
+async def overdue_due(attempt_id: object, now: datetime) -> bool:
+    """The sweep's `assessment.overdue` action, one assessment per transaction, ids only: log
+    `assessment_overdue` once (`overdue_at`), and defer its job again when it has no live job
+    (`todo` or `doing`), runs left and no run or re-defer for `assessment_retry_minutes`. A
+    re-defer counts as a run, so a job that keeps failing before it settles is deferred at most
+    `assessment_max_runs` times. Every look stamps `updated_at`, so the finder returns the row
+    again only after `assessment_retry_minutes`. True when a job was deferred."""
+    assert isinstance(attempt_id, uuid.UUID)
+    settings = get_settings()
+    async with get_sessionmaker().begin() as s:
+        row = (
+            (
+                await s.execute(
+                    select(ai_assessments)
+                    .where(ai_assessments.c.attempt_id == attempt_id)
+                    .with_for_update()
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None or row["status"] != "incomplete":
+            return False
+        if (await switch_of(s, row["class_session_id"])).stopped:
+            return False
+        values: dict[str, object] = {}
+        if row["overdue_at"] is None:
+            log.warning(
+                "assessment_overdue",
+                attempt_id=str(attempt_id),
+                assessment_id=str(row["id"]),
+                class_session_id=str(row["class_session_id"]),
+                runs=row["runs"],
+            )
+            values["overdue_at"] = now
+        quiet = now - timedelta(minutes=settings.assessment_retry_minutes)
+        deferred = False
+        if row["runs"] < settings.assessment_max_runs and row["updated_at"] <= quiet:
+            values["updated_at"] = now
+            if not await jobs.live_locks(s, [assessment_key(attempt_id)]):
+                deferred = await _defer(s, attempt_id)
+                values["runs"] = row["runs"] + 1
+                log.info("assessment_redeferred", attempt_id=str(attempt_id), runs=row["runs"])
+        if values:
+            await s.execute(
+                update(ai_assessments).where(ai_assessments.c.id == row["id"]).values(**values)
+            )
+    return deferred

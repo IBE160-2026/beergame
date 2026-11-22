@@ -18,7 +18,12 @@ import { liveClassGame } from "./support/live-game";
  * written feedback under its score with «KI-generert, kan ta feil:» and the Student's own words as
  * a quotation, the note where feedback was left out, and «Ikke kontrollert med en Kontrolltest.»
  * while the Scoring guide is not checked; the validation and regeneration are
- * `backend/tests/assessment/test_feedback.py`. */
+ * `backend/tests/assessment/test_feedback.py`.
+ *
+ * Story 12.4 (FR-55, AD-8): on the stack, the open Hjem says «KI-vurderingen er klar.» before
+ * its Lenke once the assessment job marks the assessment ready, without a reload, at 320 and
+ * 1440 px with axe; the step, the notice and the mail are `backend/tests/assessment/
+ * test_notices.py`. */
 const SESSION = "01a1f8ee-33b9-75e6-9502-79db27b37c0e";
 const CSRF = { "X-Requested-With": "olspillet" };
 const copy = nb.assessment.student;
@@ -257,5 +262,40 @@ test("live: the handed-in test puts «KI-vurdering» on Hjem, which is not ready
   await expect(page.locator(STATE)).toHaveAttribute("data-assessment-state", "not_ready");
   await expect(page.locator("[data-disclosure]")).toHaveText(copy.disclosure);
   await expect(page.getByRole("main")).toContainText(copy.notReady);
+  await page.close();
+});
+
+test("live: a ready assessment puts «KI-vurderingen er klar.» on the open Hjem without a reload (Story 12.4)", async ({
+  browser,
+  lecturerSession,
+}) => {
+  test.slow(); // an Invitation through the worker, a Class session, a lock, an assessment job
+  const game = await liveClassGame(browser, lecturerSession, 1, { aiMode: "rule_based" });
+  const [student] = game.students;
+  const request = student!.context.request;
+  const page = await student!.context.newPage();
+  await page.setViewportSize({ width: 320, height: 640 });
+  expect((await request.post(`/api/dev/class-sessions/${game.sessionId}/replay-done`, { headers: CSRF })).status()).toBe(204);
+  const testPath = `/api/me/class-sessions/${game.sessionId}/test`;
+  expect((await request.post(testPath, { headers: CSRF })).status()).toBe(201);
+  expect((await request.post(`${testPath}/submit`, { headers: CSRF })).status()).toBe(200);
+  await page.goto("/hjem");
+  const main = page.getByRole("main");
+  await expect(main.getByRole("link", { name: copy.link, exact: true })).toBeVisible();
+  await expect(main.getByText(copy.readyOnHjem)).toHaveCount(0);
+
+  // The Test-deadline lock, then the close of this attempt: `worker-batch` assesses it on the mock
+  // provider, and the ready run's `user:<id>` event reads Hjem again.
+  expect((await request.post(`/api/dev/class-sessions/${game.sessionId}/lock-test`, { headers: CSRF })).status()).toBe(200);
+  expect((await request.post(`/api/dev/class-sessions/${game.sessionId}/test/close`, { headers: CSRF })).status()).toBe(204);
+  await expect(main.getByText(copy.readyOnHjem, { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(main.locator("[data-assessment-ready]")).toContainText(copy.link);
+  await expectAccessible(page, true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expectAccessible(page, false);
+
+  await main.getByRole("link", { name: copy.link, exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/ki-vurdering/${game.sessionId}$`));
+  await expect(page.locator(STATE)).toHaveAttribute("data-assessment-state", "ready");
   await page.close();
 });

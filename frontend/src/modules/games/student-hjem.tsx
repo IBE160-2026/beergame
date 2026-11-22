@@ -22,6 +22,7 @@ import { homeLine } from "@/modules/sessions/seat-choice";
 
 import { GameAction } from "./game-action";
 import {
+  assessmentReady,
   cardState,
   deadlineText,
   gameTitle,
@@ -193,9 +194,17 @@ function SessionBlock({
       {/* Story 10.3: the Replay, once the Debrief quiz is passed. */}
       {session.replay ? <ReplayBlock replay={session.replay} sessionId={session.id} primary={replayPrimary} /> : null}
       <Stegene title={copy.steps} titleId={`steps-${session.id}`} items={stepItems(session.steps, session.id, session.replay)} />
-      {/* Story 12.2: the «KI-vurdering» once the test is handed in; the page says whether it is ready. */}
+      {/* Story 12.2: the «KI-vurdering» once the test is handed in; the page says whether it is ready.
+          Story 12.4: once it is ready Hjem says so, live through `user:<id>`. */}
       {testHandedIn(session.steps) ? (
-        <p className="mt-3">
+        <p
+          className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1"
+          aria-live="polite"
+          data-assessment-ready={assessmentReady(session.steps) ? "" : undefined}
+        >
+          {assessmentReady(session.steps) ? (
+            <span className="text-body-phone text-ink lg:text-body">{nb.assessment.student.readyOnHjem}</span>
+          ) : null}
           <Link href={ASSESSMENT_PATH(session.id)} standalone>
             {nb.assessment.student.link}
           </Link>

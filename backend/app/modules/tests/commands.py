@@ -712,8 +712,17 @@ async def close_attempt(attempt_id: uuid.UUID, now: datetime) -> bool:
                 within=s,
             )
         # Story 12.2 (FR-54, AD-9): the one place a first AI assessment is enqueued, in this
-        # transaction, when the pinned «KI-vurdering» switch is on.
-        assessed = await assessment.schedule(s, attempt_id, class_session_id)
+        # transaction, when the pinned «KI-vurdering» switch is on. Story 12.4: with its row, whose
+        # `due_at` is the attempt's own `effective_deadline`.
+        assessed = await assessment.schedule(
+            s,
+            attempt_id,
+            class_session_id,
+            user_id=attempt["user_id"],
+            question_set_version=attempt["question_set_version"],
+            due_at=deadline,
+            now=now,
+        )
     log.info(
         "test_attempt_closed",
         class_session_id=str(class_session_id),

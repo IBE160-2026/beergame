@@ -137,6 +137,11 @@ def test_a_worker_alone_registers_the_test_attempt_reader_the_assessment_reads()
     from app.modules.assessment import service
 
     assert service._readers
+    # Story 12.4: `tests.assessed` imports `sessions.service`, whose import registers the Admins'
+    # reader a failed assessment tells.
+    assert service._admin_readers
+    assessed = (module / "assessed.py").read_text(encoding="utf-8")
+    assert "from app.modules.sessions import service as sessions" in assessed
 
 
 async def test_run_until_idle_returns_when_no_job_waits(games_db):

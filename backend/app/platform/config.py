@@ -156,6 +156,10 @@ class Settings(BaseSettings):
     # runs one assessment gets before it is `failed`.
     assessment_retry_minutes: int = Field(30, ge=1, le=1440)
     assessment_max_runs: int = Field(4, ge=1, le=20)
+    # Story 12.4 (FR-54, NFR-8): the target for a ready assessment after the attempt's
+    # `effective_deadline` (a target until measured); past it the sweep logs it as overdue once
+    # and defers its job again when none is alive.
+    assessment_overdue_hours: int = Field(24, ge=1, le=240)
 
     # Mail (AD-9, AD-17, Story 3.5). With no RESEND_API_KEY outside production every mail goes
     # to the `[email:mock]` sender; the compose file never passes a key.

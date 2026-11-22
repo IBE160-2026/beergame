@@ -16,7 +16,10 @@ Student of their own locked Class session reads it; every other caller gets None
 Story 12.3 (FR-54, FR-81, AD-7): the reader also hands over an Adapted item's stored facts set
 and the Class session's pinned narration templates, which written feedback may cite; the view
 adds each AI item's feedback, its quotes cut from the Student's original answer by the stored
-spans, the note where feedback was left out, and `checked` from `content.service.is_checked`."""
+spans, the note where feedback was left out, and `checked` from `content.service.is_checked`.
+
+Story 12.4 (FR-61, FR-69): while the Class session's assessment is stopped, an assessment that is
+not ready reads as switched off; a ready one stays readable."""
 
 import uuid
 from collections.abc import Mapping
@@ -228,13 +231,18 @@ async def read(user: authz.Principal, class_session_id: uuid.UUID) -> MyAssessme
         attempt = await commands.attempt_of(s, user.id, class_session_id)
         if attempt is None:
             return _state("no_test")
-        if not (await assessment.switch_of(s, class_session_id)).enabled:
+        switch = await assessment.switch_of(s, class_session_id)
+        if not switch.enabled:
             return _state("switched_off")
         record = (
             await assessment.assessment_of(s, attempt["id"])
             if attempt["closed_at"] is not None
             else None
         )
+        # Story 12.4 (FR-61, FR-69): a stopped assessment reads as switched off until it is
+        # resumed; one that was ready before the stop stays readable.
+        if switch.stopped and (record is None or record.status != "ready"):
+            return _state("switched_off")
         if record is None or (record.status == "incomplete" and record.runs == 0):
             return _state("not_ready")
         if record.status == "failed":

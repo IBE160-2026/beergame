@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { nb } from "@/copy/nb";
 import { topicKeys } from "@/lib/api/topics";
-import { testHandedIn } from "@/modules/games/home";
+import { assessmentReady, testHandedIn } from "@/modules/games/home";
 import { ASSESSMENT_PATH } from "@/modules/identity/homes";
 import { myTestsKey } from "@/modules/tests/api";
 
@@ -53,5 +53,13 @@ describe("the Student's KI-vurdering (Story 12.2)", () => {
     expect(testHandedIn([{ step: "test", state: "done" }] as never)).toBe(true);
     expect(testHandedIn([{ step: "test", state: "current" }] as never)).toBe(false);
     expect(testHandedIn(undefined as never)).toBe(false);
+  });
+
+  it("says on Hjem that it is ready once «Rapport» is done, read again on `user:<id>` (Story 12.4)", () => {
+    expect(assessmentReady([{ step: "test", state: "done" }, { step: "report", state: "done" }] as never)).toBe(true);
+    expect(assessmentReady([{ step: "test", state: "done" }, { step: "report", state: "current" }] as never)).toBe(false);
+    expect(assessmentReady(undefined as never)).toBe(false);
+    expect(topicKeys({ topic: "user", id: "u1", version: null })).toContainEqual(["class-sessions", "enrolled"]);
+    expect(copy.readyOnHjem).toBe("KI-vurderingen er klar.");
   });
 });

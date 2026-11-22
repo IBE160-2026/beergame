@@ -159,7 +159,7 @@ HEAD_TABLES = (
     | RECLAIM_TABLES
     | ADJUSTMENT_TABLES
 )
-HEAD = "0203"  # 0203 (12.3) and 0202 (12.2) follow 0201 (12.7); 0120-0130 follow main's 0064
+HEAD = "0204"  # 0204 (12.4), 0203 (12.3) and 0202 (12.2) follow 0201 (12.7); 0120-0130 follow 0064
 
 
 def reset_schema(url: str) -> None:
@@ -347,6 +347,14 @@ def test_head_from_empty_then_every_downgrade_step_to_the_baseline_and_back(migr
     # 0111 (Story 9.12): presence, the Students who go on alone and the 48-hour fallback.
     assert "last_seen_at" in columns(url, "debrief_members")
     assert {"fallback_due_at", "fallback_at"} <= columns(url, "debrief_sessions")
+
+    # 0204 (Story 12.4): the stop mark on the switch, and the due and overdue times of an
+    # assessment.
+    assert {"stopped_at", "stopped_by"} <= columns(url, "assessment_switches")
+    assert {"due_at", "overdue_at"} <= columns(url, "ai_assessments")
+    command.downgrade(cfg, "0203")
+    assert "stopped_at" not in columns(url, "assessment_switches")
+    assert "due_at" not in columns(url, "ai_assessments")
 
     # 0203 (Story 12.3): an item's written feedback, or the note that it was left out.
     assert {"feedback", "feedback_note"} <= columns(url, "ai_item_scores")

@@ -490,7 +490,8 @@ async def test_a_run_emits_the_registered_topic(klass, monkeypatch, emitted):
     emitted.clear()
     await assessment.assess(attempt_id_of(session_id))
     assert {topic for topic, _ in emitted} == COMMAND_TOPICS["assessment.assess"]
-    assert emitted == [("user", str(user_id(email(0))))]
+    # Story 12.4: the ready run's step emits `user` and `session`, its notice `user` again.
+    assert set(emitted) == {("user", str(user_id(email(0)))), ("session", session_id)}
 
 
 async def test_close_attempt_is_the_only_enqueue_and_runs_once(klass, monkeypatch):

@@ -1845,6 +1845,38 @@ async def debrief_fallback_mail_context(
     return await debrief_released_mail_context(session, user_id, ref, now)
 
 
+async def assessment_ready_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of an `assessment_ready` notice (Story 12.4, FR-55): the Class's
+    name only (never a score, a letter or feedback), under the same rules as
+    `debrief_released_mail_context`."""
+    return await debrief_released_mail_context(session, user_id, ref, now)
+
+
+async def assessment_failed_mail_context(
+    session: AsyncSession, user_id: uuid.UUID, ref: uuid.UUID | None, now: datetime
+) -> Mapping[str, object] | None:
+    """The template variables of an `assessment_failed` notice (Story 12.4, NFR-8): the Class's
+    name and the Class session's number. None, so the mail is left out, when the Class session or
+    its Class is gone, or the User is no longer an active Admin."""
+    if ref is None:
+        return None
+    row = await repo.session_row(session, ref)
+    if row is None or user_id not in await identity.active_admins(session):
+        return None
+    label = await classes.label_of_class(session, row["class_id"])
+    if label is None:
+        return None
+    number = await repo.number_of(session, ref, row["class_id"])
+    return {"class_name": label.name, "session_number": number}
+
+
+# Story 12.4: the assessment tells each Admin about a failed assessment; it may not import
+# `identity`, so the Admins are read through this registration.
+assessment.register_admin_reader(identity.active_admins)
+
+
 async def student_names(
     class_session_id: uuid.UUID, user_ids: list[uuid.UUID]
 ) -> dict[uuid.UUID, str]:
